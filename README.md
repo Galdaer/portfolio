@@ -174,7 +174,7 @@ INFERENCE_TIMEOUT=30s
 
 ```bash
 # Clone repository
-git clone https://github.com/Galdaer/intelluxe-ai.git
+git clone https://github.com/Intelluxe-AI/intelluxe-core.git
 cd intelluxe-ai
 
 # Install system dependencies
@@ -194,12 +194,11 @@ uv pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your settings
 
-# Deploy core infrastructure
-./scripts/deploy.sh --phase=0  # Foundation
-./scripts/deploy.sh --phase=1  # Core system
+# Setup and deploy core infrastructure
+./scripts/setup-environment.sh
 
-# Verify deployment
-./scripts/health-check.sh
+# Verify deployment and health check
+./scripts/setup-environment.sh --health-check
 ```
 
 ### Verification
@@ -268,36 +267,6 @@ curl -X POST http://localhost:3000/api/chat \
 
 ---
 
-## 💼 Support, Licensing, and Legal
-
-### Licensing Structure
-- **Open Source (MIT):** Core orchestration, basic tools, deployment scripts
-- **Commercial License:** 
-  - Advanced administrative tools
-  - Multi-site management
-  - Priority support
-  - Custom integrations
-
-### Support Tiers
-
-#### Basic ($500/month)
-- Email support (48hr response)
-- Monthly updates
-- Security patches
-- Community forum access
-
-#### Professional ($1,000/month)
-- Email + phone support (24hr response)
-- Bi-weekly updates
-- Compliance assistance
-- Remote troubleshooting
-
-#### Enterprise ($2,500+/month)
-- Dedicated support engineer
-- Weekly check-ins
-- Custom tool development
-- On-site visits (as needed)
-
 ### Legal Considerations
 - **No Medical Advice:** Intelluxe provides administrative support only
 - **HIPAA Compliance:** Architecture supports compliance; certification is client's responsibility
@@ -343,6 +312,3 @@ git checkout -b feature/your-feature
 - **Community Forum:** [https://community.intelluxe.ai](https://community.intelluxe.ai)
 
 ---
-
-sudo ./scripts/setup-environment.sh --health-check
-sudo ./scripts/setup-environment.sh
