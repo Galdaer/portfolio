@@ -2,7 +2,7 @@
 # clinic-bootstrap.sh version 1.0.0
 # Author: Justin Michael Sue (Galdaer)
 # Repo: https://github.com/galdaer/intelluxe
-# Last Revised: 2025-06-04
+# Last Revised: 2025-07-05
 #
 # Robust, extensible, and persistent bootstrapper for self-hosted Docker stacks.
 #
