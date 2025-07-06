@@ -306,7 +306,7 @@ git checkout -b feature/your-feature
 
 ## 📞 Contact & Community
 
-- **GitHub Issues:** [Bug reports and feature requests](https://github.com/Galdaer/intelluxe-ai/issues)
+- **GitHub Issues:** [Bug reports and feature requests](https://github.com/Intelluxe-AI/intelluxe-core/issues)
 - **Email:** intelluxe@example.com
 - **Documentation:** [https://docs.intelluxe.ai](https://docs.intelluxe.ai)
 - **Community Forum:** [https://community.intelluxe.ai](https://community.intelluxe.ai)
