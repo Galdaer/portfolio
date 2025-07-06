@@ -363,7 +363,7 @@ WantedBy=multi-user.target
 - ✅ No configuration files for users
 
 **Recommended approach:** Start with WireGuard now, add Tailscale when deploying to actual clinics.
-````markdown
+
 ## Week 2: Enterprise Monitoring and Observability
 
 ### 2.1 Production Monitoring Stack
