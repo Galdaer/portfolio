@@ -1,0 +1,16 @@
+# resource-pusher.service version 1.0.0
+# Author: Justin Sue (Galdaer)
+# Last Revised: 2025-05-30
+# Purpose: Systemd unit to push host resource metrics to InfluxDB.
+# Usage: Used with resource-pusher.timer for scheduled metrics pushes.
+
+[Unit]
+Description=Push host resource metrics to InfluxDB
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/resource-pusher.sh
+
+[Install]
+WantedBy=multi-user.target

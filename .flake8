@@ -1,0 +1,14 @@
+[flake8]
+max-line-length = 100
+ignore = E203,W503,E501,E302,E301,E305,E306,W391
+exclude = 
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    data/vector_stores,
+    data/training/user_samples,
+    agents/__pycache__,
+    core/__pycache__,
+    logs,
+    coverage

@@ -1,0 +1,19 @@
+# duckdns-update.service version 1.0.0
+# Author: Justin Sue (Galdaer)
+# Last Revised: 2025-05-30
+# Purpose: Systemd unit to update DuckDNS IP using duckdns-update.sh.
+# Usage: Used with duckdns-update.timer for scheduled updates.
+[Unit]
+Description=Update DuckDNS IP
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Default configuration directory
+Environment=CFG_ROOT=/opt/intelluxe/docker-stack
+# Optional override with system-wide config
+EnvironmentFile=-/etc/default/shan.conf
+# DuckDNS credentials relative to CFG_ROOT
+EnvironmentFile=-${CFG_ROOT}/duckdns/duckdns.env
+ExecStart=/usr/local/bin/duckdns-update.sh

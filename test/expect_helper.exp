@@ -1,0 +1,40 @@
+#!/usr/bin/env expect
+# shellcheck disable=all
+# expect_helper.sh - Automate interactive CLI prompts for tests.
+#
+# Usage:
+#   expect_helper.sh "<command>" "<prompt regex>" "<response>" ["<prompt>" "<response>" ...]
+#
+# The command is executed in a pseudo-terminal. For each prompt regex provided,
+# the corresponding response is sent followed by a carriage return. The script
+# waits for EOF and exits with the spawned command's exit status.
+
+set timeout -1
+
+if {$argc < 1} {
+    puts "Usage: $argv0 <command> [<prompt> <response> ...]"
+    exit 1
+}
+
+set cmd [lindex $argv 0]
+set idx 1
+spawn bash -c $cmd
+
+while {$idx < $argc} {
+    set prompt [lindex $argv $idx]
+    incr idx
+    if {$idx >= $argc} {
+        puts "Missing response for prompt: $prompt"
+        exit 1
+    }
+    set response [lindex $argv $idx]
+    incr idx
+    expect {
+        -re $prompt { send "$response\r" }
+    }
+}
+
+expect eof
+catch wait result
+set exit_status [lindex $result 3]
+exit $exit_status

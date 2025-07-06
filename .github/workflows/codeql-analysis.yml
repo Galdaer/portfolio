@@ -1,0 +1,56 @@
+name: "CodeQL Security Analysis"
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * *'  # Daily 2 AM
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: self-hosted
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'python' ]
+        # Will add 'javascript' when frontend is implemented
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        # Enable additional security queries for healthcare AI
+        queries: +security-and-quality
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
+
+    - name: Healthcare-specific security validation
+      run: |
+        echo "Running healthcare AI security checks..."
+        # Check for potential PHI exposure in logs
+        if grep -r "patient\|medical\|diagnosis" --include="*.py" scripts/ | grep -i "print\|log"; then
+          echo "⚠️  Potential PHI in logs detected"
+        fi
+        # Ensure secure defaults
+        if grep -q "DEBUG.*True" scripts/; then
+          echo "⚠️  Debug mode detected in production code"
+        fi
+        echo "Healthcare security validation completed"

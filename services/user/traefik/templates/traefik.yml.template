@@ -1,0 +1,43 @@
+# Traefik Static Configuration Template
+# Used by SHAN universal service system to generate the main configuration
+
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+api:
+  dashboard: true
+  debug: {{TRAEFIK_DEBUG:-false}}
+
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: {{DOCKER_NETWORK_NAME}}
+    watch: true
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+{{#if_domain_mode_ddns_or_hostfile}}
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      tlsChallenge: {}
+      email: {{TRAEFIK_ACME_EMAIL}}
+      storage: /data/acme.json
+      caServer: https://acme-v02.api.letsencrypt.org/directory
+{{/if_domain_mode_ddns_or_hostfile}}
+
+log:
+  level: {{TRAEFIK_LOG_LEVEL:-INFO}}
+  format: common
+
+accessLog:
+  format: common

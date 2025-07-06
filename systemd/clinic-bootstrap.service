@@ -1,0 +1,28 @@
+# clinic-bootstrap.service version 1.0.0
+# Author: Justin Sue (Galdaer)
+# Last Revised: 2025-05-30
+# Purpose: Systemd unit for SHaN + WireGuard stack setup.
+# Usage: Brings up the main stack, used at boot or after updates.
+
+[Unit]
+Description=SHaN + WireGuard Setup
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/clinic-bootstrap.sh --log-file /var/log/clinic-bootstrap.log
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=clinic-bootstrap
+Environment=DEBUG=false
+Environment=DRY_RUN=false
+Environment=COLOR=true
+
+# (Optional) Give network tools more time
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

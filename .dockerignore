@@ -1,0 +1,49 @@
+# Exclude files that may have permission issues or are not needed in containers
+logs/
+coverage/
+.git/
+.github/
+*.log
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+node_modules/
+.cache/
+.local/
+
+# Healthcare AI data directories (potentially sensitive)
+data/training/user_samples/
+data/vector_stores/
+data/evaluation/
+
+# User service configurations
+services/user/
+
+# Test files (copied separately when needed)
+test/
+
+# Documentation and development files
+*.md
+docs/
+DEVELOPMENT_ROADMAP.md
+INFO.md
+LICENSE*
+
+# Build artifacts and temporary files
+*.build
+*.tmp
+Dockerfile*
+
+# Environment and configuration files (may contain secrets)
+.env*
+*.conf
+
+# IDE and system files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

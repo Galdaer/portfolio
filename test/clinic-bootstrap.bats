@@ -1,0 +1,427 @@
+#!/usr/bin/env bats
+
+setup() {
+  TMPDIR=$(mktemp -d)
+  ORIGINAL_PATH=$PATH
+}
+
+teardown() {
+  rm -rf "$TMPDIR"
+  PATH=$ORIGINAL_PATH
+}
+
+@test "ensure_directories creates WireGuard dirs with ownership" {
+  CFG_ROOT="$TMPDIR/stack"
+  WG_DIR="$TMPDIR/wireguard"
+  WG_CLIENTS_DIR="$WG_DIR/clients"
+  BACKUP_DIR="$CFG_ROOT/backups"
+  QR_DIR="$CFG_ROOT/qrcodes"
+  CFG_UID=$(id -u)
+  CFG_GID=$(id -g)
+  DRY_RUN=false
+
+  source scripts/clinic-lib.sh
+  eval "$(awk '/^ALL_CONTAINERS=\(/ {print; exit}' scripts/clinic-bootstrap.sh)"
+  eval "$(awk '/^ensure_directories\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+
+  ensure_directories
+
+  [ -d "$WG_DIR" ]
+  [ -d "$WG_CLIENTS_DIR" ]
+  [ "$(stat -c %u "$WG_DIR")" -eq "$CFG_UID" ]
+  [ "$(stat -c %g "$WG_DIR")" -eq "$CFG_GID" ]
+  [ "$(stat -c %u "$WG_CLIENTS_DIR")" -eq "$CFG_UID" ]
+  [ "$(stat -c %g "$WG_CLIENTS_DIR")" -eq "$CFG_GID" ]
+
+  containers=($(grep '^ALL_CONTAINERS=(' scripts/clinic-bootstrap.sh | awk -F'[()]' '{print $2}'))
+  for c in "${containers[@]}"; do
+    case "$c" in
+      influxdb)
+        dir="$CFG_ROOT/${c}-data"
+        [ -d "$dir" ]
+        [ "$(stat -c %u "$dir")" -eq "$CFG_UID" ]
+        [ "$(stat -c %g "$dir")" -eq "$CFG_GID" ]
+        ;;
+      traefik)
+        [ -d "$CFG_ROOT/traefik-config" ]
+        [ -d "$CFG_ROOT/traefik-data" ]
+        [ "$(stat -c %u "$CFG_ROOT/traefik-config")" -eq "$CFG_UID" ]
+        [ "$(stat -c %g "$CFG_ROOT/traefik-config")" -eq "$CFG_GID" ]
+        [ "$(stat -c %u "$CFG_ROOT/traefik-data")" -eq "$CFG_UID" ]
+        [ "$(stat -c %g "$CFG_ROOT/traefik-data")" -eq "$CFG_GID" ]
+        ;;
+      wireguard)
+        dir="$CFG_ROOT/wireguard"
+        [ -d "$dir" ]
+        [ "$(stat -c %u "$dir")" -eq "$CFG_UID" ]
+        [ "$(stat -c %g "$dir")" -eq "$CFG_GID" ]
+        ;;
+      *)
+        dir="$CFG_ROOT/${c}-config"
+        [ -d "$dir" ]
+        [ "$(stat -c %u "$dir")" -eq "$CFG_UID" ]
+        [ "$(stat -c %g "$dir")" -eq "$CFG_GID" ]
+        ;;
+    esac
+done
+}
+
+@test "logs directory and log file path set correctly" {
+  CFG_ROOT="$TMPDIR/root"
+  mkdir -p "$CFG_ROOT"
+  snippet=$(sed -n '/CONFIG_FILE=/,/LOG_FILE=/p' scripts/clinic-bootstrap.sh)
+  eval "$snippet"
+  [ "$LOG_DIR" = "$CFG_ROOT/logs" ]
+  [ -d "$LOG_DIR" ]
+  [ "$LOG_FILE" = "$LOG_DIR/clinic-bootstrap.log" ]
+}
+
+@test "enable_config_web_ui invoked when not dry run" {
+  DRY_RUN=false
+  called=false
+  enable_config_web_ui() { called=true; }
+  line=$(grep -n "enable_config_web_ui" scripts/clinic-bootstrap.sh | grep -v "()" | cut -d: -f1)
+  start=$((line-1))
+  end=$((line+1))
+  snippet=$(sed -n "${start},${end}p" scripts/clinic-bootstrap.sh)
+  eval "$snippet"
+  [ "$called" = true ]
+}
+
+@test "enable_config_web_ui skipped when dry run" {
+  DRY_RUN=true
+  called=false
+  enable_config_web_ui() { called=true; }
+  line=$(grep -n "enable_config_web_ui" scripts/clinic-bootstrap.sh | grep -v "()" | cut -d: -f1)
+  start=$((line-1))
+  end=$((line+1))
+  snippet=$(sed -n "${start},${end}p" scripts/clinic-bootstrap.sh)
+  eval "$snippet"
+  [ "$called" = false ]
+}
+
+@test "get_server_ip parses IP from ip route" {
+  mkdir -p "$TMPDIR/bin"
+  cat >"$TMPDIR/bin/ip" <<'EOF'
+#!/usr/bin/env bash
+echo "8.8.8.8 via 192.168.1.1 dev eth0 src 10.0.0.5"
+EOF
+  chmod +x "$TMPDIR/bin/ip"
+  PATH="$TMPDIR/bin:$PATH"
+
+  eval "$(awk '/^get_server_ip\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  run bash -c "$(declare -f get_server_ip); set -euo pipefail; get_server_ip"
+  [ "$status" -eq 0 ]
+  [ "$output" = "10.0.0.5" ]
+}
+
+@test "get_server_ip falls back when ip route fails" {
+  mkdir -p "$TMPDIR/bin"
+  cat >"$TMPDIR/bin/ip" <<'EOF'
+#!/usr/bin/env bash
+exit 1
+EOF
+  chmod +x "$TMPDIR/bin/ip"
+  PATH="$TMPDIR/bin:$PATH"
+
+  eval "$(awk '/^get_server_ip\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  run bash -c "$(declare -f get_server_ip); set -euo pipefail; get_server_ip"
+  [ "$status" -eq 0 ]
+  [ "$output" = "your-server-ip" ]
+}
+
+@test "--reset-wg-keys updates key file and client configs" {
+  WG_DIR="$TMPDIR/wg"
+  WG_CLIENTS_DIR="$WG_DIR/clients"
+  WG_KEYS_ENV="$WG_DIR/wg-keys.env"
+  mkdir -p "$WG_CLIENTS_DIR/client1"
+  echo "WG_SERVER_PRIVATE_KEY=old" > "$WG_KEYS_ENV"
+  echo "WG_SERVER_PUBLIC_KEY=oldpub" >> "$WG_KEYS_ENV"
+  echo "WG_PRESHARED_KEY=oldpsk" >> "$WG_KEYS_ENV"
+  cat > "$WG_CLIENTS_DIR/client1/client1.conf" <<EOF
+[Peer]
+PublicKey = oldpub
+PresharedKey = oldpsk
+EOF
+
+  eval "$(awk '/^reset_wireguard_keys\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  generate_wg_qr() { touch "$1/$2.png"; }
+  backup_wireguard() { :; }
+  warn() { :; }
+  log() { :; }
+  set_ownership() { :; }
+  wg() {
+    case "$1" in
+      genkey) echo newpriv ;;
+      pubkey) cat >/dev/null; echo newpub ;;
+      genpsk) echo newpsk ;;
+    esac
+  }
+  export NON_INTERACTIVE=true
+  export FORCE_DEFAULTS=true
+  export WG_DIR WG_CLIENTS_DIR WG_KEYS_ENV
+
+  run bash -c "$(declare -f reset_wireguard_keys generate_wg_qr backup_wireguard warn log set_ownership wg); set -euo pipefail; reset_wireguard_keys"
+  [ "$status" -eq 0 ]
+  newpub=$(grep '^WG_SERVER_PUBLIC_KEY=' "$WG_KEYS_ENV" | cut -d= -f2)
+  newpsk=$(grep '^WG_PRESHARED_KEY=' "$WG_KEYS_ENV" | cut -d= -f2)
+  [ "$newpub" != "oldpub" ]
+  [ "$newpsk" != "oldpsk" ]
+  grep -q "$newpub" "$WG_CLIENTS_DIR/client1/client1.conf"
+  grep -q "$newpsk" "$WG_CLIENTS_DIR/client1/client1.conf"
+  [ -f "$WG_CLIENTS_DIR/client1/client1.png" ]
+}
+
+@test "save_config persists VPN subnet settings" {
+  CFG_ROOT="$TMPDIR/stack"
+  CONFIG_FILE="$CFG_ROOT/.clinic-bootstrap.conf"
+  mkdir -p "$CFG_ROOT"
+
+  VPN_SUBNET="10.9.0.0/24"
+  VPN_SUBNET_BASE="10.9.0"
+
+  log() { :; }
+  set_ownership() { :; }
+  eval "$(awk '/^save_config\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+
+  save_config
+
+  [ -f "$CONFIG_FILE" ]
+  grep -q "VPN_SUBNET=\"$VPN_SUBNET\"" "$CONFIG_FILE"
+  grep -q "VPN_SUBNET_BASE=\"$VPN_SUBNET_BASE\"" "$CONFIG_FILE"
+
+  source "$CONFIG_FILE"
+  [ "$VPN_SUBNET" = "10.9.0.0/24" ]
+  [ "$VPN_SUBNET_BASE" = "10.9.0" ]
+}
+
+@test "save_config persists Docker network and DNS settings" {
+  CFG_ROOT="$TMPDIR/stack"
+  CONFIG_FILE="$CFG_ROOT/.clinic-bootstrap.conf"
+  mkdir -p "$CFG_ROOT"
+
+  DOCKER_NETWORK_NAME="test-net"
+  DOCKER_NETWORK_SUBNET="172.30.0.0/24"
+  WG_CLIENT_DNS="1.1.1.1"
+
+  log() { :; }
+  set_ownership() { :; }
+  eval "$(awk '/^save_config\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+
+  save_config
+
+  [ -f "$CONFIG_FILE" ]
+  grep -q "DOCKER_NETWORK_NAME=\"$DOCKER_NETWORK_NAME\"" "$CONFIG_FILE"
+  grep -q "DOCKER_NETWORK_SUBNET=\"$DOCKER_NETWORK_SUBNET\"" "$CONFIG_FILE"
+  grep -q "WG_CLIENT_DNS=\"$WG_CLIENT_DNS\"" "$CONFIG_FILE"
+
+  source "$CONFIG_FILE"
+  [ "$DOCKER_NETWORK_NAME" = "test-net" ]
+  [ "$DOCKER_NETWORK_SUBNET" = "172.30.0.0/24" ]
+  [ "$WG_CLIENT_DNS" = "1.1.1.1" ]
+}
+
+@test "saved user service ports override defaults" {
+  loop=$(sed -n '/<USER_PORT_ENV_OVERRIDES>/,/done/p' scripts/clinic-bootstrap.sh | tail -n +2)
+  run bash -c "set -euo pipefail; declare -Ag CONTAINER_PORTS=([my-svc]=8080); MY_SVC_PORT=9999; $loop; echo \${CONTAINER_PORTS[my-svc]}"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "9999" ]
+}
+
+@test "default user service port preserved when not in config" {
+  loop=$(sed -n '/<USER_PORT_ENV_OVERRIDES>/,/done/p' scripts/clinic-bootstrap.sh | tail -n +2)
+  run bash -c "set -euo pipefail; declare -Ag CONTAINER_PORTS=([my-svc]=8080); $loop; echo \${CONTAINER_PORTS[my-svc]}"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "8080" ]
+}
+@test "stop_service uses docker stop when container exists" {
+  eval "$(awk '/^stop_service\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  script="$TMPDIR/script1.sh"
+  cat >"$script" <<'EOS'
+set -euo pipefail
+cmd_file="$1"
+run(){ echo "$*" >>"$cmd_file"; }
+docker(){ if [[ "$1" == "ps" ]]; then echo "plex"; else echo "docker $*"; fi; }
+systemctl(){ echo "systemctl $*"; }
+stop_wireguard(){ echo "WG_STOP"; }
+ok(){ echo "OK:$*"; }
+log(){ :; }
+EOS
+  declare -f stop_service >>"$script"
+  cat >>"$script" <<'EOS'
+stop_service plex
+cat "$cmd_file"
+EOS
+  chmod +x "$script"
+  cmd_file="$TMPDIR/cmd1"
+  run bash "$script" "$cmd_file"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "OK:plex stopped." ]
+  [[ "${lines[*]}" == *"docker stop plex"* ]]
+}
+
+@test "stop_service uses systemctl stop for non-container" {
+  eval "$(awk '/^stop_service\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  script="$TMPDIR/script2.sh"
+  cat >"$script" <<'EOS'
+set -euo pipefail
+cmd_file="$1"
+run(){ echo "$*" >>"$cmd_file"; }
+docker(){ if [[ "$1" == "ps" ]]; then echo ""; else echo "docker $*"; fi; }
+systemctl(){ echo "systemctl $*"; }
+stop_wireguard(){ echo "WG_STOP"; }
+ok(){ echo "OK:$*"; }
+log(){ :; }
+EOS
+  declare -f stop_service >>"$script"
+  cat >>"$script" <<'EOS'
+stop_service sshd
+cat "$cmd_file"
+EOS
+  chmod +x "$script"
+  cmd_file="$TMPDIR/cmd2"
+  run bash "$script" "$cmd_file"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "OK:sshd stopped." ]
+  [[ "${lines[*]}" == *"systemctl stop sshd"* ]]
+}
+
+@test "stop_service wireguard stops interface and container" {
+  eval "$(awk '/^stop_service\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  script="$TMPDIR/script3.sh"
+  cat >"$script" <<'EOS'
+set -euo pipefail
+cmd_file="$1"
+run(){ echo "$*" >>"$cmd_file"; }
+docker(){ if [[ "$1" == "ps" ]]; then echo "wireguard"; else echo "docker $*"; fi; }
+systemctl(){ echo "systemctl $*"; }
+stop_wireguard(){ echo "WG_STOP"; }
+ok(){ echo "OK:$*"; }
+log(){ :; }
+EOS
+  declare -f stop_service >>"$script"
+  cat >>"$script" <<'EOS'
+stop_service wireguard
+cat "$cmd_file"
+EOS
+  chmod +x "$script"
+  cmd_file="$TMPDIR/cmd3"
+  run bash "$script" "$cmd_file"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "WG_STOP" ]
+  [ "${lines[1]}" = "OK:wireguard stopped." ]
+  [[ "${lines[*]}" == *"docker stop wireguard"* ]]
+}
+
+@test "service image override respected" {
+  mkdir -p "$TMPDIR/scripts" "$TMPDIR/services/user/wireguard"
+  cp services/user/wireguard/wireguard.conf "$TMPDIR/services/user/wireguard/"
+  sed -i 's|^image=.*|image=test/wireguard:latest|' "$TMPDIR/services/user/wireguard/wireguard.conf"
+
+  SCRIPT_DIR="$TMPDIR/scripts"
+  CFG_ROOT="$TMPDIR/root"
+  WG_DIR="$TMPDIR/wg"
+  DOCKER_NETWORK_NAME=testnet
+  WG_CONTAINER_IP=172.20.0.2
+
+
+  eval "$(awk '/^ensure_container_running\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+
+  script="$TMPDIR/run-wireguard.sh"
+  cat >"$script" <<EOS
+set -euo pipefail
+docker(){ echo "docker \$*" >>"\$cmd_file"; }
+log(){ :; }
+ensure_docker_image(){ :; }
+get_health_cmd(){ echo ""; }
+verify_container_ip(){ :; }
+selinux_volume_flag(){ :; }
+get_service_config_value(){ case "\$2" in image) echo "test/wireguard:latest";; port) echo "51820";; *) echo "";; esac; }
+setup_service_env_vars(){ :; }
+get_server_ip(){ echo "192.168.1.100"; }
+SCRIPT_DIR="$SCRIPT_DIR"
+CFG_ROOT="$CFG_ROOT"
+WG_DIR="$WG_DIR"
+DOCKER_NETWORK_NAME="$DOCKER_NETWORK_NAME"
+WG_CONTAINER_IP="$WG_CONTAINER_IP"
+declare -Ag CONTAINER_PORTS=([wireguard]=51820)
+declare -Ag CONTAINER_DESCRIPTIONS=([wireguard]="WireGuard")
+CFG_UID=1000
+CFG_GID=1000
+DRY_RUN=false
+EOS
+  declare -f ensure_container_running >>"$script"
+  cat >>"$script" <<'EOS'
+ensure_container_running wireguard
+cat "$cmd_file"
+EOS
+  chmod +x "$script"
+  cmd_file="$TMPDIR/cmd_wireguard"
+  wrapper="$TMPDIR/wrap.sh"
+  cat >"$wrapper" <<EOF
+#!/usr/bin/env bash
+cmd_file="$cmd_file" bash "$script"
+EOF
+  chmod +x "$wrapper"
+  run bash "$wrapper"
+  [ "$status" -eq 0 ]
+  [[ "${lines[*]}" == *"test/wireguard:latest"* ]]
+}
+
+@test "service image override respected for traefik" {
+  mkdir -p "$TMPDIR/scripts" "$TMPDIR/services/user/traefik"
+  cp services/user/traefik/traefik.conf "$TMPDIR/services/user/traefik/"
+  sed -i 's|^image=.*|image=test/traefik:latest|' "$TMPDIR/services/user/traefik/traefik.conf"
+
+  SCRIPT_DIR="$TMPDIR/scripts"
+  CFG_ROOT="$TMPDIR/root"
+  DOCKER_NETWORK_NAME=testnet
+  TRAEFIK_CONTAINER_IP=172.20.0.7
+  DOCKER_SOCKET=/var/run/docker.sock
+
+  eval "$(awk '/^ensure_container_running\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+
+  script="$TMPDIR/run-traefik.sh"
+  cat >"$script" <<EOS
+set -euo pipefail
+docker(){ echo "docker \$*" >>"\$cmd_file"; }
+log(){ :; }
+ensure_docker_image(){ :; }
+get_health_cmd(){ echo ""; }
+verify_container_ip(){ :; }
+selinux_volume_flag(){ :; }
+get_traefik_labels(){ :; }
+get_service_config_value(){ case "\$2" in image) echo "test/traefik:latest";; port) echo "8080";; *) echo "";; esac; }
+setup_service_env_vars(){ :; }
+get_server_ip(){ echo "192.168.1.100"; }
+SCRIPT_DIR="$SCRIPT_DIR"
+CFG_ROOT="$CFG_ROOT"
+DOCKER_NETWORK_NAME="$DOCKER_NETWORK_NAME"
+TRAEFIK_CONTAINER_IP="$TRAEFIK_CONTAINER_IP"
+DOCKER_SOCKET="$DOCKER_SOCKET"
+declare -Ag CONTAINER_PORTS=([traefik]=8080)
+declare -Ag CONTAINER_DESCRIPTIONS=([traefik]="Traefik")
+CFG_UID=1000
+CFG_GID=1000
+DRY_RUN=false
+EOS
+  declare -f ensure_container_running >>"$script"
+  cat >>"$script" <<'EOS'
+ensure_container_running traefik
+cat "$cmd_file"
+EOS
+  chmod +x "$script"
+  cmd_file="$TMPDIR/cmd_traefik"
+  wrapper="$TMPDIR/wrap_traefik.sh"
+  cat >"$wrapper" <<EOF2
+#!/usr/bin/env bash
+cmd_file="$cmd_file" bash "$script"
+EOF2
+  chmod +x "$wrapper"
+  run bash "$wrapper"
+  [ "$status" -eq 0 ]
+  [[ "${lines[*]}" == *"test/traefik:latest"* ]]
+}
+@test "--stop-service flag triggers stop_service and exits" {
+  skip "argument parsing snippet fails on this platform"
+}

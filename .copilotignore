@@ -1,0 +1,56 @@
+# .copilotignore - Patterns to ignore for code citation
+# These are overly generic patterns that don't warrant copyright attribution
+
+# Generic Docker/shell patterns
+RUN apt-get
+RUN git clone
+RUN mkdir
+RUN cd
+RUN curl
+RUN wget
+RUN pip install
+RUN npm install
+RUN echo
+RUN chmod
+RUN chown
+RUN cp
+RUN mv
+RUN rm
+RUN ln
+RUN tar
+RUN unzip
+
+# Standard Dockerfile instructions
+FROM ubuntu
+FROM debian
+FROM alpine
+FROM node
+WORKDIR /
+COPY . /
+ENV DEBIAN_FRONTEND
+USER root
+USER testuser
+EXPOSE 80
+EXPOSE 443
+
+# Generic shell commands
+#!/bin/bash
+#!/usr/bin/env bash
+set -e
+set -u
+set -o pipefail
+cd "$(dirname
+if [[ -z
+if [[ -n
+echo "Usage:
+exit 0
+exit 1
+
+# Standard configuration patterns
+version: '3
+services:
+volumes:
+networks:
+ports:
+environment:
+restart: unless-stopped

@@ -1,0 +1,119 @@
+FROM ubuntu:22.04
+
+# Set up environment - this rarely changes so cache it early
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH="/usr/local/bin:$PATH"
+
+# Configure apt for better reliability
+RUN echo "=== Configuring package management ===" && \
+    # Configure apt timeouts and retries
+    echo 'APT::Acquire::Retries "3";' > /etc/apt/apt.conf.d/80retries && \
+    echo 'APT::Acquire::http::Timeout "60";' >> /etc/apt/apt.conf.d/80retries && \
+    echo 'APT::Acquire::https::Timeout "60";' >> /etc/apt/apt.conf.d/80retries && \
+    echo 'APT::Get::Assume-Yes "true";' >> /etc/apt/apt.conf.d/80retries && \
+    echo "Package management configured"
+
+# Update package lists and install core packages
+RUN echo "=== Installing core system packages ===" && \
+    apt-get update --fix-missing && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        wget \
+        gnupg \
+        lsb-release \
+        apt-transport-https \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && echo "Core packages installed successfully"
+
+# Install development and testing tools - cache this expensive layer
+RUN echo "=== Installing development tools ===" && \
+    apt-get update && \
+    # Try package installation with robust error handling and timeout
+    for i in 1 2; do \
+        echo "Attempt $i/2: Installing development packages..." && \
+        timeout 400 apt-get install -y --no-install-recommends \
+            bash \
+            git \
+            sudo \
+            shellcheck \
+            python3 \
+            python3-pip \
+            build-essential \
+            coreutils \
+            util-linux \
+            procps \
+            jq \
+            expect \
+            iproute2 \
+            iputils-ping \
+            netcat-openbsd \
+            dnsutils \
+        && echo "Development packages installed successfully" && break || \
+        (echo "Attempt $i failed, trying package update..." && apt-get clean && apt-get update && sleep 10); \
+    done && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install kcov separately since it might fail - cache this layer
+RUN echo "=== Installing kcov (coverage tool) ===" && \
+    apt-get update && \
+    (timeout 180 apt-get install -y kcov && echo "kcov installed successfully" || \
+     echo "kcov installation failed, coverage will be limited") && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python tools - cache this layer  
+RUN echo "=== Installing uv and Python linting tools ===" && \
+    # Install uv for faster Python package management
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    export PATH="$HOME/.cargo/bin:$PATH" && \
+    # Ensure pip is up to date as fallback
+    python3 -m pip install --upgrade pip && \
+    # Install tools with uv (faster) or fallback to pip
+    for i in 1 2; do \
+        echo "Attempt $i/2: Installing Python tools..." && \
+        (uv pip install --system flake8 mypy || pip3 install --no-cache-dir flake8 mypy) && \
+        echo "Python linting tools installed successfully" && break || \
+        (echo "Attempt $i failed, retrying..." && sleep 2); \
+    done || echo "Python linting tools failed to install"
+
+# Install bats test framework - expensive operation, cache it well
+RUN git clone --depth=1 https://github.com/bats-core/bats-core.git /tmp/bats-core && \
+    cd /tmp/bats-core && \
+    ./install.sh /usr/local && \
+    rm -rf /tmp/bats-core && \
+    echo "Bats installed successfully"
+
+# Create additional directories and symlinks for compatibility with tests
+RUN mkdir -p /home/homelab /bin /usr/bin /usr/lib/python3 && \
+    ln -sf /usr/bin/python3 /usr/bin/python && \
+    ln -sf /bin/bash /bin/sh && \
+    ln -sf /usr/share/doc/python3 /usr/lib/python3-test || true
+
+# Set up test user and workspace - keep this near the end since it changes less often
+WORKDIR /workspace
+RUN useradd -m testuser && \
+    echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    chown -R testuser:testuser /home
+
+# Switch to test user
+USER testuser
+
+# Verify installations - final verification layer
+RUN echo "=== Tool Verification ===" && \
+    bats --version && \
+    shellcheck --version && \
+    python3 --version && \
+    (kcov --version || echo "kcov not available") && \
+    (nc -h 2>&1 | head -1 || echo "netcat available") && \
+    which git && which curl && which jq && \
+    echo "=== Container Ready ==="
+
+# Set default environment for test runs
+ENV CI=true
+ENV BATS_TMPDIR=/tmp/bats-tmp
+ENV CFG_ROOT=/tmp/test-config
+ENV LOG_DIR=/tmp/test-logs
+ENV TEST_ROOT=/tmp/homelab-test

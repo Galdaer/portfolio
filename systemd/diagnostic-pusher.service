@@ -1,0 +1,18 @@
+# diagnostic-pusher.service version 1.0.0
+# Author: Justin Sue (Galdaer)
+# Last Revised: 2025-05-30
+# Purpose: Systemd unit to push diagnostic metrics to InfluxDB.
+# Usage: Used with diagnostic-pusher.timer for scheduled metrics pushes.
+
+[Unit]
+Description=Push diagnostic metrics to InfluxDB
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/diagnostic-pusher.sh
+
+[Install]
+WantedBy=multi-user.target

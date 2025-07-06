@@ -1,0 +1,25 @@
+# Look for 'source'd files relative to the checked script
+source-path=SCRIPTDIR
+
+# Allow opening any 'source'd file, even if not specified as input
+external-sources=true
+
+# Set severity level  
+severity=info
+
+# Exclude specific directories from analysis
+exclude-dir=logs
+exclude-dir=.git
+exclude-dir=bats-core
+exclude-dir=.vscode
+exclude-dir=test/bats-core
+exclude-dir=data/vector_stores
+exclude-dir=data/training/user_samples
+exclude-dir=services/user
+
+# Exclude specific files from analysis
+exclude-path=./logs/*
+exclude-path=./.git/*
+exclude-path=./test/bats-core/*
+exclude-path=./data/vector_stores/*
+exclude-path=./data/training/user_samples/*

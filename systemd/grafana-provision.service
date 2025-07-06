@@ -1,0 +1,17 @@
+# grafana-provision.service version 1.0.0
+# Author: Justin Sue (Galdaer)
+# Last Revised: 2025-05-30
+# Purpose: Systemd unit to ensure Grafana dashboard provisioning by restarting grafana-server.
+# Usage: Used to force a reload of Grafana dashboards after config changes.
+
+[Unit]
+Description=Ensure Grafana Dashboard Provisioning
+After=grafana-server.service
+Requires=grafana-server.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl restart grafana-server
+
+[Install]
+WantedBy=multi-user.target

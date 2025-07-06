@@ -1,0 +1,16 @@
+# wg0-diagnostics.timer version 1.0.0
+# Author: Justin Sue (Galdaer)
+# Last Revised: 2025-05-30
+# Purpose: Systemd timer for periodic wg0 diagnostics.
+# Usage: Triggers wg0-diagnostics.service every 30 minutes
+
+[Unit]
+Description=Run wg0 diagnostics every 30 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

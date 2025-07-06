@@ -1,0 +1,18 @@
+[Unit]
+Description=Auto-upgrade system packages
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/intelluxe/code/homelab-infra/scripts/auto-upgrade.sh
+User=root
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/log /var/run /tmp /var/lib/apt /var/cache/apt
+ProtectHome=yes
+PrivateTmp=yes

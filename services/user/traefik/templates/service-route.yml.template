@@ -1,0 +1,42 @@
+# Dynamic Service Route Template
+# Used to generate individual service routing configurations
+
+http:
+  routers:
+    {{SERVICE_NAME}}:
+      rule: "Host(`{{SERVICE_NAME}}.{{TRAEFIK_DOMAIN_NAME}}`)"
+      entryPoints:
+        {{#if_https}}
+        - websecure
+        {{else}}
+        - web
+        {{/if_https}}
+      {{#if_https}}
+      tls:
+        certResolver: letsencrypt
+      {{/if_https}}
+      service: {{SERVICE_NAME}}
+    
+    {{#if_redirect_http}}
+    {{SERVICE_NAME}}-insecure:
+      rule: "Host(`{{SERVICE_NAME}}.{{TRAEFIK_DOMAIN_NAME}}`)"
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+      service: {{SERVICE_NAME}}
+    {{/if_redirect_http}}
+
+  services:
+    {{SERVICE_NAME}}:
+      loadBalancer:
+        servers:
+          - url: "http://{{SERVICE_NAME}}:{{SERVICE_PORT}}"
+
+  {{#if_redirect_http}}
+  middlewares:
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true
+  {{/if_redirect_http}}

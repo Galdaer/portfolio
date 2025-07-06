@@ -1,0 +1,51 @@
+# Core web framework and API
+flask
+fastapi
+uvicorn
+pydantic
+
+# Database and storage
+sqlalchemy
+alembic
+redis
+psycopg2-binary
+influxdb
+
+# HTTP clients and async support
+httpx
+aiofiles
+requests
+
+# Authentication and security
+python-multipart
+python-jose[cryptography]
+passlib
+bcrypt
+
+# Monitoring and observability
+prometheus-client
+
+# Configuration and serialization
+pyyaml
+jinja2
+
+# Development and testing tools
+pytest
+pytest-asyncio
+flake8
+mypy
+yamllint
+
+# Healthcare AI specific (when ready for Phase 1+)
+# torch
+# transformers
+# ollama-python
+# langchain
+# langchain-community
+
+# Docker integration
+docker-compose
+
+# Build tools
+Cython<3.0.0
+wheel

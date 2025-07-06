@@ -1,0 +1,12 @@
+# wg0-diagnostics.service version 1.0.0
+# Author: Justin Sue (Galdaer)
+# Last Revised: 2025-05-30
+# Purpose: Systemd unit for periodic wg0 diagnostics.
+# Usage: Used with wg0-diagnostics.timer for scheduled diagnostics.
+
+[Unit]
+Description=Run wg0 diagnostics periodically
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/clinic-diagnostics.sh --source=timer --critical-only

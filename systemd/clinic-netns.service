@@ -1,0 +1,20 @@
+# clinic-netns.service version 1.0.0
+# Author: Justin Sue (Galdaer)
+# Last Revised: 2025-05-30
+# Purpose: Systemd unit for SHaN network namespace setup.
+# Usage: Brings up the network namespace for the stack.
+
+[Unit]
+Description=Run clinic-netns.sh network namespace setup
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/clinic-netns-setup.sh
+StandardOutput=journal
+StandardError=journal
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

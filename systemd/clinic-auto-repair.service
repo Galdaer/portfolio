@@ -1,0 +1,18 @@
+# clinic-auto-repair.service version 1.0.0
+# Author: Justin Sue (Galdaer)
+# Last Revised: 2025-05-30
+# Purpose: Systemd unit for auto-repair of SHaN and WireGuard containers.
+# Usage: Used with clinic-auto-repair.timer for scheduled repairs.
+
+[Unit]
+Description=Auto-repair for SHaN and WireGuard containers
+After=network.target docker.service
+Wants=clinic-auto-repair.timer
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/clinic-auto-repair.sh
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

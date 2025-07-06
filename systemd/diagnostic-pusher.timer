@@ -1,0 +1,16 @@
+# diagnostic-pusher.timer version 1.0.0
+# Author: Justin Sue (Galdaer)
+# Last Revised: 2025-05-30
+# Purpose: Systemd timer for periodic diagnostic metric pushes.
+# Usage: Triggers diagnostic-pusher.service every 30 minutes.
+
+[Unit]
+Description=Run diagnostic-pusher every 30 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+Unit=diagnostic-pusher.service
+
+[Install]
+WantedBy=timers.target
