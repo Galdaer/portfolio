@@ -36,7 +36,6 @@
 !docs/**
 !.flake8
 !.shellcheckrc
-!.codecov.yml
 !.dockerignore
 !mypy.ini
 

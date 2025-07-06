@@ -300,27 +300,13 @@ jobs:
           ls -la ./coverage/ 2>/dev/null || echo "No coverage directory found"
           echo "=== Sample coverage file content ==="
           find ./coverage -name "index.html" -exec head -10 {} \; 2>/dev/null || echo "No index.html found"
-
-      - name: Upload coverage (Codecov)
-        if: always()
-        uses: codecov/codecov-action@v4
-        with:
-          directory: ./coverage
-          files: ./coverage/index.html,./coverage/**/*.json
-          flags: shell-scripts
-          name: intelluxe-coverage
-          fail_ci_if_error: false
-          verbose: false
-          # Only set token if CODECOV_TOKEN is available
-          token: ${{ secrets.CODECOV_TOKEN || '' }}
-        continue-on-error: true
-
-      - name: Coverage upload status
-        if: always()
-        run: |
-          echo "Codecov upload attempted - check step status above"
-          echo "If Codecov token is not configured, the upload will be skipped automatically"
-          echo "Coverage artifacts are still uploaded for manual review"
+          
+          # Generate a coverage summary for the logs
+          if [ -f "./coverage/index.html" ]; then
+            echo "=== Coverage Summary ==="
+            grep -o "pc_cov\">[0-9.]*%" ./coverage/index.html | head -5 || echo "Could not extract coverage percentages"
+            echo "Coverage report generated successfully - see artifacts for full report"
+          fi
 
       - name: Upload coverage artifact
         if: always()
