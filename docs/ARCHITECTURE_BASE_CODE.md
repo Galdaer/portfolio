@@ -1,10 +1,10 @@
-# Privata Architecture to AI Engineering Hub Mapping
+# Intelluxe-AI Architecture to AI Engineering Hub Mapping
 
-This table maps each component in your Privata system architecture to relevant implementations and patterns from the AI Engineering Hub repository. The mapping shows both direct code you could adapt and architectural patterns that could enhance your existing design.
+This table maps each component in your Intelluxe-AI system architecture to relevant implementations and patterns from the AI Engineering Hub repository. The mapping shows both direct code you could adapt and architectural patterns that could enhance your existing design.
 
 ## Infrastructure Layer
 
-| **Privata Component** | **AI Engineering Hub Directory/Files** | **Implementation Value** | **Integration Notes** |
+| **Intelluxe-AI Component** | **AI Engineering Hub Directory/Files** | **Implementation Value** | **Integration Notes** |
 |----------------------|----------------------------------------|-------------------------|---------------------|
 | **Ollama (LLM Server)** | `/local_models/` <br> `/performance_optimization/` | **High** - Local model optimization patterns, quantization techniques for 40x speed improvements | Enhance your existing Ollama setup with proven optimization patterns for healthcare workloads |
 | **Redis (Working Memory)** | `/memory_systems/` <br> `/agentic_memory/` | **High** - Agent memory management patterns, session persistence across interactions | Implement sophisticated memory logic that works with your Redis infrastructure |
@@ -13,7 +13,7 @@ This table maps each component in your Privata system architecture to relevant i
 
 ## Orchestration Layer
 
-| **Privata Component** | **AI Engineering Hub Directory/Files** | **Implementation Value** | **Integration Notes** |
+| **Intelluxe-AI Component** | **AI Engineering Hub Directory/Files** | **Implementation Value** | **Integration Notes** |
 |----------------------|----------------------------------------|-------------------------|---------------------|
 | **MCP Orchestrator** | `/multi_agent_systems/` <br> `/crewai_implementations/` | **Very High** - Multi-agent coordination patterns, sophisticated workflow orchestration | Enhance your MCP tool coordination with proven multi-agent patterns |
 | **Memory Manager** | `/agentic_memory/` <br> `/context_management/` | **Very High** - Cross-session memory, context preservation, intelligent memory retrieval | Implement the logic layer between your agents and Redis/PostgreSQL storage |
@@ -22,7 +22,7 @@ This table maps each component in your Privata system architecture to relevant i
 
 ## Agent Layer
 
-| **Privata Component** | **AI Engineering Hub Directory/Files** | **Implementation Value** | **Integration Notes** |
+| **Intelluxe-AI Component** | **AI Engineering Hub Directory/Files** | **Implementation Value** | **Integration Notes** |
 |----------------------|----------------------------------------|-------------------------|---------------------|
 | **Intake Agent** | `/document_processing/` <br> `/form_extraction/` | **High** - Structured data extraction from healthcare forms, multi-modal document handling | Improve how your intake agent processes complex medical documents and forms |
 | **Document Processor** | `/rag_techniques/advanced_chunking/` <br> `/multimodal_rag/` | **Very High** - Advanced document chunking, handling tables/images in medical documents | Essential for processing complex healthcare documents with mixed content types |
@@ -32,7 +32,7 @@ This table maps each component in your Privata system architecture to relevant i
 
 ## Cross-Cutting Enhancements
 
-| **Enhancement Area** | **AI Engineering Hub Directory/Files** | **Implementation Value** | **Benefits for Privata** |
+| **Enhancement Area** | **AI Engineering Hub Directory/Files** | **Implementation Value** | **Benefits for Intelluxe-AI** |
 |---------------------|----------------------------------------|-------------------------|-------------------------|
 | **Voice Integration** | `/voice_rag/` <br> `/real_time_audio/` | **High** | Add hands-free interaction capabilities for healthcare environments |
 | **Evaluation & Testing** | `/ragas_evaluation/` <br> `/agent_benchmarking/` | **High** | Implement systematic testing and quality assurance for your AI agents |
