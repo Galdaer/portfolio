@@ -399,14 +399,14 @@ If your configuration file lives outside the default `~/clinic-stack` directory,
 Set `BOOTSTRAP_PATH` if `clinic-bootstrap.sh` resides outside your `PATH`:
 
 ```bash
-export BOOTSTRAP_PATH=/opt/scripts/clinic-bootstrap.sh
+export BOOTSTRAP_PATH=/opt/intelluxe/scripts/clinic-bootstrap.sh
 ```
 The web UI attempts `shutil.which("clinic-bootstrap.sh")` and falls back to `/usr/local/bin/clinic-bootstrap.sh` when unset.
 
 Set `TEARDOWN_PATH` if `clinic-teardown.sh` resides outside your `PATH`:
 
 ```bash
-export TEARDOWN_PATH=/opt/scripts/clinic-teardown.sh
+export TEARDOWN_PATH=/opt/intelluxe/scripts/clinic-teardown.sh
 ```
 The web UI attempts `shutil.which("clinic-teardown.sh")` and falls back to `/usr/local/bin/clinic-teardown.sh` when unset.
 

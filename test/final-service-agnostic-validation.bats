@@ -138,7 +138,7 @@ EOF
 image=company.registry.com/proprietary/app:v3.2.1-beta
 port=9876
 description=Completely custom proprietary application with complex setup
-volumes=data-vol:/opt/data;config-vol:/etc/config;logs-vol:/var/logs
+volumes=data-vol:$TEST_ROOT/data;config-vol:/etc/config;logs-vol:/var/logs
 env=APP_MODE=production;HOSTNAME=placeholder;DATABASE_URL=postgresql://user:pass@db:5432/myapp;SECRET_KEY=super-secret-key-123;WORKERS=8
 network_mode=custom
 extra_args=--restart unless-stopped --memory=2g --cpus=1.5 --ulimit nofile=65536:65536

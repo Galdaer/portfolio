@@ -94,9 +94,9 @@ teardown() {
   export CFG_UID=2000
   export CFG_GID=3000
   source scripts/setup-environment.sh
-  set_ownership /opt/data
+  set_ownership /opt/intelluxe/data
   read -r args <"$CHOWN_LOG"
-  [ "$args" = "2000:3000 /opt/data" ]
+  [ "$args" = "2000:3000 /opt/intelluxe/data" ]
 }
 
 @test "check_docker_socket uses DOCKER_SOCKET override" {

@@ -187,46 +187,34 @@ build_dependency_list() {
         coreutils util-linux lsof psmisc sysstat
         make gcc g++ 
         
-        # Container tools
-        docker docker-compose podman podman-docker
-        
-        # Security & monitoring
+        # Security & monitoring (host-level only)
         fail2ban ufw bc tree ncdu iotop mtr
-        prometheus-node-exporter
         
         # Development tools
-        shellcheck shfmt bats
+        shellcheck # shfmt bats installed via Go/Git
+        
+        # Runtime environments for CI/CD
+        nodejs npm
         
         # Python & AI dependencies
         python3-dev python3-pip python3-venv
         
-        # Database clients
+        # Database clients (for connecting to containerized DBs)
         postgresql-client redis-tools
-        
-        # Network & VPN (for secure healthcare access)
-        wireguard-tools qrencode
         
         # File system tools
         rsync fuse
     )
     case $PKG_MANAGER in
         apt)
-            local apt_pkgs=()
-            for pkg in "${common[@]}"; do
-                if [[ "$pkg" == "docker" ]]; then
-                    apt_pkgs+=("docker.io")
-                else
-                    apt_pkgs+=("$pkg")
-                fi
-            done
-            # Include apt-utils first to silence "debconf: unable to initialize" warnings
-            DEPENDENCIES=(apt-utils "${apt_pkgs[@]}" dnsutils)
+            # Clean list - no Docker conflicts, no containerized services
+            DEPENDENCIES=(apt-utils "${common[@]}" dnsutils)
             ;;
         dnf)
             DEPENDENCIES=("${common[@]}" bind-utils)
             ;;
         pacman)
-            DEPENDENCIES=("${common[@]/make/base-devel}" "${common[@]/gcc/base-devel}" bind-tools)
+            DEPENDENCIES=("${common[@]/make/base-devel}" bind-tools)
             ;;
         *)
             DEPENDENCIES=("${common[@]}")
@@ -346,11 +334,13 @@ install_uv() {
     fi
     log "Installing uv (fast Python package manager)"
     retry_with_backoff 5 bash -c 'curl -LsSf https://astral.sh/uv/install.sh | sh'
-    export PATH="$HOME/.cargo/bin:$PATH"
-    # Make uv available system-wide
-    if [[ -f "$HOME/.cargo/bin/uv" ]]; then
-        cp "$HOME/.cargo/bin/uv" /usr/local/bin/
+    # Find where uv was installed and copy to /usr/local/bin
+    if [[ -f "$HOME/.local/bin/uv" ]]; then
+        cp "$HOME/.local/bin/uv" /usr/local/bin/
+    elif [[ -f "/root/.local/bin/uv" ]]; then
+        cp "/root/.local/bin/uv" /usr/local/bin/
     fi
+    chmod +x /usr/local/bin/uv
     verify_installation "uv --version" "uv" || exit 1
     ok "uv installed successfully"
 }
@@ -369,9 +359,9 @@ install_python_deps() {
     # Install uv first
     install_uv
     
-    # Use uv to install Python packages (much faster than pip)
-    log "Installing Intelluxe AI dependencies with uv"
-    uv pip install --system \
+    # Use uv to install Python packages system-wide (override Ubuntu's restriction)
+    log "Installing Intelluxe AI dependencies with uv (system-wide)"
+    uv pip install --system --break-system-packages \
         fastapi uvicorn pydantic \
         sqlalchemy alembic \
         redis psycopg2-binary \
@@ -379,15 +369,15 @@ install_python_deps() {
         python-multipart "python-jose[cryptography]" \
         passlib bcrypt \
         prometheus-client \
-        pyyaml docker-compose \
-        influxdb requests \
+        "pyyaml>=6.0" \
+        requests \
         flake8 mypy pytest pytest-asyncio \
         jinja2 yamllint \
         transformers torch ollama-python \
         langchain langchain-community
     
     ok "Python dependencies installed with uv"
-    verify_installation "uv --version" "uv" || exit 1
+    verify_installation "python3 -c 'import fastapi'" "Python dependencies" || exit 1
 }
 
 setup_directories() {

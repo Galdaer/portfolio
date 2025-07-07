@@ -17,16 +17,12 @@
 # Installation Commands
 install:
 	@echo "🔗  Installing Intelluxe AI infrastructure scripts and services"
-	@echo "   - Symlinking scripts to /usr/local/bin"
-	# Symlink all scripts
-		sudo ln -sf $(PWD)/scripts/* /usr/local/bin/
+	@echo "   - Symlinking scripts to /opt/intelluxe/scripts"
+	sudo mkdir -p /opt/intelluxe/scripts
+	sudo ln -sf $(PWD)/scripts/* /opt/intelluxe/scripts
 	@echo "   - Installing systemd service units"
 	sudo ln -sf $(PWD)/systemd/* /etc/systemd/system/
 	sudo systemctl daemon-reload
-	@echo "   - Installing udev rules"
-	sudo mkdir -p /etc/udev/rules.d
-	sudo ln -sf $(PWD)/udev/* /etc/udev/rules.d/
-	sudo udevadm control --reload
 	@echo "✅  Installation complete! Run 'make setup' to configure your Intelluxe AI system."
 
 deps:

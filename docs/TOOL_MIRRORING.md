@@ -19,7 +19,7 @@ Ensure that each MCP tool (or at least your MCP server) maintains a **local mirr
 - When the MCP server starts, it should load tools from the local filesystem first. Only check online for updates/patches—never as a hard dependency.
 - **Config example:**
   ```yaml
-  tools_dir: /opt/privata/mcp-tools/
+  tools_dir: /opt/intelluxe/mcp-tools/
   fallback_to_online: false
   update_check_interval: 12h
   ```
@@ -57,7 +57,7 @@ Ensure that each MCP tool (or at least your MCP server) maintains a **local mirr
 
 ```javascript
 // On MCP server startup
-const toolsPath = '/opt/privata/mcp-tools/';
+const toolsPath = '/opt/intelluxe/mcp-tools/';
 const requiredTools = ['insurance-anthem', 'billing-humana', 'custom-clinic-tool'];
 
 for (const tool of requiredTools) {

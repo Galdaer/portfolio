@@ -109,11 +109,11 @@ def test_teardown_path_from_env(monkeypatch):
 
 def test_teardown_path_fallback_to_which(monkeypatch):
     monkeypatch.delenv("TEARDOWN_PATH", raising=False)
-    monkeypatch.setattr(shutil, "which", lambda _name: "/opt/teardown.sh")
+    monkeypatch.setattr(shutil, "which", lambda _name: "/opt/intelluxe/scripts/teardown.sh")
     spec_local = importlib.util.spec_from_file_location("config_web_ui_reload", SCRIPT_PATH)
     mod = importlib.util.module_from_spec(spec_local)
     spec_local.loader.exec_module(mod)
-    assert mod.TEARDOWN_PATH == "/opt/teardown.sh"
+    assert mod.TEARDOWN_PATH == "/opt/intelluxe/scripts/teardown.sh"
 
 
 def test_teardown_path_default(monkeypatch):

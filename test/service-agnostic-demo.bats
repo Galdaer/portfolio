@@ -72,7 +72,7 @@ image=company-registry.com/erp-system:v2.1.3
 port=8443
 description=Company ERP System (proprietary)
 env=DATABASE_HOST=db.company.com;DATABASE_PORT=5432;ADVERTISE_IP=placeholder;HOSTNAME=placeholder;LICENSE_SERVER=license.company.com;WORKERS=8;DEBUG_MODE=false
-volumes=erp-data:/opt/erp/data;erp-logs:/var/log/erp;erp-config:/etc/erp
+volumes=erp-data:$TEST_ROOT/data;erp-logs:/var/log/erp;erp-config:/etc/erp
 network_mode=custom
 extra_args=--restart unless-stopped --memory=4g --cpus=2.0
 healthcheck=curl -k -f https://localhost:8443/api/health
