@@ -4,6 +4,8 @@
 
 Wireguard, only services work? Switch bootstrap to be VPN only always and get rid of prompts for that as well as mergerfs or other unneeded prompts
 
+Vaultwarden?
+
 Is phase 0 .gitignore right or do we need to combine with the current one (keeping in mind it excludes everything by default at the top)? Planning and decisions 
 
 Is this not just copying scripts into the directory they're already in?

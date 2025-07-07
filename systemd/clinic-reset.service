@@ -1,7 +1,7 @@
 # clinic-reset.service version 1.0.0
 # Author: Justin Sue (Galdaer)
 # Last Revised: 2025-05-30
-# Purpose: Systemd unit for SHaN stack reset utility.
+# Purpose: Systemd unit for clinic stack reset utility.
 # Usage: Runs clinic-reset.sh for full stack reset
 
 [Unit]

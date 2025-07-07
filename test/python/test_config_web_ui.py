@@ -122,7 +122,7 @@ def test_teardown_path_default(monkeypatch):
     spec_local = importlib.util.spec_from_file_location("config_web_ui_reload", SCRIPT_PATH)
     mod = importlib.util.module_from_spec(spec_local)
     spec_local.loader.exec_module(mod)
-    assert mod.TEARDOWN_PATH == "/usr/local/bin/shan-teardown.sh"
+    assert mod.TEARDOWN_PATH == "/usr/local/bin/clinic-teardown.sh"
 
 
 def test_bootstrap_route_invokes_subprocess(monkeypatch):
@@ -256,7 +256,7 @@ def test_diagnostics_route(monkeypatch):
     _route_test(
         monkeypatch,
         config_web_ui.diagnostics,
-        ["/usr/local/bin/shan-diagnostics.sh", "--non-interactive"],
+        ["/usr/local/bin/clinic-diagnostics.sh", "--non-interactive"],
     )
 
 
@@ -264,7 +264,7 @@ def test_auto_repair_route(monkeypatch):
     _route_test(
         monkeypatch,
         config_web_ui.auto_repair,
-        ["/usr/local/bin/shan-auto-repair.sh", "--non-interactive"],
+        ["/usr/local/bin/clinic-auto-repair.sh", "--non-interactive"],
     )
 
 
@@ -272,7 +272,7 @@ def test_reset_system_route(monkeypatch):
     _route_test(
         monkeypatch,
         config_web_ui.reset_system_route,
-        ["/usr/local/bin/shan-reset.sh", "--non-interactive"],
+        ["/usr/local/bin/clinic-reset.sh", "--non-interactive"],
     )
 
 

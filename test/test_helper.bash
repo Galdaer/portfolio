@@ -43,7 +43,7 @@ ip() {
     echo "192.168.1.100"
 }
 
-# Mock logging functions for shan-lib.sh compatibility
+# Mock logging functions for clinic-lib.sh compatibility
 log() {
     echo "[LOG] $*"
 }

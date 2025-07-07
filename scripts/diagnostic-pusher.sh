@@ -2,7 +2,7 @@
 set -euo pipefail
 # diagnostic-pusher.sh - Push diagnostic data to monitoring systems
 # Author: Justin Michael Sue (Galdaer)
-# Repo: https://github.com/galdaer/intelluxe
+# Repo: https://github.com/Intelluxe-AI/intelluxe-core
 #
 # Copyright (c) 2025 Justin Michael Sue
 #
@@ -16,12 +16,12 @@ set -euo pipefail
 #
 # 2. Commercial License
 #    - For proprietary/commercial use without AGPL restrictions
-#    - Contact: jmsue42@gmail.com for commercial licensing terms
+#    - Contact: licensing@intelluxeai.com for commercial licensing terms
 #    - Allows embedding in closed-source products
 #
 # Choose the license that best fits your use case.
 #
-# TRADEMARK NOTICE: "SHAN" and related branding may be trademark protected.
+# TRADEMARK NOTICE: "Intelluxe" and related branding may be trademark protected.
 # Commercial use of project branding requires separate permission.
 #________________________________________________________________________________________
 # Purpose: Exports structured diagnostics metrics to InfluxDB and prints JSON if --debug.
@@ -36,7 +36,7 @@ set -euo pipefail
 SCRIPT_VERSION="1.0.0"
 : "${INFLUX_HOST:=localhost}"
 : "${INFLUX_PORT:=8086}"
-: "${INFLUX_DB:=shan_metrics}"
+: "${INFLUX_DB:=clinic_metrics}"
 : "${DEBUG:=false}"
 : "${DEBUG_LOG:=/var/log/diagnostic-pusher-debug.log}"
 : "${INFLUX_MOCK:=false}"
@@ -111,7 +111,7 @@ fi
 # --- Run diagnostics ---
 ./scripts/clinic-diagnostics.sh --export-json --no-color --log-file "$LOG_FILE"
 diag_exit=$?
-[[ "$DEBUG" == true ]] && log "[DEBUG] SHaN diagnostics tool exited with code $diag_exit."
+[[ "$DEBUG" == true ]] && log "[DEBUG] clinic diagnostics tool exited with code $diag_exit."
 
 # --- Validate diagnostics output ---
 if [[ ! -s "$DIAG_JSON" ]]; then
@@ -148,7 +148,7 @@ for f in "${failures_array[@]}"; do
 	testName="Unknown"
 	if [[ "$f" =~ [Dd][Nn][Ss] || "$f" =~ [Rr]esolve ]]; then
 		testName="DNS"
-	elif [[ "$f" =~ public[[:space:]]*ip || "$f" =~ shan\.tv ]]; then
+	elif [[ "$f" =~ public[[:space:]]*ip || "$f" =~ clinic\.tv ]]; then
 		testName="PublicIP"
 	elif [[ "$f" =~ [Pp]ort[[:space:]]*[Mm]apping || "$f" =~ [Uu][Pp][Nn][Pp] || "$f" =~ [Nn][Aa][Tt]-[Pp][Mm][Pp] ]]; then
 		testName="PortMapping"
@@ -160,16 +160,16 @@ for f in "${failures_array[@]}"; do
 		testName="Auth"
 	fi
 	fail_tests_seen["$testName"]=1
-	LINES+=("shanDiagnostics,host=${HOSTNAME},test=${testName} success=0i")
+	LINES+=("clinicDiagnostics,host=${HOSTNAME},test=${testName} success=0i")
 done
 known_tests=("DNS" "PublicIP" "PortMapping" "ExternalReachability" "NATLoopback" "Auth")
 for t in "${known_tests[@]}"; do
 	if [[ -v fail_tests_seen["$t"] ]]; then continue; fi
-	LINES+=("shanDiagnostics,host=${HOSTNAME},test=${t} success=1i")
+	LINES+=("clinicDiagnostics,host=${HOSTNAME},test=${t} success=1i")
 done
 any_fail=0
 ((fail_count > 0)) && any_fail=1
-LINES+=("shanDiagnosticsSummary,host=${HOSTNAME} fail_count=${fail_count}i,any_failure=${any_fail}i")
+LINES+=("clinicDiagnosticsSummary,host=${HOSTNAME} fail_count=${fail_count}i,any_failure=${any_fail}i")
 TIMESTAMP=$(date +%s%N)
 for i in "${!LINES[@]}"; do
 	LINES[i]="${LINES[i]} $TIMESTAMP"

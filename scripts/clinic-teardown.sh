@@ -2,7 +2,7 @@
 set -euo pipefail
 # clinic-teardown.sh - Complete removal of CLINIC stack
 # Author: Justin Michael Sue (Galdaer)
-# Repo: https://github.com/galdaer/intelluxe
+# Repo: https://github.com/Intelluxe-AI/intelluxe-core
 #
 # Copyright (c) 2025 Justin Michael Sue
 #
@@ -16,7 +16,7 @@ set -euo pipefail
 #
 # 2. Commercial License
 #    - For proprietary/commercial use without AGPL restrictions
-#    - Contact: jmsue42@gmail.com for commercial licensing terms
+#    - Contact: licensing@intelluxeai.com for commercial licensing terms
 #    - Allows embedding in closed-source products
 #
 # Choose the license that best fits your use case.
@@ -25,7 +25,7 @@ set -euo pipefail
 # Commercial use of project branding requires separate permission.
 #
 # ─────────────────────────────────────────────────────────────────────────────
-# Purpose: Safely tears down Plex, WireGuard, namespace, and iptables rules for the SHaN stack.
+# Purpose: Safely tears down Plex, WireGuard, namespace, and iptables rules for the clinic stack.
 #
 # Requirements:
 #   - Run as root
@@ -38,7 +38,7 @@ set -euo pipefail
 #   --dry-run    Show actions without executing
 #   --all        Tear down all components (default)
 #   --vpn-only   Only teardown VPN-related components
-#   --clinic-only  Only teardown SHaN-related components
+#   --clinic-only  Only teardown clinic-related components
 #
 # Logs to /var/log/clinic-teardown.log and syslog. Exports JSON audit to /tmp/clinic-teardown.json.
 # Dependency note: This script requires bash, coreutils, docker, and standard Unix tools.
@@ -50,13 +50,13 @@ SCRIPT_VERSION="1.0.0"
 : "${FORCE:=false}"
 : "${DRY_RUN:=false}"
 : "${MODE:=all}"
-# Name of the Docker network used by SHaN containers.
+# Name of the Docker network used by clinic containers.
 # Override via the DOCKER_NETWORK_NAME environment variable or an .env file sourced in clinic-lib.sh.
 : "${DOCKER_NETWORK_NAME:=wireguard-net}"
 
 NS_NAME="clinicns"
 # shellcheck disable=SC2034
-CONTAINERS=(shan traefik wireguard grafana influxdb n8n config-web-ui ollama agentcare-mcp postgres redis)
+CONTAINERS=(clinic traefik wireguard grafana influxdb n8n config-web-ui ollama agentcare-mcp postgres redis)
 NETWORKS=("${DOCKER_NETWORK_NAME}")
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -102,7 +102,7 @@ while [[ $# -gt 0 ]]; do
 		shift
 		;;
 	--clinic-only)
-		MODE="shan"
+		MODE="clinic"
 		shift
 		;;
 	--help)
@@ -132,7 +132,7 @@ REMOVED_NETWORKS=()
 ACTIONS=()
 
 # --- Teardown Steps ---
-if [[ "$MODE" == "all" || "$MODE" == "shan" ]]; then
+if [[ "$MODE" == "all" || "$MODE" == "clinic" ]]; then
 	confirm "Intelluxe containers and services"
 	run systemctl stop clinic-bootstrap.service clinic-reset.service clinic-auto-repair.service || true && STOPPED_SERVICES+=("clinic-bootstrap.service" "clinic-reset.service" "clinic-auto-repair.service")
 	run systemctl disable clinic-bootstrap.service clinic-reset.service clinic-auto-repair.service || true

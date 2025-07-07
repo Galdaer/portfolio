@@ -68,7 +68,7 @@ sudo systemctl restart docker
 ### Getting Help
 
 1. **Check Documentation**: Review [Usage Guide](USAGE_GUIDE.md) and inline script comments
-2. **Search Issues**: Look through [GitHub Issues](https://github.com/galdaer/intelluxe/issues)
+2. **Search Issues**: Look through [GitHub Issues](https://github.com/Intelluxe-AI/intelluxe-core/issues)
 3. **System Logs**: Check `CFG_ROOT/logs/` (default `/opt/intelluxe/clinic-stack/logs/`) for detailed error messages. The path is controlled by the `LOG_DIR` variable in `scripts/clinic-bootstrap.sh`.
 4. **Community Support**: Linux homelab communities on Reddit, Discord
 5. **Create Issue**: If you find a bug, please create a detailed GitHub issue

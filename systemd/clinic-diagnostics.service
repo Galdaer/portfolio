@@ -1,11 +1,11 @@
 # clinic-diagnostics.service version 1.0.0
 # Author: Justin Sue (Galdaer)
 # Last Revised: 2025-05-30
-# Purpose: Systemd unit for SHaN Diagnostics Health Check.
+# Purpose: Systemd unit for clinic Diagnostics Health Check.
 # Usage: Used with clinic-diagnostics.timer for scheduled health checks
 
 [Unit]
-Description=SHaN Diagnostics Health Check
+Description=clinic Diagnostics Health Check
 After=network.target docker.service
 Requires=docker.service
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # config_web_ui.py - Simple Flask UI for editing Intelluxe AI configuration
 # Author: Justin Michael Sue (Galdaer)
-# Repo: https://github.com/galdaer/intelluxe
+# Repo: https://github.com/Intelluxe-AI/intelluxe-core
 #
 # Copyright (c) 2025 Justin Michael Sue
 #
@@ -15,7 +15,7 @@
 #
 # 2. Commercial License
 #    - For proprietary/commercial use without AGPL restrictions
-#    - Contact: jmsue42@gmail.com for commercial licensing terms
+#    - Contact: licensing@intelluxeai.com for commercial licensing terms
 #    - Allows embedding in closed-source products
 #
 # Choose the license that best fits your use case.
@@ -482,7 +482,7 @@ def self_update():
 def diagnostics():
     env = os.environ.copy()
     subprocess.Popen(
-        ["/usr/local/bin/shan-diagnostics.sh", "--non-interactive"],
+        ["/usr/local/bin/clinic-diagnostics.sh", "--non-interactive"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         env=env,
@@ -494,7 +494,7 @@ def diagnostics():
 def auto_repair():
     env = os.environ.copy()
     subprocess.Popen(
-        ["/usr/local/bin/shan-auto-repair.sh", "--non-interactive"],
+        ["/usr/local/bin/clinic-auto-repair.sh", "--non-interactive"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         env=env,
@@ -506,7 +506,7 @@ def auto_repair():
 def reset_system_route():
     env = os.environ.copy()
     subprocess.Popen(
-        ["/usr/local/bin/shan-reset.sh", "--non-interactive"],
+        ["/usr/local/bin/clinic-reset.sh", "--non-interactive"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         env=env,

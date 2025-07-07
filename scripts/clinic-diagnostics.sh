@@ -2,7 +2,7 @@
 set -euo pipefail
 # clinic-diagnostics.sh - System diagnostic and health check tool
 # Author: Justin Michael Sue (Galdaer)
-# Repo: https://github.com/galdaer/intelluxe
+# Repo: https://github.com/Intelluxe-AI/intelluxe-core
 #
 # Copyright (c) 2025 Justin Michael Sue
 #
@@ -16,12 +16,12 @@ set -euo pipefail
 #
 # 2. Commercial License
 #    - For proprietary/commercial use without AGPL restrictions
-#    - Contact: jmsue42@gmail.com for commercial licensing terms
+#    - Contact: licensing@intelluxeai.com for commercial licensing terms
 #    - Allows embedding in closed-source products
 #
 # Choose the license that best fits your use case.
 #
-# TRADEMARK NOTICE: "SHAN" and related branding may be trademark protected.
+# TRADEMARK NOTICE: "Intelluxe" and related branding may be trademark protected.
 # Commercial use of project branding requires separate permission.
 #
 #────────────────────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ set -euo pipefail
 #                         ${CFG_ROOT}/.clinic-bootstrap.conf)
 #   --dns-fallback IP     Fallback DNS server (default: 8.8.8.8)
 #   --wg-port PORT        WireGuard UDP port (default: 51820)
-#   --influx-db DB        InfluxDB database (default: shan_metrics)
+#   --influx-db DB        InfluxDB database (default: clinic_metrics)
 #   --no-color            Disable color output
 #   --debug               Enable debug logging
 #   --deep-check          Enable extra systemd checks
@@ -74,7 +74,7 @@ init_dns_config() {
 init_dns_config
 # Default WireGuard port
 : "${WG_PORT:=51820}"
-: "${INFLUX_DB:=shan_metrics}"
+: "${INFLUX_DB:=clinic_metrics}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/clinic-lib.sh
@@ -157,7 +157,7 @@ fi
 require_deps ss curl jq influx dig
 
 # Logs are stored under the configured Intelluxe root by default.
-# Set CFG_ROOT in /etc/default/shan.conf or export it before running
+# Set CFG_ROOT in /etc/default/clinic.conf or export it before running
 # to change the log location.
 LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
@@ -179,7 +179,7 @@ write_influx() {
 		return 0
 	fi
 	influx -database "$INFLUX_DB" -execute \
-		"INSERT shanDiagnostics,host=$(hostname -s),test=$test success=${value}i"
+		"INSERT clinicDiagnostics,host=$(hostname -s),test=$test success=${value}i"
 }
 
 report() {
@@ -299,7 +299,7 @@ ANY_FAILURE=0
 
 if [[ "$DRY_RUN" != true ]]; then
 	influx -database "$INFLUX_DB" -execute \
-		"INSERT shanDiagnosticsSummary,host=$(hostname -s) any_failure=${ANY_FAILURE}i,fail_count=${FAIL_COUNT}i,total_checks=${CHECK_COUNT}i,duration_ms=${DURATION_MS}i"
+		"INSERT clinicDiagnosticsSummary,host=$(hostname -s) any_failure=${ANY_FAILURE}i,fail_count=${FAIL_COUNT}i,total_checks=${CHECK_COUNT}i,duration_ms=${DURATION_MS}i"
 fi
 
 log "===== Diagnostics Summary ====="

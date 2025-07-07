@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # clinic-bootstrap.sh version 1.0.0
 # Author: Justin Michael Sue (Galdaer)
-# Repo: https://github.com/galdaer/intelluxe
+# Repo: https://github.com/Intelluxe-AI/intelluxe-core
 # Last Revised: 2025-07-05
 #
 # Robust, extensible, and persistent bootstrapper for self-hosted Docker stacks.
@@ -18,12 +18,12 @@
 #
 # 2. Commercial License
 #    - For proprietary/commercial use without AGPL restrictions
-#    - Contact: jmsue42@gmail.com for commercial licensing terms
+#    - Contact: licensing@intelluxeai.com for commercial licensing terms
 #    - Allows embedding in closed-source products
 #
 # Choose the license that best fits your use case.
 #
-# TRADEMARK NOTICE: "SHAN" and related branding may be trademark protected.
+# TRADEMARK NOTICE: "Intelluxe" and related branding may be trademark protected.
 # Commercial use of project branding requires separate permission.
 #
 #──────────────────────────────────────────────────────────────────────────────

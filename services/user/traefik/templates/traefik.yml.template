@@ -1,5 +1,5 @@
 # Traefik Static Configuration Template
-# Used by SHAN universal service system to generate the main configuration
+# Used by Intelluxe universal service system to generate the main configuration
 
 global:
   checkNewVersion: false

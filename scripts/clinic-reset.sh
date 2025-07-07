@@ -2,7 +2,7 @@
 set -euo pipefail
 # clinic-reset.sh - Reset CLINIC stack to clean state
 # Author: Justin Michael Sue (Galdaer)
-# Repo: https://github.com/galdaer/intelluxe
+# Repo: https://github.com/Intelluxe-AI/intelluxe-core
 #
 # Copyright (c) 2025 Justin Michael Sue
 #
@@ -16,12 +16,12 @@ set -euo pipefail
 #
 # 2. Commercial License
 #    - For proprietary/commercial use without AGPL restrictions
-#    - Contact: jmsue42@gmail.com for commercial licensing terms
+#    - Contact: licensing@intelluxeai.com for commercial licensing terms
 #    - Allows embedding in closed-source products
 #
 # Choose the license that best fits your use case.
 #
-# TRADEMARK NOTICE: "SHAN" and related branding may be trademark protected.
+# TRADEMARK NOTICE: "Intelluxe" and related branding may be trademark protected.
 # Commercial use of project branding requires separate permission.
 #________________________________________________________________________________________________
 # Purpose: Resets the Plex + WireGuard namespace stack by removing containers, routes, iptables, and configs, then reboots the stack with clinic-bootstrap.sh.
@@ -97,10 +97,10 @@ fi
 
 log "💚 Cleaning up containers & Docker network"
 if [[ $DRY_RUN == true ]]; then
-    log "[DRY-RUN] Would remove containers matching (shan|wireguard)"
+    log "[DRY-RUN] Would remove containers matching (clinic|wireguard)"
     log "[DRY-RUN] Would remove docker network ${DOCKER_NETWORK_NAME}"
 else
-    docker ps -a --format '{{.ID}} {{.Names}}' | grep -E '(shan|wireguard)' | awk '{print $1}' | xargs -r docker rm -f
+    docker ps -a --format '{{.ID}} {{.Names}}' | grep -E '(clinic|wireguard)' | awk '{print $1}' | xargs -r docker rm -f
     docker network rm "${DOCKER_NETWORK_NAME}" 2>/dev/null || true
 fi
 

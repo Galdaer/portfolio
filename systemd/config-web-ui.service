@@ -1,10 +1,10 @@
 # config-web-ui.service version 1.0.0
 # Author: Justin Sue (Galdaer)
 # Last Revised: 2025-06-06
-# Purpose: Systemd unit to provide a web interface for editing SHAN configuration.
+# Purpose: Systemd unit to provide a web interface for editing Intelluxe configuration.
 
 [Unit]
-Description=SHAN Configuration Web UI
+Description=Intelluxe Configuration Web UI
 After=network.target docker.service
 Requires=docker.service
 

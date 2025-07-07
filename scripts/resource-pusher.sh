@@ -2,7 +2,7 @@
 set -euo pipefail
 # resource-pusher.sh - Collect system resource metrics and push to InfluxDB
 # Author: Justin Michael Sue (Galdaer)
-# Repo: https://github.com/galdaer/intelluxe
+# Repo: https://github.com/Intelluxe-AI/intelluxe-core
 #
 # Dual License Notice:
 # This software is available under two licensing options:
@@ -14,12 +14,12 @@ set -euo pipefail
 #
 # 2. Commercial License
 #    - For proprietary/commercial use without AGPL restrictions
-#    - Contact: jmsue42@gmail.com for commercial licensing terms
+#    - Contact: licensing@intelluxeai.com for commercial licensing terms
 #    - Allows embedding in closed-source products
 #
 # Choose the license that best fits your use case.
 #
-# TRADEMARK NOTICE: "SHAN" and related branding may be trademark protected.
+# TRADEMARK NOTICE: "Intelluxe" and related branding may be trademark protected.
 # Commercial use of project branding requires separate permission.
 #______________________________________________________________________________
 # Purpose: Gather basic system resource metrics (CPU, memory, disk) and push
@@ -35,7 +35,7 @@ set -euo pipefail
 SCRIPT_VERSION="1.0.0"
 : "${INFLUX_HOST:=localhost}"
 : "${INFLUX_PORT:=8086}"
-: "${INFLUX_DB:=shan_metrics}"
+: "${INFLUX_DB:=clinic_metrics}"
 : "${DEBUG:=false}"
 : "${DEBUG_LOG:=/var/log/resource-pusher-debug.log}"
 
