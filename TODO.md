@@ -4,7 +4,14 @@
 
 Wireguard, only services work? Switch bootstrap to be VPN only always and get rid of prompts for that as well as mergerfs or other unneeded prompts
 
+Is phase 0 .gitignore right or do we need to combine with the current one (keeping in mind it excludes everything by default at the top)? Planning and decisions 
+
+Is this not just copying scripts into the directory they're already in?
+cp -r ../intelluxe/scripts/universal-service-runner.sh ./scripts/
+cp -r ../intelluxe/scripts/clinic-bootstrap.sh ./scripts/
+
 Can we make ci not run for just doc updates?
+
 What users can access /home/intelluxe? User group that is set by bootstrap? Or is the bootstrap only setting it for a specific user right now?
 
 Do we need to make sure that we include proper stuff for the fact that things like AI engineering hub are MIT licensed even though we're closed source?
@@ -33,3 +40,5 @@ https://techxplore.com/news/2025-07-speechssm-possibilities-hour-ai-voice.html
 
 https://cybersecuritynews-com.cdn.ampproject.org/v/s/cybersecuritynews.com/hackers-actively-attacking-linux-ssh-servers/amp/?amp_gsa=1&amp_js_v=a9&usqp=mq331AQGsAEggAID#amp_tf=From%20%251%24s&aoh=17518253161408&csi=0&referrer=https%3A%2F%2Fwww.google.com&ampshare=https%3A%2F%2Fcybersecuritynews.com%2Fhackers-actively-attacking-linux-ssh-servers%2F
 https://dev.to/sroy8091/my-own-hld-designer-darwin-57np/comments
+
+https://dev.to/anthonymax/9-open-source-gems-to-become-the-ultimate-developer-2pnb

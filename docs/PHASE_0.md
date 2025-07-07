@@ -750,24 +750,6 @@ class MedicalTextProcessor(PostProcessorPlugin):
 - Role-based access control
 - Comprehensive audit logging
 
-## 5. Planning and Design Decisions
-
-**Architecture decisions to document:**
-
-1. **Service Management**: Use existing universal service runner pattern
-2. **Database**: PostgreSQL with TimescaleDB extension (not InfluxDB)
-3. **Session Storage**: Redis for fast session management
-4. **Model Serving**: Ollama for local LLM inference
-5. **Tool Orchestration**: AgentCare-MCP for medical tools
-6. **Monitoring**: Custom health monitor (not Uptime Kuma)
-
-**Security and compliance considerations:**
-- All data stays on-premise
-- HIPAA compliance built-in from Phase 1
-- Role-based access control
-- Comprehensive audit logging
-
-
 **Migrate existing pip installations to UV:**
 ```bash
 # If you have existing pip installations, migrate them to UV for faster future installs
