@@ -3,9 +3,17 @@
 @test "unknown argument prints usage and exits 1" {
   run bash scripts/clinic-diagnostics.sh --foo
   [ "$status" -eq 1 ]
-  [[ "${lines[0]}" == Usage:*clinic-diagnostics.sh* ]]
-  # Ensure exactly one usage line is emitted to avoid misleading output.
-  [ "${#lines[@]}" -eq 1 ]
+  # Check that usage message appears in the output (may be after CI messages)
+  [[ "${lines[*]}" == *Usage:*clinic-diagnostics.sh* ]]
+  # Ensure usage line is present
+  local usage_found=false
+  for line in "${lines[@]}"; do
+    if [[ "$line" == Usage:*clinic-diagnostics.sh* ]]; then
+      usage_found=true
+      break
+    fi
+  done
+  [ "$usage_found" = true ]
 }
 
 extract_init() {

@@ -645,8 +645,17 @@ def test_add_service_route(monkeypatch, tmp_path):
     config_dir = tmp_path / "docker-stack"
     config_dir.mkdir(parents=True)
 
-    # Patch the paths
-    monkeypatch.setattr(config_web_ui.os.path, 'join', lambda *args: str(tmp_path / "/".join(args[1:])))
+    # Store the original os.path.join before patching to avoid recursion
+    original_join = config_web_ui.os.path.join
+    
+    # Patch the paths - fix recursion issue
+    def safe_path_join(*args):
+        if len(args) <= 1:
+            return str(tmp_path)
+        # Use the original os.path.join function to avoid recursion
+        return original_join(str(tmp_path), *[str(arg) for arg in args[1:]])
+    
+    monkeypatch.setattr(config_web_ui.os.path, 'join', safe_path_join)
     monkeypatch.setattr(config_web_ui.os, 'makedirs', lambda path, exist_ok=False: None)
 
     files_created = {}

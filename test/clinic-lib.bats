@@ -141,7 +141,7 @@ teardown() {
   unset LOG_DIR CFG_ROOT
   if [[ "${ORIGINAL_CI:-}" == "true" ]]; then
     # In CI, we'll test with a temp directory as the default
-    export INTELLUXE_DEFAULT_ROOT="$TMPDIR/intelluxe-test"
+    export INTELLUXE_DEFAULT_ROOT="${TMPDIR:-/tmp}/intelluxe-test"
     mkdir -p "$INTELLUXE_DEFAULT_ROOT"
     source scripts/clinic-lib.sh
     [ "$LOG_DIR" = "$INTELLUXE_DEFAULT_ROOT/logs" ]
@@ -169,9 +169,9 @@ teardown() {
   tmpdir=$(mktemp -d)
   export LOG_DIR="$tmpdir/mylogs"
   unset CFG_ROOT
-  if [[ "${CI:-}" == "true" ]]; then
+  if [[ "${ORIGINAL_CI:-}" == "true" ]]; then
     # In CI, use a temp directory as the default
-    export INTELLUXE_DEFAULT_ROOT="$tmpdir/intelluxe-default"
+    export INTELLUXE_DEFAULT_ROOT="${tmpdir:-/tmp}/intelluxe-default"
     mkdir -p "$INTELLUXE_DEFAULT_ROOT"
     source scripts/clinic-lib.sh
     [ "$LOG_DIR" = "$tmpdir/mylogs" ]

@@ -38,8 +38,17 @@ CURL_MOCK
 @test "--help prints usage and exits 0" {
   CI=true run bash scripts/resource-pusher.sh --help
   [ "$status" -eq 0 ]
-  [[ "${lines[0]}" == Usage:*resource-pusher.sh* ]]
-  [ "${#lines[@]}" -ge 1 ]
+  # Check that usage message appears in the output (may be after CI messages)
+  [[ "${lines[*]}" == *Usage:*resource-pusher.sh* ]]
+  # Ensure usage line is present
+  local usage_found=false
+  for line in "${lines[@]}"; do
+    if [[ "$line" == Usage:*resource-pusher.sh* ]]; then
+      usage_found=true
+      break
+    fi
+  done
+  [ "$usage_found" = true ]
 }
 
 # The script uses parse_basic_flags which does not error on unknown arguments;
