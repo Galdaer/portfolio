@@ -18,8 +18,8 @@ if [[ "${CI:-false}" == "true" || "${GITHUB_ACTIONS:-false}" == "true" ]]; then
     export CI_MODE=true
     
     # Set up temporary directories that work in CI
-    export TEST_CFG_ROOT="${TEST_CFG_ROOT:-/tmp/test-homelab-config}"
-    export TEST_LOG_DIR="${TEST_LOG_DIR:-/tmp/test-homelab-logs}"
+    export TEST_CFG_ROOT="${TEST_CFG_ROOT:-/tmp/test-intelluxe-config}"
+    export TEST_LOG_DIR="${TEST_LOG_DIR:-/tmp/test-intelluxe-logs}"
     
     # Create test directories
     mkdir -p "$TEST_CFG_ROOT" "$TEST_LOG_DIR"

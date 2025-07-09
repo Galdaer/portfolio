@@ -132,7 +132,12 @@ validate:
 
 test:
 	@echo "🧪  Running Bats tests"
-	bash ./scripts/test.sh
+	@if [ "${CI}" = "true" ]; then \
+		echo "Running tests in CI mode with appropriate skips"; \
+		CI=true bash ./scripts/test.sh; \
+	else \
+		bash ./scripts/test.sh; \
+	fi
 
 test-quiet:
 	@echo "🧪  Running Bats tests (quiet mode)"

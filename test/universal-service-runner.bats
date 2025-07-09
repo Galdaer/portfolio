@@ -7,7 +7,7 @@ setup() {
     export DRY_RUN=true
     export CFG_ROOT="${BATS_TEST_TMPDIR}/clinic-stack"
     export MEDIA_ROOT="${BATS_TEST_TMPDIR}/media"
-    export HOMELABOS_USER="testuser"
+    export INTELLUXE_USER="testuser"
     export TRAEFIK_DOMAIN_NAME="test.localhost"
     export DOCKER_NETWORK_NAME="test-net"
     
@@ -92,7 +92,7 @@ EOF
     cat > "${BATS_TEST_TMPDIR}/services/user/advanced.conf" << 'EOF'
 image=postgres:13
 port=5432
-env=POSTGRES_DB=homelab,POSTGRES_USER=admin,POSTGRES_PASSWORD=secret
+env=POSTGRES_DB=intelluxe,POSTGRES_USER=admin,POSTGRES_PASSWORD=secret
 volumes=/var/lib/postgresql/data:/var/lib/postgresql/data
 memory=512m
 cpus=1.0

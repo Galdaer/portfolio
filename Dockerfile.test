@@ -90,7 +90,7 @@ RUN git clone --depth=1 https://github.com/bats-core/bats-core.git /tmp/bats-cor
     echo "Bats installed successfully"
 
 # Create additional directories and symlinks for compatibility with tests
-RUN mkdir -p /home/homelab /bin /usr/bin /usr/lib/python3 && \
+RUN mkdir -p /home/intelluxe /bin /usr/bin /usr/lib/python3 && \
     ln -sf /usr/bin/python3 /usr/bin/python && \
     ln -sf /bin/bash /bin/sh && \
     ln -sf /usr/share/doc/python3 /usr/lib/python3-test || true
@@ -118,4 +118,4 @@ ENV CI=true
 ENV BATS_TMPDIR=/tmp/bats-tmp
 ENV CFG_ROOT=/tmp/test-config
 ENV LOG_DIR=/tmp/test-logs
-ENV TEST_ROOT=/tmp/homelab-test
+ENV TEST_ROOT=/tmp/intelluxe-test
