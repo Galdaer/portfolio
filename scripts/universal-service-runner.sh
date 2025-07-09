@@ -223,28 +223,6 @@ declare -gA DOCKER_ARG_MAP=(
 fi
 
 # Special handling functions for complex mappings
-handle_extra_args_mapping() {
-    local extra_args_spec="$1"
-    local -a extra_args_array=()
-    
-    # Split extra args by spaces, being careful with quoted arguments
-    # For now, use simple space splitting - can be enhanced later if needed
-    IFS=' ' read -ra args_array <<< "$extra_args_spec"
-    
-    for arg in "${args_array[@]}"; do
-        # Skip empty arguments
-        [[ -z "$arg" ]] && continue
-        
-        # Add each argument to the Docker command
-        extra_args_array+=("$arg")
-    done
-    
-    # Only print if we have arguments
-    if [[ ${#extra_args_array[@]} -gt 0 ]]; then
-        printf '%s\n' "${extra_args_array[@]}"
-    fi
-}
-
 handle_port_mapping() {
     local port_spec="$1"
     local domain_routing="${2:-false}"

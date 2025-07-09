@@ -127,8 +127,8 @@ PORTAINER_CONTAINER_IP="${PORTAINER_CONTAINER_IP:-172.20.0.8}"
 # <SERVICE_IPS>
 
 # Service configuration
-WG_CLIENT_DNS="${WG_CLIENT_DNS:-8.8.8.8}"
-DNS_FALLBACK="${DNS_FALLBACK:-1.1.1.1}"
+WG_CLIENT_DNS="${WG_CLIENT_DNS:-1.1.1.2}"
+DNS_FALLBACK="${DNS_FALLBACK:-9.9.9.9}"
 BACKUP_RETENTION="${BACKUP_RETENTION:-10}"
 MEDIA_SUBDIR="${MEDIA_SUBDIR:-Media}"
 
@@ -851,7 +851,19 @@ ensure_container_running() {
             docker rm -f "$container_name" >/dev/null 2>&1 || true
             
             # Run with universal service runner
-            run_universal_service "$container_name" "$svc_file"
+            if run_universal_service "$container_name" "$svc_file"; then
+                # Execute post-start hook if defined
+                local post_start_hook
+                post_start_hook=$(get_service_config_value "$svc_file" "post_start_hook")
+                if [[ -n "$post_start_hook" ]] && command -v "$post_start_hook" >/dev/null 2>&1; then
+                    log "Executing post-start hook: $post_start_hook"
+                    if "$post_start_hook"; then
+                        log "✅ Post-start hook completed successfully"
+                    else
+                        warn "❌ Post-start hook failed, but service is running"
+                    fi
+                fi
+            fi
             ;;
     esac
 }
@@ -1881,12 +1893,10 @@ choose_containers() {
 	else
 		SELECTED_CONTAINERS=()
 		for idx in $choices; do
-			# Validate that idx is a number
-			if [[ "$idx" =~ ^[0-9]+$ ]]; then
-				SEL="${ALL_CONTAINERS[$((idx - 1))]}"
-				[[ -n "$SEL" ]] && SELECTED_CONTAINERS+=("$SEL")
+			if [[ "$idx" =~ ^[0-9]+$ ]] && ((idx >= 1 && idx <= ${#ALL_CONTAINERS[@]})); then
+				SELECTED_CONTAINERS+=("${ALL_CONTAINERS[$((idx - 1))]}")
 			else
-				warn "Invalid input '$idx' - only numbers are allowed"
+				warn "Invalid selection: $idx (valid range: 1-${#ALL_CONTAINERS[@]})"
 			fi
 		done
 	fi
@@ -2294,7 +2304,10 @@ EOF
 			[[ -z "$delname" ]] && continue
 			delete_client "$delname"
 			;;
-		3) break ;;
+		3) 
+			# Regenerate server config with all existing clients before exiting
+			regenerate_wg_server_config || warn "Failed to regenerate WireGuard server config"
+			break ;;		
 		*) echo "Invalid choice." ;;
 		esac
 	done
@@ -2826,7 +2839,7 @@ restrict_services_to_lan_vpn() {
 			fi
 		fi
 		
-		# Parse complex port formats (e.g., "3000:3000", "51820:51820/udp")
+		# Parse complex port formats (e.g., "3000:80", "51820:51820/udp")
 		if [[ "$port" =~ ^([0-9]+):([0-9]+)(/udp|/tcp)?$ ]]; then
 			# Format: hostport:containerport[/protocol]
 			port="${BASH_REMATCH[1]}"  # Use the host port
@@ -3082,7 +3095,7 @@ generate_summary() {
 		summary_content+="  - Status: $status\n"
 
 		# Show domain access if configured
-		if [[ "${TRAEFIK_DOMAIN_MODE:-local}" != "local" && -n "${TRAEFIK_DOMAIN_NAME:-}" ]]; then
+		if [[ "${TRAEFIK_DOMAIN_MODE:-}" != "local" && -n "${TRAEFIK_DOMAIN_NAME:-}" ]]; then
 			# Skip services that don't get Traefik routing
 		case "${TRAEFIK_DOMAIN_MODE:-local}" in
 		"local" | "vpn-only")
@@ -3246,6 +3259,165 @@ EOF
 	
 	log "📄 Generated Traefik configuration: $config_dir/traefik.yml"
 	return 0
+}
+
+regenerate_wg_server_config() {
+	# Regenerate WireGuard server config with all existing clients
+	local wg_conf="/etc/wireguard/wg_confs/wg0.conf"
+
+	log "Regenerating WireGuard server config with existing clients..."
+
+	# Load server keys
+	load_wg_keys_env || {
+		warn "Could not load WireGuard keys, skipping server config regeneration"
+		return 1
+	}
+
+	# Create base server config
+	cat > "$wg_conf" << EOF
+[Interface]
+PrivateKey = $WG_SERVER_PRIVATE_KEY
+Address = ${VPN_SUBNET_BASE:-10.8.0}.1/24
+ListenPort = 51820
+PostUp = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth+ -j MASQUERADE
+PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth+ -j MASQUERADE
+
+EOF
+
+	# Add peer sections for all existing clients
+	for client_dir in "$WG_CLIENTS_DIR"/*; do
+		[[ -d "$client_dir" ]] || continue
+		local client_name
+		client_name="$(basename "$client_dir")"
+		local client_ip_file="$client_dir/ip"
+		local client_pubkey_file="$client_dir/public.key"
+
+		if [[ -f "$client_ip_file" && -f "$client_pubkey_file" ]]; then
+			local client_ip
+			local client_pubkey
+			client_ip="$(<"$client_ip_file")"
+			client_pubkey="$(<"$client_pubkey_file")"
+
+			cat >> "$wg_conf" << EOF
+[Peer]
+# Client: $client_name
+PublicKey = $client_pubkey
+PresharedKey = $WG_PRESHARED_KEY
+AllowedIPs = $client_ip/32
+
+EOF
+			log "Added peer for client: $client_name (IP: $client_ip)"
+		else
+			warn "Missing files for client $client_name, skipping"
+		fi
+	done
+
+	# Set proper ownership and permissions
+	chmod 600 "$wg_conf"
+	set_ownership "$wg_conf"
+
+	log "WireGuard server config regenerated at $wg_conf"
+
+	# Restart WireGuard container to pick up new config
+	if docker ps -q --filter "name=wireguard" | grep -q .; then
+		log "Restarting WireGuard container to apply new peer configuration..."
+		docker restart wireguard >/dev/null 2>&1 || warn "Failed to restart WireGuard container"
+	fi
+	return 0
+}
+
+validate_config() {
+    log "Validating configuration..."
+
+    # Check if required directories exist
+    if [[ ! -d "$CFG_ROOT" ]]; then
+        warn "Configuration root directory does not exist: $CFG_ROOT"
+        return 1
+    fi
+
+    # Check if Docker is available
+    if ! command -v docker &>/dev/null; then
+        warn "Docker is not installed or not in PATH"
+        return 1
+    fi
+
+    # Check if Docker daemon is running
+    if ! docker info >/dev/null 2>&1; then
+        warn "Docker daemon is not running"
+        return 1
+    fi
+
+    # Validate service configurations
+    local confdir="${SCRIPT_DIR%/scripts}/services/user"
+    for conf in "$confdir"/*.conf; do
+        [ -f "$conf" ] || continue
+        local svc
+        svc=$(basename "$conf" .conf)
+
+        # Check service type
+        local service_type
+        service_type=$(get_service_config_value "$conf" "service_type" "docker")
+
+        case "$service_type" in
+            "systemd")
+                # For systemd services, check if systemd service file exists
+                local systemd_service_name
+                systemd_service_name=$(get_service_config_value "$conf" "service_name" "${svc}.service")
+                if [[ ! -f "${SCRIPT_DIR%/scripts}/systemd/$systemd_service_name" ]]; then
+                    warn "Systemd service file not found: $systemd_service_name"
+                    return 1
+                fi
+                ;;
+            "docker"|*)
+                # For Docker services, check if image is configured
+                local image
+                image=$(get_service_config_value "$conf" "image")
+                if [[ -z "$image" ]]; then
+                    warn "Service $svc has no image configured"
+                    return 1
+                fi
+                ;;
+        esac
+    done
+
+    # Check for nested service configs
+    for service_dir in "$confdir"/*; do
+        [ -d "$service_dir" ] || continue
+        local svc
+        svc=$(basename "$service_dir")
+        local conf="$service_dir/$svc.conf"
+        if [[ -f "$conf" ]]; then
+            # Check service type
+            local service_type
+            service_type=$(get_service_config_value "$conf" "service_type" "docker")
+
+            case "$service_type" in
+                "systemd")
+                    # For systemd services, check if systemd service file exists
+                    local systemd_service_name
+                    systemd_service_name=$(get_service_config_value "$conf" "service_name" "${svc}.service")
+                    if [[ ! -f "${SCRIPT_DIR%/scripts}/systemd/$systemd_service_name" ]]; then
+                        warn "Systemd service file not found: $systemd_service_name"
+                        return 1
+                    fi
+                    ;;
+                "docker"|*)
+                    # For Docker services, check if image is configured
+                    local image
+                    image=$(get_service_config_value "$conf" "image")
+                    if [[ -z "$image" ]]; then
+                        warn "Service $svc has no image configured"
+                        return 1
+                    fi
+                    ;;
+            esac
+        fi
+
+
+    done
+
+    log "✅ Configuration validation passed"
+    return 0
 }
 
 # Entry point for the script
@@ -3506,7 +3678,9 @@ main() {
 	# Handle services that require special setup
 	for container in "${SELECTED_CONTAINERS[@]}"; do
 		local svc_file=""
-		if [[ -f "${SCRIPT_DIR%/scripts}/services/user/${container}.conf" ]]; then
+		if [[ -f "${SCRIPT_DIR%/scripts}/services/user/${container}/${container}.conf" ]]; then
+			svc_file="${SCRIPT_DIR%/scripts}/services/user/${container}/${container}.conf"
+		elif [[ -f "${SCRIPT_DIR%/scripts}/services/user/${container}.conf" ]]; then
 			svc_file="${SCRIPT_DIR%/scripts}/services/user/${container}.conf"
 		fi
 		
