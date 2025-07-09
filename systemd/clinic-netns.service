@@ -11,7 +11,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/clinic-netns-setup.sh
+ExecStart=/opt/intelluxe/scripts/clinic-netns-setup.sh
 StandardOutput=journal
 StandardError=journal
 RemainAfterExit=yes

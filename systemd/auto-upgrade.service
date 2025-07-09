@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/intelluxe/code/homelab-infra/scripts/auto-upgrade.sh
+ExecStart=/opt/intelluxe/scripts/auto-upgrade.sh
 User=root
 StandardOutput=journal
 StandardError=journal

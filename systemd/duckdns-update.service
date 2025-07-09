@@ -16,4 +16,4 @@ Environment=CFG_ROOT=/opt/intelluxe/docker-stack
 EnvironmentFile=-/etc/default/clinic.conf
 # DuckDNS credentials relative to CFG_ROOT
 EnvironmentFile=-${CFG_ROOT}/duckdns/duckdns.env
-ExecStart=/usr/local/bin/duckdns-update.sh
+ExecStart=/opt/intelluxe/scripts/duckdns-update.sh

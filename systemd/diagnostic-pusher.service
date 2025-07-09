@@ -12,7 +12,7 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/diagnostic-pusher.sh
+ExecStart=/opt/intelluxe/scripts/diagnostic-pusher.sh
 
 [Install]
 WantedBy=multi-user.target

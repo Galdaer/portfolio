@@ -11,7 +11,7 @@ Requires=docker.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/clinic-diagnostics.sh --log-file /var/log/clinic-diagnostics.log --deep-check
+ExecStart=/opt/intelluxe/scripts/clinic-diagnostics.sh --log-file /var/log/clinic-diagnostics.log --deep-check
 Restart=on-failure
 RestartSec=30
 StandardOutput=journal

@@ -11,7 +11,7 @@ Requires=docker.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/clinic-bootstrap.sh --log-file /var/log/clinic-bootstrap.log
+ExecStart=/opt/intelluxe/scripts/clinic-bootstrap.sh --log-file /var/log/clinic-bootstrap.log
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal

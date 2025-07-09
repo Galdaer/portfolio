@@ -10,7 +10,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/resource-pusher.sh
+ExecStart=/opt/intelluxe/scripts/resource-pusher.sh
 
 [Install]
 WantedBy=multi-user.target

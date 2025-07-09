@@ -11,7 +11,7 @@ Wants=clinic-auto-repair.timer
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/clinic-auto-repair.sh
+ExecStart=/opt/intelluxe/scripts/clinic-auto-repair.sh
 Nice=10
 
 [Install]

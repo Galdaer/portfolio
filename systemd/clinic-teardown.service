@@ -11,7 +11,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/clinic-teardown.sh --all --force
+ExecStart=/opt/intelluxe/scripts/clinic-teardown.sh --all --force
 StandardOutput=journal
 StandardError=journal
 RemainAfterExit=yes

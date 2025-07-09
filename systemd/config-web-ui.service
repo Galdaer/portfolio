@@ -11,7 +11,7 @@ Requires=docker.service
 [Service]
 Type=simple
 EnvironmentFile=/opt/intelluxe/docker-stack/.clinic-bootstrap.conf
-ExecStart=/usr/local/bin/config_web_ui.py
+ExecStart=/opt/intelluxe/scripts/config_web_ui.py
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
