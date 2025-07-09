@@ -134,8 +134,8 @@ Create the comprehensive project structure:
 
 ```bash
 # Create main project directory
-mkdir -p /opt/intelluxe/code/intelluxe-ai
-cd /opt/intelluxe/code/intelluxe-ai
+mkdir -p /home/intelluxe/
+cd /home/intelluxe/
 
 # Create comprehensive directory structure
 mkdir -p {agents,core,data,infrastructure,notebooks,tests,config,docs,services/user,scripts,systemd,logs}
