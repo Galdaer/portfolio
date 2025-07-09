@@ -134,7 +134,7 @@ test-quiet:
 	QUIET=true bash ./scripts/test.sh
 
 test-coverage:
-	@echo "🧪  Running Bats tests with coverage"
+	@echo "🧪  Running Bats tests with coverage (if available)"
 	USE_KCOV=true bash ./scripts/test.sh
 
 e2e:

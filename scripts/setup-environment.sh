@@ -105,6 +105,7 @@ health_check() {
         ["go version"]="Go"
         ["psql --version"]="PostgreSQL client"
         ["redis-cli --version"]="Redis client"
+        ["wg-quick --help"]="WireGuard tools"
     )
 
     # Add Docker Compose tools using helper function
@@ -189,6 +190,9 @@ build_dependency_list() {
         
         # Security & monitoring (host-level only)
         fail2ban ufw bc tree ncdu iotop mtr
+        
+        # VPN and networking tools
+        wireguard-tools
         
         # Development tools
         shellcheck # shfmt bats installed via Go/Git

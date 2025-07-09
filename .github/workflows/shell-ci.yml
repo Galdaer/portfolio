@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update || true
-          sudo apt-get install -y shellcheck git curl wget python3 python3-pip kcov || true
+          sudo apt-get install -y shellcheck git curl wget python3 python3-pip || true
           
           # Install uv for faster Python package management
           curl -LsSf https://astral.sh/uv/install.sh | sh || echo "Warning: uv installation failed"
@@ -65,12 +65,10 @@ jobs:
           which shellcheck || echo "shellcheck not found"
           which flake8 || echo "flake8 not found"
           which mypy || echo "mypy not found"
-          which kcov || echo "kcov not found"
           which uv || echo "uv not found"
           shellcheck --version || echo "shellcheck version check failed"
           flake8 --version || echo "flake8 version check failed"
           mypy --version || echo "mypy version check failed"
-          kcov --version || echo "kcov version check failed"
           uv --version || echo "uv version check failed"
 
       - name: Run lint (shell and Python)
@@ -225,40 +223,12 @@ jobs:
                 cp -r /workspace /tmp/workspace-rw
                 chmod -R u+w /tmp/workspace-rw
                 
-                echo 'Running test suite with coverage...'
+                echo 'Running test suite...'
                 cd /tmp/workspace-rw
                 
-                # Run tests with kcov for coverage (if available)
-                if command -v kcov >/dev/null 2>&1; then
-                  echo 'Running tests with kcov coverage...'
-                  mkdir -p /workspace/coverage
-                  # Set up proper source path mapping for kcov
-                  export KCOV_PATH=/tmp/workspace-rw
-                  # Run kcov with verbose output to debug issues
-                  timeout 180 kcov \
-                    --exclude-pattern=/usr,/lib,/bin,/sbin,/opt,/var,/etc,/home,/root,/tmp/bats \
-                    --include-pattern=/tmp/workspace-rw/scripts \
-                    --path-strip-level=3 \
-                    --coveralls-id=\${GITHUB_RUN_ID:-local} \
-                    --verify \
-                    /workspace/coverage \
-                    bats -r test/ || {
-                      echo 'kcov with full test suite failed, trying with single test...'
-                      timeout 60 kcov \
-                        --exclude-pattern=/usr,/lib,/bin,/sbin,/opt,/var,/etc,/home,/root,/tmp/bats \
-                        --include-pattern=/tmp/workspace-rw/scripts \
-                        --path-strip-level=3 \
-                        --coveralls-id=\${GITHUB_RUN_ID:-local} \
-                        /workspace/coverage \
-                        bats test/config-management.bats || {
-                          echo 'kcov failed completely, running regular bats...'
-                          timeout 120 bats -r test/ || echo 'Some tests failed'
-                        }
-                    }
-                else
-                  echo 'kcov not available, running regular bats...'
-                  timeout 120 bats -r test/ || echo 'Some tests failed'
-                fi
+                # Run tests with timeout
+                echo 'Running tests with bats...'
+                timeout 120 bats -r test/ || echo 'Some tests failed'
                 
                 echo 'Test execution completed'
                 ls -la /workspace/coverage/ 2>/dev/null || echo 'No coverage directory'

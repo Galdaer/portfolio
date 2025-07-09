@@ -56,11 +56,14 @@ RUN echo "=== Installing development tools ===" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install kcov separately since it might fail - cache this layer
-RUN echo "=== Installing kcov (coverage tool) ===" && \
+# Install additional test dependencies
+RUN echo "=== Installing additional test dependencies ===" && \
     apt-get update && \
-    (timeout 180 apt-get install -y kcov && echo "kcov installed successfully" || \
-     echo "kcov installation failed, coverage will be limited") && \
+    apt-get install -y \
+        strace \
+        time \
+        && \
+    echo "All test dependencies installed successfully" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -106,7 +109,6 @@ RUN echo "=== Tool Verification ===" && \
     bats --version && \
     shellcheck --version && \
     python3 --version && \
-    (kcov --version || echo "kcov not available") && \
     (nc -h 2>&1 | head -1 || echo "netcat available") && \
     which git && which curl && which jq && \
     echo "=== Container Ready ==="
