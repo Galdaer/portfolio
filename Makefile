@@ -12,7 +12,8 @@
        restore \
        setup \
        teardown \
-       test
+       test \
+       update
 
 # Installation Commands
 install:
@@ -34,6 +35,10 @@ deps:
 	@sudo ./scripts/setup-environment.sh || { \
 		echo "❌ Dependency installation failed" >&2; exit 1; \
 	}
+
+update:
+	@echo "🔄  Running system update and upgrade"
+	sudo ./scripts/auto-upgrade.sh
 
 # Main Setup Commands
 setup:
@@ -148,6 +153,7 @@ help:
 	@echo ""
 	@echo "📦 Installation:"
 	@echo "  make install         Install scripts and systemd services system-wide"
+	@echo "  make update    	  Run system update and upgrade"
 	@echo ""
 	@echo "🚀 Setup:"
 	@echo "  make setup           Interactive intelluxe setup (recommended for first run)"
