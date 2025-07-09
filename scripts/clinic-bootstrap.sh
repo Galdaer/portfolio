@@ -234,22 +234,6 @@ source "${SCRIPT_DIR}/clinic-lib.sh"
 # shellcheck source=scripts/universal-service-runner.sh
 source "${SCRIPT_DIR}/universal-service-runner.sh"
 
-# Get server IP for services that need it
-get_server_ip() {
-    # Try to get the main network interface IP
-    local server_ip
-    server_ip=$(ip route get 8.8.8.8 2>/dev/null | grep -oP 'src \K\S+' | head -n1)
-    if [[ -z "$server_ip" ]]; then
-        # Fallback to hostname -I
-        server_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
-    fi
-    if [[ -z "$server_ip" ]]; then
-        # Last resort fallback
-        server_ip="localhost"
-    fi
-    echo "$server_ip"
-}
-
 # Validate LAN subnet after sourcing helper functions
 if ! validate_cidr "$LAN_SUBNET"; then
     die "Invalid LAN_SUBNET '$LAN_SUBNET'. Must be CIDR notation." 1
