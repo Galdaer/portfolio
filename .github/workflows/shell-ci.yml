@@ -18,12 +18,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Check for passwordless sudo
+      - name: Check for passwordless sudo and Docker access
         run: |
           if ! sudo -n true 2>/dev/null; then
             echo "Passwordless sudo is required for CI. Please configure it for the runner user." >&2
             exit 1
           fi
+          
+          # Check Docker daemon access
+          if ! docker info >/dev/null 2>&1; then
+            echo "Docker daemon not accessible. Attempting to add user to docker group..."
+            sudo usermod -aG docker $USER
+            echo "User added to docker group. Note: This may require a restart of the runner service."
+            echo "For immediate effect, you can run: sudo systemctl restart actions.runner.*.service"
+            
+            # Try to access Docker with newgrp (may work in some cases)
+            if ! newgrp docker <<< "docker info" >/dev/null 2>&1; then
+              echo "Docker still not accessible. Please restart the GitHub Actions runner service." >&2
+              exit 1
+            fi
+          fi
+          
+          echo "Docker access verified"
       
       - name: Cache tool installs
         uses: actions/cache@v4
@@ -104,19 +120,34 @@ jobs:
             sudo systemctl reload docker || sudo systemctl restart docker
             sleep 5
           fi
+          
+          # Verify Docker is accessible after configuration
+          if ! docker info >/dev/null 2>&1; then
+            echo "Docker still not accessible after configuration. Using sudo for Docker commands."
+            echo "DOCKER_SUDO=sudo" >> $GITHUB_ENV
+          fi
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: network=host
+      - name: Setup Docker for CI
+        run: |
+          # Use sudo for Docker commands if needed
+          DOCKER_CMD="${DOCKER_SUDO:-} docker"
+          
+          # Test Docker functionality
+          $DOCKER_CMD info
+          
+          # Create isolated test network with DNS
+          $DOCKER_CMD network create intelluxe-ci-test \
+            --driver bridge \
+            --opt com.docker.network.bridge.enable_icc=false \
+            || echo "Network may already exist"
 
       - name: Cache Docker layers
         uses: actions/cache@v4
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-docker-buildx-${{ hashFiles('Dockerfile.test') }}-v3
+          path: /tmp/.docker-cache
+          key: ${{ runner.os }}-docker-${{ hashFiles('Dockerfile.test') }}-v3
           restore-keys: |
-            ${{ runner.os }}-docker-buildx-
+            ${{ runner.os }}-docker-
 
       - name: Run tests
         env:
@@ -125,11 +156,8 @@ jobs:
         run: |
           echo "Running test suite in Docker container for isolation"
           
-          # Create isolated test network with DNS
-          docker network create intelluxe-ci-test \
-            --driver bridge \
-            --opt com.docker.network.bridge.enable_icc=false \
-            || echo "Network may already exist"
+          # Use sudo for Docker commands if needed
+          DOCKER_CMD="${DOCKER_SUDO:-} docker"
           
           # Test DNS connectivity before building
           echo "Testing DNS connectivity..."
@@ -141,20 +169,16 @@ jobs:
             fi
           done
           
-          # Build test runner container with proper BuildKit caching and retries
-          echo "Building test container with optimized caching..."
+          # Build test runner container with retries (without buildx)
+          echo "Building test container..."
           build_success=false
           for attempt in 1 2 3; do
             echo "Build attempt $attempt/3..."
             
-            if timeout 600 docker buildx build \
+            if timeout 600 $DOCKER_CMD build \
               --network=host \
               --tag intelluxe-test-runner:latest \
               --file Dockerfile.test \
-              --cache-from type=local,src=/tmp/.buildx-cache \
-              --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
-              --load \
-              --progress=plain \
               .; then
               echo "Build succeeded on attempt $attempt"
               build_success=true
@@ -163,41 +187,26 @@ jobs:
               echo "Build attempt $attempt failed, exit code: $?"
               if [ $attempt -lt 3 ]; then
                 echo "Cleaning up and retrying..."
-                docker system prune -f
+                $DOCKER_CMD system prune -f
                 sleep 10
               fi
             fi
           done
           
-          # Fallback to simple build if buildx fails
-          if [ "$build_success" = "false" ]; then
-            echo "All buildx attempts failed, trying fallback build..."
-            if timeout 600 docker build --network=host -t intelluxe-test-runner:latest -f Dockerfile.test .; then
-              echo "Fallback build succeeded"
-              build_success=true
-            else
-              echo "Fallback build also failed"
-            fi
-          fi
-          
-          # Move cache to avoid cache bloat
-          if [ -d "/tmp/.buildx-cache-new" ]; then
-            rm -rf /tmp/.buildx-cache
-            mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-          fi
+          # Remove buildx fallback since we're not using buildx anymore
           
           # Only run tests if build succeeded
           if [ "$build_success" = "true" ]; then
             echo "Container built successfully, running tests..."
             
             # Verify container image exists
-            if ! docker image inspect intelluxe-test-runner:latest >/dev/null 2>&1; then
+            if ! $DOCKER_CMD image inspect intelluxe-test-runner:latest >/dev/null 2>&1; then
               echo "Error: Container image not found after build"
               exit 1
             fi
             
             # Run tests in completely isolated environment
-            docker run --rm \
+            $DOCKER_CMD run --rm \
               --network=intelluxe-ci-test \
               --dns=1.1.1.1 \
               --dns=8.8.8.8 \
