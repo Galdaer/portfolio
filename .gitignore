@@ -15,6 +15,7 @@
 !/scripts/
 !/systemd/
 !/test/
+!/test/**/*
 !/docs/
 !/services/
 !/services/user/
