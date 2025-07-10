@@ -51,7 +51,7 @@ fi
 
 # Clean up package cache
 log "Cleaning up package cache..."
-apt autoremove -y
+# apt autoremove -y uncomment to remove bloat, including GUI, for production systems
 apt autoclean
 
 # Check if reboot is required
