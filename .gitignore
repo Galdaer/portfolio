@@ -17,6 +17,7 @@
 !/test/
 !/docs/
 !/services/
+!/services/user/*
 !/misc/
 !/.devcontainer/
 !/.github/
