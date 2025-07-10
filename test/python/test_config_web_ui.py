@@ -647,7 +647,7 @@ def test_add_service_route(monkeypatch, tmp_path):
 
     # Store the original os.path.join before patching to avoid recursion
     original_join = config_web_ui.os.path.join
-    
+
     # Patch the paths - fix recursion issue
     def safe_path_join(*args):
         if len(args) <= 1:
@@ -658,7 +658,7 @@ def test_add_service_route(monkeypatch, tmp_path):
             return original_join(*[str(arg) for arg in args])
         else:
             return original_join(str(tmp_path), *[str(arg) for arg in args[1:]])
-    
+
     monkeypatch.setattr(config_web_ui.os.path, 'join', safe_path_join)
     monkeypatch.setattr(config_web_ui.os, 'makedirs', lambda path, exist_ok=False: None)
 
