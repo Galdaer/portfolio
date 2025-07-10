@@ -81,7 +81,7 @@ DEFAULT_GID=1000
 
 # ----------------- Configuration -----------------
 : "${CFG_ROOT:=/opt/intelluxe/clinic-stack}"
-: "${MEDIA_ROOT:=/media/intelluxe}"
+: "${MEDIA_ROOT:=/media/homelab}"
 : "${CFG_UID:=$DEFAULT_UID}"
 : "${CFG_GID:=$DEFAULT_GID}"
 
@@ -99,7 +99,7 @@ QR_DIR="${CFG_ROOT}/qrcodes"
 WG_DIR="/etc/wireguard"
 WG_KEYS_ENV="/etc/wireguard/wg-keys.env"
 WG_CLIENTS_DIR="/etc/wireguard/clients"
-MEDIA_BASE_PATH="${MEDIA_BASE_PATH:-/media/intelluxe}"
+MEDIA_BASE_PATH="${MEDIA_BASE_PATH:-/media/homelab}"
 MERGERFS_POOL_NAME="${MERGERFS_POOL_NAME:-Media}"
 MERGERFS_DISK_PREFIX="${MERGERFS_DISK_PREFIX:-/opt/intelluxe/storage/disk}"
 DRY_RUN=false
@@ -208,7 +208,7 @@ flock -n 200 || {
 print_banner() {
 	cat <<BANNER
 ─────────────────────────────────────────────────────────────
-  Robust Docker Intelluxe Bootstrapper    v${SCRIPT_VERSION}
+  Robust Docker Homelab Bootstrapper    v${SCRIPT_VERSION}
   https://github.com/Galdaer/Self-hosting-and-networking
 ─────────────────────────────────────────────────────────────
 BANNER
@@ -3049,12 +3049,12 @@ generate_summary() {
 	# Ensure first-time setup logic is executed
 	local summary_content=""
 
-	summary_content+="# Intelluxe Bootstrap Summary\n\n"
+	summary_content+="# Homelab Bootstrap Summary\n\n"
 	summary_content+="Generated on: $(date)\n"
 	summary_content+="Script Version: $SCRIPT_VERSION\n\n"
 
 	echo ""
-	echo "🎉 Intelluxe Bootstrap Complete!"
+	echo "🎉 Homelab Bootstrap Complete!"
 	echo "================================"
 	echo ""
 
@@ -3409,7 +3409,7 @@ main() {
 	print_banner
 
 	if ! $NON_INTERACTIVE && ! $FORCE_DEFAULTS; then
-		echo "Welcome to the Robust Docker Intelluxe Bootstrapper!"
+		echo "Welcome to the Robust Docker Homelab Bootstrapper!"
 		echo "For guided help, see the README or run ./clinic-bootstrap.sh --help"
 	fi
 
