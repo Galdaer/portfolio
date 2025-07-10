@@ -652,8 +652,12 @@ def test_add_service_route(monkeypatch, tmp_path):
     def safe_path_join(*args):
         if len(args) <= 1:
             return str(tmp_path)
-        # Use the original os.path.join function to avoid recursion
-        return original_join(str(tmp_path), *[str(arg) for arg in args[1:]])
+        # Don't use tmp_path if the first arg is already the tmp_path
+        first_arg = str(args[0]) if args else ""
+        if str(tmp_path) in first_arg:
+            return original_join(*[str(arg) for arg in args])
+        else:
+            return original_join(str(tmp_path), *[str(arg) for arg in args[1:]])
     
     monkeypatch.setattr(config_web_ui.os.path, 'join', safe_path_join)
     monkeypatch.setattr(config_web_ui.os, 'makedirs', lambda path, exist_ok=False: None)

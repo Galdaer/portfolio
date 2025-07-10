@@ -80,7 +80,7 @@ teardown() {
   if [[ "${ORIGINAL_CI:-}" == "true" ]]; then
     skip "Skipping file ownership test in CI - running in container"
   fi
-  CHOWN_LOG="$TMPDIR/chown_default"
+  CHOWN_LOG="${TMPDIR:-/tmp}/chown_default"
   # Stub chown to capture its arguments instead of altering file ownership
   chown() { echo "$*" > "$CHOWN_LOG"; }
   export -f chown
@@ -95,7 +95,7 @@ teardown() {
   if [[ "${ORIGINAL_CI:-}" == "true" ]]; then
     skip "Skipping file ownership test in CI - running in container"
   fi
-  CHOWN_LOG="$TMPDIR/chown_custom"
+  CHOWN_LOG="${TMPDIR:-/tmp}/chown_custom"
   # Stub chown again for this test case
   chown() { echo "$*" > "$CHOWN_LOG"; }
   export -f chown
@@ -111,7 +111,7 @@ teardown() {
   if [[ "${ORIGINAL_CI:-}" == "true" ]]; then
     skip "Skipping Docker socket test in CI - no Docker socket access"
   fi
-  export DOCKER_SOCKET="$TMPDIR/custom.sock"
+  export DOCKER_SOCKET="${TMPDIR:-/tmp}/custom.sock"
   nc -lU "$DOCKER_SOCKET" &
   sock_pid=$!
   sleep 0.5
