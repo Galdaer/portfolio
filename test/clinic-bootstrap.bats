@@ -185,7 +185,6 @@ EOF
   VPN_SUBNET="10.9.0.0/24"
   VPN_SUBNET_BASE="10.9.0"
   SCRIPT_VERSION="test-version"
-  MEDIA_ROOT="$TMPDIR/media"
   CFG_UID=$(id -u)
   CFG_GID=$(id -g)
   # Add dummy values for other variables used in save_config
@@ -200,10 +199,6 @@ EOF
   TRAEFIK_ACME_EMAIL=""
   WG_DIR="/tmp/wg"
   STORE_WG_IN_VAULT="false"
-  VAULTWARDEN_URL=""
-  VAULTWARDEN_TOKEN=""
-  MEDIA_DRIVES_ENABLED="false"
-  MEDIA_MOUNT_MODE="mergerfs"
   declare -A USER_SERVICE_PORTS=()
   declare -a SELECTED_CONTAINERS=()
   declare -a RESTRICTED_SERVICES=()
@@ -247,10 +242,6 @@ EOF
   TRAEFIK_ACME_EMAIL=""
   WG_DIR="/tmp/wg"
   STORE_WG_IN_VAULT="false"
-  VAULTWARDEN_URL=""
-  VAULTWARDEN_TOKEN=""
-  MEDIA_DRIVES_ENABLED="false"
-  MEDIA_MOUNT_MODE="mergerfs"
   declare -A USER_SERVICE_PORTS=()
   declare -a SELECTED_CONTAINERS=()
   declare -a RESTRICTED_SERVICES=()

@@ -6,12 +6,11 @@ load test_helper
 setup() {
     export DRY_RUN=true
     export CFG_ROOT="${BATS_TEST_TMPDIR}/clinic-stack"
-    export MEDIA_ROOT="${BATS_TEST_TMPDIR}/media"
     export INTELLUXE_USER="testuser"
     export TRAEFIK_DOMAIN_NAME="test.localhost"
     export DOCKER_NETWORK_NAME="test-net"
     
-    mkdir -p "$CFG_ROOT" "$MEDIA_ROOT"
+    mkdir -p "$CFG_ROOT"
     mkdir -p "${BATS_TEST_TMPDIR}/services/user"
     
     # Source required functions from clinic-bootstrap.sh

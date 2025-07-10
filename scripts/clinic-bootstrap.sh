@@ -81,7 +81,6 @@ DEFAULT_GID=1000
 
 # ----------------- Configuration -----------------
 : "${CFG_ROOT:=/opt/intelluxe/clinic-stack}"
-: "${MEDIA_ROOT:=/media/homelab}"
 : "${CFG_UID:=$DEFAULT_UID}"
 : "${CFG_GID:=$DEFAULT_GID}"
 
@@ -99,9 +98,6 @@ QR_DIR="${CFG_ROOT}/qrcodes"
 WG_DIR="/etc/wireguard"
 WG_KEYS_ENV="/etc/wireguard/wg-keys.env"
 WG_CLIENTS_DIR="/etc/wireguard/clients"
-MEDIA_BASE_PATH="${MEDIA_BASE_PATH:-/media/homelab}"
-MERGERFS_POOL_NAME="${MERGERFS_POOL_NAME:-Media}"
-MERGERFS_DISK_PREFIX="${MERGERFS_DISK_PREFIX:-/opt/intelluxe/storage/disk}"
 DRY_RUN=false
 DEBUG=${DEBUG:-false}
 NON_INTERACTIVE=${NON_INTERACTIVE:-false}
@@ -123,14 +119,12 @@ LAN_SUBNET="${LAN_SUBNET:-192.168.0.0/16}"
 # Default container IP assignments - these will be used when services are added
 WG_CONTAINER_IP="${WG_CONTAINER_IP:-172.20.0.2}"
 TRAEFIK_CONTAINER_IP="${TRAEFIK_CONTAINER_IP:-172.20.0.4}"
-PORTAINER_CONTAINER_IP="${PORTAINER_CONTAINER_IP:-172.20.0.8}"
 # <SERVICE_IPS>
 
 # Service configuration
 WG_CLIENT_DNS="${WG_CLIENT_DNS:-1.1.1.2}"
 DNS_FALLBACK="${DNS_FALLBACK:-9.9.9.9}"
 BACKUP_RETENTION="${BACKUP_RETENTION:-10}"
-MEDIA_SUBDIR="${MEDIA_SUBDIR:-Media}"
 
 # Dynamic service-specific configuration (set during service setup)
 # Service-specific configurations are now handled in individual service .conf files
@@ -145,10 +139,6 @@ VPN_SUBNET_BASE="${VPN_SUBNET_BASE:-10.8.0}"
 # Firewall restriction configuration
 FIREWALL_RESTRICT_MODE="ask" # "ask", "restrict", "open"
 RESTRICTED_SERVICES=()
-
-# Vaultwarden integration
-VAULTWARDEN_URL="${VAULTWARDEN_URL:-http://localhost:8081}"
-VAULTWARDEN_TOKEN="${VAULTWARDEN_TOKEN:-}"
 STORE_WG_IN_VAULT="${STORE_WG_IN_VAULT:-false}"
 
 # Container port configuration array
@@ -281,7 +271,6 @@ save_config() {
 
 # Core paths
 CFG_ROOT="$CFG_ROOT"
-MEDIA_ROOT="$MEDIA_ROOT"
 CFG_UID="$CFG_UID"
 CFG_GID="$CFG_GID"
 
@@ -307,19 +296,7 @@ RESTRICTED_SERVICES=(${RESTRICTED_SERVICES[@]})
 TRAEFIK_DOMAIN_MODE="$TRAEFIK_DOMAIN_MODE"
 TRAEFIK_DOMAIN_NAME="$TRAEFIK_DOMAIN_NAME"
 TRAEFIK_ACME_EMAIL="$TRAEFIK_ACME_EMAIL"
-
-# Media drive configuration
-MEDIA_DRIVES_ENABLED="${MEDIA_DRIVES_ENABLED:-false}"
-MEDIA_MOUNT_MODE="${MEDIA_MOUNT_MODE:-mergerfs}"
 EOF
-
-    # Save media drive UUIDs
-    for i in {1..10}; do
-        local var_name="MEDIA_DISK${i}_UUID"
-        if [[ -n "${!var_name:-}" ]]; then
-            echo "${var_name}=\"${!var_name}\"" >> "$CONFIG_FILE"
-        fi
-    done
 
     # Save custom port mappings
     echo "" >> "$CONFIG_FILE"
@@ -347,14 +324,6 @@ EOF
         echo "# WireGuard configuration"
         echo "WG_DIR=\"$WG_DIR\""
         echo "STORE_WG_IN_VAULT=\"$STORE_WG_IN_VAULT\""
-    } >> "$CONFIG_FILE"
-
-    # Vaultwarden configuration
-    {
-        echo ""
-        echo "# Vaultwarden configuration"
-        echo "VAULTWARDEN_URL=\"$VAULTWARDEN_URL\""
-        [[ -n "${VAULTWARDEN_TOKEN:-}" ]] && echo "VAULTWARDEN_TOKEN=\"$VAULTWARDEN_TOKEN\""
     } >> "$CONFIG_FILE"
 
     chmod 600 "$CONFIG_FILE"
@@ -460,7 +429,6 @@ auto_install_deps() {
   # Add qrencode to required deps if WireGuard is selected
     if [[ " ${SELECTED_CONTAINERS[*]} " == *" wireguard "* ]]; then
         deps+=(qrencode)
-        [[ "$STORE_WG_IN_VAULT" == "true" ]] && deps+=(vaultwarden-cli)
     fi
 
 	for dep in "${deps[@]}"; do
@@ -935,81 +903,11 @@ setup_service_env_vars() {
 }
 
 # ----------------- Data Drive Configuration Functions -----------------
-detect_available_drives() {
-	# Detect available storage drives and return their info
-	local drives=()
-
-	# Find drives with ext4, ntfs, or unformatted partitions
-	while IFS= read -r line; do
-		if [[ -n "$line" ]]; then
-			drives+=("$line")
-		fi
-	done < <(lsblk -no NAME,SIZE,FSTYPE,UUID,MOUNTPOINT | awk '
-		BEGIN { print "# Available storage drives:" }
-		$3 ~ /^(ext4|ntfs|)$/ && $1 !~ /^(loop|sr|dm-)/ && $2 ~ /[GT]B?$/ && length($1) <= 4 {
-			if ($4 == "") { uuid = "UNFORMATTED" } else { uuid = $4 }
-			if ($5 == "") { mount = "UNMOUNTED" } else { mount = $5 }
-			printf "/dev/%s (%s, %s, %s, %s)\n", $1, $2, $3 ? $3 : "unformatted", uuid, mount
-		}')
-
-	if [[ ${#drives[@]} -gt 1 ]]; then # More than just the header
-		printf '%s\n' "${drives[@]}"
-		return 0
-	else
-		echo "# No suitable storage drives detected"
-		return 1
-	fi
-}
 
 get_drive_uuid() {
 	# Get UUID for a device path
 	local device="$1"
 	blkid -o value -s UUID "$device" 2>/dev/null || echo ""
-}
-
-prompt_for_media_drive() {
-	# Prompt for a media drive UUID with validation
-	local var_name="$1" prompt_text="$2" current_uuid="${3:-}"
-
-	if $NON_INTERACTIVE || $FORCE_DEFAULTS; then
-		eval "$var_name='$current_uuid'"
-		return
-	fi
-
-	while true; do
-		if [[ -n "$current_uuid" ]]; then
-			if [[ -t 0 ]]; then
-				read -rp "$prompt_text (current: $current_uuid, press Enter to keep): " new_uuid
-			else
-				log "Non-interactive mode detected. Keeping current UUID."
-				new_uuid="$current_uuid"
-			fi
-			new_uuid="${new_uuid/#\~/$HOME}" # Expand ~ to home directory
-		else
-			if [[ -t 0 ]]; then
-				read -rp "$prompt_text (leave empty to skip): " new_uuid
-			else
-				log "Non-interactive mode detected. Skipping UUID input."
-				new_uuid=""
-			fi
-		fi
-
-		if [[ -z "$new_uuid" ]]; then
-			eval "$var_name=''"
-			return
-		fi
-
-		if validate_uuid "$new_uuid"; then
-			eval "$var_name='$new_uuid'"
-			log "✅ UUID $new_uuid validated successfully"
-			return
-		else
-			warn "UUID '$new_uuid' not found on system. Please check and try again."
-			echo "Available drives:"
-			detect_available_drives
-			echo ""
-		fi
-       done
 }
 
 reset_wireguard_keys() {
@@ -1078,539 +976,9 @@ stop_service() {
         ok "$svc stopped."
 }
 
-configure_media_drives() {
-	# Interactive media drive configuration similar to port configuration
-	log "Configuring media drives for mergerFS..."
-
-	# Check if user has selected containers that would benefit from media drives
-	local needs_media=false
-	for container in "${SELECTED_CONTAINERS[@]}"; do
-		# Check service configuration for media services
-		local svc_file=""
-		if [[ -f "${SCRIPT_DIR%/scripts}/services/user/${container}.conf" ]]; then
-			svc_file="${SCRIPT_DIR%/scripts}/services/user/${container}.conf"
-		fi
-		
-		if [[ -n "$svc_file" ]]; then
-			local desc
-			desc=$(get_service_config_value "$svc_file" "description")
-			local requires_media
-			requires_media=$(get_service_config_value "$svc_file" "requires_media")
-			
-			# Check if service requires media or has media-related keywords
-			if [[ "$requires_media" == "true" ]] || [[ "$desc" == *"media"* ]] || [[ "$desc" == *"healthcare data processing"* ]]; then
-				needs_media=true
-				break
-			fi
-		fi
-	done
-
-	if ! $needs_media; then
-		if $NON_INTERACTIVE || $FORCE_DEFAULTS; then
-			log "No media services selected. Skipping media drive configuration in non-interactive mode."
-			MEDIA_DRIVES_ENABLED="false"
-			return
-		else
-			echo ""
-			echo "No media services are currently selected."
-			read -rp "Would you still like to configure media drives? [y/N]: " ans
-			if [[ ! "${ans,,}" =~ ^(y|yes)$ ]]; then
-				log "Skipping media drive configuration."
-				MEDIA_DRIVES_ENABLED="false"
-				return
-			fi
-		fi
-	fi
-
-	# Check if media drives are already configured
-	local config_exists=false
-	if [[ -f "$CONFIG_FILE" ]] && grep -q "MEDIA_DRIVES_ENABLED" "$CONFIG_FILE" 2>/dev/null; then
-		config_exists=true
-	fi
-
-	if [[ "$config_exists" == "true" ]]; then
-		if ! $NON_INTERACTIVE && ! $FORCE_DEFAULTS; then
-			echo ""
-			echo "========================================"
-			echo "      CURRENT MEDIA DRIVE CONFIG"
-			echo "========================================"
-			echo ""
-
-			if [[ "${MEDIA_DRIVES_ENABLED:-false}" == "true" ]]; then
-				echo "✅ Media drives currently enabled:"
-				# Show all configured drives
-				for ((i = 1; i <= 10; i++)); do
-					local var_name="MEDIA_DISK${i}_UUID"
-					local drive_uuid="${!var_name:-}"
-					[[ -n "$drive_uuid" ]] && echo "   Disk $i: $drive_uuid"
-				done
-				echo "   Mount mode: ${MEDIA_MOUNT_MODE:-mergerfs}"
-			else
-				echo "❌ Media drives currently disabled"
-			fi
-
-			echo ""
-			read -rp "Would you like to update media drive configuration? [y/N]: " ans
-			if [[ ! "${ans,,}" =~ ^(y|yes)$ ]]; then
-				log "Using existing media drive configuration."
-				return
-			fi
-		else
-			log "Using existing media drive configuration from $CONFIG_FILE"
-			return
-		fi
-	fi
-
-	# Show available drives
-	echo ""
-	echo "========================================"
-	echo "       MEDIA DRIVE CONFIGURATION"
-	echo "========================================"
-	echo ""
-
-	if ! $NON_INTERACTIVE && ! $FORCE_DEFAULTS; then
-		echo "📀 Detecting available storage drives..."
-		echo ""
-
-		if detect_available_drives; then
-			echo ""
-			echo "💡 Tips:"
-			echo "   • Use 'lsblk -f' to see all drives with UUIDs"
-			echo "   • Use 'blkid' to see detailed filesystem information"
-			echo "   • ext4 format is recommended for best performance"
-			echo ""
-		fi
-
-		# Ask if user wants to enable media drives
-		read -rp "Enable media drive configuration? [Y/n]: " enable_media
-		if [[ "${enable_media,,}" =~ ^(n|no)$ ]]; then
-			log "Media drives disabled by user choice."
-			MEDIA_DRIVES_ENABLED="false"
-			return
-		fi
-
-		# Ask if user wants individual drive management
-		echo ""
-		echo "Configuration options:"
-		echo "1) Quick setup  - Configure drives in bulk (recommended for new setups)"
-		echo "2) Individual   - Manage drives one by one (recommended for existing setups)"
-		echo ""
-		read -rp "Choose configuration method [1-2] (press Enter for '1'): " config_method
-		config_method="${config_method:-1}"
-
-		if [[ "$config_method" == "2" ]]; then
-			# Use individual drive management
-			MEDIA_DRIVES_ENABLED="true"
-			manage_drives_individually
-			save_config || {
-				fail "save_config failed (after individual drive management)"
-				exit 1
-			}
-			return
-		fi
-	fi
-
-	MEDIA_DRIVES_ENABLED="true"
-
-	# Configure mount mode
-	if ! $NON_INTERACTIVE; then
-		echo ""
-		echo "Mount mode options:"
-		echo "1) mergerfs     - Pool multiple drives into single location (recommended for 2+ drives)"
-		echo "2) independent  - Multiple drives mounted separately (Movies, TV, Music, etc.)"
-		echo "3) single       - Use single drive mount"
-		echo ""
-		read -rp "Mount mode [1-3] (press Enter for '1'): " mode_choice
-		mode_choice="${mode_choice:-1}"
-
-		case "$mode_choice" in
-		1) MEDIA_MOUNT_MODE="mergerfs" ;;
-		2) MEDIA_MOUNT_MODE="independent" ;;
-		3) MEDIA_MOUNT_MODE="single" ;;
-		*) MEDIA_MOUNT_MODE="mergerfs" ;;
-		esac
-	else
-		MEDIA_MOUNT_MODE="${MEDIA_MOUNT_MODE:-mergerfs}"
-	fi
-
-	log "Using mount mode: $MEDIA_MOUNT_MODE"
-
-	# Configure drives based on mount mode
-	if [[ "$MEDIA_MOUNT_MODE" == "single" ]]; then
-		prompt_for_media_drive "MEDIA_DISK1_UUID" "Primary media drive UUID" "${MEDIA_DISK1_UUID:-}"
-		MEDIA_DISK2_UUID=""
-		MEDIA_DISK3_UUID=""
-	elif [[ "$MEDIA_MOUNT_MODE" == "independent" ]]; then
-		# Independent mode - ask how many drives and what purpose
-		if ! $NON_INTERACTIVE && ! $FORCE_DEFAULTS; then
-			echo ""
-			echo "Independent mode: Configure drives for separate mount points"
-			echo "💡 Each drive will be mounted separately (e.g., /opt/intelluxe/data/Movies, /opt/intelluxe/data/TV)"
-			echo ""
-
-			local num_drives=2
-			while true; do
-				read -rp "Number of drives [2-10] (press Enter for '2'): " num_drives_input
-				num_drives="${num_drives_input:-2}"
-
-				if [[ "$num_drives" =~ ^[2-9]$|^10$ ]]; then
-					break
-				else
-					warn "Please enter a number between 2 and 10"
-				fi
-			done
-
-			log "Configuring $num_drives independent drives"
-		else
-			# Non-interactive: use existing configuration or default to 2
-			local num_drives=2
-			[[ -n "${MEDIA_DISK1_UUID:-}" ]] && num_drives=1
-			[[ -n "${MEDIA_DISK2_UUID:-}" ]] && num_drives=2
-			[[ -n "${MEDIA_DISK3_UUID:-}" ]] && num_drives=3
-			# Count any additional drives from environment
-			for i in {4..10}; do
-				var_name="MEDIA_DISK${i}_UUID"
-				if [[ -n "${!var_name:-}" ]]; then
-					num_drives=$i
-				fi
-			done
-		fi
-
-		# Configure the drives with suggested purposes
-		local drive_purposes=(
-			    "${DRIVE_PURPOSE_1:-Movies}"
-				"${DRIVE_PURPOSE_2:-TV Shows}"
-				"${DRIVE_PURPOSE_3:-Music}"
-				"${DRIVE_PURPOSE_4:-Photos}"
-				"${DRIVE_PURPOSE_5:-Downloads}"
-				"${DRIVE_PURPOSE_6:-Backups}"
-				"${DRIVE_PURPOSE_7:-Archive}"
-				"${DRIVE_PURPOSE_8:-Games}"
-				"${DRIVE_PURPOSE_9:-Documents}"
-				"${DRIVE_PURPOSE_10:-Other}"
-				)
-		for ((i = 1; i <= num_drives; i++)); do
-			local var_name="MEDIA_DISK${i}_UUID"
-			local current_value="${!var_name:-}"
-			local purpose="${drive_purposes[$((i - 1))]:-Drive $i}"
-			local prompt_text="$purpose drive UUID"
-
-			if [[ $i -le 2 ]]; then
-				prompt_for_media_drive "$var_name" "$prompt_text" "$current_value"
-			else
-				prompt_for_media_drive "$var_name" "$prompt_text (optional)" "$current_value"
-			fi
-		done
-
-		# Clear any drives beyond the configured number
-		for ((i = num_drives + 1; i <= 10; i++)); do
-			local var_name="MEDIA_DISK${i}_UUID"
-			eval "$var_name=''"
-		done
-	else
-		# mergerfs mode - ask how many drives user wants to configure
-		if ! $NON_INTERACTIVE && ! $FORCE_DEFAULTS; then
-			echo ""
-			echo "How many drives would you like to configure for mergerFS?"
-			echo "💡 You can configure 2-10 drives (mergerFS works best with 2+ drives)"
-			echo ""
-
-			local num_drives=2
-			while true; do
-				read -rp "Number of drives [2-10] (press Enter for '2'): " num_drives_input
-				num_drives="${num_drives_input:-2}"
-
-				if [[ "$num_drives" =~ ^[2-9]$|^10$ ]]; then
-					break
-				else
-					warn "Please enter a number between 2 and 10"
-				fi
-			done
-
-			log "Configuring $num_drives drives for mergerFS"
-		else
-			# Non-interactive: use existing configuration or default to 2
-			local num_drives=2
-			[[ -n "${MEDIA_DISK2_UUID:-}" ]] && num_drives=2
-			[[ -n "${MEDIA_DISK3_UUID:-}" ]] && num_drives=3
-			# Count any additional drives from environment
-			for i in {4..10}; do
-				var_name="MEDIA_DISK${i}_UUID"
-				if [[ -n "${!var_name:-}" ]]; then
-					num_drives=$i
-				fi
-			done
-		fi
-
-		# Configure the drives
-		for ((i = 1; i <= num_drives; i++)); do
-			local var_name="MEDIA_DISK${i}_UUID"
-			local current_value="${!var_name:-}"
-			local prompt_text="Drive $i UUID"
-
-			if [[ $i -eq 1 ]]; then
-				prompt_text="First drive UUID"
-			elif [[ $i -eq 2 ]]; then
-				prompt_text="Second drive UUID"
-			elif [[ $i -eq 3 ]]; then
-				prompt_text="Third drive UUID"
-			else
-				prompt_text="Drive $i UUID (optional)"
-			fi
-
-			# Make first two drives required, others optional
-			if [[ $i -le 2 ]]; then
-				prompt_for_media_drive "$var_name" "$prompt_text" "$current_value"
-			else
-				prompt_for_media_drive "$var_name" "$prompt_text (optional)" "$current_value"
-			fi
-		done
-
-		# Clear any drives beyond the configured number
-		for ((i = num_drives + 1; i <= 10; i++)); do
-			local var_name="MEDIA_DISK${i}_UUID"
-			eval "$var_name=''"
-		done
-	fi
-
-	# Validate configuration
-	local configured_drives=0
-	for ((i = 1; i <= 10; i++)); do
-		local var_name="MEDIA_DISK${i}_UUID"
-		[[ -n "${!var_name:-}" ]] && ((configured_drives++))
-	done
-
-	if [[ $configured_drives -eq 0 ]]; then
-		warn "No drives configured. Disabling media drives."
-		MEDIA_DRIVES_ENABLED="false"
-	elif [[ $configured_drives -eq 1 && "$MEDIA_MOUNT_MODE" == "mergerfs" ]]; then
-		if ! $NON_INTERACTIVE && ! $FORCE_DEFAULTS; then
-			echo ""
-			warn "Only one drive configured for mergerFS mode."
-			read -rp "Switch to single drive mode? [Y/n]: " switch_mode
-		else
-			log "Non-interactive mode detected. Defaulting to 'Yes'."
-			switch_mode="y"
-		fi
-		if [[ "${switch_mode,,}" =~ ^(y|yes)$ ]]; then
-			MEDIA_MOUNT_MODE="single"
-			log "Switched to single drive mode."
-		elif [[ "${switch_mode,,}" =~ ^(n|no)$ ]]; then
-			log "Keeping mergerFS mode with single drive."
-			# Logic to retain mergerFS mode
-		fi
-	fi
-
-	# Summary
-	if [[ "${MEDIA_DRIVES_ENABLED:-false}" == "true" ]]; then
-		echo ""
-		echo "✅ Media drive configuration summary:"
-		echo "   Mode: $MEDIA_MOUNT_MODE"
-		echo "   Drives configured: $configured_drives"
-
-		# Show all configured drives
-		for ((i = 1; i <= 10; i++)); do
-			local var_name="MEDIA_DISK${i}_UUID"
-			local drive_uuid="${!var_name:-}"
-			[[ -n "$drive_uuid" ]] && echo "   Disk $i: $drive_uuid"
-		done
-
-		echo ""
-
-		if [[ "$MEDIA_MOUNT_MODE" == "mergerfs" ]]; then
-			log "Drives will be mounted at /opt/intelluxe/storage/disk1, /opt/intelluxe/storage/disk2, etc. and pooled at /opt/intelluxe/data/Media"
-		elif [[ "$MEDIA_MOUNT_MODE" == "independent" ]]; then
-			log "Drives will be mounted independently at /opt/intelluxe/data/Movies, /opt/intelluxe/data/TV, etc."
-		else
-			log "Drive will be mounted at /opt/intelluxe/data/Media"
-		fi
-	else
-		log "Media drives disabled."
-	fi
-}
 
 # ----------------- Individual Drive Management -----------------
-manage_drives_individually() {
-	# Allow users to add/remove drives one by one
-	while true; do
-		echo ""
-		echo "========================================"
-		echo "     INDIVIDUAL DRIVE MANAGEMENT"
-		echo "========================================"
-		echo ""
 
-		# Show current drive configuration
-		local configured_drives=0
-		echo "📀 Current drive configuration:"
-		for ((i = 1; i <= 10; i++)); do
-			local var_name="MEDIA_DISK${i}_UUID"
-			local drive_uuid="${!var_name:-}"
-			if [[ -n "$drive_uuid" ]]; then
-				echo "   Slot $i: $drive_uuid"
-				((configured_drives++))
-			else
-				echo "   Slot $i: [empty]"
-			fi
-		done
-
-		echo ""
-		echo "Options:"
-		echo "  1) Add a drive to empty slot"
-		echo "  2) Remove a drive from slot"
-		echo "  3) Replace drive in slot"
-		echo "  4) View available drives"
-		echo "  5) Done managing drives"
-		echo ""
-
-		read -rp "Choice [1-5]: " choice
-		case "$choice" in
-		1)
-			add_drive_to_slot
-			;;
-		2)
-			remove_drive_from_slot
-			;;
-		3)
-			replace_drive_in_slot
-			;;
-		4)
-			echo ""
-			echo "📀 Available drives:"
-			detect_available_drives || echo "   No additional drives detected"
-			echo ""
-			read -rp "Press Enter to continue..."
-			;;
-		5)
-			break
-			;;
-		*)
-			warn "Invalid choice. Please select 1-5."
-			;;
-		esac
-	done
-}
-
-add_drive_to_slot() {
-	# Add a drive to the first available slot
-	local empty_slot=""
-	for ((i = 1; i <= 10; i++)); do
-		local var_name="MEDIA_DISK${i}_UUID"
-		if [[ -z "${!var_name:-}" ]]; then
-			empty_slot=$i
-			break
-		fi
-	done
-
-	if [[ -z "$empty_slot" ]]; then
-		warn "All drive slots (1-10) are currently occupied."
-		return
-	fi
-
-	echo ""
-	echo "Adding drive to slot $empty_slot"
-	echo "Available drives:"
-	detect_available_drives || echo "   No additional drives detected"
-	echo ""
-
-	local var_name="MEDIA_DISK${empty_slot}_UUID"
-	prompt_for_media_drive "$var_name" "Drive UUID for slot $empty_slot" ""
-
-	if [[ -n "${!var_name:-}" ]]; then
-		log "✅ Added drive ${!var_name} to slot $empty_slot"
-	fi
-}
-
-remove_drive_from_slot() {
-	# Remove a drive from a specific slot
-	local occupied_slots=()
-	for ((i = 1; i <= 10; i++)); do
-		local var_name="MEDIA_DISK${i}_UUID"
-		if [[ -n "${!var_name:-}" ]]; then
-			occupied_slots+=("$i")
-		fi
-	done
-
-	if [[ ${#occupied_slots[@]} -eq 0 ]]; then
-		warn "No drives configured to remove."
-		return
-	fi
-
-	echo ""
-	echo "Occupied slots:"
-	for slot in "${occupied_slots[@]}"; do
-		local var_name="MEDIA_DISK${slot}_UUID"
-		echo "   Slot $slot: ${!var_name}"
-	done
-	echo ""
-
-	read -rp "Enter slot number to remove [1-10]: " slot_to_remove
-
-	if [[ ! "$slot_to_remove" =~ ^[1-9]$|^10$ ]]; then
-		warn "Invalid slot number. Must be 1-10."
-		return
-	fi
-
-	local var_name="MEDIA_DISK${slot_to_remove}_UUID"
-	if [[ -z "${!var_name:-}" ]]; then
-		warn "Slot $slot_to_remove is already empty."
-		return
-	fi
-
-	echo "⚠️  About to remove drive from slot $slot_to_remove: ${!var_name}"
-	if [[ -t 0 ]]; then
-		read -rp "Are you sure? This will not delete data, just remove from config [y/N]: " confirm
-	else
-		log "Non-interactive mode detected. Defaulting to 'No'."
-		confirm="n"
-	fi
-
-	if [[ "${confirm,,}" =~ ^(y|yes)$ ]]; then
-		eval "$var_name=''"
-		log "✅ Removed drive from slot $slot_to_remove"
-	else
-		log "Operation cancelled."
-	fi
-}
-
-replace_drive_in_slot() {
-	# Replace a drive in a specific slot
-	echo ""
-	echo "Current drive configuration:"
-	for ((i = 1; i <= 10; i++)); do
-		local var_name="MEDIA_DISK${i}_UUID"
-		local drive_uuid="${!var_name:-}"
-		if [[ -n "$drive_uuid" ]]; then
-			echo "   Slot $i: $drive_uuid"
-		fi
-	done
-	echo ""
-
-	read -rp "Enter slot number to replace [1-10]: " slot_to_replace
-
-	if [[ ! "$slot_to_replace" =~ ^[1-9]$|^10$ ]]; then
-		warn "Invalid slot number. Must be 1-10."
-		return
-	fi
-
-	local var_name="MEDIA_DISK${slot_to_replace}_UUID"
-	local current_uuid="${!var_name:-}"
-
-	if [[ -z "$current_uuid" ]]; then
-		warn "Slot $slot_to_replace is empty. Use 'Add drive' option instead."
-		return
-	fi
-
-	echo "Current drive in slot $slot_to_replace: $current_uuid"
-	echo "Available drives:"
-	detect_available_drives || echo "   No additional drives detected"
-	echo ""
-
-	prompt_for_media_drive "$var_name" "New drive UUID for slot $slot_to_replace" "$current_uuid"
-
-	if [[ "${!var_name}" != "$current_uuid" ]]; then
-		log "✅ Replaced drive in slot $slot_to_replace: $current_uuid → ${!var_name}"
-	fi
-}
 
 # ----------------- Logging -----------------
 backup_compose_yml() {
@@ -2077,43 +1445,6 @@ generate_wg_qr() {
     fi
 }
 
-vault_login() {
-    if [[ -z "${VAULTWARDEN_TOKEN:-}" ]]; then
-        warn "VAULTWARDEN_TOKEN not set; skipping Vaultwarden upload"
-        return 1
-    fi
-    if ! command -v bw >/dev/null 2>&1; then
-        warn "vaultwarden-cli (bw) not installed"
-        return 1
-    fi
-    export BW_SESSION="$VAULTWARDEN_TOKEN"
-    bw config server "$VAULTWARDEN_URL" >/dev/null 2>&1 || true
-    if ! bw sync >/dev/null 2>&1; then
-        err "Vaultwarden authentication failed"
-        return 1
-    fi
-    log "Authenticated with Vaultwarden"
-    return 0
-}
-
-vault_upload_client_files() {
-    local clientdir="$1" clientname="$2"
-    local conf="$clientdir/${clientname}.conf"
-    local priv="$clientdir/private.key"
-    local qrfile="${QR_DIR}/${clientname}.png"
-
-    vault_login || return 1
-
-    local item_json item_id
-    item_json=$(jq -n --arg name "WireGuard ${clientname}" --arg notes "Auto uploaded by clinic-bootstrap" '{type:2,name:$name,notes:$notes}')
-    item_id=$(echo "$item_json" | bw create item 2>/dev/null | jq -r '.id')
-    [[ -z "$item_id" ]] && { err "Failed to create Vaultwarden item"; return 1; }
-    bw create attachment --file "$conf" --itemid "$item_id" >/dev/null
-    bw create attachment --file "$priv" --itemid "$item_id" >/dev/null
-    [[ -f "$qrfile" ]] && bw create attachment --file "$qrfile" --itemid "$item_id" >/dev/null
-    log "Uploaded $clientname configuration to Vaultwarden"
-}
-
 suggest_new_clientname() {
 	# Suggest a new client name based on base name.
 	local base="$1" n=2
@@ -2256,30 +1587,6 @@ EOF
 			set_ownership "$clientdir/${clientname}.conf"
 			log "Created client config for $clientname at $clientdir/${clientname}.conf"
                         generate_wg_qr "$clientdir" "$clientname"
-
-                        if [[ "$STORE_WG_IN_VAULT" == "true" ]]; then
-                            ans="y"
-                        elif $NON_INTERACTIVE || $FORCE_DEFAULTS; then
-                            ans="n"
-                        else
-                            read -rp "Store this client in Vaultwarden? [y/N]: " ans
-                        fi
-                        if [[ "${ans,,}" == "y" ]]; then
-                            if ! is_container_running vaultwarden; then
-                                echo "Vaultwarden container is not running."
-                                echo "Consider using Vaultwarden to securely store secrets."
-                                read -rp "Start Vaultwarden container now? [y/N]: " start_vault
-                                if [[ "${start_vault,,}" == "y" ]]; then
-                                    ensure_container_running "vaultwarden"
-                                else
-                                    log "Skipping Vaultwarden upload."
-                                    ans="n"
-                                fi
-                            fi
-                        fi
-                        if [[ "${ans,,}" == "y" ]]; then
-                            vault_upload_client_files "$clientdir" "$clientname"
-                        fi
 
                         backup_wireguard
 			;;
@@ -2699,11 +2006,9 @@ configure_per_service_restrictions() {
 		local default_restrict="Y/n"  # Most services default to restricted
 		local remote_access
 		remote_access=$(get_service_config_value "$svc_file" "remote_access")
-		local requires_media
-		requires_media=$(get_service_config_value "$svc_file" "requires_media")
 		
-		# Services with remote_access=true or media services default to open
-		if [[ "$remote_access" == "true" ]] || [[ "$requires_media" == "true" ]] || [[ "$desc" == *"media"* ]] || [[ "$desc" == *"healthcare data processing"* ]]; then
+		# Services with remote_access=true default to open
+		if [[ "$remote_access" == "true" ]] || [[ "$desc" == *"healthcare data processing"* ]]; then
 			default_restrict="y/N"  # Default to open for these services
 			recommendation="${recommendation} (often accessed remotely)"
 		fi
@@ -2711,7 +2016,7 @@ configure_per_service_restrictions() {
 		read -rp "${service_emoji} Restrict ${service^} to LAN + VPN only? [${default_restrict}]${recommendation}: " ans
 
 		if [[ "$default_restrict" == "y/N" ]]; then
-			# Default to 'no' for media services since they're often accessed remotely
+			# Default to 'no' for remotely accessed services
 			if [[ "${ans,,}" =~ ^(y|yes)$ ]]; then
 				services_to_restrict+=("$service")
 				log "Will restrict $service to LAN + VPN access."
@@ -3544,14 +2849,8 @@ main() {
 		log "Using existing port configuration in non-interactive mode."
 	fi
 
-	# Configure media drives after port configuration but before container selection
-	configure_media_drives || {
-		fail "configure_media_drives failed"
-		exit 1
-	}
-
 	save_config || {
-		fail "save_config failed (after port and media configuration)"
+		fail "save_config failed (after port configuration)"
 		exit 1
 	}
 
@@ -3757,15 +3056,6 @@ main() {
         if [[ "$DRY_RUN" != true ]]; then
                 enable_config_web_ui
         fi
-
-        # Force mount setup if no configuration exists
-        if [[ ! -f "$CONFIG_FILE" ]]; then
-		log "No configuration file found. Forcing mount setup."
-		configure_media_drives
-	elif ! grep -q "MEDIA_DRIVES_ENABLED" "$CONFIG_FILE"; then
-		log "No saved configuration for media drives. Forcing mount setup."
-		configure_media_drives
-	fi
 
 	ok "Setup completed successfully. Version $SCRIPT_VERSION."
 
