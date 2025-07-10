@@ -17,10 +17,11 @@
 !/test/
 !/docs/
 !/services/
-!/services/user/*
+!/services/user/
 !/misc/
 !/.devcontainer/
 !/.github/
+!/.vscode/
 
 # Ignore Python cache files everywhere
 **/__pycache__/
@@ -58,8 +59,8 @@ id_ed25519*
 # === RUNTIME AND TEMPORARY FILES ===
 # Logs
 /logs/
-*.log
 /scripts/logs/
+*.log
 
 # Backups created by scripts
 /backups/
@@ -95,6 +96,11 @@ SETUP_SUMMARY_*.md
 .DS_Store
 Thumbs.db
 *.pid
+
+# VSCode
+.vscode/storage.json
+.vscode/*.code-workspace
+!.vscode/settings.json
 
 # === PYTHON FILES ===
 .python-version

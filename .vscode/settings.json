@@ -1,0 +1,155 @@
+{
+    "shellcheck.customArgs": [
+        "-x",
+        "--severity=info",
+        "--source-path=SCRIPTDIR"
+    ],
+    "shellcheck.enable": true,
+    "shellcheck.enableQuickFix": true,
+    "shellcheck.run": "onType",
+    "shellcheck.executablePath": "shellcheck",
+    "shellcheck.useWorkspaceRootAsCwd": true,
+    "files.exclude": {
+        "**/logs/": true,
+        "**/bats-core/": true
+    },
+    "search.exclude": {
+        "**/logs/": true,
+        "**/bats-core/": true
+    },
+    "files.associations": {
+        "*.py": "python"
+    },
+    "python.defaultInterpreterPath": "/usr/bin/python3",
+    "python.terminal.activateEnvironment": false,
+    "cSpell.words": [
+        "Galdaer"
+    ],
+    "github-actions.workflows.pinned.workflows": [
+        ".github/workflows/shell-ci.yml"
+    ],
+    "workbench.editor.enablePreview": false,
+    "workbench.editor.enablePreviewFromQuickOpen": true,
+    "workbench.editor.limit.enabled": true,
+    "workbench.editor.limit.value": 10,
+    "workbench.editor.limit.excludeDirty": true,
+    "workbench.editor.closeOnFileDelete": true,
+    "workbench.editor.revealIfOpen": true,
+    
+    "ai.instructions": {
+        "project": "Intelluxe AI - Privacy-First Healthcare AI System built for on-premise clinical deployment",
+        "architecture": "Modular healthcare AI platform with universal service orchestration - focuses on administrative/documentation support, NOT medical advice",
+        "primaryScripts": {
+            "clinic-bootstrap.sh": "Main healthcare AI infrastructure bootstrapper - sets up Docker, Ollama, AgentCare-MCP, PostgreSQL, Redis with medical-grade security",
+            "universal-service-runner.sh": "Universal service runner - deploys ANY Docker service from pure configuration - handles healthcare AI services (Ollama, AgentCare-MCP, etc.)",
+            "config_web_ui.py": "Healthcare-focused web interface for AI system management - includes service health monitoring with medical service icons",
+            "clinic-lib.sh": "Common utility functions for Intelluxe AI healthcare operations"
+        },
+        "directoryStructure": {
+            "services/user/": "Healthcare AI services (ollama/, agentcare-mcp/, postgres/, redis/, n8n/) - supports nested directory structure",
+            "agents/": "AI agent implementations (intake/, document_processor/, research_assistant/, billing_helper/, scheduling_optimizer/)",
+            "core/": "Core healthcare AI infrastructure (memory/, orchestration/, models/, tools/)",
+            "data/": "AI training and evaluation data management (training/, evaluation/, vector_stores/)",
+            "infrastructure/": "Healthcare deployment configs (docker/, monitoring/, security/, backup/)",
+            "docs/": "Comprehensive healthcare AI documentation including phase guides and architecture mappings"
+        },
+        "healthcarePhilosophy": {
+            "medicalSafety": "NO medical advice, diagnosis, or treatment recommendations - focus on administrative and documentation support only",
+            "privacyFirst": "All PHI/PII remains on-premise - no cloud dependencies or external API calls with patient data",
+            "explainableAI": "All AI decisions must be traceable and auditable for healthcare compliance",
+            "modularDesign": "Pluggable agents and tools that can be customized per clinic without affecting core system",
+            "familyBuilt": "Co-designed by father-son team (Jeffrey & Justin Sue) for real-world clinical workflows"
+        },
+        "serviceManagement": {
+            "healthcareServices": "Ollama (local LLM), AgentCare-MCP (medical tools), PostgreSQL (patient context), Redis (session cache), n8n (workflows)",
+            "universalConfigOnly": "100% of services use pure .conf files - healthcare services configured through universal service runner",
+            "securityFirst": "HIPAA-compliant service orchestration with audit logging and role-based access",
+            "performanceOptimized": "GPU-accelerated local inference for real-time healthcare AI without cloud latency",
+            "serviceDiscovery": "Auto-detection of healthcare AI services with health monitoring and alerting"
+        },
+        "developmentGuidelines": {
+            "architectureReference": "Follow ARCHITECTURE_BASE_CODE.md for mapping AI Engineering Hub patterns to Intelluxe healthcare components",
+            "accelerationToolkit": "Use DEV_ACCELERATION_TOOLKIT.md for rapid prototyping, monitoring, quality assurance, and development best practices",
+            "implementationGuide": "Reference IMPLEMENTATION_AND_TESTING.md for healthcare-specific testing, n8n workflows, and validation approaches",
+            "testingApproach": "Healthcare-grade testing with shadow deployment, quality metrics, and safety validation",
+            "complianceFirst": "All features must support HIPAA compliance, audit trails, and data retention policies",
+            "realWorldValidation": "Test with actual clinical scenarios using n8n workflows as defined in phase documentation"
+        },
+        "phaseImplementation": {
+            "phase0": "Project setup and directory structure (PHASE_0.md)",
+            "phase1": "Core AI infrastructure with Ollama, MCP, and basic agents (PHASE_1.md)", 
+            "phase2": "Business services, insurance verification, billing, and doctor personalization (PHASE_2.md)",
+            "phase3": "Production deployment with enterprise scaling and compliance monitoring (PHASE_3.md)"
+        },
+        "coreAgents": {
+            "intakeAgent": "Patient intake form processing and data extraction (administrative only)",
+            "documentProcessor": "Medical document organization and PII redaction",
+            "researchAssistant": "PubMed/FDA/ClinicalTrials.gov search and citation management", 
+            "billingHelper": "Billing code lookup and claims assistance (reference only)",
+            "schedulingOptimizer": "Appointment scheduling and resource optimization"
+        },
+        "testingGuidelines": {
+            "healthcareTesting": "Test with realistic medical scenarios while avoiding actual patient data",
+            "qualityMetrics": "Track response accuracy, medical appropriateness, and safety boundaries",
+            "complianceTesting": "Validate HIPAA compliance, audit logging, and data handling practices",
+            "performanceTesting": "Ensure sub-30-second response times suitable for clinical workflows",
+            "integrationTesting": "Test n8n workflows end-to-end with healthcare service chains"
+        },
+        "collaborationGuidelines": {
+            "developmentStatus": "The project is in active development, focusing on hardening the test suite for robust, real-world integration testing.",
+            "testingPhilosophy": "Tests must be realistic, performing real integration checks against production scripts. Avoid mocking; test actual outputs and side effects. The goal is a reliable CI/CD pipeline that catches integration issues early.",
+            "batsUsage": "Bats tests (*.bats) are for shell script integration testing. They MUST source functions from the actual scripts in `scripts/` to ensure they are testing the real code.",
+            "variableSafety": "Tests must not rely on potentially unbound variables (like `$status` or `$lines` from the default bats-helpers). Instead, check for expected output in files or command results directly.",
+            "gitManagement": "The `.gitignore` is configured to track essential project files. The `.vscode/` directory is intentionally tracked to ensure a consistent development environment. Key directories like `scripts/`, `systemd/`, `test/`, `services/`, and `docs/` are essential and must be tracked.",
+            "vsCodeSetup": "Recommended extensions: `github.copilot`, `timonwong.shellcheck`, `mads-hartmann.bash-debug`, `foxundermoon.shell-format`. Use the provided `launch.json` for debugging shell scripts."
+        },
+        "developmentPrinciples": [
+            "Healthcare-first: All features designed for clinical environments with safety as top priority",
+            "Privacy-by-design: PHI/PII never leaves the local network or gets stored inappropriately", 
+            "Explainable AI: Every AI decision must be traceable and auditable for medical compliance",
+            "Modular architecture: Agents, tools, and services can be customized per clinic without breaking core system",
+            "Performance-critical: Real-time AI inference suitable for busy clinical workflows",
+            "Architecture guidance: Reference ARCHITECTURE_BASE_CODE.md for mapping proven AI Engineering Hub patterns to healthcare use cases",
+            "Development acceleration: Use DEV_ACCELERATION_TOOLKIT.md for rapid development, monitoring, and quality assurance best practices",
+            "Implementation standards: Follow IMPLEMENTATION_AND_TESTING.md for healthcare testing and n8n workflow validation",
+            "Phase-driven development: Use PHASE_0.md through PHASE_3.md for structured implementation roadmap",
+            "Family-built philosophy: Designed by healthcare family (Jeffrey & Justin Sue) for real-world clinical challenges"
+        ],
+        "codeStructure": {
+            "shellScripts": "Follow shellcheck best practices, use clinic-lib.sh for common functions",
+            "universalRunner": "universal-service-runner.sh dynamically generates Docker commands from configuration - ONLY deployment method",
+            "pythonWebUI": "Creates .conf files directly using universal service runner format, never calls legacy scripts, implements modern service addition",
+            "serviceConfigs": "Universal key=value format supporting all Docker features - see UNIVERSAL_CONFIG_SCHEMA.md",
+            "tests": "Use bats framework, source real functions, test actual behavior including universal system",
+            "noLegacyCode": "No plugin.sh files, no add-service.sh references anywhere, only universal service runner .conf-based approach"
+        },
+        "editingBestPractices": {
+            "fileReading": "ALWAYS read the file section you're editing BEFORE making changes - understand context",
+            "syntaxIntegrity": "NEVER break bash syntax - check if/fi, case/esac, function boundaries match",
+            "scopeValidation": "Verify edits don't accidentally affect unrelated code sections",
+            "variableUsage": "Remove unused variables after refactoring to pass shellcheck",
+            "functionBoundaries": "Respect existing function start/end when editing - don't break structure",
+            "multiLineEdits": "For large refactors, make smaller targeted edits instead of massive replacements",
+            "testAfterEdit": "Run relevant tests immediately after editing to catch syntax errors early"
+        },
+        "errorPrevention": {
+            "syntaxChecking": "Use shellcheck validation after every bash script edit",
+            "incrementalChanges": "Make one logical change per edit, not multiple unrelated changes",
+            "contextPreservation": "When removing functions, ensure their call sites are also updated",
+            "boundarySafety": "Never edit across function boundaries without understanding full context",
+            "testValidation": "Run affected test suites after making changes to verify no regressions"
+        },
+        "gitManagement": {
+            "tracked": "services/core/, scripts/, test/, systemd/, docs/, services/user/.gitkeep",
+            "ignored": "services/user/* (except .gitkeep), docker-stack/, logs/, venv/",
+            "commits": "Never commit user services or generated directories, test bootstrap creates proper structure"
+        },
+        "repository": {
+            "owner": "Galdaer",
+            "name": "Intelluxe", 
+            "branch": "main",
+            "lastUpdated": "2025-01-15",
+            "majorVersion": "1.0 - Healthcare AI Platform with Universal Service Architecture"
+        }
+    }
+}
