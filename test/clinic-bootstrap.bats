@@ -188,6 +188,26 @@ EOF
   MEDIA_ROOT="$TMPDIR/media"
   CFG_UID=$(id -u)
   CFG_GID=$(id -g)
+  # Add dummy values for other variables used in save_config
+  DOCKER_NETWORK_NAME="dummy-net"
+  DOCKER_NETWORK_SUBNET="172.28.0.0/24"
+  LAN_SUBNET="192.168.1.0/24"
+  WG_CLIENT_DNS="8.8.8.8"
+  DNS_FALLBACK="8.8.8.8"
+  FIREWALL_RESTRICT_MODE="false"
+  TRAEFIK_DOMAIN_MODE="local"
+  TRAEFIK_DOMAIN_NAME=""
+  TRAEFIK_ACME_EMAIL=""
+  WG_DIR="/tmp/wg"
+  STORE_WG_IN_VAULT="false"
+  VAULTWARDEN_URL=""
+  VAULTWARDEN_TOKEN=""
+  MEDIA_DRIVES_ENABLED="false"
+  MEDIA_MOUNT_MODE="mergerfs"
+  declare -A USER_SERVICE_PORTS=()
+  declare -a SELECTED_CONTAINERS=()
+  declare -a RESTRICTED_SERVICES=()
+  declare -a ALL_CONTAINERS=()
 
   log() { :; }
   set_ownership() { :; }
@@ -216,6 +236,25 @@ EOF
   MEDIA_ROOT="$TMPDIR/media"
   CFG_UID=$(id -u)
   CFG_GID=$(id -g)
+  # Add dummy values for other variables used in save_config
+  VPN_SUBNET="10.8.0.0/24"
+  VPN_SUBNET_BASE="10.8.0"
+  LAN_SUBNET="192.168.1.0/24"
+  DNS_FALLBACK="8.8.8.8"
+  FIREWALL_RESTRICT_MODE="false"
+  TRAEFIK_DOMAIN_MODE="local"
+  TRAEFIK_DOMAIN_NAME=""
+  TRAEFIK_ACME_EMAIL=""
+  WG_DIR="/tmp/wg"
+  STORE_WG_IN_VAULT="false"
+  VAULTWARDEN_URL=""
+  VAULTWARDEN_TOKEN=""
+  MEDIA_DRIVES_ENABLED="false"
+  MEDIA_MOUNT_MODE="mergerfs"
+  declare -A USER_SERVICE_PORTS=()
+  declare -a SELECTED_CONTAINERS=()
+  declare -a RESTRICTED_SERVICES=()
+  declare -a ALL_CONTAINERS=()
 
   log() { :; }
   set_ownership() { :; }
@@ -252,16 +291,15 @@ EOF
 set -euo pipefail
 cmd_file="$1"
 run(){ echo "$*" >>"$cmd_file"; }
-docker(){ if [[ "$1" == "ps" ]]; then echo "plex"; else echo "docker $*"; fi; }
-systemctl(){ echo "systemctl $*"; }
-stop_wireguard(){ echo "WG_STOP"; }
-ok(){ echo "OK:$*"; }
+docker(){ if [[ "$1" == "ps" ]]; then echo "plex"; else echo "docker $*" >> "$cmd_file"; fi; }
+systemctl(){ echo "systemctl $*" >> "$cmd_file"; }
+stop_wireguard(){ echo "WG_STOP" >> "$cmd_file"; }
+ok(){ echo "OK:$*" >> "$cmd_file"; }
 log(){ :; }
 EOS
   declare -f stop_service >>"$script"
   cat >>"$script" <<'EOS'
 stop_service plex
-cat "$cmd_file"
 EOS
   chmod +x "$script"
   cmd_file="$TMPDIR/cmd1"
@@ -279,16 +317,15 @@ EOS
 set -euo pipefail
 cmd_file="$1"
 run(){ echo "$*" >>"$cmd_file"; }
-docker(){ if [[ "$1" == "ps" ]]; then echo ""; else echo "docker $*"; fi; }
-systemctl(){ echo "systemctl $*"; }
-stop_wireguard(){ echo "WG_STOP"; }
-ok(){ echo "OK:$*"; }
+docker(){ if [[ "$1" == "ps" ]]; then echo ""; else echo "docker $*" >> "$cmd_file"; fi; }
+systemctl(){ echo "systemctl $*" >> "$cmd_file"; }
+stop_wireguard(){ echo "WG_STOP" >> "$cmd_file"; }
+ok(){ echo "OK:$*" >> "$cmd_file"; }
 log(){ :; }
 EOS
   declare -f stop_service >>"$script"
   cat >>"$script" <<'EOS'
 stop_service sshd
-cat "$cmd_file"
 EOS
   chmod +x "$script"
   cmd_file="$TMPDIR/cmd2"
@@ -306,16 +343,15 @@ EOS
 set -euo pipefail
 cmd_file="$1"
 run(){ echo "$*" >>"$cmd_file"; }
-docker(){ if [[ "$1" == "ps" ]]; then echo "wireguard"; else echo "docker $*"; fi; }
-systemctl(){ echo "systemctl $*"; }
-stop_wireguard(){ echo "WG_STOP"; }
-ok(){ echo "OK:$*"; }
+docker(){ if [[ "$1" == "ps" ]]; then echo "wireguard"; else echo "docker $*" >> "$cmd_file"; fi; }
+systemctl(){ echo "systemctl $*" >> "$cmd_file"; }
+stop_wireguard(){ echo "WG_STOP" >> "$cmd_file"; }
+ok(){ echo "OK:$*" >> "$cmd_file"; }
 log(){ :; }
 EOS
   declare -f stop_service >>"$script"
   cat >>"$script" <<'EOS'
 stop_service wireguard
-cat "$cmd_file"
 EOS
   chmod +x "$script"
   cmd_file="$TMPDIR/cmd3"
