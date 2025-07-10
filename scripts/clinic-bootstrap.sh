@@ -139,7 +139,6 @@ VPN_SUBNET_BASE="${VPN_SUBNET_BASE:-10.8.0}"
 # Firewall restriction configuration
 FIREWALL_RESTRICT_MODE="ask" # "ask", "restrict", "open"
 RESTRICTED_SERVICES=()
-STORE_WG_IN_VAULT="${STORE_WG_IN_VAULT:-false}"
 
 # Container port configuration array
 declare -A CONTAINER_PORTS
@@ -902,14 +901,6 @@ setup_service_env_vars() {
     done
 }
 
-# ----------------- Data Drive Configuration Functions -----------------
-
-get_drive_uuid() {
-	# Get UUID for a device path
-	local device="$1"
-	blkid -o value -s UUID "$device" 2>/dev/null || echo ""
-}
-
 reset_wireguard_keys() {
         if ! $NON_INTERACTIVE && ! $FORCE_DEFAULTS; then
                 read -rp "Reset WireGuard server keys? Existing client configs will be invalid. [y/N]: " ans
@@ -975,10 +966,6 @@ stop_service() {
         esac
         ok "$svc stopped."
 }
-
-
-# ----------------- Individual Drive Management -----------------
-
 
 # ----------------- Logging -----------------
 backup_compose_yml() {
