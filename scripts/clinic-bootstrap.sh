@@ -66,7 +66,7 @@
 #   Run: sudo ./clinic-bootstrap.sh --self-update
 #
 # Contact / Support:
-#   - Issues: https://github.com/Galdaer/Self-hosting-and-networking/issues
+#   - Issues: https://github.com/Intelluxe-AI/intelluxe-core/issues
 #   - Author: Justin Sue (@Galdaer)
 #
 # For detailed usage, run: ./clinic-bootstrap.sh --help
@@ -75,7 +75,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.0.0"
 # Self-update URL for automatic updates feature
-SELF_UPDATE_URL="https://raw.githubusercontent.com/Galdaer/Self-hosting-and-networking/main/scripts/clinic-bootstrap.sh"
+SELF_UPDATE_URL="https://raw.githubusercontent.com/Intelluxe-AI/intelluxe-core/main/scripts/clinic-bootstrap.sh"
 DEFAULT_UID=1000
 DEFAULT_GID=1000
 
