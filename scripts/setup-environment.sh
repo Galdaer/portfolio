@@ -155,7 +155,10 @@ detect_os() {
             # assignment remains attached to the command when expanded via the
             # PKG_INSTALL array. Without this, the first element would be treated
             # as a standalone command resulting in "DEBIAN_FRONTEND=noninteractive: command not found" errors.
-            PKG_INSTALL=(env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends)
+            if systemctl is-active --quiet gdm3 || dpkg -l | grep -q ubuntu-desktop; then
+                echo "Desktop system detected - using desktop-safe package installation"
+                PKG_INSTALL=(env DEBIAN_FRONTEND=noninteractive apt-get install -y)  # Remove --no-install-recommends
+            fi
             ;;
         fedora|rhel|centos)
             PKG_MANAGER=dnf
@@ -207,7 +210,7 @@ build_dependency_list() {
         postgresql-client redis-tools
         
         # File system tools
-        rsync fuse
+        rsync fuse3
     )
     case $PKG_MANAGER in
         apt)
