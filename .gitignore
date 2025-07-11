@@ -24,6 +24,8 @@
 !/.github/
 !/.github/**/*
 !/.vscode/
+!/reference/
+!/reference/**/*
 
 # Ignore Python cache files everywhere
 **/__pycache__/

@@ -29,7 +29,31 @@ core/                   # Core healthcare AI infrastructure (memory/, orchestrat
 data/                   # AI training and evaluation data management (training/, evaluation/, vector_stores/)
 infrastructure/         # Healthcare deployment configs (docker/, monitoring/, security/, backup/)
 docs/                   # Comprehensive healthcare AI documentation including phase guides
+reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare adaptation (git submodule)
 ```
+
+## AI Engineering Patterns
+
+### Reference Library
+- **`reference/ai-patterns/`** - MIT licensed AI engineering patterns adapted for healthcare
+- **Healthcare-Relevant Patterns**:
+  - `agentic_rag/` - Medical document processing and research assistance
+  - `document-chat-rag/` - Patient document Q&A with privacy protection
+  - `corrective-rag/` - Accuracy-critical healthcare information retrieval
+  - `audio-analysis-toolkit/` - Medical transcription and voice analysis
+  - `content_planner_flow/` - Clinical workflow automation
+  - `fastest-rag-stack/` - High-performance medical data retrieval
+  - `eval-and-observability/` - Healthcare AI system monitoring
+  - `mcp-agentic-rag/` - Model Context Protocol for healthcare agents
+  - `multi-modal-rag/` - Medical imaging and document processing
+  - `trustworthy-rag/` - Compliance-focused RAG for healthcare
+
+### Healthcare Adaptation Principles
+- **Privacy-First**: Replace cloud APIs with on-premise alternatives (Ollama, local models)
+- **Compliance**: Add audit logging and compliance tracking to all implementations
+- **PHI Protection**: Ensure no patient data leaves the local environment
+- **Explainable AI**: Implement traceability features for medical compliance
+- **HIPAA Alignment**: Adapt all patterns for healthcare privacy requirements
 
 ## Healthcare Philosophy & Safety
 

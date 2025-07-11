@@ -184,6 +184,36 @@
             "majorVersion": "1.0 - Healthcare AI Platform with Universal Service Architecture",
             "currentFocus": "Firewall configuration for GitHub Copilot, CI/CD hardening, and instruction evolution patterns",
             "recentImprovements": "GitHub Actions firewall allowlist, comprehensive domain configuration, automated setup workflows"
+        },
+        "referencePatterns": {
+            "aiPatternsLibrary": "reference/ai-patterns/ - MIT licensed AI engineering patterns for healthcare adaptation (git submodule)",
+            "healthcareRelevantPatterns": [
+                "agentic_rag - Medical document processing and research assistance",
+                "document-chat-rag - Patient document Q&A with privacy protection", 
+                "corrective-rag - Accuracy-critical healthcare information retrieval",
+                "audio-analysis-toolkit - Medical transcription and voice analysis",
+                "content_planner_flow - Clinical workflow automation and planning",
+                "fastest-rag-stack - High-performance medical data retrieval",
+                "eval-and-observability - Healthcare AI system monitoring",
+                "mcp-agentic-rag - Model Context Protocol for healthcare agents",
+                "multi-modal-rag - Medical imaging and document processing",
+                "trustworthy-rag - Compliance-focused RAG for healthcare"
+            ],
+            "developmentPatterns": [
+                "cursor_linkup_mcp - IDE integration patterns",
+                "documentation-writer-flow - Automated documentation generation",
+                "simple-rag-workflow - Basic RAG implementation patterns",
+                "local-chatgpt - On-premise AI chat interfaces",
+                "streaming-ai-chatbot - Real-time AI interactions"
+            ],
+            "usageGuideline": "Reference these patterns when building healthcare AI agents, adapting for HIPAA compliance and on-premise deployment",
+            "adaptationPrinciples": [
+                "All patterns must be adapted for healthcare privacy requirements",
+                "Replace cloud APIs with on-premise alternatives (Ollama, local models)",
+                "Add audit logging and compliance tracking to all implementations",
+                "Ensure no PHI/PII leaves the local environment",
+                "Implement explainable AI features for medical compliance"
+            ]
         }
     }
 }
