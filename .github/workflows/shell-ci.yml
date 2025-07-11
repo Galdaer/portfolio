@@ -1,5 +1,9 @@
 name: Intelluxe CI
 
+# Healthcare AI CI Pipeline with Firewall Configuration Support
+# This workflow requires proper firewall allowlist configuration for external dependencies
+# See .github/copilot-firewall-allowlist.txt and .github/README.md for setup instructions
+
 on:
   push:
     branches:
@@ -17,6 +21,41 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Validate Firewall Configuration
+        run: |
+          echo "=== Validating Healthcare AI Firewall Configuration ==="
+          
+          # Check if firewall allowlist exists and is up-to-date
+          if [ -f ".github/copilot-firewall-allowlist.txt" ]; then
+            echo "✓ Firewall allowlist configuration found"
+            domain_count=$(wc -l < .github/copilot-firewall-allowlist.txt)
+            echo "  → $domain_count domains configured"
+            
+            # Check for critical healthcare AI domains
+            critical_domains=("archive.ubuntu.com" "pypi.org" "registry-1.docker.io" "github.com" "packages.microsoft.com")
+            for domain in "${critical_domains[@]}"; do
+              if grep -q "$domain" .github/copilot-firewall-allowlist.txt; then
+                echo "  ✓ $domain configured"
+              else
+                echo "  ⚠ $domain missing from allowlist"
+              fi
+            done
+          else
+            echo "⚠ Firewall allowlist not found - may cause CI failures"
+            echo "  → Run 'Copilot Setup Steps' workflow to generate configuration"
+          fi
+          
+          # Check if setup workflow exists
+          if [ -f ".github/workflows/copilot-setup-steps.yml" ]; then
+            echo "✓ Copilot setup workflow available"
+          else
+            echo "⚠ Copilot setup workflow missing"
+          fi
+          
+          echo ""
+          echo "Note: If tests fail with DNS resolution errors, ensure the firewall"
+          echo "      allowlist is properly configured in repository settings."
       
       - name: Check for passwordless sudo and Docker access
         run: |
@@ -53,6 +92,12 @@ jobs:
       
       - name: Install dependencies
         run: |
+          # Healthcare AI dependency installation with firewall awareness
+          # If this step fails with DNS resolution errors, check:
+          # 1. Repository Settings → Copilot → Firewall Configuration
+          # 2. .github/copilot-firewall-allowlist.txt contains required domains
+          # 3. Run 'Copilot Setup Steps' workflow for automated configuration
+          
           sudo apt-get update || true
           sudo apt-get install -y shellcheck git curl wget python3 python3-pip || true
           
@@ -90,6 +135,46 @@ jobs:
       - name: Run lint (shell and Python)
         run: |
           make lint
+
+      - name: Validate AI Instructions Currency
+        run: |
+          echo "=== Validating AI Instructions are Current ==="
+          
+          # Check if AI instructions exist and contain recent updates
+          if [ -f ".vscode/settings.json" ]; then
+            echo "✓ VS Code AI instructions found"
+            
+            # Check for recent instruction evolution features
+            if grep -q "instructionEvolution" .vscode/settings.json; then
+              echo "✓ Instruction evolution patterns configured"
+            else
+              echo "⚠ Consider adding instruction evolution patterns"
+            fi
+            
+            # Check for firewall configuration references
+            if grep -q "firewallConfiguration" .vscode/settings.json; then
+              echo "✓ Firewall configuration documented in AI instructions"
+            else
+              echo "⚠ Firewall configuration not documented in AI instructions"
+            fi
+            
+            # Check last updated date
+            last_updated=$(grep -o "lastUpdated.*[0-9-]*" .vscode/settings.json | cut -d'"' -f3 || echo "unknown")
+            echo "  → AI instructions last updated: $last_updated"
+            
+            # Suggest updates if instructions are old
+            current_date=$(date +%Y-%m-%d)
+            if [ "$last_updated" != "$current_date" ] && [ "$last_updated" != "unknown" ]; then
+              echo "  → Consider updating AI instructions to reflect current codebase state"
+            fi
+            
+          else
+            echo "⚠ AI instructions not found - consider adding .vscode/settings.json"
+          fi
+          
+          echo ""
+          echo "Remember: AI instructions should evolve with the codebase"
+          echo "         Update before major features for optimal AI assistance"
 
       - name: Run validate
         env:
@@ -170,6 +255,9 @@ jobs:
           done
           
           # Build test runner container with retries (without buildx)
+          # Note: If build fails with DNS/network errors, check firewall configuration:
+          # → Repository Settings → Copilot → Firewall Configuration
+          # → Ensure domains from .github/copilot-firewall-allowlist.txt are configured
           echo "Building test container..."
           build_success=false
           for attempt in 1 2 3; do
@@ -395,3 +483,34 @@ jobs:
             /opt/intelluxe/clinic-stack/logs/
             /opt/intelluxe/clinic-stack/config/
           retention-days: 7
+
+# Environment variables for healthcare AI development
+env:
+  INTELLUXE_CI_MODE: true
+  HEALTHCARE_COMPLIANCE: enabled
+  PHI_PROTECTION: strict
+  FIREWALL_CONFIG: .github/copilot-firewall-allowlist.txt
+  AI_INSTRUCTIONS_VERSION: "2025-07-11"
+  INSTRUCTION_EVOLUTION: enabled
+
+# Troubleshooting Guide:
+# 
+# 1. DNS Resolution Failures:
+#    - Check firewall allowlist: .github/copilot-firewall-allowlist.txt
+#    - Run: Actions → "Copilot Setup Steps for Intelluxe AI Healthcare System"
+#    - Manual: Repository Settings → Copilot → Firewall Configuration
+#
+# 2. Test Failures:
+#    - Review logs in uploaded artifacts
+#    - Check service configurations in services/user/
+#    - Validate universal-service-runner.sh format
+#
+# 3. AI Instruction Updates:
+#    - Before major changes, update .vscode/settings.json
+#    - Add new patterns to instructionEvolution section
+#    - Document architectural changes and new tools
+#
+# 4. Healthcare Compliance:
+#    - All PHI/PII must remain on-premise
+#    - External APIs limited to development tools only
+#    - Validate with scripts/check-phi-exposure.sh

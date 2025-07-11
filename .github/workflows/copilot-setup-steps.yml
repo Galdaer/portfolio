@@ -375,6 +375,57 @@ jobs:
         echo "**Medical Safety**: No diagnosis, treatment, or medical advice features!"
         echo ""
         echo "Happy healthcare AI development! 🔬🤖"
+        
+    - name: Check AI Instruction Evolution Needs
+      run: |
+        echo "=== AI Instruction Evolution Check ==="
+        echo ""
+        echo "Checking if AI instructions need updates based on current setup..."
+        
+        # Check if VS Code settings exist and contain instruction evolution patterns
+        if [ -f ".vscode/settings.json" ]; then
+          echo "✓ AI instructions found in .vscode/settings.json"
+          
+          # Check if instruction evolution is documented
+          if grep -q "instructionEvolution" .vscode/settings.json; then
+            echo "✓ Instruction evolution patterns are documented"
+          else
+            echo "📝 SUGGESTION: Add instruction evolution patterns to AI instructions"
+            echo "   This helps future AIs maintain and improve the codebase efficiently"
+          fi
+          
+          # Check if firewall configuration is documented
+          if grep -q "firewallConfiguration" .vscode/settings.json; then
+            echo "✓ Firewall configuration is documented in AI instructions"
+          else
+            echo "📝 SUGGESTION: Add firewall configuration details to AI instructions"
+            echo "   Include references to .github/copilot-firewall-allowlist.txt"
+          fi
+          
+          # Check if current healthcare AI components are documented
+          components=("universal-service-runner" "clinic-bootstrap" "AgentCare-MCP" "Ollama")
+          for component in "${components[@]}"; do
+            if grep -q "$component" .vscode/settings.json; then
+              echo "✓ $component documented in AI instructions"
+            else
+              echo "📝 SUGGESTION: Consider documenting $component in AI instructions"
+            fi
+          done
+          
+        else
+          echo "📝 SUGGESTION: Create .vscode/settings.json with AI instructions"
+          echo "   This helps maintain consistency across AI collaborators"
+        fi
+        
+        echo ""
+        echo "💡 INSTRUCTION EVOLUTION PRINCIPLE:"
+        echo "   AI instructions should be updated before major features"
+        echo "   to ensure optimal AI assistance and code quality."
+        echo ""
+        echo "📚 For reference, check:"
+        echo "   - .vscode/settings.json (current AI instructions)"
+        echo "   - .github/README.md (firewall configuration guide)"
+        echo "   - PHASE_*.md files (development roadmap)"
 
 env:
   # Healthcare AI specific environment variables
@@ -389,3 +440,8 @@ env:
   # Security configurations
   DISABLE_EXTERNAL_APIS: true
   ENABLE_AUDIT_LOGGING: true
+  
+  # AI Instruction Evolution tracking
+  AI_INSTRUCTIONS_VERSION: "2025-07-11"
+  INSTRUCTION_EVOLUTION: enabled
+  FIREWALL_CONFIG: .github/copilot-firewall-allowlist.txt

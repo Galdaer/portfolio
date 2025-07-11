@@ -73,7 +73,9 @@
             "implementationGuide": "Reference IMPLEMENTATION_AND_TESTING.md for healthcare-specific testing, n8n workflows, and validation approaches",
             "testingApproach": "Healthcare-grade testing with shadow deployment, quality metrics, and safety validation",
             "complianceFirst": "All features must support HIPAA compliance, audit trails, and data retention policies",
-            "realWorldValidation": "Test with actual clinical scenarios using n8n workflows as defined in phase documentation"
+            "realWorldValidation": "Test with actual clinical scenarios using n8n workflows as defined in phase documentation",
+            "instructionMaintenance": "Before major development tasks, review and update AI instructions to reflect current codebase state and optimize for new requirements",
+            "firewallAwareness": "All development must consider GitHub Actions firewall restrictions - maintain allowlist for external dependencies"
         },
         "phaseImplementation": {
             "phase0": "Project setup and directory structure (PHASE_0.md)",
@@ -100,8 +102,9 @@
             "testingPhilosophy": "Tests must be realistic, performing real integration checks against production scripts. Avoid mocking; test actual outputs and side effects. The goal is a reliable CI/CD pipeline that catches integration issues early.",
             "batsUsage": "Bats tests (*.bats) are for shell script integration testing. They MUST source functions from the actual scripts in `scripts/` to ensure they are testing the real code.",
             "variableSafety": "Tests must not rely on potentially unbound variables (like `$status` or `$lines` from the default bats-helpers). Instead, check for expected output in files or command results directly.",
-            "gitManagement": "The `.gitignore` is configured to track essential project files. The `.vscode/` directory is intentionally tracked to ensure a consistent development environment. Key directories like `scripts/`, `systemd/`, `test/`, `services/`, and `docs/` are essential and must be tracked.",
-            "vsCodeSetup": "Recommended extensions: `github.copilot`, `timonwong.shellcheck`, `mads-hartmann.bash-debug`, `foxundermoon.shell-format`. Use the provided `launch.json` for debugging shell scripts."
+            "gitManagement": "The `.gitignore` is configured to track essential project files. The `.vscode/` and `.github/` directories are intentionally tracked to ensure consistent development and CI/CD environment. Key directories like `scripts/`, `systemd/`, `test/`, `services/`, and `docs/` are essential and must be tracked.",
+            "vsCodeSetup": "Recommended extensions: `github.copilot`, `timonwong.shellcheck`, `mads-hartmann.bash-debug`, `foxundermoon.shell-format`. Use the provided `launch.json` for debugging shell scripts.",
+            "aiInstructionMaintenance": "AIs must proactively update these instructions as the codebase evolves. Before major tasks, review instructions for accuracy and suggest improvements. Keep instructions synchronized with actual development patterns, new tools, and architectural changes."
         },
         "developmentPrinciples": [
             "Healthcare-first: All features designed for clinical environments with safety as top priority",
@@ -113,7 +116,10 @@
             "Development acceleration: Use DEV_ACCELERATION_TOOLKIT.md for rapid development, monitoring, and quality assurance best practices",
             "Implementation standards: Follow IMPLEMENTATION_AND_TESTING.md for healthcare testing and n8n workflow validation",
             "Phase-driven development: Use PHASE_0.md through PHASE_3.md for structured implementation roadmap",
-            "Family-built philosophy: Designed by healthcare family (Jeffrey & Justin Sue) for real-world clinical challenges"
+            "Family-built philosophy: Designed by healthcare family (Jeffrey & Justin Sue) for real-world clinical challenges",
+            "Instruction evolution: Proactively update AI instructions as codebase evolves - review before major features, suggest improvements for efficiency",
+            "Firewall configuration: Maintain GitHub Copilot allowlist for healthcare AI dependencies - see .github/copilot-firewall-allowlist.txt",
+            "CI/CD compliance: Ensure all infrastructure changes support GitHub Actions and firewall-restricted environments"
         ],
         "codeStructure": {
             "shellScripts": "Follow shellcheck best practices, use clinic-lib.sh for common functions",
@@ -140,16 +146,44 @@
             "testValidation": "Run affected test suites after making changes to verify no regressions"
         },
         "gitManagement": {
-            "tracked": "services/core/, scripts/, test/, systemd/, docs/, services/user/.gitkeep",
+            "tracked": "services/core/, scripts/, test/, systemd/, docs/, services/user/.gitkeep, .github/, .vscode/",
             "ignored": "services/user/* (except .gitkeep), docker-stack/, logs/, venv/",
             "commits": "Never commit user services or generated directories, test bootstrap creates proper structure"
+        },
+        "firewallConfiguration": {
+            "purpose": "GitHub Copilot firewall configuration for healthcare AI development with external dependency access",
+            "mainConfig": ".github/copilot-firewall-allowlist.txt - comprehensive domain allowlist (112+ domains)",
+            "setupWorkflow": ".github/workflows/copilot-setup-steps.yml - automated firewall configuration",
+            "documentation": ".github/README.md - detailed configuration guide and troubleshooting",
+            "quickFix": "FIREWALL_FIX.md - immediate resolution steps for CI/CD failures",
+            "criticalDomains": "Ubuntu repositories, Python Package Index, Docker Hub, Microsoft packages, GitHub infrastructure",
+            "healthcareDomains": "Ollama, PostgreSQL, Redis, medical research APIs (PubMed, ClinicalTrials.gov, FDA)",
+            "complianceNote": "All external access limited to development tools - no PHI/PII transmission",
+            "manualStepsRequired": "Repository Settings → Copilot → Firewall Configuration → Upload allowlist"
+        },
+        "instructionEvolution": {
+            "principle": "AI instructions must evolve with codebase - update before major features, refactor instructions during development",
+            "updateTriggers": [
+                "New major features or architectural changes",
+                "New testing patterns or development workflows", 
+                "Addition of new services or infrastructure components",
+                "Changes to security, compliance, or healthcare requirements",
+                "New development tools or CI/CD pipeline modifications",
+                "Discovery of more efficient development patterns"
+            ],
+            "updateProcess": "Before starting complex tasks, AIs should review and suggest instruction updates that would improve efficiency",
+            "collaborativeRefinement": "AIs should propose instruction improvements based on observed development patterns and pain points",
+            "versionControl": "Track instruction changes in git commits with clear rationale for updates",
+            "inheritancePattern": "New AIs should inherit latest instructions and suggest improvements based on fresh perspective"
         },
         "repository": {
             "owner": "Galdaer",
             "name": "Intelluxe", 
             "branch": "main",
-            "lastUpdated": "2025-01-15",
-            "majorVersion": "1.0 - Healthcare AI Platform with Universal Service Architecture"
+            "lastUpdated": "2025-07-11",
+            "majorVersion": "1.0 - Healthcare AI Platform with Universal Service Architecture",
+            "currentFocus": "Firewall configuration for GitHub Copilot, CI/CD hardening, and instruction evolution patterns",
+            "recentImprovements": "GitHub Actions firewall allowlist, comprehensive domain configuration, automated setup workflows"
         }
     }
 }
