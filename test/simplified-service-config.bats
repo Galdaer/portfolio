@@ -31,23 +31,15 @@ setup() {
     local configs_checked=0
     
     # Check service configs in flat and nested directories
-    find "services/user" -name '*.conf' -type f | while read -r conf; do
+    while read -r conf; do
         [ -f "$conf" ] || continue
         
-        # Check for required fields
-        grep -q "^image=" "$conf" || continue
-        grep -q "^port=" "$conf" || continue
-        
-        configs_checked=$((configs_checked + 1))
-    done
-    
-    # Check nested service configs
-    for service_dir in "services/user"/*; do
-        [ -d "$service_dir" ] || continue
+        # Ensure the file follows the naming convention <service>/<service>.conf
+        local dir
+        dir=$(dirname "$conf")
         local svc
-        svc=$(basename "$service_dir")
-        local conf="$service_dir/$svc.conf"
-        [ -f "$conf" ] || continue
+        svc=$(basename "$dir")
+        [[ "$conf" == "$dir/$svc.conf" ]] || continue
         
         # Check for required fields
         grep -q "^image=" "$conf" || continue
