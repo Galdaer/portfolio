@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# clinic-wg-setup.sh - WireGuard client setup in clinic namespace
+# wg-setup.sh - WireGuard client setup in clinic namespace
 # Author: Justin Michael Sue (Galdaer)
 # Repo: https://github.com/Intelluxe-AI/intelluxe-core
 #
@@ -29,7 +29,7 @@ set -euo pipefail
 # Requirements:
 #   - wg-quick, ip
 #
-# Usage: ./clinic-wg-setup.sh [--iface IFACE] [--netns NAME] [--no-color] [--debug] [--help]
+# Usage: ./wg-setup.sh [--iface IFACE] [--netns NAME] [--no-color] [--debug] [--help]
 #
 # Dependency note: This script requires bash, coreutils, iproute2, wg-quick, and standard Unix tools.
 # For CI, log files are written to $PWD/logs/ if possible.
@@ -41,8 +41,8 @@ SCRIPT_VERSION="1.0.0"
 : "${DEBUG:=false}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/clinic-lib.sh
-source "${SCRIPT_DIR}/clinic-lib.sh"
+# shellcheck source=scripts/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 trap cleanup SIGINT SIGTERM ERR EXIT
 
 USAGE="Usage: $0 [--iface IFACE] [--netns NAME] [--no-color] [--debug] [--help]
@@ -82,7 +82,7 @@ fi
 
 LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/clinic-wg-setup.log"
+LOG_FILE="$LOG_DIR/wg-setup.log"
 rotate_log_if_needed
 
 run ip netns exec "$NS_NAME" wg-quick up "$IFACE"

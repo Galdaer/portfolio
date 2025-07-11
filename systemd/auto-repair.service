@@ -1,17 +1,17 @@
-# clinic-auto-repair.service version 1.0.0
+# auto-repair.service version 1.0.0
 # Author: Justin Sue (Galdaer)
 # Last Revised: 2025-05-30
 # Purpose: Systemd unit for auto-repair of clinic and WireGuard containers.
-# Usage: Used with clinic-auto-repair.timer for scheduled repairs.
+# Usage: Used with auto-repair.timer for scheduled repairs.
 
 [Unit]
 Description=Auto-repair for clinic and WireGuard containers
 After=network.target docker.service
-Wants=clinic-auto-repair.timer
+Wants=auto-repair.timer
 
 [Service]
 Type=oneshot
-ExecStart=/opt/intelluxe/scripts/clinic-auto-repair.sh
+ExecStart=/opt/intelluxe/scripts/auto-repair.sh
 Nice=10
 
 [Install]

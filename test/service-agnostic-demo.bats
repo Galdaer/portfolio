@@ -11,8 +11,8 @@ setup() {
     mkdir -p "$SCRIPT_DIR" "$CFG_ROOT" "$TEST_ROOT/services/user"
     
     # Copy actual scripts
-    cp "$BATS_TEST_DIRNAME/../scripts/clinic-bootstrap.sh" "$SCRIPT_DIR/"
-    cp "$BATS_TEST_DIRNAME/../scripts/clinic-lib.sh" "$SCRIPT_DIR/"
+    cp "$BATS_TEST_DIRNAME/../scripts/bootstrap.sh" "$SCRIPT_DIR/"
+    cp "$BATS_TEST_DIRNAME/../scripts/lib.sh" "$SCRIPT_DIR/"
     
     # Set test environment
     export NON_INTERACTIVE=true
@@ -51,8 +51,8 @@ EOF
     # Step 2: System automatically discovers and processes the service
     CONTAINER_PORTS[mongodb]="27017"
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     # Step 3: Generic environment setup works automatically
     setup_service_env_vars "mongodb"
@@ -82,8 +82,8 @@ EOF
     # System processes it generically
     CONTAINER_PORTS[company-erp]="8443"
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     setup_service_env_vars "company-erp"
     
@@ -116,8 +116,8 @@ EOF
         CONTAINER_PORTS[$service]="$port"
     done
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     # Process all microservices
     local processed_services=0
@@ -142,7 +142,7 @@ EOF
 
 @test "DEMO: Verify no service-specific code remains" {
     local script_content
-    script_content=$(cat "$SCRIPT_DIR/clinic-bootstrap.sh")
+    script_content=$(cat "$SCRIPT_DIR/bootstrap.sh")
     
     # Verify all old service-specific functions are gone
     ! [[ "$script_content" == *"setup_service_plex"* ]]
@@ -180,8 +180,8 @@ EOF
     
     CONTAINER_PORTS[complex-app]="9443"
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     # System should handle this complex configuration without any issues
     setup_service_env_vars "complex-app"

@@ -1,7 +1,7 @@
 justin@Intelluxe-demo:/home/intelluxe$ make test
 🧪  Running Bats tests
 Running tests without coverage (kcov not available)...
-clinic-bootstrap.bats
+bootstrap.bats
  ✓ ensure_directories creates WireGuard dirs with ownership
  ✓ logs directory and log file path set correctly
  ✓ enable_config_web_ui invoked when not dry run
@@ -19,13 +19,13 @@ clinic-bootstrap.bats
  ✓ service image override respected
  ✓ service image override respected for traefik
  - --stop-service flag triggers stop_service and exits (skipped: argument parsing snippet fails on this platform)
-clinic-diagnostics.bats
+diagnostics.bats
  ✓ unknown argument prints usage and exits 1
  ✓ DNS_IP defaults to ADGUARD_CONTAINER_IP from config
  ✓ DNS_IP falls back to built-in default when config missing
  ✓ DNS_FALLBACK uses value from config
  ✓ DNS_FALLBACK defaults when not in config
-clinic-lib.bats
+lib.bats
  ✓ is_ci_or_virtual_env returns 1 when no env vars set
  ✓ is_ci_or_virtual_env succeeds with CODEX_ENV_PYTHON_VERSION
  ✓ is_ci_or_virtual_env succeeds with CODEX_PROXY_CERT
@@ -40,7 +40,7 @@ clinic-lib.bats
  ✓ LOG_DIR defaults to custom CFG_ROOT when LOG_DIR unset
  ✓ LOG_DIR keeps value when CFG_ROOT unset
  ✓ LOG_DIR keeps value when both variables set
-clinic-teardown.bats
+teardown.bats
  ✓ custom DOCKER_NETWORK_NAME influences network cleanup
 config-management.bats
  ✓ parse_service_config handles all configuration keys
@@ -144,10 +144,10 @@ simplified-service-config.bats
    (in test file test/simplified-service-config.bats, line 47)
      `[[ $configs_checked -gt 0 ]]' failed
  ✗ environment variable setup is service-agnostic
-   (from function `source' in file scripts/clinic-bootstrap.sh, line 190,
+   (from function `source' in file scripts/bootstrap.sh, line 190,
     in test file test/simplified-service-config.bats, line 52)
-     `source scripts/clinic-bootstrap.sh' failed
-   scripts/clinic-bootstrap.sh: line 190: /home/justin/.cache/clinic-bootstrap.lock: Permission denied
+     `source scripts/bootstrap.sh' failed
+   scripts/bootstrap.sh: line 190: /home/justin/.cache/bootstrap.lock: Permission denied
  ✓ no hardcoded service logic remains
 systemd-summary.bats
  ✓ creates log directory under CFG_ROOT

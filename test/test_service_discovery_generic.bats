@@ -9,7 +9,7 @@ setup() {
     # Create temporary directories for testing
     export TEST_ROOT="$(mktemp -d)"
     export SCRIPT_DIR="$TEST_ROOT/scripts"
-    export CFG_ROOT="$TEST_ROOT/clinic-stack"
+    export CFG_ROOT="$TEST_ROOT/stack"
     
     # Create directory structure
     mkdir -p "$SCRIPT_DIR"
@@ -17,8 +17,8 @@ setup() {
     mkdir -p "$CFG_ROOT"
     
     # Copy the actual script to test location
-    cp "$BATS_TEST_DIRNAME/../scripts/clinic-bootstrap.sh" "$SCRIPT_DIR/"
-    cp "$BATS_TEST_DIRNAME/../scripts/clinic-lib.sh" "$SCRIPT_DIR/"
+    cp "$BATS_TEST_DIRNAME/../scripts/bootstrap.sh" "$SCRIPT_DIR/"
+    cp "$BATS_TEST_DIRNAME/../scripts/lib.sh" "$SCRIPT_DIR/"
     
     # Create minimal test service configurations
     cat > "$TEST_ROOT/services/user/core-svc.conf" <<EOF
@@ -46,19 +46,19 @@ description=Service without image
 EOF
 
     # Set required environment variables
-    export CONFIG_FILE="$CFG_ROOT/.clinic-bootstrap.conf"
+    export CONFIG_FILE="$CFG_ROOT/.bootstrap.conf"
     export SKIP_DOCKER_CHECK=true
     export DRY_RUN=true
     export NON_INTERACTIVE=true
     
     # Source the helper functions
     cd "$SCRIPT_DIR"
-    source "./clinic-lib.sh"
+    source "./lib.sh"
     
     # Source function definitions
-    source <(sed -n '/^parse_service_config()/,/^}$/p' "./clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "./clinic-bootstrap.sh")
-    source <(sed -n '/^reset_ports()/,/^}$/p' "./clinic-bootstrap.sh")
+    source <(sed -n '/^parse_service_config()/,/^}$/p' "./bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "./bootstrap.sh")
+    source <(sed -n '/^reset_ports()/,/^}$/p' "./bootstrap.sh")
     
     # Initialize arrays and run service discovery (declare globally)
     unset CONTAINER_DESCRIPTIONS CONTAINER_PORTS ALL_CONTAINERS 2>/dev/null || true

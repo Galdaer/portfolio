@@ -1,15 +1,15 @@
 #!/usr/bin/env bats
 
 # Source required scripts once for all tests
-source scripts/clinic-lib.sh
+source scripts/lib.sh
 source scripts/universal-service-runner.sh
 
 # Extract specific functions and variables from bootstrap script without executing the whole script
-eval "$(awk '/^ALL_CONTAINERS=\(/ {print; exit}' scripts/clinic-bootstrap.sh)"
-eval "$(awk '/^ensure_container_running\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
-eval "$(awk '/^get_service_config_value\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
-eval "$(awk '/^ensure_directories\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
-eval "$(awk '/^stop_service\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+eval "$(awk '/^ALL_CONTAINERS=\(/ {print; exit}' scripts/bootstrap.sh)"
+eval "$(awk '/^ensure_container_running\(\)/,/^}/' scripts/bootstrap.sh)"
+eval "$(awk '/^get_service_config_value\(\)/,/^}/' scripts/bootstrap.sh)"
+eval "$(awk '/^ensure_directories\(\)/,/^}/' scripts/bootstrap.sh)"
+eval "$(awk '/^stop_service\(\)/,/^}/' scripts/bootstrap.sh)"
 
 setup() {
   TMPDIR=$(mktemp -d)
@@ -40,7 +40,7 @@ teardown() {
   [ "$(stat -c %u "$WG_CLIENTS_DIR")" -eq "$CFG_UID" ]
   [ "$(stat -c %g "$WG_CLIENTS_DIR")" -eq "$CFG_GID" ]
 
-  containers=($(grep '^ALL_CONTAINERS=(' scripts/clinic-bootstrap.sh | awk -F'[()]' '{print $2}'))
+  containers=($(grep '^ALL_CONTAINERS=(' scripts/bootstrap.sh | awk -F'[()]' '{print $2}'))
   for c in "${containers[@]}"; do
     case "$c" in
       influxdb)
@@ -76,21 +76,21 @@ done
 @test "logs directory and log file path set correctly" {
   CFG_ROOT="$TMPDIR/root"
   mkdir -p "$CFG_ROOT"
-  snippet=$(sed -n '/CONFIG_FILE=/,/LOG_FILE=/p' scripts/clinic-bootstrap.sh)
+  snippet=$(sed -n '/CONFIG_FILE=/,/LOG_FILE=/p' scripts/bootstrap.sh)
   eval "$snippet"
   [ "$LOG_DIR" = "$CFG_ROOT/logs" ]
   [ -d "$LOG_DIR" ]
-  [ "$LOG_FILE" = "$LOG_DIR/clinic-bootstrap.log" ]
+  [ "$LOG_FILE" = "$LOG_DIR/bootstrap.log" ]
 }
 
 @test "enable_config_web_ui invoked when not dry run" {
   DRY_RUN=false
   called=false
   enable_config_web_ui() { called=true; }
-  line=$(grep -n "enable_config_web_ui" scripts/clinic-bootstrap.sh | grep -v "()" | cut -d: -f1)
+  line=$(grep -n "enable_config_web_ui" scripts/bootstrap.sh | grep -v "()" | cut -d: -f1)
   start=$((line-1))
   end=$((line+1))
-  snippet=$(sed -n "${start},${end}p" scripts/clinic-bootstrap.sh)
+  snippet=$(sed -n "${start},${end}p" scripts/bootstrap.sh)
   eval "$snippet"
   [ "$called" = true ]
 }
@@ -99,10 +99,10 @@ done
   DRY_RUN=true
   called=false
   enable_config_web_ui() { called=true; }
-  line=$(grep -n "enable_config_web_ui" scripts/clinic-bootstrap.sh | grep -v "()" | cut -d: -f1)
+  line=$(grep -n "enable_config_web_ui" scripts/bootstrap.sh | grep -v "()" | cut -d: -f1)
   start=$((line-1))
   end=$((line+1))
-  snippet=$(sed -n "${start},${end}p" scripts/clinic-bootstrap.sh)
+  snippet=$(sed -n "${start},${end}p" scripts/bootstrap.sh)
   eval "$snippet"
   [ "$called" = false ]
 }
@@ -116,7 +116,7 @@ EOF
   chmod +x "$TMPDIR/bin/ip"
   PATH="$TMPDIR/bin:$PATH"
 
-  eval "$(awk '/^get_server_ip\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  eval "$(awk '/^get_server_ip\(\)/,/^}/' scripts/bootstrap.sh)"
   result=$(bash -c "$(declare -f get_server_ip); set -euo pipefail; get_server_ip" 2>/dev/null || echo "failed")
   [ "$result" = "10.0.0.5" ]
 }
@@ -130,7 +130,7 @@ EOF
   chmod +x "$TMPDIR/bin/ip"
   PATH="$TMPDIR/bin:$PATH"
 
-  eval "$(awk '/^get_server_ip\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  eval "$(awk '/^get_server_ip\(\)/,/^}/' scripts/bootstrap.sh)"
   result=$(bash -c "$(declare -f get_server_ip); set -euo pipefail; get_server_ip" 2>/dev/null || echo "your-server-ip")
   [ "$result" = "your-server-ip" ]
 }
@@ -149,7 +149,7 @@ PublicKey = oldpub
 PresharedKey = oldpsk
 EOF
 
-  eval "$(awk '/^reset_wireguard_keys\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  eval "$(awk '/^reset_wireguard_keys\(\)/,/^}/' scripts/bootstrap.sh)"
   generate_wg_qr() { touch "$1/$2.png"; }
   backup_wireguard() { :; }
   warn() { :; }
@@ -179,7 +179,7 @@ EOF
 
 @test "save_config persists VPN subnet settings" {
   CFG_ROOT="$TMPDIR/stack"
-  CONFIG_FILE="$CFG_ROOT/.clinic-bootstrap.conf"
+  CONFIG_FILE="$CFG_ROOT/.bootstrap.conf"
   mkdir -p "$CFG_ROOT"
 
   VPN_SUBNET="10.9.0.0/24"
@@ -206,7 +206,7 @@ EOF
 
   log() { :; }
   set_ownership() { :; }
-  eval "$(awk '/^save_config\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  eval "$(awk '/^save_config\(\)/,/^}/' scripts/bootstrap.sh)"
 
   save_config
 
@@ -221,7 +221,7 @@ EOF
 
 @test "save_config persists Docker network and DNS settings" {
   CFG_ROOT="$TMPDIR/stack"
-  CONFIG_FILE="$CFG_ROOT/.clinic-bootstrap.conf"
+  CONFIG_FILE="$CFG_ROOT/.bootstrap.conf"
   mkdir -p "$CFG_ROOT"
 
   DOCKER_NETWORK_NAME="test-net"
@@ -249,7 +249,7 @@ EOF
 
   log() { :; }
   set_ownership() { :; }
-  eval "$(awk '/^save_config\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  eval "$(awk '/^save_config\(\)/,/^}/' scripts/bootstrap.sh)"
 
   save_config
 
@@ -265,18 +265,18 @@ EOF
 }
 
 @test "saved user service ports override defaults" {
-  loop=$(sed -n '/<USER_PORT_ENV_OVERRIDES>/,/done/p' scripts/clinic-bootstrap.sh | tail -n +2)
+  loop=$(sed -n '/<USER_PORT_ENV_OVERRIDES>/,/done/p' scripts/bootstrap.sh | tail -n +2)
   result=$(bash -c "set -euo pipefail; declare -Ag CONTAINER_PORTS=([my-svc]=8080); MY_SVC_PORT=9999; $loop; echo \${CONTAINER_PORTS[my-svc]}" 2>/dev/null || echo "failed")
   [ "$result" = "9999" ]
 }
 
 @test "default user service port preserved when not in config" {
-  loop=$(sed -n '/<USER_PORT_ENV_OVERRIDES>/,/done/p' scripts/clinic-bootstrap.sh | tail -n +2)
+  loop=$(sed -n '/<USER_PORT_ENV_OVERRIDES>/,/done/p' scripts/bootstrap.sh | tail -n +2)
   result=$(bash -c "set -euo pipefail; declare -Ag CONTAINER_PORTS=([my-svc]=8080); $loop; echo \${CONTAINER_PORTS[my-svc]}" 2>/dev/null || echo "failed")
   [ "$result" = "8080" ]
 }
 @test "stop_service uses docker stop when container exists" {
-  eval "$(awk '/^stop_service\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  eval "$(awk '/^stop_service\(\)/,/^}/' scripts/bootstrap.sh)"
   script="$TMPDIR/script1.sh"
   cat >"$script" <<'EOS'
 set -euo pipefail
@@ -302,7 +302,7 @@ EOS
 }
 
 @test "stop_service uses systemctl stop for non-container" {
-  eval "$(awk '/^stop_service\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  eval "$(awk '/^stop_service\(\)/,/^}/' scripts/bootstrap.sh)"
   script="$TMPDIR/script2.sh"
   cat >"$script" <<'EOS'
 set -euo pipefail
@@ -328,7 +328,7 @@ EOS
 }
 
 @test "stop_service wireguard stops interface and container" {
-  eval "$(awk '/^stop_service\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  eval "$(awk '/^stop_service\(\)/,/^}/' scripts/bootstrap.sh)"
   script="$TMPDIR/script3.sh"
   cat >"$script" <<'EOS'
 set -euo pipefail

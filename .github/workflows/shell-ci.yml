@@ -182,8 +182,8 @@ jobs:
           GITHUB_ACTIONS: true
         run: |
           # Clean up any stale lock files from previous CI runs
-          rm -f "$HOME/.cache/clinic-bootstrap.lock" "/tmp/clinic-bootstrap-$(whoami).lock" ".clinic-bootstrap.lock" || true
-          sudo -E ./scripts/clinic-bootstrap.sh --validate --non-interactive
+          rm -f "$HOME/.cache/bootstrap.lock" "/tmp/bootstrap-$(whoami).lock" ".bootstrap.lock" || true
+          sudo -E ./scripts/bootstrap.sh --validate --non-interactive
 
       - name: Configure Docker daemon for DNS
         run: |
@@ -450,7 +450,7 @@ jobs:
   #         
   #         # Verify secure defaults
   #         echo "Verifying secure defaults..."
-  #         if grep -q "INTELLUXE_SECURE_MODE=true" scripts/clinic-lib.sh; then
+  #         if grep -q "INTELLUXE_SECURE_MODE=true" scripts/lib.sh; then
   #           echo "✓ Secure mode is enabled by default"
   #         else
   #           echo "⚠ Consider enabling secure mode by default"
@@ -492,8 +492,8 @@ jobs:
   #       with:
   #         name: intelluxe-deployment-artifacts
   #         path: |
-  #           /opt/intelluxe/clinic-stack/logs/
-  #           /opt/intelluxe/clinic-stack/config/
+  #           /opt/intelluxe/stack/logs/
+  #           /opt/intelluxe/stack/config/
   #         retention-days: 7
 
 # Environment variables for healthcare AI development

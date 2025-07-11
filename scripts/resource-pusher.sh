@@ -42,8 +42,8 @@ SCRIPT_VERSION="1.0.0"
 INFLUX_URL="http://${INFLUX_HOST}:${INFLUX_PORT}/write?db=${INFLUX_DB}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/clinic-lib.sh
-source "${SCRIPT_DIR}/clinic-lib.sh"
+# shellcheck source=scripts/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 trap cleanup SIGINT SIGTERM ERR EXIT
 
 USAGE="Usage: $0 [--debug] [--influx-host HOST] [--influx-port PORT] [--influx-db DB] [--help]
@@ -83,7 +83,7 @@ INFLUX_URL="http://${INFLUX_HOST}:${INFLUX_PORT}/write?db=${INFLUX_DB}"
 
 require_deps top free df curl
 
-: "${CFG_ROOT:=/opt/intelluxe/clinic-stack}"
+: "${CFG_ROOT:=/opt/intelluxe/stack}"
 LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/resource-pusher.log"

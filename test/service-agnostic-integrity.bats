@@ -16,8 +16,8 @@ setup() {
     mkdir -p "$TEST_ROOT/services/user"
     
     # Copy actual scripts for testing
-    cp "$BATS_TEST_DIRNAME/../scripts/clinic-bootstrap.sh" "$SCRIPT_DIR/"
-    cp "$BATS_TEST_DIRNAME/../scripts/clinic-lib.sh" "$SCRIPT_DIR/"
+    cp "$BATS_TEST_DIRNAME/../scripts/bootstrap.sh" "$SCRIPT_DIR/"
+    cp "$BATS_TEST_DIRNAME/../scripts/lib.sh" "$SCRIPT_DIR/"
     
     # Set test environment variables
     export NON_INTERACTIVE=true
@@ -51,7 +51,7 @@ teardown() {
 
 # Test the new generic setup_service_env_vars function
 @test "setup_service_env_vars function exists and is callable" {
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     # Should be able to call the function without error
     setup_service_env_vars "nonexistent-service"
@@ -70,8 +70,8 @@ EOF
     # Add port to CONTAINER_PORTS
     CONTAINER_PORTS[test-app]="8080"
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     export TRAEFIK_DOMAIN_MODE="local"
     
@@ -89,8 +89,8 @@ description=Test application
 env=ADVERTISE_IP=placeholder
 EOF
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     export TRAEFIK_DOMAIN_MODE="ddns"
     export TRAEFIK_DOMAIN_NAME="test.duckdns.org"
@@ -109,8 +109,8 @@ description=Custom database
 env=HOSTNAME=placeholder;DB_NAME=test
 EOF
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     export TRAEFIK_DOMAIN_MODE="local"
     
@@ -128,8 +128,8 @@ description=My custom application
 env=HOSTNAME=placeholder
 EOF
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     export TRAEFIK_DOMAIN_MODE="ddns"
     export TRAEFIK_DOMAIN_NAME="mydomain.com"
@@ -148,8 +148,8 @@ description=Any service that needs network access
 env=ALLOWED_NETWORKS=placeholder;DEBUG=true
 EOF
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     setup_service_env_vars "any-service"
     
@@ -169,8 +169,8 @@ EOF
     # Add port to CONTAINER_PORTS
     CONTAINER_PORTS[multi-env]="4000"
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     export TRAEFIK_DOMAIN_MODE="local"
     
@@ -191,8 +191,8 @@ description=Service with normal env vars
 env=DEBUG=true;LOG_LEVEL=info;API_KEY=secret123
 EOF
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     setup_service_env_vars "normal-env"
     
@@ -203,7 +203,7 @@ EOF
 }
 
 @test "setup_service_env_vars gracefully handles missing config file" {
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     # Should not fail when service config doesn't exist
     setup_service_env_vars "nonexistent-service"
@@ -217,8 +217,8 @@ port=8080
 description=Service without env section
 EOF
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     # Should not fail when no env section exists
     setup_service_env_vars "no-env"
@@ -227,7 +227,7 @@ EOF
 
 # Test service-agnostic directory structure
 @test "bootstrap script only looks in services/user directory" {
-    script_content=$(cat "$SCRIPT_DIR/clinic-bootstrap.sh")
+    script_content=$(cat "$SCRIPT_DIR/bootstrap.sh")
     
     # Should not reference services/core anywhere
     ! [[ "$script_content" == *"services/core"* ]]
@@ -264,7 +264,7 @@ EOF
 
     # Source the bootstrap discovery logic
     cd "$SCRIPT_DIR"
-    source <(grep -A 50 "# Dynamic service discovery" clinic-bootstrap.sh | sed '/^$/,$d')
+    source <(grep -A 50 "# Dynamic service discovery" bootstrap.sh | sed '/^$/,$d')
     
     # Should discover all three services
     local discovered_services=()
@@ -283,13 +283,13 @@ EOF
 }
 
 @test "no hardcoded service names remain in bootstrap script" {
-    script_content=$(cat "$SCRIPT_DIR/clinic-bootstrap.sh")
+    script_content=$(cat "$SCRIPT_DIR/bootstrap.sh")
     
     # Should not contain hardcoded references to specific services in logic
     # (comments and help text are OK, but not in functional code)
     
     # Check ensure_container_running doesn't have service-specific cases
-    ensure_container_function=$(sed -n '/^ensure_container_running()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    ensure_container_function=$(sed -n '/^ensure_container_running()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     ! [[ "$ensure_container_function" == *"plex)"* ]]
     ! [[ "$ensure_container_function" == *"grafana)"* ]]
     ! [[ "$ensure_container_function" == *"traefik)"* ]]
@@ -303,7 +303,7 @@ EOF
 }
 
 @test "service restriction logic is purely port-based" {
-    script_content=$(cat "$SCRIPT_DIR/clinic-bootstrap.sh")
+    script_content=$(cat "$SCRIPT_DIR/bootstrap.sh")
     
     # Should not contain hardcoded service lists in restriction logic
     ! [[ "$script_content" == *"grafana | plex | influxdb | adguard"* ]]
@@ -338,8 +338,8 @@ EOF
     CONTAINER_PORTS[microservice-x]="9999"
     
     # Test that setup_service_env_vars works with these custom services
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     # Test custom app
     setup_service_env_vars "my-custom-app"
@@ -369,8 +369,8 @@ description=Service with variable expansion
 env=API_URL=\$TEST_API_URL;DB_NAME=\$TEST_DATABASE_NAME;HOSTNAME=placeholder
 EOF
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     setup_service_env_vars "expansion-test"
     
@@ -392,8 +392,8 @@ EOF
     # Add port to CONTAINER_PORTS for this service
     CONTAINER_PORTS[test-app_v2]="8080"
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     # Should handle service name with underscores and hyphens
     setup_service_env_vars "test-app_v2"

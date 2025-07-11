@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# clinic-bootstrap.sh version 1.0.0
+# bootstrap.sh version 1.0.0
 # Author: Justin Michael Sue (Galdaer)
 # Repo: https://github.com/Intelluxe-AI/intelluxe-core
 # Last Revised: 2025-07-05
@@ -63,32 +63,32 @@
 # Tested on: Pop!_OS 22.04 LTS
 #
 # How to update this script:
-#   Run: sudo ./clinic-bootstrap.sh --self-update
+#   Run: sudo ./bootstrap.sh --self-update
 #
 # Contact / Support:
 #   - Issues: https://github.com/Intelluxe-AI/intelluxe-core/issues
 #   - Author: Justin Sue (@Galdaer)
 #
-# For detailed usage, run: ./clinic-bootstrap.sh --help
+# For detailed usage, run: ./bootstrap.sh --help
 
 set -euo pipefail
 
 SCRIPT_VERSION="1.0.0"
 # Self-update URL for automatic updates feature
-SELF_UPDATE_URL="https://raw.githubusercontent.com/Intelluxe-AI/intelluxe-core/main/scripts/clinic-bootstrap.sh"
+SELF_UPDATE_URL="https://raw.githubusercontent.com/Intelluxe-AI/intelluxe-core/main/scripts/bootstrap.sh"
 DEFAULT_UID=1000
 DEFAULT_GID=1000
 
 # ----------------- Configuration -----------------
-: "${CFG_ROOT:=/opt/intelluxe/clinic-stack}"
+: "${CFG_ROOT:=/opt/intelluxe/stack}"
 : "${CFG_UID:=$DEFAULT_UID}"
 : "${CFG_GID:=$DEFAULT_GID}"
 
-CONFIG_FILE="${CFG_ROOT}/.clinic-bootstrap.conf"
+CONFIG_FILE="${CFG_ROOT}/.bootstrap.conf"
 BACKUP_DIR="${CFG_ROOT}/backups"
 LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/clinic-bootstrap.log"
+LOG_FILE="$LOG_DIR/bootstrap.log"
 
 # Summary file for service documentation
 SUMMARY_FILE="${CFG_ROOT}/SUMMARY.md"
@@ -185,11 +185,11 @@ set -uo pipefail
 
 # ----------------- Lockfile: Prevent concurrent runs -----------------
 # Use user-writable location instead of /var/lock (which requires root)
-LOCK_FILE="${HOME}/.cache/clinic-bootstrap.lock"
+LOCK_FILE="${HOME}/.cache/bootstrap.lock"
 mkdir -p "$(dirname "$LOCK_FILE")"
 exec 200>"$LOCK_FILE"
 flock -n 200 || {
-	echo "Another instance of clinic-bootstrap.sh is running. Exiting."
+	echo "Another instance of bootstrap.sh is running. Exiting."
 	exit 1
 }
 
@@ -214,10 +214,10 @@ TRAEFIK_ACME_EMAIL="${TRAEFIK_ACME_EMAIL:-}"
 # Service domain routing is now handled dynamically per service
 # Individual services can define supports_domain_routing=true in their .conf files
 
-# --- Dynamic Path: Source clinic-lib.sh ---
+# --- Dynamic Path: Source lib.sh ---
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/clinic-lib.sh
-source "${SCRIPT_DIR}/clinic-lib.sh"
+# shellcheck source=scripts/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 
 # --- Load Universal Service Runner ---
 # shellcheck source=scripts/universal-service-runner.sh
@@ -612,7 +612,7 @@ declare -A CONTAINER_PORTS=(
 )
 
 # ----------------- Source Persistent Config -----------------
-# shellcheck source=/opt/intelluxe/clinic-stack/.clinic-bootstrap.conf
+# shellcheck source=/opt/intelluxe/stack/.bootstrap.conf
 if [[ -f "$CONFIG_FILE" ]]; then
 	# Check if config file contains old problematic syntax and remove it
 	if grep -q "CONTAINER_PORTS\[" "$CONFIG_FILE" 2>/dev/null; then
@@ -2330,7 +2330,7 @@ self_update() {
 		return 0
 	fi
 
-	local temp_script="/tmp/clinic-bootstrap-update.sh"
+	local temp_script="/tmp/bootstrap-update.sh"
 	local current_script="${BASH_SOURCE[0]}"
 
 	if [[ "$DRY_RUN" == "true" ]]; then
@@ -2750,7 +2750,7 @@ main() {
 
 	if ! $NON_INTERACTIVE && ! $FORCE_DEFAULTS; then
 		echo "Welcome to the Robust Docker Homelab Bootstrapper!"
-		echo "For guided help, see the README or run ./clinic-bootstrap.sh --help"
+		echo "For guided help, see the README or run ./bootstrap.sh --help"
 	fi
 
 	check_permissions || {

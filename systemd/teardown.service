@@ -1,17 +1,17 @@
-# clinic-teardown.service version 1.0.0
+# teardown.service version 1.0.0
 # Author: Justin Sue (Galdaer)
 # Last Revised: 2025-05-30
 # Purpose: Systemd unit for clinic stack teardown utility.
-# Usage: Runs clinic-teardown.sh for full stack cleanup.
+# Usage: Runs teardown.sh for full stack cleanup.
 
 [Unit]
-Description=Run clinic-teardown.sh cleanup utility
+Description=Run teardown.sh cleanup utility
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/intelluxe/scripts/clinic-teardown.sh --all --force
+ExecStart=/opt/intelluxe/scripts/teardown.sh --all --force
 StandardOutput=journal
 StandardError=journal
 RemainAfterExit=yes

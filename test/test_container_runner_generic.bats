@@ -8,15 +8,15 @@ setup() {
     # Create test environment
     TEST_ROOT=$(mktemp -d)
     export SCRIPT_DIR="$TEST_ROOT/scripts"
-    export CFG_ROOT="$TEST_ROOT/clinic-stack"
+    export CFG_ROOT="$TEST_ROOT/stack"
     
     mkdir -p "$SCRIPT_DIR"
     mkdir -p "$TEST_ROOT/services/user"
     mkdir -p "$CFG_ROOT/logs"
     
     # Copy actual scripts to test location
-    cp "$BATS_TEST_DIRNAME/../scripts/clinic-bootstrap.sh" "$SCRIPT_DIR/"
-    cp "$BATS_TEST_DIRNAME/../scripts/clinic-lib.sh" "$SCRIPT_DIR/"
+    cp "$BATS_TEST_DIRNAME/../scripts/bootstrap.sh" "$SCRIPT_DIR/"
+    cp "$BATS_TEST_DIRNAME/../scripts/lib.sh" "$SCRIPT_DIR/"
     
     # Create test service configurations
     cat > "$TEST_ROOT/services/user/test-service.conf" <<EOF
@@ -36,7 +36,7 @@ network_mode=custom
 EOF
 
     # Set required environment variables
-    export CONFIG_FILE="$CFG_ROOT/.clinic-bootstrap.conf"
+    export CONFIG_FILE="$CFG_ROOT/.bootstrap.conf"
     export SKIP_DOCKER_CHECK=true
     export DRY_RUN=true
     export NON_INTERACTIVE=true
@@ -58,15 +58,15 @@ MOCK_EOF
     
     # Disable error trapping temporarily for test setup
     set +e
-    source "./clinic-lib.sh" 2>/dev/null || true
+    source "./lib.sh" 2>/dev/null || true
     set -e
     
     # Source the actual service functions from bootstrap
-    source <(sed -n '/^parse_service_config()/,/^}$/p' "./clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "./clinic-bootstrap.sh")
+    source <(sed -n '/^parse_service_config()/,/^}$/p' "./bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "./bootstrap.sh")
     
     # Extract ensure_container_running function properly
-    source <(sed -n '/^ensure_container_running()/,/^}$/p' "./clinic-bootstrap.sh")
+    source <(sed -n '/^ensure_container_running()/,/^}$/p' "./bootstrap.sh")
     
     # Initialize required arrays and variables
     declare -A CONTAINER_PORTS

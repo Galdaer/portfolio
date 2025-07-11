@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# clinic-teardown.sh - Complete removal of CLINIC stack
+# teardown.sh - Complete removal of CLINIC stack
 # Author: Justin Michael Sue (Galdaer)
 # Repo: https://github.com/Intelluxe-AI/intelluxe-core
 #
@@ -31,16 +31,16 @@ set -euo pipefail
 #   - Run as root
 #   - docker, systemctl, ip, iptables, logger, jq
 #
-# Usage: ./clinic-teardown.sh [--no-color] [--debug] [--force] [--dry-run] [--all|--vpn-only|--clinic-only]
+# Usage: ./teardown.sh [--no-color] [--debug] [--force] [--dry-run] [--all|--vpn-only|--core-only]
 #   --no-color   Disable colorized output
 #   --debug      Enable debug output
 #   --force      Skip confirmation prompts
 #   --dry-run    Show actions without executing
 #   --all        Tear down all components (default)
 #   --vpn-only   Only teardown VPN-related components
-#   --clinic-only  Only teardown clinic-related components
+#   --core-only  Only teardown related components
 #
-# Logs to /var/log/clinic-teardown.log and syslog. Exports JSON audit to /tmp/clinic-teardown.json.
+# Logs to /var/log/teardown.log and syslog. Exports JSON audit to /tmp/teardown.json.
 # Dependency note: This script requires bash, coreutils, docker, and standard Unix tools.
 # For CI, log files are written to $PWD/logs/ if possible.
 
@@ -51,7 +51,7 @@ SCRIPT_VERSION="1.0.0"
 : "${DRY_RUN:=false}"
 : "${MODE:=all}"
 # Name of the Docker network used by clinic containers.
-# Override via the DOCKER_NETWORK_NAME environment variable or an .env file sourced in clinic-lib.sh.
+# Override via the DOCKER_NETWORK_NAME environment variable or an .env file sourced in lib.sh.
 : "${DOCKER_NETWORK_NAME:=wireguard-net}"
 
 NS_NAME="clinicns"
@@ -60,11 +60,11 @@ CONTAINERS=(clinic traefik wireguard grafana influxdb n8n config-web-ui ollama a
 NETWORKS=("${DOCKER_NETWORK_NAME}")
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/clinic-lib.sh
-source "${SCRIPT_DIR}/clinic-lib.sh"
+# shellcheck source=scripts/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 trap cleanup SIGINT SIGTERM ERR EXIT
 
-USAGE="Usage: $0 [--no-color] [--debug] [--force] [--dry-run] [--all|--vpn-only|--clinic-only]
+USAGE="Usage: $0 [--no-color] [--debug] [--force] [--dry-run] [--all|--vpn-only|--core-only]
 Uses DOCKER_NETWORK_NAME (default: ${DOCKER_NETWORK_NAME}) for Docker network cleanup.
 Version: $SCRIPT_VERSION
 "
@@ -101,7 +101,7 @@ while [[ $# -gt 0 ]]; do
 		MODE="vpn"
 		shift
 		;;
-	--clinic-only)
+	--core-only)
 		MODE="clinic"
 		shift
 		;;
@@ -119,7 +119,7 @@ done
 
 LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/clinic-teardown.log"
+LOG_FILE="$LOG_DIR/teardown.log"
 
 rotate_log_if_needed
 
@@ -134,11 +134,11 @@ ACTIONS=()
 # --- Teardown Steps ---
 if [[ "$MODE" == "all" || "$MODE" == "clinic" ]]; then
 	confirm "Intelluxe containers and services"
-	run systemctl stop clinic-bootstrap.service clinic-reset.service clinic-auto-repair.service || true && STOPPED_SERVICES+=("clinic-bootstrap.service" "clinic-reset.service" "clinic-auto-repair.service")
-	run systemctl disable clinic-bootstrap.service clinic-reset.service clinic-auto-repair.service || true
-	run systemctl stop clinic-diagnostics.timer clinic-auto-repair.timer || true && DISABLED_TIMERS+=("clinic-diagnostics.timer" "clinic-auto-repair.timer")
-	run systemctl disable clinic-diagnostics.timer clinic-auto-repair.timer || true
-	run rm -f ./logs/clinic-bootstrap.log ./logs/clinic-reset.log ./logs/clinic-diagnostics.log ./logs/clinic-auto-repair.log && DELETED_FILES+=("./logs/clinic-bootstrap.log" "./logs/clinic-reset.log" "./logs/clinic-diagnostics.log" "./logs/clinic-auto-repair.log")
+	run systemctl stop bootstrap.service reset.service auto-repair.service || true && STOPPED_SERVICES+=("bootstrap.service" "reset.service" "auto-repair.service")
+	run systemctl disable bootstrap.service reset.service auto-repair.service || true
+	run systemctl stop diagnostics.timer auto-repair.timer || true && DISABLED_TIMERS+=("diagnostics.timer" "auto-repair.timer")
+	run systemctl disable diagnostics.timer auto-repair.timer || true
+	run rm -f ./logs/bootstrap.log ./logs/reset.log ./logs/diagnostics.log ./logs/auto-repair.log && DELETED_FILES+=("./logs/bootstrap.log" "./logs/reset.log" "./logs/diagnostics.log" "./logs/auto-repair.log")
 fi
 
 if [[ "$MODE" == "all" || "$MODE" == "vpn" ]]; then
@@ -151,7 +151,7 @@ if [[ "$MODE" == "all" || "$MODE" == "vpn" ]]; then
 	iptables -t mangle -F && ACTIONS+=("iptables_flushed:true")
 	run ip route flush table 66 || true
         run rm -f /etc/netns/$NS_NAME/resolv.conf /var/run/netns/$NS_NAME && DELETED_FILES+=("/etc/netns/$NS_NAME/resolv.conf" "/var/run/netns/$NS_NAME")
-        run rm -f ./logs/clinic-teardown.log && DELETED_FILES+=("./logs/clinic-teardown.log")
+        run rm -f ./logs/teardown.log && DELETED_FILES+=("./logs/teardown.log")
 fi
 
 if [[ "$MODE" == "all" ]]; then
@@ -163,7 +163,7 @@ fi
 ok "🧼 Teardown ($MODE) complete."
 
 # --- Export JSON audit ---
-TEARDOWN_JSON="/tmp/clinic-teardown.json"
+TEARDOWN_JSON="/tmp/teardown.json"
 log "📦 Exporting JSON audit to $TEARDOWN_JSON"
 cat >"$TEARDOWN_JSON" <<EOF
 {

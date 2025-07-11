@@ -1,17 +1,17 @@
-# clinic-netns.service version 1.0.0
+# netns.service version 1.0.0
 # Author: Justin Sue (Galdaer)
 # Last Revised: 2025-05-30
 # Purpose: Systemd unit for clinic network namespace setup.
 # Usage: Brings up the network namespace for the stack.
 
 [Unit]
-Description=Run clinic-netns.sh network namespace setup
+Description=Run netns.sh network namespace setup
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/intelluxe/scripts/clinic-netns-setup.sh
+ExecStart=/opt/intelluxe/scripts/netns-setup.sh
 StandardOutput=journal
 StandardError=journal
 RemainAfterExit=yes

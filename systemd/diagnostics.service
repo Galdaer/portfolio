@@ -1,8 +1,8 @@
-# clinic-diagnostics.service version 1.0.0
+# diagnostics.service version 1.0.0
 # Author: Justin Sue (Galdaer)
 # Last Revised: 2025-05-30
 # Purpose: Systemd unit for clinic Diagnostics Health Check.
-# Usage: Used with clinic-diagnostics.timer for scheduled health checks
+# Usage: Used with diagnostics.timer for scheduled health checks
 
 [Unit]
 Description=clinic Diagnostics Health Check
@@ -11,12 +11,12 @@ Requires=docker.service
 
 [Service]
 Type=simple
-ExecStart=/opt/intelluxe/scripts/clinic-diagnostics.sh --log-file /var/log/clinic-diagnostics.log --deep-check
+ExecStart=/opt/intelluxe/scripts/diagnostics.sh --log-file /var/log/diagnostics.log --deep-check
 Restart=on-failure
 RestartSec=30
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=clinic-diagnostics
+SyslogIdentifier=diagnostics
 TimeoutStartSec=120
 
 [Install]

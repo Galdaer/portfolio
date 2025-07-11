@@ -1,8 +1,8 @@
-# clinic-diagnostics.timer version 1.0.0
+# diagnostics.timer version 1.0.0
 # Author: Justin Sue (Galdaer)
 # Last Revised: 2025-05-30
 # Purpose: Systemd timer for periodic Intelluxe diagnostics.
-# Usage: Triggers clinic-diagnostics.service every 30 minutes
+# Usage: Triggers diagnostics.service every 30 minutes
 
 [Unit]
 Description=Run Intelluxe diagnostics every 30 minutes and after boot
@@ -10,7 +10,7 @@ Description=Run Intelluxe diagnostics every 30 minutes and after boot
 [Timer]
 OnBootSec=2min
 OnUnitActiveSec=30min
-Unit=clinic-diagnostics.service
+Unit=diagnostics.service
 
 [Install]
 WantedBy=timers.target

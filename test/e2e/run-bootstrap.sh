@@ -3,8 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-IMAGE="clinic-e2e:latest"
-CONTAINER="clinic-e2e-test"
+IMAGE="e2e:latest"
+CONTAINER="e2e-test"
 
 # Build image with repository contents
 Dockerfile="$SCRIPT_DIR/Dockerfile"
@@ -36,6 +36,6 @@ docker run --rm --name "$CONTAINER" \
     -e CFG_ROOT=/tmp/test-config \
     -e LOG_DIR=/tmp/test-logs \
     "$IMAGE" \
-    bash /workspace/scripts/clinic-bootstrap.sh --dry-run --non-interactive
+    bash /workspace/scripts/bootstrap.sh --dry-run --non-interactive
 
 echo "E2E test completed successfully"

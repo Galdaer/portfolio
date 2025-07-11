@@ -49,8 +49,8 @@ teardown() {
         skip "Skipping file permission test in CI - running as non-root in container"
     fi
     
-    # Source the function from clinic-lib.sh
-    source <(sed -n '/^check_secret_perms()/,/^}$/p' scripts/clinic-lib.sh)
+    # Source the function from lib.sh
+    source <(sed -n '/^check_secret_perms()/,/^}$/p' scripts/lib.sh)
     
     # Test secure file (600)
     run check_secret_perms "$TMPDIR/secure-file"
@@ -66,7 +66,7 @@ teardown() {
 }
 
 @test "check_secret_perms handles missing files" {
-    source <(sed -n '/^check_secret_perms()/,/^}$/p' scripts/clinic-lib.sh)
+    source <(sed -n '/^check_secret_perms()/,/^}$/p' scripts/lib.sh)
     
     run check_secret_perms "$TMPDIR/nonexistent-file"
     [ "$status" -eq 0 ]
@@ -75,8 +75,8 @@ teardown() {
 }
 
 @test "set_ownership applies correct ownership" {
-    # Source from clinic-lib.sh
-    source <(sed -n '/^set_ownership()/,/^}$/p' scripts/clinic-lib.sh)
+    # Source from lib.sh
+    source <(sed -n '/^set_ownership()/,/^}$/p' scripts/lib.sh)
     
     # Mock chown command to capture calls
     chown() { echo "chown $*" >> "$TMPDIR/chown-calls"; }
@@ -94,7 +94,7 @@ teardown() {
 }
 
 @test "set_ownership skips when UID/GID not set" {
-    source <(sed -n '/^set_ownership()/,/^}$/p' scripts/clinic-lib.sh)
+    source <(sed -n '/^set_ownership()/,/^}$/p' scripts/lib.sh)
     
     chown() { echo "chown $*" >> "$TMPDIR/chown-calls"; }
     export -f chown
@@ -109,8 +109,8 @@ teardown() {
 }
 
 @test "validate_uuid function validates UUIDs" {
-    # Source from clinic-lib.sh
-    source <(sed -n '/^validate_uuid()/,/^}$/p' scripts/clinic-lib.sh)
+    # Source from lib.sh
+    source <(sed -n '/^validate_uuid()/,/^}$/p' scripts/lib.sh)
     
     # Mock blkid command
     blkid() {
@@ -152,8 +152,8 @@ teardown() {
     warn() { echo "WARN: $*"; }
     export -f warn
     
-    # Source from clinic-lib.sh
-    source <(sed -n '/^check_docker_socket()/,/^}$/p' scripts/clinic-lib.sh)
+    # Source from lib.sh
+    source <(sed -n '/^check_docker_socket()/,/^}$/p' scripts/lib.sh)
     
     # Create mock socket - use regular file but modify the test 
     touch "$TMPDIR/docker.sock"
@@ -181,7 +181,7 @@ teardown() {
 }
 
 @test "check_docker_socket handles secure socket" {
-    source <(sed -n '/^check_docker_socket()/,/^}$/p' scripts/clinic-lib.sh)
+    source <(sed -n '/^check_docker_socket()/,/^}$/p' scripts/lib.sh)
     
     # Create mock socket with secure permissions
     mkfifo "$TMPDIR/docker.sock"
@@ -198,8 +198,8 @@ teardown() {
     if [[ "${CI:-}" == "true" ]]; then
         skip "Skipping log rotation test in CI - file system operations may be restricted"
     fi
-    # Source from clinic-lib.sh
-    source <(sed -n '/^rotate_log_if_needed()/,/^}$/p' scripts/clinic-lib.sh)
+    # Source from lib.sh
+    source <(sed -n '/^rotate_log_if_needed()/,/^}$/p' scripts/lib.sh)
     
     export LOG_FILE="$TMPDIR/test.log"
     export LOG_SIZE_LIMIT=100

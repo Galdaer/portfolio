@@ -12,7 +12,7 @@
 ## Primary Scripts & Components
 
 ### Main Healthcare AI Infrastructure
-- **`clinic-bootstrap.sh`** - Main healthcare AI infrastructure bootstrapper
+- **`bootstrap.sh`** - Main healthcare AI infrastructure bootstrapper
   - Sets up Docker, Ollama, AgentCare-MCP, PostgreSQL, Redis with medical-grade security
 - **`universal-service-runner.sh`** - Universal service runner
   - Deploys ANY Docker service from pure configuration
@@ -20,7 +20,7 @@
 - **`config_web_ui.py`** - Healthcare-focused web interface
   - AI system management with service health monitoring
   - Medical service icons and healthcare-specific UI
-- **`clinic-lib.sh`** - Common utility functions for Intelluxe AI healthcare operations
+- **`lib.sh`** - Common utility functions for Intelluxe AI healthcare operations
 
 ### Directory Structure
 ```
@@ -131,7 +131,7 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 
 ### Shell Scripts
 - **Follow shellcheck best practices**
-- **Use `clinic-lib.sh`** for common functions
+- **Use `lib.sh`** for common functions
 - **Universal runner**: `universal-service-runner.sh` dynamically generates Docker commands from configuration
 
 ### Python Web UI

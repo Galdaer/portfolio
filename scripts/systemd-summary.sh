@@ -44,8 +44,8 @@ SCRIPT_VERSION="1.0.0"
 : "${DRY_RUN:=false}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/clinic-lib.sh
-source "${SCRIPT_DIR}/clinic-lib.sh"
+# shellcheck source=scripts/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 trap cleanup SIGINT SIGTERM ERR EXIT
 
 USAGE="Usage: $0 [--no-color] [--dry-run] [--help]
@@ -75,8 +75,8 @@ fi
 require_deps systemctl
 
 # Logs are stored under $CFG_ROOT/logs. CFG_ROOT defaults to
-# /opt/intelluxe/clinic-stack and can be overridden in
-# /etc/default/clinic.conf; see scripts/clinic-lib.sh for details.
+# /opt/intelluxe/stack and can be overridden in
+# /etc/default/clinic.conf; see scripts/lib.sh for details.
 LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/systemd-summary.log"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# clinic-netns-setup.sh - Network namespace setup for container isolation
+# netns-setup.sh - Network namespace setup for container isolation
 # Author: Justin Michael Sue (Galdaer)
 # Repo: https://github.com/Intelluxe-AI/intelluxe-core
 #
@@ -30,7 +30,7 @@ set -euo pipefail
 #   - Run as root
 #   - ip, iptables
 #
-# Usage: ./clinic-netns-setup.sh [--help]
+# Usage: ./netns-setup.sh [--help]
 #   Sets up a Linux network namespace called "clinicns" with a veth pair and NAT.
 #   Cleans up any prior instance. Requires root privileges.
 #
@@ -53,8 +53,8 @@ SCRIPT_VERSION="1.0.0"
 : "${DEBUG:=false}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/clinic-lib.sh
-source "${SCRIPT_DIR}/clinic-lib.sh"
+# shellcheck source=scripts/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 trap cleanup SIGINT SIGTERM ERR EXIT
 
 # Parse standard/common flags (and --help)
@@ -115,7 +115,7 @@ else
 fi
 
 # Source config file for WG_CONFIG and other settings
-CONFIG_FILE=".clinic-bootstrap.conf"
+CONFIG_FILE=".bootstrap.conf"
 if [[ -f "$CONFIG_FILE" ]]; then
 	# shellcheck source=/dev/null
 	source "$CONFIG_FILE"
@@ -130,7 +130,7 @@ fi
 
 LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/clinic-netns-setup.log"
+LOG_FILE="$LOG_DIR/netns-setup.log"
 
 USAGE="Usage: $(basename "$0") [--help] [--version]
 Version: $SCRIPT_VERSION

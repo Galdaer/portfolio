@@ -9,4 +9,4 @@ Description=Run wg0 diagnostics periodically
 
 [Service]
 Type=oneshot
-ExecStart=/opt/intelluxe/scripts/clinic-diagnostics.sh --source=timer --critical-only
+ExecStart=/opt/intelluxe/scripts/diagnostics.sh --source=timer --critical-only

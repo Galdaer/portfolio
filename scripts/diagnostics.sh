@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# clinic-diagnostics.sh - System diagnostic and health check tool
+# diagnostics.sh - System diagnostic and health check tool
 # Author: Justin Michael Sue (Galdaer)
 # Repo: https://github.com/Intelluxe-AI/intelluxe-core
 #
@@ -27,10 +27,10 @@ set -euo pipefail
 #────────────────────────────────────────────────────────────────────────
 # Requirements: ss, curl, docker, jq, influx, dig
 #
-# Usage: ./clinic-diagnostics.sh [options]
-#   --log-file FILE       Log file path (default: /var/log/clinic-diagnostics.log)
+# Usage: ./diagnostics.sh [options]
+#   --log-file FILE       Log file path (default: /var/log/diagnostics.log)
 #   --dns-ip IP           DNS server to test (default: ADGUARD_CONTAINER_IP from
-#                         ${CFG_ROOT}/.clinic-bootstrap.conf)
+#                         ${CFG_ROOT}/.bootstrap.conf)
 #   --dns-fallback IP     Fallback DNS server (default: 8.8.8.8)
 #   --wg-port PORT        WireGuard UDP port (default: 51820)
 #   --influx-db DB        InfluxDB database (default: clinic_metrics)
@@ -59,8 +59,8 @@ SCRIPT_VERSION="1.0.0"
 START_TIME=$(date +%s%3N)
 
 init_dns_config() {
-    : "${CFG_ROOT:=/opt/intelluxe/clinic-stack}"
-    local config_file="${CFG_ROOT}/.clinic-bootstrap.conf"
+    : "${CFG_ROOT:=/opt/intelluxe/stack}"
+    local config_file="${CFG_ROOT}/.bootstrap.conf"
     if [[ -f "$config_file" ]]; then
         # shellcheck source=/dev/null
         source "$config_file"
@@ -77,8 +77,8 @@ init_dns_config
 : "${INFLUX_DB:=clinic_metrics}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/clinic-lib.sh
-source "${SCRIPT_DIR}/clinic-lib.sh"
+# shellcheck source=scripts/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 trap cleanup SIGINT SIGTERM ERR EXIT
 
 USAGE="Usage: $0 [--log-file FILE] [--dns-ip IP] [--dns-fallback IP] [--wg-port PORT] [--influx-db DB] [--no-color] [--debug] [--deep-check] [--export-json] [--safe] [--critical-only] [--source=SRC] [--help]
@@ -161,7 +161,7 @@ require_deps ss curl jq influx dig
 # to change the log location.
 LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/clinic-diagnostics.log"
+LOG_FILE="$LOG_DIR/diagnostics.log"
 
 rotate_log_if_needed
 touch "$LOG_FILE"
@@ -308,7 +308,7 @@ log "Failures: $FAIL_COUNT"
 for f in "${FAILURES[@]}"; do log "  - $f"; done
 
 if [[ "$EXPORT_JSON" == true ]]; then
-	JSON_PATH="/tmp/clinic-diagnostics.json"
+	JSON_PATH="/tmp/diagnostics.json"
 	{
 		echo '{'
 		echo '  "source": "'"$SOURCE"'",'

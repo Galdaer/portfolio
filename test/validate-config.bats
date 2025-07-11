@@ -23,8 +23,8 @@
   verify_container_ip() { :; }
   is_ci_or_virtual_env() { return 0; }
 
-  eval "$(awk '/^lint_compose\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
-  eval "$(awk '/^validate_config\(\)/,/^}/' scripts/clinic-bootstrap.sh)"
+  eval "$(awk '/^lint_compose\(\)/,/^}/' scripts/bootstrap.sh)"
+  eval "$(awk '/^validate_config\(\)/,/^}/' scripts/bootstrap.sh)"
 
   run bash -c "$(declare -f lint_compose validate_config log warn err check_port_in_use show_port_usage verify_container_ip docker docker-compose is_ci_or_virtual_env); set -euo pipefail; validate_config"
   [ "$status" -ne 0 ]

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# clinic-lib.sh - Core library functions for CLINIC project
+# lib.sh - Core library functions for Intelluxe project
 # Author: Justin Michael Sue (Galdaer)
 # Repo: https://github.com/Intelluxe-AI/intelluxe-core
 #
@@ -35,7 +35,7 @@
 : "${NON_INTERACTIVE:=false}"
 : "${VALIDATE_ONLY:=false}"
 # Allow override for default path in testing environments
-: "${INTELLUXE_DEFAULT_ROOT:=/opt/intelluxe/clinic-stack}"
+: "${INTELLUXE_DEFAULT_ROOT:=/opt/intelluxe/stack}"
 : "${CFG_ROOT:=$INTELLUXE_DEFAULT_ROOT}"
 
 # In CI, use a writable logs directory
@@ -47,9 +47,9 @@ else
 fi
 
 # Directory creation moved to init_logging function to respect DRY_RUN
-LOG_FILE="$LOG_DIR/clinic-lib.log"
+LOG_FILE="$LOG_DIR/lib.log"
 : "${LOG_SIZE_LIMIT:=1048576}" # 1MB default
-: "${SYSLOG_TAG:=clinic-script}"
+: "${SYSLOG_TAG:=script}"
 EMAIL_ALERT_ENABLED=${EMAIL_ALERT_ENABLED:-false}
 EMAIL_ALERT_ADDR=${EMAIL_ALERT_ADDR:-""}
 DOCKER_SOCKET="${DOCKER_SOCKET:-/var/run/docker.sock}"
@@ -383,14 +383,14 @@ if [[ "${CI:-false}" == "true" && "$EUID" -ne 0 ]]; then
 		echo "[CI] Skipping root-required actions."
 		exit 0
 	else
-		echo "[CI] Sourcing clinic-lib.sh in test mode - root actions will be mocked"
+		echo "[CI] Sourcing lib.sh in test mode - root actions will be mocked"
 	fi
 fi
 
 # --- USAGE: Source this file at the top of your script after config block ---
 # Example:
 #   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-#   source "${SCRIPT_DIR}/clinic-lib.sh"
+#   source "${SCRIPT_DIR}/lib.sh"
 
 # --- Confirmation Helper ---
 confirm() {

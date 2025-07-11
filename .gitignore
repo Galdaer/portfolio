@@ -14,8 +14,11 @@
 
 # Whitelist essential directories
 !/scripts/
+!/scripts/*
 !/systemd/
+!/systemd/*
 !/test/
+!/test/*
 !/test/**/*
 !/docs/
 !/services/
@@ -32,6 +35,7 @@
 
 # Ignore Python cache files everywhere
 **/__pycache__/
+**/**/__pycache__/
 **/*.pyc
 **/*.pyo
 **/*.pyd
@@ -54,8 +58,8 @@ wg0.conf
 wg-*.conf
 
 # Bootstrap configuration with real settings
-.clinic-bootstrap.conf
-clinic-bootstrap.conf
+.bootstrap.conf
+bootstrap.conf
 
 # SSH keys
 id_rsa*

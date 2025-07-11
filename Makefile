@@ -43,49 +43,49 @@ update:
 # Main Setup Commands
 setup:
 	@echo "🚀  Setting up complete intelluxe stack (interactive mode)"
-	sudo ./scripts/clinic-bootstrap.sh
+	sudo ./scripts/bootstrap.sh
 
 dry-run:
 	@echo "🔍  Preview intelluxe setup without making changes"
-	sudo ./scripts/clinic-bootstrap.sh --dry-run --non-interactive
+	sudo ./scripts/bootstrap.sh --dry-run --non-interactive
 
 debug:
 	@echo "🐛  Debug dry-run with verbose output and detailed logging"
-	sudo ./scripts/clinic-bootstrap.sh --dry-run --non-interactive --debug
+	sudo ./scripts/bootstrap.sh --dry-run --non-interactive --debug
 
 setup-restricted:
 	@echo "🔒  Setting up intelluxe with all services restricted to LAN + VPN only"
-	sudo ./scripts/clinic-bootstrap.sh --restrict-all-services
+	sudo ./scripts/bootstrap.sh --restrict-all-services
 
 setup-open:
 	@echo "🌐  Setting up intelluxe with all services accessible from anywhere"
-	sudo ./scripts/clinic-bootstrap.sh --open-all-services
+	sudo ./scripts/bootstrap.sh --open-all-services
 
 # Management Commands  
 diagnostics:
 	@echo "🔍  Running comprehensive system diagnostics"
-	sudo ./scripts/clinic-diagnostics.sh
+	sudo ./scripts/diagnostics.sh
 
 auto-repair:
 	@echo "🔧  Running automatic repair for unhealthy containers"
-	sudo ./scripts/clinic-auto-repair.sh
+	sudo ./scripts/auto-repair.sh
 
 reset:
 	@echo "♻️   Resetting intelluxe stack (removes containers and reconfigures)"
-	sudo ./scripts/clinic-reset.sh
+	sudo ./scripts/reset.sh
 
 teardown:
 	@echo "🧹  Complete teardown of intelluxe infrastructure"
-	sudo ./scripts/clinic-teardown.sh
+	sudo ./scripts/teardown.sh
 
 teardown-vpn:
 	@echo "🧹  Teardown VPN components only"
-	sudo ./scripts/clinic-teardown.sh --vpn-only
+	sudo ./scripts/teardown.sh --vpn-only
 
 # Backup and Restore
 backup:
 	@echo "💾  Creating backup of WireGuard configuration"
-	sudo ./scripts/clinic-bootstrap.sh --backup
+	sudo ./scripts/bootstrap.sh --backup
 
 restore:
 	@echo "📂  Restore from backup (requires BACKUP_FILE variable)"
@@ -94,7 +94,7 @@ restore:
 		echo "Usage: make restore BACKUP_FILE=/path/to/backup.tar.gz"; \
 		exit 1; \
 	fi
-	sudo ./scripts/clinic-bootstrap.sh --restore-backup "$(BACKUP_FILE)"
+	sudo ./scripts/bootstrap.sh --restore-backup "$(BACKUP_FILE)"
 
 # Development Commands
 lint:
@@ -120,13 +120,13 @@ validate:
 	@echo "✅  Validating configuration and dependencies (non-interactive)"
 	@if [ "${CI}" = "true" ]; then \
 	if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then \
-        sudo ./scripts/clinic-bootstrap.sh --validate --non-interactive --skip-docker-check; \
+        sudo ./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check; \
         $(MAKE) systemd-verify; \
         else \
         echo "Skipping Docker validation in CI: Docker not available"; \
         fi; \
         else \
-        sudo ./scripts/clinic-bootstrap.sh --validate --non-interactive; \
+        sudo ./scripts/bootstrap.sh --validate --non-interactive; \
         $(MAKE) systemd-verify; \
         fi
 

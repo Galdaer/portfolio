@@ -1,17 +1,17 @@
-# clinic-wg.service version 1.0.0
+# wg.service version 1.0.0
 # Author: Justin Sue (Galdaer)
 # Last Revised: 2025-05-30
 # Purpose: Systemd unit to bring up the WireGuard interface within the clinic namespace.
-# Usage: Runs clinic-wg-setup.sh which executes wg-quick inside the namespace.
+# Usage: Runs wg-setup.sh which executes wg-quick inside the namespace.
 
 [Unit]
 Description=Bring up WireGuard interface inside clinic namespace
-After=clinic-netns.service
-Requires=clinic-netns.service
+After=netns.service
+Requires=netns.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/intelluxe/scripts/clinic-wg-setup.sh
+ExecStart=/opt/intelluxe/scripts/wg-setup.sh
 
 [Install]
 WantedBy=multi-user.target

@@ -26,7 +26,7 @@ set -euo pipefail
 #_______________________________________________________________________________
 
 # Determine path to configuration file. CFG_ROOT can override the default
-CFG="${CFG_ROOT:-/opt/intelluxe/clinic-stack}/.clinic-bootstrap.conf"
+CFG="${CFG_ROOT:-/opt/intelluxe/stack}/.bootstrap.conf"
 
 # Extract configured port from the bootstrap configuration
 PORT=$(grep -m1 -E "^CONFIG_WEB_UI_PORT=" "$CFG" 2>/dev/null | cut -d= -f2)

@@ -70,8 +70,8 @@ teardown() {
 }
 
 @test "check_port_in_use detects TCP ports correctly" {
-    # Source from clinic-lib.sh
-    source <(sed -n '/^check_port_in_use()/,/^}$/p' scripts/clinic-lib.sh)
+    # Source from lib.sh
+    source <(sed -n '/^check_port_in_use()/,/^}$/p' scripts/lib.sh)
     
     # Test port in use
     check_port_in_use "80" "tcp" && status_80=$? || status_80=$?
@@ -86,7 +86,7 @@ teardown() {
 }
 
 @test "check_port_in_use detects UDP ports correctly" {
-    source <(sed -n '/^check_port_in_use()/,/^}$/p' scripts/clinic-lib.sh)
+    source <(sed -n '/^check_port_in_use()/,/^}$/p' scripts/lib.sh)
     
     # Test UDP port in use
     check_port_in_use "53" "udp" && status_53=$? || status_53=$?
@@ -101,7 +101,7 @@ teardown() {
 }
 
 @test "check_port_in_use defaults to TCP" {
-    source <(sed -n '/^check_port_in_use()/,/^}$/p' scripts/clinic-lib.sh)
+    source <(sed -n '/^check_port_in_use()/,/^}$/p' scripts/lib.sh)
     
     # Test without specifying protocol (should default to TCP)
     check_port_in_use "80" && status_default=$? || status_default=$?
@@ -112,8 +112,8 @@ teardown() {
 }
 
 @test "show_port_usage displays port information" {
-    # Source from clinic-lib.sh
-    source <(sed -n '/^show_port_usage()/,/^}$/p' scripts/clinic-lib.sh)
+    # Source from lib.sh
+    source <(sed -n '/^show_port_usage()/,/^}$/p' scripts/lib.sh)
     
     run show_port_usage "8080"
     [ "$status" -eq 0 ]
@@ -123,7 +123,7 @@ teardown() {
 }
 
 @test "show_port_usage handles unused ports" {
-    source <(sed -n '/^show_port_usage()/,/^}$/p' scripts/clinic-lib.sh)
+    source <(sed -n '/^show_port_usage()/,/^}$/p' scripts/lib.sh)
     
     run show_port_usage "9999"
     [ "$status" -eq 0 ]
@@ -139,7 +139,7 @@ teardown() {
         [service3]="9999"
     )
     
-    source <(sed -n '/^check_port_in_use()/,/^}$/p' scripts/clinic-lib.sh)
+    source <(sed -n '/^check_port_in_use()/,/^}$/p' scripts/lib.sh)
     
     # Test that we can validate each service's port
     for service in "${!CONTAINER_PORTS[@]}"; do

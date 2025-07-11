@@ -46,8 +46,8 @@ EOF
 )
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/clinic-lib.sh
-source "${SCRIPT_DIR}/clinic-lib.sh"
+# shellcheck source=scripts/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 
 # Parse common flags like --help
 parse_basic_flags "$@"
@@ -128,7 +128,7 @@ add_tool() {
         fail "$name missing"
     fi
 }
-: "${CFG_ROOT:=/opt/intelluxe/clinic-stack}"
+: "${CFG_ROOT:=/opt/intelluxe/stack}"
 : "${CFG_UID:=$DEFAULT_UID}"
 : "${CFG_GID:=$DEFAULT_GID}"
 : "${IP_FORWARD_FILE:=/proc/sys/net/ipv4/ip_forward}"
