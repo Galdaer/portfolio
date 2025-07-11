@@ -15,22 +15,8 @@ setup() {
     
     local service_count=0
     
-    # Count services in unified directory (flat files)
-    for conf in "services/user"/*.conf; do
-        [ -f "$conf" ] || continue
-        service_count=$((service_count + 1))
-    done
-    
-    # Also count services in nested directories  
-    for service_dir in "services/user"/*; do
-        [ -d "$service_dir" ] || continue
-        local svc
-        svc=$(basename "$service_dir")
-        local conf="$service_dir/$svc.conf"
-        if [[ -f "$conf" ]]; then
-            service_count=$((service_count + 1))
-        fi
-    done
+    # Count all .conf files in flat and nested directories
+    service_count=$(find "services/user" -name '*.conf' -type f | wc -l)
     
     # Should find at least one service
     [[ $service_count -gt 0 ]]
