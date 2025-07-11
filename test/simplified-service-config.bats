@@ -30,8 +30,8 @@ setup() {
     
     local configs_checked=0
     
-    # Check flat service configs
-    for conf in "services/user"/*.conf; do
+    # Check service configs in flat and nested directories
+    find "services/user" -name '*.conf' -type f | while read -r conf; do
         [ -f "$conf" ] || continue
         
         # Check for required fields
