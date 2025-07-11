@@ -105,8 +105,16 @@ health_check() {
         ["go version"]="Go"
         ["psql --version"]="PostgreSQL client"
         ["redis-cli --version"]="Redis client"
-        ["wg-quick --help"]="WireGuard tools"
     )
+
+    # Add optional tools that don't fail the health check
+    if command -v wg-quick >/dev/null 2>&1; then
+        tools["wg-quick --help"]="WireGuard tools"
+    fi
+    
+    if command -v kcov >/dev/null 2>&1; then
+        tools["kcov --version"]="kcov (coverage tool)"
+    fi
 
     # Add Docker Compose tools using helper function
     add_tool "docker compose version" "Docker Compose"
@@ -237,11 +245,24 @@ install_system_deps() {
 
     log "Installing system dependencies in bulk"
 
-    if "${PKG_INSTALL[@]}" "${DEPENDENCIES[@]}" >/dev/null; then
+    if "${PKG_INSTALL[@]}" "${DEPENDENCIES[@]}" >/dev/null 2>&1; then
         ok "All system packages installed"
     else
-        warn "Some packages failed to install"
-    fi
+        warn "Some packages failed to install, retrying individual packages"
+        # Try installing packages individually to identify failures
+        FAILED_PACKAGES=()
+        for pkg in "${DEPENDENCIES[@]}"; do
+            if "${PKG_INSTALL[@]}" "$pkg" >/dev/null 2>&1; then
+                log "✓ $pkg installed"
+            else
+                warn "✗ $pkg failed to install"
+                FAILED_PACKAGES+=("$pkg")
+            fi
+        done
+        if [[ ${#FAILED_PACKAGES[@]} -gt 0 ]]; then
+            error "The following packages failed to install: ${FAILED_PACKAGES[*]}"
+            exit 1
+        fi
 }
 
 install_docker() {
@@ -360,7 +381,17 @@ install_python_deps() {
         if apt-cache show python3-distutils 2>/dev/null | grep -q '^Package:'; then
             py_pkgs+=(python3-distutils)
         fi
-        "${PKG_INSTALL[@]}" "${py_pkgs[@]}"
+        log "Installing Python system packages: ${py_pkgs[*]}"
+        if ! "${PKG_INSTALL[@]}" "${py_pkgs[@]}" >/dev/null 2>&1; then
+            warn "Some Python packages failed to install, trying individually"
+            for pkg in "${py_pkgs[@]}"; do
+                if "${PKG_INSTALL[@]}" "$pkg" >/dev/null 2>&1; then
+                    log "✓ $pkg installed"
+                else
+                    warn "✗ $pkg failed to install"
+                fi
+            done
+        fi
     fi
     
     # Install uv first
@@ -402,6 +433,59 @@ setup_directories() {
     set_ownership -R /opt/intelluxe
 }
 
+install_kcov() {
+    if command -v kcov &>/dev/null; then
+        ok "kcov already present"
+        return
+    fi
+    
+    log "Installing kcov for code coverage"
+    
+    # Install kcov build dependencies
+    case $PKG_MANAGER in
+        apt)
+            "${PKG_INSTALL[@]}" cmake libdw-dev libelf-dev libiberty-dev binutils-dev >/dev/null 2>&1 || {
+                warn "Failed to install kcov build dependencies"
+                return
+            }
+            ;;
+        dnf)
+            "${PKG_INSTALL[@]}" cmake elfutils-devel binutils-devel >/dev/null 2>&1 || {
+                warn "Failed to install kcov build dependencies"
+                return
+            }
+            ;;
+        *)
+            warn "kcov build dependencies not configured for $PKG_MANAGER"
+            return
+            ;;
+    esac
+    
+    # Build and install kcov from source
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    if git clone -q https://github.com/SimonKagstrom/kcov.git "$tmp_dir" 2>/dev/null; then
+        (
+            cd "$tmp_dir"
+            mkdir build
+            cd build
+            if cmake .. >/dev/null 2>&1 && make -j"$(nproc)" >/dev/null 2>&1; then
+                make install >/dev/null 2>&1 || {
+                    # Fallback to local install
+                    cp src/kcov /usr/local/bin/kcov
+                    chmod +x /usr/local/bin/kcov
+                }
+                ok "kcov installed successfully"
+            else
+                warn "kcov build failed"
+            fi
+        )
+    else
+        warn "Failed to clone kcov repository"
+    fi
+    rm -rf "$tmp_dir"
+}
+
 install_testing_tools() {
     log "Installing testing tools"
     command -v shellcheck &>/dev/null || "${PKG_INSTALL[@]}" shellcheck
@@ -428,6 +512,10 @@ install_testing_tools() {
         "${PKG_INSTALL[@]}" expect >/dev/null
     fi
     command -v expect &>/dev/null || { err "expect missing"; exit 1; }
+    
+    # Install kcov for coverage
+    install_kcov
+    
     ok "Testing tools ready"
 }
 
