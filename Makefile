@@ -1,19 +1,19 @@
 .PHONY: \
-       auto-repair \
-       backup \
-       debug \
-       deps \
-       diagnostics \
-       dry-run \
-       help \
-       install \
-       lint \
-       reset \
-       restore \
-       setup \
-       teardown \
-       test \
-       update
+	   auto-repair \
+	   backup \
+	   debug \
+	   deps \
+	   diagnostics \
+	   dry-run \
+	   help \
+	   install \
+	   lint \
+	   reset \
+	   restore \
+	   setup \
+	   teardown \
+	   test \
+	   update
 
 # Installation Commands
 install:
@@ -143,15 +143,15 @@ validate:
 	@echo "✅  Validating configuration and dependencies (non-interactive)"
 	@if [ "${CI}" = "true" ]; then \
 	if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then \
-        sudo ./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check; \
-        $(MAKE) systemd-verify; \
-        else \
-        echo "Skipping Docker validation in CI: Docker not available"; \
-        fi; \
-        else \
-        sudo ./scripts/bootstrap.sh --validate --non-interactive; \
-        $(MAKE) systemd-verify; \
-        fi
+		sudo ./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check; \
+		$(MAKE) systemd-verify; \
+		else \
+		echo "Skipping Docker validation in CI: Docker not available"; \
+		fi; \
+		else \
+		sudo ./scripts/bootstrap.sh --validate --non-interactive; \
+		$(MAKE) systemd-verify; \
+		fi
 
 systemd-verify:
 	@echo "🔧  Verifying systemd service configurations"
@@ -203,7 +203,7 @@ help:
 	@echo ""
 	@echo "📦 Installation:"
 	@echo "  make install         Install scripts and systemd services system-wide"
-	@echo "  make update    	  Run system update and upgrade"
+	@echo "  make update     	  Run system update and upgrade"
 	@echo ""
 	@echo "🚀 Setup:"
 	@echo "  make setup           Interactive intelluxe setup (recommended for first run)"
@@ -225,9 +225,13 @@ help:
 	@echo ""
 	@echo "🛠️  Development:"
 	@echo "  make deps 		     Install lint and test dependencies"
-	@echo "  make venv		      Create or activate a virtual environment"
+	@echo "  make venv	      Create or activate a virtual environment"
 	@echo "  make lint            Run shell and Python linters"
 	@echo "  make validate        Validate configuration and dependencies"
 	@echo "  make test           Run unit tests with Bats"
 	@echo "  make e2e            Run end-to-end bootstrap test"
+	@echo ""
+	@echo "🖥️  Virtualization:"
+	@echo "  virt-manager         Launch Virtual Machine Manager (KVM/QEMU GUI) for local VM testing"
+	@echo ""
 	@echo "  make help            Show this help message"
