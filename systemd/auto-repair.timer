@@ -1,8 +1,8 @@
-# clinic-auto-repair.timer version 1.0.0
+# auto-repair.timer version 1.0.0
 # Author: Justin Sue (Galdaer)
 # Last Revised: 2025-05-30
 # Purpose: Systemd timer for periodic Intelluxe auto-repair.
-# Usage: Triggers clinic-auto-repair.service every 5 minutes
+# Usage: Triggers auto-repair.service every 5 minutes
 
 [Unit]
 Description=Run auto-repair every 5 minutes
@@ -10,7 +10,7 @@ Description=Run auto-repair every 5 minutes
 [Timer]
 OnBootSec=2min
 OnUnitActiveSec=5min
-Unit=clinic-auto-repair.service
+Unit=auto-repair.service
 
 [Install]
 WantedBy=timers.target

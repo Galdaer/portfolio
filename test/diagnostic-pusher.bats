@@ -31,7 +31,7 @@ EOS
   script="$tmpdir/guard.sh"
   cat >"$script" <<'EOS'
 set -euo pipefail
-source scripts/clinic-lib.sh
+source scripts/lib.sh
 unset CFG_ROOT
 EOS
   sed -n '86,95p' scripts/diagnostic-pusher.sh >> "$script"

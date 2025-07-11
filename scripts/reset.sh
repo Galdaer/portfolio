@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# clinic-reset.sh - Reset CLINIC stack to clean state
+# reset.sh - Reset CLINIC stack to clean state
 # Author: Justin Michael Sue (Galdaer)
 # Repo: https://github.com/Intelluxe-AI/intelluxe-core
 #
@@ -24,12 +24,12 @@ set -euo pipefail
 # TRADEMARK NOTICE: "Intelluxe" and related branding may be trademark protected.
 # Commercial use of project branding requires separate permission.
 #________________________________________________________________________________________________
-# Purpose: Resets the Plex + WireGuard namespace stack by removing containers, routes, iptables, and configs, then reboots the stack with clinic-bootstrap.sh.
+# Purpose: Resets the Plex + WireGuard namespace stack by removing containers, routes, iptables, and configs, then reboots the stack with bootstrap.sh.
 #
 # Requirements:
-#   - Docker, WireGuard, iptables, iproute2, clinic-bootstrap.sh
+#   - Docker, WireGuard, iptables, iproute2, bootstrap.sh
 #
-# Usage: ./clinic-reset.sh [--log-file PATH] [--no-color] [--debug] [--dry-run] [--help]
+# Usage: ./reset.sh [--log-file PATH] [--no-color] [--debug] [--dry-run] [--help]
 #
 # Dependency note: This script requires bash, coreutils, docker, iproute2, iptables, and standard Unix tools.
 # For CI, log files are written to $PWD/logs/ if possible.
@@ -52,8 +52,8 @@ if [[ "${CI:-false}" == "true" && "$EUID" -ne 0 ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/clinic-lib.sh
-source "${SCRIPT_DIR}/clinic-lib.sh"
+# shellcheck source=scripts/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 trap cleanup SIGINT SIGTERM ERR EXIT
 
 USAGE="Usage: $0 [--log-file PATH] [--no-color] [--debug] [--dry-run] [--help]
@@ -80,14 +80,14 @@ done
 
 require_deps docker ip iptables
 
-if [[ ! -x ./scripts/clinic-bootstrap.sh ]]; then
-	fail "clinic-bootstrap.sh is not found or not executable."
+if [[ ! -x ./scripts/bootstrap.sh ]]; then
+	fail "bootstrap.sh is not found or not executable."
 	exit $EXIT_DEPENDENCY_MISSING
 fi
 
 LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/clinic-reset.log"
+LOG_FILE="$LOG_DIR/reset.log"
 
 rotate_log_if_needed
 touch "$LOG_FILE"
@@ -174,15 +174,15 @@ if [[ $COLOR == false ]]; then
 fi
 
 if [[ $DRY_RUN == true ]]; then
-	log "[DRY-RUN] Would run: ./scripts/clinic-bootstrap.sh ${args[*]}"
+	log "[DRY-RUN] Would run: ./scripts/bootstrap.sh ${args[*]}"
 else
-	./scripts/clinic-bootstrap.sh "${args[@]}"
+	./scripts/bootstrap.sh "${args[@]}"
 	bootstrap_exit=$?
 fi
 
 if ((bootstrap_exit != 0)); then
-	warn "⚠️ clinic-bootstrap.sh exited with code $bootstrap_exit (non-critical)"
+	warn "⚠️ bootstrap.sh exited with code $bootstrap_exit (non-critical)"
 	exit $EXIT_BOOTSTRAP_FAILED
 fi
 
-ok "✅ clinic-reset.sh complete."
+ok "✅ reset.sh complete."

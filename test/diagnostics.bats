@@ -1,14 +1,14 @@
 #!/usr/bin/env bats
 
 @test "unknown argument prints usage and exits 1" {
-  run bash scripts/clinic-diagnostics.sh --foo
+  run bash scripts/diagnostics.sh --foo
   [ "$status" -eq 1 ]
   # Check that usage message appears in the output (may be after CI messages)
-  [[ "${lines[*]}" == *Usage:*clinic-diagnostics.sh* ]]
+  [[ "${lines[*]}" == *Usage:*diagnostics.sh* ]]
   # Ensure usage line is present
   local usage_found=false
   for line in "${lines[@]}"; do
-    if [[ "$line" == Usage:*clinic-diagnostics.sh* ]]; then
+    if [[ "$line" == Usage:*diagnostics.sh* ]]; then
       usage_found=true
       break
     fi
@@ -17,12 +17,12 @@
 }
 
 extract_init() {
-  awk '/^init_dns_config\(\)/{flag=1} flag{print} /^}/{if(flag){exit}}' scripts/clinic-diagnostics.sh
+  awk '/^init_dns_config\(\)/{flag=1} flag{print} /^}/{if(flag){exit}}' scripts/diagnostics.sh
 }
 
 @test "DNS_IP defaults to ADGUARD_CONTAINER_IP from config" {
   CFG_ROOT=$(mktemp -d)
-  echo "ADGUARD_CONTAINER_IP=10.1.2.3" > "$CFG_ROOT/.clinic-bootstrap.conf"
+  echo "ADGUARD_CONTAINER_IP=10.1.2.3" > "$CFG_ROOT/.bootstrap.conf"
 
   snippet=$(extract_init)
   eval "$snippet"
@@ -45,7 +45,7 @@ extract_init() {
 
 @test "DNS_FALLBACK uses value from config" {
   CFG_ROOT=$(mktemp -d)
-  echo "DNS_FALLBACK=1.1.1.1" > "$CFG_ROOT/.clinic-bootstrap.conf"
+  echo "DNS_FALLBACK=1.1.1.1" > "$CFG_ROOT/.bootstrap.conf"
 
   snippet=$(extract_init)
   eval "$snippet"

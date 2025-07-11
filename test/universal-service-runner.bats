@@ -5,7 +5,7 @@ load test_helper
 
 setup() {
     export DRY_RUN=true
-    export CFG_ROOT="${BATS_TEST_TMPDIR}/clinic-stack"
+    export CFG_ROOT="${BATS_TEST_TMPDIR}/stack"
     export INTELLUXE_USER="testuser"
     export TRAEFIK_DOMAIN_NAME="test.localhost"
     export DOCKER_NETWORK_NAME="test-net"
@@ -13,8 +13,8 @@ setup() {
     mkdir -p "$CFG_ROOT"
     mkdir -p "${BATS_TEST_TMPDIR}/services/user"
     
-    # Source required functions from clinic-bootstrap.sh and universal-service-runner.sh
-    source scripts/clinic-lib.sh
+    # Source required functions from lib.sh and universal-service-runner.sh
+    source scripts/lib.sh
     source scripts/universal-service-runner.sh
     
     # Create test service config

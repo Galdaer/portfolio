@@ -7,8 +7,8 @@
 if ! command -v log_error >/dev/null 2>&1; then
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     # shellcheck source=/dev/null
-    source "${SCRIPT_DIR}/clinic-lib.sh" 2>/dev/null || {
-        # Fallback logging functions if clinic-lib.sh is not available
+    source "${SCRIPT_DIR}/lib.sh" 2>/dev/null || {
+        # Fallback logging functions if lib.sh is not available
         log_error() { echo "[ERROR] $*" >&2; }
         log_warning() { echo "[WARNING] $*" >&2; }
         log_info() { echo "[INFO] $*" >&2; }

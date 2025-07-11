@@ -11,7 +11,7 @@ teardown() {
 }
 
 @test "is_ci_or_virtual_env returns 1 when no env vars set" {
-  source scripts/clinic-lib.sh
+  source scripts/lib.sh
   trap - ERR
   set +e
   is_ci_or_virtual_env
@@ -22,7 +22,7 @@ teardown() {
 
 @test "is_ci_or_virtual_env succeeds with CODEX_ENV_PYTHON_VERSION" {
   export CODEX_ENV_PYTHON_VERSION=1
-  source scripts/clinic-lib.sh
+  source scripts/lib.sh
   trap - ERR
   set +e
   is_ci_or_virtual_env
@@ -33,7 +33,7 @@ teardown() {
 
 @test "is_ci_or_virtual_env succeeds with CODEX_PROXY_CERT" {
   export CODEX_PROXY_CERT=cert
-  source scripts/clinic-lib.sh
+  source scripts/lib.sh
   trap - ERR
   set +e
   is_ci_or_virtual_env
@@ -44,7 +44,7 @@ teardown() {
 
 @test "is_ci_or_virtual_env succeeds with CI=true" {
   export CI=true
-  source scripts/clinic-lib.sh
+  source scripts/lib.sh
   trap - ERR
   set +e
   is_ci_or_virtual_env
@@ -55,7 +55,7 @@ teardown() {
 
 @test "is_ci_or_virtual_env fails with CI=false" {
   export CI=false
-  source scripts/clinic-lib.sh
+  source scripts/lib.sh
   trap - ERR
   set +e
   is_ci_or_virtual_env
@@ -66,7 +66,7 @@ teardown() {
 
 @test "is_ci_or_virtual_env succeeds with VIRTUAL_ENV" {
   export VIRTUAL_ENV=/tmp/venv
-  source scripts/clinic-lib.sh
+  source scripts/lib.sh
   trap - ERR
   set +e
   is_ci_or_virtual_env
@@ -116,7 +116,7 @@ teardown() {
   sock_pid=$!
   sleep 0.5
   chmod 777 "$DOCKER_SOCKET"
-  source scripts/clinic-lib.sh
+  source scripts/lib.sh
   set +e
   output=$(check_docker_socket 2>&1)
   status=$?
@@ -130,7 +130,7 @@ teardown() {
 @test "DOCKER_SOCKET strips unix prefix" {
   tmpdir=$(mktemp -d)
   export DOCKER_SOCKET="unix://$tmpdir/prefixed.sock"
-  source scripts/clinic-lib.sh
+  source scripts/lib.sh
   [ "$DOCKER_SOCKET" = "$tmpdir/prefixed.sock" ]
   rm -rf "$tmpdir"
 }
@@ -143,13 +143,13 @@ teardown() {
     # In CI, we'll test with a temp directory as the default
     export INTELLUXE_DEFAULT_ROOT="${TMPDIR:-/tmp}/intelluxe-test"
     mkdir -p "$INTELLUXE_DEFAULT_ROOT"
-    source scripts/clinic-lib.sh
+    source scripts/lib.sh
     [ "$LOG_DIR" = "$INTELLUXE_DEFAULT_ROOT/logs" ]
     [ "$CFG_ROOT" = "$INTELLUXE_DEFAULT_ROOT" ]
   else
-    source scripts/clinic-lib.sh
-    [ "$LOG_DIR" = "/opt/intelluxe/clinic-stack/logs" ]
-    [ "$CFG_ROOT" = "/opt/intelluxe/clinic-stack" ]
+    source scripts/lib.sh
+    [ "$LOG_DIR" = "/opt/intelluxe/stack/logs" ]
+    [ "$CFG_ROOT" = "/opt/intelluxe/stack" ]
   fi
 }
 
@@ -159,7 +159,7 @@ teardown() {
   unset LOG_DIR
   tmpdir=$(mktemp -d)
   export CFG_ROOT="$tmpdir/custom-root"
-  source scripts/clinic-lib.sh
+  source scripts/lib.sh
   [ "$LOG_DIR" = "$CFG_ROOT/logs" ]
 }
 
@@ -173,13 +173,13 @@ teardown() {
     # In CI, use a temp directory as the default
     export INTELLUXE_DEFAULT_ROOT="${tmpdir:-/tmp}/intelluxe-default"
     mkdir -p "$INTELLUXE_DEFAULT_ROOT"
-    source scripts/clinic-lib.sh
+    source scripts/lib.sh
     [ "$LOG_DIR" = "$tmpdir/mylogs" ]
     [ "$CFG_ROOT" = "$INTELLUXE_DEFAULT_ROOT" ]
   else
-    source scripts/clinic-lib.sh
+    source scripts/lib.sh
     [ "$LOG_DIR" = "$tmpdir/mylogs" ]
-    [ "$CFG_ROOT" = "/opt/intelluxe/clinic-stack" ]
+    [ "$CFG_ROOT" = "/opt/intelluxe/stack" ]
   fi
 }
 
@@ -189,7 +189,7 @@ teardown() {
   tmpdir=$(mktemp -d)
   export LOG_DIR="$tmpdir/explicit-log"
   export CFG_ROOT="$tmpdir/root"
-  source scripts/clinic-lib.sh
+  source scripts/lib.sh
   [ "$LOG_DIR" = "$tmpdir/explicit-log" ]
   [ "$CFG_ROOT" = "$tmpdir/root" ]
 }

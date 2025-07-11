@@ -6,8 +6,8 @@ set -euo pipefail
 
 # Source common functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/clinic-lib.sh
-source "$SCRIPT_DIR/clinic-lib.sh"
+# shellcheck source=scripts/lib.sh
+source "$SCRIPT_DIR/lib.sh"
 
 log "🔍 Starting PHI exposure scan for Intelluxe AI healthcare platform"
 

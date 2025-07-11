@@ -3,7 +3,7 @@
 extract_vars() {
   awk '
     /SCRIPT_VERSION=/ {flag=1}
-    flag && /source .*clinic-lib.sh/ {exit}
+    flag && /source .*lib.sh/ {exit}
     flag {print}
   ' scripts/systemd-verify.sh
 }
@@ -18,7 +18,7 @@ setup() {
   fi
   unset LOG_DIR CFG_ROOT
   eval "$snippet"
-  [ "$LOG_DIR" = "/opt/intelluxe/clinic-stack/logs" ]
+  [ "$LOG_DIR" = "/opt/intelluxe/stack/logs" ]
 }
 
 @test "LOG_DIR honors custom CFG_ROOT" {

@@ -47,8 +47,8 @@ SCRIPT_VERSION="1.0.0"
 : "${DRY_RUN:=false}"
 : "${EXPORT_JSON:=false}"
 # Root directory for configuration and logs. Override to relocate
-# .clinic-bootstrap.conf and the logs directory.
-: "${CFG_ROOT:=/opt/intelluxe/clinic-stack}"
+# .bootstrap.conf and the logs directory.
+: "${CFG_ROOT:=/opt/intelluxe/stack}"
 
 # In CI, use a writable logs directory
 if [[ "${CI:-false}" == "true" ]]; then
@@ -63,8 +63,8 @@ LOG_FILE="$LOG_DIR/systemd-verify.log"
 : "${SYSLOG_TAG:=systemd-verify}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/clinic-lib.sh
-source "${SCRIPT_DIR}/clinic-lib.sh"
+# shellcheck source=scripts/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 trap cleanup SIGINT SIGTERM ERR EXIT
 
 # shellcheck disable=SC2034

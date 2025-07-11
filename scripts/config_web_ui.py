@@ -85,16 +85,16 @@ EXTRA_FIELDS = [
     "CONFIG_WEB_UI_PORT",
 ]
 
-CFG_ROOT = os.environ.get("CFG_ROOT", "/opt/intelluxe/clinic-stack")
+CFG_ROOT = os.environ.get("CFG_ROOT", "/opt/intelluxe/stack")
 LOGS_DIR = os.path.join(CFG_ROOT, "logs")
-CONFIG_FILE = os.path.join(CFG_ROOT, ".clinic-bootstrap.conf")
+CONFIG_FILE = os.path.join(CFG_ROOT, ".bootstrap.conf")
 PORT = int(os.environ.get("CONFIG_WEB_UI_PORT", 9123))
 BOOTSTRAP_PATH = os.environ.get("BOOTSTRAP_PATH")
 if not BOOTSTRAP_PATH:
-    BOOTSTRAP_PATH = shutil.which("clinic-bootstrap.sh") or "/usr/local/bin/clinic-bootstrap.sh"
+    BOOTSTRAP_PATH = shutil.which("bootstrap.sh") or "/usr/local/bin/bootstrap.sh"
 TEARDOWN_PATH = os.environ.get("TEARDOWN_PATH")
 if not TEARDOWN_PATH:
-    TEARDOWN_PATH = shutil.which("clinic-teardown.sh") or "/usr/local/bin/clinic-teardown.sh"
+    TEARDOWN_PATH = shutil.which("teardown.sh") or "/usr/local/bin/teardown.sh"
 
 app = Flask(__name__)
 
@@ -365,7 +365,7 @@ def changed_services(old, new):
 
 
 def run_bootstrap(args=None, env=None, suppress=True):
-    """Run ``clinic-bootstrap.sh`` with optional arguments.
+    """Run ``bootstrap.sh`` with optional arguments.
 
     Parameters
     ----------
@@ -482,7 +482,7 @@ def self_update():
 def diagnostics():
     env = os.environ.copy()
     subprocess.Popen(
-        ["/usr/local/bin/clinic-diagnostics.sh", "--non-interactive"],
+        ["/usr/local/bin/diagnostics.sh", "--non-interactive"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         env=env,
@@ -494,7 +494,7 @@ def diagnostics():
 def auto_repair():
     env = os.environ.copy()
     subprocess.Popen(
-        ["/usr/local/bin/clinic-auto-repair.sh", "--non-interactive"],
+        ["/usr/local/bin/auto-repair.sh", "--non-interactive"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         env=env,
@@ -506,7 +506,7 @@ def auto_repair():
 def reset_system_route():
     env = os.environ.copy()
     subprocess.Popen(
-        ["/usr/local/bin/clinic-reset.sh", "--non-interactive"],
+        ["/usr/local/bin/reset.sh", "--non-interactive"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         env=env,

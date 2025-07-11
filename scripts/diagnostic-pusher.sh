@@ -27,7 +27,7 @@ set -euo pipefail
 # Purpose: Exports structured diagnostics metrics to InfluxDB and prints JSON if --debug.
 #
 # Requirements:
-#   - jq, curl, InfluxDB, clinic-diagnostics.sh
+#   - jq, curl, InfluxDB, diagnostics.sh
 #
 # Usage: ./diagnostic-pusher.sh [--debug] [--influx-host HOST] [--influx-port PORT] [--influx-db DB] [--help]
 # Dependency note: This script requires bash, coreutils, jq, curl, docker, and standard Unix tools.
@@ -42,11 +42,11 @@ SCRIPT_VERSION="1.0.0"
 : "${INFLUX_MOCK:=false}"
 
 INFLUX_URL="http://${INFLUX_HOST}:${INFLUX_PORT}/write?db=${INFLUX_DB}"
-DIAG_JSON="/tmp/clinic-diagnostics.json"
+DIAG_JSON="/tmp/diagnostics.json"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/clinic-lib.sh
-source "${SCRIPT_DIR}/clinic-lib.sh"
+# shellcheck source=scripts/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 trap cleanup SIGINT SIGTERM ERR EXIT
 
 USAGE="Usage: $0 [--debug] [--influx-host HOST] [--influx-port PORT] [--influx-db DB] [--help]
@@ -109,7 +109,7 @@ if [[ "$CI" == "true" && "$EUID" -ne 0 ]]; then
 fi
 
 # --- Run diagnostics ---
-./scripts/clinic-diagnostics.sh --export-json --no-color --log-file "$LOG_FILE"
+./scripts/diagnostics.sh --export-json --no-color --log-file "$LOG_FILE"
 diag_exit=$?
 [[ "$DEBUG" == true ]] && log "[DEBUG] clinic diagnostics tool exited with code $diag_exit."
 

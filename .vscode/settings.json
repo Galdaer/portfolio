@@ -80,7 +80,7 @@
             "services/user/": "Runtime configurations (.conf files) for all services",
             "core/": "Core Python infrastructure (orchestration, models, tools)",
             "agents/": "AI agent implementations (intake, document_processor, research_assistant, billing_helper, scheduling_optimizer)",
-            "scripts/": "Primary shell scripts (universal-service-runner.sh, clinic-lib.sh, etc.)",
+            "scripts/": "Primary shell scripts (universal-service-runner.sh, lib.sh, etc.)",
             "test/": "Bats tests for shell scripts",
             "docs/": "Project documentation (phase guides, architecture)",
             "reference/": "Reference patterns for adaptation (ai-patterns submodule)"

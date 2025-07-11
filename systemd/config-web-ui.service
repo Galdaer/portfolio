@@ -10,7 +10,7 @@ Requires=docker.service
 
 [Service]
 Type=simple
-EnvironmentFile=/opt/intelluxe/clinic-stack/.clinic-bootstrap.conf
+EnvironmentFile=/opt/intelluxe/stack/.bootstrap.conf
 ExecStart=/opt/intelluxe/scripts/config_web_ui.py
 Restart=on-failure
 RestartSec=10

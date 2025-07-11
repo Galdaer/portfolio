@@ -10,8 +10,8 @@ setup() {
     mkdir -p "$SCRIPT_DIR" "$CFG_ROOT" "$TEST_ROOT/services/user"
     
     # Copy actual scripts
-    cp "$BATS_TEST_DIRNAME/../scripts/clinic-bootstrap.sh" "$SCRIPT_DIR/"
-    cp "$BATS_TEST_DIRNAME/../scripts/clinic-lib.sh" "$SCRIPT_DIR/"
+    cp "$BATS_TEST_DIRNAME/../scripts/bootstrap.sh" "$SCRIPT_DIR/"
+    cp "$BATS_TEST_DIRNAME/../scripts/lib.sh" "$SCRIPT_DIR/"
     
     # Set test environment
     export NON_INTERACTIVE=true
@@ -35,7 +35,7 @@ teardown() {
 }
 
 @test "setup_service_env_vars function exists and works" {
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     # Should exist and be callable
     type setup_service_env_vars >/dev/null 2>&1
@@ -43,7 +43,7 @@ teardown() {
 
 @test "bootstrap script is service-agnostic: no hardcoded service references" {
     local script_content
-    script_content=$(cat "$SCRIPT_DIR/clinic-bootstrap.sh")
+    script_content=$(cat "$SCRIPT_DIR/bootstrap.sh")
     
     # Should NOT contain any of the old service-specific setup functions
     ! [[ "$script_content" == *"setup_service_plex"* ]]
@@ -70,8 +70,8 @@ EOF
     # Add to CONTAINER_PORTS for ADVERTISE_IP calculation
     CONTAINER_PORTS[my-new-service]="7777"
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     # Run the generic setup
     setup_service_env_vars "my-new-service"
@@ -123,7 +123,7 @@ EOF
 @test "no core/user service distinction exists" {
     # Verify services/core directory does not exist or is not referenced
     local script_content
-    script_content=$(cat "$SCRIPT_DIR/clinic-bootstrap.sh")
+    script_content=$(cat "$SCRIPT_DIR/bootstrap.sh")
     
     # Should not have any references to services/core
     ! [[ "$script_content" == *"services/core"* ]]
@@ -149,8 +149,8 @@ EOF
     # Add port for ADVERTISE_IP calculation
     CONTAINER_PORTS[totally-custom-app]="9876"
     
-    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
-    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/clinic-bootstrap.sh")
+    source <(sed -n '/^setup_service_env_vars()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
+    source <(sed -n '/^get_service_config_value()/,/^}$/p' "$SCRIPT_DIR/bootstrap.sh")
     
     # Should handle any configuration without errors
     setup_service_env_vars "totally-custom-app"

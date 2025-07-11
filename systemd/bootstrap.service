@@ -1,4 +1,4 @@
-# clinic-bootstrap.service version 1.0.0
+# bootstrap.service version 1.0.0
 # Author: Justin Sue (Galdaer)
 # Last Revised: 2025-05-30
 # Purpose: Systemd unit for clinic + WireGuard stack setup.
@@ -11,12 +11,12 @@ Requires=docker.service
 
 [Service]
 Type=simple
-ExecStart=/opt/intelluxe/scripts/clinic-bootstrap.sh --log-file /var/log/clinic-bootstrap.log
+ExecStart=/opt/intelluxe/scripts/bootstrap.sh --log-file /var/log/bootstrap.log
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=clinic-bootstrap
+SyslogIdentifier=bootstrap
 Environment=DEBUG=false
 Environment=DRY_RUN=false
 Environment=COLOR=true

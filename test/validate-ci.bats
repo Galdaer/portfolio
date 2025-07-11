@@ -27,7 +27,7 @@ STUB
 exit 1
 STUB
   chmod +x "$TMPDIR/bin/docker"
-  PATH="$TMPDIR/bin:$PATH" run ./scripts/clinic-bootstrap.sh --version --skip-docker-check
+  PATH="$TMPDIR/bin:$PATH" run ./scripts/bootstrap.sh --version --skip-docker-check
   [ "$status" -eq 0 ]
   [[ "$output" == *"Version:"* ]]
 }
@@ -47,7 +47,7 @@ STUB
 exit 1
 STUB
   chmod +x "$TMPDIR/bin/docker"
-  PATH="$TMPDIR/bin:$PATH" run ./scripts/clinic-bootstrap.sh --validate --skip-docker-check
+  PATH="$TMPDIR/bin:$PATH" run ./scripts/bootstrap.sh --validate --skip-docker-check
   [ "$status" -eq 110 ]
   [[ "$output" == *"Docker daemon is not running"* ]]
 }

@@ -43,8 +43,8 @@ SCRIPT_VERSION="1.0.0"
 : "${COLOR:=true}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/clinic-lib.sh
-source "${SCRIPT_DIR}/clinic-lib.sh"
+# shellcheck source=scripts/lib.sh
+source "${SCRIPT_DIR}/lib.sh"
 trap cleanup SIGINT SIGTERM ERR EXIT
 
 USAGE="Usage: $0 [--help]
@@ -62,7 +62,7 @@ require_deps curl logger date stat mv
 DUCK_IP="${DUCK_IP:-}"
 
 # --- Log file rotation ---
-# Ensure CFG_ROOT is defined (via clinic-lib.sh) before using it here.
+# Ensure CFG_ROOT is defined (via lib.sh) before using it here.
 LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/duckdns-update.log"

@@ -19,6 +19,38 @@ bootstrap.bats
  ✓ service image override respected
  ✓ service image override respected for traefik
  - --stop-service flag triggers stop_service and exits (skipped: argument parsing snippet fails on this platform)
+<<<<<<< HEAD
+=======
+diagnostics.bats
+ ✓ unknown argument prints usage and exits 1
+ ✓ DNS_IP defaults to ADGUARD_CONTAINER_IP from config
+ ✓ DNS_IP falls back to built-in default when config missing
+ ✓ DNS_FALLBACK uses value from config
+ ✓ DNS_FALLBACK defaults when not in config
+lib.bats
+ ✓ is_ci_or_virtual_env returns 1 when no env vars set
+ ✓ is_ci_or_virtual_env succeeds with CODEX_ENV_PYTHON_VERSION
+ ✓ is_ci_or_virtual_env succeeds with CODEX_PROXY_CERT
+ ✓ is_ci_or_virtual_env succeeds with CI=true
+ ✓ is_ci_or_virtual_env fails with CI=false
+ ✓ is_ci_or_virtual_env succeeds with VIRTUAL_ENV
+ ✓ set_ownership uses default CFG_UID/GID
+ ✓ set_ownership uses custom CFG_UID/GID
+ ✓ check_docker_socket uses DOCKER_SOCKET override
+ ✓ DOCKER_SOCKET strips unix prefix
+ ✓ LOG_DIR defaults using builtin CFG_ROOT when both unset
+ ✓ LOG_DIR defaults to custom CFG_ROOT when LOG_DIR unset
+ ✓ LOG_DIR keeps value when CFG_ROOT unset
+ ✓ LOG_DIR keeps value when both variables set
+teardown.bats
+ ✓ custom DOCKER_NETWORK_NAME influences network cleanup
+config-management.bats
+ ✓ parse_service_config handles all configuration keys
+ ✓ get_service_config_value extracts individual values correctly
+ ✓ get_service_config_value handles missing files and keys
+ ✓ get_service_config_value expands environment variables
+ ✓ get_service_config_value handles comments and whitespace
+>>>>>>> 0a4cb5c12b8b8bfd5c89f31d3100312d923350ad
 config-web-ui.bats
  ✓ config-web-ui.service uses EnvironmentFile
 diagnostic-pusher.bats
@@ -120,6 +152,22 @@ setup-environment.bats
      `[ "$status" -eq 0 ]' failed
  ✓ CLI --health-check exits with failure
  ✓ CLI --health-check fails when compose support missing
+<<<<<<< HEAD
+=======
+simplified-service-config.bats
+ ✗ service configs can be discovered dynamically
+   (in test file test/simplified-service-config.bats, line 25)
+     `[[ $service_count -gt 0 ]]' failed
+ ✗ service configs contain required fields
+   (in test file test/simplified-service-config.bats, line 47)
+     `[[ $configs_checked -gt 0 ]]' failed
+ ✗ environment variable setup is service-agnostic
+   (from function `source' in file scripts/bootstrap.sh, line 190,
+    in test file test/simplified-service-config.bats, line 52)
+     `source scripts/bootstrap.sh' failed
+   scripts/bootstrap.sh: line 190: /home/justin/.cache/bootstrap.lock: Permission denied
+ ✓ no hardcoded service logic remains
+>>>>>>> 0a4cb5c12b8b8bfd5c89f31d3100312d923350ad
 systemd-summary.bats
  ✓ creates log directory under CFG_ROOT
  ✓ overriding CFG_ROOT uses new log path

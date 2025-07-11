@@ -368,7 +368,7 @@ jobs:
         echo "1. Review .github/copilot-instructions.md for development guidelines"
         echo "2. Follow PHASE_0.md through PHASE_3.md for implementation roadmap"
         echo "3. Use universal-service-runner.sh for all service deployments"
-        echo "4. Test with clinic-bootstrap.sh for infrastructure setup"
+        echo "4. Test with bootstrap.sh for infrastructure setup"
         echo "5. Validate compliance with ./compliance-check.sh"
         echo ""
         echo "**Remember**: All PHI/PII must remain on-premise!"
@@ -403,7 +403,7 @@ jobs:
           fi
           
           # Check if current healthcare AI components are documented
-          components=("universal-service-runner" "clinic-bootstrap" "AgentCare-MCP" "Ollama")
+          components=("universal-service-runner" "bootstrap" "AgentCare-MCP" "Ollama")
           for component in "${components[@]}"; do
             if grep -q "$component" .vscode/settings.json; then
               echo "✓ $component documented in AI instructions"
