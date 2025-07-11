@@ -38,7 +38,7 @@ EOS
   chmod +x "$script"
   run bash "$script"
   [ "$status" -ne 0 ]
-  [[ "${lines[0]}" == *"CFG_ROOT must be set"* ]]
+  [[ "$output" == *"CFG_ROOT must be set"* ]]
   rm -rf "$tmpdir"
 }
 
