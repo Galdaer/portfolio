@@ -13,6 +13,12 @@ on:
         - network-only
         - permissions-only
 
+permissions:
+  contents: read
+  actions: read
+  checks: read
+  pull-requests: read
+
 jobs:
   copilot-setup-steps:
     runs-on: ubuntu-latest
