@@ -40,15 +40,6 @@ else
     exit 1
 fi
 
-# Perform full upgrade
-#log "Starting full system upgrade..."
-#if DEBIAN_FRONTEND=noninteractive apt full-upgrade -y; then
-#$    log "System upgrade completed successfully"
-#else
-#    log "ERROR: System upgrade failed"
-#    exit 1
-#fi
-
 # Perform safe upgrade
 log "Starting safe upgrade (dev environment)..."
 if DEBIAN_FRONTEND=noninteractive apt upgrade -y; then
@@ -60,7 +51,6 @@ fi
 
 # Clean up package cache
 log "Cleaning up package cache..."
-# apt autoremove -y uncomment to remove bloat, including GUI, for production systems
 apt autoclean
 
 # Check if reboot is required
