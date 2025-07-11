@@ -1,6 +1,3 @@
 [submodule "reference/ai-patterns"]
 	path = reference/ai-patterns
 	url = https://github.com/patchy631/ai-engineering-hub.git
-[submodule "vendor/healthcare-mcp"]
-	path = vendor/healthcare-mcp
-	url = https://github.com/Intelluxe-AI/healthcare-mcp.git
