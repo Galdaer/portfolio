@@ -263,6 +263,7 @@ install_system_deps() {
             error "The following packages failed to install: ${FAILED_PACKAGES[*]}"
             exit 1
         fi
+    fi
 }
 
 install_docker() {
