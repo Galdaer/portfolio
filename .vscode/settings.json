@@ -37,183 +37,81 @@
     "workbench.editor.revealIfOpen": true,
     
     "ai.instructions": {
-        "project": "Intelluxe AI - Privacy-First Healthcare AI System built for on-premise clinical deployment",
-        "architecture": "Modular healthcare AI platform with universal service orchestration - focuses on administrative/documentation support, NOT medical advice",
-        "primaryScripts": {
-            "clinic-bootstrap.sh": "Main healthcare AI infrastructure bootstrapper - sets up Docker, Ollama, AgentCare-MCP, PostgreSQL, Redis with medical-grade security",
-            "universal-service-runner.sh": "Universal service runner - deploys ANY Docker service from pure configuration - handles healthcare AI services (Ollama, AgentCare-MCP, etc.)",
-            "config_web_ui.py": "Healthcare-focused web interface for AI system management - includes service health monitoring with medical service icons",
-            "clinic-lib.sh": "Common utility functions for Intelluxe AI healthcare operations"
-        },
-        "directoryStructure": {
-            "services/user/": "Healthcare AI services (ollama/, agentcare-mcp/, postgres/, redis/, n8n/) - supports nested directory structure",
-            "agents/": "AI agent implementations (intake/, document_processor/, research_assistant/, billing_helper/, scheduling_optimizer/)",
-            "core/": "Core healthcare AI infrastructure (memory/, orchestration/, models/, tools/)",
-            "data/": "AI training and evaluation data management (training/, evaluation/, vector_stores/)",
-            "infrastructure/": "Healthcare deployment configs (docker/, monitoring/, security/, backup/)",
-            "docs/": "Comprehensive healthcare AI documentation including phase guides and architecture mappings"
-        },
+        "project": "Intelluxe AI - Privacy-First Healthcare AI System built for on-premise clinical deployment. Currently in active development, focusing on core infrastructure and test suite hardening.",
+        
         "healthcarePhilosophy": {
             "medicalSafety": "NO medical advice, diagnosis, or treatment recommendations - focus on administrative and documentation support only",
             "privacyFirst": "All PHI/PII remains on-premise - no cloud dependencies or external API calls with patient data",
             "explainableAI": "All AI decisions must be traceable and auditable for healthcare compliance",
             "modularDesign": "Pluggable agents and tools that can be customized per clinic without affecting core system",
-            "familyBuilt": "Co-designed by father-son team (Jeffrey & Justin Sue) for real-world clinical workflows"
+            "developmentStatus": "Build robust, maintainable features for future clinical environments, but defer production-specific hardening until later phases"
         },
+
+        "architecture": {
+            "universalServiceRunner": "universal-service-runner.sh is the ONLY method for deploying services using .conf files from services/user/",
+            "sourceCodeLocation": "Third-party service source code (like healthcare-mcp) is managed as git submodules in vendor/",
+            "pythonWebUI": "config_web_ui.py creates .conf files directly, never uses legacy scripts",
+            "noLegacyCode": "No plugin.sh files, no add-service.sh references - only universal service runner .conf-based approach"
+        },
+
         "serviceManagement": {
             "healthcareServices": "Ollama (local LLM), AgentCare-MCP (medical tools), PostgreSQL (patient context), Redis (session cache), n8n (workflows)",
-            "universalConfigOnly": "100% of services use pure .conf files - healthcare services configured through universal service runner",
-            "securityFirst": "HIPAA-compliant service orchestration with audit logging and role-based access",
-            "performanceOptimized": "GPU-accelerated local inference for real-time healthcare AI without cloud latency",
-            "serviceDiscovery": "Auto-detection of healthcare AI services with health monitoring and alerting"
+            "universalConfigOnly": "100% of services use pure .conf files configured through universal service runner",
+            "securityFirst": "HIPAA-compliant service orchestration with audit logging and role-based access"
         },
-        "developmentGuidelines": {
-            "architectureReference": "Follow ARCHITECTURE_BASE_CODE.md for mapping AI Engineering Hub patterns to Intelluxe healthcare components",
-            "accelerationToolkit": "Use DEV_ACCELERATION_TOOLKIT.md for rapid prototyping, monitoring, quality assurance, and development best practices",
-            "implementationGuide": "Reference IMPLEMENTATION_AND_TESTING.md for healthcare-specific testing, n8n workflows, and validation approaches",
-            "testingApproach": "Healthcare-grade testing with shadow deployment, quality metrics, and safety validation",
-            "complianceFirst": "All features must support HIPAA compliance, audit trails, and data retention policies",
-            "realWorldValidation": "Test with actual clinical scenarios using n8n workflows as defined in phase documentation",
-            "instructionMaintenance": "Before major development tasks, review and update AI instructions to reflect current codebase state and optimize for new requirements",
-            "firewallAwareness": "All development must consider GitHub Actions firewall restrictions - maintain allowlist for external dependencies"
-        },
-        "phaseImplementation": {
-            "phase0": "Project setup and directory structure (PHASE_0.md)",
-            "phase1": "Core AI infrastructure with Ollama, MCP, and basic agents (PHASE_1.md)", 
-            "phase2": "Business services, insurance verification, billing, and doctor personalization (PHASE_2.md)",
-            "phase3": "Production deployment with enterprise scaling and compliance monitoring (PHASE_3.md)"
-        },
+
         "coreAgents": {
             "intakeAgent": "Patient intake form processing and data extraction (administrative only)",
             "documentProcessor": "Medical document organization and PII redaction",
-            "researchAssistant": "PubMed/FDA/ClinicalTrials.gov search and citation management", 
+            "researchAssistant": "PubMed/FDA/ClinicalTrials.gov search and citation management",
             "billingHelper": "Billing code lookup and claims assistance (reference only)",
             "schedulingOptimizer": "Appointment scheduling and resource optimization"
         },
-        "testingGuidelines": {
+
+        "phaseImplementation": {
+            "phase0": "Project setup and directory structure (PHASE_0.md)",
+            "phase1": "Core AI infrastructure with Ollama, MCP, and basic agents (PHASE_1.md)",
+            "phase2": "Business services, insurance verification, billing, and doctor personalization (PHASE_2.md)",
+            "phase3": "Production deployment with enterprise scaling and compliance monitoring (PHASE_3.md)"
+        },
+
+        "directoryStructure": {
+            "vendor/": "Source code for third-party services (git submodules like healthcare-mcp)",
+            "services/user/": "Runtime configurations (.conf files) for all services",
+            "core/": "Core Python infrastructure (orchestration, models, tools)",
+            "agents/": "AI agent implementations (intake, document_processor, research_assistant, billing_helper, scheduling_optimizer)",
+            "scripts/": "Primary shell scripts (universal-service-runner.sh, clinic-lib.sh, etc.)",
+            "test/": "Bats tests for shell scripts",
+            "docs/": "Project documentation (phase guides, architecture)",
+            "reference/": "Reference patterns for adaptation (ai-patterns submodule)"
+        },
+
+        "testing": {
+            "framework": "Use Bats framework for shell script integration testing",
+            "realCodeOnly": "Tests MUST source functions from actual scripts in scripts/",
+            "outputValidation": "Validate actual output of commands or file content, avoid unbound status variables",
             "healthcareTesting": "Test with realistic medical scenarios while avoiding actual patient data",
-            "qualityMetrics": "Track response accuracy, medical appropriateness, and safety boundaries",
-            "complianceTesting": "Validate HIPAA compliance, audit logging, and data handling practices",
-            "performanceTesting": "Ensure sub-30-second response times suitable for clinical workflows",
-            "integrationTesting": "Test n8n workflows end-to-end with healthcare service chains"
+            "complianceTesting": "Validate HIPAA compliance, audit logging, and data handling practices"
         },
-        "collaborationGuidelines": {
-            "developmentStatus": "The project is in active development, focusing on hardening the test suite for robust, real-world integration testing.",
-            "testingPhilosophy": "Tests must be realistic, performing real integration checks against production scripts. Avoid mocking; test actual outputs and side effects. The goal is a reliable CI/CD pipeline that catches integration issues early.",
-            "batsUsage": "Bats tests (*.bats) are for shell script integration testing. They MUST source functions from the actual scripts in `scripts/` to ensure they are testing the real code.",
-            "variableSafety": "Tests must not rely on potentially unbound variables (like `$status` or `$lines` from the default bats-helpers). Instead, check for expected output in files or command results directly.",
-            "gitManagement": "The `.gitignore` is configured to track essential project files. The `.vscode/` and `.github/` directories are intentionally tracked to ensure consistent development and CI/CD environment. Key directories like `scripts/`, `systemd/`, `test/`, `services/`, and `docs/` are essential and must be tracked.",
-            "vsCodeSetup": "Recommended extensions: `github.copilot`, `timonwong.shellcheck`, `mads-hartmann.bash-debug`, `foxundermoon.shell-format`. Use the provided `launch.json` for debugging shell scripts.",
-            "aiInstructionMaintenance": "AIs must proactively update these instructions as the codebase evolves. Before major tasks, review instructions for accuracy and suggest improvements. Keep instructions synchronized with actual development patterns, new tools, and architectural changes."
+
+        "editingRules": {
+            "readFirst": "ALWAYS read the file section before editing to understand context",
+            "syntaxIntegrity": "NEVER break bash syntax (check if/fi, case/esac, loops) - use shellcheck",
+            "incrementalChanges": "Make one logical change at a time, test after each change",
+            "cleanup": "Remove unused functions/variables after refactoring"
         },
-        "developmentPrinciples": [
-            "Healthcare-first: All features designed for clinical environments with safety as top priority",
-            "Privacy-by-design: PHI/PII never leaves the local network or gets stored inappropriately", 
-            "Explainable AI: Every AI decision must be traceable and auditable for medical compliance",
-            "Modular architecture: Agents, tools, and services can be customized per clinic without breaking core system",
-            "Performance-critical: Real-time AI inference suitable for busy clinical workflows",
-            "Architecture guidance: Reference ARCHITECTURE_BASE_CODE.md for mapping proven AI Engineering Hub patterns to healthcare use cases",
-            "Development acceleration: Use DEV_ACCELERATION_TOOLKIT.md for rapid development, monitoring, and quality assurance best practices",
-            "Implementation standards: Follow IMPLEMENTATION_AND_TESTING.md for healthcare testing and n8n workflow validation",
-            "Phase-driven development: Use PHASE_0.md through PHASE_3.md for structured implementation roadmap",
-            "Family-built philosophy: Designed by healthcare family (Jeffrey & Justin Sue) for real-world clinical challenges",
-            "Instruction evolution: Proactively update AI instructions as codebase evolves - review before major features, suggest improvements for efficiency",
-            "Firewall configuration: Maintain GitHub Copilot allowlist for healthcare AI dependencies - see .github/copilot-firewall-allowlist.txt",
-            "CI/CD compliance: Ensure all infrastructure changes support GitHub Actions and firewall-restricted environments"
-        ],
-        "codeStructure": {
-            "shellScripts": "Follow shellcheck best practices, use clinic-lib.sh for common functions",
-            "universalRunner": "universal-service-runner.sh dynamically generates Docker commands from configuration - ONLY deployment method",
-            "pythonWebUI": "Creates .conf files directly using universal service runner format, never calls legacy scripts, implements modern service addition",
-            "serviceConfigs": "Universal key=value format supporting all Docker features - see UNIVERSAL_CONFIG_SCHEMA.md",
-            "tests": "Use bats framework, source real functions, test actual behavior including universal system",
-            "noLegacyCode": "No plugin.sh files, no add-service.sh references anywhere, only universal service runner .conf-based approach"
+
+        "git": {
+            "tracked": ".github/, .vscode/, docs/, scripts/, services/, systemd/, test/, vendor/",
+            "ignored": "logs/, backups/, user-specific service data"
         },
-        "editingBestPractices": {
-            "fileReading": "ALWAYS read the file section you're editing BEFORE making changes - understand context",
-            "syntaxIntegrity": "NEVER break bash syntax - check if/fi, case/esac, function boundaries match",
-            "scopeValidation": "Verify edits don't accidentally affect unrelated code sections",
-            "variableUsage": "Remove unused variables after refactoring to pass shellcheck",
-            "functionBoundaries": "Respect existing function start/end when editing - don't break structure",
-            "multiLineEdits": "For large refactors, make smaller targeted edits instead of massive replacements",
-            "testAfterEdit": "Run relevant tests immediately after editing to catch syntax errors early"
+
+        "developmentGuidelines": {
+            "architectureReference": "Follow ARCHITECTURE_BASE_CODE.md for mapping AI Engineering Hub patterns to healthcare components",
+            "accelerationToolkit": "Use DEV_ACCELERATION_TOOLKIT.md for rapid prototyping and best practices",
+            "firewallAwareness": "All development must consider GitHub Actions firewall restrictions"
         },
-        "errorPrevention": {
-            "syntaxChecking": "Use shellcheck validation after every bash script edit",
-            "incrementalChanges": "Make one logical change per edit, not multiple unrelated changes",
-            "contextPreservation": "When removing functions, ensure their call sites are also updated",
-            "boundarySafety": "Never edit across function boundaries without understanding full context",
-            "testValidation": "Run affected test suites after making changes to verify no regressions"
-        },
-        "gitManagement": {
-            "tracked": "services/core/, scripts/, test/, systemd/, docs/, services/user/.gitkeep, .github/, .vscode/",
-            "ignored": "services/user/* (except .gitkeep), docker-stack/, logs/, venv/",
-            "commits": "Never commit user services or generated directories, test bootstrap creates proper structure"
-        },
-        "firewallConfiguration": {
-            "purpose": "GitHub Copilot firewall configuration for healthcare AI development with external dependency access",
-            "mainConfig": ".github/copilot-firewall-allowlist.txt - comprehensive domain allowlist (112+ domains)",
-            "setupWorkflow": ".github/workflows/copilot-setup-steps.yml - automated firewall configuration",
-            "documentation": ".github/README.md - detailed configuration guide and troubleshooting",
-            "quickFix": "FIREWALL_FIX.md - immediate resolution steps for CI/CD failures",
-            "criticalDomains": "Ubuntu repositories, Python Package Index, Docker Hub, Microsoft packages, GitHub infrastructure",
-            "healthcareDomains": "Ollama, PostgreSQL, Redis, medical research APIs (PubMed, ClinicalTrials.gov, FDA)",
-            "complianceNote": "All external access limited to development tools - no PHI/PII transmission",
-            "manualStepsRequired": "Repository Settings → Copilot → Firewall Configuration → Upload allowlist"
-        },
-        "instructionEvolution": {
-            "principle": "AI instructions must evolve with codebase - update before major features, refactor instructions during development",
-            "updateTriggers": [
-                "New major features or architectural changes",
-                "New testing patterns or development workflows", 
-                "Addition of new services or infrastructure components",
-                "Changes to security, compliance, or healthcare requirements",
-                "New development tools or CI/CD pipeline modifications",
-                "Discovery of more efficient development patterns"
-            ],
-            "updateProcess": "Before starting complex tasks, AIs should review and suggest instruction updates that would improve efficiency",
-            "collaborativeRefinement": "AIs should propose instruction improvements based on observed development patterns and pain points",
-            "versionControl": "Track instruction changes in git commits with clear rationale for updates",
-            "inheritancePattern": "New AIs should inherit latest instructions and suggest improvements based on fresh perspective"
-        },
-        "repository": {
-            "owner": "Galdaer",
-            "name": "Intelluxe", 
-            "branch": "main",
-            "lastUpdated": "2025-07-11",
-            "majorVersion": "1.0 - Healthcare AI Platform with Universal Service Architecture",
-            "currentFocus": "Firewall configuration for GitHub Copilot, CI/CD hardening, and instruction evolution patterns",
-            "recentImprovements": "GitHub Actions firewall allowlist, comprehensive domain configuration, automated setup workflows"
-        },
-        "referencePatterns": {
-            "aiPatternsLibrary": "reference/ai-patterns/ - MIT licensed AI engineering patterns for healthcare adaptation (git submodule)",
-            "healthcareRelevantPatterns": [
-                "agentic_rag - Medical document processing and research assistance",
-                "document-chat-rag - Patient document Q&A with privacy protection", 
-                "corrective-rag - Accuracy-critical healthcare information retrieval",
-                "audio-analysis-toolkit - Medical transcription and voice analysis",
-                "content_planner_flow - Clinical workflow automation and planning",
-                "fastest-rag-stack - High-performance medical data retrieval",
-                "eval-and-observability - Healthcare AI system monitoring",
-                "mcp-agentic-rag - Model Context Protocol for healthcare agents",
-                "multi-modal-rag - Medical imaging and document processing",
-                "trustworthy-rag - Compliance-focused RAG for healthcare"
-            ],
-            "developmentPatterns": [
-                "cursor_linkup_mcp - IDE integration patterns",
-                "documentation-writer-flow - Automated documentation generation",
-                "simple-rag-workflow - Basic RAG implementation patterns",
-                "local-chatgpt - On-premise AI chat interfaces",
-                "streaming-ai-chatbot - Real-time AI interactions"
-            ],
-            "usageGuideline": "Reference these patterns when building healthcare AI agents, adapting for HIPAA compliance and on-premise deployment",
-            "adaptationPrinciples": [
-                "All patterns must be adapted for healthcare privacy requirements",
-                "Replace cloud APIs with on-premise alternatives (Ollama, local models)",
-                "Add audit logging and compliance tracking to all implementations",
-                "Ensure no PHI/PII leaves the local environment",
-                "Implement explainable AI features for medical compliance"
-            ]
-        }
+
+        "instructionAwareness": "These instructions evolve with the codebase. Suggest updates when major architectural changes occur."
     }
 }

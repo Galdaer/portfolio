@@ -1,12 +1,13 @@
 # Copilot Instructions for Intelluxe AI Healthcare System
 
 ## Project Overview
-**Intelluxe AI** - Privacy-First Healthcare AI System built for on-premise clinical deployment
+**Intelluxe AI** - Privacy-First Healthcare AI System built for on-premise clinical deployment. Currently in active development, focusing on core infrastructure and test suite hardening.
 
 ### Core Architecture
 - **Modular healthcare AI platform** with universal service orchestration
 - **Focus**: Administrative/documentation support, NOT medical advice
 - **Privacy-First**: All PHI/PII remains on-premise with no cloud dependencies
+- **Development Status**: Build robust, maintainable features for future clinical environments, but defer production-specific hardening until later phases
 
 ## Primary Scripts & Components
 
@@ -23,7 +24,8 @@
 
 ### Directory Structure
 ```
-services/user/          # Healthcare AI services (ollama/, agentcare-mcp/, postgres/, redis/, n8n/)
+vendor/                 # Source code for third-party services (git submodules like healthcare-mcp)
+services/user/          # Runtime configurations (.conf files) for all services
 agents/                 # AI agent implementations (intake/, document_processor/, research_assistant/, billing_helper/, scheduling_optimizer/)
 core/                   # Core healthcare AI infrastructure (memory/, orchestration/, models/, tools/)
 data/                   # AI training and evaluation data management (training/, evaluation/, vector_stores/)
@@ -80,6 +82,7 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 ### Universal Configuration
 - **100% of services use pure .conf files**
 - **Healthcare services configured through universal service runner**
+- **Source code management**: Third-party service source code (like healthcare-mcp) managed as git submodules in vendor/
 - **Service discovery**: Auto-detection with health monitoring and alerting
 
 ## Development Guidelines
@@ -143,7 +146,7 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 
 ## Development Principles
 
-1. **Healthcare-first**: All features designed for clinical environments with safety as top priority
+1. **Healthcare-first**: Build robust, maintainable features for future clinical environments, but defer production-specific hardening until later phases
 2. **Privacy-by-design**: PHI/PII never leaves the local network or gets stored inappropriately
 3. **Explainable AI**: Every AI decision must be traceable and auditable for medical compliance
 4. **Modular architecture**: Agents, tools, and services can be customized per clinic without breaking core system
@@ -167,7 +170,7 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 ## Git Management
 
 ### Tracked Files
-- `services/core/`, `scripts/`, `test/`, `systemd/`, `docs/`, `services/user/.gitkeep`
+- `services/core/`, `scripts/`, `test/`, `systemd/`, `docs/`, `services/user/.gitkeep`, `vendor/`
 
 ### Ignored Files
 - `services/user/*` (except .gitkeep), `docker-stack/`, `logs/`, `venv/`
