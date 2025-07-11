@@ -41,8 +41,17 @@ else
 fi
 
 # Perform full upgrade
-log "Starting full system upgrade..."
-if DEBIAN_FRONTEND=noninteractive apt full-upgrade -y; then
+#log "Starting full system upgrade..."
+#if DEBIAN_FRONTEND=noninteractive apt full-upgrade -y; then
+#$    log "System upgrade completed successfully"
+#else
+#    log "ERROR: System upgrade failed"
+#    exit 1
+#fi
+
+# Perform safe upgrade
+log "Starting safe upgrade (dev environment)..."
+if DEBIAN_FRONTEND=noninteractive apt upgrade -y; then
     log "System upgrade completed successfully"
 else
     log "ERROR: System upgrade failed"
