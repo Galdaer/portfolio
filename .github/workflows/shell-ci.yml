@@ -335,7 +335,7 @@ jobs:
                   
                   # Run with kcov coverage - only include scripts directory
                   timeout 180 kcov \
-                    --include-pattern=/tmp/workspace-rw/scripts/ \
+                    --include-pattern=/workspace/scripts/ \
                     --exclude-pattern=/tmp/workspace-rw/test/,/tmp/workspace-rw/vendor/ \
                     --bash-dont-parse-binary-dir \
                     /workspace/coverage \

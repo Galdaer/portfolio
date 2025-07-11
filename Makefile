@@ -43,7 +43,7 @@ deps:
 	fi
 	@if [ -z "$$VIRTUAL_ENV" ]; then \
 		echo "⚠️  No virtual environment detected. Creating one..."; \
-		uv venv; \
+		python3 -m venv .venv; \
 		echo "💡 Virtual environment created. Activate it with: source .venv/bin/activate"; \
 		echo "💡 Then run 'make deps' again"; \
 		exit 1; \
@@ -174,6 +174,24 @@ test-coverage:
 	@echo "🧪  Running Bats tests with coverage (if available)"
 	USE_KCOV=true bash ./scripts/test.sh
 
+# Virtual environment management
+venv:
+	@echo "💡  To use virtual environment:"
+	@echo "   source .venv/bin/activate"
+	@echo ""
+	@echo "💡  To install dependencies:"
+	@echo "   make deps"
+	@if [ ! -d ".venv" ]; then \
+		echo "⚠️  No virtual environment found. Creating one..."; \
+		python3 -m venv .venv; \
+		echo "💡 Virtual environment created. Activate it with: source .venv/bin/activate"; \
+	else \
+		echo "🟢 Already in virtual environment"; \
+	fi
+
+# Example usage: make venv-run CMD="pip list"
+# Or: make venv-run CMD="python main.py"
+
 e2e:
 	@echo "🚀  Running end-to-end bootstrap test"
 	bash test/e2e/run-bootstrap.sh
@@ -206,7 +224,8 @@ help:
 	@echo "  make restore BACKUP_FILE=<path>  Restore from backup file"
 	@echo ""
 	@echo "🛠️  Development:"
-	@echo "  make deps           Install lint and test dependencies"
+	@echo "  make deps 		     Install lint and test dependencies"
+	@echo "  make venv		      Create or activate a virtual environment"
 	@echo "  make lint            Run shell and Python linters"
 	@echo "  make validate        Validate configuration and dependencies"
 	@echo "  make test           Run unit tests with Bats"

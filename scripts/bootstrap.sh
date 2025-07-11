@@ -80,7 +80,7 @@ DEFAULT_UID=1000
 DEFAULT_GID=1000
 
 # ----------------- Configuration -----------------
-: "${CFG_ROOT:=/opt/intelluxe/stack}"
+: "${CFG_ROOT:=${HOME}/.config/intelluxe}"
 : "${CFG_UID:=$DEFAULT_UID}"
 : "${CFG_GID:=$DEFAULT_GID}"
 
@@ -206,8 +206,8 @@ flock -n 200 || {
 print_banner() {
 	cat <<BANNER
 ─────────────────────────────────────────────────────────────
-  Robust Docker Homelab Bootstrapper    v${SCRIPT_VERSION}
-  https://github.com/Galdaer/Self-hosting-and-networking
+  Robust Docker Intelluxe Bootstrapper    v${SCRIPT_VERSION}
+  https://github.com/Intelluxe-AI/intelluxe-core
 ─────────────────────────────────────────────────────────────
 BANNER
 }
@@ -331,7 +331,6 @@ EOF
         echo ""
         echo "# WireGuard configuration"
         echo "WG_DIR=\"$WG_DIR\""
-        echo "STORE_WG_IN_VAULT=\"$STORE_WG_IN_VAULT\""
     } >> "$CONFIG_FILE"
 
     chmod 600 "$CONFIG_FILE"

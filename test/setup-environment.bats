@@ -93,7 +93,7 @@ EOF
   grep -q "pip install --system" "$TMPDIR/uv_args"
 }
 
-@test "install_python_deps installs healthcare AI packages" {
+@test "install_python_deps installs essential system packages" {
   if [[ "${CI:-}" == "true" ]]; then
     skip "Skipping Python dependency installation test in CI - package installation may be restricted"
   fi
@@ -104,10 +104,11 @@ EOF
   install_uv() { ok "uv already present"; }
   install_python_deps
   uv_calls=$(cat "$TMPDIR/uv_args")
-  [[ "$uv_calls" == *"fastapi"* ]]
-  [[ "$uv_calls" == *"sqlalchemy"* ]]
-  [[ "$uv_calls" == *"ollama-python"* ]]
-  [[ "$uv_calls" == *"langchain"* ]]
+  # Should install essential system packages, not healthcare AI packages
+  [[ "$uv_calls" == *"flake8"* ]]
+  [[ "$uv_calls" == *"mypy"* ]]
+  [[ "$uv_calls" == *"pytest"* ]]
+  [[ "$uv_calls" == *"pyyaml"* ]]
 }
 
 create_mock_ufw() {

@@ -6,7 +6,8 @@ Centralized configuration for the healthcare AI system.
 
 import os
 from typing import Optional
-from pydantic import BaseSettings, Field
+from pydantic import Field, ConfigDict
+from pydantic_settings import BaseSettings
 
 
 class IntelluxeConfig(BaseSettings):
@@ -68,10 +69,12 @@ class IntelluxeConfig(BaseSettings):
     health_alert_webhook: Optional[str] = Field(default=None, env="HEALTH_ALERT_WEBHOOK")
     health_page_public: bool = Field(default=False, env="HEALTH_PAGE_PUBLIC")
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore"  # Ignore extra fields from .env
+    )
 
 
 # Global configuration instance

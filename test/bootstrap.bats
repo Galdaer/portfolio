@@ -474,6 +474,3 @@ EOF2
   cmd_content=$(cat "$cmd_file" 2>/dev/null || echo "")
   [[ "$cmd_content" == *"test/traefik:latest"* ]]
 }
-@test "--stop-service flag triggers stop_service and exits" {
-  skip "argument parsing snippet fails on this platform"
-}

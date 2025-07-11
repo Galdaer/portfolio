@@ -344,14 +344,10 @@ ensure_compose() {
     warn "Neither 'docker compose' nor 'docker-compose' found"
     warn "This usually means Docker is not properly installed"
     warn "Try: apt-get install docker-compose-plugin"
-
-    if docker compose version >/dev/null 2>&1 || command -v docker-compose >/dev/null; then
-        ok "docker-compose installed"
-    else
-        warn "docker-compose installation failed"
-    fi
+    
+    # Final verification
     if docker compose version >/dev/null 2>&1; then
-        verify_installation "docker compose version" 'Docker Compose' || exit 1
+        verify_installation "docker compose version" 'Docker Compose V2' || exit 1
     elif docker-compose --version >/dev/null 2>&1; then
         verify_installation "docker-compose --version" 'Docker Compose' || exit 1
     else
