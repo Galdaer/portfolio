@@ -83,13 +83,13 @@ jobs:
       - name: Cache tool installs
         uses: actions/cache@v4
         with:
-          path:
-            - ~/.cache/bats
-            - ~/.cache/shfmt
-            - ~/.cache/uv
-            - ~/.local/bin
-            - /usr/local/bin/kcov
-            - /usr/local/share/doc/kcov
+          path: |
+            ~/.cache/bats
+            ~/.cache/shfmt
+            ~/.cache/uv
+            ~/.local/bin
+            /usr/local/bin/kcov
+            /usr/local/share/doc/kcov
           key: ${{ runner.os }}-deps-${{ hashFiles('scripts/setup-environment.sh') }}-v4
       
       - name: Install dependencies
