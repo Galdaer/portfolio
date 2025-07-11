@@ -320,16 +320,22 @@ jobs:
                 cp -r /workspace /tmp/workspace-rw
                 chmod -R u+w /tmp/workspace-rw
                 
-                echo 'Running test suite...'
+                echo 'Running test suite with coverage...'
                 cd /tmp/workspace-rw
                 
-                # Run tests with timeout
-                echo 'Running tests with bats...'
-                timeout 120 bats -r test/ || echo 'Some tests failed'
+                # Run tests with kcov for coverage report
+                # The output is directed to /workspace/coverage, which is a mounted volume
+                echo 'Running tests with kcov...'
+                if command -v kcov &> /dev/null; then
+                  timeout 180 kcov --include-pattern=scripts/ --exclude-pattern=test/ --bash-dont-parse-binary-dir /workspace/coverage bats -r test/ || echo 'Coverage run finished (some tests may have failed).'
+                else
+                  echo 'kcov not found, running tests without coverage.'
+                  timeout 120 bats -r test/ || echo 'Some tests failed'
+                fi
                 
                 echo 'Test execution completed'
-                ls -la /workspace/coverage/ 2>/dev/null || echo 'No coverage directory'
-                find /workspace/coverage -type f -name '*.html' 2>/dev/null | head -5 || echo 'No HTML files'
+                echo 'Listing coverage directory contents from within the container:'
+                ls -la /workspace/coverage/ 2>/dev/null || echo 'No coverage directory found inside container.'
               "
             
             test_exit_code=$?
