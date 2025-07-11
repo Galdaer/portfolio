@@ -187,6 +187,15 @@ set -uo pipefail
 # Use user-writable location instead of /var/lock (which requires root)
 LOCK_FILE="${HOME}/.cache/bootstrap.lock"
 mkdir -p "$(dirname "$LOCK_FILE")"
+
+# If lock file exists but is owned by root, remove it (from previous sudo runs)
+if [[ -f "$LOCK_FILE" && "$(stat -c '%U' "$LOCK_FILE" 2>/dev/null)" == "root" ]]; then
+    rm -f "$LOCK_FILE" 2>/dev/null || {
+        # Fallback to temp directory if we can't remove root-owned file
+        LOCK_FILE="/tmp/bootstrap-$(whoami).lock"
+    }
+fi
+
 exec 200>"$LOCK_FILE"
 flock -n 200 || {
 	echo "Another instance of bootstrap.sh is running. Exiting."

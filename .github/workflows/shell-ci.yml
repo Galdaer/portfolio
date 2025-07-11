@@ -88,9 +88,7 @@ jobs:
             ~/.cache/shfmt
             ~/.cache/uv
             ~/.local/bin
-            /usr/local/bin/kcov
-            /usr/local/share/doc/kcov
-          key: ${{ runner.os }}-deps-${{ hashFiles('scripts/setup-environment.sh') }}-v4
+          key: ${{ runner.os }}-deps-${{ hashFiles('scripts/setup-environment.sh') }}-v5
       
       - name: Install dependencies
         run: |
@@ -329,7 +327,20 @@ jobs:
                 # The output is directed to /workspace/coverage, which is a mounted volume
                 echo 'Running tests with kcov...'
                 if command -v kcov &> /dev/null; then
-                  timeout 180 kcov --include-pattern=scripts/ --exclude-pattern=test/ --bash-dont-parse-binary-dir /workspace/coverage bats -r test/ || echo 'Coverage run finished (some tests may have failed).'
+                  # Ensure coverage directory exists and is writable
+                  mkdir -p /workspace/coverage
+                  chmod 777 /workspace/coverage
+                  
+                  # Run with kcov coverage - only include scripts directory
+                  timeout 180 kcov \
+                    --include-pattern=/tmp/workspace-rw/scripts/ \
+                    --exclude-pattern=/tmp/workspace-rw/test/,/tmp/workspace-rw/vendor/ \
+                    --bash-dont-parse-binary-dir \
+                    /workspace/coverage \
+                    bats -r test/ || echo 'Coverage run finished (some tests may have failed).'
+                    
+                  # Ensure coverage files are readable
+                  chmod -R 755 /workspace/coverage
                 else
                   echo 'kcov not found, running tests without coverage.'
                   timeout 120 bats -r test/ || echo 'Some tests failed'

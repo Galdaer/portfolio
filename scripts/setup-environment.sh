@@ -116,9 +116,20 @@ health_check() {
         tools["kcov --version"]="kcov (coverage tool)"
     fi
 
-    # Add Docker Compose tools using helper function
-    add_tool "docker compose version" "Docker Compose"
-    add_tool "docker-compose --version" "Docker Compose"
+    # Add Docker Compose tools - check that at least one works
+    local compose_available=false
+    if bash -c "docker compose version" >/dev/null 2>&1; then
+        tools["docker compose version"]="Docker Compose"
+        compose_available=true
+    elif bash -c "docker-compose --version" >/dev/null 2>&1; then
+        tools["docker-compose --version"]="Docker Compose"
+        compose_available=true
+    fi
+    
+    # If neither Docker Compose option works, add a failing check
+    if [[ "$compose_available" == false ]]; then
+        tools["false"]="Docker Compose (missing)"
+    fi
 
     # Loop through tools and verify each
     for cmd in "${!tools[@]}"; do
@@ -260,7 +271,7 @@ install_system_deps() {
             fi
         done
         if [[ ${#FAILED_PACKAGES[@]} -gt 0 ]]; then
-            error "The following packages failed to install: ${FAILED_PACKAGES[*]}"
+            err "The following packages failed to install: ${FAILED_PACKAGES[*]}"
             exit 1
         fi
     fi
@@ -558,11 +569,11 @@ setup_systemd() {
 }
 
 main() {
-    check_root
     detect_os
     if [[ "$HEALTH_CHECK" == true ]]; then
         health_check && ok "All dependencies present" && exit 0 || exit 1
     fi
+    check_root
     update_packages
     build_dependency_list
     install_system_deps

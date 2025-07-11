@@ -56,16 +56,34 @@ RUN echo "=== Installing development tools ===" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install additional test dependencies
+# Install additional test dependencies including kcov for coverage
 RUN echo "=== Installing additional test dependencies ===" && \
     apt-get update && \
     apt-get install -y \
         strace \
         time \
+        cmake \
+        libdw-dev \
+        libelf-dev \
+        libiberty-dev \
+        binutils-dev \
         && \
     echo "All test dependencies installed successfully" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Install kcov for code coverage
+RUN echo "=== Installing kcov for coverage ===" && \
+    git clone --depth=1 https://github.com/SimonKagstrom/kcov.git /tmp/kcov && \
+    cd /tmp/kcov && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make -j$(nproc) && \
+    make install && \
+    rm -rf /tmp/kcov && \
+    echo "kcov installed successfully" && \
+    kcov --version
 
 # Install Python tools - cache this layer  
 RUN echo "=== Installing uv and Python linting tools ===" && \

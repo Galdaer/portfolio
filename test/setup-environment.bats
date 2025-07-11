@@ -171,8 +171,10 @@ EOF
 
 @test "install_system_deps reports success for all packages" {
   create_mock_pkg_install
+  export PKG_INSTALL_CMD="$TMPDIR/pkg_install"
   run bash -c "\
-    PKG_INSTALL='$TMPDIR/pkg_install'; \
+    source scripts/lib.sh; \
+    PKG_INSTALL=(\"\$PKG_INSTALL_CMD\"); \
     DEPENDENCIES=(foo bar); \
     source scripts/setup-environment.sh; \
     install_system_deps"
@@ -183,20 +185,24 @@ EOF
 
 @test "install_system_deps warns on failed packages" {
   create_mock_pkg_install
+  export PKG_INSTALL_CMD="$TMPDIR/pkg_install"
   run bash -c "\
-    PKG_INSTALL='$TMPDIR/pkg_install'; \
+    source scripts/lib.sh; \
+    PKG_INSTALL=(\"\$PKG_INSTALL_CMD\"); \
     DEPENDENCIES=(good failpkg good2); \
     source scripts/setup-environment.sh; \
     install_system_deps"
-  [ "$status" -eq 0 ]
+  [ "$status" -eq 1 ]
   [[ "$output" == *"Some packages failed to install"* ]]
-  grep -qx "good failpkg good2" "$TMPDIR/pkg_install_log"
+  [[ "$output" == *"The following packages failed to install: failpkg"* ]]
 }
 
 @test "install_system_deps handles empty dependency list" {
   create_mock_pkg_install
+  export PKG_INSTALL_CMD="$TMPDIR/pkg_install"
   run bash -c "\
-    PKG_INSTALL='$TMPDIR/pkg_install'; \
+    source scripts/lib.sh; \
+    PKG_INSTALL=(\"\$PKG_INSTALL_CMD\"); \
     DEPENDENCIES=(); \
     source scripts/setup-environment.sh; \
     install_system_deps"
