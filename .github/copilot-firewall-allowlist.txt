@@ -1,0 +1,112 @@
+# GitHub Copilot Firewall Allowlist for Intelluxe AI Healthcare System
+# This file configures network access for healthcare AI development
+# 
+# Usage: Configure this allowlist in GitHub repository settings under:
+# Settings → Copilot → Firewall Configuration
+#
+# Format: Each line represents a domain that should be accessible
+# Supports both DNS names and service records
+
+# Ubuntu Package Repositories (Critical for apt-get operations)
+archive.ubuntu.com.
+azure.archive.ubuntu.com.
+security.ubuntu.com.
+esm.ubuntu.com.
+motd.ubuntu.com.
+_http._tcp.archive.ubuntu.com.
+_https._tcp.archive.ubuntu.com.
+_http._tcp.azure.archive.ubuntu.com.
+_https._tcp.azure.archive.ubuntu.com.
+_https._tcp.security.ubuntu.com.
+_https._tcp.esm.ubuntu.com.
+_https._tcp.motd.ubuntu.com.
+
+# Microsoft Package Repository (VS Code, .NET tools)
+packages.microsoft.com.
+_https._tcp.packages.microsoft.com.
+
+# GitHub Infrastructure (Source control, releases, CI/CD)
+github.com.
+api.github.com.
+raw.githubusercontent.com.
+_https._tcp.github.com.
+_https._tcp.api.github.com.
+_https._tcp.raw.githubusercontent.com.
+
+# Docker Infrastructure (Healthcare container images)
+registry-1.docker.io.
+index.docker.io.
+docker.io.
+_https._tcp.registry-1.docker.io.
+_https._tcp.index.docker.io.
+_https._tcp.docker.io.
+
+# Python Package Index (Healthcare AI dependencies)
+pypi.org.
+files.pythonhosted.org.
+_https._tcp.pypi.org.
+_https._tcp.files.pythonhosted.org.
+
+# Node.js Infrastructure (n8n healthcare workflow automation)
+registry.npmjs.org.
+nodejs.org.
+_https._tcp.registry.npmjs.org.
+_https._tcp.nodejs.org.
+
+# Go Language Infrastructure (Development tools)
+go.dev.
+_https._tcp.go.dev.
+
+# Additional Development Tools
+astral.sh.
+get.docker.com.
+_https._tcp.astral.sh.
+_https._tcp.get.docker.com.
+
+# Healthcare AI Model Repositories
+huggingface.co.
+cdn-lfs.huggingface.co.
+_https._tcp.huggingface.co.
+_https._tcp.cdn-lfs.huggingface.co.
+
+# Ollama (Local LLM infrastructure)
+ollama.com.
+registry.ollama.ai.
+_https._tcp.ollama.com.
+_https._tcp.registry.ollama.ai.
+
+# PostgreSQL (Healthcare data management)
+download.postgresql.org.
+ftp.postgresql.org.
+_https._tcp.download.postgresql.org.
+_https._tcp.ftp.postgresql.org.
+
+# Redis (Healthcare session management)
+download.redis.io.
+_https._tcp.download.redis.io.
+
+# Medical Research APIs (Read-only, no PHI)
+pubmed.ncbi.nlm.nih.gov.
+clinicaltrials.gov.
+api.fda.gov.
+_https._tcp.pubmed.ncbi.nlm.nih.gov.
+_https._tcp.clinicaltrials.gov.
+_https._tcp.api.fda.gov.
+
+# VS Code and Development Tools
+marketplace.visualstudio.com.
+vscode.dev.
+code.visualstudio.com.
+_https._tcp.marketplace.visualstudio.com.
+_https._tcp.vscode.dev.
+_https._tcp.code.visualstudio.com.
+
+# Git and Version Control
+git-scm.com.
+_https._tcp.git-scm.com.
+
+# Healthcare Compliance and Security Tools
+cve.mitre.org.
+nvd.nist.gov.
+_https._tcp.cve.mitre.org.
+_https._tcp.nvd.nist.gov.
