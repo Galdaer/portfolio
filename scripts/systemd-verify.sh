@@ -49,9 +49,16 @@ SCRIPT_VERSION="1.0.0"
 # Root directory for configuration and logs. Override to relocate
 # .clinic-bootstrap.conf and the logs directory.
 : "${CFG_ROOT:=/opt/intelluxe/clinic-stack}"
-# Default log output path; update CFG_ROOT to change this location.
-LOG_DIR="${CFG_ROOT}/logs"
-mkdir -p "$LOG_DIR"
+
+# In CI, use a writable logs directory
+if [[ "${CI:-false}" == "true" ]]; then
+	LOG_DIR="${LOG_DIR:-${PWD}/logs}"
+	mkdir -p "$LOG_DIR" 2>/dev/null || LOG_DIR="/tmp/intelluxe-logs"
+else
+	LOG_DIR="${LOG_DIR:-${CFG_ROOT}/logs}"
+fi
+
+mkdir -p "$LOG_DIR" 2>/dev/null || true
 LOG_FILE="$LOG_DIR/systemd-verify.log"
 : "${SYSLOG_TAG:=systemd-verify}"
 

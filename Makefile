@@ -130,6 +130,10 @@ validate:
         $(MAKE) systemd-verify; \
         fi
 
+systemd-verify:
+	@echo "🔧  Verifying systemd service configurations"
+	@./scripts/systemd-verify.sh
+
 test:
 	@echo "🧪  Running Bats tests"
 	@if [ "${CI}" = "true" ]; then \

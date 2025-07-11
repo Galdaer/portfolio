@@ -423,30 +423,69 @@ done
 auto_install_deps() {
 	# Auto-install missing dependencies unless --validate-only
 	local missing_deps=()
-	local deps=(ip iptables docker socat curl ss wg-quick lsof jq stat less)
+	local optional_deps=()
+	
+	# Core dependencies required for basic operation
+	local core_deps=(ip iptables docker curl ss lsof jq stat less)
+	
+	# Optional dependencies for specific features
+	local optional_feature_deps=(socat wg-quick)
 
-  # Add qrencode to required deps if WireGuard is selected
+  # Add qrencode to optional deps if WireGuard is selected
     if [[ " ${SELECTED_CONTAINERS[*]} " == *" wireguard "* ]]; then
-        deps+=(qrencode)
+        optional_feature_deps+=(qrencode)
     fi
 
-	for dep in "${deps[@]}"; do
+	# Check core dependencies
+	for dep in "${core_deps[@]}"; do
 		if ! command -v "$dep" &>/dev/null; then
 			missing_deps+=("$dep")
 		fi
 	done
+	
+	# Check optional dependencies
+	for dep in "${optional_feature_deps[@]}"; do
+		if ! command -v "$dep" &>/dev/null; then
+			optional_deps+=("$dep")
+		fi
+	done
 
+	# Handle missing core dependencies
 	if [[ ${#missing_deps[@]} -gt 0 ]]; then
-		warn "Missing dependencies: ${missing_deps[*]}"
+		warn "Missing core dependencies: ${missing_deps[*]}"
 
 		if [[ "$VALIDATE_ONLY" == "true" ]]; then
-			die "Dependencies missing. Install them and re-run: ${missing_deps[*]}" 25
+			die "Core dependencies missing. Install them and re-run: ${missing_deps[*]}" 25
 		fi
+	fi
+	
+	# Handle missing optional dependencies - be more lenient in CI/validation mode
+	if [[ ${#optional_deps[@]} -gt 0 ]]; then
+		if [[ "$VALIDATE_ONLY" == "true" ]] && [[ "${CI:-}" == "true" ]]; then
+			warn "Optional dependencies missing (OK in CI): ${optional_deps[*]}"
+			# Don't fail for optional deps in CI validation mode
+		elif [[ "$VALIDATE_ONLY" == "true" ]]; then
+			warn "Optional dependencies missing: ${optional_deps[*]}"
+			warn "Some features (like WireGuard) may not work without these dependencies"
+		else
+			# Add optional deps to missing deps for installation in non-validation mode
+			missing_deps+=("${optional_deps[@]}")
+		fi
+	fi
+	
+	# Combine all missing deps for installation logic
+	local all_missing_deps=("${missing_deps[@]}")
+	if [[ "$VALIDATE_ONLY" != "true" ]]; then
+		all_missing_deps+=("${optional_deps[@]}")
+	fi
+
+	if [[ ${#all_missing_deps[@]} -gt 0 ]] && [[ "$VALIDATE_ONLY" != "true" ]]; then
+		warn "Missing dependencies: ${all_missing_deps[*]}"
 
 		if $NON_INTERACTIVE || $FORCE_DEFAULTS; then
-			log "Auto-installing missing dependencies: ${missing_deps[*]}"
+			log "Auto-installing missing dependencies: ${all_missing_deps[*]}"
 		else
-			echo "Missing dependencies detected: ${missing_deps[*]}"
+			echo "Missing dependencies detected: ${all_missing_deps[*]}"
 			if [[ -t 0 ]]; then
 				read -rp "Install missing dependencies automatically? [Y/n]: " ans
 			else
@@ -454,13 +493,13 @@ auto_install_deps() {
 				ans="y"
 			fi
 			if [[ ! "${ans,,}" =~ ^(y|yes|)$ ]]; then
-				die "Dependencies required. Please install: ${missing_deps[*]}" 25
+				die "Dependencies required. Please install: ${all_missing_deps[*]}" 25
 			fi
 		fi
 
 		# Map dependencies to packages
 		local packages=()
-		for dep in "${missing_deps[@]}"; do
+		for dep in "${all_missing_deps[@]}"; do
 			case "$dep" in
 			socat) packages+=("socat") ;;
 			wg-quick) packages+=("wireguard-tools") ;;
@@ -741,7 +780,8 @@ get_service_config_value() {
     if [[ -f "$svc_file" ]]; then
         local value
         # Extract value, handle missing keys properly, and trim whitespace
-        value=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$svc_file" | head -n1 | cut -d= -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        # Use || true to prevent grep from causing script exit on no match
+        value=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$svc_file" | head -n1 | cut -d= -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' || true)
         
         # If no value found (empty result from grep), use default
         if [[ -z "$value" ]]; then

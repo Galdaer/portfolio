@@ -37,7 +37,15 @@
 # Allow override for default path in testing environments
 : "${INTELLUXE_DEFAULT_ROOT:=/opt/intelluxe/clinic-stack}"
 : "${CFG_ROOT:=$INTELLUXE_DEFAULT_ROOT}"
-LOG_DIR="${LOG_DIR:-${CFG_ROOT}/logs}"
+
+# In CI, use a writable logs directory
+if [[ "${CI:-false}" == "true" ]]; then
+	LOG_DIR="${LOG_DIR:-${PWD}/logs}"
+	mkdir -p "$LOG_DIR" 2>/dev/null || LOG_DIR="/tmp/intelluxe-logs"
+else
+	LOG_DIR="${LOG_DIR:-${CFG_ROOT}/logs}"
+fi
+
 # Directory creation moved to init_logging function to respect DRY_RUN
 LOG_FILE="$LOG_DIR/clinic-lib.log"
 : "${LOG_SIZE_LIMIT:=1048576}" # 1MB default
