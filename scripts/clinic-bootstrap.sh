@@ -740,7 +740,15 @@ get_service_config_value() {
     
     if [[ -f "$svc_file" ]]; then
         local value
-        value=$(grep -E "^${key}=" "$svc_file" | head -n1 | cut -d= -f2- || echo "$default")
+        # Extract value, handle missing keys properly, and trim whitespace
+        value=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$svc_file" | head -n1 | cut -d= -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        
+        # If no value found (empty result from grep), use default
+        if [[ -z "$value" ]]; then
+            echo "$default"
+            return
+        fi
+        
         # Expand environment variables if the value contains $
         # Avoid expanding volume mount paths (typically key=value format with host:container paths)
         if [[ "$value" == *'$'* ]]; then

@@ -379,7 +379,7 @@ def test_index_contains_teardown_form(monkeypatch):
     html = config_web_ui.index()
     assert 'Run Teardown' in html
     assert 'action="/teardown"' in html
-    assert "confirm('Teardown entire stack?')" in html
+    assert "confirm('Teardown entire Intelluxe stack?')" in html
 
 
 def test_index_default_grafana_port(monkeypatch):
@@ -690,8 +690,10 @@ def test_add_service_route(monkeypatch, tmp_path):
     result = config_web_ui.add_service_route()
 
     # Verify configuration file was created with correct content
-    config_file = str(tmp_path / "newsvc.conf")
-    assert config_file in file_contents
+    # Find the config file that was created (there should be one ending with newsvc.conf)
+    config_files = [f for f in file_contents.keys() if f.endswith("newsvc.conf")]
+    assert len(config_files) == 1, f"Expected exactly 1 config file, found: {config_files}"
+    config_file = config_files[0]
 
     config_content = file_contents[config_file]
     assert "image=my/image\n" in config_content

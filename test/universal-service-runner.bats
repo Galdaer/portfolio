@@ -13,12 +13,9 @@ setup() {
     mkdir -p "$CFG_ROOT"
     mkdir -p "${BATS_TEST_TMPDIR}/services/user"
     
-    # Source required functions from clinic-bootstrap.sh
-    source <(sed -n '/^parse_service_config()/,/^}$/p' scripts/clinic-bootstrap.sh)
-    
-    # Source the libraries with proper order and error handling
-    source scripts/clinic-lib.sh || true
-    source scripts/universal-service-runner.sh || true
+    # Source required functions from clinic-bootstrap.sh and universal-service-runner.sh
+    source scripts/clinic-lib.sh
+    source scripts/universal-service-runner.sh
     
     # Create test service config
     cat > "${BATS_TEST_TMPDIR}/services/user/redis.conf" << 'EOF'
@@ -32,22 +29,21 @@ EOF
 @test "parse_service_config should parse Redis configuration correctly" {
     local config_file="${BATS_TEST_TMPDIR}/services/user/redis.conf"
     
-    # Test that parsing succeeds and check the parsed values
-    local output
-    output=$(parse_service_config "$config_file")
+    # Test that parsing succeeds 
+    parse_universal_service_config "redis" "$config_file"
     
-    # Check that each expected key=value pair is in the output
-    echo "$output" | grep -q "image=redis:alpine"
-    echo "$output" | grep -q "port=6379"
-    echo "$output" | grep -q "env=REDIS_PASSWORD=mypassword"
-    echo "$output" | grep -q "volumes=/data:/data"
+    # Check that the SERVICE_CONFIG array is populated correctly
+    [[ "${SERVICE_CONFIG[image]}" == "redis:alpine" ]]
+    [[ "${SERVICE_CONFIG[port]}" == "6379" ]]
+    [[ "${SERVICE_CONFIG[env]}" == "REDIS_PASSWORD=mypassword" ]]
+    [[ "${SERVICE_CONFIG[volumes]}" == "/data:/data" ]]
 }
 
 @test "build_docker_command should generate correct Docker command" {
     local config_file="${BATS_TEST_TMPDIR}/services/user/redis.conf"
     
     # Parse config first
-    parse_service_config "$config_file"
+    parse_universal_service_config "redis" "$config_file"
     
     # Build the Docker command
     build_docker_command "redis"
@@ -65,9 +61,8 @@ EOF
 @test "parse_service_config should handle missing config file" {
     # Test with a helper function since 'run' has limitations with bats
     local status=0
-    local output=""
     
-    parse_service_config "/nonexistent/path.conf" 2>&1 || status=$?
+    parse_universal_service_config "test" "/nonexistent/path.conf" 2>&1 || status=$?
     
     [ "$status" -ne 0 ]
 }
@@ -78,7 +73,7 @@ EOF
 image=nginx:alpine
 EOF
     
-    parse_service_config "${BATS_TEST_TMPDIR}/services/user/minimal.conf"
+    parse_universal_service_config "minimal" "${BATS_TEST_TMPDIR}/services/user/minimal.conf"
     
     build_docker_command "minimal"
     
@@ -102,7 +97,7 @@ user=postgres
 working_dir=/var/lib/postgresql
 EOF
     
-    parse_service_config "${BATS_TEST_TMPDIR}/services/user/advanced.conf"
+    parse_universal_service_config "advanced" "${BATS_TEST_TMPDIR}/services/user/advanced.conf"
     
     build_docker_command "advanced"
     
@@ -124,7 +119,7 @@ another_unknown=test
 EOF
     
     # Capture stderr to check for warnings
-    parse_service_config "${BATS_TEST_TMPDIR}/services/user/unknown.conf"
+    parse_universal_service_config "unknown" "${BATS_TEST_TMPDIR}/services/user/unknown.conf"
     
     build_docker_command "unknown" 2>/dev/null
     
