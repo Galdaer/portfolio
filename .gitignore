@@ -27,6 +27,8 @@
 !/.vscode/
 !/reference/
 !/reference/**/*
+!/vendor/
+!/vendor/**/*
 
 # Ignore Python cache files everywhere
 **/__pycache__/
