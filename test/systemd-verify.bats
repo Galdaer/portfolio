@@ -22,7 +22,7 @@ setup() {
 }
 
 @test "LOG_DIR honors custom CFG_ROOT" {
-  if [[ "${CI:-}" == "true" ]]; then
+  if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
     skip "Skipping systemd log directory test in CI - may not have permission to create directories"
   fi
   unset LOG_DIR
