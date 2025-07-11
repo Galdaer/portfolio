@@ -49,13 +49,13 @@
 
         "architecture": {
             "universalServiceRunner": "universal-service-runner.sh is the ONLY method for deploying services using .conf files from services/user/",
-            "sourceCodeLocation": "Third-party service source code (like healthcare-mcp) is managed as git submodules in vendor/",
+            "sourceCodeLocation": "Third-party service source code (like Ai-Engineering-Hub) is managed as git submodules in reference/",
             "pythonWebUI": "config_web_ui.py creates .conf files directly, never uses legacy scripts",
             "noLegacyCode": "No plugin.sh files, no add-service.sh references - only universal service runner .conf-based approach"
         },
 
         "serviceManagement": {
-            "healthcareServices": "Ollama (local LLM), AgentCare-MCP (medical tools), PostgreSQL (patient context), Redis (session cache), n8n (workflows)",
+            "healthcareServices": "Ollama (local LLM), Healthcare-MCP (medical tools), PostgreSQL (patient context), Redis (session cache), n8n (workflows)",
             "universalConfigOnly": "100% of services use pure .conf files configured through universal service runner",
             "securityFirst": "HIPAA-compliant service orchestration with audit logging and role-based access"
         },
@@ -76,7 +76,7 @@
         },
 
         "directoryStructure": {
-            "vendor/": "Source code for third-party services (git submodules like healthcare-mcp)",
+            "vendor/": "Source code for third-party services (git submodules like AI-Engineering-Hub)",
             "services/user/": "Runtime configurations (.conf files) for all services",
             "core/": "Core Python infrastructure (orchestration, models, tools)",
             "agents/": "AI agent implementations (intake, document_processor, research_assistant, billing_helper, scheduling_optimizer)",
@@ -102,7 +102,7 @@
         },
 
         "git": {
-            "tracked": ".github/, .vscode/, docs/, scripts/, services/, systemd/, test/, vendor/",
+            "tracked": ".github/, .vscode/, docs/, scripts/, services/, systemd/, test/, vendor/, reference/",
             "ignored": "logs/, backups/, user-specific service data"
         },
 

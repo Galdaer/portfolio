@@ -187,7 +187,7 @@ FORM_TEMPLATE = """
       <td>{{ container_status.get(svc, 'unknown') }}</td>
       {% if svc == 'ollama' %}
         <td>🧠 AI Inference</td>
-      {% elif svc == 'agentcare-mcp' %}
+      {% elif svc == 'healthcare-mcp' %}
         <td>🏥 Medical Tools</td>
       {% elif svc == 'postgres' %}
         <td>💾 Patient Database</td>
@@ -203,7 +203,7 @@ FORM_TEMPLATE = """
 </table>
 <h2>Quick Healthcare AI Links</h2>
 <p><a href="http://localhost:11434" target="_blank">🧠 Ollama API (Local LLM)</a></p>
-<p><a href="http://localhost:3000" target="_blank">🏥 AgentCare-MCP Dashboard</a></p>
+<p><a href="http://localhost:3000" target="_blank">🏥 Healthcare-MCP Dashboard</a></p>
 <p><a href="http://localhost:5678" target="_blank">🔄 n8n Workflow Editor</a></p>
 <p><a href="http://localhost:{{ grafana_port }}" target="_blank">📊 Grafana Monitoring</a></p>
 <h2>Add Healthcare AI Service</h2>

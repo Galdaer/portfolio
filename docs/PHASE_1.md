@@ -1,7 +1,7 @@
 # Phase 1: Core AI Infrastructure
 
 **Duration:** 3-4 weeks  
-**Goal:** Deploy functional healthcare AI system with Ollama inference, AgentCare-MCP integration, and basic agent workflows. Focus on core infrastructure that works reliably before adding business services.
+**Goal:** Deploy functional healthcare AI system with Ollama inference, Healthcare-MCP integration, and basic agent workflows. Focus on core infrastructure that works reliably before adding business services.
 
 ## Deployment and Validation Checklist
 

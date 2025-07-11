@@ -2,12 +2,14 @@
 flask
 fastapi
 uvicorn
-pydantic
+pydantic[email]
+pydantic-settings
 
 # Database and storage
 sqlalchemy
 alembic
-redis
+redis[hiredis]
+asyncpg
 psycopg2-binary
 influxdb
 

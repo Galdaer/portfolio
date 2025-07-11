@@ -88,6 +88,8 @@ jobs:
             ~/.cache/shfmt
             ~/.cache/uv
             ~/.local/bin
+            /usr/local/bin/kcov
+            /usr/local/share/doc/kcov
           key: ${{ runner.os }}-deps-${{ hashFiles('scripts/setup-environment.sh') }}-v5
       
       - name: Install dependencies
@@ -418,7 +420,7 @@ jobs:
   #       run: |
   #         echo "Running healthcare AI integration tests with mocked LLMs..."
   #         
-  #         # Test AgentCare-MCP tool configurations
+  #         # Test Healthcare-MCP tool configurations
   #         if [ -f "test/healthcare/test_agentcare_mcp.py" ]; then
   #           python3 -m pytest test/healthcare/test_agentcare_mcp.py -v --mock-llm
   #         fi
@@ -429,7 +431,7 @@ jobs:
   #         fi
   #         
   #         # Validate healthcare service configurations
-  #         for service in ollama agentcare-mcp postgres redis n8n grafana influxdb; do
+  #         for service in ollama healthcare-mcp postgres redis n8n grafana influxdb; do
   #           echo "Validating $service configuration..."
   #           if [ -f "services/user/$service/$service.conf" ]; then
   #             echo "✓ $service config exists"

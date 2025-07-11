@@ -327,14 +327,23 @@ WRAP
 }
 
 ensure_compose() {
-    if docker compose version >/dev/null 2>&1 || command -v docker-compose >/dev/null; then
-        ok "docker-compose present"
+    # Check if Docker Compose V2 is available (modern approach)
+    if docker compose version >/dev/null 2>&1; then
+        ok "docker compose (V2) present"
+        return
+    fi
+    
+    # Check if legacy docker-compose is available
+    if command -v docker-compose >/dev/null; then
+        ok "docker-compose (V1) present"
         return
     fi
 
-    if command -v pip3 &>/dev/null; then
-        pip3 install --break-system-packages docker-compose >/dev/null 2>&1 || true
-    fi
+    # Note: Docker Compose V2 should be installed with Docker
+    # If neither is available, this indicates a Docker installation issue
+    warn "Neither 'docker compose' nor 'docker-compose' found"
+    warn "This usually means Docker is not properly installed"
+    warn "Try: apt-get install docker-compose-plugin"
 
     if docker compose version >/dev/null 2>&1 || command -v docker-compose >/dev/null; then
         ok "docker-compose installed"
@@ -409,25 +418,25 @@ install_python_deps() {
     # Install uv first
     install_uv
     
-    # Use uv to install Python packages system-wide (override Ubuntu's restriction)
-    log "Installing Intelluxe AI dependencies with uv (system-wide)"
-    uv pip install --system --break-system-packages \
-        fastapi uvicorn pydantic \
-        sqlalchemy alembic \
-        redis psycopg2-binary \
-        httpx aiofiles \
-        python-multipart "python-jose[cryptography]" \
-        passlib bcrypt \
-        prometheus-client \
-        "pyyaml>=6.0" \
-        requests \
-        flake8 mypy pytest pytest-asyncio \
-        jinja2 yamllint \
-        transformers torch ollama-python \
-        langchain langchain-community
+    # Check if we should skip Python package installation (for virtual env workflow)
+    if [ "${SKIP_PYTHON_PACKAGES:-}" = "1" ]; then
+        log "Skipping Python package installation (SKIP_PYTHON_PACKAGES=1)"
+        log "Python packages should be installed in virtual environment instead"
+        return
+    fi
     
-    ok "Python dependencies installed with uv"
-    verify_installation "python3 -c 'import fastapi'" "Python dependencies" || exit 1
+    # Install only essential system-wide Python packages for infrastructure
+    # Note: Most AI/ML packages should be in virtual environments
+    log "Installing essential system Python packages with uv"
+    uv pip install --system --break-system-packages \
+        flake8 mypy pytest pytest-asyncio \
+        yamllint \
+        pyyaml \
+        requests
+    
+    ok "Essential Python dependencies installed system-wide"
+    log "💡 For AI/ML development, use virtual environments with requirements.in"
+    verify_installation "python3 -c 'import yaml'" "Essential Python dependencies" || exit 1
 }
 
 setup_directories() {

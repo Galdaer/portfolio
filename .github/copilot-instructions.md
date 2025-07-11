@@ -13,10 +13,10 @@
 
 ### Main Healthcare AI Infrastructure
 - **`bootstrap.sh`** - Main healthcare AI infrastructure bootstrapper
-  - Sets up Docker, Ollama, AgentCare-MCP, PostgreSQL, Redis with medical-grade security
+  - Sets up Docker, Ollama, Healthcare-MCP, PostgreSQL, Redis with medical-grade security
 - **`universal-service-runner.sh`** - Universal service runner
   - Deploys ANY Docker service from pure configuration
-  - Handles healthcare AI services (Ollama, AgentCare-MCP, etc.)
+  - Handles healthcare AI services (Ollama, Healthcare-MCP, etc.)
 - **`config_web_ui.py`** - Healthcare-focused web interface
   - AI system management with service health monitoring
   - Medical service icons and healthcare-specific UI
@@ -74,7 +74,7 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 
 ### Healthcare Services
 - **Ollama** (local LLM)
-- **AgentCare-MCP** (medical tools)
+- **Healthcare-MCP** (medical tools)
 - **PostgreSQL** (patient context)
 - **Redis** (session cache)
 - **n8n** (workflows)

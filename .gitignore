@@ -33,6 +33,46 @@
 !/vendor/
 !/vendor/**/*
 
+# === AI APPLICATION DIRECTORIES ===
+# Core AI application structure
+!/agents/
+!/agents/**/*
+!/core/
+!/core/**/*
+!/data/
+!/data/**/*
+!/infrastructure/
+!/infrastructure/**/*
+!/notebooks/
+!/notebooks/**/*
+!/config/
+!/config/**/*
+!/tests/
+!/tests/**/*
+
+# === AI APPLICATION FILES ===
+!/main.py
+!*.py
+!*.yml
+!*.yaml
+!/requirements.in
+!/.env.example
+
+# === AI DATA EXCLUSIONS ===
+# Exclude sensitive AI data even if directories are whitelisted
+/data/training/user_samples/*
+!/data/training/user_samples/.gitkeep
+/data/vector_stores/*
+!/data/vector_stores/.gitkeep
+*.pt
+*.pth
+*.safetensors
+models/
+adapters/
+
+# Jupyter Notebooks checkpoints
+**/.ipynb_checkpoints/
+
 # Ignore Python cache files everywhere
 **/__pycache__/
 **/**/__pycache__/
@@ -122,3 +162,36 @@ venv/
 ENV/
 env.bak
 venv.bak
+
+# === NODE.JS / HEALTHCARE-MCP EXCLUSIONS ===
+# Node.js dependencies and build artifacts
+**/node_modules/
+**/dist/
+**/build/
+**/.npm
+**/.cache
+**/.parcel-cache
+**/.next
+**/.nuxt
+**/coverage/
+*.tsbuildinfo
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.tgz
+.yarn-integrity
+
+# TypeScript and linting cache
+.eslintcache
+.stylelintcache
+.rpt2_cache/
+.rts2_cache_*/
+
+# Development files
+.tern-port
+.vscode-test
+.serverless/
+.fusebox/
+.dynamodb/

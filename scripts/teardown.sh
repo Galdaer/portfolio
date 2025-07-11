@@ -56,7 +56,7 @@ SCRIPT_VERSION="1.0.0"
 
 NS_NAME="clinicns"
 # shellcheck disable=SC2034
-CONTAINERS=(clinic traefik wireguard grafana influxdb n8n config-web-ui ollama agentcare-mcp postgres redis)
+CONTAINERS=(clinic traefik wireguard grafana influxdb n8n config-web-ui ollama healthcare-mcp postgres redis)
 NETWORKS=("${DOCKER_NETWORK_NAME}")
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

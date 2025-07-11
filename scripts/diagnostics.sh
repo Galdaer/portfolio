@@ -208,12 +208,12 @@ else
 fi
 
 CHECK_COUNT=$((CHECK_COUNT + 1))
-if docker ps --filter "name=agentcare-mcp" --filter "status=running" --format "table {{.Names}}" | grep -q agentcare-mcp; then
-	report pass "AgentCare-MCP service is running"
-	write_influx "AgentCareMCP" 1
+if docker ps --filter "name=healthcare-mcp" --filter "status=running" --format "table {{.Names}}" | grep -q healthcare-mcp; then
+	report pass "Healthcare-MCP service is running"
+	write_influx "HealthcareMCP" 1
 else
-	report fail "AgentCare-MCP service is not running"
-	write_influx "AgentCareMCP" 0
+	report fail "Healthcare-MCP service is not running"
+	write_influx "HealthcareMCP" 0
 fi
 
 CHECK_COUNT=$((CHECK_COUNT + 1))
