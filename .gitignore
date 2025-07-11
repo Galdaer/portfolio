@@ -22,6 +22,7 @@
 !/misc/
 !/.devcontainer/
 !/.github/
+!/.github/**/*
 !/.vscode/
 
 # Ignore Python cache files everywhere
