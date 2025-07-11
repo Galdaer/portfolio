@@ -1,7 +1,7 @@
 justin@Intelluxe-demo:/home/intelluxe$ make test
 🧪  Running Bats tests
 Running tests without coverage (kcov not available)...
-clinic-bootstrap.bats
+bootstrap.bats
  ✓ ensure_directories creates WireGuard dirs with ownership
  ✓ logs directory and log file path set correctly
  ✓ enable_config_web_ui invoked when not dry run
@@ -19,40 +19,17 @@ clinic-bootstrap.bats
  ✓ service image override respected
  ✓ service image override respected for traefik
  - --stop-service flag triggers stop_service and exits (skipped: argument parsing snippet fails on this platform)
-clinic-diagnostics.bats
- ✓ unknown argument prints usage and exits 1
- ✓ DNS_IP defaults to ADGUARD_CONTAINER_IP from config
- ✓ DNS_IP falls back to built-in default when config missing
- ✓ DNS_FALLBACK uses value from config
- ✓ DNS_FALLBACK defaults when not in config
-clinic-lib.bats
- ✓ is_ci_or_virtual_env returns 1 when no env vars set
- ✓ is_ci_or_virtual_env succeeds with CODEX_ENV_PYTHON_VERSION
- ✓ is_ci_or_virtual_env succeeds with CODEX_PROXY_CERT
- ✓ is_ci_or_virtual_env succeeds with CI=true
- ✓ is_ci_or_virtual_env fails with CI=false
- ✓ is_ci_or_virtual_env succeeds with VIRTUAL_ENV
- ✓ set_ownership uses default CFG_UID/GID
- ✓ set_ownership uses custom CFG_UID/GID
- ✓ check_docker_socket uses DOCKER_SOCKET override
- ✓ DOCKER_SOCKET strips unix prefix
- ✓ LOG_DIR defaults using builtin CFG_ROOT when both unset
- ✓ LOG_DIR defaults to custom CFG_ROOT when LOG_DIR unset
- ✓ LOG_DIR keeps value when CFG_ROOT unset
- ✓ LOG_DIR keeps value when both variables set
-clinic-teardown.bats
- ✓ custom DOCKER_NETWORK_NAME influences network cleanup
-config-management.bats
- ✓ parse_service_config handles all configuration keys
- ✓ get_service_config_value extracts individual values correctly
- ✓ get_service_config_value handles missing files and keys
- ✓ get_service_config_value expands environment variables
- ✓ get_service_config_value handles comments and whitespace
 config-web-ui.bats
  ✓ config-web-ui.service uses EnvironmentFile
 diagnostic-pusher.bats
  ✓ INFLUX_MOCK branch sets 204 response
  ✓ exits when CFG_ROOT unset
+diagnostics.bats
+ ✓ unknown argument prints usage and exits 1
+ ✓ DNS_IP defaults to ADGUARD_CONTAINER_IP from config
+ ✓ DNS_IP falls back to built-in default when config missing
+ ✓ DNS_FALLBACK uses value from config
+ ✓ DNS_FALLBACK defaults when not in config
 duckdns-service.bats
  ✓ duckdns-update service expands CFG_ROOT
 filesystem-security.bats
@@ -71,6 +48,21 @@ final-service-agnostic-validation.bats
  ✓ service discovery works with unified directory structure
  ✓ no core/user service distinction exists
  ✓ system handles arbitrary service configurations
+lib.bats
+ ✓ is_ci_or_virtual_env returns 1 when no env vars set
+ ✓ is_ci_or_virtual_env succeeds with CODEX_ENV_PYTHON_VERSION
+ ✓ is_ci_or_virtual_env succeeds with CODEX_PROXY_CERT
+ ✓ is_ci_or_virtual_env succeeds with CI=true
+ ✓ is_ci_or_virtual_env fails with CI=false
+ ✓ is_ci_or_virtual_env succeeds with VIRTUAL_ENV
+ ✓ set_ownership uses default CFG_UID/GID
+ ✓ set_ownership uses custom CFG_UID/GID
+ ✓ check_docker_socket uses DOCKER_SOCKET override
+ ✓ DOCKER_SOCKET strips unix prefix
+ ✓ LOG_DIR defaults using builtin CFG_ROOT when both unset
+ ✓ LOG_DIR defaults to custom CFG_ROOT when LOG_DIR unset
+ ✓ LOG_DIR keeps value when CFG_ROOT unset
+ ✓ LOG_DIR keeps value when both variables set
 port-validation.bats
  ✓ check_port_in_use detects TCP ports correctly
  ✓ check_port_in_use detects UDP ports correctly
@@ -107,14 +99,6 @@ service-agnostic-integrity.bats
  ✓ works with completely custom service configurations
  ✓ environment variable expansion works in generic setup
  ✓ service-agnostic system handles edge cases
-service-management.bats
- ✓ stop_service handles container services
- ✓ stop_service handles non-container services via systemctl
- ✓ stop_service handles wireguard specially
- ✓ stop_service handles nonexistent services gracefully
- ✓ show_ports displays port configuration
- ✓ reset_ports restores default port configuration
- ✓ auto_install_deps identifies missing dependencies
 setup-environment.bats
  ✓ detect_os sets package manager for Ubuntu
  ✓ build_dependency_list includes distro specific packages
@@ -136,27 +120,20 @@ setup-environment.bats
      `[ "$status" -eq 0 ]' failed
  ✓ CLI --health-check exits with failure
  ✓ CLI --health-check fails when compose support missing
-simplified-service-config.bats
- ✗ service configs can be discovered dynamically
-   (in test file test/simplified-service-config.bats, line 25)
-     `[[ $service_count -gt 0 ]]' failed
- ✗ service configs contain required fields
-   (in test file test/simplified-service-config.bats, line 47)
-     `[[ $configs_checked -gt 0 ]]' failed
- ✗ environment variable setup is service-agnostic
-   (from function `source' in file scripts/clinic-bootstrap.sh, line 190,
-    in test file test/simplified-service-config.bats, line 52)
-     `source scripts/clinic-bootstrap.sh' failed
-   scripts/clinic-bootstrap.sh: line 190: /home/justin/.cache/clinic-bootstrap.lock: Permission denied
- ✓ no hardcoded service logic remains
 systemd-summary.bats
  ✓ creates log directory under CFG_ROOT
  ✓ overriding CFG_ROOT uses new log path
 systemd-verify.bats
  ✓ LOG_DIR uses built-in CFG_ROOT
  ✓ LOG_DIR honors custom CFG_ROOT
- ✓ invokes systemd-analyze when present
- ✓ exports JSON with --export-json
+ ✗ invokes systemd-analyze when present
+   (in test file test/systemd-verify.bats, line 46)
+     `[ -f "$TMPDIR/call" ]' failed
+ ✗ exports JSON with --export-json
+   (in test file test/systemd-verify.bats, line 66)
+     `[ -f "$JSON_FILE" ]' failed
+teardown.bats
+ ✓ custom DOCKER_NETWORK_NAME influences network cleanup
 test_container_runner_generic.bats
  ✓ ensure_container_running finds service config file
  ✓ ensure_container_running handles missing service config
@@ -197,9 +174,8 @@ validate-ci.bats
 validate-config.bats
  ✓ validate_config fails on malformed compose file
 
-157 tests, 6 failures, 1 skipped
+141 tests, 5 failures, 1 skipped
 
 Tests completed or timed out
 .............................................                                                                                                                                                        [100%]
-45 passed in 0.35s
-justin@Intelluxe-demo:/home/intelluxe$ 
+45 passed in 0.30s
