@@ -1,0 +1,205 @@
+justin@Intelluxe-demo:/home/intelluxe$ make test
+🧪  Running Bats tests
+Running tests without coverage (kcov not available)...
+clinic-bootstrap.bats
+ ✓ ensure_directories creates WireGuard dirs with ownership
+ ✓ logs directory and log file path set correctly
+ ✓ enable_config_web_ui invoked when not dry run
+ ✓ enable_config_web_ui skipped when dry run
+ ✓ get_server_ip parses IP from ip route
+ ✓ get_server_ip falls back when ip route fails
+ ✓ --reset-wg-keys updates key file and client configs
+ ✓ save_config persists VPN subnet settings
+ ✓ save_config persists Docker network and DNS settings
+ ✓ saved user service ports override defaults
+ ✓ default user service port preserved when not in config
+ ✓ stop_service uses docker stop when container exists
+ ✓ stop_service uses systemctl stop for non-container
+ ✓ stop_service wireguard stops interface and container
+ ✓ service image override respected
+ ✓ service image override respected for traefik
+ - --stop-service flag triggers stop_service and exits (skipped: argument parsing snippet fails on this platform)
+clinic-diagnostics.bats
+ ✓ unknown argument prints usage and exits 1
+ ✓ DNS_IP defaults to ADGUARD_CONTAINER_IP from config
+ ✓ DNS_IP falls back to built-in default when config missing
+ ✓ DNS_FALLBACK uses value from config
+ ✓ DNS_FALLBACK defaults when not in config
+clinic-lib.bats
+ ✓ is_ci_or_virtual_env returns 1 when no env vars set
+ ✓ is_ci_or_virtual_env succeeds with CODEX_ENV_PYTHON_VERSION
+ ✓ is_ci_or_virtual_env succeeds with CODEX_PROXY_CERT
+ ✓ is_ci_or_virtual_env succeeds with CI=true
+ ✓ is_ci_or_virtual_env fails with CI=false
+ ✓ is_ci_or_virtual_env succeeds with VIRTUAL_ENV
+ ✓ set_ownership uses default CFG_UID/GID
+ ✓ set_ownership uses custom CFG_UID/GID
+ ✓ check_docker_socket uses DOCKER_SOCKET override
+ ✓ DOCKER_SOCKET strips unix prefix
+ ✓ LOG_DIR defaults using builtin CFG_ROOT when both unset
+ ✓ LOG_DIR defaults to custom CFG_ROOT when LOG_DIR unset
+ ✓ LOG_DIR keeps value when CFG_ROOT unset
+ ✓ LOG_DIR keeps value when both variables set
+clinic-teardown.bats
+ ✓ custom DOCKER_NETWORK_NAME influences network cleanup
+config-management.bats
+ ✓ parse_service_config handles all configuration keys
+ ✓ get_service_config_value extracts individual values correctly
+ ✓ get_service_config_value handles missing files and keys
+ ✓ get_service_config_value expands environment variables
+ ✓ get_service_config_value handles comments and whitespace
+config-web-ui.bats
+ ✓ config-web-ui.service uses EnvironmentFile
+diagnostic-pusher.bats
+ ✓ INFLUX_MOCK branch sets 204 response
+ ✓ exits when CFG_ROOT unset
+duckdns-service.bats
+ ✓ duckdns-update service expands CFG_ROOT
+filesystem-security.bats
+ ✓ check_secret_perms validates secure file permissions
+ ✓ check_secret_perms handles missing files
+ ✓ set_ownership applies correct ownership
+ ✓ set_ownership skips when UID/GID not set
+ ✓ validate_uuid function validates UUIDs
+ ✓ check_docker_socket validates socket permissions
+ ✓ check_docker_socket handles secure socket
+ ✓ rotate_log_if_needed rotates large log files
+final-service-agnostic-validation.bats
+ ✓ setup_service_env_vars function exists and works
+ ✓ bootstrap script is service-agnostic: no hardcoded service references
+ ✓ generic environment variable processing works for any service
+ ✓ service discovery works with unified directory structure
+ ✓ no core/user service distinction exists
+ ✓ system handles arbitrary service configurations
+port-validation.bats
+ ✓ check_port_in_use detects TCP ports correctly
+ ✓ check_port_in_use detects UDP ports correctly
+ ✓ check_port_in_use defaults to TCP
+ ✓ show_port_usage displays port information
+ ✓ show_port_usage handles unused ports
+ ✓ port validation with service configuration
+resource-pusher.bats
+ ✓ --help prints usage and exits 0
+ ✓ unknown argument exits 0
+ ✓ missing required argument exits 0
+ ✓ valid invocation exits 0
+service-agnostic-demo.bats
+ ✓ DEMO: Add MongoDB without any code changes
+ ✓ DEMO: Add custom proprietary application
+ ✓ DEMO: Add microservice fleet
+ ✓ DEMO: Verify no service-specific code remains
+ ✓ DEMO: System handles any Docker configuration
+service-agnostic-integrity.bats
+ ✓ setup_service_env_vars function exists and is callable
+ ✓ setup_service_env_vars processes ADVERTISE_IP for local mode
+ ✓ setup_service_env_vars processes ADVERTISE_IP for ddns mode
+ ✓ setup_service_env_vars processes HOSTNAME for local mode
+ ✓ setup_service_env_vars processes HOSTNAME for ddns mode
+ ✓ setup_service_env_vars processes ALLOWED_NETWORKS generically
+ ✓ setup_service_env_vars processes multiple environment variables
+ ✓ setup_service_env_vars handles regular environment variables
+ ✓ setup_service_env_vars gracefully handles missing config file
+ ✓ setup_service_env_vars gracefully handles missing env section
+ ✓ bootstrap script only looks in services/user directory
+ ✓ service discovery works with any service configuration
+ ✓ no hardcoded service names remain in bootstrap script
+ ✓ service restriction logic is purely port-based
+ ✓ works with completely custom service configurations
+ ✓ environment variable expansion works in generic setup
+ ✓ service-agnostic system handles edge cases
+service-management.bats
+ ✓ stop_service handles container services
+ ✓ stop_service handles non-container services via systemctl
+ ✓ stop_service handles wireguard specially
+ ✓ stop_service handles nonexistent services gracefully
+ ✓ show_ports displays port configuration
+ ✓ reset_ports restores default port configuration
+ ✓ auto_install_deps identifies missing dependencies
+setup-environment.bats
+ ✓ detect_os sets package manager for Ubuntu
+ ✓ build_dependency_list includes distro specific packages
+ ✓ install_python_deps uses uv for package installation
+ ✓ install_python_deps installs healthcare AI packages
+ ✓ setup_firewall applies expected ufw rules for Intelluxe
+ ✓ setup_firewall exits early when ip_forward unwritable
+ ✓ install_system_deps reports success for all packages
+ ✓ install_system_deps warns on failed packages
+ ✓ install_system_deps handles empty dependency list
+ ✓ retry_with_backoff retries until success
+ ✓ retry_with_backoff fails after max attempts
+ ✓ verify_installation succeeds
+ ✓ verify_installation fails
+ ✓ Health check succeeds when all tools exist
+ ✓ Health check fails when a tool is missing
+ ✗ CLI --health-check exits successfully
+   (in test file test/setup-environment.bats, line 300)
+     `[ "$status" -eq 0 ]' failed
+ ✓ CLI --health-check exits with failure
+ ✓ CLI --health-check fails when compose support missing
+simplified-service-config.bats
+ ✗ service configs can be discovered dynamically
+   (in test file test/simplified-service-config.bats, line 25)
+     `[[ $service_count -gt 0 ]]' failed
+ ✗ service configs contain required fields
+   (in test file test/simplified-service-config.bats, line 47)
+     `[[ $configs_checked -gt 0 ]]' failed
+ ✗ environment variable setup is service-agnostic
+   (from function `source' in file scripts/clinic-bootstrap.sh, line 190,
+    in test file test/simplified-service-config.bats, line 52)
+     `source scripts/clinic-bootstrap.sh' failed
+   scripts/clinic-bootstrap.sh: line 190: /home/justin/.cache/clinic-bootstrap.lock: Permission denied
+ ✓ no hardcoded service logic remains
+systemd-summary.bats
+ ✓ creates log directory under CFG_ROOT
+ ✓ overriding CFG_ROOT uses new log path
+systemd-verify.bats
+ ✓ LOG_DIR uses built-in CFG_ROOT
+ ✓ LOG_DIR honors custom CFG_ROOT
+ ✓ invokes systemd-analyze when present
+ ✓ exports JSON with --export-json
+test_container_runner_generic.bats
+ ✓ ensure_container_running finds service config file
+ ✓ ensure_container_running handles missing service config
+ ✓ parse_service_config extracts all values
+ ✓ get_service_config_value works with various keys
+ ✓ get_service_config_value handles missing values
+ ✓ service config supports complex values
+ ✓ service config handles comments and empty lines gracefully
+ ✓ service config supports environment variable expansion
+test_service_discovery_generic.bats
+ ✓ service discovery finds correct number of valid services
+ ✓ service discovery populates arrays correctly
+ ✓ service discovery skips services without image
+ ✓ service discovery finds both core and user services
+ ✓ get_service_config_value extracts values correctly
+ ✓ get_service_config_value handles multi-value configurations
+ ✓ get_service_config_value returns default for missing values
+ ✓ service discovery handles environment variable expansion
+ ✓ parse_service_config extracts all key-value pairs
+ ✓ service discovery works with empty directories
+ ✓ service configuration handles comments and blank lines
+ ✓ reset_ports function restores default values
+universal-service-runner.bats
+ ✓ parse_service_config should parse Redis configuration correctly
+ ✓ build_docker_command should generate correct Docker command
+ ✓ parse_service_config should handle missing config file
+ ✓ build_docker_command should handle minimal configuration
+ ✓ universal system should handle any Docker option via mapping
+ ✓ universal system should handle unknown config options gracefully
+validate-ci.bats
+ ✓ CI validate target skips Docker checks when Docker unavailable
+ ✗ --skip-docker-check flag bypasses Docker checks
+   (in test file test/validate-ci.bats, line 31)
+     `[ "$status" -eq 0 ]' failed
+ ✗ --skip-docker-check works for validate command
+   (in test file test/validate-ci.bats, line 51)
+     `[ "$status" -eq 110 ]' failed
+validate-config.bats
+ ✓ validate_config fails on malformed compose file
+
+157 tests, 6 failures, 1 skipped
+
+Tests completed or timed out
+.............................................                                                                                                                                                        [100%]
+45 passed in 0.35s
+justin@Intelluxe-demo:/home/intelluxe$ 
