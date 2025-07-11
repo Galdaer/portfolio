@@ -87,6 +87,8 @@ intelluxe-ai/
 │   │   ├── ssl/                     # SSL certificates
 │   │   └── rbac.yml                 # Role-based access control
 │   └── backup/                      # Backup scripts and configs
+├── vendor/                           # Third-party service source code
+│   └── healthcare-mcp/             # Source for AgentCare-MCP service (submodule)
 ├── services/user/                   # Service configurations
 │   ├── ollama/                      # Ollama model serving
 │   ├── agentcare-mcp/              # AgentCare MCP server
@@ -138,7 +140,7 @@ mkdir -p /home/intelluxe/
 cd /home/intelluxe/
 
 # Create comprehensive directory structure
-mkdir -p {agents,core,data,infrastructure,notebooks,tests,config,docs,services/user,scripts,systemd,logs}
+mkdir -p {agents,core,data,infrastructure,notebooks,tests,config,docs,services/user,scripts,systemd,logs,vendor}
 
 # Agent implementations
 mkdir -p agents/{intake,document_processor,research_assistant,billing_helper,scheduling_optimizer}
@@ -153,6 +155,9 @@ mkdir -p data/training/{user_samples,synthetic,validation,templates}
 # Infrastructure and deployment
 mkdir -p infrastructure/{docker,monitoring,security,backup}
 mkdir -p services/user/{ollama,agentcare-mcp,postgres,redis}
+
+# Add healthcare-mcp as a submodule
+git submodule add https://github.com/Intelluxe-AI/healthcare-mcp.git vendor/healthcare-mcp
 
 # Initialize git repository with comprehensive .gitignore
 git init
