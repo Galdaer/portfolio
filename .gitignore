@@ -23,6 +23,7 @@
 !/docs/
 !/services/
 !/services/user/
+!/services/user/**/*.conf
 !/misc/
 !/.devcontainer/
 !/.github/
