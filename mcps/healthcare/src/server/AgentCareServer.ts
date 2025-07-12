@@ -8,7 +8,7 @@ import { FDA } from "./connectors/medical/FDA.js"
 import { CacheManager } from "./utils/Cache.js"
 import { AuthConfig } from "./utils/AuthConfig.js"
 
-export class AgentCareServer {
+export class HealthcareServer {
   private mcpServer: Server;
   private toolHandler: ToolHandler;
   private fhirClient: FhirClient;

@@ -30,8 +30,6 @@
 !/.vscode/
 !/reference/
 !/reference/**/*
-!/vendor/
-!/vendor/**/*
 
 # === AI APPLICATION DIRECTORIES ===
 # Core AI application structure
@@ -182,6 +180,10 @@ yarn-error.log*
 .pnpm-debug.log*
 *.tgz
 .yarn-integrity
+
+# Healthcare MCP specific directories
+!/mcps/
+!/mcps/**
 
 # TypeScript and linting cache
 .eslintcache

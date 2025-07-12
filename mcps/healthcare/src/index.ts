@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import dotenv from "dotenv";
-import { AgentCareServer } from "./server/AgentCareServer.js";
+import { HealthcareServer } from "./server/HealthcareServer.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { AuthConfig } from "./server/utils/AuthConfig.js";
 
@@ -55,5 +55,5 @@ let mcpServer: Server = new Server(
   }
 );
 
-const agentCareServer = new AgentCareServer(mcpServer,authConfig,FHIR_BASE_URL, PUBMED_API_KEY, TRIALS_API_KEY, FDA_API_KEY);
-agentCareServer.run().catch(console.error); 
+const healthcareServer = new HealthcareServer(mcpServer,authConfig,FHIR_BASE_URL, PUBMED_API_KEY, TRIALS_API_KEY, FDA_API_KEY);
+healthcareServer.run().catch(console.error); 

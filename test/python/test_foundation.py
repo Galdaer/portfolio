@@ -186,7 +186,7 @@ def test_infrastructure_directories():
 def test_vendor_healthcare_mcp():
     """Test that healthcare-mcp is properly integrated"""
     vendor_dir = project_root / "vendor" / "healthcare-mcp"
-    assert vendor_dir.exists(), "vendor/healthcare-mcp should exist"
+    assert vendor_dir.exists(), "/mcps/healthcare should exist"
     
     # Check for key healthcare-mcp files
     package_json = vendor_dir / "package.json"
