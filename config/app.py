@@ -14,22 +14,22 @@ class IntelluxeConfig(BaseSettings):
     """Main configuration class for Intelluxe AI"""
     
     # Core application settings
-    project_name: str = Field(default="intelluxe-ai", env="PROJECT_NAME")
+    project_name: str = Field(default="intelluxe-ai", json_schema_extra={"env": "PROJECT_NAME"})
     version: str = "1.0.0"
-    environment: str = Field(default="development", env="ENVIRONMENT")
-    development_mode: bool = Field(default=True, env="DEVELOPMENT_MODE")
-    debug_enabled: bool = Field(default=False, env="DEBUG_ENABLED")
-    
+    environment: str = Field(default="development", json_schema_extra={"env": "ENVIRONMENT"})
+    development_mode: bool = Field(default=True, json_schema_extra={"env": "DEVELOPMENT_MODE"})
+    debug_enabled: bool = Field(default=False, json_schema_extra={"env": "DEBUG_ENABLED"})
+
     # Server configuration
-    host: str = Field(default="0.0.0.0", env="HOST")
-    port: int = Field(default=8000, env="PORT")
-    log_level: str = Field(default="info", env="LOG_LEVEL")
-    
+    host: str = Field(default="0.0.0.0", json_schema_extra={"env": "HOST"})
+    port: int = Field(default=8000, json_schema_extra={"env": "PORT"})
+    log_level: str = Field(default="info", json_schema_extra={"env": "LOG_LEVEL"})
+
     # Database configuration
-    database_name: str = Field(default="intelluxe", env="DATABASE_NAME")
-    postgres_password: str = Field(default="secure_password_here", env="POSTGRES_PASSWORD")
-    redis_password: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
-    
+    database_name: str = Field(default="intelluxe", json_schema_extra={"env": "DATABASE_NAME"})
+    postgres_password: str = Field(default="secure_password_here", json_schema_extra={"env": "POSTGRES_PASSWORD"})
+    redis_password: Optional[str] = Field(default=None, json_schema_extra={"env": "REDIS_PASSWORD"})
+
     # Database URLs
     @property
     def postgres_url(self) -> str:
@@ -42,33 +42,33 @@ class IntelluxeConfig(BaseSettings):
         return "redis://redis:6379"
     
     # AI Model configuration
-    ollama_url: str = Field(default="http://ollama:11434", env="OLLAMA_URL")
-    ollama_max_loaded_models: int = Field(default=3, env="OLLAMA_MAX_LOADED_MODELS")
-    ollama_keep_alive: str = Field(default="24h", env="OLLAMA_KEEP_ALIVE")
-    
+    ollama_url: str = Field(default="intelluxe-ai", json_schema_extra={"env": "OLLAMA_URL"})
+    ollama_max_loaded_models: int = Field(default=3, json_schema_extra={"env": "OLLAMA_MAX_LOADED_MODELS"})
+    ollama_keep_alive: str = Field(default="24h", json_schema_extra={"env": "OLLAMA_KEEP_ALIVE"})
+
     # MCP configuration
-    mcp_server_url: str = Field(default="http://healthcare-mcp:3000", env="MCP_SERVER_URL")
+    mcp_server_url: str = Field(default="http://healthcare-mcp:3000", json_schema_extra={"env": "MCP_SERVER_URL"})
     
     # Training configuration (Phase 2+)
-    unsloth_training_enabled: bool = Field(default=False, env="UNSLOTH_TRAINING_ENABLED")
-    training_data_path: str = Field(default="/app/data/training", env="TRAINING_DATA_PATH")
-    adapter_registry_path: str = Field(default="/app/models/adapters", env="ADAPTER_REGISTRY_PATH")
-    wandb_project: str = Field(default="intelluxe-training", env="WANDB_PROJECT")
-    
+    unsloth_training_enabled: bool = Field(default=False, json_schema_extra={"env": "UNSLOTH_TRAINING_ENABLED"})
+    training_data_path: str = Field(default="/app/data/training", json_schema_extra={"env": "TRAINING_DATA_PATH"})
+    adapter_registry_path: str = Field(default="/app/models/adapters", json_schema_extra={"env": "ADAPTER_REGISTRY_PATH"})
+    wandb_project: str = Field(default="intelluxe-training", json_schema_extra={"env": "WANDB_PROJECT"})
+
     # Performance configuration
-    gpu_memory_fraction: float = Field(default=0.8, env="GPU_MEMORY_FRACTION")
-    
+    gpu_memory_fraction: float = Field(default=0.8, json_schema_extra={"env": "GPU_MEMORY_FRACTION"})
+
     # Compliance and security
-    data_retention_days: int = Field(default=2555, env="DATA_RETENTION_DAYS")  # 7 years
-    audit_log_level: str = Field(default="detailed", env="AUDIT_LOG_LEVEL")
-    pii_redaction_enabled: bool = Field(default=True, env="PII_REDACTION_ENABLED")
-    rbac_enabled: bool = Field(default=True, env="RBAC_ENABLED")
-    
+    data_retention_days: int = Field(default=2555, json_schema_extra={"env": "DATA_RETENTION_DAYS"})  # 7 years
+    audit_log_level: str = Field(default="detailed", json_schema_extra={"env": "AUDIT_LOG_LEVEL"})
+    pii_redaction_enabled: bool = Field(default=True, json_schema_extra={"env": "PII_REDACTION_ENABLED"})
+    rbac_enabled: bool = Field(default=True, json_schema_extra={"env": "RBAC_ENABLED"})
+
     # Health monitoring
-    health_check_interval: str = Field(default="60s", env="HEALTH_CHECK_INTERVAL")
-    health_alert_webhook: Optional[str] = Field(default=None, env="HEALTH_ALERT_WEBHOOK")
-    health_page_public: bool = Field(default=False, env="HEALTH_PAGE_PUBLIC")
-    
+    health_check_interval: str = Field(default="60s", json_schema_extra={"env": "HEALTH_CHECK_INTERVAL"})
+    health_alert_webhook: Optional[str] = Field(default=None, json_schema_extra={"env": "HEALTH_ALERT_WEBHOOK"})
+    health_page_public: bool = Field(default=False, json_schema_extra={"env": "HEALTH_PAGE_PUBLIC"})
+
     model_config = ConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
