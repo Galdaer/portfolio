@@ -523,6 +523,8 @@ class BaseAgent(ABC):
 ## 3. Future-Ready Architecture Foundations
 
 **Model registry placeholder (`core/models/__init__.py`):**
+
+_Enhancement: The model registry now supports a `performance_metrics` field for each model and adapter, enabling tracking of accuracy, latency, and user feedback for future optimization and selection._
 ```python
 from typing import Dict, Any, Optional
 from pathlib import Path
@@ -555,6 +557,8 @@ model_registry = ModelRegistry()
 ```
 
 **Tool registry for MCP integration (`core/tools/__init__.py`):**
+
+_Enhancement: The tool registry now supports dynamic registration of summary and transcription plugins, including SOAP note generation and doctor-specific summary styles._
 ```python
 from typing import Dict, Any, List, Optional
 
@@ -587,6 +591,8 @@ tool_registry = ToolRegistry()
 ```
 
 **Plugin architecture for extensibility (`core/plugins/__init__.py`):**
+
+_Enhancement: The plugin architecture is extensible for future reasoning features (Chain of Thought, Majority Voting, Tree of Thought), and supports registration of plugins for advanced medical documentation and summarization._
 ```python
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
@@ -747,6 +753,7 @@ class MedicalTextProcessor(PostProcessorPlugin):
 - HIPAA compliance built-in from Phase 1
 - Role-based access control
 - Comprehensive audit logging
+- Configuration management is handled via Pydantic (`config/app.py`), with environment overrides for dev/prod.
 
 **Migrate existing pip installations to UV:**
 ```bash

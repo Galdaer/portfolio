@@ -1016,6 +1016,8 @@ if __name__ == "__main__":
 ### 4.1 Training Data Collection
 
 **Enhanced training data collection service (`core/training/data_collector.py`):**
+
+_Enhancement: Model adapters in the database schema now include a `performance_metrics` JSONB field for tracking accuracy, latency, and user feedback. Agent router and plugin registry support performance tracking and recommendations for optimization. Summary and transcription plugins can be registered for doctor-specific documentation styles (e.g., SOAP notes, custom summaries)._
 ```python
 from typing import Dict, Any, List
 import json
@@ -1185,6 +1187,8 @@ CREATE INDEX idx_model_adapters_user_id ON model_adapters(user_id);
 ### 4.3 Agent Orchestration Preparation
 
 **Extensible agent routing system for future multi-agent capabilities:**
+
+_Configuration management supports feature toggling for advanced reasoning (Chain of Thought, Majority Voting, Tree of Thought)._
 
 **Agent router configuration (`config/agent_routing.yml`):**
 ```yaml

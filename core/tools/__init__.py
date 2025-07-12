@@ -25,6 +25,10 @@ class ToolRegistry:
     def __init__(self):
         self.mcp_client: Optional[httpx.AsyncClient] = None
         self._available_tools: List[Dict[str, Any]] = []
+        self._tool_versions: Dict[str, str] = {}
+        self._tool_capabilities: Dict[str, Any] = {}
+        self._tool_performance: Dict[str, Dict[str, Any]] = {}
+        self._summary_plugins: Dict[str, Any] = {}
         self._initialized = False
     
     async def initialize(self) -> None:
@@ -81,19 +85,34 @@ class ToolRegistry:
             return {"status": "unhealthy", "error": str(e)}
     
     async def _discover_tools(self) -> None:
-        """Discover available tools from MCP server"""
+        """Discover available tools from MCP server and track version/capabilities"""
         try:
             response = await self.mcp_client.get("/tools")
             response.raise_for_status()
-            
             data = response.json()
             self._available_tools = data.get("tools", [])
-            
+            # Track version and capabilities if available
+            for tool in self._available_tools:
+                name = tool.get("name")
+                version = tool.get("version", "unknown")
+                capabilities = tool.get("capabilities", {})
+                self._tool_versions[name] = version
+                self._tool_capabilities[name] = capabilities
             logger.info(f"Discovered {len(self._available_tools)} tools")
-            
         except Exception as e:
             logger.warning(f"Failed to discover tools: {e}")
             self._available_tools = []
+    def log_tool_performance(self, tool_name: str, metrics: Dict[str, Any]) -> None:
+        """Log performance metrics for a tool"""
+        self._tool_performance[tool_name] = metrics
+
+    def register_summary_plugin(self, plugin_name: str, plugin_obj: Any) -> None:
+        """Register a summary/transcription plugin"""
+        self._summary_plugins[plugin_name] = plugin_obj
+
+    def get_summary_plugin(self, plugin_name: str) -> Any:
+        """Get a registered summary/transcription plugin"""
+        return self._summary_plugins.get(plugin_name)
     
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         """Get list of available tools"""
