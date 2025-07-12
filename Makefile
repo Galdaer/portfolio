@@ -18,13 +18,20 @@
 # Installation Commands
 install:
 	@echo "🔗  Installing Intelluxe AI infrastructure scripts and services"
-	@echo "   - Symlinking scripts to /opt/intelluxe/scripts"
 	sudo mkdir -p /opt/intelluxe/scripts
 	sudo ln -sf $(PWD)/scripts/* /opt/intelluxe/scripts
-	@echo "   - Installing systemd service units"
-	sudo ln -sf $(PWD)/systemd/* /etc/systemd/system/
+	@echo "   - Symlinking systemd units to /etc/systemd/system/intelluxe/"
+	sudo mkdir -p /etc/systemd/system/intelluxe
+	sudo ln -sf $(PWD)/systemd/* /etc/systemd/system/intelluxe/
 	sudo systemctl daemon-reload
 	@echo "✅  Installation complete! Run 'make setup' to configure your Intelluxe AI system."
+
+uninstall:
+	@echo "🗑️  Removing Intelluxe symlinks and systemd units"
+	sudo rm -rf /opt/intelluxe
+	sudo rm -rf /etc/systemd/system/intelluxe
+	sudo systemctl daemon-reload
+	@echo "✅ Uninstall complete"
 
 deps:
 	@echo "📦  Installing system dependencies first"

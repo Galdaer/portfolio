@@ -46,6 +46,7 @@ SCRIPT_VERSION="1.0.0"
 : "${COLOR:=true}"
 : "${DRY_RUN:=false}"
 : "${EXPORT_JSON:=false}"
+: "${CI:=false}"
 # Root directory for configuration and logs. Override to relocate
 # .bootstrap.conf and the logs directory.
 : "${CFG_ROOT:=/opt/intelluxe/stack}"
@@ -104,13 +105,13 @@ if ! chown "$(whoami)" "$LOG_FILE" 2>/dev/null; then
 fi
 
 log "🔍 Checking for dangling symlinks..."
-run find /etc/systemd/system/ -xtype l
+run find /etc/systemd/system/intelluxe -xtype l
 
 log "🔍 Checking for files not owned by root..."
-run find /etc/systemd/system/ ! -user root -ls
+run find /etc/systemd/system/intelluxe ! -user root -ls
 
 log "🔍 Checking for incorrect permissions (non-644 or non-755)..."
-run find /etc/systemd/system/ -type f \( ! -perm 644 -a ! -perm 755 \) -ls
+run find /etc/systemd/system/intelluxe -type f \( ! -perm 644 -a ! -perm 755 \) -ls
 
 log "🔍 Checking for failed systemd unit dependencies..."
 if ! run systemctl list-dependencies --failed; then
