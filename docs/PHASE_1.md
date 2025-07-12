@@ -48,9 +48,11 @@ Service configuration files use lowercase keys that map directly to Docker argum
 - `volumes=` - Volume mounts (e.g., "./data:/data ./config:/config:ro")
 - `env=` - Environment variables (e.g., "VAR1=value1 VAR2=value2")
 - `restart=` - Restart policy (e.g., "unless-stopped")
-- `network=` - Docker network name
+- `network_mode=` - Docker network name (use instead of network=)
 - `health_cmd=` - Health check command
 - `memory_limit=` - Memory limit (e.g., "2g", "512m")
+- `device=` - Device passthrough (e.g., GPU)
+- `security_opt=` - Security options
 - `working_dir=` - Working directory inside container
 - `command=` - Override container command
 
@@ -59,12 +61,6 @@ Service configuration files use lowercase keys that map directly to Docker argum
 # Start a service by passing the service name as an argument
 ./universal-service-runner.sh ollama /services/user/ollama/ollama.conf
 ```
-
-**Notes on removed fields:**
-- `NAME=` and `CONTAINER_NAME=` - Not needed (service name from CLI)
-- `BUILD_CONTEXT=` - Handled separately by build system
-- `DEPENDS_ON=` - Managed by orchestration layer
-
 ---
 
 ## Week 1: Local LLM Infrastructure and Memory
@@ -79,7 +75,7 @@ port="11434:11434"
 volumes="./models:/root/.ollama ./config:/config:ro"
 env="OLLAMA_HOST=0.0.0.0 OLLAMA_KEEP_ALIVE=24h OLLAMA_MAX_LOADED_MODELS=3"
 restart="unless-stopped"
-network="clinical-net"
+network_mode="intelluxe-net"
 health_cmd="curl -f http://localhost:11434/api/tags || exit 1"
 device="/dev/nvidia0:/dev/nvidia0"
 memory_limit="20g"
@@ -94,6 +90,7 @@ set -e
 # Pull healthcare-optimized models
 docker exec ollama ollama pull llama3.1:8b-instruct
 docker exec ollama ollama pull mistral:7b-instruct
+docker exec ollama ollama pull phi3:mini
 
 # Create custom healthcare model
 docker exec ollama ollama create intelluxe-medical -f - <<EOF
@@ -113,7 +110,7 @@ image="redis:7-alpine"
 port="6379:6379"
 volumes="./data:/data"
 restart="unless-stopped"
-network="clinical-net"
+network_mode="intelluxe-net"
 memory_limit="2g"
 ```
 
@@ -125,7 +122,7 @@ port="5432:5432"
 volumes="./data:/var/lib/postgresql/data ./init:/docker-entrypoint-initdb.d:ro"
 env="POSTGRES_DB=intelluxe POSTGRES_USER=intelluxe POSTGRES_PASSWORD=secure_password"
 restart="unless-stopped"
-network="clinical-net"
+network_mode="intelluxe-net"
 memory_limit="4g"
 ```
 
@@ -178,39 +175,27 @@ CREATE INDEX idx_agent_interactions_user_id ON agent_interactions(user_id);
 CREATE INDEX idx_audit_log_user_id ON audit_log(user_id);
 ```
 
-## Week 2: AgentCare-MCP Integration and Basic Agents
+## Week 2: Healthcare-MCP Integration and Basic Agents
 
 ### 2.1 MCP Credentials Management
 
 **Create secure credentials management system:**
 
-**Environment setup (`/services/user/agentcare-mcp/.env.example`):**
+**Environment setup (`/services/user/healthcare-mcp/.env.example`):**
 ```bash
-# MCP Tool Credentials Template
-# Copy to .env and fill in real values
-
-# Anthem (Availity) API
+# See repo root .env.example for all supported variables
+# For MCP, fill in:
 ANTHEM_API_KEY=dummy_key
 ANTHEM_API_SECRET=dummy_secret
-
-# UnitedHealthcare (Optum) API
 UHC_API_USER=dummy_user
 UHC_API_PASS=dummy_pass
-
-# Cigna API
 CIGNA_CLIENT_ID=dummy_client_id
 CIGNA_CLIENT_SECRET=dummy_client_secret
-
-# Public APIs (no credentials needed)
 # PUBMED_API_KEY=optional
 # CLINICALTRIALS_API_KEY=optional
-
-# Database connections
-DATABASE_URL=postgresql://intelluxe:${POSTGRES_PASSWORD}@postgres:5432/intelluxe
-REDIS_URL=redis://redis:6379
 ```
 
-**Credentials loading (`/services/user/agentcare-mcp/src/config/credentials.js`):**
+**Credentials loading (`/services/user/healthcare-mcp/src/config/credentials.js`):**
 ```javascript
 import dotenv from 'dotenv';
 import { readFileSync, existsSync } from 'fs';
@@ -318,17 +303,9 @@ export const credentialsManager = new CredentialsManager();
 - Use least-privilege access principles
 ```
 
-### 2.2 AgentCare-MCP Setup and Customization
+### 2.2 Healthcare-MCP Setup and Customization
 
-**Clone and configure AgentCare-MCP:**
-```bash
-# Fork AgentCare-MCP to your GitHub first, then clone your fork
-git clone https://github.com/YOUR_USERNAME/agentcare-mcp.git services/user/agentcare-mcp
-cd services/user/agentcare-mcp
-rm -rf .git  # Vendor the code for local customization
-```
-
-**Create Dockerfile for AgentCare-MCP (`/services/user/agentcare-mcp/Dockerfile`):**
+**Create Dockerfile for Healthcare-MCP (`/services/user/healthcare-mcp/Dockerfile`):**
 ```dockerfile
 FROM node:20-alpine
 WORKDIR /app
@@ -352,98 +329,23 @@ EXPOSE 3000
 CMD ["npm", "start"]
 ```
 
-**Create `/services/user/agentcare-mcp/agentcare-mcp.conf`:**
+**Create `/services/user/healthcare-mcp/healthcare-mcp.conf`:**
 ```bash
-# Service: agentcare-mcp - Model Context Protocol server for AgentCare
-image="agentcare-mcp:latest"
-# Note: Build context handled separately by build system
+# Service: healthcare-mcp - Model Context Protocol server for healthcare
+image="healthcare-mcp:latest"
 port="3000:3000"
 volumes="./config:/app/config:rw ./custom-tools:/app/tools/custom:rw"
 env="NODE_ENV=production OLLAMA_URL=http://ollama:11434"
 restart="unless-stopped"
-network="clinical-net"
-# Note: Dependencies managed by orchestration layer
+network_mode="intelluxe-net"
 health_cmd="curl -f http://localhost:3000/health || exit 1"
 memory_limit="2g"
 ```
 
-### 2.3 Universal Service Runner Updates
-
-**Enhanced universal-service-runner.sh for new parameters:**
+### 2.3 Test the services
 ```bash
-# Add new services to arg_map
-arg_map+=("ollama:docker")
-arg_map+=("agentcare-mcp:docker")
-arg_map+=("postgres:docker")
-arg_map+=("redis:docker")
-
-# Enhanced docker handler with new parameters
-docker_handler() {
-    local CONFIG_FILE=$1
-    
-    # ... existing config loading ...
-    
-    # Add support for DEVICES parameter (GPU access)
-    if [ ! -z "$DEVICES" ]; then
-        DOCKER_ARGS="$DOCKER_ARGS --device=$DEVICES"
-    fi
-    
-    # Add support for BUILD_CONTEXT
-    if [ ! -z "$BUILD_CONTEXT" ] && [ "$BUILD_CONTEXT" != "." ]; then
-        echo "Building image from context: $BUILD_CONTEXT"
-        ORIGINAL_PWD=$(pwd)
-        cd "$BUILD_CONTEXT"
-        docker build -t "$IMAGE" .
-        cd "$ORIGINAL_PWD"
-    fi
-    
-    # Add support for WORKING_DIR
-    if [ ! -z "$WORKING_DIR" ]; then
-        DOCKER_ARGS="$DOCKER_ARGS -w $WORKING_DIR"
-    fi
-    
-    # Add support for COMMAND override
-    if [ ! -z "$COMMAND" ]; then
-        DOCKER_ARGS="$DOCKER_ARGS"
-        # Command will be appended at the end
-    fi
-    
-    # Add support for DEPENDS_ON (wait for dependencies)
-    if [ ! -z "$DEPENDS_ON" ]; then
-        echo "Waiting for dependencies: $DEPENDS_ON"
-        for dep in $DEPENDS_ON; do
-            wait_for_service "$dep"
-        done
-    fi
-    
-    # ... rest of docker handler ...
-}
-
-# Add dependency waiting function
-wait_for_service() {
-    local service_name=$1
-    local max_wait=120
-    local count=0
-    
-    echo "Waiting for $service_name to be ready..."
-    while [ $count -lt $max_wait ]; do
-        if docker ps --filter "name=$service_name" --filter "status=running" | grep -q $service_name; then
-            echo "$service_name is ready"
-            return 0
-        fi
-        sleep 1
-        count=$((count + 1))
-    done
-    
-    echo "Warning: $service_name did not start within $max_wait seconds"
-    return 1
-}
-```
-
-**Test the services:**
-```bash
-./clinic-bootstrap.sh
-# Select ollama and agentcare-mcp to install/start
+./bootstrap.sh ollama /services/user/ollama/ollama.conf
+./bootstrap.sh healthcare-mcp /services/user/healthcare-mcp/healthcare-mcp.conf
 # After starting:
 docker exec ollama ollama pull llama3.1:8b-instruct
 curl http://localhost:11434/api/tags
@@ -623,9 +525,9 @@ import requests
 from core.memory.memory_manager import MemoryManager
 
 class ResearchAssistant:
-    """Research assistant using AgentCare-MCP tools"""
+    """Research assistant using Healthcare-MCP tools"""
     
-    def __init__(self, memory_manager: MemoryManager, mcp_base_url: str = "http://agentcare-mcp:3000"):
+    def __init__(self, memory_manager: MemoryManager, mcp_base_url: str = "http://healthcare-mcp:3000"):
         self.memory = memory_manager
         self.mcp_url = mcp_base_url
         
@@ -634,7 +536,7 @@ class ResearchAssistant:
         """Research healthcare queries using MCP tools"""
         start_time = time.time()
         
-        # Use AgentCare-MCP tools (FDA, PubMed, ClinicalTrials)
+        # Use Healthcare-MCP tools (FDA, PubMed, ClinicalTrials)
         results = await self._search_multiple_sources(query)
         
         # Synthesize results
@@ -665,7 +567,7 @@ class ResearchAssistant:
         
         for source in sources:
             try:
-                # Call AgentCare-MCP tool endpoint
+                # Call Healthcare-MCP tool endpoint
                 response = requests.post(f"{self.mcp_url}/tools/{source}/search", 
                                        json={"query": query}, timeout=30)
                 if response.status_code == 200:
@@ -720,7 +622,7 @@ port="8080:8080"
 volumes="./app:/app:rw"
 env="POSTGRES_URL=postgresql://intelluxe:secure_password@postgres:5432/intelluxe"
 restart="unless-stopped"
-network="clinical-net"
+network_mode="intelluxe-net"
 # Note: Dependencies managed by orchestration layer
 health_cmd="curl -f http://localhost:8080/health || exit 1"
 memory_limit="256m"
@@ -750,7 +652,7 @@ class HealthMonitor:
         )
         self.services = {
             "ollama": "http://ollama:11434/api/tags",
-            "agentcare-mcp": "http://agentcare-mcp:3000/health",
+            "healthcare-mcp": "http://healthcare-mcp:3000/health",
             "redis": "redis://redis:6379",
             "postgres": "postgresql://postgres:5432"
         }
@@ -900,7 +802,7 @@ class TestPhase1Integration:
         """Test that all core services are healthy"""
         services = {
             "ollama": "http://localhost:11434/api/tags",
-            "agentcare-mcp": "http://localhost:3000/health",
+            "healthcare-mcp": "http://localhost:3000/health",
             "health-monitor": "http://localhost:8080/health"
         }
         
