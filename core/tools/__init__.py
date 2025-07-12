@@ -30,6 +30,13 @@ class ToolRegistry:
         self._tool_performance: Dict[str, Dict[str, Any]] = {}
         self._summary_plugins: Dict[str, Any] = {}
         self._initialized = False
+    def register_transcription_plugin(self, plugin_name: str, plugin_obj: Any) -> None:
+        """Register a transcription plugin (e.g., SOAP note generator, doctor summary style)"""
+        self._summary_plugins[plugin_name] = plugin_obj
+
+    def get_transcription_plugin(self, plugin_name: str) -> Any:
+        """Get a registered transcription plugin"""
+        return self._summary_plugins.get(plugin_name)
     
     async def initialize(self) -> None:
         """Initialize MCP client and discover available tools"""

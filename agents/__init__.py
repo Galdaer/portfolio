@@ -162,18 +162,23 @@ class BaseHealthcareAgent(ABC):
     def _sanitize_for_logging(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Remove or redact sensitive information for logging"""
         # Basic PII redaction - this would be enhanced in production
+        import re
         sanitized = {}
-        
+        pii_patterns = [
+            r"\b\d{3}-\d{2}-\d{4}\b",  # SSN
+            r"\b\d{3}-\d{3}-\d{4}\b",  # Phone
+            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",  # Email
+            r"\b\d{1,2}/\d{1,2}/\d{4}\b",  # DOB
+            r"\bMRN\s*:?\s*\d+\b"  # Medical Record Number
+        ]
         for key, value in data.items():
             if isinstance(value, str):
-                # Redact potential PII patterns
-                if any(pattern in key.lower() for pattern in ["ssn", "social", "phone", "email"]):
-                    sanitized[key] = "[REDACTED]"
-                else:
-                    sanitized[key] = value
+                redacted = value
+                for pattern in pii_patterns:
+                    redacted = re.sub(pattern, "[REDACTED]", redacted)
+                sanitized[key] = redacted
             else:
                 sanitized[key] = value
-        
         return sanitized
 
 
