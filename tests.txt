@@ -1,166 +1,44 @@
-✓ environment variable expansion works in generic setup
- ✓ service-agnostic system handles edge cases
-setup-environment.bats
- ✓ detect_os sets package manager for Ubuntu
- ✓ build_dependency_list includes distro specific packages
- ✓ install_python_deps uses uv for package installation
- ✗ install_python_deps installs healthcare AI packages
-   (from function `trap_error' in file scripts/lib.sh, line 371,
-    in test file test/setup-environment.bats, line 107)
-     `[[ "$uv_calls" == *"fastapi"* ]]' failed
-   [INFO] Installing Python dependencies with uv
-   [INFO] Installing Python system packages: python3 python3-dev python3-venv libyaml-dev build-essential
-   [OK] uv already present
-   [INFO] Installing essential system Python packages with uv
-   [OK] Essential Python dependencies installed system-wide
-   [INFO] 💡 For AI/ML development, use virtual environments with requirements.in
-   [OK] Essential Python dependencies working
-   [FAIL] Script failed at line 107 (exit code 1)
- ✓ setup_firewall applies expected ufw rules for Intelluxe
- ✓ setup_firewall exits early when ip_forward unwritable
- ✓ install_system_deps reports success for all packages
- ✓ install_system_deps warns on failed packages
- ✓ install_system_deps handles empty dependency list
- ✓ retry_with_backoff retries until success
- ✓ retry_with_backoff fails after max attempts
- ✓ verify_installation succeeds
- ✓ verify_installation fails
- ✓ Health check succeeds when all tools exist
- ✓ Health check fails when a tool is missing
- ✓ CLI --health-check exits successfully
- ✓ CLI --health-check exits with failure
- ✓ CLI --health-check fails when compose support missing
-systemd-summary.bats
- ✓ creates log directory under CFG_ROOT
- ✓ overriding CFG_ROOT uses new log path
-systemd-verify.bats
- ✓ LOG_DIR uses built-in CFG_ROOT
- ✓ LOG_DIR honors custom CFG_ROOT
- ✓ invokes systemd-analyze when present
- ✓ exports JSON with --export-json
-teardown.bats
- ✓ custom DOCKER_NETWORK_NAME influences network cleanup
-test_container_runner_generic.bats
- ✓ ensure_container_running finds service config file
- ✓ ensure_container_running handles missing service config
- ✓ parse_service_config extracts all values
- ✓ get_service_config_value works with various keys
- ✓ get_service_config_value handles missing values
- ✓ service config supports complex values
- ✓ service config handles comments and empty lines gracefully
- ✓ service config supports environment variable expansion
-test_service_discovery_generic.bats
- ✓ service discovery finds correct number of valid services
- ✓ service discovery populates arrays correctly
- ✓ service discovery skips services without image
- ✓ service discovery finds both core and user services
- ✓ get_service_config_value extracts values correctly
- ✓ get_service_config_value handles multi-value configurations
- ✓ get_service_config_value returns default for missing values
- ✓ service discovery handles environment variable expansion
- ✓ parse_service_config extracts all key-value pairs
- ✓ service discovery works with empty directories
- ✓ service configuration handles comments and blank lines
- ✓ reset_ports function restores default values
-universal-service-runner.bats
- ✓ parse_service_config should parse Redis configuration correctly
- ✓ build_docker_command should generate correct Docker command
- ✓ parse_service_config should handle missing config file
- ✓ build_docker_command should handle minimal configuration
- ✓ universal system should handle any Docker option via mapping
- ✓ universal system should handle unknown config options gracefully
-validate-ci.bats
- ✓ CI validate target skips Docker checks when Docker unavailable
- ✓ --skip-docker-check flag bypasses Docker checks
- ✓ --skip-docker-check works for validate command
-validate-config.bats
- ✓ validate_config fails on malformed compose file
-
-141 tests, 1 failure, 1 skipped
-
-Tests completed or timed out
-.............................................FFFFFFF.                                                                                                                                       [100%]
-============================================================================================ FAILURES =============================================================================================
-_______________________________________________________________________________________ test_config_loading _______________________________________________________________________________________
-
-    def test_config_loading():
-        """Test that configuration loads correctly"""
->       from config.app import config
-E       ModuleNotFoundError: No module named 'config'
-
-test/python/test_foundation.py:15: ModuleNotFoundError
-_______________________________________________________________________________ test_memory_manager_initialization ________________________________________________________________________________
-
-    @pytest.mark.asyncio
-    async def test_memory_manager_initialization():
-        """Test memory manager can be initialized"""
->       from core.memory import MemoryManager
-E       ModuleNotFoundError: No module named 'core'
-
-test/python/test_foundation.py:26: ModuleNotFoundError
-_______________________________________________________________________________ test_model_registry_initialization ________________________________________________________________________________
-
-    @pytest.mark.asyncio
-    async def test_model_registry_initialization():
-        """Test model registry can be initialized"""
->       from core.models import ModelRegistry
-E       ModuleNotFoundError: No module named 'core'
-
-test/python/test_foundation.py:45: ModuleNotFoundError
-________________________________________________________________________________ test_tool_registry_initialization ________________________________________________________________________________
-
-    @pytest.mark.asyncio
-    async def test_tool_registry_initialization():
-        """Test tool registry can be initialized"""
->       from core.tools import ToolRegistry
-E       ModuleNotFoundError: No module named 'core'
-
-test/python/test_foundation.py:64: ModuleNotFoundError
-________________________________________________________________________________ test_base_agent_safety_boundaries ________________________________________________________________________________
-
-    @pytest.mark.asyncio
-    async def test_base_agent_safety_boundaries():
-        """Test that safety boundaries are enforced"""
->       from agents import BaseHealthcareAgent
-E       ModuleNotFoundError: No module named 'agents'
-
-test/python/test_foundation.py:84: ModuleNotFoundError
-___________________________________________________________________________________ test_agent_templates_exist ____________________________________________________________________________________
-
-    def test_agent_templates_exist():
-        """Test that agent templates are available"""
->       from agents import document_agent, research_agent
-E       ModuleNotFoundError: No module named 'agents'
-
-test/python/test_foundation.py:109: ModuleNotFoundError
-_________________________________________________________________________________ test_phase0_directory_structure _________________________________________________________________________________
-
-    def test_phase0_directory_structure():
-        """Test that Phase 0 directories exist"""
-        import os
-    
-        base_dirs = [
-            "agents", "core", "data", "infrastructure",
-            "notebooks", "config", "tests"
-        ]
-    
-        for directory in base_dirs:
->           assert os.path.exists(directory), f"Directory {directory} should exist"
-E           AssertionError: Directory tests should exist
-E           assert False
-E            +  where False = <function exists at 0x7ad754d9f600>('tests')
-E            +    where <function exists at 0x7ad754d9f600> = <module 'posixpath' (frozen)>.exists
-E            +      where <module 'posixpath' (frozen)> = <module 'os' (frozen)>.path
-
-test/python/test_foundation.py:126: AssertionError
-===================================================================================== short test summary info =====================================================================================
-FAILED test/python/test_foundation.py::test_config_loading - ModuleNotFoundError: No module named 'config'
-FAILED test/python/test_foundation.py::test_memory_manager_initialization - ModuleNotFoundError: No module named 'core'
-FAILED test/python/test_foundation.py::test_model_registry_initialization - ModuleNotFoundError: No module named 'core'
-FAILED test/python/test_foundation.py::test_tool_registry_initialization - ModuleNotFoundError: No module named 'core'
-FAILED test/python/test_foundation.py::test_base_agent_safety_boundaries - ModuleNotFoundError: No module named 'agents'
-FAILED test/python/test_foundation.py::test_agent_templates_exist - ModuleNotFoundError: No module named 'agents'
-FAILED test/python/test_foundation.py::test_phase0_directory_structure - AssertionError: Directory tests should exist
-7 failed, 46 passed in 0.29s
-make: *** [Makefile:162: test] Error 1
+justin@Intelluxe-demo:/home/intelluxe$ make lint-python
+🔍  Running Python lint (flake8 and mypy)
+# Rationale: Flake8 checks for style issues and potential bugs in Python code.
+# Mypy performs static type checking to ensure type correctness.
+# As the project grows, consider adding new directories to linting coverage.
+# Example: Add 'src/python/*.py' or other relevant paths.
+test/python/test_foundation.py:10:1: F401 'os' imported but unused
+test/python/test_foundation.py:13:1: F401 'unittest.mock.MagicMock' imported but unused
+test/python/test_foundation.py:25:1: W293 blank line contains whitespace
+test/python/test_foundation.py:28:1: W293 blank line contains whitespace
+test/python/test_foundation.py:36:5: F401 'config.is_development' imported but unused
+test/python/test_foundation.py:36:5: F401 'config.is_production' imported but unused
+test/python/test_foundation.py:37:1: W293 blank line contains whitespace
+test/python/test_foundation.py:41:1: W293 blank line contains whitespace
+test/python/test_foundation.py:44:1: W293 blank line contains whitespace
+test/python/test_foundation.py:53:1: W293 blank line contains whitespace
+test/python/test_foundation.py:68:1: W293 blank line contains whitespace
+test/python/test_foundation.py:72:1: W293 blank line contains whitespace
+test/python/test_foundation.py:75:1: W293 blank line contains whitespace
+test/python/test_foundation.py:78:1: W293 blank line contains whitespace
+test/python/test_foundation.py:81:1: W293 blank line contains whitespace
+test/python/test_foundation.py:92:1: W293 blank line contains whitespace
+test/python/test_foundation.py:95:1: W293 blank line contains whitespace
+test/python/test_foundation.py:106:1: W293 blank line contains whitespace
+test/python/test_foundation.py:109:1: W293 blank line contains whitespace
+test/python/test_foundation.py:121:1: W293 blank line contains whitespace
+test/python/test_foundation.py:124:1: W293 blank line contains whitespace
+test/python/test_foundation.py:128:1: W293 blank line contains whitespace
+test/python/test_foundation.py:139:1: W293 blank line contains whitespace
+test/python/test_foundation.py:144:1: W293 blank line contains whitespace
+test/python/test_foundation.py:146:79: W291 trailing whitespace
+test/python/test_foundation.py:147:25: E128 continuation line under-indented for visual indent
+test/python/test_foundation.py:158:1: W293 blank line contains whitespace
+test/python/test_foundation.py:170:1: W293 blank line contains whitespace
+test/python/test_foundation.py:181:1: W293 blank line contains whitespace
+test/python/test_foundation.py:190:1: W293 blank line contains whitespace
+test/python/test_foundation.py:204:1: W293 blank line contains whitespace
+test/python/test_foundation.py:210:1: W293 blank line contains whitespace
+test/python/test_foundation.py:222:1: W293 blank line contains whitespace
+test/python/test_foundation.py:233:1: W293 blank line contains whitespace
+test/python/test_foundation.py:236:27: W291 trailing whitespace
+test/python/test_foundation.py:240:1: W293 blank line contains whitespace
+make: *** [Makefile:139: lint-python] Error 1
 justin@Intelluxe-demo:/home/intelluxe$ 
