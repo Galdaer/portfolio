@@ -113,5 +113,6 @@
         },
 
         "instructionAwareness": "These instructions evolve with the codebase. Suggest updates when major architectural changes occur."
-    }
+    },
+    "terminal.integrated.defaultProfile.linux": "bash"
 }

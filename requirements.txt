@@ -144,6 +144,7 @@ passlib==1.7.4
 pathspec==0.12.1
 peft==0.16.0
 pillow==11.3.0
+pip==24.0
 platformdirs==4.3.8
 pluggy==1.6.0
 portalocker==2.10.1
@@ -219,7 +220,7 @@ typing-inspect==0.9.0
 typing-inspection==0.4.1
 tyro==0.9.26
 tzdata==2025.2
-unsloth @ git+https://github.com/unslothai/unsloth.git@7758e1da968b005ab0e5ec12889b88de1a0d1e03
+unsloth @ git+https://github.com/unslothai/unsloth.git@0eb61fbea728cdc8acd1f2fa1f6f71074f559ac0
 unsloth-zoo==2025.7.4
 urllib3==2.5.0
 uvicorn==0.35.0
