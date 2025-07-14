@@ -9,7 +9,7 @@ Description=Run DuckDNS updater every 5 minutes
 
 [Timer]
 OnBootSec=5min
-OnUnitActiveSec=5min
+OnUnitActiveSec=1day
 Persistent=true
 Unit=duckdns-update.service
 
