@@ -19,11 +19,14 @@
 install:
 	@echo "🔗  Installing Intelluxe AI infrastructure scripts and services"
 	sudo mkdir -p /opt/intelluxe/scripts
-	sudo ln -sf $(PWD)/scripts/* /opt/intelluxe/scripts
 	@echo "   - Symlinking systemd units to /etc/systemd/system/intelluxe/"
 	sudo mkdir -p /etc/systemd/system/intelluxe
 	sudo ln -sf $(PWD)/systemd/* /etc/systemd/system/intelluxe/
 	sudo systemctl daemon-reload
+	@echo "   - Symlinking /home/intelluxe/stack to /opt/intelluxe/stack"
+	sudo ln -sf $(PWD)/stack /opt/intelluxe/stack
+	@echo "   - Symlinking /home/intelluxe/scripts to /opt/intelluxe/scripts"
+	sudo ln -sf $(PWD)/scripts /opt/intelluxe/scripts
 	@echo "✅  Installation complete! Run 'make setup' to configure your Intelluxe AI system."
 
 uninstall:
@@ -73,7 +76,7 @@ update:
 # Main Setup Commands
 setup:
 	@echo "🚀  Setting up complete intelluxe stack (interactive mode)"
-	sudo ./scripts/bootstrap.sh
+	./scripts/bootstrap.sh
 
 dry-run:
 	@echo "🔍  Preview intelluxe setup without making changes"

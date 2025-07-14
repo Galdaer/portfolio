@@ -80,7 +80,7 @@ DEFAULT_UID=1000
 DEFAULT_GID=1000
 
 # ----------------- Configuration -----------------
-: "${CFG_ROOT:=${HOME}/.config/intelluxe}"
+: "${CFG_ROOT:=/home/intelluxe/stack}"
 : "${CFG_UID:=$DEFAULT_UID}"
 : "${CFG_GID:=$DEFAULT_GID}"
 
@@ -2787,19 +2787,7 @@ main() {
 
         # Only require root for operations that actually need it
         local needs_root=false
-        
-        # Check if we need root for specific operations
-        if [[ "${INSTALL_PACKAGES:-false}" == "true" ]] || \
-           [[ "${SETUP_FIREWALL:-false}" == "true" ]] || \
-           [[ "${MODIFY_HOSTS:-false}" == "true" ]] || \
-           [[ ! -w "/etc/wireguard" && -d "/etc/wireguard" ]]; then
-            needs_root=true
-        fi
-        
-        if $needs_root && ((EUID != 0)) && [[ "$DRY_RUN" != "true" ]]; then
-            fail "This operation requires root privileges. Please run with sudo."
-            exit 100
-        fi
+
         
         # For normal operations, just note we're running as user
         if ((EUID != 0)); then
