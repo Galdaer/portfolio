@@ -24,7 +24,7 @@ install:
 	sudo ln -sf $(PWD)/systemd/* /etc/systemd/system/intelluxe/
 	sudo systemctl daemon-reload
 	@echo "   - Symlinking /home/intelluxe/stack to /opt/intelluxe/stack"
-	sudo ln -sf $(PWD)/stack /opt/intelluxe/stack
+	sudo ln -sf $(PWD)/stack /opt/intelluxe/
 	@echo "   - Symlinking /home/intelluxe/scripts to /opt/intelluxe/scripts"
 	sudo ln -sf $(PWD)/scripts /opt/intelluxe/scripts
 	@echo "✅  Installation complete! Run 'make setup' to configure your Intelluxe AI system."
