@@ -200,3 +200,4 @@ yarn-error.log*
 .fusebox/
 .dynamodb/
 !boot.txt
+!dmesg.txt
