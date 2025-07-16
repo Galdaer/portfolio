@@ -1,0 +1,19 @@
+# bootstrap.timer version 1.0.0
+# Author: Justin Sue (Galdaer)
+# Last Revised: 2025-07-16
+# Purpose: Systemd timer for delayed bootstrap startup
+# Usage: Delays bootstrap until after GUI is established
+
+[Unit]
+Description=Delayed Bootstrap Timer
+Requires=graphical.target
+After=graphical.target
+
+[Timer]
+# Start 30 seconds after graphical target is reached
+OnBootSec=30sec
+# Don't repeat - this is just for boot delay
+Persistent=false
+
+[Install]
+WantedBy=timers.target

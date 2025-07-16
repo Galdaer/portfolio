@@ -6,14 +6,16 @@
 
 [Unit]
 Description=clinic + WireGuard Setup
-After=network.target docker.service
-Requires=docker.service
+After=network-online.target docker.service
+Wants=docker.service
+# Don't block graphical.target startup
+DefaultDependencies=no
 
 [Service]
-Type=simple
+Type=oneshot
 ExecStart=/opt/intelluxe/scripts/bootstrap.sh --log-file /var/log/bootstrap.log
-Restart=on-failure
-RestartSec=10
+# Remove restart for oneshot - use timer instead
+RemainAfterExit=yes
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=bootstrap
@@ -25,4 +27,6 @@ Environment=COLOR=true
 TimeoutStartSec=120
 
 [Install]
-WantedBy=multi-user.target
+# Start after graphical session is established
+WantedBy=graphical-session.target
+Also=bootstrap.timer

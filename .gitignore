@@ -199,3 +199,4 @@ yarn-error.log*
 .serverless/
 .fusebox/
 .dynamodb/
+!boot.txt

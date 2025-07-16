@@ -1,0 +1,1000 @@
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86CameraAccessDisable
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86CameraAccessToggle
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86NextElement
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86PreviousElement
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86AutopilotEngageToggle
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86MarkWaypoint
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86Sos
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86NavChart
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86FishingChart
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86SingleRangeRadar
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86DualRangeRadar
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86RadarOverlay
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86TraditionalSonar
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86ClearvuSonar
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86SidevuSonar
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: > Warning:          Could not resolve keysym XF86NavInfo
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5248]: Errors from xkbcomp are not fatal to the X server
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Starting org.gnome.SettingsDaemon.XSettings.service - GNOME XSettings service...
+Jul 16 16:24:52 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Activating via systemd: service name='org.freedesktop.portal.Desktop' unit='xdg-desktop-portal.service' requested by ':1.76' (uid=1000 pid=5078 comm="/usr/bin/nautilus --gapplication-service" label="nautilus (unconfined)")
+Jul 16 16:24:52 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Successfully activated service 'org.gnome.ScreenSaver'
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Starting xdg-desktop-portal.service - Portal service...
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: snap.snapd-desktop-integration.snapd-desktop-integration.service: Scheduled restart job, restart counter is at 1.
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Started snap.snapd-desktop-integration.snapd-desktop-integration.service - Service for snap application snapd-desktop-integration.snapd-desktop-integration.
+Jul 16 16:24:52 IntelluxeVM gdm3[3578]: Gdm: Child process -3607 was already dead.
+Jul 16 16:24:52 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Activating via systemd: service name='org.freedesktop.impl.portal.desktop.gnome' unit='xdg-desktop-portal-gnome.service' requested by ':1.86' (uid=1000 pid=5265 comm="/usr/libexec/xdg-desktop-portal" label="unconfined")
+Jul 16 16:24:52 IntelluxeVM tracker-miner-fs-3[5283]: (tracker-extract-3:5283): GLib-GIO-WARNING **: 16:24:52.328: Error creating IO channel for /proc/self/mountinfo: Invalid argument (g-io-error-quark, 13)
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Starting xdg-desktop-portal-gnome.service - Portal service (GNOME implementation)...
+Jul 16 16:24:52 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Activating service name='org.gnome.ArchiveManager1' requested by ':1.83' (uid=1000 pid=5113 comm="gjs /usr/share/gnome-shell/extensions/ding@rasters" label="unconfined")
+Jul 16 16:24:52 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Activating via systemd: service name='org.gtk.vfs.Metadata' unit='gvfs-metadata.service' requested by ':1.83' (uid=1000 pid=5113 comm="gjs /usr/share/gnome-shell/extensions/ding@rasters" label="unconfined")
+Jul 16 16:24:52 IntelluxeVM gnome-shell[4648]: DING: Detected async api for thumbnails
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Starting gvfs-metadata.service - Virtual filesystem metadata service...
+Jul 16 16:24:52 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Successfully activated service 'org.gtk.vfs.Metadata'
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Started gvfs-metadata.service - Virtual filesystem metadata service.
+Jul 16 16:24:52 IntelluxeVM gnome-shell[4648]: DING: (gjs:5113): Gjs-WARNING **: 16:24:52.438: GLib.unix_signal_add has been moved to a separate platform-specific library. Please update your code to use GLibUnix.signal_add instead.
+Jul 16 16:24:52 IntelluxeVM gnome-shell[4648]: DING: 0 DesktopManager() ["/usr/share/gnome-shell/extensions/ding@rastersoft.com/app/desktopManager.js":264:12]
+Jul 16 16:24:52 IntelluxeVM gnome-shell[4648]: DING: 1 anonymous() ["/usr/share/gnome-shell/extensions/ding@rastersoft.com/app/ding.js":180:25]
+Jul 16 16:24:52 IntelluxeVM gnome-shell[4648]: DING: 2 anonymous() ["/usr/share/gnome-shell/extensions/ding@rastersoft.com/app/ding.js":197:20]
+Jul 16 16:24:52 IntelluxeVM gnome-shell[4648]: DING: 3 <TOP LEVEL> ["/usr/share/gnome-shell/extensions/ding@rastersoft.com/app/ding.js":206:12]
+Jul 16 16:24:52 IntelluxeVM gnome-shell[4648]: DING: DBus interface for Gvfs daemon (org.gtk.vfs.Metadata) is now available.
+Jul 16 16:24:52 IntelluxeVM gnome-shell[4648]: DING: DBus interface for Switcheroo control (net.hadess.SwitcherooControl) is now available.
+Jul 16 16:24:52 IntelluxeVM gdm3[3578]: Gdm: on_display_removed: assertion 'GDM_IS_REMOTE_DISPLAY (display)' failed
+Jul 16 16:24:52 IntelluxeVM gnome-shell[4648]: DING: ** Message: 16:24:52.487: Connecting to org.freedesktop.Tracker3.Miner.Files
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Started org.gnome.SettingsDaemon.XSettings.service - GNOME XSettings service.
+Jul 16 16:24:52 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Successfully activated service 'org.freedesktop.impl.portal.desktop.gnome'
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Reached target gnome-session-x11-services-ready.target - GNOME session X11 services.
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Started xdg-desktop-portal-gnome.service - Portal service (GNOME implementation).
+Jul 16 16:24:52 IntelluxeVM gnome-shell[4648]: Received notification for window. 1 notifications remaining.
+Jul 16 16:24:52 IntelluxeVM gnome-shell[4648]: Received notification for window. 0 notifications remaining.
+Jul 16 16:24:52 IntelluxeVM snapd-desktop-i[5388]: New theme: gtk=Yaru-dark icon=Yaru cursor=Yaru, sound=Yaru
+Jul 16 16:24:52 IntelluxeVM snapd-desktop-i[5388]: All available theme snaps installed
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: No SPICE display found for connector Virtual-1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: No SPICE display found for connector Virtual-2
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: vdagent_mutter_get_resolutions: No Spice display ID matching - assuming display ID == Monitor index
+Jul 16 16:24:52 IntelluxeVM spice-vdagentd[4167]: opening vdagent virtio channel
+Jul 16 16:24:52 IntelluxeVM kernel: input: spice vdagent tablet as /devices/virtual/input/input7
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Received Graphics Device Info:
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Mapping connector Virtual-2 to display #1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found matching X Output: name=Virtual-2 id=35
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Adding graphics device info: channel_id: 1 monitor_id: 0 device_address: pci/0000/02.7/00.0, device_display_id: 0 xrandr output ID: 35
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card1 is at /sys/devices/pci0000:00/0000:00:01.0/drm/card1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:01.0/drm/card1' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Mapping connector Virtual-1 to display #0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card1 is at /sys/devices/pci0000:00/0000:00:01.0/drm/card1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:01.0/drm/card1' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found matching X Output: name=Virtual-1 id=33
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Adding graphics device info: channel_id: 0 monitor_id: 0 device_address: pci/0000/01.0, device_display_id: 0 xrandr output ID: 33
+Jul 16 16:24:52 IntelluxeVM spice-vdagentd[4167]: Set max clipboard: 104857600
+Jul 16 16:24:52 IntelluxeVM spice-vdagentd[4167]: Set max clipboard: 104857600
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5440]: libEGL warning: DRI3: Screen seems not DRI3 capable
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5440]: libEGL warning: DRI3: Screen seems not DRI3 capable
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found monitor Virtual-1 with geometry 3440x1303+0-0 - associating it to SPICE display #0
+Jul 16 16:24:52 IntelluxeVM gnome-session-binary[4604]: Entering running state
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found monitor Virtual-2 with geometry 1280x800+3440-0 - associating it to SPICE display #1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Received Graphics Device Info:
+Jul 16 16:24:52 IntelluxeVM at-spi2-registr[4762]: Failed to register client: GDBus.Error:org.gnome.SessionManager.AlreadyRegistered: Unable to register client
+Jul 16 16:24:52 IntelluxeVM at-spi2-registr[4762]: Unable to register client with session manager
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Mapping connector Virtual-2 to display #1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found matching X Output: name=Virtual-2 id=35
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Adding graphics device info: channel_id: 1 monitor_id: 0 device_address: pci/0000/02.7/00.0, device_display_id: 0 xrandr output ID: 35
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card1 is at /sys/devices/pci0000:00/0000:00:01.0/drm/card1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:01.0/drm/card1' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Mapping connector Virtual-1 to display #0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card1 is at /sys/devices/pci0000:00/0000:00:01.0/drm/card1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:01.0/drm/card1' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found matching X Output: name=Virtual-1 id=33
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Adding graphics device info: channel_id: 0 monitor_id: 0 device_address: pci/0000/01.0, device_display_id: 0 xrandr output ID: 33
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found monitor Virtual-1 with geometry 3440x1303+0-0 - associating it to SPICE display #0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found monitor Virtual-2 with geometry 1280x800+3440-0 - associating it to SPICE display #1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Received Graphics Device Info:
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Mapping connector Virtual-2 to display #1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found matching X Output: name=Virtual-2 id=35
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Adding graphics device info: channel_id: 1 monitor_id: 0 device_address: pci/0000/02.7/00.0, device_display_id: 0 xrandr output ID: 35
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card1 is at /sys/devices/pci0000:00/0000:00:01.0/drm/card1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:01.0/drm/card1' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Mapping connector Virtual-1 to display #0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card1 is at /sys/devices/pci0000:00/0000:00:01.0/drm/card1
+Jul 16 16:24:52 IntelluxeVM rtkit-daemon[2122]: Supervising 15 threads of 9 processes of 2 users.
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:01.0/drm/card1' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found matching X Output: name=Virtual-1 id=33
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Adding graphics device info: channel_id: 0 monitor_id: 0 device_address: pci/0000/01.0, device_display_id: 0 xrandr output ID: 33
+Jul 16 16:24:52 IntelluxeVM rtkit-daemon[2122]: Supervising 15 threads of 9 processes of 2 users.
+Jul 16 16:24:52 IntelluxeVM rtkit-daemon[2122]: Supervising 15 threads of 9 processes of 2 users.
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Started app-gnome-im\x2dlaunch-5470.scope - Application launched by gnome-session-binary.
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Started app-gnome-nvidia\x2dsettings\x2dautostart-5454.scope - Application launched by gnome-session-binary.
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Started app-gnome-org.gnome.Evolution\x2dalarm\x2dnotify-5459.scope - Application launched by gnome-session-binary.
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Started app-gnome-org.gnome.SettingsDaemon.DiskUtilityNotify-5450.scope - Application launched by gnome-session-binary.
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Started app-gnome-snap\x2duserd\x2dautostart-5446.scope - Application launched by gnome-session-binary.
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Started app-gnome-ubuntu\x2dreport\x2don\x2dupgrade-5473.scope - Application launched by gnome-session-binary.
+Jul 16 16:24:52 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Activating via systemd: service name='org.freedesktop.impl.portal.desktop.gtk' unit='xdg-desktop-portal-gtk.service' requested by ':1.86' (uid=1000 pid=5265 comm="/usr/libexec/xdg-desktop-portal" label="unconfined")
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Started app-gnome-user\x2ddirs\x2dupdate\x2dgtk-5478.scope - Application launched by gnome-session-binary.
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Starting xdg-desktop-portal-gtk.service - Portal service (GTK/GNOME implementation)...
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found monitor Virtual-1 with geometry 3440x1303+0-0 - associating it to SPICE display #0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found monitor Virtual-2 with geometry 1280x800+3440-0 - associating it to SPICE display #1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Received Graphics Device Info:
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Mapping connector Virtual-2 to display #1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found matching X Output: name=Virtual-2 id=35
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Adding graphics device info: channel_id: 1 monitor_id: 0 device_address: pci/0000/02.7/00.0, device_display_id: 0 xrandr output ID: 35
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card1 is at /sys/devices/pci0000:00/0000:00:01.0/drm/card1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:01.0/drm/card1' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Mapping connector Virtual-1 to display #0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card0 is at /sys/devices/pci0000:00/0000:00:02.7/0000:09:00.0/drm/card0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Device /dev/dri/card1 is at /sys/devices/pci0000:00/0000:00:01.0/drm/card1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found card '/sys/devices/pci0000:00/0000:00:01.0/drm/card1' with Vendor ID 0x1050, Device ID 0x1af4
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found matching X Output: name=Virtual-1 id=33
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Adding graphics device info: channel_id: 0 monitor_id: 0 device_address: pci/0000/01.0, device_display_id: 0 xrandr output ID: 33
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found monitor Virtual-1 with geometry 3440x1303+0-0 - associating it to SPICE display #0
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: Found monitor Virtual-2 with geometry 1280x800+3440-0 - associating it to SPICE display #1
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: vdagent_audio_playback_sync mute=no nchannels=2
+Jul 16 16:24:52 IntelluxeVM rtkit-daemon[2122]: Supervising 15 threads of 9 processes of 2 users.
+Jul 16 16:24:52 IntelluxeVM rtkit-daemon[2122]: Supervising 15 threads of 9 processes of 2 users.
+Jul 16 16:24:52 IntelluxeVM rtkit-daemon[2122]: Supervising 15 threads of 9 processes of 2 users.
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: vdagent-audio: (playback-left) 65535 (100.00%)
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: vdagent-audio: (playback-right) 65535 (100.00%)
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: vdagent_audio_record_sync mute=no nchannels=2
+Jul 16 16:24:52 IntelluxeVM rtkit-daemon[2122]: Supervising 15 threads of 9 processes of 2 users.
+Jul 16 16:24:52 IntelluxeVM rtkit-daemon[2122]: Supervising 15 threads of 9 processes of 2 users.
+Jul 16 16:24:52 IntelluxeVM rtkit-daemon[2122]: Supervising 15 threads of 9 processes of 2 users.
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: vdagent-audio: (capture-left) 65535 (100.00%)
+Jul 16 16:24:52 IntelluxeVM spice-vdagent[4865]: vdagent-audio: (capture-right) 65535 (100.00%)
+Jul 16 16:24:52 IntelluxeVM rtkit-daemon[2122]: Successfully made thread 5534 of process 4865 owned by '1000' RT at priority 20.
+Jul 16 16:24:52 IntelluxeVM rtkit-daemon[2122]: Supervising 16 threads of 10 processes of 2 users.
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5440]: MESA: error: ZINK: failed to choose pdev
+Jul 16 16:24:52 IntelluxeVM gnome-shell[5440]: libEGL warning: egl: failed to create dri2 screen
+Jul 16 16:24:52 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Successfully activated service 'org.freedesktop.impl.portal.desktop.gtk'
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Started xdg-desktop-portal-gtk.service - Portal service (GTK/GNOME implementation).
+Jul 16 16:24:52 IntelluxeVM nvidia-settings-autostart.desktop[5460]: ERROR: NVIDIA driver is not loaded
+Jul 16 16:24:52 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Successfully activated service 'org.freedesktop.portal.Desktop'
+Jul 16 16:24:52 IntelluxeVM systemd[4359]: Started xdg-desktop-portal.service - Portal service.
+Jul 16 16:24:53 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Successfully activated service 'org.gnome.ArchiveManager1'
+Jul 16 16:24:53 IntelluxeVM gnome-shell[4648]: DING: DBus interface for File-roller (org.gnome.ArchiveManager1) is now available.
+Jul 16 16:24:53 IntelluxeVM gnome-shell[4648]: DING: DBus interface for Nautilus (org.gnome.Nautilus.FileOperations2) is now available.
+Jul 16 16:24:53 IntelluxeVM gnome-shell[4648]: DING: DBus interface for Nautilus (org.freedesktop.FileManager1) is now available.
+Jul 16 16:24:53 IntelluxeVM gnome-shell[4648]: DING: GNOME nautilus 46.4
+Jul 16 16:24:55 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Scheduled restart job, restart counter is at 8.
+Jul 16 16:24:55 IntelluxeVM systemd[1]: Started intelluxe-diagnostics.service - clinic Diagnostics Health Check.
+Jul 16 16:24:55 IntelluxeVM diagnostics[5603]: [FAIL] Missing dependency: influx
+Jul 16 16:24:55 IntelluxeVM script[5612]: [FAIL] Missing dependency: influx
+Jul 16 16:24:55 IntelluxeVM diagnostics[5603]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:24:55 IntelluxeVM script[5618]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:24:55 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:24:55 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:24:59 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 24.
+Jul 16 16:24:59 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 24.
+Jul 16 16:24:59 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:24:59 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:24:59 IntelluxeVM bootstrap[5622]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:24:59 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:24:59 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:24:59 IntelluxeVM config-web-ui[5623]: Traceback (most recent call last):
+Jul 16 16:24:59 IntelluxeVM config-web-ui[5623]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:24:59 IntelluxeVM config-web-ui[5623]:     from flask import (
+Jul 16 16:24:59 IntelluxeVM config-web-ui[5623]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:24:59 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:24:59 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:25:01 IntelluxeVM CRON[5671]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+Jul 16 16:25:01 IntelluxeVM CRON[5672]: (root) CMD (command -v debian-sa1 > /dev/null && debian-sa1 1 1)
+Jul 16 16:25:01 IntelluxeVM CRON[5671]: pam_unix(cron:session): session closed for user root
+Jul 16 16:25:02 IntelluxeVM systemd[1]: Stopping user@120.service - User Manager for UID 120...
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Activating special unit exit.target...
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped target default.target - Main User Target.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopping dbus.service - D-Bus User Message Bus...
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopping filter-chain.service - PipeWire filter chain daemon...
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopping pipewire-pulse.service - PipeWire PulseAudio...
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopping xdg-document-portal.service - flatpak document portal service...
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopping xdg-permission-store.service - sandboxed app permission store...
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped dbus.service - D-Bus User Message Bus.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped filter-chain.service - PipeWire filter chain daemon.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped pipewire-pulse.service - PipeWire PulseAudio.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: xdg-permission-store.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: xdg-permission-store.service: Failed with result 'exit-code'.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped xdg-permission-store.service - sandboxed app permission store.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: xdg-document-portal.service: Main process exited, code=exited, status=20/n/a
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: xdg-document-portal.service: Failed with result 'exit-code'.
+Jul 16 16:25:02 IntelluxeVM systemd[1]: run-user-120-doc.mount: Deactivated successfully.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped xdg-document-portal.service - flatpak document portal service.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopping wireplumber.service - Multimedia Service Session Manager...
+Jul 16 16:25:02 IntelluxeVM wireplumber[3605]: stopped by signal: Terminated
+Jul 16 16:25:02 IntelluxeVM wireplumber[3605]: disconnected from pipewire
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped wireplumber.service - Multimedia Service Session Manager.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopping pipewire.service - PipeWire Multimedia Service...
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped pipewire.service - PipeWire Multimedia Service.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Removed slice session.slice - User Core Session Slice.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped target basic.target - Basic System.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped target paths.target - Paths.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped ubuntu-report.path - Pending report trigger for Ubuntu Report.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped target sockets.target - Sockets.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped target timers.target - Timers.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped launchpadlib-cache-clean.timer - Clean up old files in the Launchpadlib cache.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopped snap.firmware-updater.firmware-notifier.timer - Timer firmware-notifier for snap application firmware-updater.firmware-notifier.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed dbus.socket - D-Bus User Message Bus Socket.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed dirmngr.socket - GnuPG network certificate management daemon.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed gcr-ssh-agent.socket - GCR ssh-agent wrapper.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed gnome-keyring-daemon.socket - GNOME Keyring daemon.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed gpg-agent-browser.socket - GnuPG cryptographic agent and passphrase cache (access for web browsers).
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed gpg-agent-extra.socket - GnuPG cryptographic agent and passphrase cache (restricted).
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Stopping gpg-agent-ssh.socket - GnuPG cryptographic agent (ssh-agent emulation)...
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed gpg-agent.socket - GnuPG cryptographic agent and passphrase cache.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed keyboxd.socket - GnuPG public key management service.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed pipewire-pulse.socket - PipeWire PulseAudio.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed pipewire.socket - PipeWire Multimedia System Sockets.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed pk-debconf-helper.socket - debconf communication socket.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed snapd.session-agent.socket - REST API socket for snapd user session agent.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed speech-dispatcher.socket - Speech Dispatcher Socket.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Closed gpg-agent-ssh.socket - GnuPG cryptographic agent (ssh-agent emulation).
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Removed slice app.slice - User Application Slice.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Reached target shutdown.target - Shutdown.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Finished systemd-exit.service - Exit the Session.
+Jul 16 16:25:02 IntelluxeVM systemd[3590]: Reached target exit.target - Exit the Session.
+Jul 16 16:25:02 IntelluxeVM (sd-pam)[3591]: pam_unix(systemd-user:session): session closed for user gdm
+Jul 16 16:25:02 IntelluxeVM systemd[1]: user@120.service: Deactivated successfully.
+Jul 16 16:25:02 IntelluxeVM systemd[1]: Stopped user@120.service - User Manager for UID 120.
+Jul 16 16:25:02 IntelluxeVM systemd[1]: Stopping user-runtime-dir@120.service - User Runtime Directory /run/user/120...
+Jul 16 16:25:02 IntelluxeVM systemd[1]: run-user-120.mount: Deactivated successfully.
+Jul 16 16:25:02 IntelluxeVM systemd[1]: user-runtime-dir@120.service: Deactivated successfully.
+Jul 16 16:25:02 IntelluxeVM systemd[1]: Stopped user-runtime-dir@120.service - User Runtime Directory /run/user/120.
+Jul 16 16:25:02 IntelluxeVM systemd[1]: Removed slice user-120.slice - User Slice of UID 120.
+Jul 16 16:25:02 IntelluxeVM systemd[1]: user-120.slice: Consumed 12.166s CPU time.
+Jul 16 16:25:07 IntelluxeVM systemd[1]: fprintd.service: Deactivated successfully.
+Jul 16 16:25:09 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 25.
+Jul 16 16:25:09 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 25.
+Jul 16 16:25:09 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:25:09 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:25:09 IntelluxeVM bootstrap[5712]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:25:09 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:25:09 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:25:09 IntelluxeVM config-web-ui[5713]: Traceback (most recent call last):
+Jul 16 16:25:09 IntelluxeVM config-web-ui[5713]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:25:09 IntelluxeVM config-web-ui[5713]:     from flask import (
+Jul 16 16:25:09 IntelluxeVM config-web-ui[5713]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:25:09 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:25:09 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:25:19 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 26.
+Jul 16 16:25:19 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 26.
+Jul 16 16:25:19 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:25:19 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:25:19 IntelluxeVM bootstrap[5761]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:25:19 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:25:19 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:25:19 IntelluxeVM config-web-ui[5762]: Traceback (most recent call last):
+Jul 16 16:25:19 IntelluxeVM config-web-ui[5762]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:25:19 IntelluxeVM config-web-ui[5762]:     from flask import (
+Jul 16 16:25:19 IntelluxeVM config-web-ui[5762]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:25:19 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:25:19 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:25:22 IntelluxeVM systemd[1]: systemd-localed.service: Deactivated successfully.
+Jul 16 16:25:22 IntelluxeVM systemd[1]: systemd-hostnamed.service: Deactivated successfully.
+Jul 16 16:25:25 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Scheduled restart job, restart counter is at 9.
+Jul 16 16:25:25 IntelluxeVM systemd[1]: Started intelluxe-diagnostics.service - clinic Diagnostics Health Check.
+Jul 16 16:25:25 IntelluxeVM diagnostics[5818]: [FAIL] Missing dependency: influx
+Jul 16 16:25:25 IntelluxeVM script[5827]: [FAIL] Missing dependency: influx
+Jul 16 16:25:25 IntelluxeVM diagnostics[5818]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:25:25 IntelluxeVM script[5833]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:25:25 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:25:25 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:25:29 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 27.
+Jul 16 16:25:29 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:25:29 IntelluxeVM systemd[4359]: Started app-gnome-code-5837.scope - Application launched by gnome-shell.
+Jul 16 16:25:30 IntelluxeVM bootstrap[5836]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:25:30 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:25:30 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:25:30 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 27.
+Jul 16 16:25:30 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:25:30 IntelluxeVM config-web-ui[5885]: Traceback (most recent call last):
+Jul 16 16:25:30 IntelluxeVM config-web-ui[5885]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:25:30 IntelluxeVM config-web-ui[5885]:     from flask import (
+Jul 16 16:25:30 IntelluxeVM config-web-ui[5885]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:25:30 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:25:30 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:25:30 IntelluxeVM dbus-daemon[1113]: [system] Activating via systemd: service name='org.bluez' unit='dbus-org.bluez.service' requested by ':1.123' (uid=1000 pid=5837 comm="/usr/share/code/code" label="vscode (unconfined)")
+Jul 16 16:25:30 IntelluxeVM dbus-daemon[1113]: [system] Activation via systemd failed for unit 'dbus-org.bluez.service': Unit dbus-org.bluez.service not found.
+Jul 16 16:25:30 IntelluxeVM code.desktop[5837]: [main 2025-07-16T20:25:30.814Z] update#setState idle
+Jul 16 16:25:30 IntelluxeVM code.desktop[5929]: [5929:0716/162530.871536:ERROR:viz_main_impl.cc(183)] Exiting GPU process due to errors during initialization
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086286:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086287:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086355:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086423:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086508:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086513:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086548:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086532:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086596:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086625:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086668:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086673:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086695:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086731:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086774:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086783:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086781:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086814:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086848:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086887:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086901:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086901:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086946:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.086978:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.087041:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.087001:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.087177:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:31 IntelluxeVM code.desktop[5981]: [5981:0716/162531.087168:ERROR:one_copy_raster_buffer_provider.cc(312)] Creation of StagingBuffer's SharedImage failed.
+Jul 16 16:25:33 IntelluxeVM code.desktop[6005]: [6005:0716/162533.582572:ERROR:gles2_cmd_decoder_passthrough.cc(1094)] [GroupMarkerNotSet(crbug.com/242999)!:A0501800540F0000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader flag to opt in to lower security guarantees for trusted content.
+Jul 16 16:25:33 IntelluxeVM code.desktop[6005]: [6005:0716/162533.635980:ERROR:gl_utils.cc(431)] [.WebGL-0x2fbc080a1500]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+Jul 16 16:25:33 IntelluxeVM code.desktop[6005]: [6005:0716/162533.717281:ERROR:gl_utils.cc(431)] [.WebGL-0x2fbc080a1500]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+Jul 16 16:25:33 IntelluxeVM code.desktop[6005]: [6005:0716/162533.790621:ERROR:gl_utils.cc(431)] [.WebGL-0x2fbc080a1500]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+Jul 16 16:25:33 IntelluxeVM code.desktop[6005]: [6005:0716/162533.855651:ERROR:gl_utils.cc(431)] [.WebGL-0x2fbc080a1500]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+Jul 16 16:25:35 IntelluxeVM gnome-keyring-daemon[4383]: asked to register item /org/freedesktop/secrets/collection/login/1, but it's already registered
+Jul 16 16:25:35 IntelluxeVM gnome-keyring-d[4383]: asked to register item /org/freedesktop/secrets/collection/login/1, but it's already registered
+Jul 16 16:25:37 IntelluxeVM geoclue[4039]: Service not used for 60 seconds. Shutting down..
+Jul 16 16:25:37 IntelluxeVM systemd[1]: geoclue.service: Deactivated successfully.
+Jul 16 16:25:37 IntelluxeVM vsce-sign[6354]: Package file size:  5184641
+Jul 16 16:25:37 IntelluxeVM vsce-sign[6354]: Signature archive file size:  13641
+Jul 16 16:25:37 IntelluxeVM vsce-sign[6354]: Manifest file size:  8166
+Jul 16 16:25:37 IntelluxeVM vsce-sign[6354]: Signature file size:  19348
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: ManifestPackageIntegrityPolicy succeeded.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: SignatureIntegrityPolicy for primary signature succeeded.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: SignatureValidityPolicy for primary signature succeeded.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: SignatureIntegrityPolicy for primary timestamp signature succeeded.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: SignatureValidityPolicy for primary timestamp signature succeeded.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: X.509 certificate chain validation will use the fallback certificate bundle for timestamping.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: SignatureTrustPolicy for publisher primary signature timestamp signature succeeded.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: X.509 certificate chain validation will use the fallback certificate bundle for code signing.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: SignatureTrustPolicy for publisher primary signature succeeded.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: SignatureIntegrityPolicy for repository countersignature succeeded.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: SignatureValidityPolicy for repository countersignature succeeded.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: SignatureIntegrityPolicy for repository countersignature timestamp signature succeeded.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: SignatureValidityPolicy for repository countersignature timestamp signature succeeded.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: SignatureTrustPolicy for repository countersignature timestamp signature succeeded.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: SignatureTrustPolicy for repository countersignature succeeded.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: RepositoryCountersignaturePolicy for repository countersignature succeeded with OK.
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: Primary signature type:  publisher primary signature
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: Primary signature status:  OK
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: Timestamp signature status:  OK
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: Repository countersignature status:  OK
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: Repository countersignature timestamp status:  OK
+Jul 16 16:25:38 IntelluxeVM vsce-sign[6354]: Exit code:  Success
+Jul 16 16:25:40 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 28.
+Jul 16 16:25:40 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:25:40 IntelluxeVM bootstrap[6435]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:25:40 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:25:40 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:25:40 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 28.
+Jul 16 16:25:40 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:25:40 IntelluxeVM config-web-ui[6485]: Traceback (most recent call last):
+Jul 16 16:25:40 IntelluxeVM config-web-ui[6485]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:25:40 IntelluxeVM config-web-ui[6485]:     from flask import (
+Jul 16 16:25:40 IntelluxeVM config-web-ui[6485]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:25:40 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:25:40 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:25:49 IntelluxeVM systemd[1]: Starting intelluxe-diagnostic-pusher.service - Push diagnostic metrics to InfluxDB...
+Jul 16 16:25:49 IntelluxeVM systemd[1]: Starting intelluxe-resource-pusher.service - Push host resource metrics to InfluxDB...
+Jul 16 16:25:49 IntelluxeVM systemd[1]: Starting intelluxe-wg0-diagnostics.service - Run wg0 diagnostics periodically...
+Jul 16 16:25:49 IntelluxeVM systemd[1]: Starting update-notifier-download.service - Download data for packages that failed at package install time...
+Jul 16 16:25:49 IntelluxeVM diagnostic-pusher[6844]: [INFO] Running diagnostic-pusher...
+Jul 16 16:25:49 IntelluxeVM resource-pusher[6845]: [INFO] Running resource-pusher...
+Jul 16 16:25:49 IntelluxeVM wg0-diagnostics[6846]: [FAIL] Missing dependency: influx
+Jul 16 16:25:49 IntelluxeVM script[6864]: [INFO] Running diagnostic-pusher...
+Jul 16 16:25:49 IntelluxeVM diagnostic-pusher[6844]: /opt/intelluxe/scripts/diagnostic-pusher.sh: line 106: CI: unbound variable
+Jul 16 16:25:49 IntelluxeVM diagnostic-pusher[6844]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:25:49 IntelluxeVM script[6874]: [INFO] Running resource-pusher...
+Jul 16 16:25:49 IntelluxeVM script[6879]: [FAIL] Missing dependency: influx
+Jul 16 16:25:49 IntelluxeVM script[6881]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:25:49 IntelluxeVM wg0-diagnostics[6846]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:25:49 IntelluxeVM systemd[1]: intelluxe-diagnostic-pusher.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:25:49 IntelluxeVM systemd[1]: intelluxe-diagnostic-pusher.service: Failed with result 'exit-code'.
+Jul 16 16:25:49 IntelluxeVM systemd[1]: Failed to start intelluxe-diagnostic-pusher.service - Push diagnostic metrics to InfluxDB.
+Jul 16 16:25:49 IntelluxeVM script[6893]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:25:49 IntelluxeVM systemd[1]: intelluxe-wg0-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:25:49 IntelluxeVM systemd[1]: intelluxe-wg0-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:25:49 IntelluxeVM systemd[1]: Failed to start intelluxe-wg0-diagnostics.service - Run wg0 diagnostics periodically.
+Jul 16 16:25:49 IntelluxeVM systemd[1]: update-notifier-download.service: Deactivated successfully.
+Jul 16 16:25:49 IntelluxeVM systemd[1]: Finished update-notifier-download.service - Download data for packages that failed at package install time.
+Jul 16 16:25:50 IntelluxeVM resource-pusher[6912]: curl: (7) Failed to connect to localhost port 8086 after 0 ms: Couldn't connect to server
+Jul 16 16:25:50 IntelluxeVM script[6918]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:25:50 IntelluxeVM resource-pusher[6845]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:25:50 IntelluxeVM script[6925]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:25:50 IntelluxeVM resource-pusher[6845]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:25:50 IntelluxeVM script[6932]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:25:50 IntelluxeVM systemd[1]: intelluxe-resource-pusher.service: Main process exited, code=exited, status=7/NOTRUNNING
+Jul 16 16:25:50 IntelluxeVM systemd[1]: intelluxe-resource-pusher.service: Failed with result 'exit-code'.
+Jul 16 16:25:50 IntelluxeVM systemd[1]: Failed to start intelluxe-resource-pusher.service - Push host resource metrics to InfluxDB.
+Jul 16 16:25:50 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 29.
+Jul 16 16:25:50 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 29.
+Jul 16 16:25:50 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:25:50 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:25:50 IntelluxeVM bootstrap[6936]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:25:50 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:25:50 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:25:50 IntelluxeVM config-web-ui[6939]: Traceback (most recent call last):
+Jul 16 16:25:50 IntelluxeVM config-web-ui[6939]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:25:50 IntelluxeVM config-web-ui[6939]:     from flask import (
+Jul 16 16:25:50 IntelluxeVM config-web-ui[6939]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:25:50 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:25:50 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:25:52 IntelluxeVM systemd[4359]: Started app-gnome-ubuntu\x2dadvantage\x2dnotification-7008.scope - Application launched by gnome-session-binary.
+Jul 16 16:25:52 IntelluxeVM systemd[4359]: Started app-gnome-update\x2dnotifier-7006.scope - Application launched by gnome-session-binary.
+Jul 16 16:25:53 IntelluxeVM dbus-daemon[1113]: [system] Activating via systemd: service name='org.freedesktop.timedate1' unit='dbus-org.freedesktop.timedate1.service' requested by ':1.25' (uid=0 pid=1123 comm="/usr/lib/snapd/snapd" label="unconfined")
+Jul 16 16:25:53 IntelluxeVM systemd[1]: Starting systemd-timedated.service - Time & Date Service...
+Jul 16 16:25:53 IntelluxeVM dbus-daemon[1113]: [system] Successfully activated service 'org.freedesktop.timedate1'
+Jul 16 16:25:53 IntelluxeVM systemd[1]: Started systemd-timedated.service - Time & Date Service.
+Jul 16 16:25:54 IntelluxeVM snapd[1123]: storehelpers.go:916: cannot refresh: snap has no updates available: "bare", "code", "core20", "core22", "firefox", "firmware-updater", "gnome-42-2204", "gtk-common-themes", "snap-store", "snapd", "snapd-desktop-integration", "thunderbird"
+Jul 16 16:25:55 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Scheduled restart job, restart counter is at 10.
+Jul 16 16:25:55 IntelluxeVM systemd[1]: Started intelluxe-diagnostics.service - clinic Diagnostics Health Check.
+Jul 16 16:25:55 IntelluxeVM diagnostics[7071]: [FAIL] Missing dependency: influx
+Jul 16 16:25:55 IntelluxeVM script[7080]: [FAIL] Missing dependency: influx
+Jul 16 16:25:55 IntelluxeVM diagnostics[7071]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:25:55 IntelluxeVM script[7086]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:25:55 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:25:55 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:26:00 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 30.
+Jul 16 16:26:00 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 30.
+Jul 16 16:26:00 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:26:00 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:26:00 IntelluxeVM bootstrap[7114]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:26:00 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:26:00 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:26:00 IntelluxeVM config-web-ui[7115]: Traceback (most recent call last):
+Jul 16 16:26:00 IntelluxeVM config-web-ui[7115]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:26:00 IntelluxeVM config-web-ui[7115]:     from flask import (
+Jul 16 16:26:00 IntelluxeVM config-web-ui[7115]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:26:00 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:26:00 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:26:00 IntelluxeVM code.desktop[5837]: [main 2025-07-16T20:26:00.817Z] update#setState checking for updates
+Jul 16 16:26:00 IntelluxeVM code.desktop[5837]: [main 2025-07-16T20:26:00.890Z] update#setState idle
+Jul 16 16:26:10 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 31.
+Jul 16 16:26:10 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 31.
+Jul 16 16:26:10 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:26:10 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:26:10 IntelluxeVM bootstrap[7212]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:26:10 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:26:10 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:26:10 IntelluxeVM config-web-ui[7213]: Traceback (most recent call last):
+Jul 16 16:26:10 IntelluxeVM config-web-ui[7213]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:26:10 IntelluxeVM config-web-ui[7213]:     from flask import (
+Jul 16 16:26:10 IntelluxeVM config-web-ui[7213]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:26:10 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:26:10 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:26:21 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 32.
+Jul 16 16:26:21 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 32.
+Jul 16 16:26:21 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:26:21 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:26:21 IntelluxeVM bootstrap[7309]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:26:21 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:26:21 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:26:21 IntelluxeVM config-web-ui[7310]: Traceback (most recent call last):
+Jul 16 16:26:21 IntelluxeVM config-web-ui[7310]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:26:21 IntelluxeVM config-web-ui[7310]:     from flask import (
+Jul 16 16:26:21 IntelluxeVM config-web-ui[7310]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:26:21 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:26:21 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:26:22 IntelluxeVM systemd[4359]: Started app-gnome-org.gnome.Terminal-7372.scope - Application launched by gnome-shell.
+Jul 16 16:26:22 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Activating via systemd: service name='org.gnome.Terminal' unit='gnome-terminal-server.service' requested by ':1.124' (uid=1000 pid=7375 comm="/usr/bin/gnome-terminal.real --window" label="unconfined")
+Jul 16 16:26:22 IntelluxeVM systemd[4359]: Created slice app-org.gnome.Terminal.slice - Slice /app/org.gnome.Terminal.
+Jul 16 16:26:22 IntelluxeVM systemd[4359]: Starting gnome-terminal-server.service - GNOME Terminal Server...
+Jul 16 16:26:22 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Successfully activated service 'org.gnome.Terminal'
+Jul 16 16:26:22 IntelluxeVM systemd[4359]: Started gnome-terminal-server.service - GNOME Terminal Server.
+Jul 16 16:26:23 IntelluxeVM gnome-shell[4648]: meta_window_set_stack_position_no_sync: assertion 'window->stack_position >= 0' failed
+Jul 16 16:26:23 IntelluxeVM systemd[4359]: Started vte-spawn-1b353cd4-a793-4837-babe-f0ecc68911d5.scope - VTE child process 7391 launched by gnome-terminal-server process 7383.
+Jul 16 16:26:23 IntelluxeVM systemd[1]: systemd-timedated.service: Deactivated successfully.
+Jul 16 16:26:25 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Scheduled restart job, restart counter is at 11.
+Jul 16 16:26:25 IntelluxeVM systemd[1]: Started intelluxe-diagnostics.service - clinic Diagnostics Health Check.
+Jul 16 16:26:25 IntelluxeVM diagnostics[7423]: [FAIL] Missing dependency: influx
+Jul 16 16:26:25 IntelluxeVM script[7432]: [FAIL] Missing dependency: influx
+Jul 16 16:26:25 IntelluxeVM diagnostics[7423]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:26:25 IntelluxeVM script[7438]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:26:25 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:26:25 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:26:31 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 33.
+Jul 16 16:26:31 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 33.
+Jul 16 16:26:31 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:26:31 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:26:31 IntelluxeVM bootstrap[7463]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:26:31 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:26:31 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:26:31 IntelluxeVM config-web-ui[7464]: Traceback (most recent call last):
+Jul 16 16:26:31 IntelluxeVM config-web-ui[7464]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:26:31 IntelluxeVM config-web-ui[7464]:     from flask import (
+Jul 16 16:26:31 IntelluxeVM config-web-ui[7464]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:26:31 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:26:31 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:26:41 IntelluxeVM tracker-miner-fs-3[7563]: (tracker-extract-3:7563): GLib-GIO-WARNING **: 16:26:41.105: Error creating IO channel for /proc/self/mountinfo: Invalid argument (g-io-error-quark, 13)
+Jul 16 16:26:41 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 34.
+Jul 16 16:26:41 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 34.
+Jul 16 16:26:41 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:26:41 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:26:41 IntelluxeVM bootstrap[7569]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:26:41 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:26:41 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:26:41 IntelluxeVM config-web-ui[7570]: Traceback (most recent call last):
+Jul 16 16:26:41 IntelluxeVM config-web-ui[7570]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:26:41 IntelluxeVM config-web-ui[7570]:     from flask import (
+Jul 16 16:26:41 IntelluxeVM config-web-ui[7570]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:26:41 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:26:41 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:26:51 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 35.
+Jul 16 16:26:51 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 35.
+Jul 16 16:26:51 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:26:51 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:26:51 IntelluxeVM bootstrap[7666]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:26:51 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:26:51 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:26:51 IntelluxeVM config-web-ui[7667]: Traceback (most recent call last):
+Jul 16 16:26:51 IntelluxeVM config-web-ui[7667]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:26:51 IntelluxeVM config-web-ui[7667]:     from flask import (
+Jul 16 16:26:51 IntelluxeVM config-web-ui[7667]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:26:51 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:26:51 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:26:52 IntelluxeVM systemd[4359]: Started app-gnome-org.gnome.DejaDup.Monitor-7725.scope - Application launched by gnome-session-binary.
+Jul 16 16:26:56 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Scheduled restart job, restart counter is at 12.
+Jul 16 16:26:56 IntelluxeVM systemd[1]: Started intelluxe-diagnostics.service - clinic Diagnostics Health Check.
+Jul 16 16:26:56 IntelluxeVM diagnostics[7748]: [FAIL] Missing dependency: influx
+Jul 16 16:26:56 IntelluxeVM script[7757]: [FAIL] Missing dependency: influx
+Jul 16 16:26:56 IntelluxeVM diagnostics[7748]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:26:56 IntelluxeVM script[7763]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:26:56 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:26:56 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:27:02 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 36.
+Jul 16 16:27:02 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 36.
+Jul 16 16:27:02 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:27:02 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:27:02 IntelluxeVM bootstrap[7796]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:27:02 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:27:02 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:27:02 IntelluxeVM config-web-ui[7797]: Traceback (most recent call last):
+Jul 16 16:27:02 IntelluxeVM config-web-ui[7797]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:27:02 IntelluxeVM config-web-ui[7797]:     from flask import (
+Jul 16 16:27:02 IntelluxeVM config-web-ui[7797]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:27:02 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:27:02 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:27:12 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 37.
+Jul 16 16:27:12 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 37.
+Jul 16 16:27:12 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:27:12 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:27:12 IntelluxeVM bootstrap[7894]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:27:12 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:27:12 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:27:12 IntelluxeVM config-web-ui[7895]: Traceback (most recent call last):
+Jul 16 16:27:12 IntelluxeVM config-web-ui[7895]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:27:12 IntelluxeVM config-web-ui[7895]:     from flask import (
+Jul 16 16:27:12 IntelluxeVM config-web-ui[7895]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:27:12 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:27:12 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:27:22 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 38.
+Jul 16 16:27:22 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 38.
+Jul 16 16:27:22 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:27:22 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:27:22 IntelluxeVM bootstrap[7994]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:27:22 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:27:22 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:27:22 IntelluxeVM config-web-ui[7995]: Traceback (most recent call last):
+Jul 16 16:27:22 IntelluxeVM config-web-ui[7995]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:27:22 IntelluxeVM config-web-ui[7995]:     from flask import (
+Jul 16 16:27:22 IntelluxeVM config-web-ui[7995]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:27:22 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:27:22 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:27:26 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Scheduled restart job, restart counter is at 13.
+Jul 16 16:27:26 IntelluxeVM systemd[1]: Started intelluxe-diagnostics.service - clinic Diagnostics Health Check.
+Jul 16 16:27:26 IntelluxeVM diagnostics[8063]: [FAIL] Missing dependency: influx
+Jul 16 16:27:26 IntelluxeVM script[8072]: [FAIL] Missing dependency: influx
+Jul 16 16:27:26 IntelluxeVM diagnostics[8063]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:27:26 IntelluxeVM script[8078]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:27:26 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:27:26 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:27:32 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 39.
+Jul 16 16:27:32 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 39.
+Jul 16 16:27:32 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:27:32 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:27:32 IntelluxeVM bootstrap[8110]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:27:32 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:27:32 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:27:32 IntelluxeVM config-web-ui[8111]: Traceback (most recent call last):
+Jul 16 16:27:32 IntelluxeVM config-web-ui[8111]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:27:32 IntelluxeVM config-web-ui[8111]:     from flask import (
+Jul 16 16:27:32 IntelluxeVM config-web-ui[8111]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:27:32 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:27:32 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:27:43 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 40.
+Jul 16 16:27:43 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 40.
+Jul 16 16:27:43 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:27:43 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:27:43 IntelluxeVM bootstrap[8215]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:27:43 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:27:43 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:27:43 IntelluxeVM config-web-ui[8216]: Traceback (most recent call last):
+Jul 16 16:27:43 IntelluxeVM config-web-ui[8216]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:27:43 IntelluxeVM config-web-ui[8216]:     from flask import (
+Jul 16 16:27:43 IntelluxeVM config-web-ui[8216]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:27:43 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:27:43 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:27:53 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 41.
+Jul 16 16:27:53 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 41.
+Jul 16 16:27:53 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:27:53 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:27:53 IntelluxeVM bootstrap[8313]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:27:53 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:27:53 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:27:53 IntelluxeVM config-web-ui[8314]: Traceback (most recent call last):
+Jul 16 16:27:53 IntelluxeVM config-web-ui[8314]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:27:53 IntelluxeVM config-web-ui[8314]:     from flask import (
+Jul 16 16:27:53 IntelluxeVM config-web-ui[8314]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:27:53 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:27:53 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:27:55 IntelluxeVM systemd[1]: Starting intelluxe-auto-repair.service - Auto-repair for clinic and WireGuard containers...
+Jul 16 16:27:55 IntelluxeVM auto-repair[8385]: [FAIL] Missing dependency: ./scripts/diagnostics.sh
+Jul 16 16:27:55 IntelluxeVM auto-repair[8393]: [FAIL] Missing dependency: ./scripts/diagnostics.sh
+Jul 16 16:27:55 IntelluxeVM auto-repair[8385]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:27:55 IntelluxeVM auto-repair[8399]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:27:55 IntelluxeVM systemd[1]: intelluxe-auto-repair.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:27:55 IntelluxeVM systemd[1]: intelluxe-auto-repair.service: Failed with result 'exit-code'.
+Jul 16 16:27:55 IntelluxeVM systemd[1]: Failed to start intelluxe-auto-repair.service - Auto-repair for clinic and WireGuard containers.
+Jul 16 16:27:56 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Scheduled restart job, restart counter is at 14.
+Jul 16 16:27:56 IntelluxeVM systemd[1]: Started intelluxe-diagnostics.service - clinic Diagnostics Health Check.
+Jul 16 16:27:56 IntelluxeVM diagnostics[8402]: [FAIL] Missing dependency: influx
+Jul 16 16:27:56 IntelluxeVM script[8411]: [FAIL] Missing dependency: influx
+Jul 16 16:27:56 IntelluxeVM diagnostics[8402]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:27:56 IntelluxeVM script[8417]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:27:56 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:27:56 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:28:03 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 42.
+Jul 16 16:28:03 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 42.
+Jul 16 16:28:03 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:28:03 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:28:03 IntelluxeVM bootstrap[8449]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:28:03 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:28:03 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:28:03 IntelluxeVM config-web-ui[8450]: Traceback (most recent call last):
+Jul 16 16:28:03 IntelluxeVM config-web-ui[8450]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:28:03 IntelluxeVM config-web-ui[8450]:     from flask import (
+Jul 16 16:28:03 IntelluxeVM config-web-ui[8450]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:28:03 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:28:03 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:28:07 IntelluxeVM sudo[8507]:   justin : TTY=pts/2 ; PWD=/home/justin ; USER=root ; COMMAND=/usr/bin/apt update
+Jul 16 16:28:07 IntelluxeVM sudo[8507]: pam_unix(sudo:session): session opened for user root(uid=0) by justin(uid=1000)
+Jul 16 16:28:07 IntelluxeVM systemd[1]: Starting apt-news.service - Update APT News...
+Jul 16 16:28:07 IntelluxeVM systemd[1]: Starting esm-cache.service - Update the local ESM caches...
+Jul 16 16:28:07 IntelluxeVM systemd[1]: apt-news.service: Deactivated successfully.
+Jul 16 16:28:07 IntelluxeVM systemd[1]: Finished apt-news.service - Update APT News.
+Jul 16 16:28:08 IntelluxeVM systemd[1]: esm-cache.service: Deactivated successfully.
+Jul 16 16:28:08 IntelluxeVM systemd[1]: Finished esm-cache.service - Update the local ESM caches.
+Jul 16 16:28:13 IntelluxeVM sudo[8507]: pam_unix(sudo:session): session closed for user root
+Jul 16 16:28:13 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 43.
+Jul 16 16:28:13 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 43.
+Jul 16 16:28:13 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:28:13 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:28:13 IntelluxeVM bootstrap[8986]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:28:13 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:28:13 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:28:13 IntelluxeVM config-web-ui[8987]: Traceback (most recent call last):
+Jul 16 16:28:13 IntelluxeVM config-web-ui[8987]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:28:13 IntelluxeVM config-web-ui[8987]:     from flask import (
+Jul 16 16:28:13 IntelluxeVM config-web-ui[8987]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:28:13 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:28:13 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:28:22 IntelluxeVM sudo[9104]:   justin : TTY=pts/2 ; PWD=/home/justin ; USER=root ; COMMAND=/usr/bin/apt install libpam-modules
+Jul 16 16:28:22 IntelluxeVM sudo[9104]: pam_unix(sudo:session): session opened for user root(uid=0) by justin(uid=1000)
+Jul 16 16:28:23 IntelluxeVM sudo[9104]: pam_unix(sudo:session): session closed for user root
+Jul 16 16:28:24 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 44.
+Jul 16 16:28:24 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 44.
+Jul 16 16:28:24 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:28:24 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:28:24 IntelluxeVM bootstrap[9166]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:28:24 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:28:24 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:28:24 IntelluxeVM config-web-ui[9168]: Traceback (most recent call last):
+Jul 16 16:28:24 IntelluxeVM config-web-ui[9168]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:28:24 IntelluxeVM config-web-ui[9168]:     from flask import (
+Jul 16 16:28:24 IntelluxeVM config-web-ui[9168]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:28:24 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:28:24 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:28:26 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Scheduled restart job, restart counter is at 15.
+Jul 16 16:28:26 IntelluxeVM systemd[1]: Started intelluxe-diagnostics.service - clinic Diagnostics Health Check.
+Jul 16 16:28:26 IntelluxeVM diagnostics[9237]: [FAIL] Missing dependency: influx
+Jul 16 16:28:26 IntelluxeVM script[9246]: [FAIL] Missing dependency: influx
+Jul 16 16:28:26 IntelluxeVM diagnostics[9237]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:28:26 IntelluxeVM script[9252]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:28:26 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:28:26 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:28:34 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 45.
+Jul 16 16:28:34 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 45.
+Jul 16 16:28:34 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:28:34 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:28:34 IntelluxeVM bootstrap[9294]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:28:34 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:28:34 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:28:34 IntelluxeVM config-web-ui[9295]: Traceback (most recent call last):
+Jul 16 16:28:34 IntelluxeVM config-web-ui[9295]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:28:34 IntelluxeVM config-web-ui[9295]:     from flask import (
+Jul 16 16:28:34 IntelluxeVM config-web-ui[9295]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:28:34 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:28:34 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:28:44 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 46.
+Jul 16 16:28:44 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 46.
+Jul 16 16:28:44 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:28:44 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:28:44 IntelluxeVM bootstrap[9396]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:28:44 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:28:44 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:28:44 IntelluxeVM config-web-ui[9397]: Traceback (most recent call last):
+Jul 16 16:28:44 IntelluxeVM config-web-ui[9397]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:28:44 IntelluxeVM config-web-ui[9397]:     from flask import (
+Jul 16 16:28:44 IntelluxeVM config-web-ui[9397]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:28:44 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:28:44 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:28:45 IntelluxeVM sudo[9443]:   justin : TTY=pts/2 ; PWD=/home/justin ; USER=root ; COMMAND=/usr/bin/apt reinstall libpam-modules
+Jul 16 16:28:45 IntelluxeVM sudo[9443]: pam_unix(sudo:session): session opened for user root(uid=0) by justin(uid=1000)
+Jul 16 16:28:49 IntelluxeVM sudo[9443]: pam_unix(sudo:session): session closed for user root
+Jul 16 16:28:52 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Activating service name='org.gnome.DejaDup' requested by ':1.128' (uid=1000 pid=7725 comm="/usr/libexec/deja-dup/deja-dup-monitor" label="unconfined")
+Jul 16 16:28:52 IntelluxeVM dbus-daemon[4393]: [session uid=1000 pid=4393] Successfully activated service 'org.gnome.DejaDup'
+Jul 16 16:28:54 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 47.
+Jul 16 16:28:54 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 47.
+Jul 16 16:28:54 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:28:54 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:28:54 IntelluxeVM bootstrap[9662]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:28:54 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:28:54 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:28:54 IntelluxeVM config-web-ui[9663]: Traceback (most recent call last):
+Jul 16 16:28:54 IntelluxeVM config-web-ui[9663]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:28:54 IntelluxeVM config-web-ui[9663]:     from flask import (
+Jul 16 16:28:54 IntelluxeVM config-web-ui[9663]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:28:54 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:28:54 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:28:57 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Scheduled restart job, restart counter is at 16.
+Jul 16 16:28:57 IntelluxeVM systemd[1]: Started intelluxe-diagnostics.service - clinic Diagnostics Health Check.
+Jul 16 16:28:57 IntelluxeVM diagnostics[9725]: [FAIL] Missing dependency: influx
+Jul 16 16:28:57 IntelluxeVM script[9734]: [FAIL] Missing dependency: influx
+Jul 16 16:28:57 IntelluxeVM diagnostics[9725]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:28:57 IntelluxeVM script[9740]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:28:57 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:28:57 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:29:05 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 48.
+Jul 16 16:29:05 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 48.
+Jul 16 16:29:05 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:29:05 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:29:05 IntelluxeVM bootstrap[9787]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:29:05 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:29:05 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:29:05 IntelluxeVM config-web-ui[9788]: Traceback (most recent call last):
+Jul 16 16:29:05 IntelluxeVM config-web-ui[9788]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:29:05 IntelluxeVM config-web-ui[9788]:     from flask import (
+Jul 16 16:29:05 IntelluxeVM config-web-ui[9788]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:29:05 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:29:05 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:29:15 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 49.
+Jul 16 16:29:15 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 49.
+Jul 16 16:29:15 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:29:15 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:29:15 IntelluxeVM bootstrap[9888]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:29:15 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:29:15 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:29:15 IntelluxeVM config-web-ui[9889]: Traceback (most recent call last):
+Jul 16 16:29:15 IntelluxeVM config-web-ui[9889]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:29:15 IntelluxeVM config-web-ui[9889]:     from flask import (
+Jul 16 16:29:15 IntelluxeVM config-web-ui[9889]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:29:15 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:29:15 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:29:17 IntelluxeVM sudo[9948]:   justin : TTY=pts/2 ; PWD=/home/justin ; USER=root ; COMMAND=/usr/bin/journalctl -xe
+Jul 16 16:29:17 IntelluxeVM sudo[9948]: pam_unix(sudo:session): session opened for user root(uid=0) by justin(uid=1000)
+Jul 16 16:29:18 IntelluxeVM gnome-shell[4648]: Window manager warning: Ping serial 511073 was reused for window W3, previous use was for window 0xe00004.
+Jul 16 16:29:18 IntelluxeVM gnome-shell[4648]: Window manager warning: Ping serial 511073 was reused for window W3, previous use was for window 0xe00004.
+Jul 16 16:29:25 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 50.
+Jul 16 16:29:25 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 50.
+Jul 16 16:29:25 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:29:25 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:29:25 IntelluxeVM bootstrap[9991]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:29:25 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:29:25 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:29:25 IntelluxeVM config-web-ui[9992]: Traceback (most recent call last):
+Jul 16 16:29:25 IntelluxeVM config-web-ui[9992]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:29:25 IntelluxeVM config-web-ui[9992]:     from flask import (
+Jul 16 16:29:25 IntelluxeVM config-web-ui[9992]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:29:25 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:29:25 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:29:27 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Scheduled restart job, restart counter is at 17.
+Jul 16 16:29:27 IntelluxeVM systemd[1]: Started intelluxe-diagnostics.service - clinic Diagnostics Health Check.
+Jul 16 16:29:27 IntelluxeVM diagnostics[10041]: [FAIL] Missing dependency: influx
+Jul 16 16:29:27 IntelluxeVM script[10050]: [FAIL] Missing dependency: influx
+Jul 16 16:29:27 IntelluxeVM diagnostics[10041]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:29:27 IntelluxeVM script[10056]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:29:27 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:29:27 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:29:35 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 51.
+Jul 16 16:29:35 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 51.
+Jul 16 16:29:35 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:29:35 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:29:35 IntelluxeVM bootstrap[10109]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:29:35 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:29:35 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:29:35 IntelluxeVM config-web-ui[10110]: Traceback (most recent call last):
+Jul 16 16:29:35 IntelluxeVM config-web-ui[10110]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:29:35 IntelluxeVM config-web-ui[10110]:     from flask import (
+Jul 16 16:29:35 IntelluxeVM config-web-ui[10110]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:29:35 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:29:35 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:29:46 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 52.
+Jul 16 16:29:46 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 52.
+Jul 16 16:29:46 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:29:46 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:29:46 IntelluxeVM bootstrap[10211]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:29:46 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:29:46 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:29:46 IntelluxeVM config-web-ui[10212]: Traceback (most recent call last):
+Jul 16 16:29:46 IntelluxeVM config-web-ui[10212]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:29:46 IntelluxeVM config-web-ui[10212]:     from flask import (
+Jul 16 16:29:46 IntelluxeVM config-web-ui[10212]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:29:46 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:29:46 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:29:56 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 53.
+Jul 16 16:29:56 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 53.
+Jul 16 16:29:56 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:29:56 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:29:56 IntelluxeVM bootstrap[10310]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:29:56 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:29:56 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:29:56 IntelluxeVM config-web-ui[10311]: Traceback (most recent call last):
+Jul 16 16:29:56 IntelluxeVM config-web-ui[10311]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:29:56 IntelluxeVM config-web-ui[10311]:     from flask import (
+Jul 16 16:29:56 IntelluxeVM config-web-ui[10311]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:29:56 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:29:56 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:29:57 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Scheduled restart job, restart counter is at 18.
+Jul 16 16:29:57 IntelluxeVM systemd[1]: Started intelluxe-diagnostics.service - clinic Diagnostics Health Check.
+Jul 16 16:29:57 IntelluxeVM diagnostics[10359]: [FAIL] Missing dependency: influx
+Jul 16 16:29:57 IntelluxeVM script[10368]: [FAIL] Missing dependency: influx
+Jul 16 16:29:57 IntelluxeVM diagnostics[10359]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:29:57 IntelluxeVM script[10374]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:29:57 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:29:57 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:30:01 IntelluxeVM CRON[10397]: pam_unix(cron:session): session opened for user root(uid=0) by root(uid=0)
+Jul 16 16:30:01 IntelluxeVM CRON[10398]: (root) CMD ([ -x /etc/init.d/anacron ] && if [ ! -d /run/systemd/system ]; then /usr/sbin/invoke-rc.d anacron start >/dev/null; fi)
+Jul 16 16:30:01 IntelluxeVM CRON[10397]: pam_unix(cron:session): session closed for user root
+Jul 16 16:30:06 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 54.
+Jul 16 16:30:06 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 54.
+Jul 16 16:30:06 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:30:06 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:30:06 IntelluxeVM systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+Jul 16 16:30:06 IntelluxeVM systemd[1]: sysstat-collect.service: Deactivated successfully.
+Jul 16 16:30:06 IntelluxeVM systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+Jul 16 16:30:06 IntelluxeVM bootstrap[10429]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:30:06 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:30:06 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:30:06 IntelluxeVM config-web-ui[10430]: Traceback (most recent call last):
+Jul 16 16:30:06 IntelluxeVM config-web-ui[10430]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:30:06 IntelluxeVM config-web-ui[10430]:     from flask import (
+Jul 16 16:30:06 IntelluxeVM config-web-ui[10430]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:30:06 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:30:06 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:30:16 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 55.
+Jul 16 16:30:16 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 55.
+Jul 16 16:30:16 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:30:16 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:30:16 IntelluxeVM bootstrap[10525]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:30:16 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:30:16 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:30:16 IntelluxeVM config-web-ui[10526]: Traceback (most recent call last):
+Jul 16 16:30:16 IntelluxeVM config-web-ui[10526]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:30:16 IntelluxeVM config-web-ui[10526]:     from flask import (
+Jul 16 16:30:16 IntelluxeVM config-web-ui[10526]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:30:16 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:30:16 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:30:27 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 56.
+Jul 16 16:30:27 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 56.
+Jul 16 16:30:27 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:30:27 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:30:27 IntelluxeVM bootstrap[10621]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:30:27 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:30:27 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:30:27 IntelluxeVM config-web-ui[10622]: Traceback (most recent call last):
+Jul 16 16:30:27 IntelluxeVM config-web-ui[10622]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:30:27 IntelluxeVM config-web-ui[10622]:     from flask import (
+Jul 16 16:30:27 IntelluxeVM config-web-ui[10622]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:30:27 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:30:27 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:30:27 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Scheduled restart job, restart counter is at 19.
+Jul 16 16:30:27 IntelluxeVM systemd[1]: Started intelluxe-diagnostics.service - clinic Diagnostics Health Check.
+Jul 16 16:30:27 IntelluxeVM diagnostics[10671]: [FAIL] Missing dependency: influx
+Jul 16 16:30:27 IntelluxeVM script[10680]: [FAIL] Missing dependency: influx
+Jul 16 16:30:27 IntelluxeVM diagnostics[10671]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:30:27 IntelluxeVM script[10686]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:30:27 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:30:27 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:30:36 IntelluxeVM systemd[4359]: launchpadlib-cache-clean.service - Clean up old files in the Launchpadlib cache was skipped because of an unmet condition check (ConditionPathExists=/home/justin/.launchpadlib/api.launchpad.net/cache).
+Jul 16 16:30:37 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 57.
+Jul 16 16:30:37 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 57.
+Jul 16 16:30:37 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:30:37 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:30:37 IntelluxeVM bootstrap[10736]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:30:37 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:30:37 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:30:37 IntelluxeVM config-web-ui[10737]: Traceback (most recent call last):
+Jul 16 16:30:37 IntelluxeVM config-web-ui[10737]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:30:37 IntelluxeVM config-web-ui[10737]:     from flask import (
+Jul 16 16:30:37 IntelluxeVM config-web-ui[10737]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:30:37 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:30:37 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:30:39 IntelluxeVM sudo[9948]: pam_unix(sudo:session): session closed for user root
+Jul 16 16:30:47 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 58.
+Jul 16 16:30:47 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 58.
+Jul 16 16:30:47 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:30:47 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:30:47 IntelluxeVM bootstrap[10834]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:30:47 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:30:47 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:30:47 IntelluxeVM config-web-ui[10835]: Traceback (most recent call last):
+Jul 16 16:30:47 IntelluxeVM config-web-ui[10835]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:30:47 IntelluxeVM config-web-ui[10835]:     from flask import (
+Jul 16 16:30:47 IntelluxeVM config-web-ui[10835]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:30:47 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:30:47 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:30:48 IntelluxeVM sudo[10883]:   justin : TTY=pts/2 ; PWD=/home/justin ; USER=root ; COMMAND=/usr/bin/journalctl -xe
+Jul 16 16:30:48 IntelluxeVM sudo[10883]: pam_unix(sudo:session): session opened for user root(uid=0) by justin(uid=1000)
+Jul 16 16:30:48 IntelluxeVM sudo[10883]: pam_unix(sudo:session): session closed for user root
+Jul 16 16:30:57 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 59.
+Jul 16 16:30:57 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 59.
+Jul 16 16:30:57 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:30:57 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:30:57 IntelluxeVM bootstrap[10937]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:30:57 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:30:57 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:30:57 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Scheduled restart job, restart counter is at 20.
+Jul 16 16:30:57 IntelluxeVM systemd[1]: Started intelluxe-diagnostics.service - clinic Diagnostics Health Check.
+Jul 16 16:30:57 IntelluxeVM diagnostics[10987]: [FAIL] Missing dependency: influx
+Jul 16 16:30:57 IntelluxeVM script[10996]: [FAIL] Missing dependency: influx
+Jul 16 16:30:57 IntelluxeVM diagnostics[10987]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:30:57 IntelluxeVM script[11002]: [WARN] Script interrupted or failed. Cleaning up partial files.
+Jul 16 16:30:57 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Main process exited, code=exited, status=2/INVALIDARGUMENT
+Jul 16 16:30:57 IntelluxeVM systemd[1]: intelluxe-diagnostics.service: Failed with result 'exit-code'.
+Jul 16 16:30:57 IntelluxeVM config-web-ui[10938]: Traceback (most recent call last):
+Jul 16 16:30:57 IntelluxeVM config-web-ui[10938]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:30:57 IntelluxeVM config-web-ui[10938]:     from flask import (
+Jul 16 16:30:57 IntelluxeVM config-web-ui[10938]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:30:57 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:30:57 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:31:08 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 60.
+Jul 16 16:31:08 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 60.
+Jul 16 16:31:08 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:31:08 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:31:08 IntelluxeVM bootstrap[11055]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:31:08 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:31:08 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:31:08 IntelluxeVM config-web-ui[11056]: Traceback (most recent call last):
+Jul 16 16:31:08 IntelluxeVM config-web-ui[11056]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:31:08 IntelluxeVM config-web-ui[11056]:     from flask import (
+Jul 16 16:31:08 IntelluxeVM config-web-ui[11056]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:31:08 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:31:08 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.
+Jul 16 16:31:18 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Scheduled restart job, restart counter is at 61.
+Jul 16 16:31:18 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Scheduled restart job, restart counter is at 61.
+Jul 16 16:31:18 IntelluxeVM systemd[1]: Started intelluxe-bootstrap.service - clinic + WireGuard Setup.
+Jul 16 16:31:18 IntelluxeVM systemd[1]: Started intelluxe-config-web-ui.service - Intelluxe Configuration Web UI.
+Jul 16 16:31:18 IntelluxeVM bootstrap[11156]: /opt/intelluxe/scripts/bootstrap.sh: line 187: HOME: unbound variable
+Jul 16 16:31:18 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:31:18 IntelluxeVM systemd[1]: intelluxe-bootstrap.service: Failed with result 'exit-code'.
+Jul 16 16:31:18 IntelluxeVM config-web-ui[11157]: Traceback (most recent call last):
+Jul 16 16:31:18 IntelluxeVM config-web-ui[11157]:   File "/opt/intelluxe/scripts/config_web_ui.py", line 33, in <module>
+Jul 16 16:31:18 IntelluxeVM config-web-ui[11157]:     from flask import (
+Jul 16 16:31:18 IntelluxeVM config-web-ui[11157]: ModuleNotFoundError: No module named 'flask'
+Jul 16 16:31:18 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Main process exited, code=exited, status=1/FAILURE
+Jul 16 16:31:18 IntelluxeVM systemd[1]: intelluxe-config-web-ui.service: Failed with result 'exit-code'.

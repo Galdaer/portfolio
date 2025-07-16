@@ -1,0 +1,12 @@
+# intelluxe-post-gui.target
+# Custom target that runs after GUI is established
+# This ensures Intelluxe services don't interfere with boot
+
+[Unit]
+Description=Intelluxe Services Post-GUI Target
+Requires=graphical.target
+After=graphical.target gdm.service
+AllowIsolate=yes
+
+[Install]
+WantedBy=graphical.target

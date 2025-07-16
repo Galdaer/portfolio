@@ -8,7 +8,8 @@
 Description=Run Intelluxe diagnostics every 30 minutes and after boot
 
 [Timer]
-OnBootSec=2min
+# Start 5 minutes after boot to avoid conflicts with auto-repair
+OnBootSec=5min
 OnUnitActiveSec=30min
 Unit=intelluxe-diagnostics.service
 
