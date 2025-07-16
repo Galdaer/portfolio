@@ -105,13 +105,13 @@ if ! chown "$(whoami)" "$LOG_FILE" 2>/dev/null; then
 fi
 
 log "🔍 Checking for dangling symlinks..."
-run find /etc/systemd/system/intelluxe -xtype l
+run find /etc/systemd/system/ -name "intelluxe-*" -xtype l
 
 log "🔍 Checking for proper file ownership (development: user:intelluxe, system: root/intelluxe)..."
-run find /etc/systemd/system/intelluxe ! -user root -ls
+run find /etc/systemd/system/ -name "intelluxe-*" ! -user root -ls
 
 log "🔍 Checking for incorrect permissions (development: 644/755 for systemd, 660/664/755 for configs)..."
-run find /etc/systemd/system/intelluxe -type f \( ! -perm 644 -a ! -perm 755 \) -ls
+run find /etc/systemd/system/ -name "intelluxe-*" -type f \( ! -perm 644 -a ! -perm 755 \) -ls
 
 log "🔍 Checking for failed systemd unit dependencies..."
 if ! run systemctl list-dependencies --failed; then
@@ -197,67 +197,132 @@ if [[ "$CI" == "true" && "$EUID" -ne 0 ]]; then
 fi
 
 # Main: Scan all .service and .timer files from installed location, fall back to source
-INSTALLED_DIR="/etc/systemd/system/intelluxe"
-if [[ -d "$INSTALLED_DIR" ]] && [[ -n "$(ls -A "$INSTALLED_DIR"/*.service "$INSTALLED_DIR"/*.timer 2>/dev/null)" ]]; then
-	unit_pattern="$INSTALLED_DIR"
-	log "Checking installed systemd units in $INSTALLED_DIR"
-else
-	unit_pattern="$SYSTEMD_DIR"
-	log "Checking source systemd units in $SYSTEMD_DIR"
-fi
-
-for unit in "$unit_pattern"/*.service "$unit_pattern"/*.timer; do
-	[[ -f "$unit" ]] || continue
-	# Check ExecStart/ExecStartPre/ExecStartPost for scripts
-	while read -r line; do
-		script=$(echo "$line" | awk -F= '{print $2}' | awk '{print $1}')
-		# Only check scripts in /usr/local/bin or scripts dir
-		if [[ "$script" =~ ^/usr/local/bin/ ]]; then
-			sname=$(basename "$script")
-			if [[ -f "$SCRIPTS_DIR/../scripts/$sname" ]]; then
-				check_file_secure "$SCRIPTS_DIR/../scripts/$sname" script
-			else
+INSTALLED_UNITS=$(ls /etc/systemd/system/intelluxe-*.service /etc/systemd/system/intelluxe-*.timer 2>/dev/null || true)
+if [[ -n "$INSTALLED_UNITS" ]]; then
+	log "Checking installed systemd units with intelluxe- prefix in /etc/systemd/system/"
+	for unit in $INSTALLED_UNITS; do
+		[[ -f "$unit" ]] || continue
+		
+		# Map installed unit back to source file (remove intelluxe- prefix)
+		unit_basename=$(basename "$unit")
+		source_unit_name="${unit_basename#intelluxe-}"
+		source_unit_path="$SYSTEMD_DIR/$source_unit_name"
+		
+		# Verify the source file exists
+		if [[ ! -f "$source_unit_path" ]]; then
+			msg="[FAIL] Installed unit $unit has no corresponding source file $source_unit_path"
+			echo "$msg" | tee -a "$tmp_fail"
+			FAILURES_ARRAY+=("$msg")
+			continue
+		fi
+		
+		# Check ExecStart/ExecStartPre/ExecStartPost for scripts
+		while read -r line; do
+			script=$(echo "$line" | awk -F= '{print $2}' | awk '{print $1}')
+			# Only check scripts in /usr/local/bin or scripts dir
+			if [[ "$script" =~ ^/usr/local/bin/ ]]; then
+				sname=$(basename "$script")
+				if [[ -f "$SCRIPTS_DIR/$sname" ]]; then
+					check_file_secure "$SCRIPTS_DIR/$sname" script
+				else
+					check_file_secure "$script" script
+				fi
+			elif [[ "$script" =~ ^/ ]]; then
 				check_file_secure "$script" script
 			fi
-		elif [[ "$script" =~ ^/ ]]; then
-			check_file_secure "$script" script
+		done < <(grep -E 'ExecStart|ExecStartPre|ExecStartPost' "$source_unit_path")
+		# Check EnvironmentFile for env files
+		while read -r line; do
+			envfile=$(echo "$line" | awk -F= '{print $2}' | awk '{print $1}')
+			# Remove leading - (optional file indicator) from systemd EnvironmentFile paths
+			envfile=${envfile#-}
+			# Skip empty environment file paths
+			[[ -n "$envfile" ]] || continue
+			if [[ -f "$envfile" ]]; then
+				check_file_secure "$envfile" env
+			else
+				msg="[FAIL] Missing env file: $envfile"
+				echo "$msg" | tee -a "$tmp_fail"
+				FAILURES_ARRAY+=("$msg")
+			fi
+		done < <(grep "EnvironmentFile=" "$source_unit_path" | grep -v "^#")
+		# Check for logging/status
+		check_systemd_logging "$source_unit_path"
+		if command -v systemd-analyze >/dev/null 2>&1; then
+			# Run systemd-analyze verify on the installed unit, but suppress expected warnings
+			# about dependency name mismatches since we use intelluxe- prefix for installation
+			verify_out=$(systemd-analyze verify "$unit" 2>&1 | grep -v "has different name" || true)
+			status=$?
+			if [[ -n "$verify_out" ]]; then
+				while IFS= read -r line; do
+					if (( status != 0 )); then
+						fail "[verify] $unit: $line"
+					else
+						warn "[verify] $unit: $line"
+					fi
+					VERIFY_ARRAY+=("$unit: $line")
+				done <<< "$verify_out"
+			fi
+		else
+			debug "systemd-analyze not found; skipping verify for $unit"
 		fi
-	done < <(grep -E 'ExecStart|ExecStartPre|ExecStartPost' "$unit")
-	# Check EnvironmentFile for env files
-	while read -r line; do
-		envfile=$(echo "$line" | awk -F= '{print $2}' | awk '{print $1}')
-		# Remove leading - (optional file indicator) from systemd EnvironmentFile paths
-		envfile=${envfile#-}
-		# Skip empty environment file paths
-		[[ -n "$envfile" ]] || continue
-                if [[ -f "$envfile" ]]; then
-                        check_file_secure "$envfile" env
-                else
-                        msg="[FAIL] Missing env file: $envfile"
-                        echo "$msg" | tee -a "$tmp_fail"
-                        FAILURES_ARRAY+=("$msg")
-                fi
-        done < <(grep "EnvironmentFile=" "$unit" | grep -v "^#")
-        # Check for logging/status
-        check_systemd_logging "$unit"
-        if command -v systemd-analyze >/dev/null 2>&1; then
-                verify_out=$(systemd-analyze verify "$unit" 2>&1)
-                status=$?
-                if [[ -n "$verify_out" ]]; then
-                        while IFS= read -r line; do
-                                if (( status != 0 )); then
-                                        fail "[verify] $unit: $line"
-                                else
-                                        warn "[verify] $unit: $line"
-                                fi
-                                VERIFY_ARRAY+=("$unit: $line")
-                        done <<< "$verify_out"
-                fi
-        else
-                debug "systemd-analyze not found; skipping verify for $unit"
-        fi
-        $DETAILS && echo "Checked $unit"
-done
+		$DETAILS && echo "Checked $unit (source: $source_unit_path)"
+	done
+else
+	log "No installed units found, checking source systemd units in $SYSTEMD_DIR"
+	for unit in "$SYSTEMD_DIR"/*.service "$SYSTEMD_DIR"/*.timer; do
+		[[ -f "$unit" ]] || continue
+		# Check ExecStart/ExecStartPre/ExecStartPost for scripts
+		while read -r line; do
+			script=$(echo "$line" | awk -F= '{print $2}' | awk '{print $1}')
+			# Only check scripts in /usr/local/bin or scripts dir
+			if [[ "$script" =~ ^/usr/local/bin/ ]]; then
+				sname=$(basename "$script")
+				if [[ -f "$SCRIPTS_DIR/$sname" ]]; then
+					check_file_secure "$SCRIPTS_DIR/$sname" script
+				else
+					check_file_secure "$script" script
+				fi
+			elif [[ "$script" =~ ^/ ]]; then
+				check_file_secure "$script" script
+			fi
+		done < <(grep -E 'ExecStart|ExecStartPre|ExecStartPost' "$unit")
+		# Check EnvironmentFile for env files
+		while read -r line; do
+			envfile=$(echo "$line" | awk -F= '{print $2}' | awk '{print $1}')
+			# Remove leading - (optional file indicator) from systemd EnvironmentFile paths
+			envfile=${envfile#-}
+			# Skip empty environment file paths
+			[[ -n "$envfile" ]] || continue
+			if [[ -f "$envfile" ]]; then
+				check_file_secure "$envfile" env
+			else
+				msg="[FAIL] Missing env file: $envfile"
+				echo "$msg" | tee -a "$tmp_fail"
+				FAILURES_ARRAY+=("$msg")
+			fi
+		done < <(grep "EnvironmentFile=" "$unit" | grep -v "^#")
+		# Check for logging/status
+		check_systemd_logging "$unit"
+		if command -v systemd-analyze >/dev/null 2>&1; then
+			verify_out=$(systemd-analyze verify "$unit" 2>&1)
+			status=$?
+			if [[ -n "$verify_out" ]]; then
+				while IFS= read -r line; do
+					if (( status != 0 )); then
+						fail "[verify] $unit: $line"
+					else
+						warn "[verify] $unit: $line"
+					fi
+					VERIFY_ARRAY+=("$unit: $line")
+				done <<< "$verify_out"
+			fi
+		else
+			debug "systemd-analyze not found; skipping verify for $unit"
+		fi
+		$DETAILS && echo "Checked $unit"
+	done
+fi
 
 failures=${#FAILURES_ARRAY[@]}
 warns=${#WARNINGS_ARRAY[@]}

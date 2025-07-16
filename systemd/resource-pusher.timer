@@ -10,7 +10,7 @@ Description=Run resource-pusher every 10 minutes
 [Timer]
 OnBootSec=5min
 OnUnitActiveSec=10min
-Unit=resource-pusher.service
+Unit=intelluxe-resource-pusher.service
 
 [Install]
 WantedBy=timers.target

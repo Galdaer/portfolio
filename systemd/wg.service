@@ -6,8 +6,8 @@
 
 [Unit]
 Description=Bring up WireGuard interface inside clinic namespace
-After=netns.service
-Requires=netns.service
+After=intelluxe-netns.service
+Requires=intelluxe-netns.service
 
 [Service]
 Type=oneshot

@@ -11,6 +11,7 @@ Description=Run wg0 diagnostics every 30 minutes
 OnBootSec=5min
 OnUnitActiveSec=30min
 Persistent=true
+Unit=intelluxe-wg0-diagnostics.service
 
 [Install]
 WantedBy=timers.target

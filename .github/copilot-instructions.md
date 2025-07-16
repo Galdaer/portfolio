@@ -172,7 +172,7 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 ## Git Management
 
 ### Tracked Files
-- `services/core/`, `scripts/`, `test/`, `systemd/`, `docs/`, `services/user/.gitkeep`, `vendor/`
+- `services/core/`, `scripts/`, `test/`, `systemd/`, `docs/`, `services/user/.gitkeep`, `reference/` (submodule), `mcps/`
 
 ### Ignored Files
 - `services/user/*` (except .gitkeep), `docker-stack/`, `logs/`, `venv/`

@@ -18,7 +18,6 @@
 	   setup-dev \
 	   setup-open \
 	   setup-restricted \
-	   sync-systemd \
 	   systemd-verify \
 	   teardown \
 	   teardown-vpn \
@@ -47,14 +46,13 @@ install:
 		echo "ERROR: Group membership not applied correctly"; \
 		exit 1; \
 	fi
-	sudo mkdir -p /opt/intelluxe/scripts
 	@echo "   - Fixing systemd service files"
 	@bash scripts/fix-systemd-units.sh
-	@echo "   - Installing systemd units to /etc/systemd/system/ with intelluxe- prefix"
+	@echo "   - Installing systemd units to /etc/systemd/system/ with intelluxe- prefix (using symlinks)"
 	@for unit in $(PWD)/systemd/*.service $(PWD)/systemd/*.timer; do \
 		if [ -f "$$unit" ]; then \
 			unit_name=$$(basename "$$unit"); \
-			sudo install -m 644 "$$unit" "/etc/systemd/system/intelluxe-$$unit_name"; \
+			sudo ln -sf "$$unit" "/etc/systemd/system/intelluxe-$$unit_name"; \
 		fi; \
 	done
 	@echo "   - Enabling systemd units"
@@ -68,7 +66,8 @@ install:
 	@echo "   - Symlinking /home/intelluxe/stack to /opt/intelluxe/stack"
 	sudo ln -sf $(PWD)/stack /opt/intelluxe/
 	@echo "   - Symlinking /home/intelluxe/scripts to /opt/intelluxe/scripts"
-	sudo ln -sf $(PWD)/scripts /opt/intelluxe/scripts
+	sudo mkdir -p /opt/intelluxe
+	sudo ln -sf $(PWD)/scripts/ /opt/intelluxe/
 	@echo "   - Setting correct permissions on script files"
 	@sudo chmod 755 $(PWD)/scripts/*.sh $(PWD)/scripts/*.py
 	@echo "   - Setting development ownership on source files (user:intelluxe)"
@@ -122,12 +121,12 @@ fix-permissions:
 	@sudo find stack -name "*.conf" -o -name "*.env" | xargs -r sudo chmod 660
 	@sudo find stack -name "*.log" | xargs -r sudo chmod 664
 	@sudo chown -R intelluxe:intelluxe /opt/intelluxe
-	@echo "   - Installing systemd units with intelluxe- prefix if missing"
+	@echo "   - Installing systemd units with intelluxe- prefix if missing (using symlinks)"
 	@for unit in $(PWD)/systemd/*.service $(PWD)/systemd/*.timer; do \
 		if [ -f "$$unit" ]; then \
 			unit_name=$$(basename "$$unit"); \
 			if [ ! -f "/etc/systemd/system/intelluxe-$$unit_name" ]; then \
-				sudo install -m 644 "$$unit" "/etc/systemd/system/intelluxe-$$unit_name"; \
+				sudo ln -sf "$$unit" "/etc/systemd/system/intelluxe-$$unit_name"; \
 			fi; \
 		fi; \
 	done 2>/dev/null || true
@@ -272,19 +271,6 @@ validate:
 systemd-verify:
 	@echo "🔧  Verifying systemd service configurations"
 	@./scripts/systemd-verify.sh
-
-sync-systemd: ## Sync systemd service files (development quick update)
-	@echo "🔄  Syncing systemd service files..."
-	@for service in systemd/*.service systemd/*.timer; do \
-		if [ -f "$$service" ]; then \
-			basename=$$(basename "$$service"); \
-			target_name="intelluxe-$$basename"; \
-			echo "Installing $$service -> /etc/systemd/system/$$target_name"; \
-			sudo cp "$$service" "/etc/systemd/system/$$target_name"; \
-		fi; \
-	done
-	@sudo systemctl daemon-reload
-	@echo "✅  Systemd services synced and daemon reloaded"
 
 test:
 	@echo "🧪  Running Bats tests"

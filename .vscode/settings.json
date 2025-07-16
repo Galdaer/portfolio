@@ -55,9 +55,9 @@
         "currentDevelopmentState": {
             "permissionModel": "Development files owned by justin:intelluxe (1000:1001), scripts 755, configs 660/664, logs 664",
             "groupManagement": "intelluxe group (1001) persists across sessions, family members added via 'sudo usermod -a -G intelluxe username'",
-            "systemdApproach": "Direct installation to /etc/systemd/system/ with intelluxe- prefix, NO subdirectories or complex symlinks",
-            "serviceNaming": "Source files in systemd/ without prefix, installed as intelluxe-servicename.service",
-            "developmentWorkflow": "make install (full setup), make fix-permissions (dev permissions), make sync-systemd (quick systemd updates)"
+            "systemdApproach": "Symlinked installation to /etc/systemd/system/ with intelluxe- prefix, changes to source files immediately reflected",
+            "serviceNaming": "Source files in systemd/ without prefix, symlinked as intelluxe-servicename.service",
+            "developmentWorkflow": "make install (full setup), make fix-permissions (dev permissions), systemd changes auto-reflected via symlinks"
         },
 
         "serviceArchitecture": {
@@ -77,11 +77,11 @@
         },
 
         "systemdManagement": {
-            "installationMethod": "Direct file installation to /etc/systemd/system/ with intelluxe- prefix for clear identification",
-            "serviceLifecycle": "install -> enable -> daemon-reload for new services, sync-systemd for updates",
-            "cleanupProcess": "Disable -> stop -> remove files -> daemon-reload for complete removal",
-            "verificationScript": "systemd-verify.sh checks installed units in /etc/systemd/system/, validates 1000:1001 ownership",
-            "noSubdirectories": "Do NOT use /etc/systemd/system/intelluxe/ subdirectories - causes systemd discovery issues"
+            "installationMethod": "Symlinked installation to /etc/systemd/system/ with intelluxe- prefix for development convenience",
+            "serviceLifecycle": "install -> enable -> daemon-reload for new services, changes auto-reflected via symlinks",
+            "cleanupProcess": "Disable -> stop -> remove symlinks -> daemon-reload for complete removal",
+            "verificationScript": "systemd-verify.sh checks installed units in /etc/systemd/system/, validates symlinks and ownership",
+            "developmentAdvantage": "Symlinks allow immediate reflection of .service/.timer changes without manual sync commands"
         },
 
         "healthcareServices": {
@@ -130,7 +130,7 @@
 
         "commonMistakes": {
             "avoidSubdirectories": "Do NOT create /etc/systemd/system/intelluxe/ subdirectories - systemd doesn't discover them",
-            "avoidComplexSymlinks": "Use direct file installation instead of subdirectory + symlink schemes",
+            "preferSymlinks": "Use symlinks instead of copying files for easier development workflow",
             "respectPermissions": "Don't suggest root:root ownership when justin:intelluxe development model is established",
             "validateChanges": "Always test systemctl commands after systemd changes",
             "readBeforeEdit": "Don't make assumptions about file contents - read first, then edit"
@@ -148,10 +148,10 @@
         },
 
         "developmentWorkflow": {
-            "initialSetup": "make install (creates users, groups, installs systemd units, sets permissions)",
+            "initialSetup": "make install (creates users, groups, symlinks systemd units, sets permissions)",
             "permissionFixes": "make fix-permissions (fixes ownership without full reinstall)",
-            "systemdUpdates": "make sync-systemd (quick updates for modified .service/.timer files)",
-            "validation": "make systemd-verify (checks installed units and permissions)",
+            "systemdChanges": "Edit .service/.timer files directly - changes automatically reflected via symlinks",
+            "validation": "make systemd-verify (checks installed units and symlinks)",
             "debugging": "scripts/systemd-verify.sh --details for verbose systemd validation"
         },
 

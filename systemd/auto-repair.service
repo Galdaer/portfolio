@@ -7,7 +7,7 @@
 [Unit]
 Description=Auto-repair for clinic and WireGuard containers
 After=network.target docker.service
-Wants=auto-repair.timer
+Wants=intelluxe-auto-repair.timer
 
 [Service]
 Type=oneshot
