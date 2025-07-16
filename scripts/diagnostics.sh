@@ -25,7 +25,7 @@ set -euo pipefail
 # Commercial use of project branding requires separate permission.
 #
 #────────────────────────────────────────────────────────────────────────
-# Requirements: ss, curl, docker, jq, influx, dig
+# Requirements: ss, curl, docker, jq, dig
 #
 # Usage: ./diagnostics.sh [options]
 #   --log-file FILE       Log file path (default: /var/log/diagnostics.log)
@@ -33,7 +33,7 @@ set -euo pipefail
 #                         ${CFG_ROOT}/.bootstrap.conf)
 #   --dns-fallback IP     Fallback DNS server (default: 8.8.8.8)
 #   --wg-port PORT        WireGuard UDP port (default: 51820)
-#   --influx-db DB        InfluxDB database (default: clinic_metrics)
+
 #   --no-color            Disable color output
 #   --debug               Enable debug logging
 #   --deep-check          Enable extra systemd checks
@@ -74,14 +74,14 @@ init_dns_config() {
 init_dns_config
 # Default WireGuard port
 : "${WG_PORT:=51820}"
-: "${INFLUX_DB:=clinic_metrics}"
+
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
 trap cleanup SIGINT SIGTERM ERR EXIT
 
-USAGE="Usage: $0 [--log-file FILE] [--dns-ip IP] [--dns-fallback IP] [--wg-port PORT] [--influx-db DB] [--no-color] [--debug] [--deep-check] [--export-json] [--safe] [--critical-only] [--source=SRC] [--help]
+USAGE="Usage: $0 [--log-file FILE] [--dns-ip IP] [--dns-fallback IP] [--wg-port PORT] [--no-color] [--debug] [--deep-check] [--export-json] [--safe] [--critical-only] [--source=SRC] [--help]
 Version: $SCRIPT_VERSION
 "
 
@@ -116,10 +116,7 @@ while [[ $# -gt 0 ]]; do
 		WG_PORT="$2"
 		shift 2
 		;;
-	--influx-db)
-		INFLUX_DB="$2"
-		shift 2
-		;;
+
 	--critical-only)
 		CRITICAL_ONLY=true
 		shift
@@ -154,7 +151,7 @@ if [[ $# -gt 0 ]]; then
         exit_with_usage 1
 fi
 
-require_deps ss curl jq influx dig
+require_deps ss curl jq dig
 
 # Logs are stored under the configured Intelluxe root by default.
 # Set CFG_ROOT in /opt/intelluxe/stack/.bootstrap.conf or export it before running
@@ -171,15 +168,11 @@ FAILURES=()
 PASS=true
 CHECK_COUNT=0
 
-write_influx() {
+write_metric() {
 	local test="$1"
 	local value="$2"
-	if [[ "$INFLUX_MOCK" == "true" ]]; then
-		echo "[MOCK] Would write to influx: $test=$value"
-		return 0
-	fi
-	influx -database "$INFLUX_DB" -execute \
-		"INSERT clinicDiagnostics,host=$(hostname -s),test=$test success=${value}i"
+	# Log metrics to file instead of InfluxDB
+	echo "$(date -Iseconds) host=$(hostname -s) test=$test success=$value" >> "$LOG_FILE"
 }
 
 report() {
@@ -201,19 +194,19 @@ report() {
 CHECK_COUNT=$((CHECK_COUNT + 1))
 if docker ps --filter "name=ollama" --filter "status=running" --format "table {{.Names}}" | grep -q ollama; then
 	report pass "Ollama service is running"
-	write_influx "Ollama" 1
+	write_metric "Ollama" 1
 else
 	report fail "Ollama service is not running"
-	write_influx "Ollama" 0
+	write_metric "Ollama" 0
 fi
 
 CHECK_COUNT=$((CHECK_COUNT + 1))
 if docker ps --filter "name=healthcare-mcp" --filter "status=running" --format "table {{.Names}}" | grep -q healthcare-mcp; then
 	report pass "Healthcare-MCP service is running"
-	write_influx "HealthcareMCP" 1
+	write_metric "HealthcareMCP" 1
 else
 	report fail "Healthcare-MCP service is not running"
-	write_influx "HealthcareMCP" 0
+	write_metric "HealthcareMCP" 0
 fi
 
 CHECK_COUNT=$((CHECK_COUNT + 1))
@@ -236,19 +229,19 @@ if ! $dns_ok; then
 fi
 if $dns_ok; then
 	report pass "DNS lookup succeeded (google.com)"
-	write_influx "DNS" 1
+	write_metric "DNS" 1
 else
 	report fail "DNS resolution failed via $DNS_IP and fallback $DNS_FALLBACK"
-	write_influx "DNS" 0
+	write_metric "DNS" 0
 fi
 
 CHECK_COUNT=$((CHECK_COUNT + 1))
 if ss -uln | grep -q ":$WG_PORT"; then
 	report pass "WireGuard server is listening on UDP $WG_PORT"
-	write_influx "ExternalReachability" 1
+	write_metric "ExternalReachability" 1
 else
 	report fail "WireGuard UDP $WG_PORT is closed. Ensure the WireGuard service is running and the port is correctly configured."
-	write_influx "ExternalReachability" 0
+	write_metric "ExternalReachability" 0
 fi
 
 if [[ "$DEEP_CHECK" == true ]]; then
@@ -260,11 +253,11 @@ if [[ "$DEEP_CHECK" == true ]]; then
 		if jq -e '.failures? | length > 0' "$tmpjson" &>/dev/null; then
 			while IFS= read -r issue; do
 				report fail "$issue"
-				write_influx "SystemdIssue" 0
+				write_metric "SystemdIssue" 0
 			done < <(jq -r '.failures[]' "$tmpjson")
 		else
 			report pass "No systemd issues detected (deep check)"
-			write_influx "SystemdIssue" 1
+			write_metric "SystemdIssue" 1
 		fi
 		rm -f "$tmpjson"
 	else
@@ -278,17 +271,9 @@ if [[ "$CI" == "true" && "$EUID" -ne 0 ]]; then
 	exit 0
 fi
 
-# If running in CI, mock InfluxDB connection
+# CI mode handling
 if [[ "$CI" == "true" ]]; then
-	echo "[CI] Mocking InfluxDB connection."
-	INFLUX_MOCK="true"
-fi
-
-# Mock InfluxDB push in CI if INFLUX_MOCK is set
-if [[ "$INFLUX_MOCK" == "true" ]]; then
-	echo "[CI] Skipping InfluxDB push (INFLUX_MOCK set)."
-else
-	true
+	echo "[CI] Running in CI mode."
 fi
 
 END_TIME=$(date +%s%3N)
@@ -298,8 +283,8 @@ ANY_FAILURE=0
 [[ $FAIL_COUNT -gt 0 ]] && ANY_FAILURE=1
 
 if [[ "$DRY_RUN" != true ]]; then
-	influx -database "$INFLUX_DB" -execute \
-		"INSERT clinicDiagnosticsSummary,host=$(hostname -s) any_failure=${ANY_FAILURE}i,fail_count=${FAIL_COUNT}i,total_checks=${CHECK_COUNT}i,duration_ms=${DURATION_MS}i"
+	# Write summary metrics to log file
+	echo "$(date -Iseconds) host=$(hostname -s) summary any_failure=$ANY_FAILURE fail_count=$FAIL_COUNT total_checks=$CHECK_COUNT duration_ms=$DURATION_MS" >> "$LOG_FILE"
 fi
 
 log "===== Diagnostics Summary ====="

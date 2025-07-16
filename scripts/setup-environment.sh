@@ -205,31 +205,34 @@ update_packages() {
 build_dependency_list() {
     local common=(
         # Core system tools
-        curl wget git jq less vim nano htop 
+        curl wget git jq less vim nano htop
         iproute2 iptables net-tools tcpdump nmap socat
         coreutils util-linux lsof psmisc sysstat
-        make gcc g++ 
-        
+        make gcc g++
+
         # Security & monitoring (host-level only)
         fail2ban ufw bc tree ncdu iotop mtr
-        
+
         # VPN and networking tools
         wireguard-tools
-        
+
         # Development tools
         shellcheck # shfmt bats installed via Go/Git
-        
+
         # Runtime environments for CI/CD
         nodejs npm
-        
+
         # Python & AI dependencies
         python3-dev python3-pip python3-venv
-        
+
         # Database clients (for connecting to containerized DBs)
         postgresql-client redis-tools
-        
+
         # File system tools
         rsync fuse3
+
+        # Systemd and logging dependencies
+        systemd rsyslog
     )
     case $PKG_MANAGER in
         apt)
