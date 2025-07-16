@@ -5,16 +5,30 @@
 	   deps \
 	   diagnostics \
 	   dry-run \
+	   dry-run-dev \
+	   e2e \
 	   fix-permissions \
 	   help \
 	   install \
 	   lint \
+	   lint-python \
 	   reset \
 	   restore \
 	   setup \
+	   setup-dev \
+	   setup-open \
+	   setup-restricted \
+	   sync-systemd \
+	   systemd-verify \
 	   teardown \
+	   teardown-vpn \
 	   test \
-	   update
+	   test-coverage \
+	   test-quiet \
+	   uninstall \
+	   update \
+	   validate \
+	   venv
 
 # Installation Commands
 install:
@@ -28,12 +42,28 @@ install:
 	fi
 	@echo "   - Adding current user to intelluxe group"
 	@sudo usermod -a -G intelluxe $(shell whoami)
+	@echo "   - Verifying group membership"
+	@if ! getent group intelluxe | grep -q $(shell whoami); then \
+		echo "ERROR: Group membership not applied correctly"; \
+		exit 1; \
+	fi
 	sudo mkdir -p /opt/intelluxe/scripts
 	@echo "   - Fixing systemd service files"
 	@bash scripts/fix-systemd-units.sh
-	@echo "   - Symlinking systemd units to /etc/systemd/system/intelluxe/"
-	sudo mkdir -p /etc/systemd/system/intelluxe
-	sudo install -m 644 $(PWD)/systemd/* /etc/systemd/system/intelluxe/
+	@echo "   - Installing systemd units to /etc/systemd/system/ with intelluxe- prefix"
+	@for unit in $(PWD)/systemd/*.service $(PWD)/systemd/*.timer; do \
+		if [ -f "$$unit" ]; then \
+			unit_name=$$(basename "$$unit"); \
+			sudo install -m 644 "$$unit" "/etc/systemd/system/intelluxe-$$unit_name"; \
+		fi; \
+	done
+	@echo "   - Enabling systemd units"
+	@for unit in $(PWD)/systemd/*.service $(PWD)/systemd/*.timer; do \
+		if [ -f "$$unit" ]; then \
+			unit_name=$$(basename "$$unit"); \
+			sudo systemctl enable "intelluxe-$$unit_name" 2>/dev/null || echo "Note: intelluxe-$$unit_name may have dependency issues, will be resolved after daemon-reload"; \
+		fi; \
+	done
 	sudo systemctl daemon-reload
 	@echo "   - Symlinking /home/intelluxe/stack to /opt/intelluxe/stack"
 	sudo ln -sf $(PWD)/stack /opt/intelluxe/
@@ -41,8 +71,12 @@ install:
 	sudo ln -sf $(PWD)/scripts /opt/intelluxe/scripts
 	@echo "   - Setting correct permissions on script files"
 	@sudo chmod 755 $(PWD)/scripts/*.sh $(PWD)/scripts/*.py
-	@echo "   - Setting correct ownership on source files"
-	@sudo chown -R intelluxe:intelluxe $(PWD)/scripts $(PWD)/stack
+	@echo "   - Setting development ownership on source files (user:intelluxe)"
+	@sudo chown -R $(shell whoami):intelluxe $(PWD)/scripts $(PWD)/stack
+	@echo "   - Setting development permissions on stack files (group-writable)"
+	@sudo chmod -R g+w $(PWD)/stack
+	@sudo find $(PWD)/stack -name "*.conf" -o -name "*.env" | xargs -r sudo chmod 660
+	@sudo find $(PWD)/stack -name "*.log" | xargs -r sudo chmod 664
 	@echo "   - Setting correct ownership on symlinked files"
 	@sudo chown -R intelluxe:intelluxe /opt/intelluxe
 	@if [ -f "/opt/intelluxe/stack/.bootstrap.conf" ]; then \
@@ -51,9 +85,19 @@ install:
 	@echo "✅  Installation complete! Run 'make setup' to configure your Intelluxe AI system."
 
 uninstall:
-	@echo "🗑️  Removing Intelluxe symlinks and systemd units"
+	@echo "🗑️  Removing Intelluxe systemd units and directories"
+	@echo "   - Disabling and stopping Intelluxe systemd units"
+	@for unit in /etc/systemd/system/intelluxe-*.service /etc/systemd/system/intelluxe-*.timer; do \
+		if [ -f "$$unit" ]; then \
+			unit_name=$$(basename "$$unit"); \
+			sudo systemctl disable "$$unit_name" 2>/dev/null || true; \
+			sudo systemctl stop "$$unit_name" 2>/dev/null || true; \
+		fi; \
+	done 2>/dev/null || true
+	@echo "   - Removing Intelluxe systemd unit files"
+	sudo rm -f /etc/systemd/system/intelluxe-*.service /etc/systemd/system/intelluxe-*.timer
+	@echo "   - Removing Intelluxe directories"
 	sudo rm -rf /opt/intelluxe
-	sudo rm -rf /etc/systemd/system/intelluxe
 	sudo systemctl daemon-reload
 	@echo "✅ Uninstall complete"
 
@@ -66,10 +110,34 @@ fix-permissions:
 		sudo useradd -r -g intelluxe -s /bin/false -d /opt/intelluxe intelluxe; \
 	fi
 	@sudo usermod -a -G intelluxe $(shell whoami)
+	@echo "   - Verifying group membership"
+	@if ! getent group intelluxe | grep -q $(shell whoami); then \
+		echo "ERROR: Group membership not applied correctly"; \
+		exit 1; \
+	fi
 	@sudo chmod 755 scripts/*.sh scripts/*.py
-	@sudo chown -R intelluxe:intelluxe scripts stack
+	@sudo chown -R $(shell whoami):intelluxe scripts stack
+	@echo "   - Setting development permissions on stack files"
+	@sudo chmod -R g+w stack
+	@sudo find stack -name "*.conf" -o -name "*.env" | xargs -r sudo chmod 660
+	@sudo find stack -name "*.log" | xargs -r sudo chmod 664
 	@sudo chown -R intelluxe:intelluxe /opt/intelluxe
-	@sudo chmod 644 /etc/systemd/system/intelluxe/*
+	@echo "   - Installing systemd units with intelluxe- prefix if missing"
+	@for unit in $(PWD)/systemd/*.service $(PWD)/systemd/*.timer; do \
+		if [ -f "$$unit" ]; then \
+			unit_name=$$(basename "$$unit"); \
+			if [ ! -f "/etc/systemd/system/intelluxe-$$unit_name" ]; then \
+				sudo install -m 644 "$$unit" "/etc/systemd/system/intelluxe-$$unit_name"; \
+			fi; \
+		fi; \
+	done 2>/dev/null || true
+	@echo "   - Enabling systemd units"
+	@for unit in $(PWD)/systemd/*.service $(PWD)/systemd/*.timer; do \
+		if [ -f "$$unit" ]; then \
+			unit_name=$$(basename "$$unit"); \
+			sudo systemctl enable "intelluxe-$$unit_name" 2>/dev/null || true; \
+		fi; \
+	done 2>/dev/null || true
 	@bash scripts/fix-systemd-units.sh
 	@sudo systemctl daemon-reload
 	@echo "✅ Permissions and ownership fixed"
@@ -204,6 +272,19 @@ validate:
 systemd-verify:
 	@echo "🔧  Verifying systemd service configurations"
 	@./scripts/systemd-verify.sh
+
+sync-systemd: ## Sync systemd service files (development quick update)
+	@echo "🔄  Syncing systemd service files..."
+	@for service in systemd/*.service systemd/*.timer; do \
+		if [ -f "$$service" ]; then \
+			basename=$$(basename "$$service"); \
+			target_name="intelluxe-$$basename"; \
+			echo "Installing $$service -> /etc/systemd/system/$$target_name"; \
+			sudo cp "$$service" "/etc/systemd/system/$$target_name"; \
+		fi; \
+	done
+	@sudo systemctl daemon-reload
+	@echo "✅  Systemd services synced and daemon reloaded"
 
 test:
 	@echo "🧪  Running Bats tests"

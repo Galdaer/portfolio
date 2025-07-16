@@ -47,7 +47,7 @@ fix_service_file() {
   
   # Fix EnvironmentFile path if it uses relative paths
   if grep -q 'EnvironmentFile=-/etc/default/clinic.conf' "$service_file"; then
-    sed -i 's|EnvironmentFile=-/etc/default/clinic.conf|EnvironmentFile=-/opt/intelluxe/stack/clinic.conf|g' "$service_file"
+    sed -i 's|EnvironmentFile=-/etc/default/clinic.conf|EnvironmentFile=-/opt/intelluxe/stack/.bootstrap.conf|g' "$service_file"
     echo "  Fixed clinic.conf path in $service_file"
   fi
   

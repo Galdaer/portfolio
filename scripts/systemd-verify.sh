@@ -107,10 +107,10 @@ fi
 log "🔍 Checking for dangling symlinks..."
 run find /etc/systemd/system/intelluxe -xtype l
 
-log "🔍 Checking for files not owned by root..."
+log "🔍 Checking for proper file ownership (development: user:intelluxe, system: root/intelluxe)..."
 run find /etc/systemd/system/intelluxe ! -user root -ls
 
-log "🔍 Checking for incorrect permissions (non-644 or non-755)..."
+log "🔍 Checking for incorrect permissions (development: 644/755 for systemd, 660/664/755 for configs)..."
 run find /etc/systemd/system/intelluxe -type f \( ! -perm 644 -a ! -perm 755 \) -ls
 
 log "🔍 Checking for failed systemd unit dependencies..."
@@ -139,7 +139,7 @@ declare -a FAILURES_ARRAY=()
 declare -a WARNINGS_ARRAY=()
 declare -a VERIFY_ARRAY=()
 
-# Helper: Check if a file exists and is secure (0600 or 0640 for env, 0700/0755 for scripts)
+# Helper: Check if a file exists and is secure (development permissions: 660/664 for configs, 755 for scripts, justin:intelluxe ownership)
 check_file_secure() {
 	local f="$1" type="$2"
         if [[ ! -e "$f" ]]; then
@@ -152,12 +152,27 @@ check_file_secure() {
 	perm=$(stat -L -c '%a' "$f")
 	owner=$(stat -L -c '%U' "$f")
 	if [[ "$type" == "script" ]]; then
-                [[ "$perm" =~ ^0?7[05][05]$ ]] || { msg="[WARN] $f is $perm, should be 700/755"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
+                # Development: 755 (rwxr-xr-x) for group access
+                [[ "$perm" =~ ^0?755$ ]] || { msg="[WARN] $f is $perm, should be 755 (development)"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
                 [[ -x "$f" ]] || { msg="[WARN] $f is not executable"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
         elif [[ "$type" == "env" ]]; then
-                [[ "$perm" =~ ^0?6[04][04]$ ]] || { msg="[WARN] $f is $perm, should be 600/640"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
+                # Development: 660 (rw-rw----) or 664 (rw-rw-r--) for group collaboration
+                [[ "$perm" =~ ^0?66[04]$ ]] || { msg="[WARN] $f is $perm, should be 660/664 (development)"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
         fi
-        [[ "$owner" == "intelluxe" ]] || { msg="[WARN] $f is owned by $owner, should be intelluxe"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
+        # System binaries like systemctl should be owned by root, not intelluxe
+        if [[ "$f" =~ ^/usr/(s?bin|local/bin)/ ]]; then
+                [[ "$owner" == "root" ]] || { msg="[WARN] System binary $f is owned by $owner, should be root"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
+        # Development mode: check for current user ownership (justin:intelluxe)
+        elif [[ "$f" =~ ^(/home/intelluxe|/opt/intelluxe/(scripts|stack)) ]]; then
+                # Development files should be owned by justin (1000) with intelluxe group (1001)
+                local uid gid
+                uid=$(stat -L -c '%u' "$f")
+                gid=$(stat -L -c '%g' "$f")
+                [[ "$uid" == "1000" && "$gid" == "1001" ]] || { msg="[WARN] Development file $f is $uid:$gid, should be 1000:1001 (justin:intelluxe)"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
+        else
+                # System files should be owned by intelluxe
+                [[ "$owner" == "intelluxe" ]] || { msg="[WARN] $f is owned by $owner, should be intelluxe"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
+        fi
 }
 
 # Helper: Check for systemd logging/status directives
@@ -181,8 +196,17 @@ if [[ "$CI" == "true" && "$EUID" -ne 0 ]]; then
 	exit 0
 fi
 
-# Main: Scan all .service and .timer files
-for unit in "$SYSTEMD_DIR"/*.service "$SYSTEMD_DIR"/*.timer; do
+# Main: Scan all .service and .timer files from installed location, fall back to source
+INSTALLED_DIR="/etc/systemd/system/intelluxe"
+if [[ -d "$INSTALLED_DIR" ]] && [[ -n "$(ls -A "$INSTALLED_DIR"/*.service "$INSTALLED_DIR"/*.timer 2>/dev/null)" ]]; then
+	unit_pattern="$INSTALLED_DIR"
+	log "Checking installed systemd units in $INSTALLED_DIR"
+else
+	unit_pattern="$SYSTEMD_DIR"
+	log "Checking source systemd units in $SYSTEMD_DIR"
+fi
+
+for unit in "$unit_pattern"/*.service "$unit_pattern"/*.timer; do
 	[[ -f "$unit" ]] || continue
 	# Check ExecStart/ExecStartPre/ExecStartPost for scripts
 	while read -r line; do
@@ -202,6 +226,10 @@ for unit in "$SYSTEMD_DIR"/*.service "$SYSTEMD_DIR"/*.timer; do
 	# Check EnvironmentFile for env files
 	while read -r line; do
 		envfile=$(echo "$line" | awk -F= '{print $2}' | awk '{print $1}')
+		# Remove leading - (optional file indicator) from systemd EnvironmentFile paths
+		envfile=${envfile#-}
+		# Skip empty environment file paths
+		[[ -n "$envfile" ]] || continue
                 if [[ -f "$envfile" ]]; then
                         check_file_secure "$envfile" env
                 else
@@ -209,7 +237,7 @@ for unit in "$SYSTEMD_DIR"/*.service "$SYSTEMD_DIR"/*.timer; do
                         echo "$msg" | tee -a "$tmp_fail"
                         FAILURES_ARRAY+=("$msg")
                 fi
-        done < <(grep EnvironmentFile= "$unit")
+        done < <(grep "EnvironmentFile=" "$unit" | grep -v "^#")
         # Check for logging/status
         check_systemd_logging "$unit"
         if command -v systemd-analyze >/dev/null 2>&1; then

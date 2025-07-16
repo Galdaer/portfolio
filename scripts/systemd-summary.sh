@@ -76,7 +76,7 @@ require_deps systemctl
 
 # Logs are stored under $CFG_ROOT/logs. CFG_ROOT defaults to
 # /opt/intelluxe/stack and can be overridden in
-# /etc/default/clinic.conf; see scripts/lib.sh for details.
+# /opt/intelluxe/stack/.bootstrap.conf; see scripts/lib.sh for details.
 LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/systemd-summary.log"

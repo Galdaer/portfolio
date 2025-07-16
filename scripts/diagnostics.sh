@@ -157,7 +157,7 @@ fi
 require_deps ss curl jq influx dig
 
 # Logs are stored under the configured Intelluxe root by default.
-# Set CFG_ROOT in /etc/default/clinic.conf or export it before running
+# Set CFG_ROOT in /opt/intelluxe/stack/.bootstrap.conf or export it before running
 # to change the log location.
 LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
