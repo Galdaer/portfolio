@@ -77,7 +77,7 @@ SCRIPT_VERSION="1.0.0"
 # Self-update URL for automatic updates feature
 SELF_UPDATE_URL="https://raw.githubusercontent.com/Intelluxe-AI/intelluxe-core/main/scripts/bootstrap.sh"
 DEFAULT_UID=1000
-DEFAULT_GID=1000
+DEFAULT_GID=1001
 
 # ----------------- Configuration -----------------
 : "${CFG_ROOT:=/home/intelluxe/stack}"
@@ -87,7 +87,6 @@ DEFAULT_GID=1000
 CONFIG_FILE="${CFG_ROOT}/.bootstrap.conf"
 BACKUP_DIR="${CFG_ROOT}/backups"
 LOG_DIR="${CFG_ROOT}/logs"
-mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/bootstrap.log"
 
 # Summary file for service documentation
@@ -268,6 +267,11 @@ script_specific_cleanup() {
 save_config() {
     log "Saving configuration to $CONFIG_FILE..."
     
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "[DRY-RUN] Would save configuration to $CONFIG_FILE"
+        return 0
+    fi
+    
     # Create config directory if needed
     mkdir -p "$(dirname "$CONFIG_FILE")"
     
@@ -333,7 +337,7 @@ EOF
         echo "WG_DIR=\"$WG_DIR\""
     } >> "$CONFIG_FILE"
 
-    chmod 600 "$CONFIG_FILE"
+    run chmod 600 "$CONFIG_FILE"
     set_ownership "$CONFIG_FILE"
     
     log "Configuration saved successfully"
@@ -887,19 +891,19 @@ run_systemd_service() {
     log "Starting systemd service: $systemd_service_name"
     
     # Enable the service to start on boot
-    if ! systemctl enable "$systemd_service_name" 2>/dev/null; then
+    if ! run systemctl enable "$systemd_service_name" 2>/dev/null; then
         warn "Failed to enable systemd service: $systemd_service_name"
         return 1
     fi
     
     # Start the service
-    if ! systemctl start "$systemd_service_name" 2>/dev/null; then
+    if ! run systemctl start "$systemd_service_name" 2>/dev/null; then
         warn "Failed to start systemd service: $systemd_service_name"
         return 1
     fi
     
     # Check if the service is running
-    if systemctl is-active --quiet "$systemd_service_name"; then
+    if [[ "$DRY_RUN" == "true" ]] || systemctl is-active --quiet "$systemd_service_name"; then
         log "✅ Systemd service $systemd_service_name is running"
         return 0
     else
@@ -974,7 +978,7 @@ reset_wireguard_keys() {
                 echo "WG_SERVER_PUBLIC_KEY=$WG_SERVER_PUBLIC_KEY"
                 echo "WG_PRESHARED_KEY=$WG_PRESHARED_KEY"
         } >"$WG_KEYS_ENV"
-        chmod 0600 "$WG_KEYS_ENV"
+        run chmod 0600 "$WG_KEYS_ENV"
         set_ownership "$WG_KEYS_ENV"
         log "WireGuard server keys reset in $WG_KEYS_ENV"
 
@@ -1325,15 +1329,15 @@ install_package() {
 	# Install a package via the detected package manager.
 	local pkg="$1"
 	if command -v apt-get &>/dev/null; then
-		sudo apt-get update && sudo apt-get install -y "$pkg"
+		run sudo apt-get update && run sudo apt-get install -y "$pkg"
 	elif command -v dnf &>/dev/null; then
-		sudo dnf install -y "$pkg"
+		run sudo dnf install -y "$pkg"
 	elif command -v yum &>/dev/null; then
-		sudo yum install -y "$pkg"
+		run sudo yum install -y "$pkg"
 	elif command -v pacman &>/dev/null; then
-		sudo pacman -Sy --noconfirm "$pkg"
+		run sudo pacman -Sy --noconfirm "$pkg"
 	elif command -v apk &>/dev/null; then
-		sudo apk add "$pkg"
+		run sudo apk add "$pkg"
 	else
 		warn "No known package manager found. Please install $pkg manually."
 		return 1
@@ -1368,8 +1372,8 @@ ensure_docker_image() {
 ensure_directories() {
         # Ensure all required directories exist and are owned correctly.
         [[ $DRY_RUN == true ]] && log "[DRY-RUN] Would ensure directories" && return
-        mkdir -p "$CFG_ROOT" "$BACKUP_DIR" "$QR_DIR"
-        set_ownership "$CFG_ROOT" "$BACKUP_DIR" "$QR_DIR"
+        mkdir -p "$CFG_ROOT" "$BACKUP_DIR" "$LOG_DIR" "$QR_DIR"
+        set_ownership "$CFG_ROOT" "$BACKUP_DIR" "$LOG_DIR" "$QR_DIR"
 
         # WireGuard directories are needed for validation even if the container
         # isn't launched yet
@@ -1509,8 +1513,10 @@ load_wg_keys_env() {
 
 setup_wireguard_keys() {
 	# Setup WireGuard keys using wg-keys.env (safer for public sharing).
-	mkdir -p "$WG_DIR" "$WG_CLIENTS_DIR"
-	set_ownership "$WG_DIR" "$WG_CLIENTS_DIR"
+	if [[ "$DRY_RUN" != "true" ]]; then
+		mkdir -p "$WG_DIR" "$WG_CLIENTS_DIR"
+		set_ownership "$WG_DIR" "$WG_CLIENTS_DIR"
+	fi
 	if [[ ! -f "$WG_KEYS_ENV" ]]; then
 		if $NON_INTERACTIVE || $FORCE_DEFAULTS; then
 			log "Generating server keypair in wg-keys.env."
@@ -1523,7 +1529,7 @@ setup_wireguard_keys() {
 				echo "WG_SERVER_PUBLIC_KEY=$WG_SERVER_PUBLIC_KEY"
 				echo "WG_PRESHARED_KEY=$WG_PRESHARED_KEY"
 			} >"$WG_KEYS_ENV"
-			chmod 0600 "$WG_KEYS_ENV"
+			run chmod 0600 "$WG_KEYS_ENV"
 			set_ownership "$WG_KEYS_ENV"
 			log "Server keys generated and saved in $WG_KEYS_ENV."
 		else
@@ -1538,7 +1544,7 @@ setup_wireguard_keys() {
 					echo "WG_SERVER_PUBLIC_KEY=$WG_SERVER_PUBLIC_KEY"
 					echo "WG_PRESHARED_KEY=$WG_PRESHARED_KEY"
 				} >"$WG_KEYS_ENV"
-				chmod 0600 "$WG_KEYS_ENV"
+				run chmod 0600 "$WG_KEYS_ENV"
 				set_ownership "$WG_KEYS_ENV"
 				log "Server keys generated in $WG_KEYS_ENV."
 			else
@@ -1607,7 +1613,7 @@ setup_wireguard_keys() {
 			client_public=$(echo "$client_private" | wg pubkey)
 			echo "$client_private" >"$clientdir/private.key"
 			echo "$client_public" >"$clientdir/public.key"
-			chmod 0600 "$clientdir"/*.key
+			run chmod 0600 "$clientdir"/*.key
 			set_ownership "$clientdir"/*.key
 			read -rp "Client DNS (press Enter for '${WG_CLIENT_DNS}'): " client_dns
 			client_dns="${client_dns:-$WG_CLIENT_DNS}"
@@ -2645,7 +2651,7 @@ EOF
 	done
 
 	# Set proper ownership and permissions
-	chmod 600 "$wg_conf"
+	run chmod 600 "$wg_conf"
 	set_ownership "$wg_conf"
 
 	log "WireGuard server config regenerated at $wg_conf"
@@ -3013,10 +3019,14 @@ main() {
 					fi
 
 					# Ensure directories exist
-					mkdir -p "$WG_DIR"
-					WG_CLIENTS_DIR="${WG_DIR}/clients"
-					mkdir -p "$WG_CLIENTS_DIR"
-					set_ownership "$WG_DIR" "$WG_CLIENTS_DIR"
+					if [[ "$DRY_RUN" != "true" ]]; then
+						mkdir -p "$WG_DIR"
+						WG_CLIENTS_DIR="${WG_DIR}/clients"
+						mkdir -p "$WG_CLIENTS_DIR"
+						set_ownership "$WG_DIR" "$WG_CLIENTS_DIR"
+					else
+						WG_CLIENTS_DIR="${WG_DIR}/clients"
+					fi
 					log "WireGuard directories set up: $WG_DIR and $WG_CLIENTS_DIR"
 
 					# Check if this is first-time WG_DIR configuration
@@ -3030,8 +3040,10 @@ main() {
 					if ! $wg_config_exists && ! $NON_INTERACTIVE && ! $FORCE_DEFAULTS; then
 						prompt_for_path WG_DIR "/etc/wireguard" "WireGuard key directory"
 						WG_CLIENTS_DIR="${WG_DIR}/clients"
-						mkdir -p "$WG_DIR" "$WG_CLIENTS_DIR"
-						set_ownership "$WG_DIR" "$WG_CLIENTS_DIR"
+						if [[ "$DRY_RUN" != "true" ]]; then
+							mkdir -p "$WG_DIR" "$WG_CLIENTS_DIR"
+							set_ownership "$WG_DIR" "$WG_CLIENTS_DIR"
+						fi
 						log "Updated WireGuard directories: $WG_DIR and $WG_CLIENTS_DIR"
 					fi
 

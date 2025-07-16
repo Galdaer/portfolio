@@ -268,6 +268,10 @@ rotate_log_if_needed() {
 
 # --- Ownership Helpers ---
 set_ownership() {
+	if [[ "$DRY_RUN" == "true" ]]; then
+		log "[dry-run] Would set ownership to $CFG_UID:$CFG_GID for: $*"
+		return 0
+	fi
 	if [[ -n "${CFG_UID:-}" && -n "${CFG_GID:-}" ]]; then
 		chown "$CFG_UID:$CFG_GID" "$@" 2>/dev/null || true
 	fi
@@ -347,7 +351,8 @@ cleanup() {
     fi
     
     # Save any in-progress configuration (if CONFIG_FILE and save_config exist)
-    if [[ -n "${CONFIG_FILE:-}" ]] && [[ -f "${CONFIG_FILE}" ]] && declare -f save_config >/dev/null 2>&1; then
+    # But only if not in dry-run mode
+    if [[ "${DRY_RUN:-false}" != "true" ]] && [[ -n "${CONFIG_FILE:-}" ]] && [[ -f "${CONFIG_FILE}" ]] && declare -f save_config >/dev/null 2>&1; then
         save_config 2>/dev/null || true
     fi
     
