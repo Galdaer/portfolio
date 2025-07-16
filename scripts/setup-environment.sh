@@ -431,7 +431,8 @@ install_python_deps() {
         flake8 mypy pytest pytest-asyncio \
         yamllint \
         pyyaml \
-        requests
+        requests \
+        flask waitress psutil docker
     
     ok "Essential Python dependencies installed system-wide"
     log "💡 For AI/ML development, use virtual environments with requirements.in"

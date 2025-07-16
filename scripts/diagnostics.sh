@@ -74,6 +74,11 @@ init_dns_config() {
 init_dns_config
 # Default WireGuard port
 : "${WG_PORT:=51820}"
+: "${CI:=false}"
+
+# Set proper ownership for Intelluxe system
+: "${CFG_UID:=1000}"    # justin
+: "${CFG_GID:=1001}"    # intelluxe
 
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -94,12 +99,39 @@ exit_with_usage() {
         exit "$code"
 }
 
-# Parse standard/common flags (and --help)
-parse_basic_flags "$@"
-
-# Script-specific flags
+# Parse all flags in one loop
 while [[ $# -gt 0 ]]; do
 	case "$1" in
+	# Basic flags from parse_basic_flags
+	--no-color)
+		COLOR=false
+		shift
+		;;
+	--dry-run)
+		DRY_RUN=true
+		shift
+		;;
+	--debug)
+		DEBUG=true
+		shift
+		;;
+	--non-interactive)
+		NON_INTERACTIVE=true
+		shift
+		;;
+	--help)
+		[[ -n "$USAGE" ]] && echo "$USAGE"
+		exit 0
+		;;
+	--version)
+		if [[ -n "$SCRIPT_VERSION" ]]; then
+			echo "Version: $SCRIPT_VERSION"
+		else
+			echo "Version information not available."
+		fi
+		exit 0
+		;;
+	# Script-specific flags
 	--log-file)
 		LOG_FILE="$2"
 		shift 2
@@ -116,7 +148,6 @@ while [[ $# -gt 0 ]]; do
 		WG_PORT="$2"
 		shift 2
 		;;
-
 	--critical-only)
 		CRITICAL_ONLY=true
 		shift
@@ -162,7 +193,7 @@ LOG_FILE="$LOG_DIR/diagnostics.log"
 
 rotate_log_if_needed
 touch "$LOG_FILE"
-if [[ $(id -u) -eq 0 ]]; then chown "$(whoami)" "$LOG_FILE" 2>/dev/null || true; fi
+set_ownership "$LOG_FILE"
 
 FAILURES=()
 PASS=true
@@ -293,7 +324,7 @@ log "Failures: $FAIL_COUNT"
 for f in "${FAILURES[@]}"; do log "  - $f"; done
 
 if [[ "$EXPORT_JSON" == true ]]; then
-	JSON_PATH="/tmp/diagnostics.json"
+	JSON_PATH="${LOG_DIR}/diagnostics.json"
 	{
 		echo '{'
 		echo '  "source": "'"$SOURCE"'",'
@@ -311,7 +342,7 @@ if [[ "$EXPORT_JSON" == true ]]; then
 		echo '  ]'
 		echo '}'
 	} >"$JSON_PATH"
-	info "Exported JSON to $JSON_PATH"
+	log "Exported JSON to $JSON_PATH"
 fi
 
 if $PASS; then
