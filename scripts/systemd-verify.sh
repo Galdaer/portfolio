@@ -141,17 +141,17 @@ declare -a VERIFY_ARRAY=()
 
 # Helper: Check if a file exists and is secure (development permissions: 660/664 for configs, 755 for scripts, justin:intelluxe ownership)
 check_file_secure() {
-	local f="$1" type="$2"
+    local f="$1" type="$2"
         if [[ ! -e "$f" ]]; then
                 msg="[FAIL] Missing: $f ($type)"
                 echo "$msg" | tee -a "$tmp_fail"
                 FAILURES_ARRAY+=("$msg")
                 return 1
         fi
-	local perm owner
-	perm=$(stat -L -c '%a' "$f")
-	owner=$(stat -L -c '%U' "$f")
-	if [[ "$type" == "script" ]]; then
+    local perm owner
+    perm=$(stat -L -c '%a' "$f")
+    owner=$(stat -L -c '%U' "$f")
+    if [[ "$type" == "script" ]]; then
                 # Development: 755 (rwxr-xr-x) for group access
                 [[ "$perm" =~ ^0?755$ ]] || { msg="[WARN] $f is $perm, should be 755 (development)"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
                 [[ -x "$f" ]] || { msg="[WARN] $f is not executable"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
@@ -159,8 +159,9 @@ check_file_secure() {
                 # Development: 660 (rw-rw----) or 664 (rw-rw-r--) for group collaboration
                 [[ "$perm" =~ ^0?66[04]$ ]] || { msg="[WARN] $f is $perm, should be 660/664 (development)"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
         fi
-        # System binaries like systemctl should be owned by root, not intelluxe
-        if [[ "$f" =~ ^/usr/(s?bin|local/bin)/ ]]; then
+        
+        # System binaries should be owned by root
+        if [[ "$f" =~ ^/(bin|sbin|usr/(s?bin|local/bin))/ ]]; then
                 [[ "$owner" == "root" ]] || { msg="[WARN] System binary $f is owned by $owner, should be root"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
         # Development mode: check for current user ownership (justin:intelluxe)
         elif [[ "$f" =~ ^(/home/intelluxe|/opt/intelluxe/(scripts|stack)) ]]; then
@@ -170,24 +171,34 @@ check_file_secure() {
                 gid=$(stat -L -c '%g' "$f")
                 [[ "$uid" == "1000" && "$gid" == "1001" ]] || { msg="[WARN] Development file $f is $uid:$gid, should be 1000:1001 (justin:intelluxe)"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
         else
-                # System files should be owned by intelluxe
+                # Other system files should be owned by intelluxe
                 [[ "$owner" == "intelluxe" ]] || { msg="[WARN] $f is owned by $owner, should be intelluxe"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
         fi
 }
 
+
 # Helper: Check for systemd logging/status directives
 check_systemd_logging() {
         local file="$1"
-        grep -qE 'Standard(Output|Error)=' "$file" || {
-                msg="[WARN] $file missing StandardOutput/StandardError"
-                echo "$msg" | tee -a "$tmp_warn"
-                WARNINGS_ARRAY+=("$msg")
-        }
-        grep -q SyslogIdentifier= "$file" || {
-                msg="[WARN] $file missing SyslogIdentifier (optional but recommended)"
-                echo "$msg" | tee -a "$tmp_warn"
-                WARNINGS_ARRAY+=("$msg")
-        }
+        
+        # Skip logging checks for timer files - they don't execute commands directly
+        if [[ "$file" == *.timer ]]; then
+                return 0
+        fi
+        
+        # Only check service files for logging directives
+        if [[ "$file" == *.service ]]; then
+                grep -qE 'Standard(Output|Error)=' "$file" || {
+                        msg="[WARN] $file missing StandardOutput/StandardError"
+                        echo "$msg" | tee -a "$tmp_warn"
+                        WARNINGS_ARRAY+=("$msg")
+                }
+                grep -q SyslogIdentifier= "$file" || {
+                        msg="[WARN] $file missing SyslogIdentifier (optional but recommended)"
+                        echo "$msg" | tee -a "$tmp_warn"
+                        WARNINGS_ARRAY+=("$msg")
+                }
+        fi
 }
 
 # If running in CI, skip privileged actions or mock them
