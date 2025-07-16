@@ -28,7 +28,7 @@ SCRIPT_VERSION="1.1.0"
 set -euo pipefail
 
 DEFAULT_UID=1000
-DEFAULT_GID=1000
+DEFAULT_GID=1001
 
 # Use a safer way to define multi-line strings that doesn't trigger set -e
 USAGE=$(cat <<EOF

@@ -50,6 +50,7 @@ SCRIPT_VERSION="1.0.0"
 : "${FORCE:=false}"
 : "${DRY_RUN:=false}"
 : "${MODE:=all}"
+: "${CI:=false}"
 # Name of the Docker network used by clinic containers.
 # Override via the DOCKER_NETWORK_NAME environment variable or an .env file sourced in lib.sh.
 : "${DOCKER_NETWORK_NAME:=wireguard-net}"

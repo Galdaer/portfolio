@@ -25,12 +25,22 @@
 	   validate \
 	   venv
 
+# Constants (matching bootstrap.sh)
+DEFAULT_UID := 1000
+DEFAULT_GID := 1001
+CFG_UID := $(or $(CFG_UID),$(DEFAULT_UID))
+CFG_GID := $(or $(CFG_GID),$(DEFAULT_GID))
+
+# Production directories to symlink (excluding development dirs: archive, coverage, docs, reference, test)
+# Note: logs is excluded - it should remain as a real directory in /opt/intelluxe/logs for systemd services
+PROD_DIRS := agents config core data infrastructure mcps notebooks scripts services stack systemd
+
 # Installation Commands
 install:
 	@echo "🔗  Installing Intelluxe AI healthcare infrastructure scripts and services"
 	@echo "   - Creating intelluxe user and group if they don't exist"
 	@if ! getent group intelluxe >/dev/null; then \
-	    sudo groupadd intelluxe; \
+	    sudo groupadd --gid $(CFG_GID) intelluxe; \
 	fi
 	@if ! getent passwd intelluxe >/dev/null; then \
 	    sudo useradd -r -g intelluxe -s /bin/false -d /opt/intelluxe intelluxe; \
@@ -59,19 +69,28 @@ install:
 	    fi; \
 	done
 	sudo systemctl daemon-reload
-	@echo "   - Symlinking healthcare AI directories"
-	sudo ln -sf $(PWD)/stack /opt/intelluxe/
-	sudo mkdir -p /opt/intelluxe
-	sudo ln -sf $(PWD)/scripts/ /opt/intelluxe/
-	@echo "   - Setting correct permissions for healthcare AI infrastructure"
+	@echo "   - Creating /opt/intelluxe base directory"
+	@sudo mkdir -p /opt/intelluxe
+	@echo "   - Symlinking production directories to /opt/intelluxe/"
+	@for dir in $(PROD_DIRS); do \
+	    if [ -d "$(PWD)/$$dir" ]; then \
+	        echo "     Symlinking $$dir -> /opt/intelluxe/$$dir"; \
+	        sudo ln -sf $(PWD)/$$dir /opt/intelluxe/; \
+	    fi; \
+	done
+	@echo "   - Setting correct permissions using CFG_UID:CFG_GID ($(CFG_UID):$(CFG_GID))"
 	@sudo chmod 755 $(PWD)/scripts/*.sh $(PWD)/scripts/*.py
-	@sudo chown -R $(shell whoami):intelluxe $(PWD)/scripts $(PWD)/stack
+	@for dir in $(PROD_DIRS); do \
+	    if [ -d "$(PWD)/$$dir" ]; then \
+	        sudo chown -R $(CFG_UID):$(CFG_GID) $(PWD)/$$dir; \
+	    fi; \
+	done
 	@sudo chmod -R g+w $(PWD)/stack
 	@sudo find $(PWD)/stack -name "*.conf" -o -name "*.env" | xargs -r sudo chmod 660
 	@sudo find $(PWD)/stack -name "*.log" | xargs -r sudo chmod 664
-	@sudo chown -R intelluxe:intelluxe /opt/intelluxe
+	@sudo chown -R $(CFG_UID):$(CFG_GID) /opt/intelluxe
 	@if [ -f "/opt/intelluxe/stack/.bootstrap.conf" ]; then \
-	    sudo chown intelluxe:intelluxe /opt/intelluxe/stack/.bootstrap.conf; \
+	    sudo chown $(CFG_UID):$(CFG_GID) /opt/intelluxe/stack/.bootstrap.conf; \
 	fi
 	@echo "✅  Healthcare AI infrastructure installation complete! Run 'make setup' to configure."
 
@@ -95,7 +114,7 @@ uninstall:
 fix-permissions:
 	@echo "🔧  Fixing permissions and ownership for healthcare AI files"
 	@if ! getent group intelluxe >/dev/null; then \
-	    sudo groupadd intelluxe; \
+	    sudo groupadd --gid $(CFG_GID) intelluxe; \
 	fi
 	@if ! getent passwd intelluxe >/dev/null; then \
 	    sudo useradd -r -g intelluxe -s /bin/false -d /opt/intelluxe intelluxe; \
@@ -107,12 +126,16 @@ fix-permissions:
 	    exit 1; \
 	fi
 	@sudo chmod 755 scripts/*.sh scripts/*.py
-	@sudo chown -R $(shell whoami):intelluxe scripts stack
+	@for dir in $(PROD_DIRS); do \
+	    if [ -d "$$dir" ]; then \
+	        sudo chown -R $(CFG_UID):$(CFG_GID) $$dir; \
+	    fi; \
+	done
 	@echo "   - Setting development permissions on healthcare AI stack files"
 	@sudo chmod -R g+w stack
 	@sudo find stack -name "*.conf" -o -name "*.env" | xargs -r sudo chmod 660
 	@sudo find stack -name "*.log" | xargs -r sudo chmod 664
-	@sudo chown -R intelluxe:intelluxe /opt/intelluxe
+	@sudo chown -R $(CFG_UID):$(CFG_GID) /opt/intelluxe
 	@echo "   - Installing systemd units with intelluxe- prefix if missing (using symlinks)"
 	@for unit in $(PWD)/systemd/*.service $(PWD)/systemd/*.timer; do \
 	    if [ -f "$$unit" ]; then \

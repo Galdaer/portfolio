@@ -42,6 +42,7 @@ set -euo pipefail
 SCRIPT_VERSION="1.0.0"
 : "${COLOR:=true}"
 : "${DRY_RUN:=false}"
+: "${CI:=false}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib.sh

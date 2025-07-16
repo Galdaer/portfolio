@@ -40,6 +40,7 @@ SCRIPT_VERSION="1.0.0"
 : "${DEBUG:=false}"
 : "${DEBUG_LOG:=/var/log/diagnostic-pusher-debug.log}"
 : "${INFLUX_MOCK:=false}"
+: "${CI:=false}"
 
 INFLUX_URL="http://${INFLUX_HOST}:${INFLUX_PORT}/write?db=${INFLUX_DB}"
 DIAG_JSON="/tmp/diagnostics.json"

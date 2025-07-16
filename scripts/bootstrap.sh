@@ -80,7 +80,7 @@ DEFAULT_UID=1000
 DEFAULT_GID=1001
 
 # ----------------- Configuration -----------------
-: "${CFG_ROOT:=/home/intelluxe/stack}"
+: "${CFG_ROOT:=/opt/intelluxe/stack}"
 : "${CFG_UID:=$DEFAULT_UID}"
 : "${CFG_GID:=$DEFAULT_GID}"
 
