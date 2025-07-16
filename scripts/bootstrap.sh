@@ -855,7 +855,7 @@ ensure_container_running() {
             log "🌟 Using universal configuration mode for $container_name"
             
             # Remove existing container
-            docker rm -f "$container_name" >/dev/null 2>&1 || true
+            run docker rm -f "$container_name" >/dev/null 2>&1 || true
             
             # Run with universal service runner
             if run_universal_service "$container_name" "$svc_file"; then
@@ -1082,7 +1082,7 @@ restore_backup() {
 	# Restart Docker containers to ensure restored state is live
 	log "Restarting all selected containers after restore..."
 	for c in "${SELECTED_CONTAINERS[@]}"; do
-		docker restart "$c" || warn "Could not restart container $c after restore"
+		run docker restart "$c" || warn "Could not restart container $c after restore"
 	done
 }
 
@@ -1306,10 +1306,10 @@ container_action() {
 		return 1
 	fi
 	case "$action" in
-	--start) docker start "$cname" >/dev/null ;;
-	--stop) docker stop "$cname" >/dev/null ;;
-	--restart) docker restart "$cname" >/dev/null ;;
-	--remove) docker rm -f "$cname" >/dev/null ;;
+	--start) run docker start "$cname" >/dev/null ;;
+	--stop) run docker stop "$cname" >/dev/null ;;
+	--restart) run docker restart "$cname" >/dev/null ;;
+	--remove) run docker rm -f "$cname" >/dev/null ;;
 	--status) docker ps -a --filter name="^${cname}$" ;;
         *) warn "Unknown action $action" ;;
         esac
@@ -2653,7 +2653,7 @@ EOF
 	# Restart WireGuard container to pick up new config
 	if docker ps -q --filter "name=wireguard" | grep -q .; then
 		log "Restarting WireGuard container to apply new peer configuration..."
-		docker restart wireguard >/dev/null 2>&1 || warn "Failed to restart WireGuard container"
+		run docker restart wireguard >/dev/null 2>&1 || warn "Failed to restart WireGuard container"
 	fi
 	return 0
 }
@@ -2955,10 +2955,10 @@ main() {
 		# Always cleanup containers to avoid port conflicts during restart
 		if docker ps -q --filter "name=^/${container}$" | grep -q .; then
 			log "Stopping existing $container container to avoid port conflicts..."
-			docker stop "$container" >/dev/null 2>&1 || true
+			run docker stop "$container" >/dev/null 2>&1 || true
 		fi
 		if docker ps -aq --filter "name=^/${container}$" | grep -q .; then
-			docker rm "$container" >/dev/null 2>&1 || true
+			run docker rm "$container" >/dev/null 2>&1 || true
 			log "Removed existing $container container"
 		fi
 		
