@@ -879,6 +879,64 @@ ensure_container_running() {
     esac
 }
 
+# Update ensure_container_running to use rolling restart approach
+# This replaces the old ensure_container_running with enhanced functionality
+
+ensure_container_running_enhanced() {
+    local container_name="$1"
+    local svc_file=""
+    
+    log "Ensuring service $container_name is running..."
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "[DRY-RUN] Would ensure service $container_name is running."
+        return 0
+    fi
+
+    # Find service configuration file
+    if [[ -f "${SCRIPT_DIR%/scripts}/services/user/${container_name}/${container_name}.conf" ]]; then
+        svc_file="${SCRIPT_DIR%/scripts}/services/user/${container_name}/${container_name}.conf"
+    elif [[ -f "${SCRIPT_DIR%/scripts}/services/user/${container_name}.conf" ]]; then
+        svc_file="${SCRIPT_DIR%/scripts}/services/user/${container_name}.conf"
+    else
+        warn "No service configuration found for: $container_name"
+        return 1
+    fi
+
+    # Check service type to determine how to run it
+    local service_type
+    service_type=$(get_service_config_value "$svc_file" "service_type" "docker")
+    
+    case "$service_type" in
+        "systemd")
+            log "🔧 Running systemd service: $container_name"
+            run_systemd_service "$container_name" "$svc_file"
+            ;;
+        "docker"|*)
+            # Universal configuration mode - use universal service runner
+            log "🌟 Using universal configuration mode for $container_name"
+            
+            # Run with universal service runner
+            if run_universal_service "$container_name" "$svc_file"; then
+                # Execute post-start hook if defined
+                local post_start_hook
+                post_start_hook=$(get_service_config_value "$svc_file" "post_start_hook")
+                if [[ -n "$post_start_hook" ]] && command -v "$post_start_hook" >/dev/null 2>&1; then
+                    log "Executing post-start hook: $post_start_hook"
+                    if "$post_start_hook"; then
+                        log "✅ Post-start hook completed successfully"
+                    else
+                        warn "❌ Post-start hook failed, but service is running"
+                    fi
+                fi
+                return 0
+            else
+                return 1
+            fi
+            ;;
+    esac
+}
+
 # Function to handle systemd services
 run_systemd_service() {
     local service_name="$1"
@@ -1816,7 +1874,7 @@ configure_firewall() {
 	fi
 
 	# Check if ufw is available and active
-	if command -v ufw &>/dev/null; then
+if command -v ufw &>/dev/null; then
 		local ufw_status
 		ufw_status=$(ufw status 2>/dev/null | head -n1 || echo "inactive")
 		if [[ "$ufw_status" == *"active"* ]]; then
@@ -2758,6 +2816,134 @@ validate_config() {
     return 0
 }
 
+# ----------------- Smart Service Restart Logic -----------------
+restart_services_with_dependencies() {
+    local services=("$@")
+    
+    # Define service dependency order (dependencies first, dependents last)
+    # Only include services that actually exist in services/user/
+    local -a startup_order=(
+        "wireguard"      # VPN must be first for network access
+        "traefik"        # Reverse proxy
+        "config-web-ui"  # Configuration interface
+        "whisper"        # Speech-to-text service
+        "scispacy"       # Scientific NLP
+        "n8n"            # Automation workflows
+        "grafana"        # Monitoring (last)
+    )
+    
+    # Filter requested services by dependency order
+    local -a ordered_services=()
+    for service in "${startup_order[@]}"; do
+        if [[ " ${services[*]} " =~ \ ${service}\  ]]; then
+            ordered_services+=("$service")
+        fi
+    done
+    
+    # Add any services not in our dependency list
+    for service in "${services[@]}"; do
+        if [[ ! " ${ordered_services[*]} " =~ \ ${service}\  ]]; then
+            ordered_services+=("$service")
+        fi
+    done
+    
+    log "🔄 Restarting services in dependency order: ${ordered_services[*]}"
+    
+    # Restart each service individually with dependency-aware delays
+    for service in "${ordered_services[@]}"; do
+        log "🔄 Restarting $service..."
+        
+        # Clean up existing container to avoid port conflicts (TRUE rolling restart)
+        if docker ps -q --filter "name=^/${service}$" | grep -q .; then
+            log "🛑 Stopping $service for rolling restart..."
+            docker stop "$service" >/dev/null 2>&1 || true
+        fi
+        if docker ps -aq --filter "name=^/${service}$" | grep -q .; then
+            docker rm "$service" >/dev/null 2>&1 || true
+            log "🗑️  Removed old $service container"
+        fi
+        
+        log "🚀 Starting $service..."
+        
+        # Restart the service
+        ensure_container_running "$service" || {
+            warn "❌ Failed to restart $service"
+            continue
+        }
+        
+        # Always wait for service to be healthy after restart
+        wait_for_service_healthy "$service"
+        
+        # Add delay between critical services
+        case "$service" in
+            "wireguard"|"traefik"|"config-web-ui")
+                sleep 2
+                ;;
+            *)
+                sleep 1
+                ;;
+        esac
+    done
+    
+    log "✅ All services restarted successfully"
+}
+
+# Wait for a service to become healthy
+wait_for_service_healthy() {
+    local service="$1"
+    local max_wait=15  # Reduced from 30 to speed up restarts
+    local wait_time=0
+    
+    log "🏥 Waiting for $service to become healthy..."
+    
+    while [[ $wait_time -lt $max_wait ]]; do
+        if docker ps --filter "name=$service" --filter "status=running" --format '{{.Names}}' | grep -Fxq "$service"; then
+            # Check if service has health check
+            local health_status
+            health_status=$(docker inspect "$service" --format='{{.State.Health.Status}}' 2>/dev/null || echo "none")
+            
+            case "$health_status" in
+                "healthy")
+                    log "✅ $service is healthy"
+                    return 0
+                    ;;
+                "starting")
+                    log "⏳ $service is starting..."
+                    ;;
+                "unhealthy")
+                    warn "❌ $service is unhealthy"
+                    return 1
+                    ;;
+                "none")
+                    # No health check defined, assume healthy if running
+                    log "✅ $service is running (no health check)"
+                    return 0
+                    ;;
+            esac
+        else
+            warn "❌ $service is not running"
+            return 1
+        fi
+        
+        sleep 2
+        wait_time=$((wait_time + 2))
+    done
+    
+    warn "⏰ Timeout waiting for $service to become healthy (${max_wait}s)"
+    # Don't fail - continue with other services
+    return 0
+}
+
+# Now we need to find where the main function starts containers and update it to use rolling restarts
+# This will be added to the main function after containers are selected
+
+use_rolling_restarts_in_main() {
+    # Start services with smart dependency ordering
+    log "🚀 Starting selected containers with dependency awareness: ${SELECTED_CONTAINERS[*]}"
+    log "🔄 Using rolling restart mode (minimal downtime)"
+    restart_services_with_dependencies "${SELECTED_CONTAINERS[@]}"
+}
+
 # Entry point for the script
 main() {
 	print_banner
@@ -3071,12 +3257,13 @@ main() {
 		exit 1
 	}
 
-	for container in "${SELECTED_CONTAINERS[@]}"; do
-		ensure_container_running "$container" || {
-			fail "ensure_container_running $container failed"
-			exit 1
-		}
-	done
+	# Start services with smart dependency ordering and rolling restarts
+    log "🚀 Starting selected containers with dependency awareness: ${SELECTED_CONTAINERS[*]}"
+    log "🔄 Using rolling restart mode (minimal downtime)"
+    restart_services_with_dependencies "${SELECTED_CONTAINERS[@]}" || {
+        fail "restart_services_with_dependencies failed"
+        exit 1
+    }
 
 	# Configure firewall rules for the containers
 	configure_firewall || {

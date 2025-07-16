@@ -547,6 +547,24 @@ generate_default_entrypoint() {
     local app_dir="$1"
     local entrypoint_path="$app_dir/entrypoint.sh"
     local main_py="$app_dir/app.py"
+    
+    if [[ ! -f "$entrypoint_path" ]]; then
+        if [[ -f "$main_py" ]]; then
+            echo "#!/bin/bash" > "$entrypoint_path"
+            echo "exec python3 app.py \"$@\"" >> "$entrypoint_path"
+            chmod +x "$entrypoint_path"
+            log_info "Auto-generated entrypoint.sh for Python service at $entrypoint_path"
+        else
+            log_warning "No app.py found in $app_dir; cannot generate entrypoint.sh"
+        fi
+    fi
+}
+
+# Auto-generate entrypoint.sh for Python services if missing
+generate_default_entrypoint() {
+    local app_dir="$1"
+    local entrypoint_path="$app_dir/entrypoint.sh"
+    local main_py="$app_dir/app.py"
     if [[ ! -f "$entrypoint_path" ]]; then
         if [[ -f "$main_py" ]]; then
             echo "#!/bin/bash" > "$entrypoint_path"
@@ -827,6 +845,20 @@ run_universal_service() {
     if ! parse_universal_service_config "$service_name" "$config_file"; then
         log_error "Failed to parse configuration for $service_name"
         return 1
+    fi
+    
+    # Auto-generate entrypoint.sh for Python services if needed
+    if [[ "${SERVICE_CONFIG[entrypoint]:-}" == "/app/entrypoint.sh" ]]; then
+        local app_dir=""
+        for vol in $(echo "${SERVICE_CONFIG[volumes]:-}" | tr ',' '\n'); do
+            if [[ "$vol" =~ ^([^:]+):/app$ ]]; then
+                app_dir="${BASH_REMATCH[1]}"
+                break
+            fi
+        done
+        if [[ -n "$app_dir" ]]; then
+            generate_default_entrypoint "$app_dir"
+        fi
     fi
     # Auto-generate entrypoint.sh for Python services if needed
     if [[ "${SERVICE_CONFIG[entrypoint]:-}" == "/app/entrypoint.sh" ]]; then

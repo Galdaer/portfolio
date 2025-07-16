@@ -86,6 +86,8 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 - **Deployment Flow**: `bootstrap.sh` calls `universal-service-runner.sh` for each SERVICE.conf file
 - **Universal Runner**: `universal-service-runner.sh` is the ONLY method for deploying services
 - **Web UI Integration**: `config_web_ui.py` creates .conf files directly in `services/user/SERVICE/` directories
+- **Rolling Restarts**: `bootstrap.sh` uses rolling restart mode - stops one service, starts it, waits for health, then moves to next service
+- **Dependency Ordering**: Services restart in dependency order: wireguard → traefik → config-web-ui → whisper → scispacy → n8n → grafana
 - **Security**: HIPAA-compliant service orchestration with audit logging and role-based access
 
 ## Development Guidelines

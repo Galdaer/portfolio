@@ -65,7 +65,9 @@
             "universalServiceRunner": "universal-service-runner.sh is the ONLY method for deploying services using .conf files from services/user/",
             "configLocation": "Each service has its own directory: services/user/SERVICE/ containing SERVICE.conf",
             "pythonWebUI": "config_web_ui.py creates .conf files directly in services/user/SERVICE/ directories",
-            "deploymentFlow": "bootstrap.sh calls universal-service-runner.sh for each SERVICE.conf file found in services/user/"
+            "deploymentFlow": "bootstrap.sh calls universal-service-runner.sh for each SERVICE.conf file found in services/user/",
+            "rollingRestarts": "bootstrap.sh uses rolling restart mode - stops one service, starts it, waits for health, then moves to next service",
+            "dependencyOrdering": "Services restart in dependency order: wireguard -> traefik -> config-web-ui -> whisper -> scispacy -> n8n -> grafana"
         },
 
         "codebaseStructure": {
