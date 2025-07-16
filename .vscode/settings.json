@@ -37,27 +37,57 @@
     "workbench.editor.revealIfOpen": true,
     
     "ai.instructions": {
-        "project": "Intelluxe AI - Privacy-First Healthcare AI System built for on-premise clinical deployment. Currently in active development, focusing on core infrastructure and test suite hardening.",
+        "project": "Intelluxe AI - Privacy-First Healthcare AI System built for on-premise clinical deployment. Currently in Phase 0 development, focusing on core infrastructure hardening and systemd service management.",
         
         "healthcarePhilosophy": {
             "medicalSafety": "NO medical advice, diagnosis, or treatment recommendations - focus on administrative and documentation support only",
             "privacyFirst": "All PHI/PII remains on-premise - no cloud dependencies or external API calls with patient data",
             "explainableAI": "All AI decisions must be traceable and auditable for healthcare compliance",
-            "modularDesign": "Pluggable agents and tools that can be customized per clinic without affecting core system",
-            "developmentStatus": "Build robust, maintainable features for future clinical environments, but defer production-specific hardening until later phases"
+            "modularDesign": "Pluggable agents and tools that can be customized per clinic without affecting core system"
         },
 
-        "architecture": {
+        "phaseImplementation": {
+            "currentPhase": "Phase 0 - Project setup and directory structure (docs/PHASE_0.md)",
+            "phaseProgression": "Phase 1: Core AI infrastructure with Ollama, MCP, and basic agents (docs/PHASE_1.md), Phase 2: Business services, insurance verification, billing, and doctor personalization (docs/PHASE_2.md), Phase 3: Production deployment with enterprise scaling and compliance monitoring (docs/PHASE_3.md)",
+            "developmentStatus": "Active Phase 0 development - build robust, maintainable features with proper development permissions (justin:intelluxe ownership model)"
+        },
+
+        "currentDevelopmentState": {
+            "permissionModel": "Development files owned by justin:intelluxe (1000:1001), scripts 755, configs 660/664, logs 664",
+            "groupManagement": "intelluxe group (1001) persists across sessions, family members added via 'sudo usermod -a -G intelluxe username'",
+            "systemdApproach": "Direct installation to /etc/systemd/system/ with intelluxe- prefix, NO subdirectories or complex symlinks",
+            "serviceNaming": "Source files in systemd/ without prefix, installed as intelluxe-servicename.service",
+            "developmentWorkflow": "make install (full setup), make fix-permissions (dev permissions), make sync-systemd (quick systemd updates)"
+        },
+
+        "serviceArchitecture": {
+            "servicePattern": "Services configured at services/user/SERVICE/SERVICE.conf and deployed through universal-service-runner.sh by bootstrap.sh",
             "universalServiceRunner": "universal-service-runner.sh is the ONLY method for deploying services using .conf files from services/user/",
-            "sourceCodeLocation": "Third-party service source code (like Ai-Engineering-Hub) is managed as git submodules in reference/",
-            "pythonWebUI": "config_web_ui.py creates .conf files directly, never uses legacy scripts",
-            "noLegacyCode": "No plugin.sh files, no add-service.sh references - only universal service runner .conf-based approach"
+            "configLocation": "Each service has its own directory: services/user/SERVICE/ containing SERVICE.conf",
+            "pythonWebUI": "config_web_ui.py creates .conf files directly in services/user/SERVICE/ directories",
+            "deploymentFlow": "bootstrap.sh calls universal-service-runner.sh for each SERVICE.conf file found in services/user/"
         },
 
-        "serviceManagement": {
-            "healthcareServices": "Ollama (local LLM), Healthcare-MCP (medical tools), PostgreSQL (patient context), Redis (session cache), n8n (workflows)",
-            "universalConfigOnly": "100% of services use pure .conf files configured through universal service runner",
-            "securityFirst": "HIPAA-compliant service orchestration with audit logging and role-based access"
+        "codebaseStructure": {
+            "referenceLibrary": "reference/ai-patterns/ - MIT licensed AI engineering patterns (git submodule from ai-engineering-hub) adapted for healthcare",
+            "healthcareMCP": "mcps/healthcare/ - Healthcare MCP server code directly copied from agentcare-mcp repository",
+            "architectureDocs": "docs/ARCHITECTURE_BASE_CODE.md - mapping AI Engineering Hub patterns to Intelluxe healthcare components",
+            "accelerationToolkit": "docs/DEV_ACCELERATION_TOOLKIT.md - rapid prototyping, monitoring, quality assurance tools",
+            "implementationGuide": "docs/IMPLEMENTATION_AND_TESTING.md - healthcare-specific testing and n8n workflows"
+        },
+
+        "systemdManagement": {
+            "installationMethod": "Direct file installation to /etc/systemd/system/ with intelluxe- prefix for clear identification",
+            "serviceLifecycle": "install -> enable -> daemon-reload for new services, sync-systemd for updates",
+            "cleanupProcess": "Disable -> stop -> remove files -> daemon-reload for complete removal",
+            "verificationScript": "systemd-verify.sh checks installed units in /etc/systemd/system/, validates 1000:1001 ownership",
+            "noSubdirectories": "Do NOT use /etc/systemd/system/intelluxe/ subdirectories - causes systemd discovery issues"
+        },
+
+        "healthcareServices": {
+            "coreServices": "Ollama (local LLM), Healthcare-MCP (medical tools), PostgreSQL (patient context), Redis (session cache), n8n (workflows)",
+            "securityFirst": "HIPAA-compliant service orchestration with audit logging and role-based access",
+            "configurationOnly": "100% of services use pure .conf files in services/user/SERVICE/ directories"
         },
 
         "coreAgents": {
@@ -68,51 +98,64 @@
             "schedulingOptimizer": "Appointment scheduling and resource optimization"
         },
 
-        "phaseImplementation": {
-            "phase0": "Project setup and directory structure (PHASE_0.md)",
-            "phase1": "Core AI infrastructure with Ollama, MCP, and basic agents (PHASE_1.md)",
-            "phase2": "Business services, insurance verification, billing, and doctor personalization (PHASE_2.md)",
-            "phase3": "Production deployment with enterprise scaling and compliance monitoring (PHASE_3.md)"
-        },
-
         "directoryStructure": {
-            "vendor/": "Source code for third-party services (git submodules like AI-Engineering-Hub)",
-            "services/user/": "Runtime configurations (.conf files) for all services",
+            "reference/ai-patterns/": "MIT licensed AI engineering patterns (git submodule)",
+            "mcps/healthcare/": "Healthcare MCP server code (copied from agentcare-mcp)",
+            "services/user/": "Service configurations - each service has services/user/SERVICE/SERVICE.conf",
             "core/": "Core Python infrastructure (orchestration, models, tools)",
-            "agents/": "AI agent implementations (intake, document_processor, research_assistant, billing_helper, scheduling_optimizer)",
-            "scripts/": "Primary shell scripts (universal-service-runner.sh, lib.sh, etc.)",
+            "agents/": "AI agent implementations",
+            "scripts/": "Primary shell scripts (universal-service-runner.sh, lib.sh, bootstrap.sh, systemd-verify.sh)",
+            "systemd/": "Source systemd unit files WITHOUT intelluxe- prefix",
             "test/": "Bats tests for shell scripts",
-            "docs/": "Project documentation (phase guides, architecture)",
-            "reference/": "Reference patterns for adaptation (ai-patterns submodule)"
+            "docs/": "Project documentation including PHASE_*.md, ARCHITECTURE_BASE_CODE.md, DEV_ACCELERATION_TOOLKIT.md",
+            "stack/": "Runtime configuration and data directory"
         },
 
-        "testing": {
+        "testingAndValidation": {
             "framework": "Use Bats framework for shell script integration testing",
             "realCodeOnly": "Tests MUST source functions from actual scripts in scripts/",
             "outputValidation": "Validate actual output of commands or file content, avoid unbound status variables",
-            "healthcareTesting": "Test with realistic medical scenarios while avoiding actual patient data",
-            "complianceTesting": "Validate HIPAA compliance, audit logging, and data handling practices"
+            "systemdTesting": "Test with actual systemd unit installation and enablement",
+            "permissionTesting": "Validate 1000:1001 ownership and group permissions work correctly"
         },
 
         "editingRules": {
-            "readFirst": "ALWAYS read the file section before editing to understand context",
-            "syntaxIntegrity": "NEVER break bash syntax (check if/fi, case/esac, loops) - use shellcheck",
+            "readFirst": "ALWAYS read the file section before editing to understand context and current state",
+            "syntaxIntegrity": "NEVER break bash syntax (check if/fi, case/esac, loops) - use shellcheck validation",
             "incrementalChanges": "Make one logical change at a time, test after each change",
-            "cleanup": "Remove unused functions/variables after refactoring"
+            "cleanup": "Remove unused functions/variables after refactoring",
+            "permissionAwareness": "Understand current justin:intelluxe ownership model before suggesting fixes",
+            "systemdBestPractices": "Use direct file installation, avoid complex symlink schemes, enable services properly"
+        },
+
+        "commonMistakes": {
+            "avoidSubdirectories": "Do NOT create /etc/systemd/system/intelluxe/ subdirectories - systemd doesn't discover them",
+            "avoidComplexSymlinks": "Use direct file installation instead of subdirectory + symlink schemes",
+            "respectPermissions": "Don't suggest root:root ownership when justin:intelluxe development model is established",
+            "validateChanges": "Always test systemctl commands after systemd changes",
+            "readBeforeEdit": "Don't make assumptions about file contents - read first, then edit"
         },
 
         "git": {
-            "tracked": ".github/, .vscode/, docs/, scripts/, services/, systemd/, test/, vendor/, reference/",
-            "ignored": "logs/, backups/, user-specific service data"
+            "tracked": ".github/, .vscode/, docs/, scripts/, services/, systemd/, test/, reference/ (submodule), mcps/",
+            "ignored": "logs/, backups/, user-specific service data, /etc/systemd/system/intelluxe-* (installed files)"
         },
 
-        "developmentGuidelines": {
-            "architectureReference": "Follow ARCHITECTURE_BASE_CODE.md for mapping AI Engineering Hub patterns to healthcare components",
-            "accelerationToolkit": "Use DEV_ACCELERATION_TOOLKIT.md for rapid prototyping and best practices",
-            "firewallAwareness": "All development must consider GitHub Actions firewall restrictions"
+        "familyCollaboration": {
+            "accessModel": "Father-son development team (Jeffrey & Justin Sue), group-based permissions for family access",
+            "groupMembership": "Add family members to intelluxe group for full development access",
+            "sharedWorkspace": "All family members can edit files, run make commands, and contribute to healthcare AI development"
         },
 
-        "instructionAwareness": "These instructions evolve with the codebase. Suggest updates when major architectural changes occur."
+        "developmentWorkflow": {
+            "initialSetup": "make install (creates users, groups, installs systemd units, sets permissions)",
+            "permissionFixes": "make fix-permissions (fixes ownership without full reinstall)",
+            "systemdUpdates": "make sync-systemd (quick updates for modified .service/.timer files)",
+            "validation": "make systemd-verify (checks installed units and permissions)",
+            "debugging": "scripts/systemd-verify.sh --details for verbose systemd validation"
+        },
+
+        "instructionAwareness": "These instructions reflect lessons learned from extensive systemd and permission debugging. Update when architectural changes occur, but preserve hard-won knowledge about what actually works in practice."
     },
     "terminal.integrated.defaultProfile.linux": "bash"
 }

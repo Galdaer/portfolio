@@ -24,20 +24,22 @@
 
 ### Directory Structure
 ```
-vendor/                 # Source code for third-party services (git submodules like healthcare-mcp)
-services/user/          # Runtime configurations (.conf files) for all services
+reference/ai-patterns/  # MIT licensed AI engineering patterns (git submodule from ai-engineering-hub)
+mcps/healthcare/        # Healthcare MCP server code (copied from agentcare-mcp repository)
+services/user/          # Service configurations - each service has services/user/SERVICE/SERVICE.conf
 agents/                 # AI agent implementations (intake/, document_processor/, research_assistant/, billing_helper/, scheduling_optimizer/)
 core/                   # Core healthcare AI infrastructure (memory/, orchestration/, models/, tools/)
 data/                   # AI training and evaluation data management (training/, evaluation/, vector_stores/)
 infrastructure/         # Healthcare deployment configs (docker/, monitoring/, security/, backup/)
-docs/                   # Comprehensive healthcare AI documentation including phase guides
-reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare adaptation (git submodule)
+docs/                   # Comprehensive healthcare AI documentation including PHASE_*.md guides
+scripts/                # Primary shell scripts (universal-service-runner.sh, lib.sh, bootstrap.sh, systemd-verify.sh)
 ```
 
 ## AI Engineering Patterns
 
 ### Reference Library
-- **`reference/ai-patterns/`** - MIT licensed AI engineering patterns adapted for healthcare
+- **`reference/ai-patterns/`** - MIT licensed AI engineering patterns (git submodule from ai-engineering-hub) adapted for healthcare
+- **`mcps/healthcare/`** - Healthcare MCP server code directly copied from agentcare-mcp repository
 - **Healthcare-Relevant Patterns**:
   - `agentic_rag/` - Medical document processing and research assistance
   - `document-chat-rag/` - Patient document Q&A with privacy protection
@@ -79,11 +81,12 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 - **Redis** (session cache)
 - **n8n** (workflows)
 
-### Universal Configuration
-- **100% of services use pure .conf files**
-- **Healthcare services configured through universal service runner**
-- **Source code management**: Third-party service source code (like healthcare-mcp) managed as git submodules in vendor/
-- **Service discovery**: Auto-detection with health monitoring and alerting
+### Service Configuration Pattern
+- **Service Structure**: Each service configured at `services/user/SERVICE/SERVICE.conf`
+- **Deployment Flow**: `bootstrap.sh` calls `universal-service-runner.sh` for each SERVICE.conf file
+- **Universal Runner**: `universal-service-runner.sh` is the ONLY method for deploying services
+- **Web UI Integration**: `config_web_ui.py` creates .conf files directly in `services/user/SERVICE/` directories
+- **Security**: HIPAA-compliant service orchestration with audit logging and role-based access
 
 ## Development Guidelines
 
@@ -135,14 +138,13 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 - **Universal runner**: `universal-service-runner.sh` dynamically generates Docker commands from configuration
 
 ### Python Web UI
-- **Creates .conf files directly** using universal service runner format
-- **Never calls legacy scripts**
-- **Implements modern service addition**
+- **Creates .conf files directly** using universal service runner format in `services/user/SERVICE/` directories
+- **Implements modern service addition** through universal configuration pattern
 
 ### Service Configurations
 - **Universal key=value format** supporting all Docker features
 - **See `UNIVERSAL_CONFIG_SCHEMA.md`** for specification
-- **No legacy code**: No plugin.sh files, no add-service.sh references
+- **Service Pattern**: Each service at `services/user/SERVICE/SERVICE.conf` deployed through `universal-service-runner.sh`
 
 ## Development Principles
 
