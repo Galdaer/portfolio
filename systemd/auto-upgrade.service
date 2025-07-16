@@ -15,4 +15,5 @@ NoNewPrivileges=yes
 ProtectSystem=strict
 ReadWritePaths=/var/log /var/run /tmp /var/lib/apt /var/cache/apt
 ProtectHome=yes
+SyslogIdentifier=auto-upgrade
 PrivateTmp=yes

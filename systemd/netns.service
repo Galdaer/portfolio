@@ -16,5 +16,6 @@ StandardOutput=journal
 StandardError=journal
 RemainAfterExit=yes
 
+SyslogIdentifier=netns
 [Install]
 WantedBy=multi-user.target

@@ -149,8 +149,8 @@ check_file_secure() {
                 return 1
         fi
 	local perm owner
-	perm=$(stat -c '%a' "$f")
-	owner=$(stat -c '%U' "$f")
+	perm=$(stat -L -c '%a' "$f")
+	owner=$(stat -L -c '%U' "$f")
 	if [[ "$type" == "script" ]]; then
                 [[ "$perm" =~ ^0?7[05][05]$ ]] || { msg="[WARN] $f is $perm, should be 700/755"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }
                 [[ -x "$f" ]] || { msg="[WARN] $f is not executable"; echo "$msg" | tee -a "$tmp_warn"; WARNINGS_ARRAY+=("$msg"); }

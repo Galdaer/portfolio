@@ -14,5 +14,8 @@ Type=oneshot
 ExecStart=/opt/intelluxe/scripts/auto-repair.sh
 Nice=10
 
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=auto-repair
 [Install]
 WantedBy=multi-user.target

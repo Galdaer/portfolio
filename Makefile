@@ -5,6 +5,7 @@
 	   deps \
 	   diagnostics \
 	   dry-run \
+	   fix-permissions \
 	   help \
 	   install \
 	   lint \
@@ -18,15 +19,35 @@
 # Installation Commands
 install:
 	@echo "🔗  Installing Intelluxe AI infrastructure scripts and services"
+	@echo "   - Creating intelluxe user and group if they don't exist"
+	@if ! getent group intelluxe >/dev/null; then \
+		sudo groupadd intelluxe; \
+	fi
+	@if ! getent passwd intelluxe >/dev/null; then \
+		sudo useradd -r -g intelluxe -s /bin/false -d /opt/intelluxe intelluxe; \
+	fi
+	@echo "   - Adding current user to intelluxe group"
+	@sudo usermod -a -G intelluxe $(shell whoami)
 	sudo mkdir -p /opt/intelluxe/scripts
+	@echo "   - Fixing systemd service files"
+	@bash scripts/fix-systemd-units.sh
 	@echo "   - Symlinking systemd units to /etc/systemd/system/intelluxe/"
 	sudo mkdir -p /etc/systemd/system/intelluxe
-	sudo ln -sf $(PWD)/systemd/* /etc/systemd/system/intelluxe/
+	sudo install -m 644 $(PWD)/systemd/* /etc/systemd/system/intelluxe/
 	sudo systemctl daemon-reload
 	@echo "   - Symlinking /home/intelluxe/stack to /opt/intelluxe/stack"
 	sudo ln -sf $(PWD)/stack /opt/intelluxe/
 	@echo "   - Symlinking /home/intelluxe/scripts to /opt/intelluxe/scripts"
 	sudo ln -sf $(PWD)/scripts /opt/intelluxe/scripts
+	@echo "   - Setting correct permissions on script files"
+	@sudo chmod 755 $(PWD)/scripts/*.sh $(PWD)/scripts/*.py
+	@echo "   - Setting correct ownership on source files"
+	@sudo chown -R intelluxe:intelluxe $(PWD)/scripts $(PWD)/stack
+	@echo "   - Setting correct ownership on symlinked files"
+	@sudo chown -R intelluxe:intelluxe /opt/intelluxe
+	@if [ -f "/opt/intelluxe/stack/.bootstrap.conf" ]; then \
+		sudo chown intelluxe:intelluxe /opt/intelluxe/stack/.bootstrap.conf; \
+	fi
 	@echo "✅  Installation complete! Run 'make setup' to configure your Intelluxe AI system."
 
 uninstall:
@@ -35,6 +56,23 @@ uninstall:
 	sudo rm -rf /etc/systemd/system/intelluxe
 	sudo systemctl daemon-reload
 	@echo "✅ Uninstall complete"
+
+fix-permissions:
+	@echo "🔧  Fixing permissions and ownership for Intelluxe files"
+	@if ! getent group intelluxe >/dev/null; then \
+		sudo groupadd intelluxe; \
+	fi
+	@if ! getent passwd intelluxe >/dev/null; then \
+		sudo useradd -r -g intelluxe -s /bin/false -d /opt/intelluxe intelluxe; \
+	fi
+	@sudo usermod -a -G intelluxe $(shell whoami)
+	@sudo chmod 755 scripts/*.sh scripts/*.py
+	@sudo chown -R intelluxe:intelluxe scripts stack
+	@sudo chown -R intelluxe:intelluxe /opt/intelluxe
+	@sudo chmod 644 /etc/systemd/system/intelluxe/*
+	@bash scripts/fix-systemd-units.sh
+	@sudo systemctl daemon-reload
+	@echo "✅ Permissions and ownership fixed"
 
 deps:
 	@echo "📦  Installing system dependencies first"

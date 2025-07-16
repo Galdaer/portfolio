@@ -13,5 +13,8 @@ Requires=grafana-server.service
 Type=oneshot
 ExecStart=/usr/bin/systemctl restart grafana-server
 
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=grafana-provision
 [Install]
 WantedBy=multi-user.target

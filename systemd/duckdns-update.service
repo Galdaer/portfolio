@@ -13,7 +13,10 @@ Type=oneshot
 # Default configuration directory
 Environment=CFG_ROOT=/opt/intelluxe/docker-stack
 # Optional override with system-wide config
-EnvironmentFile=-/etc/default/clinic.conf
+EnvironmentFile=-/opt/intelluxe/stack/clinic.conf
 # DuckDNS credentials relative to CFG_ROOT
-EnvironmentFile=-${CFG_ROOT}/duckdns/duckdns.env
+EnvironmentFile=-/opt/intelluxe/stack/duckdns/duckdns.env
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=duckdns-update
 ExecStart=/opt/intelluxe/scripts/duckdns-update.sh

@@ -13,5 +13,8 @@ Requires=netns.service
 Type=oneshot
 ExecStart=/opt/intelluxe/scripts/wg-setup.sh
 
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wg
 [Install]
 WantedBy=multi-user.target
