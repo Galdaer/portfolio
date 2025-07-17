@@ -124,6 +124,7 @@ declare -gA DOCKER_ARG_MAP=(
     ["domain_routing"]="traefik_labels"      # Generate Traefik labels for domain routing
     ["extra_args"]="extra_args_mapping"      # Special handling for extra Docker arguments
     ["requires_setup"]="ignore"              # Setup requirements - not passed to Docker
+    ["post_start_hook"]="ignore"             # Post-start hooks - handled separately, not passed to Docker
     
     # Device and hardware
     ["device"]="--device"

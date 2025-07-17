@@ -337,7 +337,8 @@ EOF
         echo "WG_DIR=\"$WG_DIR\""
     } >> "$CONFIG_FILE"
 
-    run chmod 600 "$CONFIG_FILE"
+    # More permissive permissions for development environment
+    run chmod 660 "$CONFIG_FILE"
     set_ownership "$CONFIG_FILE"
     
     log "Configuration saved successfully"
@@ -1379,8 +1380,8 @@ container_action() {
 
 # --- Configuration Web UI Service Management ---
 enable_config_web_ui() {
-	log "Enabling config-web-ui.service"
-	run systemctl enable --now config-web-ui.service
+	log "Enabling intelluxe-config-web-ui.service"
+	run systemctl enable --now intelluxe-config-web-ui.service
 }
 
 install_package() {
@@ -1749,12 +1750,28 @@ is_container_running() {
 
 check_permissions() {
 	# Warn if sensitive files are world-readable.
+	# Be more lenient in development environments (when CFG_ROOT points to /opt/intelluxe/stack)
+	local is_development=false
+	if [[ "$CFG_ROOT" == "/opt/intelluxe/stack" ]]; then
+		is_development=true
+	fi
+	
 	for f in "$WG_KEYS_ENV" "$LOG_FILE" "$CONFIG_FILE"; do
 		if [ -f "$f" ]; then
 			local perm
 			perm=$(stat -c '%a' "$f" 2>/dev/null || echo "")
-			if [ -n "$perm" ] && [ "$perm" -gt 600 ]; then
-				warn "File $f is more permissive than 0600. Consider tightening permissions."
+			if [ -n "$perm" ]; then
+				if [[ "$is_development" == "true" ]]; then
+					# In development, allow more permissive permissions up to 664/660
+					if [ "$perm" -gt 664 ]; then
+						warn "File $f is world-writable ($perm). Consider using 660 or 664 for development."
+					fi
+				else
+					# In production, enforce stricter permissions
+					if [ "$perm" -gt 600 ]; then
+						warn "File $f is more permissive than 0600. Consider tightening permissions."
+					fi
+				fi
 			fi
 
 			# Check ownership - should match CFG_UID:CFG_GID, not necessarily root

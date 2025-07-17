@@ -262,7 +262,8 @@ rotate_log_if_needed() {
 	fi
 	if [[ "$DRY_RUN" != true ]]; then
 		: >"$LOG_FILE"
-		chmod 0600 "$LOG_FILE" 2>/dev/null || true
+		# More permissive permissions for development environment
+		chmod 0664 "$LOG_FILE" 2>/dev/null || true
 	fi
 }
 
