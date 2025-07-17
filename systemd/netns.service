@@ -16,6 +16,6 @@ StandardOutput=journal
 StandardError=journal
 RemainAfterExit=yes
 
-SyslogIdentifier=netns
+SyslogIdentifier=intelluxe-netns
 [Install]
 WantedBy=multi-user.target

@@ -115,6 +115,16 @@ health_check() {
     if command -v kcov >/dev/null 2>&1; then
         tools["kcov --version"]="kcov (coverage tool)"
     fi
+    
+    # Add NVIDIA tools if GPU is present
+    if lspci 2>/dev/null | grep -i nvidia >/dev/null 2>&1; then
+        if command -v nvidia-smi >/dev/null 2>&1; then
+            tools["nvidia-smi -L"]="NVIDIA GPU detection"
+        fi
+        if command -v nvidia-ctk >/dev/null 2>&1; then
+            tools["nvidia-ctk --version"]="NVIDIA Container Toolkit"
+        fi
+    fi
 
     # Add Docker Compose tools - check that at least one works
     local compose_available=false
@@ -234,16 +244,47 @@ build_dependency_list() {
         # Systemd and logging dependencies
         systemd rsyslog
     )
+    
+    # Add NVIDIA packages for GPU acceleration if GPU is detected
+    local nvidia_packages=()
+    if lspci 2>/dev/null | grep -i nvidia >/dev/null 2>&1; then
+        log "NVIDIA GPU detected - adding NVIDIA packages to dependency list"
+        case $PKG_MANAGER in
+            apt)
+                # Use latest open drivers with automatic updates
+                nvidia_packages+=(
+                    nvidia-driver-open
+                    nvidia-container-toolkit
+                )
+                ;;
+            dnf)
+                nvidia_packages+=(
+                    nvidia-driver
+                    nvidia-container-toolkit
+                )
+                ;;
+            pacman)
+                nvidia_packages+=(
+                    nvidia-open
+                    nvidia-container-toolkit
+                )
+                ;;
+        esac
+        log "NVIDIA packages to install: ${nvidia_packages[*]}"
+    else
+        log "No NVIDIA GPU detected - skipping NVIDIA packages"
+    fi
+    
     case $PKG_MANAGER in
         apt)
             # Clean list - no Docker conflicts, no containerized services
-            DEPENDENCIES=(apt-utils "${common[@]}" dnsutils)
+            DEPENDENCIES=(apt-utils "${common[@]}" "${nvidia_packages[@]}" dnsutils)
             ;;
         dnf)
-            DEPENDENCIES=("${common[@]}" bind-utils)
+            DEPENDENCIES=("${common[@]}" "${nvidia_packages[@]}" bind-utils)
             ;;
         pacman)
-            DEPENDENCIES=("${common[@]/make/base-devel}" bind-tools)
+            DEPENDENCIES=("${common[@]/make/base-devel}" "${nvidia_packages[@]}" bind-tools)
             ;;
         *)
             DEPENDENCIES=("${common[@]}")
@@ -589,12 +630,22 @@ main() {
     install_docker
     ensure_docker_cli
     ensure_compose
+    # Add NVIDIA support after Docker is set up
+    setup_nvidia_support
     install_go
     install_python_deps
     setup_directories
     install_testing_tools
     setup_firewall
     setup_systemd
+    
+    # Check if reboot is needed for NVIDIA drivers
+    if lspci 2>/dev/null | grep -i nvidia >/dev/null 2>&1 && ! nvidia-smi >/dev/null 2>&1; then
+        warn "🔄 REBOOT REQUIRED: NVIDIA drivers installed but not loaded"
+        warn "   Run 'sudo reboot' then test with: nvidia-smi"
+        warn "   After reboot, GPU services should work properly"
+    fi
+    
     ok "All Intelluxe dependencies installed!"
     exit 0
 }

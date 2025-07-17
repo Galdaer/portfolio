@@ -650,6 +650,9 @@ build_docker_command() {
         # Skip the image key (handled specially at the end)
         [[ "$config_key" == "image" ]] && continue
         
+        # Skip the command key (handled specially after the image)
+        [[ "$config_key" == "command" ]] && continue
+        
         # Get the Docker argument mapping for this key
         local docker_arg="${DOCKER_ARG_MAP[$config_key]:-}"
         
@@ -828,6 +831,13 @@ build_docker_command() {
     fi
     # Add the image at the end
     DOCKER_COMMAND+=("${SERVICE_CONFIG[image]}")
+    
+    # Add command arguments after the image if specified
+    if [[ -n "${SERVICE_CONFIG[command]:-}" ]]; then
+        # Split the command arguments and add them
+        read -ra cmd_args <<< "${SERVICE_CONFIG[command]}"
+        DOCKER_COMMAND+=("${cmd_args[@]}")
+    fi
     
     # Re-enable unbound variable checking
     set -u
