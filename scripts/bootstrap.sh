@@ -1380,8 +1380,44 @@ container_action() {
 
 # --- Configuration Web UI Service Management ---
 enable_config_web_ui() {
-	log "Enabling intelluxe-config-web-ui.service"
-	run systemctl enable --now intelluxe-config-web-ui.service
+	# Only restart if configuration has actually changed
+	local config_changed=false
+	local timestamp_file="${CONFIG_FILE}.timestamp"
+	
+	# Check if this is first run (no config file exists)
+	if [[ ! -f "$CONFIG_FILE" ]]; then
+		config_changed=true
+		log "First run detected - config-web-ui will be started"
+	else
+		# Check if config file was modified since last bootstrap run
+		local config_file_timestamp
+		config_file_timestamp=$(stat -c %Y "$CONFIG_FILE" 2>/dev/null || echo "0")
+		
+		local last_bootstrap_timestamp="0"
+		if [[ -f "$timestamp_file" ]]; then
+			last_bootstrap_timestamp=$(cat "$timestamp_file" 2>/dev/null || echo "0")
+		fi
+		
+		# If config file is newer than our last bootstrap timestamp, it changed
+		if [[ "$config_file_timestamp" -gt "$last_bootstrap_timestamp" ]]; then
+			config_changed=true
+			log "Configuration changes detected - config-web-ui will be restarted"
+		else
+			log "No configuration changes detected - config-web-ui will not be restarted"
+		fi
+	fi
+	
+	# Always update the timestamp to mark this bootstrap run
+	echo "$(date +%s)" > "$timestamp_file"
+	
+	if [[ "$config_changed" == "true" ]]; then
+		log "Enabling intelluxe-config-web-ui.service"
+		run systemctl enable --now intelluxe-config-web-ui.service
+	else
+		# Just ensure it's enabled but don't restart
+		log "Ensuring intelluxe-config-web-ui.service is enabled (without restart)"
+		run systemctl enable intelluxe-config-web-ui.service 2>/dev/null || true
+	fi
 }
 
 install_package() {
@@ -2624,6 +2660,9 @@ setup_traefik_config() {
 api:
   dashboard: true
 
+# Enable ping endpoint for health checks
+ping: {}
+
 entryPoints:
   web:
     address: ":80"
@@ -2864,13 +2903,13 @@ restart_services_with_dependencies() {
         fi
     done
     
-    log "🔄 Restarting services in dependency order: ${ordered_services[*]}"
+    log "🔄 Rolling restart of services in dependency order: ${ordered_services[*]}"
     
-    # Restart each service individually with dependency-aware delays
+    # Phase 1: Start all services in dependency order with brief delays (true rolling restart)
     for service in "${ordered_services[@]}"; do
         log "🔄 Restarting $service..."
         
-        # Clean up existing container to avoid port conflicts (TRUE rolling restart)
+        # Clean up existing container to avoid port conflicts
         if docker ps -q --filter "name=^/${service}$" | grep -q .; then
             log "🛑 Stopping $service for rolling restart..."
             docker stop "$service" >/dev/null 2>&1 || true
@@ -2882,33 +2921,40 @@ restart_services_with_dependencies() {
         
         log "🚀 Starting $service..."
         
-        # Restart the service
+        # Start the service
         ensure_container_running "$service" || {
-            warn "❌ Failed to restart $service"
+            warn "❌ Failed to start $service"
             continue
         }
         
-        # Always wait for service to be healthy after restart
-        wait_for_service_healthy "$service"
-        
-        # Add delay between critical services
+        # Brief delay between critical services to respect dependencies
         case "$service" in
-            "wireguard"|"traefik"|"config-web-ui")
+            "wireguard")
+                # Wait for WireGuard to be healthy before continuing (critical for VPN access)
+                log "⏳ Waiting for critical service $service to be healthy before continuing..."
+                wait_for_service_healthy "$service"
                 sleep 2
                 ;;
+            "traefik"|"config-web-ui")
+                sleep 3  # Brief delay for reverse proxy and config
+                ;;
             *)
-                sleep 1
+                sleep 1  # Minimal delay for other services
                 ;;
         esac
     done
     
-    log "✅ All services restarted successfully"
+    # Phase 2: Wait for all services to become healthy together
+    log "🏥 Waiting for all services to become healthy..."
+    wait_for_all_services_healthy "${ordered_services[@]}"
+    
+    log "✅ Rolling restart completed successfully"
 }
 
 # Wait for a service to become healthy
 wait_for_service_healthy() {
     local service="$1"
-    local max_wait=15  # Reduced from 30 to speed up restarts
+    local max_wait=45  # Increased from 15s to 45s for AI services that take longer to start
     local wait_time=0
     
     log "🏥 Waiting for $service to become healthy..."
@@ -2948,6 +2994,73 @@ wait_for_service_healthy() {
     
     warn "⏰ Timeout waiting for $service to become healthy (${max_wait}s)"
     # Don't fail - continue with other services
+    return 0
+}
+
+# Wait for multiple services to become healthy in parallel
+wait_for_all_services_healthy() {
+    local services=("$@")
+    local max_wait=60  # Longer timeout for multiple services
+    local wait_time=0
+    local -a pending_services=("${services[@]}")
+    
+    log "🏥 Monitoring health status for ${#services[@]} services: ${services[*]}"
+    
+    while [[ $wait_time -lt $max_wait ]] && [[ ${#pending_services[@]} -gt 0 ]]; do
+        local -a still_pending=()
+        
+        for service in "${pending_services[@]}"; do
+            if docker ps --filter "name=$service" --filter "status=running" --format '{{.Names}}' | grep -Fxq "$service"; then
+                local health_status
+                health_status=$(docker inspect "$service" --format='{{.State.Health.Status}}' 2>/dev/null || echo "none")
+                
+                case "$health_status" in
+                    "healthy")
+                        log "✅ $service is healthy"
+                        # Service is healthy, don't add to still_pending
+                        ;;
+                    "starting")
+                        still_pending+=("$service")
+                        ;;
+                    "unhealthy")
+                        warn "❌ $service is unhealthy"
+                        still_pending+=("$service")
+                        ;;
+                    "none")
+                        # No health check defined, assume healthy if running
+                        log "✅ $service is running (no health check)"
+                        # Service is healthy, don't add to still_pending
+                        ;;
+                esac
+            else
+                warn "❌ $service is not running"
+                still_pending+=("$service")
+            fi
+        done
+        
+        # Update pending services list
+        pending_services=("${still_pending[@]}")
+        
+        # Calculate healthy count properly
+        local healthy_count=$((${#services[@]} - ${#pending_services[@]}))
+        
+        # Show progress
+        if [[ ${#pending_services[@]} -gt 0 ]]; then
+            log "⏳ ${healthy_count}/${#services[@]} services healthy. Still waiting for: ${pending_services[*]}"
+        else
+            log "🎉 All ${#services[@]} services are healthy!"
+            return 0
+        fi
+        
+        sleep 3
+        wait_time=$((wait_time + 3))
+    done
+    
+    if [[ ${#pending_services[@]} -gt 0 ]]; then
+        warn "⏰ Timeout waiting for all services to become healthy (${max_wait}s). Still pending: ${pending_services[*]}"
+    fi
+    
+    # Don't fail the entire deployment - some services might just need more time
     return 0
 }
 
@@ -3153,51 +3266,6 @@ main() {
 			exit 1
 		}
 	fi
-	# Handle pre-start container cleanup and port conflict resolution
-	for container in "${SELECTED_CONTAINERS[@]}"; do
-		# Clean up existing containers to avoid port conflicts
-		local svc_file=""
-		if [[ -f "${SCRIPT_DIR%/scripts}/services/user/${container}.conf" ]]; then
-			svc_file="${SCRIPT_DIR%/scripts}/services/user/${container}.conf"
-		fi
-		
-		# Always cleanup containers to avoid port conflicts during restart
-		if docker ps -q --filter "name=^/${container}$" | grep -q .; then
-			log "Stopping existing $container container to avoid port conflicts..."
-			run docker stop "$container" >/dev/null 2>&1 || true
-		fi
-		if docker ps -aq --filter "name=^/${container}$" | grep -q .; then
-			run docker rm "$container" >/dev/null 2>&1 || true
-			log "Removed existing $container container"
-		fi
-		
-		# Basic port conflict warning (simplified for now)
-		local conflict_port
-		conflict_port=$(get_service_config_value "$svc_file" "conflict_port")
-		if [[ -n "$conflict_port" ]] && check_port_in_use "$conflict_port" tcp; then
-			warn "Port $conflict_port is in use. $container may fail to start."
-			show_port_usage "$conflict_port"
-		fi
-	done
-
-	# Check for services using host networking on non-Linux systems
-	if [[ "$(uname)" != "Linux" ]]; then
-		for container in "${SELECTED_CONTAINERS[@]}"; do
-			local svc_file=""
-			if [[ -f "${SCRIPT_DIR%/scripts}/services/user/${container}.conf" ]]; then
-				svc_file="${SCRIPT_DIR%/scripts}/services/user/${container}.conf"
-			fi
-			
-			if [[ -n "$svc_file" ]]; then
-				local network_mode
-				network_mode=$(get_service_config_value "$svc_file" "network_mode")
-				if [[ "$network_mode" == "host" ]]; then
-					warn "$container uses host networking, which is only fully supported on Linux. Health checks may be skipped."
-				fi
-			fi
-		done
-	fi
-
 	# Handle services that require special setup
 	for container in "${SELECTED_CONTAINERS[@]}"; do
 		local svc_file=""
