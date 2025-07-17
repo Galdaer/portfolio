@@ -54,10 +54,12 @@
 
         "currentDevelopmentState": {
             "permissionModel": "Development files owned by justin:intelluxe (1000:1001), scripts 755, configs 660/664, logs 664",
+            "pathStandardization": "All scripts use CFG_ROOT:=/opt/intelluxe/stack for production consistency, with symlinks from /home/intelluxe/ for development convenience",
             "groupManagement": "intelluxe group (1001) persists across sessions, family members added via 'sudo usermod -a -G intelluxe username'",
             "systemdApproach": "Symlinked installation to /etc/systemd/system/ with intelluxe- prefix, changes to source files immediately reflected",
             "serviceNaming": "Source files in systemd/ without prefix, symlinked as intelluxe-servicename.service",
-            "developmentWorkflow": "make install (full setup), make fix-permissions (dev permissions), systemd changes auto-reflected via symlinks"
+            "developmentWorkflow": "make install (full setup), make fix-permissions (dev permissions), systemd changes auto-reflected via symlinks",
+            "logManagement": "/opt/intelluxe/logs remains real directory for systemd write access, not symlinked like other directories"
         },
 
         "serviceArchitecture": {
@@ -83,7 +85,9 @@
             "serviceLifecycle": "install -> enable -> daemon-reload for new services, changes auto-reflected via symlinks",
             "cleanupProcess": "Disable -> stop -> remove symlinks -> daemon-reload for complete removal",
             "verificationScript": "systemd-verify.sh checks installed units in /etc/systemd/system/, validates symlinks and ownership",
-            "developmentAdvantage": "Symlinks allow immediate reflection of .service/.timer changes without manual sync commands"
+            "developmentAdvantage": "Symlinks allow immediate reflection of .service/.timer changes without manual sync commands",
+            "securityLessons": "Avoid ProtectSystem=strict in development - use minimal security settings, add Environment=HOME=/root for scripts needing $HOME",
+            "pathConsistency": "All systemd ExecStart paths must use /opt/intelluxe/scripts/ (via symlinks), never /home/intelluxe/scripts/"
         },
 
         "healthcareServices": {
@@ -154,7 +158,9 @@
             "permissionFixes": "make fix-permissions (fixes ownership without full reinstall)",
             "systemdChanges": "Edit .service/.timer files directly - changes automatically reflected via symlinks",
             "validation": "make systemd-verify (checks installed units and symlinks)",
-            "debugging": "scripts/systemd-verify.sh --details for verbose systemd validation"
+            "debugging": "scripts/systemd-verify.sh --details for verbose systemd validation",
+            "serviceDebugging": "Use systemctl status service-name --no-pager -l for detailed service failures, check for 203/EXEC (path issues) vs other exit codes",
+            "pathTroubleshooting": "Verify /opt/intelluxe/ symlinks exist and point to /home/intelluxe/ - missing symlinks cause systemd 203/EXEC errors"
         },
 
         "instructionAwareness": "These instructions reflect lessons learned from extensive systemd and permission debugging. Update when architectural changes occur, but preserve hard-won knowledge about what actually works in practice."

@@ -97,6 +97,18 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 - **Use `DEV_ACCELERATION_TOOLKIT.md`** for rapid prototyping, monitoring, quality assurance
 - **Reference `IMPLEMENTATION_AND_TESTING.md`** for healthcare-specific testing and n8n workflows
 
+### Path Management & Directory Structure
+- **Production Paths**: All scripts use `CFG_ROOT:=/opt/intelluxe/stack` for production consistency
+- **Development Symlinks**: `make install` creates symlinks from `/home/intelluxe/` → `/opt/intelluxe/` for development convenience
+- **Log Directory Exception**: `/opt/intelluxe/logs` remains a real directory (not symlinked) for systemd service write access
+- **Ownership Model**: Consistent `CFG_UID=1000:CFG_GID=1001` (justin:intelluxe) across all components
+
+### Systemd Service Management
+- **Service Paths**: All systemd services use `/opt/intelluxe/scripts/` paths (via symlinks)
+- **Security Settings**: Avoid overly restrictive `ProtectSystem=strict` - use minimal security for development phase
+- **Environment Variables**: Services need `Environment=HOME=/root` for scripts that reference `$HOME`
+- **Service Installation**: `make install` handles symlinks to `/etc/systemd/system/` with `intelluxe-` prefix
+
 ### Testing Approach
 - **Healthcare-grade testing** with shadow deployment and quality metrics
 - **Compliance-first**: All features must support HIPAA compliance, audit trails, data retention policies

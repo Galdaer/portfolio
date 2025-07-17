@@ -21,6 +21,7 @@
 !/test/*
 !/test/**/*
 !/docs/
+!/docs/*
 !/services/
 !/services/user/
 !/services/user/**
@@ -199,5 +200,3 @@ yarn-error.log*
 .serverless/
 .fusebox/
 .dynamodb/
-!boot.txt
-!dmesg.txt
