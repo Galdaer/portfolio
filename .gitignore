@@ -203,3 +203,4 @@ yarn-error.log*
 !boot.txt
 !dmesg.txt
 !tests.txt
+services/user/wyoming-whisper/wyoming-whisper.conf
