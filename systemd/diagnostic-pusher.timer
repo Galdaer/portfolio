@@ -10,7 +10,7 @@ Description=Run diagnostic-pusher every 30 minutes
 [Timer]
 OnBootSec=5min
 OnUnitActiveSec=30min
-Unit=diagnostic-pusher.service
+Unit=intelluxe-diagnostic-pusher.service
 
 [Install]
 WantedBy=timers.target

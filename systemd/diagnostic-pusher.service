@@ -14,5 +14,8 @@ Requires=docker.service
 Type=oneshot
 ExecStart=/opt/intelluxe/scripts/diagnostic-pusher.sh
 
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=diagnostic-pusher
 [Install]
 WantedBy=multi-user.target

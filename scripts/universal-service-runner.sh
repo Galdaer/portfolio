@@ -124,6 +124,7 @@ declare -gA DOCKER_ARG_MAP=(
     ["domain_routing"]="traefik_labels"      # Generate Traefik labels for domain routing
     ["extra_args"]="extra_args_mapping"      # Special handling for extra Docker arguments
     ["requires_setup"]="ignore"              # Setup requirements - not passed to Docker
+    ["post_start_hook"]="ignore"             # Post-start hooks - handled separately, not passed to Docker
     
     # Device and hardware
     ["device"]="--device"
@@ -542,6 +543,41 @@ handle_extra_args_mapping() {
     printf '%s\n' "${extra_args_array[@]}"
 }
 
+# Auto-generate entrypoint.sh for Python services if missing
+generate_default_entrypoint() {
+    local app_dir="$1"
+    local entrypoint_path="$app_dir/entrypoint.sh"
+    local main_py="$app_dir/app.py"
+    
+    if [[ ! -f "$entrypoint_path" ]]; then
+        if [[ -f "$main_py" ]]; then
+            echo "#!/bin/bash" > "$entrypoint_path"
+            echo "exec python3 app.py \"$@\"" >> "$entrypoint_path"
+            chmod +x "$entrypoint_path"
+            log_info "Auto-generated entrypoint.sh for Python service at $entrypoint_path"
+        else
+            log_warning "No app.py found in $app_dir; cannot generate entrypoint.sh"
+        fi
+    fi
+}
+
+# Auto-generate entrypoint.sh for Python services if missing
+generate_default_entrypoint() {
+    local app_dir="$1"
+    local entrypoint_path="$app_dir/entrypoint.sh"
+    local main_py="$app_dir/app.py"
+    if [[ ! -f "$entrypoint_path" ]]; then
+        if [[ -f "$main_py" ]]; then
+            echo "#!/bin/bash" > "$entrypoint_path"
+            echo "exec python3 app.py \"$@\"" >> "$entrypoint_path"
+            chmod +x "$entrypoint_path"
+            log_info "Auto-generated entrypoint.sh for Python service at $entrypoint_path"
+        else
+            log_warning "No app.py found in $app_dir; cannot generate entrypoint.sh"
+        fi
+    fi
+}
+
 # Universal service configuration parser
 parse_universal_service_config() {
     local service_name="$1"
@@ -613,6 +649,9 @@ build_docker_command() {
         
         # Skip the image key (handled specially at the end)
         [[ "$config_key" == "image" ]] && continue
+        
+        # Skip the command key (handled specially after the image)
+        [[ "$config_key" == "command" ]] && continue
         
         # Get the Docker argument mapping for this key
         local docker_arg="${DOCKER_ARG_MAP[$config_key]:-}"
@@ -793,6 +832,13 @@ build_docker_command() {
     # Add the image at the end
     DOCKER_COMMAND+=("${SERVICE_CONFIG[image]}")
     
+    # Add command arguments after the image if specified
+    if [[ -n "${SERVICE_CONFIG[command]:-}" ]]; then
+        # Split the command arguments and add them
+        read -ra cmd_args <<< "${SERVICE_CONFIG[command]}"
+        DOCKER_COMMAND+=("${cmd_args[@]}")
+    fi
+    
     # Re-enable unbound variable checking
     set -u
     
@@ -812,6 +858,32 @@ run_universal_service() {
         return 1
     fi
     
+    # Auto-generate entrypoint.sh for Python services if needed
+    if [[ "${SERVICE_CONFIG[entrypoint]:-}" == "/app/entrypoint.sh" ]]; then
+        local app_dir=""
+        for vol in $(echo "${SERVICE_CONFIG[volumes]:-}" | tr ',' '\n'); do
+            if [[ "$vol" =~ ^([^:]+):/app$ ]]; then
+                app_dir="${BASH_REMATCH[1]}"
+                break
+            fi
+        done
+        if [[ -n "$app_dir" ]]; then
+            generate_default_entrypoint "$app_dir"
+        fi
+    fi
+    # Auto-generate entrypoint.sh for Python services if needed
+    if [[ "${SERVICE_CONFIG[entrypoint]:-}" == "/app/entrypoint.sh" ]]; then
+        local app_dir=""
+        for vol in $(echo "${SERVICE_CONFIG[volumes]:-}" | tr ',' '\n'); do
+            if [[ "$vol" =~ ^([^:]+):/app$ ]]; then
+                app_dir="${BASH_REMATCH[1]}"
+                break
+            fi
+        done
+        if [[ -n "$app_dir" ]]; then
+            generate_default_entrypoint "$app_dir"
+        fi
+    fi
     # Build the Docker command
     if ! build_docker_command "$service_name"; then
         log_error "Failed to build Docker command for $service_name"
@@ -826,6 +898,11 @@ run_universal_service() {
         log_info "Executing: docker ${DOCKER_COMMAND[*]}"
         if docker "${DOCKER_COMMAND[@]}"; then
             log_success "Successfully started $service_name"
+            # Handle post_start_hook if present
+            if [[ -n "${SERVICE_CONFIG[post_start_hook]:-}" ]]; then
+                log_info "Executing post-start hook: ${SERVICE_CONFIG[post_start_hook]}"
+                eval "${SERVICE_CONFIG[post_start_hook]}"
+            fi
             return 0
         else
             log_error "Failed to start $service_name"

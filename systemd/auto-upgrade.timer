@@ -1,9 +1,9 @@
 [Unit]
 Description=Run auto-upgrade weekly
-Requires=auto-upgrade.service
+Requires=intelluxe-auto-upgrade.service
 
 [Timer]
-OnCalendar=Sun 02:00
+OnCalendar=*-*-* 02:00
 Persistent=true
 RandomizedDelaySec=1800
 

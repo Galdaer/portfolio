@@ -77,7 +77,7 @@ SCRIPT_VERSION="1.0.0"
 # Self-update URL for automatic updates feature
 SELF_UPDATE_URL="https://raw.githubusercontent.com/Intelluxe-AI/intelluxe-core/main/scripts/bootstrap.sh"
 DEFAULT_UID=1000
-DEFAULT_GID=1000
+DEFAULT_GID=1001
 
 # ----------------- Configuration -----------------
 : "${CFG_ROOT:=/opt/intelluxe/stack}"
@@ -87,7 +87,6 @@ DEFAULT_GID=1000
 CONFIG_FILE="${CFG_ROOT}/.bootstrap.conf"
 BACKUP_DIR="${CFG_ROOT}/backups"
 LOG_DIR="${CFG_ROOT}/logs"
-mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/bootstrap.log"
 
 # Summary file for service documentation
@@ -206,8 +205,8 @@ flock -n 200 || {
 print_banner() {
 	cat <<BANNER
 ─────────────────────────────────────────────────────────────
-  Robust Docker Homelab Bootstrapper    v${SCRIPT_VERSION}
-  https://github.com/Galdaer/Self-hosting-and-networking
+  Robust Docker Intelluxe Bootstrapper    v${SCRIPT_VERSION}
+  https://github.com/Intelluxe-AI/intelluxe-core
 ─────────────────────────────────────────────────────────────
 BANNER
 }
@@ -267,6 +266,11 @@ script_specific_cleanup() {
 # Save current configuration state
 save_config() {
     log "Saving configuration to $CONFIG_FILE..."
+    
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "[DRY-RUN] Would save configuration to $CONFIG_FILE"
+        return 0
+    fi
     
     # Create config directory if needed
     mkdir -p "$(dirname "$CONFIG_FILE")"
@@ -331,10 +335,10 @@ EOF
         echo ""
         echo "# WireGuard configuration"
         echo "WG_DIR=\"$WG_DIR\""
-        echo "STORE_WG_IN_VAULT=\"$STORE_WG_IN_VAULT\""
     } >> "$CONFIG_FILE"
 
-    chmod 600 "$CONFIG_FILE"
+    # More permissive permissions for development environment
+    run chmod 660 "$CONFIG_FILE"
     set_ownership "$CONFIG_FILE"
     
     log "Configuration saved successfully"
@@ -856,7 +860,7 @@ ensure_container_running() {
             log "🌟 Using universal configuration mode for $container_name"
             
             # Remove existing container
-            docker rm -f "$container_name" >/dev/null 2>&1 || true
+            run docker rm -f "$container_name" >/dev/null 2>&1 || true
             
             # Run with universal service runner
             if run_universal_service "$container_name" "$svc_file"; then
@@ -876,6 +880,64 @@ ensure_container_running() {
     esac
 }
 
+# Update ensure_container_running to use rolling restart approach
+# This replaces the old ensure_container_running with enhanced functionality
+
+ensure_container_running_enhanced() {
+    local container_name="$1"
+    local svc_file=""
+    
+    log "Ensuring service $container_name is running..."
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "[DRY-RUN] Would ensure service $container_name is running."
+        return 0
+    fi
+
+    # Find service configuration file
+    if [[ -f "${SCRIPT_DIR%/scripts}/services/user/${container_name}/${container_name}.conf" ]]; then
+        svc_file="${SCRIPT_DIR%/scripts}/services/user/${container_name}/${container_name}.conf"
+    elif [[ -f "${SCRIPT_DIR%/scripts}/services/user/${container_name}.conf" ]]; then
+        svc_file="${SCRIPT_DIR%/scripts}/services/user/${container_name}.conf"
+    else
+        warn "No service configuration found for: $container_name"
+        return 1
+    fi
+
+    # Check service type to determine how to run it
+    local service_type
+    service_type=$(get_service_config_value "$svc_file" "service_type" "docker")
+    
+    case "$service_type" in
+        "systemd")
+            log "🔧 Running systemd service: $container_name"
+            run_systemd_service "$container_name" "$svc_file"
+            ;;
+        "docker"|*)
+            # Universal configuration mode - use universal service runner
+            log "🌟 Using universal configuration mode for $container_name"
+            
+            # Run with universal service runner
+            if run_universal_service "$container_name" "$svc_file"; then
+                # Execute post-start hook if defined
+                local post_start_hook
+                post_start_hook=$(get_service_config_value "$svc_file" "post_start_hook")
+                if [[ -n "$post_start_hook" ]] && command -v "$post_start_hook" >/dev/null 2>&1; then
+                    log "Executing post-start hook: $post_start_hook"
+                    if "$post_start_hook"; then
+                        log "✅ Post-start hook completed successfully"
+                    else
+                        warn "❌ Post-start hook failed, but service is running"
+                    fi
+                fi
+                return 0
+            else
+                return 1
+            fi
+            ;;
+    esac
+}
+
 # Function to handle systemd services
 run_systemd_service() {
     local service_name="$1"
@@ -888,19 +950,19 @@ run_systemd_service() {
     log "Starting systemd service: $systemd_service_name"
     
     # Enable the service to start on boot
-    if ! systemctl enable "$systemd_service_name" 2>/dev/null; then
+    if ! run systemctl enable "$systemd_service_name" 2>/dev/null; then
         warn "Failed to enable systemd service: $systemd_service_name"
         return 1
     fi
     
     # Start the service
-    if ! systemctl start "$systemd_service_name" 2>/dev/null; then
+    if ! run systemctl start "$systemd_service_name" 2>/dev/null; then
         warn "Failed to start systemd service: $systemd_service_name"
         return 1
     fi
     
     # Check if the service is running
-    if systemctl is-active --quiet "$systemd_service_name"; then
+    if [[ "$DRY_RUN" == "true" ]] || systemctl is-active --quiet "$systemd_service_name"; then
         log "✅ Systemd service $systemd_service_name is running"
         return 0
     else
@@ -975,7 +1037,7 @@ reset_wireguard_keys() {
                 echo "WG_SERVER_PUBLIC_KEY=$WG_SERVER_PUBLIC_KEY"
                 echo "WG_PRESHARED_KEY=$WG_PRESHARED_KEY"
         } >"$WG_KEYS_ENV"
-        chmod 0600 "$WG_KEYS_ENV"
+        run chmod 0600 "$WG_KEYS_ENV"
         set_ownership "$WG_KEYS_ENV"
         log "WireGuard server keys reset in $WG_KEYS_ENV"
 
@@ -1083,7 +1145,7 @@ restore_backup() {
 	# Restart Docker containers to ensure restored state is live
 	log "Restarting all selected containers after restore..."
 	for c in "${SELECTED_CONTAINERS[@]}"; do
-		docker restart "$c" || warn "Could not restart container $c after restore"
+		run docker restart "$c" || warn "Could not restart container $c after restore"
 	done
 }
 
@@ -1307,10 +1369,10 @@ container_action() {
 		return 1
 	fi
 	case "$action" in
-	--start) docker start "$cname" >/dev/null ;;
-	--stop) docker stop "$cname" >/dev/null ;;
-	--restart) docker restart "$cname" >/dev/null ;;
-	--remove) docker rm -f "$cname" >/dev/null ;;
+	--start) run docker start "$cname" >/dev/null ;;
+	--stop) run docker stop "$cname" >/dev/null ;;
+	--restart) run docker restart "$cname" >/dev/null ;;
+	--remove) run docker rm -f "$cname" >/dev/null ;;
 	--status) docker ps -a --filter name="^${cname}$" ;;
         *) warn "Unknown action $action" ;;
         esac
@@ -1318,23 +1380,59 @@ container_action() {
 
 # --- Configuration Web UI Service Management ---
 enable_config_web_ui() {
-	log "Enabling config-web-ui.service"
-	run systemctl enable --now config-web-ui.service
+	# Only restart if configuration has actually changed
+	local config_changed=false
+	local timestamp_file="${CONFIG_FILE}.timestamp"
+	
+	# Check if this is first run (no config file exists)
+	if [[ ! -f "$CONFIG_FILE" ]]; then
+		config_changed=true
+		log "First run detected - config-web-ui will be started"
+	else
+		# Check if config file was modified since last bootstrap run
+		local config_file_timestamp
+		config_file_timestamp=$(stat -c %Y "$CONFIG_FILE" 2>/dev/null || echo "0")
+		
+		local last_bootstrap_timestamp="0"
+		if [[ -f "$timestamp_file" ]]; then
+			last_bootstrap_timestamp=$(cat "$timestamp_file" 2>/dev/null || echo "0")
+		fi
+		
+		# If config file is newer than our last bootstrap timestamp, it changed
+		if [[ "$config_file_timestamp" -gt "$last_bootstrap_timestamp" ]]; then
+			config_changed=true
+			log "Configuration changes detected - config-web-ui will be restarted"
+		else
+			log "No configuration changes detected - config-web-ui will not be restarted"
+		fi
+	fi
+	
+	# Always update the timestamp to mark this bootstrap run
+	echo "$(date +%s)" > "$timestamp_file"
+	
+	if [[ "$config_changed" == "true" ]]; then
+		log "Enabling intelluxe-config-web-ui.service"
+		run systemctl enable --now intelluxe-config-web-ui.service
+	else
+		# Just ensure it's enabled but don't restart
+		log "Ensuring intelluxe-config-web-ui.service is enabled (without restart)"
+		run systemctl enable intelluxe-config-web-ui.service 2>/dev/null || true
+	fi
 }
 
 install_package() {
 	# Install a package via the detected package manager.
 	local pkg="$1"
 	if command -v apt-get &>/dev/null; then
-		sudo apt-get update && sudo apt-get install -y "$pkg"
+		run sudo apt-get update && run sudo apt-get install -y "$pkg"
 	elif command -v dnf &>/dev/null; then
-		sudo dnf install -y "$pkg"
+		run sudo dnf install -y "$pkg"
 	elif command -v yum &>/dev/null; then
-		sudo yum install -y "$pkg"
+		run sudo yum install -y "$pkg"
 	elif command -v pacman &>/dev/null; then
-		sudo pacman -Sy --noconfirm "$pkg"
+		run sudo pacman -Sy --noconfirm "$pkg"
 	elif command -v apk &>/dev/null; then
-		sudo apk add "$pkg"
+		run sudo apk add "$pkg"
 	else
 		warn "No known package manager found. Please install $pkg manually."
 		return 1
@@ -1369,8 +1467,8 @@ ensure_docker_image() {
 ensure_directories() {
         # Ensure all required directories exist and are owned correctly.
         [[ $DRY_RUN == true ]] && log "[DRY-RUN] Would ensure directories" && return
-        mkdir -p "$CFG_ROOT" "$BACKUP_DIR" "$QR_DIR"
-        set_ownership "$CFG_ROOT" "$BACKUP_DIR" "$QR_DIR"
+        mkdir -p "$CFG_ROOT" "$BACKUP_DIR" "$LOG_DIR" "$QR_DIR"
+        set_ownership "$CFG_ROOT" "$BACKUP_DIR" "$LOG_DIR" "$QR_DIR"
 
         # WireGuard directories are needed for validation even if the container
         # isn't launched yet
@@ -1510,8 +1608,10 @@ load_wg_keys_env() {
 
 setup_wireguard_keys() {
 	# Setup WireGuard keys using wg-keys.env (safer for public sharing).
-	mkdir -p "$WG_DIR" "$WG_CLIENTS_DIR"
-	set_ownership "$WG_DIR" "$WG_CLIENTS_DIR"
+	if [[ "$DRY_RUN" != "true" ]]; then
+		mkdir -p "$WG_DIR" "$WG_CLIENTS_DIR"
+		set_ownership "$WG_DIR" "$WG_CLIENTS_DIR"
+	fi
 	if [[ ! -f "$WG_KEYS_ENV" ]]; then
 		if $NON_INTERACTIVE || $FORCE_DEFAULTS; then
 			log "Generating server keypair in wg-keys.env."
@@ -1524,7 +1624,7 @@ setup_wireguard_keys() {
 				echo "WG_SERVER_PUBLIC_KEY=$WG_SERVER_PUBLIC_KEY"
 				echo "WG_PRESHARED_KEY=$WG_PRESHARED_KEY"
 			} >"$WG_KEYS_ENV"
-			chmod 0600 "$WG_KEYS_ENV"
+			run chmod 0600 "$WG_KEYS_ENV"
 			set_ownership "$WG_KEYS_ENV"
 			log "Server keys generated and saved in $WG_KEYS_ENV."
 		else
@@ -1539,7 +1639,7 @@ setup_wireguard_keys() {
 					echo "WG_SERVER_PUBLIC_KEY=$WG_SERVER_PUBLIC_KEY"
 					echo "WG_PRESHARED_KEY=$WG_PRESHARED_KEY"
 				} >"$WG_KEYS_ENV"
-				chmod 0600 "$WG_KEYS_ENV"
+				run chmod 0600 "$WG_KEYS_ENV"
 				set_ownership "$WG_KEYS_ENV"
 				log "Server keys generated in $WG_KEYS_ENV."
 			else
@@ -1608,7 +1708,7 @@ setup_wireguard_keys() {
 			client_public=$(echo "$client_private" | wg pubkey)
 			echo "$client_private" >"$clientdir/private.key"
 			echo "$client_public" >"$clientdir/public.key"
-			chmod 0600 "$clientdir"/*.key
+			run chmod 0600 "$clientdir"/*.key
 			set_ownership "$clientdir"/*.key
 			read -rp "Client DNS (press Enter for '${WG_CLIENT_DNS}'): " client_dns
 			client_dns="${client_dns:-$WG_CLIENT_DNS}"
@@ -1686,12 +1786,28 @@ is_container_running() {
 
 check_permissions() {
 	# Warn if sensitive files are world-readable.
+	# Be more lenient in development environments (when CFG_ROOT points to /opt/intelluxe/stack)
+	local is_development=false
+	if [[ "$CFG_ROOT" == "/opt/intelluxe/stack" ]]; then
+		is_development=true
+	fi
+	
 	for f in "$WG_KEYS_ENV" "$LOG_FILE" "$CONFIG_FILE"; do
 		if [ -f "$f" ]; then
 			local perm
 			perm=$(stat -c '%a' "$f" 2>/dev/null || echo "")
-			if [ -n "$perm" ] && [ "$perm" -gt 600 ]; then
-				warn "File $f is more permissive than 0600. Consider tightening permissions."
+			if [ -n "$perm" ]; then
+				if [[ "$is_development" == "true" ]]; then
+					# In development, allow more permissive permissions up to 664/660
+					if [ "$perm" -gt 664 ]; then
+						warn "File $f is world-writable ($perm). Consider using 660 or 664 for development."
+					fi
+				else
+					# In production, enforce stricter permissions
+					if [ "$perm" -gt 600 ]; then
+						warn "File $f is more permissive than 0600. Consider tightening permissions."
+					fi
+				fi
 			fi
 
 			# Check ownership - should match CFG_UID:CFG_GID, not necessarily root
@@ -1811,7 +1927,7 @@ configure_firewall() {
 	fi
 
 	# Check if ufw is available and active
-	if command -v ufw &>/dev/null; then
+if command -v ufw &>/dev/null; then
 		local ufw_status
 		ufw_status=$(ufw status 2>/dev/null | head -n1 || echo "inactive")
 		if [[ "$ufw_status" == *"active"* ]]; then
@@ -2544,6 +2660,9 @@ setup_traefik_config() {
 api:
   dashboard: true
 
+# Enable ping endpoint for health checks
+ping: {}
+
 entryPoints:
   web:
     address: ":80"
@@ -2646,7 +2765,7 @@ EOF
 	done
 
 	# Set proper ownership and permissions
-	chmod 600 "$wg_conf"
+	run chmod 600 "$wg_conf"
 	set_ownership "$wg_conf"
 
 	log "WireGuard server config regenerated at $wg_conf"
@@ -2654,7 +2773,7 @@ EOF
 	# Restart WireGuard container to pick up new config
 	if docker ps -q --filter "name=wireguard" | grep -q .; then
 		log "Restarting WireGuard container to apply new peer configuration..."
-		docker restart wireguard >/dev/null 2>&1 || warn "Failed to restart WireGuard container"
+		run docker restart wireguard >/dev/null 2>&1 || warn "Failed to restart WireGuard container"
 	fi
 	return 0
 }
@@ -2753,6 +2872,208 @@ validate_config() {
     return 0
 }
 
+# ----------------- Smart Service Restart Logic -----------------
+restart_services_with_dependencies() {
+    local services=("$@")
+    
+    # Define service dependency order (dependencies first, dependents last)
+    # Only include services that actually exist in services/user/
+    local -a startup_order=(
+        "wireguard"      # VPN must be first for network access
+        "traefik"        # Reverse proxy
+        "config-web-ui"  # Configuration interface
+        "whisper"        # Speech-to-text service
+        "scispacy"       # Scientific NLP
+        "n8n"            # Automation workflows
+        "grafana"        # Monitoring (last)
+    )
+    
+    # Filter requested services by dependency order
+    local -a ordered_services=()
+    for service in "${startup_order[@]}"; do
+        if [[ " ${services[*]} " =~ \ ${service}\  ]]; then
+            ordered_services+=("$service")
+        fi
+    done
+    
+    # Add any services not in our dependency list
+    for service in "${services[@]}"; do
+        if [[ ! " ${ordered_services[*]} " =~ \ ${service}\  ]]; then
+            ordered_services+=("$service")
+        fi
+    done
+    
+    log "🔄 Rolling restart of services in dependency order: ${ordered_services[*]}"
+    
+    # Phase 1: Start all services in dependency order with brief delays (true rolling restart)
+    for service in "${ordered_services[@]}"; do
+        log "🔄 Restarting $service..."
+        
+        # Clean up existing container to avoid port conflicts
+        if docker ps -q --filter "name=^/${service}$" | grep -q .; then
+            log "🛑 Stopping $service for rolling restart..."
+            docker stop "$service" >/dev/null 2>&1 || true
+        fi
+        if docker ps -aq --filter "name=^/${service}$" | grep -q .; then
+            docker rm "$service" >/dev/null 2>&1 || true
+            log "🗑️  Removed old $service container"
+        fi
+        
+        log "🚀 Starting $service..."
+        
+        # Start the service
+        ensure_container_running "$service" || {
+            warn "❌ Failed to start $service"
+            continue
+        }
+        
+        # Brief delay between critical services to respect dependencies
+        case "$service" in
+            "wireguard")
+                # Wait for WireGuard to be healthy before continuing (critical for VPN access)
+                log "⏳ Waiting for critical service $service to be healthy before continuing..."
+                wait_for_service_healthy "$service"
+                sleep 2
+                ;;
+            "traefik"|"config-web-ui")
+                sleep 3  # Brief delay for reverse proxy and config
+                ;;
+            *)
+                sleep 1  # Minimal delay for other services
+                ;;
+        esac
+    done
+    
+    # Phase 2: Wait for all services to become healthy together
+    log "🏥 Waiting for all services to become healthy..."
+    wait_for_all_services_healthy "${ordered_services[@]}"
+    
+    log "✅ Rolling restart completed successfully"
+}
+
+# Wait for a service to become healthy
+wait_for_service_healthy() {
+    local service="$1"
+    local max_wait=45  # Increased from 15s to 45s for AI services that take longer to start
+    local wait_time=0
+    
+    log "🏥 Waiting for $service to become healthy..."
+    
+    while [[ $wait_time -lt $max_wait ]]; do
+        if docker ps --filter "name=$service" --filter "status=running" --format '{{.Names}}' | grep -Fxq "$service"; then
+            # Check if service has health check
+            local health_status
+            health_status=$(docker inspect "$service" --format='{{.State.Health.Status}}' 2>/dev/null || echo "none")
+            
+            case "$health_status" in
+                "healthy")
+                    log "✅ $service is healthy"
+                    return 0
+                    ;;
+                "starting")
+                    log "⏳ $service is starting..."
+                    ;;
+                "unhealthy")
+                    warn "❌ $service is unhealthy"
+                    return 1
+                    ;;
+                "none")
+                    # No health check defined, assume healthy if running
+                    log "✅ $service is running (no health check)"
+                    return 0
+                    ;;
+            esac
+        else
+            warn "❌ $service is not running"
+            return 1
+        fi
+        
+        sleep 2
+        wait_time=$((wait_time + 2))
+    done
+    
+    warn "⏰ Timeout waiting for $service to become healthy (${max_wait}s)"
+    # Don't fail - continue with other services
+    return 0
+}
+
+# Wait for multiple services to become healthy in parallel
+wait_for_all_services_healthy() {
+    local services=("$@")
+    local max_wait=60  # Longer timeout for multiple services
+    local wait_time=0
+    local -a pending_services=("${services[@]}")
+    
+    log "🏥 Monitoring health status for ${#services[@]} services: ${services[*]}"
+    
+    while [[ $wait_time -lt $max_wait ]] && [[ ${#pending_services[@]} -gt 0 ]]; do
+        local -a still_pending=()
+        
+        for service in "${pending_services[@]}"; do
+            if docker ps --filter "name=$service" --filter "status=running" --format '{{.Names}}' | grep -Fxq "$service"; then
+                local health_status
+                health_status=$(docker inspect "$service" --format='{{.State.Health.Status}}' 2>/dev/null || echo "none")
+                
+                case "$health_status" in
+                    "healthy")
+                        log "✅ $service is healthy"
+                        # Service is healthy, don't add to still_pending
+                        ;;
+                    "starting")
+                        still_pending+=("$service")
+                        ;;
+                    "unhealthy")
+                        warn "❌ $service is unhealthy"
+                        still_pending+=("$service")
+                        ;;
+                    "none")
+                        # No health check defined, assume healthy if running
+                        log "✅ $service is running (no health check)"
+                        # Service is healthy, don't add to still_pending
+                        ;;
+                esac
+            else
+                warn "❌ $service is not running"
+                still_pending+=("$service")
+            fi
+        done
+        
+        # Update pending services list
+        pending_services=("${still_pending[@]}")
+        
+        # Calculate healthy count properly
+        local healthy_count=$((${#services[@]} - ${#pending_services[@]}))
+        
+        # Show progress
+        if [[ ${#pending_services[@]} -gt 0 ]]; then
+            log "⏳ ${healthy_count}/${#services[@]} services healthy. Still waiting for: ${pending_services[*]}"
+        else
+            log "🎉 All ${#services[@]} services are healthy!"
+            return 0
+        fi
+        
+        sleep 3
+        wait_time=$((wait_time + 3))
+    done
+    
+    if [[ ${#pending_services[@]} -gt 0 ]]; then
+        warn "⏰ Timeout waiting for all services to become healthy (${max_wait}s). Still pending: ${pending_services[*]}"
+    fi
+    
+    # Don't fail the entire deployment - some services might just need more time
+    return 0
+}
+
+# Now we need to find where the main function starts containers and update it to use rolling restarts
+# This will be added to the main function after containers are selected
+
+use_rolling_restarts_in_main() {
+    # Start services with smart dependency ordering
+    log "🚀 Starting selected containers with dependency awareness: ${SELECTED_CONTAINERS[*]}"
+    log "🔄 Using rolling restart mode (minimal downtime)"
+    restart_services_with_dependencies "${SELECTED_CONTAINERS[@]}"
+}
+
 # Entry point for the script
 main() {
 	print_banner
@@ -2788,19 +3109,7 @@ main() {
 
         # Only require root for operations that actually need it
         local needs_root=false
-        
-        # Check if we need root for specific operations
-        if [[ "${INSTALL_PACKAGES:-false}" == "true" ]] || \
-           [[ "${SETUP_FIREWALL:-false}" == "true" ]] || \
-           [[ "${MODIFY_HOSTS:-false}" == "true" ]] || \
-           [[ ! -w "/etc/wireguard" && -d "/etc/wireguard" ]]; then
-            needs_root=true
-        fi
-        
-        if $needs_root && ((EUID != 0)) && [[ "$DRY_RUN" != "true" ]]; then
-            fail "This operation requires root privileges. Please run with sudo."
-            exit 100
-        fi
+
         
         # For normal operations, just note we're running as user
         if ((EUID != 0)); then
@@ -2957,51 +3266,6 @@ main() {
 			exit 1
 		}
 	fi
-	# Handle pre-start container cleanup and port conflict resolution
-	for container in "${SELECTED_CONTAINERS[@]}"; do
-		# Clean up existing containers to avoid port conflicts
-		local svc_file=""
-		if [[ -f "${SCRIPT_DIR%/scripts}/services/user/${container}.conf" ]]; then
-			svc_file="${SCRIPT_DIR%/scripts}/services/user/${container}.conf"
-		fi
-		
-		# Always cleanup containers to avoid port conflicts during restart
-		if docker ps -q --filter "name=^/${container}$" | grep -q .; then
-			log "Stopping existing $container container to avoid port conflicts..."
-			docker stop "$container" >/dev/null 2>&1 || true
-		fi
-		if docker ps -aq --filter "name=^/${container}$" | grep -q .; then
-			docker rm "$container" >/dev/null 2>&1 || true
-			log "Removed existing $container container"
-		fi
-		
-		# Basic port conflict warning (simplified for now)
-		local conflict_port
-		conflict_port=$(get_service_config_value "$svc_file" "conflict_port")
-		if [[ -n "$conflict_port" ]] && check_port_in_use "$conflict_port" tcp; then
-			warn "Port $conflict_port is in use. $container may fail to start."
-			show_port_usage "$conflict_port"
-		fi
-	done
-
-	# Check for services using host networking on non-Linux systems
-	if [[ "$(uname)" != "Linux" ]]; then
-		for container in "${SELECTED_CONTAINERS[@]}"; do
-			local svc_file=""
-			if [[ -f "${SCRIPT_DIR%/scripts}/services/user/${container}.conf" ]]; then
-				svc_file="${SCRIPT_DIR%/scripts}/services/user/${container}.conf"
-			fi
-			
-			if [[ -n "$svc_file" ]]; then
-				local network_mode
-				network_mode=$(get_service_config_value "$svc_file" "network_mode")
-				if [[ "$network_mode" == "host" ]]; then
-					warn "$container uses host networking, which is only fully supported on Linux. Health checks may be skipped."
-				fi
-			fi
-		done
-	fi
-
 	# Handle services that require special setup
 	for container in "${SELECTED_CONTAINERS[@]}"; do
 		local svc_file=""
@@ -3026,10 +3290,14 @@ main() {
 					fi
 
 					# Ensure directories exist
-					mkdir -p "$WG_DIR"
-					WG_CLIENTS_DIR="${WG_DIR}/clients"
-					mkdir -p "$WG_CLIENTS_DIR"
-					set_ownership "$WG_DIR" "$WG_CLIENTS_DIR"
+					if [[ "$DRY_RUN" != "true" ]]; then
+						mkdir -p "$WG_DIR"
+						WG_CLIENTS_DIR="${WG_DIR}/clients"
+						mkdir -p "$WG_CLIENTS_DIR"
+						set_ownership "$WG_DIR" "$WG_CLIENTS_DIR"
+					else
+						WG_CLIENTS_DIR="${WG_DIR}/clients"
+					fi
 					log "WireGuard directories set up: $WG_DIR and $WG_CLIENTS_DIR"
 
 					# Check if this is first-time WG_DIR configuration
@@ -3043,8 +3311,10 @@ main() {
 					if ! $wg_config_exists && ! $NON_INTERACTIVE && ! $FORCE_DEFAULTS; then
 						prompt_for_path WG_DIR "/etc/wireguard" "WireGuard key directory"
 						WG_CLIENTS_DIR="${WG_DIR}/clients"
-						mkdir -p "$WG_DIR" "$WG_CLIENTS_DIR"
-						set_ownership "$WG_DIR" "$WG_CLIENTS_DIR"
+						if [[ "$DRY_RUN" != "true" ]]; then
+							mkdir -p "$WG_DIR" "$WG_CLIENTS_DIR"
+							set_ownership "$WG_DIR" "$WG_CLIENTS_DIR"
+						fi
 						log "Updated WireGuard directories: $WG_DIR and $WG_CLIENTS_DIR"
 					fi
 
@@ -3072,12 +3342,13 @@ main() {
 		exit 1
 	}
 
-	for container in "${SELECTED_CONTAINERS[@]}"; do
-		ensure_container_running "$container" || {
-			fail "ensure_container_running $container failed"
-			exit 1
-		}
-	done
+	# Start services with smart dependency ordering and rolling restarts
+    log "🚀 Starting selected containers with dependency awareness: ${SELECTED_CONTAINERS[*]}"
+    log "🔄 Using rolling restart mode (minimal downtime)"
+    restart_services_with_dependencies "${SELECTED_CONTAINERS[@]}" || {
+        fail "restart_services_with_dependencies failed"
+        exit 1
+    }
 
 	# Configure firewall rules for the containers
 	configure_firewall || {

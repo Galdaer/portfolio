@@ -7,12 +7,15 @@
 [Unit]
 Description=Auto-repair for clinic and WireGuard containers
 After=network.target docker.service
-Wants=auto-repair.timer
+Wants=intelluxe-auto-repair.timer
 
 [Service]
 Type=oneshot
 ExecStart=/opt/intelluxe/scripts/auto-repair.sh
 Nice=10
 
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=auto-repair
 [Install]
 WantedBy=multi-user.target

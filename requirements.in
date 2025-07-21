@@ -1,0 +1,84 @@
+# === CORE WEB FRAMEWORK AND API ===
+# Current infrastructure dependencies
+flask
+fastapi
+uvicorn
+pydantic[email]
+pydantic-settings
+
+# === DATABASE AND STORAGE ===
+# Current infrastructure + AI extensions
+sqlalchemy
+alembic
+redis[hiredis]
+asyncpg
+psycopg2-binary
+influxdb-client
+
+# === HTTP CLIENTS AND ASYNC SUPPORT ===
+httpx
+aiofiles
+requests
+
+# === AUTHENTICATION AND SECURITY ===
+python-multipart
+python-jose[cryptography]
+passlib
+bcrypt
+cryptography
+
+# === CONFIGURATION AND SERIALIZATION ===
+pydantic-settings
+python-dotenv
+pyyaml>=6.0
+jinja2
+
+# === DEVELOPMENT AND TESTING ===
+pytest
+pytest-asyncio
+flake8
+mypy
+yamllint
+black
+isort
+pre-commit
+
+# === MONITORING AND OBSERVABILITY ===
+prometheus-client
+grafana-api
+
+# === CORE AI FRAMEWORK DEPENDENCIES ===
+langchain
+langgraph
+ragas[eval]
+
+# === VECTOR STORAGE AND RETRIEVAL ===
+faiss-cpu
+chromadb
+qdrant-client
+
+# === FINE-TUNING INFRASTRUCTURE ===
+unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git
+transformers
+datasets
+peft
+bitsandbytes
+accelerate
+torch
+trl
+wandb
+
+# === DATA PROCESSING FOR TRAINING ===
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+
+# === BUILD TOOLS ===
+Cython<3.0.0
+wheel
+
+# === CONTAINER ORCHESTRATION ===
+# Note: Docker Compose V2 is installed as system package via setup-environment.sh
+# The old docker-compose Python package conflicts with modern PyYAML versions

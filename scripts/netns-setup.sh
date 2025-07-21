@@ -51,6 +51,7 @@ SCRIPT_VERSION="1.0.0"
 : "${DNS_SERVER:=1.1.1.1}"
 : "${COLOR:=true}"
 : "${DEBUG:=false}"
+: "${CI:=false}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib.sh

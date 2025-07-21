@@ -10,7 +10,7 @@ Description=Run auto-repair every 5 minutes
 [Timer]
 OnBootSec=2min
 OnUnitActiveSec=5min
-Unit=auto-repair.service
+Unit=intelluxe-auto-repair.service
 
 [Install]
 WantedBy=timers.target

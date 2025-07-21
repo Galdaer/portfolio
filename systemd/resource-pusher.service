@@ -12,5 +12,8 @@ After=network-online.target
 Type=oneshot
 ExecStart=/opt/intelluxe/scripts/resource-pusher.sh
 
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=resource-pusher
 [Install]
 WantedBy=multi-user.target

@@ -42,6 +42,7 @@ set -euo pipefail
 SCRIPT_VERSION="1.0.0"
 : "${COLOR:=true}"
 : "${DRY_RUN:=false}"
+: "${CI:=false}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib.sh
@@ -76,7 +77,7 @@ require_deps systemctl
 
 # Logs are stored under $CFG_ROOT/logs. CFG_ROOT defaults to
 # /opt/intelluxe/stack and can be overridden in
-# /etc/default/clinic.conf; see scripts/lib.sh for details.
+# /opt/intelluxe/stack/.bootstrap.conf; see scripts/lib.sh for details.
 LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/systemd-summary.log"

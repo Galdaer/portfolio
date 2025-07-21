@@ -44,6 +44,12 @@ SCRIPT_VERSION="1.0.0"
 : "${COLOR:=false}"
 : "${SOURCE:=auto}"
 : "${DEBUG:=false}"
+: "${DRY_RUN:=false}"
+: "${CI:=false}"
+
+# Set proper ownership for Intelluxe system
+: "${CFG_UID:=1000}"    # justin
+: "${CFG_GID:=1001}"    # intelluxe
 
 # shellcheck disable=SC2034
 EXIT_DEPENDENCY_MISSING=4
@@ -79,7 +85,7 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-require_deps docker jq ./scripts/diagnostics.sh
+require_deps docker jq "${SCRIPT_DIR}/diagnostics.sh"
 
 rotate_log_if_needed
 
@@ -88,45 +94,57 @@ rotate_log_if_needed
 # CFG_ROOT may also be set to an absolute path so logs can be redirected
 # elsewhere. If CFG_ROOT is unset, logs will be stored locally in ./logs
 # for standalone use.
-LOG_DIR="${CFG_ROOT:-.}/logs"
+: "${CFG_ROOT:=/opt/intelluxe/stack}"
+LOG_DIR="${CFG_ROOT}/logs"
 mkdir -p "$LOG_DIR"
+set_ownership "$LOG_DIR"
 LOG_FILE="$LOG_DIR/auto-repair.log"
 
 touch "$LOG_FILE"
-if ! chown "$(whoami)" "$LOG_FILE" 2>/dev/null; then
-	true
-fi
+# Ensure correct ownership for Intelluxe system using lib.sh function
+set_ownership "$LOG_FILE"
 
 log "🔍 Running auto-repair check..."
 
 log "📋 Running diagnostics"
 if [[ "$DRY_RUN" == "true" ]]; then
-	log "[DRY-RUN] Would run: ./scripts/diagnostics.sh --source=\"$SOURCE\" --export-json --no-color --log-file \"$LOG_FILE\" --dry-run"
+	log "[DRY-RUN] Would run: ${SCRIPT_DIR}/diagnostics.sh --source=\"$SOURCE\" --export-json --no-color --log-file \"$LOG_FILE\" --dry-run"
 	log "[DRY-RUN] Would check diagnostics JSON and restart unhealthy containers"
 	exit 0
 else
-	./scripts/diagnostics.sh --source="$SOURCE" --export-json --no-color --log-file "$LOG_FILE"
+	"${SCRIPT_DIR}/diagnostics.sh" --source="$SOURCE" --export-json --no-color --log-file "$LOG_FILE" || true
 fi
 
-if [[ ! -f /tmp/diagnostics.json ]]; then
+if [[ ! -f "${LOG_DIR}/diagnostics.json" ]]; then
 	fail "❌ Diagnostics JSON not found"
 	exit $EXIT_DIAGNOSTICS_MISSING
 fi
 
-if ! jq empty /tmp/diagnostics.json &>/dev/null; then
+if ! jq empty "${LOG_DIR}/diagnostics.json" &>/dev/null; then
 	fail "❌ Diagnostics JSON is invalid. Check the diagnostics script output."
 	exit $EXIT_JSON_INVALID
 fi
 
 RESTARTED=()
-SERVICES=$(jq -r 'keys[]' /tmp/diagnostics.json)
 
-for service in $SERVICES; do
-	diag_status=$(jq -r --arg svc "$service" '.[$svc]' /tmp/diagnostics.json || echo "unknown")
+# Parse the failures array and extract container names
+FAILED_SERVICES=()
+if jq -e '.failures | length > 0' "${LOG_DIR}/diagnostics.json" &>/dev/null; then
+	while IFS= read -r failure; do
+		# Extract container names from failure messages
+		if [[ "$failure" =~ "Ollama service is not running" ]]; then
+			FAILED_SERVICES+=("ollama")
+		elif [[ "$failure" =~ "Healthcare-MCP service is not running" ]]; then
+			FAILED_SERVICES+=("healthcare-mcp")
+		fi
+	done < <(jq -r '.failures[]' "${LOG_DIR}/diagnostics.json")
+fi
+
+for service in "${FAILED_SERVICES[@]}"; do
 	container_health=$(docker inspect -f '{{.State.Health.Status}}' "$service" 2>/dev/null || echo "missing")
 
 	if [[ "$container_health" == "healthy" ]]; then
-		ok "✅ $service is healthy (Docker: $container_health, Diagnostics: $diag_status)"
+		ok "✅ $service is healthy (Docker: $container_health)"
 		continue
 	fi
 
@@ -159,7 +177,7 @@ for service in $SERVICES; do
 		return 1
 	}
 
-	log "🛠️ Restarting: $service (Docker: $container_health, Diagnostics: $diag_status)"
+	log "🛠️ Restarting: $service (Docker: $container_health)"
 	if ! retry_restart "$service"; then
 		warn "⚠️ Final attempt to restart $service failed"
 	fi
@@ -172,7 +190,7 @@ else
 	ok "♻️ Restarted: ${RESTARTED[*]}"
 fi
 
-rm -f /tmp/diagnostics.json
+rm -f "${LOG_DIR}/diagnostics.json"
 
 # If running in CI, skip privileged actions or mock them
 if [[ "$CI" == "true" && "$EUID" -ne 0 ]]; then

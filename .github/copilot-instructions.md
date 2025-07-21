@@ -13,10 +13,10 @@
 
 ### Main Healthcare AI Infrastructure
 - **`bootstrap.sh`** - Main healthcare AI infrastructure bootstrapper
-  - Sets up Docker, Ollama, AgentCare-MCP, PostgreSQL, Redis with medical-grade security
+  - Sets up Docker, Ollama, Healthcare-MCP, PostgreSQL, Redis with medical-grade security
 - **`universal-service-runner.sh`** - Universal service runner
   - Deploys ANY Docker service from pure configuration
-  - Handles healthcare AI services (Ollama, AgentCare-MCP, etc.)
+  - Handles healthcare AI services (Ollama, Healthcare-MCP, etc.)
 - **`config_web_ui.py`** - Healthcare-focused web interface
   - AI system management with service health monitoring
   - Medical service icons and healthcare-specific UI
@@ -24,20 +24,22 @@
 
 ### Directory Structure
 ```
-vendor/                 # Source code for third-party services (git submodules like healthcare-mcp)
-services/user/          # Runtime configurations (.conf files) for all services
+reference/ai-patterns/  # MIT licensed AI engineering patterns (git submodule from ai-engineering-hub)
+mcps/healthcare/        # Healthcare MCP server code (copied from agentcare-mcp repository)
+services/user/          # Service configurations - each service has services/user/SERVICE/SERVICE.conf
 agents/                 # AI agent implementations (intake/, document_processor/, research_assistant/, billing_helper/, scheduling_optimizer/)
 core/                   # Core healthcare AI infrastructure (memory/, orchestration/, models/, tools/)
 data/                   # AI training and evaluation data management (training/, evaluation/, vector_stores/)
 infrastructure/         # Healthcare deployment configs (docker/, monitoring/, security/, backup/)
-docs/                   # Comprehensive healthcare AI documentation including phase guides
-reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare adaptation (git submodule)
+docs/                   # Comprehensive healthcare AI documentation including PHASE_*.md guides
+scripts/                # Primary shell scripts (universal-service-runner.sh, lib.sh, bootstrap.sh, systemd-verify.sh)
 ```
 
 ## AI Engineering Patterns
 
 ### Reference Library
-- **`reference/ai-patterns/`** - MIT licensed AI engineering patterns adapted for healthcare
+- **`reference/ai-patterns/`** - MIT licensed AI engineering patterns (git submodule from ai-engineering-hub) adapted for healthcare
+- **`mcps/healthcare/`** - Healthcare MCP server code directly copied from agentcare-mcp repository
 - **Healthcare-Relevant Patterns**:
   - `agentic_rag/` - Medical document processing and research assistance
   - `document-chat-rag/` - Patient document Q&A with privacy protection
@@ -74,7 +76,7 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 
 ### Healthcare Services
 - **Ollama** (local LLM)
-- **AgentCare-MCP** (medical tools)
+- **Healthcare-MCP** (medical tools)
 - **PostgreSQL** (patient context)
 - **Redis** (session cache)
 - **n8n** (workflows)
@@ -103,6 +105,18 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 - **Follow `ARCHITECTURE_BASE_CODE.md`** for mapping AI Engineering Hub patterns to Intelluxe healthcare components
 - **Use `DEV_ACCELERATION_TOOLKIT.md`** for rapid prototyping, monitoring, quality assurance
 - **Reference `IMPLEMENTATION_AND_TESTING.md`** for healthcare-specific testing and n8n workflows
+
+### Path Management & Directory Structure
+- **Production Paths**: All scripts use `CFG_ROOT:=/opt/intelluxe/stack` for production consistency
+- **Development Symlinks**: `make install` creates symlinks from `/home/intelluxe/` → `/opt/intelluxe/` for development convenience
+- **Log Directory Exception**: `/opt/intelluxe/logs` remains a real directory (not symlinked) for systemd service write access
+- **Ownership Model**: Consistent `CFG_UID=1000:CFG_GID=1001` (justin:intelluxe) across all components for development, production uses clinic-admin:intelluxe (same UID/GID, different username)
+
+### Systemd Service Management
+- **Service Paths**: All systemd services use `/opt/intelluxe/scripts/` paths (via symlinks)
+- **Security Settings**: Avoid overly restrictive `ProtectSystem=strict` - use minimal security for development phase
+- **Environment Variables**: Services need `Environment=HOME=/root` for scripts that reference `$HOME`
+- **Service Installation**: `make install` handles symlinks to `/etc/systemd/system/` with `intelluxe-` prefix
 
 ### Testing Approach
 - **Healthcare-grade testing** with shadow deployment and quality metrics
@@ -147,14 +161,13 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 - **Universal runner**: `universal-service-runner.sh` dynamically generates Docker commands from configuration
 
 ### Python Web UI
-- **Creates .conf files directly** using universal service runner format
-- **Never calls legacy scripts**
-- **Implements modern service addition**
+- **Creates .conf files directly** using universal service runner format in `services/user/SERVICE/` directories
+- **Implements modern service addition** through universal configuration pattern
 
 ### Service Configurations
 - **Universal key=value format** supporting all Docker features
 - **See `UNIVERSAL_CONFIG_SCHEMA.md`** for specification
-- **No legacy code**: No plugin.sh files, no add-service.sh references
+- **Service Pattern**: Each service at `services/user/SERVICE/SERVICE.conf` deployed through `universal-service-runner.sh`
 
 ## Development Principles
 
@@ -164,6 +177,7 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 4. **Modular architecture**: Agents, tools, and services can be customized per clinic without breaking core system
 5. **Performance-critical**: Real-time AI inference suitable for busy clinical workflows
 6. **Family-built philosophy**: Designed by healthcare family (Jeffrey & Justin Sue) for real-world clinical challenges
+7. **User/Group Consistency**: Development uses justin:intelluxe (1000:1001), production uses clinic-admin:intelluxe (same UID/GID, different username for healthcare IT context)
 
 ## Editing Best Practices
 

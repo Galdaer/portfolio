@@ -6,12 +6,15 @@
 
 [Unit]
 Description=Bring up WireGuard interface inside clinic namespace
-After=netns.service
-Requires=netns.service
+After=intelluxe-netns.service
+Requires=intelluxe-netns.service
 
 [Service]
 Type=oneshot
 ExecStart=/opt/intelluxe/scripts/wg-setup.sh
 
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wg
 [Install]
 WantedBy=multi-user.target

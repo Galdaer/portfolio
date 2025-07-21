@@ -5,12 +5,28 @@
 set -euo pipefail
 
 # Configuration
-LOG_FILE="/var/log/auto-upgrade.log"
-LOCK_FILE="/var/run/auto-upgrade.lock"
+: "${CI:=false}"
+
+# Detect if running as systemd service and use appropriate paths
+if [[ -n "${INVOCATION_ID:-}" ]] || [[ "${0}" =~ systemd ]]; then
+    # Running as systemd service - use system paths
+    LOG_FILE="/var/log/intelluxe-auto-upgrade.log"
+    LOCK_FILE="/var/run/intelluxe-auto-upgrade.lock"
+else
+    # Running manually - use workspace paths
+    : "${CFG_ROOT:=/opt/intelluxe/stack}"
+    LOG_FILE="${CFG_ROOT}/logs/auto-upgrade.log"
+    LOCK_FILE="${CFG_ROOT}/logs/auto-upgrade.lock"
+fi
+
 NOTIFY_ON_REBOOT_REQUIRED=true
 
 # Logging function
 log() {
+    # Ensure log directory exists with proper ownership (only for workspace paths)
+    if [[ "$LOG_FILE" =~ ^/opt/intelluxe ]]; then
+        mkdir -p "$(dirname "$LOG_FILE")"
+    fi
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $*" | tee -a "$LOG_FILE"
 }
 

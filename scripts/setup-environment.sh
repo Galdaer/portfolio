@@ -28,7 +28,7 @@ SCRIPT_VERSION="1.1.0"
 set -euo pipefail
 
 DEFAULT_UID=1000
-DEFAULT_GID=1000
+DEFAULT_GID=1001
 
 # Use a safer way to define multi-line strings that doesn't trigger set -e
 USAGE=$(cat <<EOF
@@ -114,6 +114,16 @@ health_check() {
     
     if command -v kcov >/dev/null 2>&1; then
         tools["kcov --version"]="kcov (coverage tool)"
+    fi
+    
+    # Add NVIDIA tools if GPU is present
+    if lspci 2>/dev/null | grep -i nvidia >/dev/null 2>&1; then
+        if command -v nvidia-smi >/dev/null 2>&1; then
+            tools["nvidia-smi -L"]="NVIDIA GPU detection"
+        fi
+        if command -v nvidia-ctk >/dev/null 2>&1; then
+            tools["nvidia-ctk --version"]="NVIDIA Container Toolkit"
+        fi
     fi
 
     # Add Docker Compose tools - check that at least one works
@@ -205,42 +215,76 @@ update_packages() {
 build_dependency_list() {
     local common=(
         # Core system tools
-        curl wget git jq less vim nano htop 
+        curl wget git jq less vim nano htop
         iproute2 iptables net-tools tcpdump nmap socat
         coreutils util-linux lsof psmisc sysstat
-        make gcc g++ 
-        
+        make gcc g++
+
         # Security & monitoring (host-level only)
         fail2ban ufw bc tree ncdu iotop mtr
-        
+
         # VPN and networking tools
         wireguard-tools
-        
+
         # Development tools
         shellcheck # shfmt bats installed via Go/Git
-        
+
         # Runtime environments for CI/CD
         nodejs npm
-        
+
         # Python & AI dependencies
         python3-dev python3-pip python3-venv
-        
+
         # Database clients (for connecting to containerized DBs)
         postgresql-client redis-tools
-        
+
         # File system tools
         rsync fuse3
+
+        # Systemd and logging dependencies
+        systemd rsyslog
     )
+    
+    # Add NVIDIA packages for GPU acceleration if GPU is detected
+    local nvidia_packages=()
+    if lspci 2>/dev/null | grep -i nvidia >/dev/null 2>&1; then
+        log "NVIDIA GPU detected - adding NVIDIA packages to dependency list"
+        case $PKG_MANAGER in
+            apt)
+                # Use latest open drivers with automatic updates
+                nvidia_packages+=(
+                    nvidia-driver-open
+                    nvidia-container-toolkit
+                )
+                ;;
+            dnf)
+                nvidia_packages+=(
+                    nvidia-driver
+                    nvidia-container-toolkit
+                )
+                ;;
+            pacman)
+                nvidia_packages+=(
+                    nvidia-open
+                    nvidia-container-toolkit
+                )
+                ;;
+        esac
+        log "NVIDIA packages to install: ${nvidia_packages[*]}"
+    else
+        log "No NVIDIA GPU detected - skipping NVIDIA packages"
+    fi
+    
     case $PKG_MANAGER in
         apt)
             # Clean list - no Docker conflicts, no containerized services
-            DEPENDENCIES=(apt-utils "${common[@]}" dnsutils)
+            DEPENDENCIES=(apt-utils "${common[@]}" "${nvidia_packages[@]}" dnsutils)
             ;;
         dnf)
-            DEPENDENCIES=("${common[@]}" bind-utils)
+            DEPENDENCIES=("${common[@]}" "${nvidia_packages[@]}" bind-utils)
             ;;
         pacman)
-            DEPENDENCIES=("${common[@]/make/base-devel}" bind-tools)
+            DEPENDENCIES=("${common[@]/make/base-devel}" "${nvidia_packages[@]}" bind-tools)
             ;;
         *)
             DEPENDENCIES=("${common[@]}")
@@ -327,22 +371,27 @@ WRAP
 }
 
 ensure_compose() {
-    if docker compose version >/dev/null 2>&1 || command -v docker-compose >/dev/null; then
-        ok "docker-compose present"
+    # Check if Docker Compose V2 is available (modern approach)
+    if docker compose version >/dev/null 2>&1; then
+        ok "docker compose (V2) present"
+        return
+    fi
+    
+    # Check if legacy docker-compose is available
+    if command -v docker-compose >/dev/null; then
+        ok "docker-compose (V1) present"
         return
     fi
 
-    if command -v pip3 &>/dev/null; then
-        pip3 install --break-system-packages docker-compose >/dev/null 2>&1 || true
-    fi
-
-    if docker compose version >/dev/null 2>&1 || command -v docker-compose >/dev/null; then
-        ok "docker-compose installed"
-    else
-        warn "docker-compose installation failed"
-    fi
+    # Note: Docker Compose V2 should be installed with Docker
+    # If neither is available, this indicates a Docker installation issue
+    warn "Neither 'docker compose' nor 'docker-compose' found"
+    warn "This usually means Docker is not properly installed"
+    warn "Try: apt-get install docker-compose-plugin"
+    
+    # Final verification
     if docker compose version >/dev/null 2>&1; then
-        verify_installation "docker compose version" 'Docker Compose' || exit 1
+        verify_installation "docker compose version" 'Docker Compose V2' || exit 1
     elif docker-compose --version >/dev/null 2>&1; then
         verify_installation "docker-compose --version" 'Docker Compose' || exit 1
     else
@@ -409,25 +458,26 @@ install_python_deps() {
     # Install uv first
     install_uv
     
-    # Use uv to install Python packages system-wide (override Ubuntu's restriction)
-    log "Installing Intelluxe AI dependencies with uv (system-wide)"
-    uv pip install --system --break-system-packages \
-        fastapi uvicorn pydantic \
-        sqlalchemy alembic \
-        redis psycopg2-binary \
-        httpx aiofiles \
-        python-multipart "python-jose[cryptography]" \
-        passlib bcrypt \
-        prometheus-client \
-        "pyyaml>=6.0" \
-        requests \
-        flake8 mypy pytest pytest-asyncio \
-        jinja2 yamllint \
-        transformers torch ollama-python \
-        langchain langchain-community
+    # Check if we should skip Python package installation (for virtual env workflow)
+    if [ "${SKIP_PYTHON_PACKAGES:-}" = "1" ]; then
+        log "Skipping Python package installation (SKIP_PYTHON_PACKAGES=1)"
+        log "Python packages should be installed in virtual environment instead"
+        return
+    fi
     
-    ok "Python dependencies installed with uv"
-    verify_installation "python3 -c 'import fastapi'" "Python dependencies" || exit 1
+    # Install only essential system-wide Python packages for infrastructure
+    # Note: Most AI/ML packages should be in virtual environments
+    log "Installing essential system Python packages with uv"
+    uv pip install --system --break-system-packages \
+        flake8 mypy pytest pytest-asyncio \
+        yamllint \
+        pyyaml \
+        requests \
+        flask waitress psutil docker
+    
+    ok "Essential Python dependencies installed system-wide"
+    log "💡 For AI/ML development, use virtual environments with requirements.in"
+    verify_installation "python3 -c 'import yaml'" "Essential Python dependencies" || exit 1
 }
 
 setup_directories() {
@@ -580,12 +630,22 @@ main() {
     install_docker
     ensure_docker_cli
     ensure_compose
+    # Add NVIDIA support after Docker is set up
+    setup_nvidia_support
     install_go
     install_python_deps
     setup_directories
     install_testing_tools
     setup_firewall
     setup_systemd
+    
+    # Check if reboot is needed for NVIDIA drivers
+    if lspci 2>/dev/null | grep -i nvidia >/dev/null 2>&1 && ! nvidia-smi >/dev/null 2>&1; then
+        warn "🔄 REBOOT REQUIRED: NVIDIA drivers installed but not loaded"
+        warn "   Run 'sudo reboot' then test with: nvidia-smi"
+        warn "   After reboot, GPU services should work properly"
+    fi
+    
     ok "All Intelluxe dependencies installed!"
     exit 0
 }

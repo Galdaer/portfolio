@@ -24,10 +24,10 @@ set -euo pipefail
 # TRADEMARK NOTICE: "Intelluxe" and related branding may be trademark protected.
 # Commercial use of project branding requires separate permission.
 #________________________________________________________________________________________
-# Purpose: Exports structured diagnostics metrics to InfluxDB and prints JSON if --debug.
+# Purpose: Exports structured diagnostics metrics to log files and prints JSON if --debug.
 #
 # Requirements:
-#   - jq, curl, InfluxDB, diagnostics.sh
+#   - jq, curl, diagnostics.sh
 #
 # Usage: ./diagnostic-pusher.sh [--debug] [--influx-host HOST] [--influx-port PORT] [--influx-db DB] [--help]
 # Dependency note: This script requires bash, coreutils, jq, curl, docker, and standard Unix tools.
@@ -40,6 +40,7 @@ SCRIPT_VERSION="1.0.0"
 : "${DEBUG:=false}"
 : "${DEBUG_LOG:=/var/log/diagnostic-pusher-debug.log}"
 : "${INFLUX_MOCK:=false}"
+: "${CI:=false}"
 
 INFLUX_URL="http://${INFLUX_HOST}:${INFLUX_PORT}/write?db=${INFLUX_DB}"
 DIAG_JSON="/tmp/diagnostics.json"

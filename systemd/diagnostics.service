@@ -6,18 +6,21 @@
 
 [Unit]
 Description=clinic Diagnostics Health Check
-After=network.target docker.service
-Requires=docker.service
+After=network-online.target docker.service graphical.target
+Wants=docker.service
+# Don't block boot sequence
+DefaultDependencies=no
 
 [Service]
-Type=simple
+Type=oneshot
 ExecStart=/opt/intelluxe/scripts/diagnostics.sh --log-file /var/log/diagnostics.log --deep-check
-Restart=on-failure
-RestartSec=30
+# Use timer for restarts instead of service restart
+RemainAfterExit=no
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=diagnostics
 TimeoutStartSec=120
 
 [Install]
-WantedBy=multi-user.target
+# Only start via timer, not at boot
+WantedBy=

@@ -50,13 +50,14 @@ SCRIPT_VERSION="1.0.0"
 : "${FORCE:=false}"
 : "${DRY_RUN:=false}"
 : "${MODE:=all}"
+: "${CI:=false}"
 # Name of the Docker network used by clinic containers.
 # Override via the DOCKER_NETWORK_NAME environment variable or an .env file sourced in lib.sh.
 : "${DOCKER_NETWORK_NAME:=wireguard-net}"
 
 NS_NAME="clinicns"
 # shellcheck disable=SC2034
-CONTAINERS=(clinic traefik wireguard grafana influxdb n8n config-web-ui ollama agentcare-mcp postgres redis)
+CONTAINERS=(clinic traefik wireguard grafana influxdb n8n config-web-ui ollama healthcare-mcp postgres redis)
 NETWORKS=("${DOCKER_NETWORK_NAME}")
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

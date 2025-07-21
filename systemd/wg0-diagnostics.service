@@ -9,4 +9,7 @@ Description=Run wg0 diagnostics periodically
 
 [Service]
 Type=oneshot
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wg0-diagnostics
 ExecStart=/opt/intelluxe/scripts/diagnostics.sh --source=timer --critical-only
