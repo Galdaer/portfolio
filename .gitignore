@@ -205,3 +205,4 @@ yarn-error.log*
 !dmesg.txt
 !tests.txt
 services/user/wyoming-whisper/wyoming-whisper.conf
+!THIRD_PARTY_LICENSES.md
