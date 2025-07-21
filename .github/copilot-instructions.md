@@ -80,7 +80,7 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 - **PostgreSQL** (patient context)
 - **Redis** (session cache)
 - **n8n** (workflows)
-- **WhisperLive** (real-time transcription)
+- **WhisperLive** (real-time transcription) - Healthcare-hardened fork with security improvements
 
 ### Healthcare Container Security
 - **User/Group Model**: Development containers use justin:intelluxe (1000:1001) for consistency with host system
@@ -88,6 +88,7 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 - **Security Hardening**: Python 3.12-slim-bookworm base with latest security patches and non-root execution
 - **Network Isolation**: All healthcare containers run on intelluxe-net with no external data egress
 - **Volume Permissions**: Shared model storage with consistent ownership across whisper services
+- **Fork Strategy**: Healthcare improvements made directly on main branch of forked repositories
 
 ### Service Configuration Pattern
 - **Service Structure**: Each service configured at `services/user/SERVICE/SERVICE.conf`
@@ -194,8 +195,20 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 
 ## Git Management
 
+### Repository Architecture
+- **Main Repository**: Intelluxe AI healthcare system with universal service orchestration
+- **Submodules**: AI Engineering patterns (reference/ai-patterns) and healthcare-specific forks
+- **WhisperLive Integration**: Forked submodule using main branch for healthcare improvements
+
+### Submodule Strategy
+- **reference/ai-patterns/**: MIT licensed patterns (upstream submodule from ai-engineering-hub)
+- **services/user/whisperlive/**: Healthcare-hardened fork of WhisperLive on main branch
+- **Upstream Integration**: Periodic merging of upstream improvements with healthcare customizations
+- **No Branching Complexity**: Use main branch for healthcare improvements, not separate healthcare branches
+
 ### Tracked Files
-- `services/core/`, `scripts/`, `test/`, `systemd/`, `docs/`, `services/user/.gitkeep`, `reference/` (submodule), `mcps/`
+- `services/core/`, `scripts/`, `test/`, `systemd/`, `docs/`, `services/user/.gitkeep`, `reference/` (submodule), `mcps/`, `services/user/whisperlive/` (healthcare fork)
+- `THIRD_PARTY_LICENSES.md` (MIT license attributions for compliance)
 
 ### Ignored Files
 - `services/user/*` (except .gitkeep), `docker-stack/`, `logs/`, `venv/`
@@ -203,6 +216,7 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 ### Commit Guidelines
 - **Never commit user services** or generated directories
 - **Test bootstrap creates proper structure**
+- **Maintain MIT license attributions** for healthcare-mcp, ai-patterns, and whisperlive
 
 ## Repository Information
 
