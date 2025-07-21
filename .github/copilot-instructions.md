@@ -80,6 +80,14 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 - **PostgreSQL** (patient context)
 - **Redis** (session cache)
 - **n8n** (workflows)
+- **WhisperLive** (real-time transcription)
+
+### Healthcare Container Security
+- **User/Group Model**: Development containers use justin:intelluxe (1000:1001) for consistency with host system
+- **Production Transition**: Production containers use clinic-admin:intelluxe (same UID/GID, different username)
+- **Security Hardening**: Python 3.12-slim-bookworm base with latest security patches and non-root execution
+- **Network Isolation**: All healthcare containers run on intelluxe-net with no external data egress
+- **Volume Permissions**: Shared model storage with consistent ownership across whisper services
 
 ### Service Configuration Pattern
 - **Service Structure**: Each service configured at `services/user/SERVICE/SERVICE.conf`
@@ -101,7 +109,7 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 - **Production Paths**: All scripts use `CFG_ROOT:=/opt/intelluxe/stack` for production consistency
 - **Development Symlinks**: `make install` creates symlinks from `/home/intelluxe/` → `/opt/intelluxe/` for development convenience
 - **Log Directory Exception**: `/opt/intelluxe/logs` remains a real directory (not symlinked) for systemd service write access
-- **Ownership Model**: Consistent `CFG_UID=1000:CFG_GID=1001` (justin:intelluxe) across all components
+- **Ownership Model**: Consistent `CFG_UID=1000:CFG_GID=1001` (justin:intelluxe) across all components for development, production uses clinic-admin:intelluxe (same UID/GID, different username)
 
 ### Systemd Service Management
 - **Service Paths**: All systemd services use `/opt/intelluxe/scripts/` paths (via symlinks)
@@ -168,6 +176,7 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 4. **Modular architecture**: Agents, tools, and services can be customized per clinic without breaking core system
 5. **Performance-critical**: Real-time AI inference suitable for busy clinical workflows
 6. **Family-built philosophy**: Designed by healthcare family (Jeffrey & Justin Sue) for real-world clinical challenges
+7. **User/Group Consistency**: Development uses justin:intelluxe (1000:1001), production uses clinic-admin:intelluxe (same UID/GID, different username for healthcare IT context)
 
 ## Editing Best Practices
 
