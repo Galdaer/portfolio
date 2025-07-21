@@ -3,6 +3,14 @@
 **Family-Built, Privacy-First AI System for Healthcare**  
 A modular, on-premise AI assistant platform for clinics and hospitals—co-designed by Justin and Jeffrey Sue. Intelluxe AI delivers explainable, local AI workflows using open-source LLMs and medical tools, without reliance on Big Tech or cloud lock-in.
 
+## 📄 License & Attributions
+
+Intelluxe AI proprietary software incorporating MIT-licensed open-source components.  
+See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for complete open-source attributions including:
+- Healthcare MCP Server (Kartha AI)
+- AI Engineering Patterns (AI Engineering Hub)  
+- WhisperLive Real-time Transcription (Collabora)
+
 ---
 
 ## 👁️‍🗨️ Why Intelluxe AI?

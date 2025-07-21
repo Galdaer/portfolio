@@ -78,12 +78,24 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 - **PostgreSQL** (patient context)
 - **Redis** (session cache)
 - **n8n** (workflows)
+- **WhisperLive** (real-time transcription) - Healthcare-hardened fork with security improvements
 
-### Universal Configuration
-- **100% of services use pure .conf files**
-- **Healthcare services configured through universal service runner**
-- **Source code management**: Third-party service source code (like healthcare-mcp) managed as git submodules in vendor/
-- **Service discovery**: Auto-detection with health monitoring and alerting
+### Healthcare Container Security
+- **User/Group Model**: Development containers use justin:intelluxe (1000:1001) for consistency with host system
+- **Production Transition**: Production containers use clinic-admin:intelluxe (same UID/GID, different username)
+- **Security Hardening**: Python 3.12-slim-bookworm base with latest security patches and non-root execution
+- **Network Isolation**: All healthcare containers run on intelluxe-net with no external data egress
+- **Volume Permissions**: Shared model storage with consistent ownership across whisper services
+- **Fork Strategy**: Healthcare improvements made directly on main branch of forked repositories
+
+### Service Configuration Pattern
+- **Service Structure**: Each service configured at `services/user/SERVICE/SERVICE.conf`
+- **Deployment Flow**: `bootstrap.sh` calls `universal-service-runner.sh` for each SERVICE.conf file
+- **Universal Runner**: `universal-service-runner.sh` is the ONLY method for deploying services
+- **Web UI Integration**: `config_web_ui.py` creates .conf files directly in `services/user/SERVICE/` directories
+- **Rolling Restarts**: `bootstrap.sh` uses rolling restart mode - stops one service, starts it, waits for health, then moves to next service
+- **Dependency Ordering**: Services restart in dependency order: wireguard → traefik → config-web-ui → whisper → scispacy → n8n → grafana
+- **Security**: HIPAA-compliant service orchestration with audit logging and role-based access
 
 ## Development Guidelines
 
@@ -169,8 +181,20 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 
 ## Git Management
 
+### Repository Architecture
+- **Main Repository**: Intelluxe AI healthcare system with universal service orchestration
+- **Submodules**: AI Engineering patterns (reference/ai-patterns) and healthcare-specific forks
+- **WhisperLive Integration**: Forked submodule using main branch for healthcare improvements
+
+### Submodule Strategy
+- **reference/ai-patterns/**: MIT licensed patterns (upstream submodule from ai-engineering-hub)
+- **services/user/whisperlive/**: Healthcare-hardened fork of WhisperLive on main branch
+- **Upstream Integration**: Periodic merging of upstream improvements with healthcare customizations
+- **No Branching Complexity**: Use main branch for healthcare improvements, not separate healthcare branches
+
 ### Tracked Files
-- `services/core/`, `scripts/`, `test/`, `systemd/`, `docs/`, `services/user/.gitkeep`, `vendor/`
+- `services/core/`, `scripts/`, `test/`, `systemd/`, `docs/`, `services/user/.gitkeep`, `reference/` (submodule), `mcps/`, `services/user/whisperlive/` (healthcare fork)
+- `THIRD_PARTY_LICENSES.md` (MIT license attributions for compliance)
 
 ### Ignored Files
 - `services/user/*` (except .gitkeep), `docker-stack/`, `logs/`, `venv/`
@@ -178,6 +202,7 @@ reference/ai-patterns/  # MIT licensed AI engineering patterns for healthcare ad
 ### Commit Guidelines
 - **Never commit user services** or generated directories
 - **Test bootstrap creates proper structure**
+- **Maintain MIT license attributions** for healthcare-mcp, ai-patterns, and whisperlive
 
 ## Repository Information
 

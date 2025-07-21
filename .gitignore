@@ -2,6 +2,7 @@
 *
 !/.gitignore
 !/README.md
+!/THIRD_PARTY_LICENSES.md
 !/tests.txt
 !/Makefile
 !/requirements.txt
