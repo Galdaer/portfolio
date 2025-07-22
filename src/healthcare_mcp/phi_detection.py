@@ -418,6 +418,47 @@ class PHIDetector:
         """Mask PHI in text"""
         result = self.detector.detect_phi(text)
         return result.masked_text
+
+    def detect_phi_batch(self, field_data: Dict[str, str]) -> Dict[str, PHIDetectionResult]:
+        """
+        Detect PHI in multiple fields efficiently using batch processing
+
+        Args:
+            field_data: Dictionary of field names to text values
+
+        Returns:
+            Dictionary of field names to PHI detection results
+        """
+        import time
+
+        start_time = time.time()
+        field_count = len(field_data)
+
+        self.logger.debug(f"Starting batch PHI detection for {field_count} fields")
+
+        results = {}
+
+        # Process each field (can be optimized further with true batch processing)
+        for field_name, text_value in field_data.items():
+            if isinstance(text_value, str) and text_value.strip():
+                results[field_name] = self.detector.detect_phi(text_value)
+            else:
+                # Empty or non-string values
+                results[field_name] = PHIDetectionResult(
+                    phi_detected=False,
+                    phi_types=[],
+                    confidence_scores=[],
+                    masked_text=str(text_value) if text_value is not None else "",
+                    detection_details=[]
+                )
+
+        processing_time = time.time() - start_time
+        phi_detected_count = sum(1 for result in results.values() if result.phi_detected)
+
+        self.logger.info(f"Batch PHI detection completed: {field_count} fields processed in {processing_time:.3f}s, "
+                        f"{phi_detected_count} fields with PHI detected")
+
+        return results
     
     def get_phi_summary(self, text: str) -> Dict[str, Any]:
         """Get summary of PHI detection"""
@@ -439,9 +480,9 @@ class PHIMaskingService:
         self.logger = logging.getLogger(f"{__name__}.PHIMaskingService")
     
     def mask_patient_data(self, patient_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Mask PHI in patient data structure"""
+        """Mask PHI in patient data structure using batch processing"""
         masked_data = patient_data.copy()
-        
+
         # Fields that commonly contain PHI
         phi_fields = [
             'first_name', 'last_name', 'full_name', 'name',
@@ -450,14 +491,27 @@ class PHIMaskingService:
             'date_of_birth', 'dob', 'birth_date',
             'address', 'street_address', 'zip_code', 'postal_code'
         ]
-        
+
+        # Collect all string fields that need PHI detection
+        fields_to_process = {}
         for field in phi_fields:
             if field in masked_data and isinstance(masked_data[field], str):
-                result = self.phi_detector.detect_phi_sync(masked_data[field])
+                fields_to_process[field] = masked_data[field]
+
+        # Batch detect PHI in all collected fields
+        if fields_to_process:
+            detection_results = self.phi_detector.detect_phi_batch(fields_to_process)
+
+            # Apply masking results
+            masked_fields = []
+            for field, result in detection_results.items():
                 if result.phi_detected:
                     masked_data[field] = result.masked_text
-                    self.logger.info(f"Masked PHI in field: {field}")
-        
+                    masked_fields.append(field)
+
+            if masked_fields:
+                self.logger.info(f"Batch PHI masking completed: {len(masked_fields)} fields masked - {', '.join(masked_fields)}")
+
         return masked_data
     
     def create_synthetic_replacement(self, original_data: Dict[str, Any]) -> Dict[str, Any]:

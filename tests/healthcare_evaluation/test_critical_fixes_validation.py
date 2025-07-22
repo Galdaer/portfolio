@@ -6,72 +6,66 @@ Tests for the 4 critical security and compliance bugs identified by GitHub Copil
 import pytest
 import json
 import re
+import sys
+import os
 from operator import itemgetter
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+
+# Import actual implementation classes instead of duplicating logic
+from healthcare_mcp.phi_detection import BasicPHIDetector, apply_replacements_in_reverse
+
+
+# Shared utility functions for common test patterns
+def create_test_phi_detector():
+    """Create a PHI detector instance for testing"""
+    return BasicPHIDetector()
+
+
+def validate_phi_masking_result(result, expected_phi_detected=True, expected_masked_content=None):
+    """Validate PHI masking results with common assertions"""
+    assert 'phi_detected' in result
+    assert 'phi_types' in result
+    assert 'masked_text' in result
+
+    if expected_phi_detected:
+        assert result['phi_detected'] is True
+        assert len(result['phi_types']) > 0
+        assert '***' in result['masked_text'] or '*' in result['masked_text']
+
+    if expected_masked_content:
+        for content in expected_masked_content:
+            assert content not in result['masked_text'], f"Content '{content}' should be masked"
 
 
 def test_phi_masking_multiple_patterns():
     """Test Fix 1: PHI Masking IndexError Bug - Validates reverse order processing"""
     
-    # Simulate the fixed PHI detection logic
-    def detect_and_mask_phi_fixed(text):
-        phi_patterns = {
-            'ssn': r'\b\d{3}-\d{2}-\d{4}\b',
-            'phone': r'\b\d{3}-\d{3}-\d{4}\b',
-            'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-        }
-        
-        masked_text = text
-        phi_detected = False
-        phi_types = []
-        
-        # Collect all matches first to avoid index shifting issues
-        matches_to_replace = []
-        for phi_type, pattern in phi_patterns.items():
-            matches = list(re.finditer(pattern, text, re.IGNORECASE))
-            for match in matches:
-                phi_detected = True
-                phi_types.append(phi_type)
-                # Collect match positions and replacement details
-                matches_to_replace.append((match.start(), match.end(), '*' * len(match.group())))
+    # Use actual PHI detector implementation instead of duplicating logic
+    phi_detector = create_test_phi_detector()
 
-        # Apply replacements in reverse order of start positions to prevent IndexError
-        #
-        # Technical explanation: When replacing text at multiple positions, processing
-        # from left-to-right causes index shifting that invalidates later positions.
-        #
-        # Example problem (left-to-right):
-        #   Text: "Call 555-1234 or email john@example.com"
-        #   Matches: [(5, 13, "***-****"), (23, 39, "****@***.***")]
-        #   Step 1: Replace at (5,13) → "Call ***-**** or email john@example.com"
-        #   Step 2: Try replace at (23,39) → IndexError! Position 39 no longer exists
-        #
-        # Solution (right-to-left):
-        #   Step 1: Replace at (23,39) → "Call 555-1234 or email ****@***.***"
-        #   Step 2: Replace at (5,13) → "Call ***-**** or email ****@***.***"
-        #   Result: All replacements successful, no index shifting issues
-        for start, end, mask in sorted(matches_to_replace, key=itemgetter(0), reverse=True):
-            masked_text = masked_text[:start] + mask + masked_text[end:]
-        
+    def detect_and_mask_phi_fixed(text):
+        """Use actual implementation to validate PHI detection and masking"""
+        result = phi_detector.detect_phi(text)
         return {
-            'phi_detected': phi_detected,
-            'phi_types': list(set(phi_types)),
-            'masked_text': masked_text
+            'phi_detected': result.phi_detected,
+            'phi_types': result.phi_types,
+            'masked_text': result.masked_text
         }
-    
+
     # Test with multiple PHI patterns that would cause IndexError before fix
     test_text = "John Smith, SSN: 123-45-6789, Phone: 555-123-4567, Email: john@test.com"
-    
+
     # This should not raise IndexError
     result = detect_and_mask_phi_fixed(test_text)
-    
-    assert result['phi_detected'] is True
-    assert len(result['phi_types']) > 0
-    assert '***' in result['masked_text']
-    
-    # Verify all PHI was masked
-    assert '123-45-6789' not in result['masked_text']
-    assert '555-123-4567' not in result['masked_text']
-    assert 'john@test.com' not in result['masked_text']
+
+    # Use shared utility for validation
+    validate_phi_masking_result(
+        result,
+        expected_phi_detected=True,
+        expected_masked_content=['123-45-6789', '555-123-4567', 'john@test.com']
+    )
     
     print("✅ PHI masking IndexError fix validated")
 

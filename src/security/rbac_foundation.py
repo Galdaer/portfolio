@@ -477,6 +477,25 @@ class HealthcareRBACManager:
         """
         Validate patient assignment in production environment
 
+        CRITICAL SECURITY WARNING:
+        This method contains placeholder implementation that MUST be replaced
+        before production deployment. The current implementation will deny all
+        patient access in production to prevent security vulnerabilities.
+
+        PLACEHOLDER IMPLEMENTATION RISKS:
+        - No actual database validation of patient-provider relationships
+        - No care team membership verification
+        - No emergency access or break-glass functionality
+        - No audit trail of access decisions
+        - Potential HIPAA compliance violations if deployed as-is
+
+        REQUIRED FOR PRODUCTION:
+        1. Implement database-backed patient assignment validation
+        2. Add care team membership checking
+        3. Implement emergency access with supervisor approval
+        4. Add comprehensive audit logging
+        5. Validate against actual healthcare provider assignments
+
         Args:
             user_id: User identifier
             patient_id: Patient identifier
@@ -490,17 +509,43 @@ class HealthcareRBACManager:
         # Check feature flag for production deployment
         patient_assignment_enabled = os.getenv('RBAC_ENABLE_PATIENT_ASSIGNMENT', 'false').lower() == 'true'
 
+        # Validate that proper implementation exists before allowing production use
         if not patient_assignment_enabled:
             self.logger.error("Patient assignment validation not implemented for production")
             raise NotImplementedError(
                 "Patient assignment validation required for production deployment. "
                 "Set RBAC_ENABLE_PATIENT_ASSIGNMENT=true when proper implementation is ready."
             )
-        else:
-            # TODO: Replace with actual patient assignment implementation
-            self.logger.warning("Using placeholder patient assignment in production - implement proper logic")
-            # For now, deny access in production even with feature flag until real implementation
-            return False
+
+        # Additional validation: Check if real implementation is available
+        if not self._has_real_patient_assignment_implementation():
+            self.logger.error("RBAC_ENABLE_PATIENT_ASSIGNMENT=true but no real implementation found")
+            raise NotImplementedError(
+                "Feature flag enabled but patient assignment implementation is still placeholder. "
+                "Implement proper database-backed validation before production use."
+            )
+
+        # TODO: Replace with actual patient assignment implementation
+        self.logger.warning("Using placeholder patient assignment in production - implement proper logic")
+        # For now, deny access in production even with feature flag until real implementation
+        return False
+
+    def _has_real_patient_assignment_implementation(self) -> bool:
+        """
+        Check if real patient assignment implementation is available
+
+        Returns:
+            bool: True if real implementation exists, False if still placeholder
+        """
+        # TODO: Implement actual check for real patient assignment logic
+        # This could check for:
+        # - Database table existence
+        # - Required configuration parameters
+        # - External service availability
+        # - Implementation completeness markers
+
+        # For now, always return False to indicate placeholder implementation
+        return False
 
     def _validate_development_patient_assignment(self, user_id: str, patient_id: str) -> bool:
         """

@@ -95,10 +95,38 @@ class HealthcareMCPServer:
         self.phi_detector = PHIDetector() if config.phi_detection_enabled else None
         self.audit_logger = HealthcareAuditLogger(config)
 
+        # Validate configuration at startup
+        self._validate_startup_configuration()
+
         # Initialize connections
         self._init_database_connections()
         self._init_app()
-    
+
+    def _validate_startup_configuration(self):
+        """Validate critical configuration at startup to prevent runtime failures"""
+        from .environment_detector import EnvironmentDetector
+
+        if EnvironmentDetector.is_production():
+            # Validate JWT_SECRET configuration in production
+            jwt_secret = os.getenv("JWT_SECRET")
+            if not jwt_secret:
+                self.logger.error("JWT_SECRET not configured for production environment")
+                raise RuntimeError(
+                    "JWT_SECRET must be configured for production deployment. "
+                    "Application cannot start without proper authentication configuration."
+                )
+
+            if len(jwt_secret) < 32:
+                self.logger.error("JWT_SECRET is too short for production use")
+                raise RuntimeError(
+                    "JWT_SECRET must be at least 32 characters for production security. "
+                    "Please configure a stronger secret."
+                )
+
+            self.logger.info("Production authentication configuration validated")
+        else:
+            self.logger.info("Development/staging environment - JWT_SECRET validation skipped")
+
     def _init_database_connections(self):
         """Initialize database connections"""
         try:
@@ -276,13 +304,19 @@ class HealthcareMCPServer:
         return auth_result
 
     def _validate_jwt_token(self, token: str) -> bool:
-        """Validate JWT token for production use"""
+        """
+        Validate JWT token for production use with graceful error handling
+
+        Note: JWT_SECRET validation is performed at startup to prevent runtime failures.
+        This method provides graceful fallback for authentication failures.
+        """
         try:
             # Get JWT secret from environment or config
             jwt_secret = os.getenv("JWT_SECRET")
             if not jwt_secret:
-                self.logger.error("JWT_SECRET not configured for production")
-                raise RuntimeError("Authentication configuration error. Please contact support.")
+                # This should not happen if startup validation passed
+                self.logger.error("JWT_SECRET not available during authentication - configuration error")
+                return False
 
             # Decode and validate JWT
             payload = jwt.decode(
