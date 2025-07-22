@@ -84,7 +84,10 @@ class BasicPHIDetector:
             pattern = pattern_info['pattern']
             matches = list(re.finditer(pattern, text, re.IGNORECASE))
 
-            # Process matches in reverse order to maintain valid positions during masking
+            # Process matches in reverse order to maintain valid positions during masking.
+            # Masking modifies the string, which shifts the indices of subsequent matches.
+            # Reverse iteration ensures that earlier matches are not affected by these shifts,
+            # preventing potential IndexError or incorrect masking.
             for match in reversed(matches):
                 phi_detected = True
                 phi_types.append(phi_type)

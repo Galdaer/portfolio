@@ -23,18 +23,19 @@ def test_phi_masking_multiple_patterns():
         phi_detected = False
         phi_types = []
         
+        # Collect all matches first to avoid index shifting issues
+        matches_to_replace = []
         for phi_type, pattern in phi_patterns.items():
             matches = list(re.finditer(pattern, text, re.IGNORECASE))
-            
-            # CRITICAL FIX: Process matches in reverse order to prevent IndexError
-            for match in reversed(matches):
+            for match in matches:
                 phi_detected = True
                 phi_types.append(phi_type)
-                
-                # Mask the detected PHI
-                mask_length = len(match.group())
-                mask = '*' * mask_length
-                masked_text = masked_text[:match.start()] + mask + masked_text[match.end():]
+                # Collect match positions and replacement details
+                matches_to_replace.append((match.start(), match.end(), '*' * len(match.group())))
+
+        # Apply replacements in reverse order of start positions to prevent IndexError
+        for start, end, mask in sorted(matches_to_replace, key=lambda x: x[0], reverse=True):
+            masked_text = masked_text[:start] + mask + masked_text[end:]
         
         return {
             'phi_detected': phi_detected,

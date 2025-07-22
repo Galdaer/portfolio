@@ -236,13 +236,20 @@ class HealthcareMCPServer:
             }
     
     def _validate_credentials(self, credentials: HTTPAuthorizationCredentials) -> bool:
-        """Validate API credentials"""
-        # Basic implementation - would be enhanced with proper authentication
+        """Validate authentication credentials"""
         token = credentials.credentials
-        
-        # For development, accept any non-empty token
-        # In production, implement proper JWT validation
-        return len(token) > 0
+        environment = os.getenv("ENVIRONMENT", "development").lower()
+
+        if environment == "production":
+            # TODO: Implement proper JWT validation for production
+            raise NotImplementedError("Production JWT validation not implemented - deployment blocked")
+
+        # For development, accept any non-empty token but log warning
+        if len(token) > 0:
+            self.logger.warning("Using basic token validation - NOT SUITABLE FOR PRODUCTION")
+            return True
+
+        return False
     
     async def _process_mcp_request(self, request: MCPRequest) -> Dict[str, Any]:
         """Process MCP request with PHI detection and security"""

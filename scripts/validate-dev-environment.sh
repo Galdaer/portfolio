@@ -491,16 +491,42 @@ EOF
     log_success "Validation report generated: $report_file"
 }
 
+run_parallel_validations() {
+    log_info "🚀 Running parallel validation checks..."
+
+    # Run independent checks in parallel
+    validate_python_environment &
+    validate_database_connections &
+    validate_ollama_service &
+
+    # Wait for all background jobs
+    wait
+
+    # Run dependent checks sequentially
+    validate_healthcare_components
+    validate_testing_framework
+    validate_security_configuration
+    validate_development_tools
+    validate_service_deployment
+    validate_ci_cd_pipeline
+}
+
 main() {
     log_info "Starting Healthcare AI Development Environment Validation"
     log_info "Project root: $PROJECT_ROOT"
     echo
-    
+
     # Change to project root
     cd "$PROJECT_ROOT"
-    
-    # Run all validations
-    validate_python_environment
+
+    # Check for parallel execution option
+    case "${1:-}" in
+        --parallel)
+            run_parallel_validations
+            ;;
+        *)
+            # Run all validations sequentially (default)
+            validate_python_environment
     echo
     validate_database_connections
     echo
@@ -518,7 +544,9 @@ main() {
     echo
     validate_ci_cd_pipeline
     echo
-    
+            ;;
+    esac
+
     # Generate report
     generate_validation_report
     echo

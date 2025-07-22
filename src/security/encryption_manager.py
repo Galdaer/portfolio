@@ -115,10 +115,16 @@ class KeyManager:
     def _get_or_create_master_key(self) -> bytes:
         """Get or create master key for key encryption"""
         master_key_env = os.getenv("MASTER_ENCRYPTION_KEY")
-        
+
         if master_key_env:
             return base64.urlsafe_b64decode(master_key_env.encode())
-        
+
+        # Check environment to determine if key generation is allowed
+        environment = os.getenv("ENVIRONMENT", "development").lower()
+        if environment == "production":
+            self.logger.error("MASTER_ENCRYPTION_KEY is not set in production environment")
+            raise RuntimeError("MASTER_ENCRYPTION_KEY must be set in production")
+
         # Generate new master key (for development only)
         master_key = Fernet.generate_key()
         self.logger.warning("Generated new master key - store securely for production")

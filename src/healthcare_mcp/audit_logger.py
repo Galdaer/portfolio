@@ -6,6 +6,7 @@ Comprehensive audit logging for HIPAA compliance and healthcare AI systems
 import os
 import json
 import logging
+import time
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone
 from dataclasses import dataclass, asdict
@@ -363,7 +364,31 @@ class HealthcareAuditLogger:
                     ))
         except Exception as e:
             self.logger.error("Failed to log PHI detection", error=str(e))
-    
+
+    async def _get_cached_phi_result(self, phi_detector, details_str: str):
+        """Cache PHI detection results for similar content"""
+        # Create hash of content for caching
+        content_hash = hashlib.sha256(details_str.encode()).hexdigest()
+
+        # Check cache (implement simple in-memory cache with TTL)
+        if hasattr(self, '_phi_cache') and content_hash in self._phi_cache:
+            cache_entry = self._phi_cache[content_hash]
+            if time.time() - cache_entry['timestamp'] < 300:  # 5 minute TTL
+                return cache_entry['result']
+
+        # Perform detection and cache result
+        result = await phi_detector.detect_phi(details_str)
+
+        if not hasattr(self, '_phi_cache'):
+            self._phi_cache = {}
+
+        self._phi_cache[content_hash] = {
+            'result': result,
+            'timestamp': time.time()
+        }
+
+        return result
+
     async def log_security_violation(self, violation_type: str, details: Dict[str, Any],
                                    user_id: Optional[str] = None):
         """Log security violation with PHI protection"""
@@ -374,9 +399,9 @@ class HealthcareAuditLogger:
             from .phi_detection import PHIDetector
             phi_detector = PHIDetector()
 
-            # Check and mask PHI in violation details
+            # Check and mask PHI in violation details with caching
             details_str = json.dumps(details, default=str)
-            phi_result = await phi_detector.detect_phi(details_str)
+            phi_result = await self._get_cached_phi_result(phi_detector, details_str)
 
             phi_involved = phi_result.phi_detected
             processed_details = details.copy()

@@ -105,14 +105,18 @@ class SyntheticEncounter:
 class SyntheticHealthcareDataGenerator:
     """HIPAA-compliant synthetic healthcare data generator"""
     
-    def __init__(self, locale: str = 'en_US'):
+    def __init__(self, locale: str = 'en_US', seed: Optional[int] = None):
         self.fake = Faker(locale)
         self.fake.add_provider(MedicalProvider)
         self.logger = logging.getLogger(f"{__name__}.SyntheticHealthcareDataGenerator")
-        
-        # Ensure reproducible but varied data
-        Faker.seed(42)
-        random.seed(42)
+
+        # Ensure reproducible but varied data if a seed is provided
+        if seed is not None:
+            Faker.seed(seed)
+            random.seed(seed)
+            self.logger.info(f"Using seed {seed} for reproducible synthetic data")
+        else:
+            self.logger.info("Using random seed for varied synthetic data")
     
     def generate_synthetic_patient(self) -> SyntheticPatient:
         """Generate a completely synthetic patient record"""

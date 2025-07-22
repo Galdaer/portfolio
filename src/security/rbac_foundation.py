@@ -5,6 +5,7 @@ Healthcare-specific RBAC implementation with HIPAA compliance
 
 import json
 import logging
+import os
 from typing import Dict, List, Optional, Set, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
@@ -98,10 +99,14 @@ class HealthcareRBACManager:
     def __init__(self, postgres_conn):
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.HealthcareRBACManager")
-        
+
+        # Configure strict mode for security
+        self.STRICT_MODE = os.getenv('RBAC_STRICT_MODE', 'true').lower() == 'true'
+        self.logger.info(f"RBAC strict mode: {'enabled' if self.STRICT_MODE else 'disabled'}")
+
         # Initialize RBAC tables
         self._init_rbac_tables()
-        
+
         # Initialize default roles
         self._init_default_roles()
     
@@ -441,9 +446,14 @@ class HealthcareRBACManager:
         # Check assigned patients only constraint
         if constraints.get("assigned_patients_only") and resource_type == ResourceType.PATIENT:
             # TODO: Implement actual patient assignment check
-            # For now, deny access to maintain security until proper implementation
-            self.logger.warning(f"Patient access denied - assignment check not implemented for patient {resource_id}")
-            return False
+            if self.STRICT_MODE:
+                # Deny access in strict mode to maintain security
+                self.logger.warning(f"Patient access denied - assignment check not implemented for patient {resource_id}")
+                return False
+            else:
+                # Allow access in non-strict mode but log a warning for audit
+                self.logger.warning(f"Patient access granted in non-strict mode - assignment check not implemented for patient {resource_id}")
+                return True
 
         # Check anonymized data only constraint
         if constraints.get("anonymized_only") and resource_type == ResourceType.RESEARCH_DATA:
