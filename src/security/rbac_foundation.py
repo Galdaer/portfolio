@@ -440,16 +440,19 @@ class HealthcareRBACManager:
         
         # Check assigned patients only constraint
         if constraints.get("assigned_patients_only") and resource_type == ResourceType.PATIENT:
-            # Would check if patient is assigned to this user
-            # For now, return True (would be implemented with actual patient assignment logic)
-            return True
-        
+            # TODO: Implement actual patient assignment check
+            # For now, deny access to maintain security until proper implementation
+            self.logger.warning(f"Patient access denied - assignment check not implemented for patient {resource_id}")
+            return False
+
         # Check anonymized data only constraint
         if constraints.get("anonymized_only") and resource_type == ResourceType.RESEARCH_DATA:
-            # Would check if data is properly anonymized
-            # For now, return True (would be implemented with actual anonymization check)
+            # TODO: Implement actual anonymization verification
+            # For now, allow research data access but log for audit
+            self.logger.info(f"Research data access granted - anonymization check pending for data {resource_id}")
             return True
-        
+
+        # Default to allow for other constraint types not yet implemented
         return True
     
     def get_user(self, user_id: str) -> Optional[User]:

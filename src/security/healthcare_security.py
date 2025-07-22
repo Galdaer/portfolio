@@ -4,6 +4,7 @@ Comprehensive security framework for healthcare AI systems with HIPAA compliance
 """
 
 import os
+import json
 import logging
 from typing import Dict, List, Optional, Any, Callable
 from datetime import datetime, timedelta

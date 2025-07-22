@@ -364,11 +364,47 @@ class HealthcareAuditLogger:
         except Exception as e:
             self.logger.error("Failed to log PHI detection", error=str(e))
     
-    async def log_security_violation(self, violation_type: str, details: Dict[str, Any], 
+    async def log_security_violation(self, violation_type: str, details: Dict[str, Any],
                                    user_id: Optional[str] = None):
-        """Log security violation"""
+        """Log security violation with PHI protection"""
         event_id = self._generate_event_id()
-        
+
+        # Use dedicated PHI detection instead of basic string matching
+        try:
+            from .phi_detection import PHIDetector
+            phi_detector = PHIDetector()
+
+            # Check and mask PHI in violation details
+            details_str = json.dumps(details, default=str)
+            phi_result = await phi_detector.detect_phi(details_str)
+
+            phi_involved = phi_result.phi_detected
+            processed_details = details.copy()
+
+            if phi_result.phi_detected:
+                # Mask PHI before logging
+                self.logger.warning(f"PHI detected in security violation details: {phi_result.phi_types}")
+                processed_details["original_masked"] = True
+                processed_details["phi_types_detected"] = phi_result.phi_types
+                processed_details["masked_content"] = phi_result.masked_text[:500]  # Limit size
+
+                # Remove potentially sensitive original details
+                sensitive_keys = ["error_message", "request_data", "response_data", "user_input"]
+                for key in sensitive_keys:
+                    if key in processed_details:
+                        processed_details[key] = "[MASKED - PHI DETECTED]"
+
+        except ImportError:
+            # Fallback if PHI detector not available
+            self.logger.warning("PHI detector not available for security violation logging")
+            phi_involved = details.get("phi_involved", False)
+            processed_details = details
+        except Exception as e:
+            # Error in PHI detection - err on side of caution
+            self.logger.error(f"Error in PHI detection for security violation: {e}")
+            phi_involved = True  # Assume PHI present to be safe
+            processed_details = {"error": "PHI detection failed", "original_details_masked": True}
+
         audit_event = AuditEvent(
             event_id=event_id,
             timestamp=datetime.now(timezone.utc).isoformat(),
@@ -380,12 +416,12 @@ class HealthcareAuditLogger:
             resource_accessed=details.get("resource"),
             action_performed=violation_type,
             outcome="security_violation",
-            details=details,
-            phi_involved=details.get("phi_involved", False),
+            details=processed_details,
+            phi_involved=phi_involved,
             compliance_status="violation",
             risk_level="critical"
         )
-        
+
         await self.log_audit_event(audit_event)
     
     def get_audit_summary(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:

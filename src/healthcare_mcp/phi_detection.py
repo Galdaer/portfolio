@@ -82,13 +82,14 @@ class BasicPHIDetector:
         
         for phi_type, pattern_info in self.phi_patterns.items():
             pattern = pattern_info['pattern']
-            matches = re.finditer(pattern, text, re.IGNORECASE)
-            
-            for match in matches:
+            matches = list(re.finditer(pattern, text, re.IGNORECASE))
+
+            # Process matches in reverse order to maintain valid positions during masking
+            for match in reversed(matches):
                 phi_detected = True
                 phi_types.append(phi_type)
                 confidence_scores.append(0.8)  # Basic confidence score
-                
+
                 detection_details.append({
                     'type': phi_type,
                     'description': pattern_info['description'],
@@ -97,8 +98,8 @@ class BasicPHIDetector:
                     'text': match.group(),
                     'confidence': 0.8
                 })
-                
-                # Mask the detected PHI
+
+                # Mask the detected PHI (processing in reverse order prevents IndexError)
                 mask_length = len(match.group())
                 mask = '*' * mask_length
                 masked_text = masked_text[:match.start()] + mask + masked_text[match.end():]
