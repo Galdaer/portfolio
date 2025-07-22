@@ -3132,9 +3132,7 @@ main() {
         fi
 
         # Only require root for operations that actually need it
-        local needs_root=false
 
-        
         # For normal operations, just note we're running as user
         if ((EUID != 0)); then
             log "Running as user (recommended). Will request sudo only if needed for specific operations."

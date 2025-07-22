@@ -552,7 +552,7 @@ generate_default_entrypoint() {
     if [[ ! -f "$entrypoint_path" ]]; then
         if [[ -f "$main_py" ]]; then
             echo "#!/bin/bash" > "$entrypoint_path"
-            echo "exec python3 app.py \"$@\"" >> "$entrypoint_path"
+            echo 'exec python3 app.py "$@"' >> "$entrypoint_path"
             chmod +x "$entrypoint_path"
             log_info "Auto-generated entrypoint.sh for Python service at $entrypoint_path"
         else
@@ -569,7 +569,7 @@ generate_default_entrypoint() {
     if [[ ! -f "$entrypoint_path" ]]; then
         if [[ -f "$main_py" ]]; then
             echo "#!/bin/bash" > "$entrypoint_path"
-            echo "exec python3 app.py \"$@\"" >> "$entrypoint_path"
+            echo 'exec python3 app.py "$@"' >> "$entrypoint_path"
             chmod +x "$entrypoint_path"
             log_info "Auto-generated entrypoint.sh for Python service at $entrypoint_path"
         else

@@ -53,7 +53,8 @@ get_cached_validation_result() {
 
     if [[ -n "${VALIDATION_RESULTS[$test_name]:-}" ]]; then
         local timestamp="${VALIDATION_TIMESTAMPS[$test_name]}"
-        local current_time=$(date +%s)
+        local current_time
+        current_time=$(date +%s)
         local age=$((current_time - timestamp))
 
         if [[ $age -lt $max_age ]]; then
