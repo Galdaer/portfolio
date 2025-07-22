@@ -3,12 +3,9 @@ AI Assistant Configuration for Healthcare Development
 Claude Sonnet 4 integration with healthcare compliance and medical terminology
 """
 
-import os
-import json
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 from dataclasses import dataclass
-from datetime import datetime
 
 # Configure logging
 logger = logging.getLogger(__name__)

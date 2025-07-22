@@ -12,6 +12,10 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Validation result caching
+declare -A VALIDATION_RESULTS
+declare -A VALIDATION_TIMESTAMPS
+
 # Logging functions
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -32,9 +36,33 @@ log_error() {
 # Global variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-VALIDATION_RESULTS=()
 CRITICAL_FAILURES=0
 WARNINGS=0
+
+# Caching functions
+cache_validation_result() {
+    local test_name="$1"
+    local result="$2"
+    VALIDATION_RESULTS["$test_name"]="$result"
+    VALIDATION_TIMESTAMPS["$test_name"]=$(date +%s)
+}
+
+get_cached_validation_result() {
+    local test_name="$1"
+    local max_age="${2:-300}"  # 5 minutes default
+
+    if [[ -n "${VALIDATION_RESULTS[$test_name]:-}" ]]; then
+        local timestamp="${VALIDATION_TIMESTAMPS[$test_name]}"
+        local current_time=$(date +%s)
+        local age=$((current_time - timestamp))
+
+        if [[ $age -lt $max_age ]]; then
+            echo "${VALIDATION_RESULTS[$test_name]}"
+            return 0
+        fi
+    fi
+    return 1
+}
 
 # Validation functions
 validate_python_environment() {
