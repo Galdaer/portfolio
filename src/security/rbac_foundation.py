@@ -466,13 +466,22 @@ class HealthcareRBACManager:
         """
         from .environment_detector import EnvironmentDetector
 
-        # Block production deployment until proper implementation
+        # Check feature flag for production deployment
+        patient_assignment_enabled = os.getenv('RBAC_ENABLE_PATIENT_ASSIGNMENT', 'false').lower() == 'true'
+
+        # Block production deployment until proper implementation AND feature flag is enabled
         if EnvironmentDetector.is_production():
-            self.logger.error("Patient assignment validation not implemented for production")
-            raise NotImplementedError(
-                "Patient assignment validation required for production deployment. "
-                "Implement proper patient assignment logic before production use."
-            )
+            if not patient_assignment_enabled:
+                self.logger.error("Patient assignment validation not implemented for production")
+                raise NotImplementedError(
+                    "Patient assignment validation required for production deployment. "
+                    "Set RBAC_ENABLE_PATIENT_ASSIGNMENT=true when proper implementation is ready."
+                )
+            else:
+                # TODO: Replace with actual patient assignment implementation
+                self.logger.warning("Using placeholder patient assignment in production - implement proper logic")
+                # For now, deny access in production even with feature flag until real implementation
+                return False
 
         # Development mode: configurable behavior (default to allow for development)
         default_access = os.getenv('RBAC_DEFAULT_PATIENT_ACCESS', 'true').lower() == 'true'

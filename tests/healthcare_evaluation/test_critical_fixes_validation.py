@@ -35,6 +35,20 @@ def test_phi_masking_multiple_patterns():
                 matches_to_replace.append((match.start(), match.end(), '*' * len(match.group())))
 
         # Apply replacements in reverse order of start positions to prevent IndexError
+        #
+        # Technical explanation: When replacing text at multiple positions, processing
+        # from left-to-right causes index shifting that invalidates later positions.
+        #
+        # Example problem (left-to-right):
+        #   Text: "Call 555-1234 or email john@example.com"
+        #   Matches: [(5, 13, "***-****"), (23, 39, "****@***.***")]
+        #   Step 1: Replace at (5,13) → "Call ***-**** or email john@example.com"
+        #   Step 2: Try replace at (23,39) → IndexError! Position 39 no longer exists
+        #
+        # Solution (right-to-left):
+        #   Step 1: Replace at (23,39) → "Call 555-1234 or email ****@***.***"
+        #   Step 2: Replace at (5,13) → "Call ***-**** or email ****@***.***"
+        #   Result: All replacements successful, no index shifting issues
         for start, end, mask in sorted(matches_to_replace, key=itemgetter(0), reverse=True):
             masked_text = masked_text[:start] + mask + masked_text[end:]
         

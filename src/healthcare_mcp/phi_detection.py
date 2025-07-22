@@ -36,22 +36,45 @@ def apply_replacements_in_reverse(replacements: List[Tuple[int, int, str]],
     Returns:
         str: Text with replacements applied
     """
+    import time
+
+    start_time = time.time()
+    replacement_count = len(replacements)
+    text_length = len(text)
+
     # For small replacement sets, process normally
-    if len(replacements) <= batch_size:
+    if replacement_count <= batch_size:
+        logger.debug(f"PHI processing: {replacement_count} replacements in text of {text_length} chars (normal mode)")
         sorted_replacements = sorted(replacements, key=lambda x: x[0], reverse=True)
         result = text
         for start, end, replacement in sorted_replacements:
             result = result[:start] + replacement + result[end:]
+
+        processing_time = time.time() - start_time
+        logger.debug(f"PHI processing completed in {processing_time:.3f}s (normal mode)")
         return result
 
     # For large replacement sets, process in batches
+    logger.info(f"PHI batching enabled: {replacement_count} replacements in {replacement_count // batch_size + 1} batches")
+    logger.info(f"PHI batch processing: text_length={text_length}, batch_size={batch_size}")
+
     result = text
     sorted_replacements = sorted(replacements, key=lambda x: x[0], reverse=True)
+    batch_count = 0
 
     for i in range(0, len(sorted_replacements), batch_size):
         batch = sorted_replacements[i:i + batch_size]
+        batch_count += 1
+
+        batch_start_time = time.time()
         for start, end, replacement in batch:
             result = result[:start] + replacement + result[end:]
+
+        batch_time = time.time() - batch_start_time
+        logger.debug(f"PHI batch {batch_count} processed: {len(batch)} replacements in {batch_time:.3f}s")
+
+    total_time = time.time() - start_time
+    logger.info(f"PHI batch processing completed: {batch_count} batches in {total_time:.3f}s")
 
     return result
 

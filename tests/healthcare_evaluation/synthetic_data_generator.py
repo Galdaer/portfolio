@@ -113,7 +113,19 @@ class SyntheticHealthcareDataGenerator:
     """
 
     # The 555 prefix complies with North American Numbering Plan (NANP)
-    # standards for fictional numbers, preventing accidental contact with real people
+    # telecommunications standards for fictional numbers in testing environments.
+    #
+    # NANP Compliance Details:
+    # - 555-0100 through 555-0199: Reserved for fictional use in North America
+    # - Prevents accidental contact with real people during testing
+    # - Avoids privacy violations and unwanted communications
+    # - Complies with FCC regulations for test data in telecommunications
+    # - Recognized industry standard for healthcare testing scenarios
+    #
+    # Privacy Protection:
+    # - Eliminates risk of contacting real patients or providers
+    # - Prevents HIPAA violations from accidental real-world contact
+    # - Ensures test data cannot be confused with actual healthcare records
     PHONE_PREFIX = "555"
 
     # Synthetic insurance names prevent confusion with real providers

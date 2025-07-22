@@ -242,22 +242,38 @@ class HealthcareMCPServer:
             }
     
     def _validate_credentials(self, credentials: HTTPAuthorizationCredentials) -> bool:
-        """Validate authentication credentials with secure environment detection"""
+        """Validate authentication credentials with secure environment detection and failure logging"""
         token = credentials.credentials
+        auth_result = False
 
         if EnvironmentDetector.is_production():
-            return self._validate_jwt_token(token)
+            auth_result = self._validate_jwt_token(token)
         elif EnvironmentDetector.is_development():
             # Development mode - basic validation with rate-limited warning
             if len(token) > 0:
                 if not self._dev_auth_warning_logged:
                     self.logger.warning("Using basic token validation - NOT SUITABLE FOR PRODUCTION")
                     self._dev_auth_warning_logged = True
-                return True
-            return False
+                auth_result = True
+            else:
+                auth_result = False
         else:
             # Testing/staging - use JWT validation for security
-            return self._validate_jwt_token(token)
+            auth_result = self._validate_jwt_token(token)
+
+        # Log authentication failures for security monitoring
+        if not auth_result:
+            # Extract client info for security logging (without exposing sensitive data)
+            token_preview = token[:8] + "..." if len(token) > 8 else "empty"
+            self.logger.warning(
+                f"Authentication failed - Token preview: {token_preview}, "
+                f"Environment: {os.getenv('ENVIRONMENT', 'unknown')}"
+            )
+
+            # TODO: Add rate limiting and IP blocking for repeated failures
+            # TODO: Integrate with security monitoring system
+
+        return auth_result
 
     def _validate_jwt_token(self, token: str) -> bool:
         """Validate JWT token for production use"""
@@ -291,13 +307,13 @@ class HealthcareMCPServer:
             return True
 
         except jwt.ExpiredSignatureError:
-            self.logger.warning("JWT token expired")
+            self.logger.warning("JWT token expired - authentication failed")
             return False
         except jwt.InvalidTokenError as e:
-            self.logger.warning(f"Invalid JWT token: {e}")
+            self.logger.warning(f"Invalid JWT token - authentication failed: {e}")
             return False
         except Exception as e:
-            self.logger.error(f"JWT validation error: {e}")
+            self.logger.error(f"JWT validation error - authentication failed: {e}")
             return False
     
     async def _process_mcp_request(self, request: MCPRequest) -> Dict[str, Any]:
