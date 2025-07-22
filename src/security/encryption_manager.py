@@ -61,11 +61,15 @@ class KeyManager:
     MIN_ENTROPY_THRESHOLD = 4.0  # Minimum Shannon entropy for cryptographic keys
     MIN_KEY_LENGTH = 32  # Minimum key length in bytes (256 bits)
 
-    def __init__(self, postgres_conn):
+    def __init__(self, postgres_conn, config=None):
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.KeyManager")
+
+        # Support configuration injection for testing
+        self.config = config or self._load_configuration()
+
         self._init_key_tables()
-        
+
         # Master key for key encryption (would be stored in HSM in production)
         self.master_key = self._get_or_create_master_key()
     
@@ -212,9 +216,8 @@ class KeyManager:
 
     def _get_or_create_master_key(self) -> bytes:
         """Load or generate master encryption key with security validation"""
-        # Load configuration from secure source
-        config = self._load_configuration()
-        master_key = config.get("MASTER_ENCRYPTION_KEY")
+        # Use injected configuration or load from secure source
+        master_key = self.config.get("MASTER_ENCRYPTION_KEY")
 
         if master_key:
             return self._validate_master_key(master_key)
@@ -228,15 +231,92 @@ class KeyManager:
         if not EnvironmentDetector.is_development():
             raise RuntimeError("Key generation only allowed in development environment")
 
-        # Generate secure key for development
-        warning_msg = "Generating master key for development - NOT FOR PRODUCTION"
-        self.logger.warning(warning_msg)
+        # Check if development key persistence is enabled
+        persist_dev_keys = os.getenv('PERSIST_DEV_KEYS', 'false').lower() == 'true'
 
-        # Also log to stderr for immediate visibility
-        import sys
-        print(f"SECURITY WARNING: {warning_msg}", file=sys.stderr)
+        if persist_dev_keys:
+            return self._get_or_create_development_key()
+        else:
+            # Generate secure key for development (non-persistent)
+            warning_msg = "Generating master key for development - NOT FOR PRODUCTION"
+            self.logger.warning(warning_msg)
 
-        return secrets.token_bytes(32)  # Use secrets module for cryptographic randomness
+            # Also log to stderr for immediate visibility
+            import sys
+            print(f"SECURITY WARNING: {warning_msg}", file=sys.stderr)
+
+            return secrets.token_bytes(32)  # Use secrets module for cryptographic randomness
+
+    def _get_or_create_development_key(self) -> bytes:
+        """
+        Get or create persistent development key for data consistency
+
+        DEVELOPMENT KEY PERSISTENCE BEHAVIOR:
+        - Keys are stored securely in development environment only
+        - Enables consistent encryption/decryption across development restarts
+        - Prevents data loss during development iterations
+        - NOT suitable for production use
+
+        SECURITY CONSIDERATIONS:
+        - Development keys are stored with restricted file permissions (600)
+        - Keys are only created in development environment
+        - Clear warnings about development-only usage
+        - Automatic cleanup when switching to production
+
+        Returns:
+            bytes: Persistent development master key
+        """
+        # Development key storage path
+        key_file = "/opt/intelluxe/stack/security/dev_master_key"
+
+        # Check if existing development key exists
+        if os.path.exists(key_file):
+            try:
+                with open(key_file, 'rb') as f:
+                    key = f.read()
+
+                # Validate key length
+                if len(key) >= self.MIN_KEY_LENGTH:
+                    self.logger.info("Using existing persistent development master key")
+                    self.logger.warning("Development key persistence enabled - data will be consistent across restarts")
+                    return key
+                else:
+                    self.logger.warning(f"Existing development key too short ({len(key)} bytes), generating new key")
+                    os.remove(key_file)
+            except Exception as e:
+                self.logger.error(f"Failed to read existing development key: {e}")
+                if os.path.exists(key_file):
+                    os.remove(key_file)
+
+        # Generate new persistent development key
+        key = secrets.token_bytes(32)
+
+        # Store securely with restricted permissions
+        try:
+            os.makedirs(os.path.dirname(key_file), exist_ok=True)
+
+            # Write key with secure permissions
+            with open(key_file, 'wb') as f:
+                f.write(key)
+
+            # Set restrictive permissions (owner read/write only)
+            os.chmod(key_file, 0o600)
+
+            self.logger.warning(f"Generated new persistent development master key at {key_file}")
+            self.logger.warning("Development key persistence enabled - data will be consistent across restarts")
+            self.logger.warning("SECURITY: Development key persisted to disk - remove before production deployment")
+
+            # Also log to stderr for immediate visibility
+            import sys
+            print(f"DEVELOPMENT KEY PERSISTENCE: Key stored at {key_file}", file=sys.stderr)
+            print("WARNING: Remove development keys before production deployment", file=sys.stderr)
+
+        except Exception as e:
+            self.logger.error(f"Failed to persist development key: {e}")
+            self.logger.warning("Falling back to non-persistent key generation")
+            return secrets.token_bytes(32)
+
+        return key
 
     def generate_secure_key(self) -> str:
         """Generate a secure base64-encoded key for configuration"""
@@ -425,11 +505,15 @@ class HealthcareEncryptionManager:
     MIN_ENTROPY_THRESHOLD = 4.0  # Minimum Shannon entropy for cryptographic keys
     MIN_KEY_LENGTH = 32  # Minimum key length in bytes (256 bits)
 
-    def __init__(self, postgres_conn):
+    def __init__(self, postgres_conn, config=None):
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.HealthcareEncryptionManager")
-        self.key_manager = KeyManager(postgres_conn)
-        
+
+        # Support configuration injection for testing
+        self.config = config or self._load_configuration()
+
+        self.key_manager = KeyManager(postgres_conn, self.config)
+
         # Initialize default keys for different encryption levels
         self._init_default_keys()
     

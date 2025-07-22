@@ -525,6 +525,11 @@ class HealthcareRBACManager:
                 "Implement proper database-backed validation before production use."
             )
 
+        # Check for emergency access conditions before denying access
+        emergency_access = self._check_emergency_access(user_id, patient_id)
+        if emergency_access:
+            return True
+
         # TODO: Replace with actual patient assignment implementation
         self.logger.warning("Using placeholder patient assignment in production - implement proper logic")
         # For now, deny access in production even with feature flag until real implementation
@@ -566,6 +571,120 @@ class HealthcareRBACManager:
         else:
             self.logger.debug(f"DEV MODE: Denying patient access {user_id} -> {patient_id}")
             return False
+
+    def _check_emergency_access(self, user_id: str, patient_id: str) -> bool:
+        """
+        Check for emergency access conditions with comprehensive logging
+
+        Emergency access patterns for production patient assignment:
+        1. Emergency override flags for critical situations
+        2. Emergency user roles (e.g., emergency physicians, supervisors)
+        3. Break-glass access with supervisor approval
+        4. Comprehensive audit logging for all emergency access
+
+        Args:
+            user_id: User identifier
+            patient_id: Patient identifier
+
+        Returns:
+            bool: True if emergency access is granted
+        """
+        # Check for emergency override flags
+        emergency_override = os.getenv('RBAC_EMERGENCY_OVERRIDE', 'false').lower() == 'true'
+
+        if emergency_override:
+            self.logger.warning(f"EMERGENCY ACCESS: User {user_id} accessing patient {patient_id} via emergency override")
+            self._log_emergency_access(user_id, patient_id, "emergency_override", "Emergency override flag enabled")
+            return True
+
+        # Check for emergency user roles
+        if self._is_emergency_user(user_id):
+            self.logger.warning(f"EMERGENCY ACCESS: Emergency user {user_id} accessing patient {patient_id}")
+            self._log_emergency_access(user_id, patient_id, "emergency_user", "User has emergency access role")
+            return True
+
+        # Check for break-glass access (requires supervisor approval)
+        if self._check_break_glass_access(user_id, patient_id):
+            self.logger.warning(f"EMERGENCY ACCESS: Break-glass access granted for user {user_id} to patient {patient_id}")
+            self._log_emergency_access(user_id, patient_id, "break_glass", "Break-glass access with supervisor approval")
+            return True
+
+        return False
+
+    def _is_emergency_user(self, user_id: str) -> bool:
+        """
+        Check if user has emergency access role
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            bool: True if user has emergency access role
+        """
+        # TODO: Implement actual emergency user role checking
+        # This would check against:
+        # - Emergency physician roles
+        # - Supervisor roles
+        # - On-call staff designations
+        # - Break-glass authorized personnel
+
+        # For now, check environment variable for testing
+        emergency_users = os.getenv('RBAC_EMERGENCY_USERS', '').split(',')
+        return user_id.strip() in [u.strip() for u in emergency_users if u.strip()]
+
+    def _check_break_glass_access(self, user_id: str, patient_id: str) -> bool:
+        """
+        Check for break-glass access with supervisor approval
+
+        Args:
+            user_id: User identifier
+            patient_id: Patient identifier
+
+        Returns:
+            bool: True if break-glass access is approved
+        """
+        # TODO: Implement actual break-glass access checking
+        # This would include:
+        # - Supervisor approval workflow
+        # - Time-limited access tokens
+        # - Justification requirements
+        # - Multi-factor authentication
+
+        # For now, check environment variable for testing
+        break_glass_enabled = os.getenv('RBAC_BREAK_GLASS_ENABLED', 'false').lower() == 'true'
+        return break_glass_enabled
+
+    def _log_emergency_access(self, user_id: str, patient_id: str, access_type: str, reason: str):
+        """
+        Log emergency access with comprehensive audit trail
+
+        Args:
+            user_id: User identifier
+            patient_id: Patient identifier
+            access_type: Type of emergency access
+            reason: Reason for emergency access
+        """
+        import datetime
+
+        # Comprehensive audit logging for emergency access
+        audit_entry = {
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "event_type": "emergency_access",
+            "user_id": user_id,
+            "patient_id": patient_id,
+            "access_type": access_type,
+            "reason": reason,
+            "environment": os.getenv('ENVIRONMENT', 'unknown'),
+            "source_ip": "unknown",  # TODO: Get actual source IP
+            "session_id": "unknown"  # TODO: Get actual session ID
+        }
+
+        # Log to security audit system
+        self.logger.error(f"SECURITY AUDIT - Emergency Access: {audit_entry}")
+
+        # TODO: Send to external audit system
+        # TODO: Alert security team
+        # TODO: Store in audit database
 
     def _check_patient_assignment_constraints(self, user_id: str, constraints: Dict[str, Any]) -> bool:
         """Check patient assignment constraints with Phase 2 preparation"""

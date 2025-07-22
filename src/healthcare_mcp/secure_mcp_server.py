@@ -106,6 +106,9 @@ class HealthcareMCPServer:
         """Validate critical configuration at startup to prevent runtime failures"""
         from .environment_detector import EnvironmentDetector
 
+        # First validate environment configuration
+        environment = self._validate_environment_config()
+
         if EnvironmentDetector.is_production():
             # Validate JWT_SECRET configuration in production
             jwt_secret = os.getenv("JWT_SECRET")
@@ -125,7 +128,87 @@ class HealthcareMCPServer:
 
             self.logger.info("Production authentication configuration validated")
         else:
-            self.logger.info("Development/staging environment - JWT_SECRET validation skipped")
+            self.logger.info(f"{environment} environment - JWT_SECRET validation skipped")
+
+    def _validate_environment_config(self):
+        """
+        Validate environment configuration at startup
+
+        Validates that ENVIRONMENT variable is properly set and prevents
+        unexpected authentication behavior from misconfiguration.
+
+        Returns:
+            str: Validated environment name
+
+        Raises:
+            RuntimeError: If environment configuration is invalid
+        """
+        environment = os.getenv('ENVIRONMENT')
+        valid_environments = {"production", "development", "testing", "staging"}
+
+        if not environment:
+            self.logger.error("ENVIRONMENT variable not set")
+            raise RuntimeError(
+                "Server misconfiguration: ENVIRONMENT variable required. "
+                "Set ENVIRONMENT to one of: production, development, testing, staging"
+            )
+
+        # Normalize to lowercase for comparison
+        environment_lower = environment.lower()
+
+        if environment_lower not in valid_environments:
+            self.logger.error(f"Invalid ENVIRONMENT value: {environment}")
+            raise RuntimeError(
+                f"Server misconfiguration: invalid environment '{environment}'. "
+                f"Valid values are: {', '.join(sorted(valid_environments))}"
+            )
+
+        # Log validated environment
+        self.logger.info(f"Environment validated: {environment_lower}")
+
+        # Additional validation for production environment
+        if environment_lower == "production":
+            self._validate_production_environment_requirements()
+
+        return environment_lower
+
+    def _validate_production_environment_requirements(self):
+        """
+        Validate additional requirements for production environment
+
+        Ensures all critical configuration is present for production deployment.
+        """
+        # Check for development-only configurations that should not be in production
+        dev_only_vars = [
+            'PERSIST_DEV_KEYS',
+            'RBAC_DEFAULT_PATIENT_ACCESS',
+            'DEBUG',
+            'DEVELOPMENT_MODE'
+        ]
+
+        for var in dev_only_vars:
+            if os.getenv(var):
+                self.logger.warning(f"Development configuration {var} found in production environment")
+
+        # Validate required production configurations
+        required_prod_vars = [
+            'JWT_SECRET',
+            'MCP_ENCRYPTION_KEY'
+        ]
+
+        missing_vars = []
+        for var in required_prod_vars:
+            if not os.getenv(var):
+                missing_vars.append(var)
+
+        if missing_vars:
+            self.logger.error(f"Missing required production configuration: {', '.join(missing_vars)}")
+            raise RuntimeError(
+                f"Production deployment requires: {', '.join(missing_vars)}. "
+                "Please configure all required variables before starting in production."
+            )
+
+        self.logger.info("Production environment requirements validated")
 
     def _init_database_connections(self):
         """Initialize database connections"""
