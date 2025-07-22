@@ -126,7 +126,7 @@ class SyntheticHealthcareDataGenerator:
     # - Eliminates risk of contacting real patients or providers
     # - Prevents HIPAA violations from accidental real-world contact
     # - Ensures test data cannot be confused with actual healthcare records
-    PHONE_PREFIX = "555"
+    PHONE_PREFIX = "555"  # NANP-compliant prefix for fictional phone numbers
 
     # Synthetic insurance names prevent confusion with real providers
     # and ensure test data is clearly identified as non-production

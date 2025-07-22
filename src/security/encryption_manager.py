@@ -179,21 +179,21 @@ class KeyManager:
 
                 # Validate key length (minimum 32 bytes for AES-256)
                 if len(decoded_key) < self.MIN_KEY_LENGTH:
-                    self.logger.error(f"MASTER_ENCRYPTION_KEY is too short. Must be at least {self.MIN_KEY_LENGTH} bytes.")
-                    raise ValueError(f"MASTER_ENCRYPTION_KEY does not meet minimum length requirements ({self.MIN_KEY_LENGTH} bytes)")
+                    self.logger.error(f"MASTER_ENCRYPTION_KEY validation failed: length {len(decoded_key)} bytes, required minimum {self.MIN_KEY_LENGTH} bytes")
+                    raise ValueError("MASTER_ENCRYPTION_KEY does not meet security requirements")
 
                 # Validate key entropy
                 entropy = self._calculate_entropy(decoded_key)
                 if entropy < self.MIN_ENTROPY_THRESHOLD:
-                    self.logger.error(f"MASTER_ENCRYPTION_KEY has insufficient entropy: {entropy:.2f}")
-                    raise ValueError(f"MASTER_ENCRYPTION_KEY does not meet minimum entropy requirements ({self.MIN_ENTROPY_THRESHOLD})")
+                    self.logger.error(f"MASTER_ENCRYPTION_KEY validation failed: entropy {entropy:.2f}, required minimum {self.MIN_ENTROPY_THRESHOLD}")
+                    raise ValueError("MASTER_ENCRYPTION_KEY does not meet security requirements")
 
                 self.logger.info(f"Master key validated: {len(decoded_key)} bytes, entropy: {entropy:.2f}")
                 return decoded_key
 
             except Exception as e:
-                self.logger.error(f"Failed to decode MASTER_ENCRYPTION_KEY: {e}")
-                raise ValueError("MASTER_ENCRYPTION_KEY is not valid base64 or does not meet security requirements")
+                self.logger.error(f"MASTER_ENCRYPTION_KEY validation failed: decoding error - {e}")
+                raise ValueError("MASTER_ENCRYPTION_KEY does not meet security requirements")
 
         # Use secure environment detection
         if EnvironmentDetector.is_production():

@@ -37,10 +37,18 @@ def apply_replacements_in_reverse(replacements: List[Tuple[int, int, str]],
         str: Text with replacements applied
     """
     import time
+    import sys
+    from io import StringIO
 
     start_time = time.time()
     replacement_count = len(replacements)
     text_length = len(text)
+
+    # Memory usage monitoring for large documents
+    memory_threshold = 1_000_000  # 1MB threshold for memory-efficient mode
+    if text_length > memory_threshold:
+        logger.info(f"Large document detected: {text_length} bytes, enabling memory-efficient processing")
+        return _apply_replacements_memory_efficient(replacements, text, batch_size, start_time)
 
     # For small replacement sets, process normally
     if replacement_count <= batch_size:
@@ -75,6 +83,75 @@ def apply_replacements_in_reverse(replacements: List[Tuple[int, int, str]],
 
     total_time = time.time() - start_time
     logger.info(f"PHI batch processing completed: {batch_count} batches in {total_time:.3f}s")
+
+    return result
+
+
+def _apply_replacements_memory_efficient(replacements: List[Tuple[int, int, str]],
+                                       text: str,
+                                       batch_size: int,
+                                       start_time: float) -> str:
+    """
+    Memory-efficient replacement processing for very large texts using StringIO
+
+    Args:
+        replacements: List of (start, end, replacement) tuples
+        text: Original text to modify
+        batch_size: Number of replacements to process in each batch
+        start_time: Processing start time for metrics
+
+    Returns:
+        str: Text with replacements applied
+    """
+    import sys
+    import time
+    from io import StringIO
+
+    text_length = len(text)
+    replacement_count = len(replacements)
+
+    logger.info(f"Memory-efficient PHI processing: {replacement_count} replacements, {text_length} chars")
+
+    # Sort replacements in reverse order to prevent index shifting
+    sorted_replacements = sorted(replacements, key=lambda x: x[0], reverse=True)
+
+    # Use StringIO for memory-efficient string manipulation
+    text_io = StringIO(text)
+    text_chars = list(text_io.getvalue())  # Convert to character list for efficient indexing
+
+    # Process replacements in batches
+    batch_count = 0
+    for i in range(0, len(sorted_replacements), batch_size):
+        batch = sorted_replacements[i:i + batch_size]
+        batch_count += 1
+
+        batch_start_time = time.time()
+
+        # Apply replacements in current batch
+        for start, end, replacement in batch:
+            # Validate indices
+            if start < 0 or end > len(text_chars) or start >= end:
+                logger.warning(f"Invalid replacement indices: start={start}, end={end}, text_length={len(text_chars)}")
+                continue
+
+            # Replace characters using list slicing (more memory efficient than string concatenation)
+            text_chars[start:end] = list(replacement)
+
+        batch_time = time.time() - batch_start_time
+
+        # Memory usage monitoring
+        current_memory = sys.getsizeof(text_chars)
+        logger.debug(f"Memory-efficient batch {batch_count}: {len(batch)} replacements, "
+                    f"{batch_time:.3f}s, memory: {current_memory:,} bytes")
+
+    # Convert back to string
+    result = ''.join(text_chars)
+
+    total_time = time.time() - start_time
+    final_memory = sys.getsizeof(result)
+
+    logger.info(f"Memory-efficient PHI processing completed: {batch_count} batches in {total_time:.3f}s, "
+               f"final size: {len(result):,} chars, memory: {final_memory:,} bytes")
 
     return result
 

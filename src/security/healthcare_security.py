@@ -22,6 +22,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import redis
 import psycopg2
 
+from .environment_detector import EnvironmentDetector
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -57,11 +59,17 @@ class EncryptionManager:
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.EncryptionManager")
         
-        # Initialize encryption key
+        # Initialize encryption key with environment-aware validation
         if config.encryption_key:
             self.fernet = Fernet(config.encryption_key.encode())
+            self.logger.info("Encryption key loaded from configuration")
         else:
-            # Generate key if not provided (for development)
+            # Check environment before allowing key generation
+            if EnvironmentDetector.is_production():
+                self.logger.error("MCP_ENCRYPTION_KEY not configured for production environment")
+                raise RuntimeError("Application cannot start in production without encryption key")
+
+            # Generate key if not provided (for development only)
             key = Fernet.generate_key()
             self.fernet = Fernet(key)
             self.logger.warning("Using generated encryption key - not suitable for production")
