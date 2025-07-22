@@ -197,8 +197,8 @@ class KeyManager:
 
         # Use secure environment detection
         if EnvironmentDetector.is_production():
-            self.logger.error("MASTER_ENCRYPTION_KEY is not set in production environment")
-            raise RuntimeError("MASTER_ENCRYPTION_KEY must be set in production")
+            self.logger.error("MASTER_ENCRYPTION_KEY not configured for production environment")
+            raise RuntimeError("Critical security configuration missing. Contact system administrator.")
 
         # Only allow key generation in development
         if not EnvironmentDetector.is_development():

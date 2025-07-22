@@ -449,10 +449,10 @@ class HealthcareRBACManager:
 
     def is_user_assigned_to_patient(self, user_id: str, patient_id: str) -> bool:
         """
-        Check if user is assigned to patient
+        Check if user is assigned to patient with environment-aware behavior
 
         NOTE: This is a Phase 2 feature placeholder.
-        Current implementation returns configurable default for development.
+        Production deployment is blocked until proper implementation.
 
         Args:
             user_id: User identifier
@@ -460,26 +460,28 @@ class HealthcareRBACManager:
 
         Returns:
             bool: True if user has access to patient
-        """
-        # Phase 2 TODO: Implement proper patient assignment logic
-        # - Check patient-provider assignments in database
-        # - Validate care team memberships
-        # - Handle emergency access scenarios
-        # - Implement break-glass access with audit logging
 
-        # For now, use configuration to control behavior
-        default_access = os.getenv('RBAC_DEFAULT_PATIENT_ACCESS', 'false').lower() == 'true'
+        Raises:
+            NotImplementedError: In production environment
+        """
+        from .environment_detector import EnvironmentDetector
+
+        # Block production deployment until proper implementation
+        if EnvironmentDetector.is_production():
+            self.logger.error("Patient assignment validation not implemented for production")
+            raise NotImplementedError(
+                "Patient assignment validation required for production deployment. "
+                "Implement proper patient assignment logic before production use."
+            )
+
+        # Development mode: configurable behavior (default to allow for development)
+        default_access = os.getenv('RBAC_DEFAULT_PATIENT_ACCESS', 'true').lower() == 'true'
 
         if default_access:
-            self.logger.warning(
-                f"DEVELOPMENT MODE: Allowing patient access for user {user_id} to patient {patient_id}. "
-                "This is NOT suitable for production - implement proper patient assignment in Phase 2"
-            )
+            self.logger.debug(f"DEV MODE: Allowing patient access {user_id} -> {patient_id}")
             return True
         else:
-            self.logger.info(
-                f"Patient assignment check: user {user_id} -> patient {patient_id} = DENIED (placeholder)"
-            )
+            self.logger.debug(f"DEV MODE: Denying patient access {user_id} -> {patient_id}")
             return False
 
     def _check_patient_assignment_constraints(self, user_id: str, constraints: Dict[str, Any]) -> bool:
