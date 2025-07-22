@@ -1,10 +1,10 @@
 # Production Auto-Upgrade System for Healthcare Environments
 
-**Document Version**: 1.0.0  
+**Document Version**: 1.1.0  
 **Target Audience**: Healthcare System Administrators, DevOps Engineers  
 **Phase**: Production Deployment (Phase 3)  
 **Component**: Auto-Upgrade System (`auto-upgrade.sh`, `auto-upgrade.service`, `auto-upgrade.timer`)  
-**Last Updated**: July 16, 2025
+**Last Updated**: December 2024
 
 ## Overview
 
@@ -14,19 +14,19 @@ This document outlines the production-ready auto-upgrade system for Intelluxe AI
 
 ## 🏥 Healthcare Environment Modes
 
-### Development Mode (Current - Phase 0-2)
-- **Purpose**: Rapid development and testing
-- **Safety Checks**: Minimal (basic disk space, lock files)
-- **Schedule**: Weekly (Sunday 2 AM)
-- **Audit Logging**: Optional
-- **Patient Safety**: Disabled
+### Development Mode (Phase 0-2)
+- **Purpose**: Rapid development and testing with Phase 0 security foundation
+- **Safety Checks**: Basic validation with comprehensive logging
+- **Schedule**: Weekly (Sunday 2 AM) with development flexibility
+- **Audit Logging**: Optional but recommended for security testing
+- **Patient Safety**: Simulated checks for development validation
 
 ### Production Mode (Phase 3+)
-- **Purpose**: Live clinical deployment
-- **Safety Checks**: Full healthcare protocols
-- **Schedule**: Maintenance windows only
-- **Audit Logging**: Required (HIPAA compliance)
-- **Patient Safety**: Active session monitoring
+- **Purpose**: Live clinical deployment with full security hardening
+- **Safety Checks**: Full healthcare protocols with PHI protection
+- **Schedule**: Maintenance windows only with clinical coordination
+- **Audit Logging**: Required (HIPAA compliance with 7-year retention)
+- **Patient Safety**: Active session monitoring with EHR integration
 
 ---
 
@@ -35,11 +35,12 @@ This document outlines the production-ready auto-upgrade system for Intelluxe AI
 ### 1. Enhanced Auto-Upgrade Script (`auto-upgrade.sh`)
 
 **Key Production Features:**
-- **Healthcare Mode Detection**: Automatically adjusts behavior based on environment
-- **Patient Safety Checks**: Prevents updates during active patient sessions
-- **Maintenance Windows**: Only allows updates during approved maintenance times
-- **HIPAA Audit Logging**: Complete audit trail for compliance
-- **Service Health Verification**: Checks critical healthcare services before/after updates
+- **Healthcare Mode Detection**: Environment-aware security policies
+- **Patient Safety Checks**: PHI-aware session monitoring
+- **Maintenance Windows**: Clinical workflow coordination
+- **HIPAA Audit Logging**: Comprehensive compliance tracking
+- **Service Health Verification**: Healthcare service dependency validation
+- **Security Validation**: Encryption and authentication checks
 
 ```bash
 # Production environment variables
@@ -47,6 +48,8 @@ HEALTHCARE_MODE=production          # development|staging|production
 MAINTENANCE_WINDOW=true            # Only update during maintenance windows
 AUDIT_REQUIRED=true               # HIPAA compliance audit logging
 PATIENT_SAFETY_CHECK=true         # Check for active patient sessions
+PHI_PROTECTION_VERIFY=true        # Verify PHI protection systems
+SECURITY_VALIDATION=true          # Validate encryption and auth systems
 ```
 
 ### 2. Production Service Configuration (`auto-upgrade.service`)
@@ -69,6 +72,11 @@ Environment=HEALTHCARE_MODE=production
 Environment=CFG_UID=2000
 Environment=CFG_GID=2001
 Environment=HOME=/opt/intelluxe
+
+# Security validation environment
+Environment=PHI_PROTECTION_VERIFY=true
+Environment=SECURITY_VALIDATION=true
+Environment=AUDIT_REQUIRED=true
 
 # HIPAA compliance logging
 StandardOutput=journal
@@ -128,38 +136,85 @@ WantedBy=timers.target
 
 ---
 
-## 🛡️ Healthcare Safety Protocols
+## 🛡️ Enhanced Healthcare Safety Protocols
 
-### 1. Patient Safety Checks
+### 1. Security System Validation
 
 ```bash
-# Production patient safety verification
-check_patient_safety() {
-    log "INFO" "Checking for active patient sessions..."
+# Production security validation before updates
+validate_security_systems() {
+    log "INFO" "Validating healthcare security systems..."
     
-    # Check healthcare service containers
-    if docker ps --filter "label=intelluxe.service=healthcare" --filter "status=running" -q | grep -q .; then
-        log "WARN" "Healthcare services active - checking session status"
-        
-        # Production integration points:
-        # - EHR system session monitoring
-        # - Active appointment checking
-        # - Patient data processing status
-        
-        # Business hours check (customize for your clinic)
-        local current_hour
-        current_hour=$(date +%H)
-        if [[ $current_hour -ge 8 && $current_hour -le 18 ]]; then
-            log "ERROR" "Updates blocked: Potential active sessions during business hours"
+    # Validate encryption systems
+    if ! python3 -c "from src.security.encryption_manager import EncryptionManager; EncryptionManager().validate_keys()"; then
+        log "ERROR" "Encryption system validation failed"
+        return 1
+    fi
+    
+    # Validate PHI detection systems
+    if ! python3 -c "from src.healthcare_mcp.phi_detection import PHIDetector; PHIDetector().validate_system()"; then
+        log "ERROR" "PHI detection system validation failed"
+        return 1
+    fi
+    
+    # Validate authentication systems
+    if [[ "$HEALTHCARE_MODE" == "production" ]]; then
+        if ! python3 -c "from src.healthcare_mcp.secure_mcp_server import SecureMCPServer; SecureMCPServer().validate_auth_config()"; then
+            log "ERROR" "Authentication system validation failed"
             return 1
         fi
     fi
     
-    # Check for active database transactions
+    log "INFO" "Security system validation passed"
+    return 0
+}
+```
+
+### 2. Enhanced Patient Safety Checks
+
+```bash
+# Production patient safety verification with PHI awareness
+check_patient_safety() {
+    log "INFO" "Checking for active patient sessions with PHI protection..."
+    
+    # Check healthcare service containers with PHI processing
+    if docker ps --filter "label=intelluxe.service=healthcare" --filter "status=running" -q | grep -q .; then
+        log "WARN" "Healthcare services active - checking PHI processing status"
+        
+        # Check for active PHI processing
+        local phi_processing_active
+        phi_processing_active=$(docker exec -i $(docker ps --filter "label=intelluxe.phi=true" -q | head -1) \
+            python3 -c "from src.healthcare_mcp.phi_detection import PHIDetector; print(PHIDetector().get_active_sessions())" 2>/dev/null || echo "0")
+        
+        if [[ $phi_processing_active -gt 0 ]]; then
+            log "ERROR" "Active PHI processing detected - updates blocked"
+            return 1
+        fi
+        
+        # Business hours check with clinical workflow awareness
+        local current_hour
+        current_hour=$(date +%H)
+        if [[ $current_hour -ge 8 && $current_hour -le 18 ]]; then
+            # Check for scheduled appointments or active clinical workflows
+            if check_clinical_workflows; then
+                log "ERROR" "Updates blocked: Active clinical workflows during business hours"
+                return 1
+            fi
+        fi
+    fi
+    
+    # Enhanced database activity monitoring
     if systemctl is-active --quiet postgresql; then
-        local active_connections
+        local active_connections phi_queries
         active_connections=$(sudo -u postgres psql -t -c "SELECT count(*) FROM pg_stat_activity WHERE state = 'active';" 2>/dev/null || echo "0")
-        if [[ $active_connections -gt 5 ]]; then  # Adjust threshold for your environment
+        phi_queries=$(sudo -u postgres psql -t -c "SELECT count(*) FROM pg_stat_activity WHERE query LIKE '%patient%' OR query LIKE '%phi%';" 2>/dev/null || echo "0")
+        
+        if [[ $phi_queries -gt 0 ]]; then
+            log "ERROR" "Active PHI database queries detected - updates blocked"
+            return 1
+        fi
+        
+        if [[ $active_connections -gt 5 ]]; then
             log "WARN" "High database activity detected ($active_connections active connections)"
             if [[ "$HEALTHCARE_MODE" == "production" ]]; then
                 log "ERROR" "Updates blocked: High database activity suggests active patient sessions"
@@ -172,50 +227,16 @@ check_patient_safety() {
 }
 ```
 
-### 2. Maintenance Window Configuration
-
-```bash
-# Healthcare maintenance windows
-check_maintenance_window() {
-    if [[ "$MAINTENANCE_WINDOW" == "true" ]]; then
-        local current_day current_hour current_minute
-        current_day=$(date +%u)    # 1-7 (Monday-Sunday)
-        current_hour=$(date +%H)   # 00-23
-        current_minute=$(date +%M) # 00-59
-        
-        # Primary maintenance window: Sunday 2-4 AM
-        if [[ "$current_day" -eq 7 ]] && [[ $current_hour -ge 2 && $current_hour -le 4 ]]; then
-            log "INFO" "Within primary maintenance window (Sunday 2-4 AM)"
-            return 0
-        fi
-        
-        # Emergency maintenance window: Any day 1-3 AM (for critical security updates)
-        if [[ $current_hour -ge 1 && $current_hour -le 3 ]]; then
-            log "INFO" "Within emergency maintenance window (1-3 AM)"
-            return 0
-        fi
-        
-        # Outside maintenance windows
-        log "WARN" "Outside maintenance window - current time: $(date)"
-        if [[ "$HEALTHCARE_MODE" == "production" ]]; then
-            log "ERROR" "Production updates blocked outside maintenance window"
-            return 1
-        fi
-    fi
-    return 0
-}
-```
-
 ### 3. Healthcare Service Health Verification
 
 ```bash
-# Pre/post update healthcare service verification
+# Enhanced healthcare service verification with security validation
 verify_healthcare_services() {
     local check_type="$1"  # "pre" or "post"
     
-    log "INFO" "Running $check_type-update healthcare service verification..."
+    log "INFO" "Running $check_type-update healthcare service verification with security validation..."
     
-    # Critical healthcare services that must remain healthy
+    # Critical healthcare services with security requirements
     local critical_services=(
         "postgresql"        # Patient data database
         "redis-server"      # Session cache
@@ -234,52 +255,71 @@ verify_healthcare_services() {
         fi
     done
     
-    # Check healthcare Docker containers
+    # Check healthcare Docker containers with security validation
     if command -v docker >/dev/null 2>&1; then
-        local unhealthy_containers
+        local unhealthy_containers security_containers
         unhealthy_containers=$(docker ps --filter "label=intelluxe.healthcare=true" --filter "health=unhealthy" -q | wc -l)
+        security_containers=$(docker ps --filter "label=intelluxe.security=true" --filter "status=running" -q | wc -l)
+        
         if [[ $unhealthy_containers -gt 0 ]]; then
             log "ERROR" "Found $unhealthy_containers unhealthy healthcare containers"
+            return 1
+        fi
+        
+        if [[ $security_containers -eq 0 ]]; then
+            log "ERROR" "No security containers running - healthcare system compromised"
             return 1
         fi
         
         local healthcare_containers
         healthcare_containers=$(docker ps --filter "label=intelluxe.healthcare=true" -q | wc -l)
         log "INFO" "✓ $healthcare_containers healthcare containers running and healthy"
+        log "INFO" "✓ $security_containers security containers active"
     fi
     
-    # Check disk space for healthcare data
-    local data_disk_usage
+    # Validate security systems post-update
+    if [[ "$check_type" == "post" ]]; then
+        if ! validate_security_systems; then
+            log "ERROR" "Security system validation failed after update"
+            return 1
+        fi
+    fi
+    
+    # Check disk space for healthcare data with PHI considerations
+    local data_disk_usage phi_storage_usage
     data_disk_usage=$(df /opt/intelluxe/stack/data 2>/dev/null | awk 'NR==2 {print $5}' | tr -d '%' || echo "0")
+    phi_storage_usage=$(du -sh /opt/intelluxe/stack/data/phi 2>/dev/null | awk '{print $1}' || echo "0")
+    
     if [[ $data_disk_usage -gt 85 ]]; then
-        log "WARN" "Healthcare data disk usage high: $data_disk_usage%"
+        log "WARN" "Healthcare data disk usage high: $data_disk_usage% (PHI storage: $phi_storage_usage)"
         if [[ $data_disk_usage -gt 95 ]]; then
             log "ERROR" "Critical: Healthcare data disk usage: $data_disk_usage%"
             return 1
         fi
     fi
     
-    log "INFO" "$check_type-update healthcare service verification passed"
+    log "INFO" "$check_type-update healthcare service verification with security validation passed"
     return 0
 }
 ```
 
 ---
 
-## 📊 HIPAA Compliance & Audit Logging
+## 📊 Enhanced HIPAA Compliance & Audit Logging
 
-### 1. Audit Log Format
+### 1. Security-Aware Audit Log Format
 
 ```bash
-# HIPAA-compliant audit logging
+# Enhanced HIPAA-compliant audit logging with security context
 audit_log() {
     local action="$1"
     local details="$2"
     local user="${3:-$(whoami)}"
+    local security_context="${4:-normal}"
     local timestamp
     timestamp=$(date --iso-8601=seconds)
     
-    # HIPAA audit trail format
+    # Enhanced HIPAA audit trail format with security validation
     cat >> "$AUDIT_LOG" << EOF
 {
   "timestamp": "$timestamp",
@@ -289,16 +329,19 @@ audit_log() {
   "user": "$user",
   "pid": "$$",
   "mode": "$HEALTHCARE_MODE",
+  "security_context": "$security_context",
+  "phi_protection_active": "$(check_phi_protection_status)",
+  "encryption_validated": "$(check_encryption_status)",
   "compliance": "HIPAA"
 }
 EOF
 }
 
-# Example audit events
-audit_log "UPGRADE_START" "System package upgrade initiated"
-audit_log "PATIENT_SAFETY_CHECK" "Active session check completed: no active sessions"
-audit_log "PACKAGE_UPGRADE" "$(apt list --upgradable 2>/dev/null | wc -l) packages upgraded"
-audit_log "UPGRADE_COMPLETE" "System upgrade completed successfully"
+# Enhanced audit events with security context
+audit_log "UPGRADE_START" "System package upgrade initiated" "$(whoami)" "security_validated"
+audit_log "SECURITY_CHECK" "Encryption and PHI protection validated" "$(whoami)" "security_critical"
+audit_log "PATIENT_SAFETY_CHECK" "Active session and PHI processing check completed" "$(whoami)" "patient_safety"
+audit_log "UPGRADE_COMPLETE" "System upgrade completed with security validation" "$(whoami)" "security_validated"
 ```
 
 ### 2. Log Retention & Security
@@ -331,29 +374,54 @@ EOF
 
 ---
 
-## 🚀 Production Deployment Steps
+## 🚀 Enhanced Production Deployment Steps
 
-### 1. Pre-Deployment Configuration
+### 1. Security-Enhanced Pre-Deployment Configuration
 
 ```bash
 #!/bin/bash
-# deploy-production-auto-upgrade.sh
+# deploy-production-auto-upgrade.sh - Enhanced with security validation
 
-echo "🏥 Deploying Production Auto-Upgrade System for Healthcare"
-echo "========================================================"
+echo "🏥 Deploying Production Auto-Upgrade System for Healthcare with Security Validation"
+echo "================================================================================"
 
-# Create production configuration
+# Validate Phase 0 security foundation
+echo "Validating Phase 0 security foundation..."
+if ! python3 -c "
+from src.security.encryption_manager import EncryptionManager
+from src.healthcare_mcp.phi_detection import PHIDetector
+from src.security.rbac_foundation import RBACFoundation
+
+# Validate all security systems
+EncryptionManager().validate_production_readiness()
+PHIDetector().validate_system()
+RBACFoundation().validate_production_readiness()
+print('✅ Phase 0 security foundation validated')
+"; then
+    echo "❌ Phase 0 security validation failed - cannot deploy production auto-upgrade"
+    exit 1
+fi
+
+# Create production configuration with security enhancements
 cat > /etc/intelluxe/auto-upgrade.conf << EOF
 # Intelluxe AI Healthcare Auto-Upgrade Production Configuration
 HEALTHCARE_MODE=production
 MAINTENANCE_WINDOW=true
 AUDIT_REQUIRED=true
 PATIENT_SAFETY_CHECK=true
+PHI_PROTECTION_VERIFY=true
+SECURITY_VALIDATION=true
+
+# Enhanced security settings
+ENCRYPTION_VALIDATION=true
+AUTH_VALIDATION=true
+RBAC_VALIDATION=true
 
 # Clinic-specific settings (customize for your environment)
 BUSINESS_HOURS_START=08
 BUSINESS_HOURS_END=18
 MAX_DB_CONNECTIONS=5
+MAX_PHI_PROCESSING_SESSIONS=0
 DATA_DISK_WARNING_THRESHOLD=85
 DATA_DISK_CRITICAL_THRESHOLD=95
 
@@ -364,11 +432,11 @@ EMERGENCY_MAINTENANCE_START=1 # 1 AM
 EMERGENCY_MAINTENANCE_END=3   # 3 AM
 EOF
 
-# Set production permissions
+# Set production permissions with security hardening
 chown intelluxe-service:intelluxe-prod /etc/intelluxe/auto-upgrade.conf
 chmod 640 /etc/intelluxe/auto-upgrade.conf
 
-echo "✅ Production configuration deployed"
+echo "✅ Production configuration with security enhancements deployed"
 ```
 
 ### 2. Production Service Installation
@@ -440,19 +508,22 @@ echo "✅ Production auto-upgrade system tests passed"
 
 ---
 
-## 📋 Production Checklist
+## 📋 Enhanced Production Checklist
 
-### Pre-Deployment Checklist
-- [ ] **Environment Configuration**: Set `HEALTHCARE_MODE=production` in all configs
+### Pre-Deployment Security Validation
+- [ ] **Phase 0 Security Foundation**: Validated encryption, PHI detection, and RBAC systems
+- [ ] **Environment Configuration**: Set `HEALTHCARE_MODE=production` with security validation
 - [ ] **Service Accounts**: Created dedicated `intelluxe-service:intelluxe-prod` accounts
+- [ ] **Security Systems**: Validated all encryption keys and authentication systems
+- [ ] **PHI Protection**: Verified PHI detection and masking systems
 - [ ] **Maintenance Windows**: Configured clinic-specific maintenance schedules
 - [ ] **Patient Safety**: Integrated with EHR/session management system
-- [ ] **Audit Logging**: Enabled HIPAA-compliant audit trails
+- [ ] **Audit Logging**: Enabled HIPAA-compliant audit trails with security context
 - [ ] **Log Retention**: Configured 7-year log retention for compliance
 - [ ] **Network Security**: Restricted access to healthcare network only
-- [ ] **Testing**: Completed full production testing suite
+- [ ] **Testing**: Completed full production testing suite with security validation
 - [ ] **Documentation**: Updated all procedures for production environment
-- [ ] **Staff Training**: Trained healthcare staff on maintenance procedures
+- [ ] **Staff Training**: Trained healthcare staff on maintenance and security procedures
 
 ### Post-Deployment Monitoring
 - [ ] **Service Health**: Monitor auto-upgrade service status
@@ -570,13 +641,14 @@ audit_log "EMERGENCY_ROLLBACK" "System rollback completed"
 ---
 
 **⚠️ Important Production Notes:**
-1. **Test thoroughly in staging environment first**
-2. **Coordinate with clinical staff before deployment**
-3. **Maintain development environment separately**
-4. **Document all customizations for your healthcare environment**
-5. **Schedule regular reviews and updates for compliance**
-6. **Train healthcare staff on emergency procedures**
+1. **Complete Phase 0 security validation** before production deployment
+2. **Test all security components** in staging environment first
+3. **Coordinate with clinical staff** before implementing
+4. **Maintain development environment** separately for ongoing development
+5. **Document all customizations** for your healthcare environment
+6. **Schedule regular security reviews** and updates for compliance
+7. **Train healthcare staff** on emergency procedures and security protocols
 
 ---
 
-*This document should be reviewed before each production deployment and updated whenever healthcare workflows change.*
+*This document should be reviewed before each production deployment and updated whenever healthcare workflows or security requirements change.*
