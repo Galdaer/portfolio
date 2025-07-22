@@ -1096,6 +1096,7 @@ async def health_check():
     return {"status": "healthy", "service": "compliance-monitor"}
 ```
 
+<<<<<<<
 ### 2.4 Comprehensive Evaluation and Monitoring Framework
 
 **Production healthcare AI evaluation with RAGAS integration and AgentOps monitoring:**
@@ -1698,10 +1699,276 @@ class ReportGenerator:
 ```
 
 ### 2.2 Enhanced Database Schema for Business Services
+=======
+### 2.2 Patient Assignment Service
+>>>>>>>
+
+**Create service configuration:**
+```bash
+# services/user/patient-assignment/patient-assignment.conf
+image="intelluxe/patient-assignment:latest"
+port="8012:8012"
+description="Patient assignment and care team management service"
+env="NODE_ENV=production"
+volumes="./config:/app/config:ro"
+network_mode="intelluxe-net"
+restart_policy="unless-stopped"
+healthcheck="curl -f http://localhost:8012/health || exit 1"
+depends_on="postgres,redis,rbac-foundation"
+```
+
+**Deploy patient assignment service:**
+```bash
+./scripts/universal-service-runner.sh start patient-assignment
+
+# Verify service is running
+curl http://localhost:8012/health
+```
+
+**Patient Assignment Service Implementation:**
+```python
+# services/user/patient-assignment/main.py
+from fastapi import FastAPI, HTTPException, Depends
+from typing import Dict, Any, List, Optional
+import asyncio
+from datetime import datetime, timedelta
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+app = FastAPI(title="Patient Assignment Service")
+
+class PatientAssignmentService:
+    """
+    Manage doctor-patient assignments and care team coordination
+    Implements the business logic that Phase 1 RBAC foundation references
+    """
+
+    def __init__(self):
+        self.db_conn = self._get_db_connection()
+        self.assignment_cache = {}  # Redis integration for performance
+
+    async def assign_patient_to_doctor(self,
+                                     patient_id: str,
+                                     doctor_id: str,
+                                     assignment_type: str = "primary",
+                                     assigned_by: str = None,
+                                     start_date: datetime = None,
+                                     end_date: datetime = None) -> Dict[str, Any]:
+        """Assign patient to doctor with specific role and timeframe"""
+
+        if start_date is None:
+            start_date = datetime.utcnow()
+
+        try:
+            cursor = self.db_conn.cursor(cursor_factory=RealDictCursor)
+
+            # Check for existing assignments
+            cursor.execute("""
+                SELECT * FROM patient_assignments
+                WHERE patient_id = %s AND doctor_id = %s
+                AND assignment_type = %s AND is_active = true
+            """, (patient_id, doctor_id, assignment_type))
+
+            existing = cursor.fetchone()
+            if existing:
+                return {
+                    "success": False,
+                    "message": f"Assignment already exists",
+                    "existing_assignment": dict(existing)
+                }
+
+            # Create new assignment
+            cursor.execute("""
+                INSERT INTO patient_assignments
+                (patient_id, doctor_id, assignment_type, assigned_by, start_date, end_date, is_active)
+                VALUES (%s, %s, %s, %s, %s, %s, true)
+                RETURNING assignment_id
+            """, (patient_id, doctor_id, assignment_type, assigned_by, start_date, end_date))
+
+            assignment_id = cursor.fetchone()['assignment_id']
+            self.db_conn.commit()
+
+            # Clear cache for this patient and doctor
+            self._clear_assignment_cache(patient_id, doctor_id)
+
+            # Log assignment for audit
+            await self._log_assignment_event("ASSIGNED", {
+                "assignment_id": assignment_id,
+                "patient_id": patient_id,
+                "doctor_id": doctor_id,
+                "assignment_type": assignment_type,
+                "assigned_by": assigned_by
+            })
+
+            return {
+                "success": True,
+                "assignment_id": assignment_id,
+                "patient_id": patient_id,
+                "doctor_id": doctor_id,
+                "assignment_type": assignment_type,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat() if end_date else None
+            }
+
+        except Exception as e:
+            self.db_conn.rollback()
+            raise HTTPException(status_code=500, detail=f"Assignment failed: {str(e)}")
+
+    async def get_doctor_patients(self, doctor_id: str, assignment_type: str = None) -> List[Dict[str, Any]]:
+        """Get all patients assigned to a doctor"""
+
+        cache_key = f"doctor_patients:{doctor_id}:{assignment_type or 'all'}"
+        if cache_key in self.assignment_cache:
+            return self.assignment_cache[cache_key]
+
+        try:
+            cursor = self.db_conn.cursor(cursor_factory=RealDictCursor)
+
+            query = """
+                SELECT pa.*, p.patient_name, p.mrn
+                FROM patient_assignments pa
+                LEFT JOIN patients p ON pa.patient_id = p.patient_id
+                WHERE pa.doctor_id = %s AND pa.is_active = true
+                AND (pa.end_date IS NULL OR pa.end_date > NOW())
+            """
+            params = [doctor_id]
+
+            if assignment_type:
+                query += " AND pa.assignment_type = %s"
+                params.append(assignment_type)
+
+            query += " ORDER BY pa.start_date DESC"
+
+            cursor.execute(query, params)
+            assignments = [dict(row) for row in cursor.fetchall()]
+
+            # Cache results for 5 minutes
+            self.assignment_cache[cache_key] = assignments
+
+            return assignments
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to get doctor patients: {str(e)}")
+
+    async def check_assignment_permissions(self, user_id: str, patient_id: str) -> bool:
+        """
+        Check if user has permission to access patient
+        This is the method that Phase 1 RBAC foundation will call in Phase 2
+        """
+
+        cache_key = f"permission:{user_id}:{patient_id}"
+        if cache_key in self.assignment_cache:
+            return self.assignment_cache[cache_key]
+
+        try:
+            cursor = self.db_conn.cursor(cursor_factory=RealDictCursor)
+
+            # Check direct assignment
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM patient_assignments
+                WHERE doctor_id = %s AND patient_id = %s
+                AND is_active = true
+                AND (end_date IS NULL OR end_date > NOW())
+            """, (user_id, patient_id))
+
+            direct_assignment = cursor.fetchone()['count'] > 0
+
+            if direct_assignment:
+                self.assignment_cache[cache_key] = True
+                return True
+
+            # Check care team assignment
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM care_team_members ctm
+                JOIN patient_assignments pa ON ctm.assignment_id = pa.assignment_id
+                WHERE ctm.team_member_id = %s AND pa.patient_id = %s
+                AND ctm.is_active = true AND pa.is_active = true
+                AND (pa.end_date IS NULL OR pa.end_date > NOW())
+            """, (user_id, patient_id))
+
+            care_team_assignment = cursor.fetchone()['count'] > 0
+
+            result = care_team_assignment
+            self.assignment_cache[cache_key] = result
+            return result
+
+        except Exception as e:
+            # Log error but deny access for security
+            print(f"Error checking assignment permissions: {e}")
+            return False
+
+# FastAPI endpoints
+assignment_service = PatientAssignmentService()
+
+@app.post("/assign")
+async def assign_patient(assignment_data: Dict[str, Any]):
+    """Assign patient to doctor"""
+    return await assignment_service.assign_patient_to_doctor(**assignment_data)
+
+@app.get("/doctor/{doctor_id}/patients")
+async def get_doctor_patients(doctor_id: str, assignment_type: str = None):
+    """Get patients assigned to doctor"""
+    return await assignment_service.get_doctor_patients(doctor_id, assignment_type)
+
+@app.get("/check-permission/{user_id}/{patient_id}")
+async def check_permission(user_id: str, patient_id: str):
+    """Check if user can access patient - used by Phase 1 RBAC foundation"""
+    has_permission = await assignment_service.check_assignment_permissions(user_id, patient_id)
+    return {"user_id": user_id, "patient_id": patient_id, "has_permission": has_permission}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "patient-assignment"}
+```
+
+### 2.3 Enhanced Database Schema for Business Services
 
 **Add business services tables to your existing PostgreSQL:**
 ```sql
--- Enhanced database schema for Phase 2 compliance tracking
+-- Enhanced database schema for Phase 2 business services
+
+-- Patient Assignment Tables
+CREATE TABLE IF NOT EXISTS patient_assignments (
+    assignment_id SERIAL PRIMARY KEY,
+    patient_id VARCHAR(50) NOT NULL,
+    doctor_id VARCHAR(50) NOT NULL,
+    assignment_type VARCHAR(20) NOT NULL DEFAULT 'primary', -- primary, consulting, covering, emergency
+    assigned_by VARCHAR(50),
+    start_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    end_date TIMESTAMP,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS care_team_members (
+    team_member_id SERIAL PRIMARY KEY,
+    assignment_id INTEGER REFERENCES patient_assignments(assignment_id),
+    team_member_user_id VARCHAR(50) NOT NULL,
+    role VARCHAR(50) NOT NULL, -- nurse, specialist, therapist, etc.
+    permissions JSONB, -- specific permissions for this team member
+    is_active BOOLEAN DEFAULT true,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    added_by VARCHAR(50)
+);
+
+CREATE TABLE IF NOT EXISTS assignment_audit_log (
+    log_id SERIAL PRIMARY KEY,
+    assignment_id INTEGER REFERENCES patient_assignments(assignment_id),
+    action VARCHAR(20) NOT NULL, -- ASSIGNED, UNASSIGNED, MODIFIED, TEAM_ADDED, TEAM_REMOVED
+    performed_by VARCHAR(50) NOT NULL,
+    details JSONB,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for patient assignment performance
+CREATE INDEX IF NOT EXISTS idx_patient_assignments_doctor ON patient_assignments (doctor_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_patient_assignments_patient ON patient_assignments (patient_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_patient_assignments_active ON patient_assignments (is_active, end_date);
+CREATE INDEX IF NOT EXISTS idx_care_team_members_user ON care_team_members (team_member_user_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_assignment_audit_timestamp ON assignment_audit_log (timestamp);
+
+-- Compliance and monitoring tables
 CREATE TABLE IF NOT EXISTS compliance_audit_log (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(100) NOT NULL,

@@ -414,7 +414,7 @@ class HealthcareRBACManager:
             self.logger.error(f"Failed to assign role {role_id} to user {user_id}: {e}")
             return False
     
-    def check_permission(self, user_id: str, permission: Permission, 
+    async def check_permission(self, user_id: str, permission: Permission,
                         resource_type: ResourceType, resource_id: str,
                         context: Optional[Dict[str, Any]] = None) -> bool:
         """Check if user has permission for resource"""
@@ -434,7 +434,7 @@ class HealthcareRBACManager:
                 # Check if role has permission
                 if permission in role.permissions:
                     # Check resource constraints
-                    if self._check_resource_constraints(role, resource_type, resource_id, context):
+                    if await self._check_resource_constraints(role, resource_type, resource_id, context):
                         self._log_access_attempt(user_id, permission, resource_type, resource_id, True, context)
                         return True
             
@@ -447,13 +447,37 @@ class HealthcareRBACManager:
             self._log_access_attempt(user_id, permission, resource_type, resource_id, False, context)
             return False
 
+<<<<<<<
     def is_user_assigned_to_patient(self, user_id: str, patient_id: str) -> bool:
         """
         Check if user is assigned to patient with environment-aware behavior
+=======
+    async def is_user_assigned_to_patient(self, user_id: str, patient_id: str) -> bool:
+        """Check if user is assigned to specific patient"""
+        # Phase 1 Development Mode: Patient assignment is a Phase 2 business service
+        # For Phase 1 Core AI Infrastructure, we allow access with logging
+>>>>>>>
 
+<<<<<<<
         NOTE: This is a Phase 2 feature placeholder.
         Production deployment is blocked until proper implementation.
+=======
+        # Check if we're in development mode (Phase 1)
+        development_mode = os.getenv("PATIENT_ASSIGNMENT_MODE", "development") == "development"
 
+        if development_mode:
+            # Phase 1: Allow access but log for future Phase 2 implementation
+            self.logger.info(f"Phase 1 Development Mode: Allowing patient access for user {user_id} to patient {patient_id}")
+            self.logger.info("Patient assignment will be fully implemented in Phase 2 Business Services")
+            return True
+
+        # Phase 2+ Production Mode: Use actual patient assignment service
+        try:
+            # Check if Phase 2 patient assignment service is available
+            assignment_service_url = os.getenv("PATIENT_ASSIGNMENT_SERVICE_URL", "http://localhost:8012")
+>>>>>>>
+
+<<<<<<<
         Args:
             user_id: User identifier
             patient_id: Patient identifier
@@ -626,7 +650,36 @@ class HealthcareRBACManager:
         else:
             self.logger.debug(f"DEV MODE: Denying patient access {user_id} -> {patient_id}")
             return False
+=======
+            # Try to call the patient assignment service
+            import httpx
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{assignment_service_url}/check-permission/{user_id}/{patient_id}",
+                    timeout=5.0
+                )
 
+                if response.status_code == 200:
+                    result = response.json()
+                    has_permission = result.get("has_permission", False)
+
+                    if has_permission:
+                        self.logger.info(f"Patient assignment service granted access for user {user_id} to patient {patient_id}")
+                    else:
+                        self.logger.warning(f"Patient assignment service denied access for user {user_id} to patient {patient_id}")
+
+                    return has_permission
+                else:
+                    self.logger.error(f"Patient assignment service returned status {response.status_code}")
+                    return False
+
+        except Exception as e:
+            self.logger.error(f"Error connecting to patient assignment service: {e}")
+            self.logger.warning("Falling back to deny access for security")
+            return False
+>>>>>>>
+
+<<<<<<<
     def _validate_real_patient_assignment(self, user_id: str, patient_id: str) -> bool:
         """
         Validate patient assignment using real implementation
@@ -826,6 +879,9 @@ class HealthcareRBACManager:
         return True
 
     def _check_resource_constraints(self, role: Role, resource_type: ResourceType,
+=======
+    async def _check_resource_constraints(self, role: Role, resource_type: ResourceType,
+>>>>>>>
                                   resource_id: str, context: Optional[Dict[str, Any]]) -> bool:
         """Check resource-specific constraints"""
         constraints = role.resource_constraints.get(resource_type, {})
@@ -841,7 +897,7 @@ class HealthcareRBACManager:
                 self.logger.warning("No user_id provided in context for patient assignment check")
                 return False
 
-            if not self.is_user_assigned_to_patient(user_id, resource_id):
+            if not await self.is_user_assigned_to_patient(user_id, resource_id):
                 self.logger.warning(f"Patient access denied - user {user_id} is not assigned to patient {resource_id}")
                 return False
 
