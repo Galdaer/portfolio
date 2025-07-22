@@ -485,7 +485,6 @@ setup_directories() {
     local dirs=(
         "$CFG_ROOT/config" "$CFG_ROOT/data" "$CFG_ROOT/logs" "$CFG_ROOT/backups" "$CFG_ROOT/scripts"
         "$CFG_ROOT/containers" "$CFG_ROOT/wireguard/clients" 
-        /opt/intelluxe/storage/disk1 /opt/intelluxe/storage/disk2 
         /opt/intelluxe/data /opt/intelluxe/models /opt/intelluxe/agents
     )
     mkdir -p "${dirs[@]}"
