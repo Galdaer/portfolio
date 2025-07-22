@@ -71,7 +71,37 @@ class BasicPHIDetector:
                 'description': 'Insurance ID'
             }
         }
-    
+
+    def _process_and_mask_matches(self, matches, phi_type: str, pattern_info: Dict,
+                                 phi_detected: bool, phi_types: List, confidence_scores: List,
+                                 detection_details: List, masked_text: str) -> tuple:
+        """Process matches and mask detected PHI"""
+        # Process matches in reverse order to maintain valid positions during masking.
+        # Masking modifies the string, which shifts the indices of subsequent matches.
+        # Reverse iteration ensures that earlier matches are not affected by these shifts,
+        # preventing potential IndexError or incorrect masking.
+
+        for match in reversed(matches):
+            phi_detected = True
+            phi_types.append(phi_type)
+            confidence_scores.append(0.8)  # Basic confidence score
+
+            detection_details.append({
+                'type': phi_type,
+                'description': pattern_info['description'],
+                'start': match.start(),
+                'end': match.end(),
+                'text': match.group(),
+                'confidence': 0.8
+            })
+
+            # Mask the detected PHI (processing in reverse order prevents IndexError)
+            mask_length = len(match.group())
+            mask = '*' * mask_length
+            masked_text = masked_text[:match.start()] + mask + masked_text[match.end():]
+
+        return phi_detected, phi_types, confidence_scores, detection_details, masked_text
+
     def detect_phi(self, text: str) -> PHIDetectionResult:
         """Detect PHI in text using regex patterns"""
         phi_detected = False
@@ -84,28 +114,12 @@ class BasicPHIDetector:
             pattern = pattern_info['pattern']
             matches = list(re.finditer(pattern, text, re.IGNORECASE))
 
-            # Process matches in reverse order to maintain valid positions during masking.
-            # Masking modifies the string, which shifts the indices of subsequent matches.
-            # Reverse iteration ensures that earlier matches are not affected by these shifts,
-            # preventing potential IndexError or incorrect masking.
-            for match in reversed(matches):
-                phi_detected = True
-                phi_types.append(phi_type)
-                confidence_scores.append(0.8)  # Basic confidence score
-
-                detection_details.append({
-                    'type': phi_type,
-                    'description': pattern_info['description'],
-                    'start': match.start(),
-                    'end': match.end(),
-                    'text': match.group(),
-                    'confidence': 0.8
-                })
-
-                # Mask the detected PHI (processing in reverse order prevents IndexError)
-                mask_length = len(match.group())
-                mask = '*' * mask_length
-                masked_text = masked_text[:match.start()] + mask + masked_text[match.end():]
+            # Use extracted method for processing and masking matches
+            phi_detected, phi_types, confidence_scores, detection_details, masked_text = \
+                self._process_and_mask_matches(
+                    matches, phi_type, pattern_info, phi_detected,
+                    phi_types, confidence_scores, detection_details, masked_text
+                )
         
         return PHIDetectionResult(
             phi_detected=phi_detected,

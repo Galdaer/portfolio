@@ -6,6 +6,7 @@ Tests for the 4 critical security and compliance bugs identified by GitHub Copil
 import pytest
 import json
 import re
+from operator import itemgetter
 
 
 def test_phi_masking_multiple_patterns():
@@ -34,7 +35,7 @@ def test_phi_masking_multiple_patterns():
                 matches_to_replace.append((match.start(), match.end(), '*' * len(match.group())))
 
         # Apply replacements in reverse order of start positions to prevent IndexError
-        for start, end, mask in sorted(matches_to_replace, key=lambda x: x[0], reverse=True):
+        for start, end, mask in sorted(matches_to_replace, key=itemgetter(0), reverse=True):
             masked_text = masked_text[:start] + mask + masked_text[end:]
         
         return {

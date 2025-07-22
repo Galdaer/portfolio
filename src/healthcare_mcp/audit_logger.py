@@ -13,6 +13,7 @@ from dataclasses import dataclass, asdict
 import hashlib
 import uuid
 from enum import Enum
+from collections import OrderedDict
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -39,6 +40,34 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
+
+
+class LRUCacheWithTTL:
+    """LRU Cache with TTL support"""
+    def __init__(self, max_size: int = 100, ttl: int = 300):
+        self.max_size = max_size
+        self.ttl = ttl
+        self.cache = OrderedDict()
+
+    def get(self, key: str):
+        if key in self.cache:
+            value, timestamp = self.cache[key]
+            if time.time() - timestamp < self.ttl:
+                # Move to end (most recently used)
+                self.cache.move_to_end(key)
+                return value
+            else:
+                # Expired
+                del self.cache[key]
+        return None
+
+    def set(self, key: str, value):
+        # Remove oldest items if at capacity
+        while len(self.cache) >= self.max_size:
+            self.cache.popitem(last=False)
+
+        self.cache[key] = (value, time.time())
+
 
 class AuditEventType(Enum):
     """Types of audit events"""
@@ -84,10 +113,13 @@ class HealthcareAuditLogger:
         self.config = config
         self.logger = structlog.get_logger("healthcare_audit")
         self.audit_level = AuditLevel(config.audit_logging_level)
-        
+
+        # Initialize PHI detection cache with proper management
+        self._phi_cache = LRUCacheWithTTL(max_size=100, ttl=300)
+
         # Initialize database connection for audit storage
         self._init_audit_database()
-        
+
         # Create audit tables if they don't exist
         self._create_audit_tables()
     
@@ -366,26 +398,18 @@ class HealthcareAuditLogger:
             self.logger.error("Failed to log PHI detection", error=str(e))
 
     async def _get_cached_phi_result(self, phi_detector, details_str: str):
-        """Cache PHI detection results for similar content"""
+        """Cache PHI detection results for similar content with proper cache management"""
         # Create hash of content for caching
         content_hash = hashlib.sha256(details_str.encode()).hexdigest()
 
-        # Check cache (implement simple in-memory cache with TTL)
-        if hasattr(self, '_phi_cache') and content_hash in self._phi_cache:
-            cache_entry = self._phi_cache[content_hash]
-            if time.time() - cache_entry['timestamp'] < 300:  # 5 minute TTL
-                return cache_entry['result']
+        # Check cache
+        cached_result = self._phi_cache.get(content_hash)
+        if cached_result is not None:
+            return cached_result
 
         # Perform detection and cache result
         result = await phi_detector.detect_phi(details_str)
-
-        if not hasattr(self, '_phi_cache'):
-            self._phi_cache = {}
-
-        self._phi_cache[content_hash] = {
-            'result': result,
-            'timestamp': time.time()
-        }
+        self._phi_cache.set(content_hash, result)
 
         return result
 
