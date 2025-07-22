@@ -22,24 +22,38 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def apply_replacements_in_reverse(replacements: List[Tuple[int, int, str]], text: str) -> str:
+def apply_replacements_in_reverse(replacements: List[Tuple[int, int, str]],
+                                text: str,
+                                batch_size: int = 500) -> str:
     """
-    Apply text replacements in reverse order to prevent index shifting
+    Apply text replacements in reverse order with batching for large texts
 
     Args:
         replacements: List of (start, end, replacement) tuples
         text: Original text to modify
+        batch_size: Number of replacements to process in each batch
 
     Returns:
         str: Text with replacements applied
     """
-    modified_text = text
+    # For small replacement sets, process normally
+    if len(replacements) <= batch_size:
+        sorted_replacements = sorted(replacements, key=lambda x: x[0], reverse=True)
+        result = text
+        for start, end, replacement in sorted_replacements:
+            result = result[:start] + replacement + result[end:]
+        return result
 
-    # Sort by start position in reverse order to prevent IndexError
-    for start, end, replacement in sorted(replacements, key=lambda x: x[0], reverse=True):
-        modified_text = modified_text[:start] + replacement + modified_text[end:]
+    # For large replacement sets, process in batches
+    result = text
+    sorted_replacements = sorted(replacements, key=lambda x: x[0], reverse=True)
 
-    return modified_text
+    for i in range(0, len(sorted_replacements), batch_size):
+        batch = sorted_replacements[i:i + batch_size]
+        for start, end, replacement in batch:
+            result = result[:start] + replacement + result[end:]
+
+    return result
 
 
 @dataclass

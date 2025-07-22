@@ -103,8 +103,29 @@ class SyntheticEncounter:
     created_at: str
 
 class SyntheticHealthcareDataGenerator:
-    """HIPAA-compliant synthetic healthcare data generator"""
-    
+    """
+    Generate synthetic healthcare data for testing purposes.
+
+    All generated data follows healthcare testing best practices:
+    - Phone numbers use 555 prefix (NANP standard for fictional numbers)
+    - Insurance providers clearly marked as synthetic to prevent confusion
+    - All data is obviously fake to prevent accidental PHI exposure
+    """
+
+    # The 555 prefix complies with North American Numbering Plan (NANP)
+    # standards for fictional numbers, preventing accidental contact with real people
+    PHONE_PREFIX = "555"
+
+    # Synthetic insurance names prevent confusion with real providers
+    # and ensure test data is clearly identified as non-production
+    INSURANCE_PROVIDERS = [
+        'Synthetic Health Plan A',  # Clearly marked as test data
+        'Synthetic Health Plan B',  # Prevents real provider confusion
+        'Synthetic Medicare',       # Distinguishable from real Medicare
+        'Synthetic Medicaid',       # Distinguishable from real Medicaid
+        'Synthetic Commercial Plan'
+    ]
+
     def __init__(self, locale: str = 'en_US', seed: Optional[int] = None):
         self.fake = Faker(locale)
         self.fake.add_provider(MedicalProvider)
@@ -133,7 +154,7 @@ class SyntheticHealthcareDataGenerator:
         birth_date = self.fake.date_of_birth(minimum_age=18, maximum_age=90)
         
         # Generate contact information (clearly synthetic)
-        phone = f"555-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
+        phone = f"{self.PHONE_PREFIX}-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
         email = f"{first_name.lower()}.{last_name.lower()}@synthetic-email.test"
         
         # Generate address
@@ -149,12 +170,12 @@ class SyntheticHealthcareDataGenerator:
         emergency_contact = {
             "name": self.fake.name(),
             "relationship": self.fake.random_element(['Spouse', 'Parent', 'Sibling', 'Child', 'Friend']),
-            "phone": f"555-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
+            "phone": f"{self.PHONE_PREFIX}-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
         }
         
         # Generate insurance information (synthetic)
         insurance = {
-            "provider": self.fake.random_element(['Synthetic Health Plan A', 'Synthetic Health Plan B', 'Synthetic Medicare']),
+            "provider": self.fake.random_element(self.INSURANCE_PROVIDERS),
             "policy_number": f"SYN{random.randint(100000, 999999)}",
             "group_number": f"GRP{random.randint(1000, 9999)}"
         }

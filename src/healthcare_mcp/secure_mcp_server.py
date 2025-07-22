@@ -266,7 +266,7 @@ class HealthcareMCPServer:
             jwt_secret = os.getenv("JWT_SECRET")
             if not jwt_secret:
                 self.logger.error("JWT_SECRET not configured for production")
-                raise RuntimeError("JWT_SECRET must be set in production")
+                raise RuntimeError("Authentication configuration error. Please contact support.")
 
             # Decode and validate JWT
             payload = jwt.decode(

@@ -215,6 +215,22 @@ class TestEnvironmentDetectorIntegration:
                 assert "Environment could not be determined" in caplog.text
                 assert "Falling back to production mode" in caplog.text
 
+    def test_production_fallback_with_logging_verification(self, caplog):
+        """Test that production fallback logs appropriate warnings with detailed verification"""
+        with patch.dict(os.environ, {}, clear=True):
+            with patch('src.security.environment_detector.EnvironmentDetector.get_environment',
+                      side_effect=RuntimeError("Cannot determine environment")):
+
+                result = EnvironmentDetector.is_production()
+
+                # Should return True for security
+                assert result is True
+
+                # Verify specific warning messages were logged
+                warning_messages = [record.message for record in caplog.records if record.levelname == "ERROR"]
+                assert any("Environment could not be determined" in msg for msg in warning_messages)
+                assert any("Falling back to production mode as a secure default" in msg for msg in warning_messages)
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
