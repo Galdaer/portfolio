@@ -288,3 +288,97 @@ Co-designed by father-son team (Jeffrey & Justin Sue) for real-world clinical wo
 - See existing code for constant extraction patterns
 - Follow environment detection patterns for feature flags
 - Use structured logging for security and performance events
+
+## Remote Agent Workflow Guidelines
+
+### Task Scope Management
+- **Focus on weekly deliverables** from phase documentation
+- **Prioritize functional completeness** over perfect optimization
+- **Implement healthcare security patterns** from day one
+- **Test incrementally** - don't wait for full phase completion
+
+### Remote Agent Best Practices
+- **Read phase documentation first** before starting implementation
+- **Follow existing code patterns** in the repository
+- **Maintain healthcare compliance** in all implementations
+- **Create meaningful commit messages** that explain healthcare context
+- **Test with realistic medical scenarios** using synthetic data
+
+### Integration Points
+- **Universal service runner** for all service deployments
+- **Healthcare-MCP** for medical tool integration
+- **PostgreSQL/Redis** for persistent storage and caching
+- **Ollama** for local LLM inference
+
+## Remote Agent Task Prompt Generation
+
+### When User Requests: "Create remote agent task prompt for Phase X Week Y"
+
+**Your Role**: Analyze current codebase + phase documentation + existing patterns to create detailed, actionable prompts for remote agents.
+
+**Remote Agent Limitations**:
+- Cannot read multiple files for context
+- Cannot synthesize architectural decisions  
+- Cannot adapt general templates
+- Need very specific, detailed instructions with exact code examples
+
+**Prompt Structure Required**:
+```markdown
+## Remote Agent Task: Phase X Week Y - [Descriptive Title]
+
+**Objective**: [Specific, measurable goal]
+
+**Specific Actions Required**:
+
+1. **Create/Modify `path/to/file.py`**:
+   ```python
+   # Provide exact code implementation
+   # Include all imports, class structures, method signatures
+   # Add healthcare compliance patterns from existing codebase
+   ```
+
+2. **Create/Modify `path/to/config.yml`**:
+   ```yaml
+   # Provide exact configuration
+   # Follow universal service runner patterns
+   ```
+
+**Success Criteria**:
+- [ ] Specific command works: `./scripts/test-command.sh`
+- [ ] Tests pass: `python -m pytest tests/specific/`
+- [ ] Service starts: `docker-compose up service-name`
+
+**Healthcare Compliance Checks**:
+- [ ] PHI protection implemented
+- [ ] Audit logging added
+- [ ] Error messages are generic (no sensitive data exposure)
+
+**Integration Points**:
+- Must work with existing universal service runner
+- Must follow healthcare security patterns
+- Must integrate with Healthcare-MCP tools
+```
+
+### Task Prompt Generation Process:
+1. **Read phase documentation** (`docs/PHASE_X.md`) for the specific week
+2. **Analyze current codebase** to understand existing patterns
+3. **Extract specific file paths** and implementation requirements
+4. **Provide exact code examples** following healthcare security patterns
+5. **Include integration points** with existing services
+6. **Add healthcare compliance requirements** from security patterns
+7. **Create measurable success criteria** with specific commands to test
+
+### Healthcare-Specific Requirements for All Prompts:
+- **Security**: Always include PHI protection and generic error messages
+- **Compliance**: Add audit logging and HIPAA-compliant patterns
+- **Integration**: Ensure compatibility with universal service runner
+- **Testing**: Include specific test commands and expected outcomes
+- **Documentation**: Reference existing healthcare security patterns
+
+### Example Integration Points to Always Include:
+- Universal service runner configuration
+- Healthcare-MCP tool integration
+- PostgreSQL/Redis for healthcare data
+- Ollama for local LLM inference
+- Healthcare security middleware
+- Audit logging requirements
