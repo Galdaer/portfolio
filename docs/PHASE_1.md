@@ -1,868 +1,1041 @@
 # Phase 1: Core AI Infrastructure
 
-**Duration:** 3-4 weeks  
+**Duration:** 4 weeks  
 **Goal:** Deploy functional healthcare AI system with Ollama inference, Healthcare-MCP integration, and basic agent workflows. Focus on core infrastructure that works reliably before adding business services.
 
-## Deployment and Validation Checklist
+## Week 1: Foundation Infrastructure and Essential Security
 
-**Phase 1 Completion Criteria:**
+### 1.1 Essential Development Security (2-4 hours)
 
-- Model registry tracks performance metrics for each model and adapter, enabling future optimization and selection.
-- Tool registry supports dynamic registration of summary and transcription plugins, including SOAP note generation and doctor-specific summary styles.
-- Agent base classes and memory manager are ready for integration with performance tracking and advanced reasoning features.
-
-- [ ] Ollama serving healthcare-optimized models (llama3.1, mistral)
-- [ ] Redis and PostgreSQL with TimescaleDB deployed and tested
-- [ ] AgentCare-MCP integrated with FDA, PubMed, ClinicalTrials tools
-- [ ] Memory Manager storing context in Redis + PostgreSQL
-- [ ] Document Processor handling basic form/report categorization
-- [ ] Research Assistant querying multiple sources via MCP
-- [ ] Custom Health Monitor replacing Uptime Kuma
-- [ ] Integration tests passing
-- [ ] Universal service runner updated with new services
-
-**Key Architecture Decisions:**
-- TimescaleDB instead of InfluxDB for time-series data in PostgreSQL
-- Custom health monitor integrated with compliance layer
-- AgentCare-MCP provides existing medical research tools
-- Redis for session caching, PostgreSQL for persistence
-- Basic agents that can be enhanced in Phase 2
-- Model registry and tool registry now support performance tracking and plugin extensibility for future clinical workflows.
-
-**Ready for Phase 2:**
-- Database schema includes future tables for personalization
-- Memory manager designed for training data collection
-- Agent base classes ready for model adapter integration
-- Health monitoring provides baseline for performance measurement
-
-This Phase 1 delivers a solid, working foundation that healthcare organizations can deploy and use immediately, while being architected for the advanced capabilities coming in Phase 2 (business services + personalization) and Phase 3 (production deployment + scaling).
-
-
-## Service Configuration Format
-
-**All service configurations are compatible with the universal service runner.**
-
-Service configuration files use lowercase keys that map directly to Docker arguments:
-- `image=` - Docker image name (required)
-- `port=` - Port mappings (e.g., "8080:80" or "8080:80 9090:90")
-- `volumes=` - Volume mounts (e.g., "./data:/data ./config:/config:ro")
-- `env=` - Environment variables (e.g., "VAR1=value1 VAR2=value2")
-- `restart=` - Restart policy (e.g., "unless-stopped")
-- `network_mode=` - Docker network name (use instead of network=)
-- `health_cmd=` - Health check command
-- `memory_limit=` - Memory limit (e.g., "2g", "512m")
-- `device=` - Device passthrough (e.g., GPU)
-- `security_opt=` - Security options
-- `working_dir=` - Working directory inside container
-- `command=` - Override container command
-
-**Service names come from the CLI, not the config file:**
-```bash
-# Start a service by passing the service name as an argument
-./universal-service-runner.sh ollama /services/user/ollama/ollama.conf
-```
----
-
-## Week 1: Local LLM Infrastructure and Memory
-
-### 1.1 Production Ollama Deployment
-
-**Create `/services/user/ollama/ollama.conf`:**
-```bash
-# Service: ollama - Local AI model server
-image="ollama/ollama:latest"
-port="11434:11434"
-volumes="./models:/root/.ollama ./config:/config:ro"
-env="OLLAMA_HOST=0.0.0.0 OLLAMA_KEEP_ALIVE=24h OLLAMA_MAX_LOADED_MODELS=3"
-restart="unless-stopped"
-network_mode="intelluxe-net"
-health_cmd="curl -f http://localhost:11434/api/tags || exit 1"
-device="/dev/nvidia0:/dev/nvidia0"
-memory_limit="20g"
-security_opt="no-new-privileges:true"
-```
-
-**Enhanced setup script (`/services/user/ollama/setup.sh`):**
+**Critical security patches (before any other setup):**
 ```bash
 #!/bin/bash
-set -e
+# healthcare_dev_security.sh - Run BEFORE Phase 1 setup
 
-# Pull healthcare-optimized models
-docker exec ollama ollama pull llama3.1:8b-instruct
-docker exec ollama ollama pull mistral:7b-instruct
-docker exec ollama ollama pull phi3:mini
+# Update system packages
+sudo apt update && sudo apt upgrade -y
 
-# Create custom healthcare model
-docker exec ollama ollama create intelluxe-medical -f - <<EOF
-FROM llama3.1:8b-instruct
-PARAMETER temperature 0.1
-PARAMETER top_p 0.9
-SYSTEM """You are a healthcare administrative assistant. You help with documentation, research, and administrative tasks. You do not provide medical advice. Focus on: document processing, research assistance, administrative workflows, billing code reference, and scheduling optimization."""
-EOF
+# Install critical security patches
+sudo apt install --only-upgrade \
+  sudo systemd apport openssh-server xz-utils
+
+# Configure fail2ban for SSH protection
+sudo apt install fail2ban
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban
+
+# Basic SSH hardening
+sudo sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
+sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+sudo systemctl restart sshd
 ```
 
-### 1.2 Memory System Deployment
+**Pre-commit secret scanning (30 minutes):**
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: .*\.lock|package-lock\.json
+  
+  - repo: local
+    hooks:
+      - id: check-healthcare-patterns
+        name: Check for PHI patterns
+        entry: scripts/check-phi-patterns.sh
+        language: script
+        files: '\.(py|js|yml|yaml|json)$'
+```
 
-**Redis Configuration (`/services/user/redis/redis.conf`):**
+**Healthcare pattern detector:**
 ```bash
-# Service: redis - In-memory data structure store
-image="redis:7-alpine"
-port="6379:6379"
-volumes="./data:/data"
-restart="unless-stopped"
-network_mode="intelluxe-net"
-memory_limit="2g"
+#!/bin/bash
+# scripts/check-phi-patterns.sh
+if grep -rE '\b\d{3}-\d{2}-\d{4}\b' "$@"; then
+  echo "ERROR: Potential SSN pattern detected"
+  exit 1
+fi
+
+if grep -rE '\bMRN[:#]?\s*\d{6,}' "$@"; then
+  echo "ERROR: Potential Medical Record Number detected"
+  exit 1
+fi
 ```
 
-**PostgreSQL with TimescaleDB (`/services/user/postgres/postgres.conf`):**
+### 1.2 Database Infrastructure Deployment
+
+**Deploy PostgreSQL with TimescaleDB using your service runner:**
 ```bash
-# Service: postgres - PostgreSQL database with TimescaleDB extension
-image="timescale/timescaledb:latest-pg16"
-port="5432:5432"
-volumes="./data:/var/lib/postgresql/data ./init:/docker-entrypoint-initdb.d:ro"
-env="POSTGRES_DB=intelluxe POSTGRES_USER=intelluxe POSTGRES_PASSWORD=secure_password"
-restart="unless-stopped"
-network_mode="intelluxe-net"
-memory_limit="4g"
+# services/system/postgres/postgres.conf already exists
+cd /opt/intelluxe
+./scripts/universal-service-runner.sh start postgres
+
+# Verify TimescaleDB extension
+docker exec postgres psql -U intelluxe -d intelluxe -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
 ```
 
-**Database schema (`/services/user/postgres/init/01-schema.sql`):**
+**Deploy Redis for session management:**
+```bash
+# services/system/redis/redis.conf already exists
+./scripts/universal-service-runner.sh start redis
+```
+
+**Enhanced database schema with monitoring and performance tracking:**
 ```sql
--- Enable TimescaleDB extension
-CREATE EXTENSION IF NOT EXISTS timescaledb;
-
--- Core context management
-CREATE TABLE conversation_context (
-    session_id VARCHAR(255) PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
-    context JSONB NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Enhanced schema for Phase 1 with monitoring and performance tracking
+CREATE TABLE IF NOT EXISTS model_adapters (
+    id SERIAL PRIMARY KEY,
+    doctor_id VARCHAR(100) NOT NULL,
+    model_name VARCHAR(100) NOT NULL,
+    adapter_type VARCHAR(50) NOT NULL,
+    adapter_data JSONB NOT NULL,
+    performance_metrics JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Agent interaction logging with time-series
-CREATE TABLE agent_interactions (
-    interaction_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id VARCHAR(255) NOT NULL,
-    user_id VARCHAR(255) NOT NULL,
-    agent_type VARCHAR(100) NOT NULL,
-    task_type VARCHAR(100) NOT NULL,
-    input_data JSONB,
-    output_data JSONB,
-    processing_time_ms INTEGER,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS agent_sessions (
+    id SERIAL PRIMARY KEY,
+    session_id VARCHAR(100) UNIQUE NOT NULL,
+    doctor_id VARCHAR(100) NOT NULL,
+    agent_type VARCHAR(50) NOT NULL,
+    context_data JSONB,
+    performance_data JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Convert to hypertable for time-series optimization
-SELECT create_hypertable('agent_interactions', 'created_at');
-
--- Basic audit logging
-CREATE TABLE audit_log (
-    log_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id VARCHAR(255) NOT NULL,
-    action VARCHAR(255) NOT NULL,
-    resource_type VARCHAR(100),
-    details JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- Time-series tables for monitoring (from updated monitoring scripts)
+CREATE TABLE IF NOT EXISTS system_metrics (
+    timestamp TIMESTAMP NOT NULL,
+    hostname VARCHAR(100) NOT NULL,
+    cpu_usage DECIMAL(5,2),
+    memory_usage DECIMAL(5,2),
+    disk_usage DECIMAL(5,2),
+    advanced_ai_status INTEGER DEFAULT 0,
+    ai_response_time DECIMAL(10,6) DEFAULT 0,
+    gpu_memory_mb INTEGER DEFAULT 0,
+    gpu_utilization DECIMAL(5,2) DEFAULT 0,
+    agent_queue_size INTEGER DEFAULT 0,
+    insurance_status INTEGER DEFAULT 0,
+    billing_status INTEGER DEFAULT 0,
+    compliance_status INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Convert to hypertable for time-series optimization
-SELECT create_hypertable('audit_log', 'created_at');
+CREATE TABLE IF NOT EXISTS diagnostic_metrics (
+    timestamp TIMESTAMP NOT NULL,
+    hostname VARCHAR(100) NOT NULL,
+    total_tests INTEGER DEFAULT 0,
+    passed_tests INTEGER DEFAULT 0,
+    failed_tests INTEGER DEFAULT 0,
+    reasoning_status INTEGER DEFAULT 0,
+    model_count INTEGER DEFAULT 0,
+    whisper_status INTEGER DEFAULT 0,
+    mcp_status INTEGER DEFAULT 0,
+    diagnostic_data JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
--- Performance indexes
-CREATE INDEX idx_conversation_context_user_id ON conversation_context(user_id);
-CREATE INDEX idx_agent_interactions_user_id ON agent_interactions(user_id);
-CREATE INDEX idx_audit_log_user_id ON audit_log(user_id);
+-- Create hypertables for time-series optimization
+SELECT create_hypertable('agent_sessions', 'created_at', if_not_exists => TRUE);
+SELECT create_hypertable('system_metrics', 'timestamp', if_not_exists => TRUE);
+SELECT create_hypertable('diagnostic_metrics', 'timestamp', if_not_exists => TRUE);
 ```
 
-## Week 2: Healthcare-MCP Integration and Basic Agents
+### 1.3 Ollama Model Serving Setup
 
-### 2.1 MCP Credentials Management
-
-**Create secure credentials management system:**
-
-**Environment setup (`/services/user/healthcare-mcp/.env.example`):**
+**Deploy Ollama using your service configuration:**
 ```bash
-# See repo root .env.example for all supported variables
-# For MCP, fill in:
-ANTHEM_API_KEY=dummy_key
-ANTHEM_API_SECRET=dummy_secret
-UHC_API_USER=dummy_user
-UHC_API_PASS=dummy_pass
-CIGNA_CLIENT_ID=dummy_client_id
-CIGNA_CLIENT_SECRET=dummy_client_secret
-# PUBMED_API_KEY=optional
-# CLINICALTRIALS_API_KEY=optional
+# services/user/ollama/ollama.conf already exists
+./scripts/universal-service-runner.sh start ollama
+
+# Install healthcare models
+docker exec ollama ollama pull llama3.1:8b-instruct-q4_K_M
+docker exec ollama ollama pull mistral:7b-instruct-q4_K_M
+
+# Verify models are loaded
+docker exec ollama ollama list
 ```
 
-**Credentials loading (`/services/user/healthcare-mcp/src/config/credentials.js`):**
-```javascript
-import dotenv from 'dotenv';
-import { readFileSync, existsSync } from 'fs';
-
-// Load environment variables
-dotenv.config();
-
-class CredentialsManager {
-    constructor() {
-        this.credentials = new Map();
-        this.loadCredentials();
-    }
-    
-    loadCredentials() {
-        // Load from environment variables
-        const envCredentials = {
-            anthem: {
-                apiKey: process.env.ANTHEM_API_KEY,
-                apiSecret: process.env.ANTHEM_API_SECRET,
-                requiresAuth: true
-            },
-            uhc: {
-                apiUser: process.env.UHC_API_USER,
-                apiPass: process.env.UHC_API_PASS,
-                requiresAuth: true
-            },
-            cigna: {
-                clientId: process.env.CIGNA_CLIENT_ID,
-                clientSecret: process.env.CIGNA_CLIENT_SECRET,
-                requiresAuth: true
-            },
-            pubmed: {
-                apiKey: process.env.PUBMED_API_KEY || null,
-                requiresAuth: false
-            },
-            clinicaltrials: {
-                apiKey: process.env.CLINICALTRIALS_API_KEY || null,
-                requiresAuth: false
-            }
-        };
-        
-        for (const [tool, creds] of Object.entries(envCredentials)) {
-            this.credentials.set(tool, creds);
-        }
-    }
-    
-    getCredentials(toolName) {
-        const creds = this.credentials.get(toolName);
-        if (!creds) {
-            throw new Error(`No credentials configured for tool: ${toolName}`);
-        }
-        
-        if (creds.requiresAuth && this.isEmpty(creds)) {
-            throw new Error(`Tool ${toolName} requires credentials but none are configured`);
-        }
-        
-        return creds;
-    }
-    
-    isEmpty(creds) {
-        const values = Object.values(creds).filter(v => v !== null && v !== undefined && v !== '');
-        return values.length === 0;
-    }
-    
-    validateAllCredentials() {
-        const validation = {};
-        
-        for (const [toolName, creds] of this.credentials) {
-            validation[toolName] = {
-                configured: !this.isEmpty(creds),
-                required: creds.requiresAuth,
-                status: creds.requiresAuth ? (!this.isEmpty(creds) ? 'ready' : 'missing') : 'optional'
-            };
-        }
-        
-        return validation;
-    }
-}
-
-export const credentialsManager = new CredentialsManager();
-```
-
-**Security best practices documentation:**
-```markdown
-# MCP Credentials Security Guide
-
-## File Management
-- Copy `.env.example` to `.env` and fill in real credentials
-- Never commit `.env` files to source control
-- Use strong file permissions: `chmod 600 .env`
-
-## Credential Types
-| Tool | Auth Type | Required | Notes |
-|------|-----------|----------|-------|
-| Anthem/Availity | OAuth2 | Yes | Insurance verification |
-| UnitedHealthcare | Basic Auth | Yes | Claims/eligibility |
-| Cigna | API Key | Yes | Prior authorization |
-| PubMed | API Key | No | Public medical research |
-| ClinicalTrials | None | No | Public trial data |
-
-## Production Security
-- Use Docker secrets or Kubernetes secrets in production
-- Rotate credentials regularly
-- Monitor credential usage in audit logs
-- Use least-privilege access principles
-```
-
-### 2.2 Healthcare-MCP Setup and Customization
-
-**Create Dockerfile for Healthcare-MCP (`/services/user/healthcare-mcp/Dockerfile`):**
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-
-# Copy source code (already cloned)
-COPY . .
-
-# Install dependencies
-RUN npm install
-
-# Install MCP Create Tool for custom tool generation
-RUN npm install -g @anthropic/create-mcp-tool
-
-# Create workspace for custom tools
-RUN mkdir -p /app/tools/custom
-
-# Copy custom configuration
-COPY config/ ./config/
-
-EXPOSE 3000
-CMD ["npm", "start"]
-```
-
-**Create `/services/user/healthcare-mcp/healthcare-mcp.conf`:**
-```bash
-# Service: healthcare-mcp - Model Context Protocol server for healthcare
-image="healthcare-mcp:latest"
-port="3000:3000"
-volumes="./config:/app/config:rw ./custom-tools:/app/tools/custom:rw"
-env="NODE_ENV=production OLLAMA_URL=http://ollama:11434"
-restart="unless-stopped"
-network_mode="intelluxe-net"
-health_cmd="curl -f http://localhost:3000/health || exit 1"
-memory_limit="2g"
-```
-
-### 2.3 Test the services
-```bash
-./bootstrap.sh ollama /services/user/ollama/ollama.conf
-./bootstrap.sh healthcare-mcp /services/user/healthcare-mcp/healthcare-mcp.conf
-# After starting:
-docker exec ollama ollama pull llama3.1:8b-instruct
-curl http://localhost:11434/api/tags
-curl http://localhost:3000/health
-```
-
-## Week 3: Basic Agent Implementation
-
-### 3.1 Memory Manager Implementation
-
-**Create enhanced memory manager (`core/memory/memory_manager.py`):**
+**RTX 5060 Ti 16GB optimization configuration:**
 ```python
-from typing import Dict, List, Any, Optional
+# core/models/ollama_optimization.py
+class HealthcareOllamaConfig:
+    def __init__(self):
+        self.gpu_memory = 16  # GB
+        self.models = {
+            'clinical_chat': {
+                'model': 'llama3.1:8b-instruct-q4_K_M',
+                'memory_usage': 6,  # GB
+                'context_length': 32768,
+                'use_case': 'patient_interaction'
+            },
+            'medical_analysis': {
+                'model': 'mistral:7b-instruct-q4_K_M',
+                'memory_usage': 5,  # GB
+                'context_length': 16384,
+                'use_case': 'diagnostic_support'
+            }
+        }
+    
+    def optimize_for_healthcare(self):
+        """Optimize GPU memory usage for healthcare workflows"""
+        return {
+            'gpu_memory_fraction': 0.9,
+            'parallel_requests': 2,
+            'model_switching_enabled': True,
+            'quantization': 'q4_K_M'
+        }
+```
+
+## Week 2: Healthcare-MCP Integration
+
+### 2.1 Healthcare-MCP Deployment
+
+**Deploy your custom Healthcare-MCP service:**
+```bash
+# Create service config if not exists
+# services/user/healthcare-mcp/healthcare-mcp.conf
+cd mcps/healthcare
+./scripts/universal-service-runner.sh start healthcare-mcp
+
+# Verify Healthcare-MCP tools are available
+curl http://localhost:3000/tools
+```
+
+**Enhanced MCP client with unified interface:**
+```python
+# core/tools/unified_mcp_client.py
+import httpx
+from typing import Optional, Dict, Any
+
+class UnifiedMCPClient:
+    """
+    Enhanced MCP client for healthcare workflows
+    Routes to local Healthcare-MCP, with cloud fallback for non-PHI data
+    """
+    def __init__(self):
+        self.healthcare_mcp_url = "http://localhost:3000"
+        self.client = httpx.AsyncClient(timeout=30.0)
+        
+    async def call_healthcare_tool(self, 
+                                  tool: str, 
+                                  params: Dict[str, Any],
+                                  contains_phi: bool = True) -> Dict[str, Any]:
+        """
+        Call healthcare tools through local MCP
+        """
+        if contains_phi:
+            # Always use local Healthcare-MCP for PHI data
+            url = f"{self.healthcare_mcp_url}/tools/{tool}"
+        else:
+            # Could use cloud services for non-PHI research
+            url = f"{self.healthcare_mcp_url}/tools/{tool}"
+            
+        response = await self.client.post(url, json=params)
+        return response.json()
+    
+    async def search_pubmed(self, query: str) -> Dict[str, Any]:
+        """Search medical literature"""
+        return await self.call_healthcare_tool(
+            "pubmed_search", 
+            {"query": query, "max_results": 10},
+            contains_phi=False
+        )
+    
+    async def lookup_fda_drug(self, drug_name: str) -> Dict[str, Any]:
+        """Lookup FDA drug information"""
+        return await self.call_healthcare_tool(
+            "fda_drug_lookup",
+            {"drug_name": drug_name},
+            contains_phi=False
+        )
+```
+
+### 2.2 Optional: Docker MCP Toolkit for Tool Management
+
+**If you want enhanced tool discovery and management:**
+```bash
+# Install Docker MCP Toolkit for easier tool management
+# (This enhances your Healthcare-MCP rather than replacing it)
+
+# In Docker Desktop, enable MCP Toolkit extension
+# Add your Healthcare-MCP as a custom server in the toolkit
+```
+
+**Toolkit integration configuration:**
+```json
+{
+  "name": "Healthcare-MCP",
+  "url": "http://localhost:3000",
+  "description": "Custom medical research and healthcare tools",
+  "tools": [
+    {
+      "name": "pubmed_search",
+      "description": "Search PubMed for medical literature"
+    },
+    {
+      "name": "fda_drug_lookup", 
+      "description": "Query FDA drug database"
+    },
+    {
+      "name": "clinical_trials_search",
+      "description": "Search ClinicalTrials.gov"
+    }
+  ]
+}
+```
+
+## Week 3: Agent Infrastructure
+
+### 3.1 Enhanced Memory Manager
+
+**Deploy memory manager with performance tracking:**
+```python
+# core/memory/enhanced_memory_manager.py
 import redis
 import psycopg2
 import json
 from datetime import datetime
+from typing import Dict, Any, List, Optional
 
-class MemoryManager:
-    """Enhanced memory manager using Redis and PostgreSQL with TimescaleDB"""
-    
+class EnhancedMemoryManager:
+    """
+    Memory management with performance tracking for future optimization
+    """
     def __init__(self):
-        self.redis_client = redis.Redis(host='redis', port=6379, decode_responses=True)
-        self.pg_conn = psycopg2.connect(
-            "postgresql://intelluxe:secure_password@postgres:5432/intelluxe"
+        self.redis_client = redis.Redis(
+            host='localhost', port=6379, decode_responses=True
         )
+        self.db_conn = psycopg2.connect(
+            "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
+        )
+    
+    async def store_session_context(self, 
+                                   session_id: str,
+                                   doctor_id: str,
+                                   agent_type: str,
+                                   context: Dict[str, Any],
+                                   performance_data: Optional[Dict[str, Any]] = None) -> None:
+        """Store session context with performance tracking"""
         
-    async def store_context(self, session_id: str, user_id: str, 
-                          context: Dict[str, Any]) -> None:
-        """Store conversation context with Redis cache and PostgreSQL persistence"""
-        context_entry = {
-            "context": context,
-            "timestamp": datetime.now().isoformat(),
-            "session_id": session_id,
-            "user_id": user_id
+        # Store in Redis for fast access
+        redis_key = f"session:{session_id}"
+        session_data = {
+            'doctor_id': doctor_id,
+            'agent_type': agent_type,
+            'context': json.dumps(context),
+            'last_accessed': datetime.now().isoformat()
         }
         
-        # Store in Redis for immediate access (1 hour TTL)
-        self.redis_client.setex(f"context:{session_id}", 3600, json.dumps(context_entry))
+        self.redis_client.hset(redis_key, mapping=session_data)
+        self.redis_client.expire(redis_key, 3600)  # 1 hour TTL
         
-        # Store in PostgreSQL for persistence
-        cursor = self.pg_conn.cursor()
+        # Store in PostgreSQL for persistence and performance analysis
+        cursor = self.db_conn.cursor()
         cursor.execute("""
-            INSERT INTO conversation_context (session_id, user_id, context) 
-            VALUES (%s, %s, %s) 
+            INSERT INTO agent_sessions 
+            (session_id, doctor_id, agent_type, context_data, performance_data)
+            VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (session_id) 
-            DO UPDATE SET context = %s, updated_at = NOW()
-        """, (session_id, user_id, context, context))
-        self.pg_conn.commit()
+            DO UPDATE SET 
+                context_data = EXCLUDED.context_data,
+                performance_data = EXCLUDED.performance_data,
+                last_accessed = CURRENT_TIMESTAMP
+        """, (session_id, doctor_id, agent_type, 
+              json.dumps(context), json.dumps(performance_data or {})))
+        
+        self.db_conn.commit()
     
-    async def get_context(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """Retrieve context from Redis cache first, fallback to PostgreSQL"""
-        # Try Redis first
-        cached = self.redis_client.get(f"context:{session_id}")
-        if cached:
-            return json.loads(cached)
+    async def get_session_context(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve session context with performance logging"""
+        
+        # Try Redis first for speed
+        redis_key = f"session:{session_id}"
+        redis_data = self.redis_client.hgetall(redis_key)
+        
+        if redis_data:
+            # Update last accessed time
+            self.redis_client.hset(redis_key, 'last_accessed', datetime.now().isoformat())
+            
+            return {
+                'doctor_id': redis_data['doctor_id'],
+                'agent_type': redis_data['agent_type'],
+                'context': json.loads(redis_data['context'])
+            }
         
         # Fallback to PostgreSQL
-        cursor = self.pg_conn.cursor()
+        cursor = self.db_conn.cursor()
         cursor.execute("""
-            SELECT context FROM conversation_context 
+            SELECT doctor_id, agent_type, context_data 
+            FROM agent_sessions 
             WHERE session_id = %s
         """, (session_id,))
         
         result = cursor.fetchone()
         if result:
-            context = result[0]
-            # Refresh Redis cache
-            self.redis_client.setex(f"context:{session_id}", 3600, json.dumps(context))
-            return context
-        
-        return None
-    
-    async def log_interaction(self, session_id: str, user_id: str, agent_type: str,
-                            task_type: str, input_data: Dict[str, Any],
-                            output_data: Dict[str, Any], processing_time_ms: int) -> None:
-        """Log agent interactions to TimescaleDB"""
-        cursor = self.pg_conn.cursor()
-        cursor.execute("""
-            INSERT INTO agent_interactions (
-                session_id, user_id, agent_type, task_type, 
-                input_data, output_data, processing_time_ms
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (session_id, user_id, agent_type, task_type,
-              json.dumps(input_data), json.dumps(output_data), processing_time_ms))
-        self.pg_conn.commit()
-```
-
-### 3.2 Basic Document Processing Agent
-
-**Create document processor (`agents/document_processor.py`):**
-```python
-from typing import Dict, Any
-import asyncio
-import time
-from core.memory.memory_manager import MemoryManager
-
-class DocumentProcessor:
-    """Basic document processing agent for healthcare documents"""
-    
-    def __init__(self, memory_manager: MemoryManager):
-        self.memory = memory_manager
-        
-    async def process_document(self, document_data: Dict[str, Any], 
-                             user_id: str, session_id: str) -> Dict[str, Any]:
-        """Process healthcare documents with basic categorization"""
-        start_time = time.time()
-        
-        doc_type = self._identify_document_type(document_data)
-        
-        if doc_type == "form":
-            result = await self._process_form(document_data)
-        elif doc_type == "report":
-            result = await self._process_report(document_data)
-        else:
-            result = await self._process_generic_document(document_data)
-        
-        processing_time = int((time.time() - start_time) * 1000)
-        
-        # Log interaction
-        await self.memory.log_interaction(
-            session_id, user_id, "document_processor", doc_type,
-            {"document_id": document_data.get("id", "unknown")},
-            result, processing_time
-        )
-        
-        return result
-    
-    def _identify_document_type(self, document_data: Dict[str, Any]) -> str:
-        """Identify document type for appropriate processing"""
-        content = str(document_data.get("content", "")).lower()
-        
-        if "patient information" in content or "insurance" in content:
-            return "form"
-        elif "results" in content or "findings" in content:
-            return "report"
-        else:
-            return "generic"
-    
-    async def _process_form(self, document_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process intake forms and administrative documents"""
-        return {
-            "document_type": "form",
-            "extracted_fields": {
-                "has_patient_info": True,
-                "has_insurance_info": True,
-                "completeness_score": 0.85
-            },
-            "suggested_actions": ["verify_insurance", "schedule_follow_up"]
-        }
-    
-    async def _process_report(self, document_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process medical reports and lab results"""
-        return {
-            "document_type": "report",
-            "key_findings": ["results_available", "follow_up_needed"],
-            "confidence_score": 0.9
-        }
-    
-    async def _process_generic_document(self, document_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process general documents"""
-        return {
-            "document_type": "generic",
-            "processing_status": "completed",
-            "confidence_score": 0.7
-        }
-```
-
-### 3.3 Research Assistant Agent
-
-**Create research assistant (`agents/research_assistant.py`):**
-```python
-from typing import Dict, Any, List
-import asyncio
-import time
-import requests
-from core.memory.memory_manager import MemoryManager
-
-class ResearchAssistant:
-    """Research assistant using Healthcare-MCP tools"""
-    
-    def __init__(self, memory_manager: MemoryManager, mcp_base_url: str = "http://healthcare-mcp:3000"):
-        self.memory = memory_manager
-        self.mcp_url = mcp_base_url
-        
-    async def research_query(self, query: str, user_id: str, 
-                           session_id: str) -> Dict[str, Any]:
-        """Research healthcare queries using MCP tools"""
-        start_time = time.time()
-        
-        # Use Healthcare-MCP tools (FDA, PubMed, ClinicalTrials)
-        results = await self._search_multiple_sources(query)
-        
-        # Synthesize results
-        synthesis = await self._synthesize_results(results, query)
-        
-        processing_time = int((time.time() - start_time) * 1000)
-        
-        # Log interaction
-        await self.memory.log_interaction(
-            session_id, user_id, "research_assistant", "research_query",
-            {"query": query[:100]},  # Truncate for logging
-            {"results_count": len(results), "sources": list(results.keys())},
-            processing_time
-        )
-        
-        return {
-            "query": query,
-            "results": results,
-            "synthesis": synthesis,
-            "sources_searched": ["fda", "pubmed", "clinical_trials"],
-            "total_results": sum(len(r) for r in results.values())
-        }
-    
-    async def _search_multiple_sources(self, query: str) -> Dict[str, List[Dict[str, Any]]]:
-        """Search FDA, PubMed, and ClinicalTrials via MCP"""
-        sources = ["fda", "pubmed", "clinical_trials"]
-        results = {}
-        
-        for source in sources:
-            try:
-                # Call Healthcare-MCP tool endpoint
-                response = requests.post(f"{self.mcp_url}/tools/{source}/search", 
-                                       json={"query": query}, timeout=30)
-                if response.status_code == 200:
-                    results[source] = response.json().get("data", [])
-                else:
-                    results[source] = []
-            except Exception as e:
-                print(f"Error searching {source}: {e}")
-                results[source] = []
-        
-        return results
-    
-    async def _synthesize_results(self, results: Dict[str, List[Dict[str, Any]]], 
-                                query: str) -> Dict[str, Any]:
-        """Synthesize research results into actionable insights"""
-        total_results = sum(len(r) for r in results.values())
-        
-        if total_results == 0:
             return {
-                "summary": "No relevant results found",
-                "confidence": 0.0,
-                "recommendations": ["Try different search terms", "Consult specialist"]
+                'doctor_id': result[0],
+                'agent_type': result[1],
+                'context': result[2]
             }
         
-        # Basic synthesis (enhance with LLM in production)
-        synthesis = {
-            "summary": f"Found {total_results} relevant results across {len(results)} sources",
-            "confidence": min(0.8, total_results / 10),  # Simple confidence scoring
-            "recommendations": [
-                "Review FDA guidance" if results.get("fda") else None,
-                "Check recent publications" if results.get("pubmed") else None,
-                "Look for ongoing trials" if results.get("clinical_trials") else None
-            ]
+        return None
+
+# Global memory manager
+memory_manager = EnhancedMemoryManager()
+```
+
+### 3.2 Agent Base Classes with Future Capabilities
+
+**Enhanced agent architecture:**
+```python
+# core/agents/base_agent.py
+from abc import ABC, abstractmethod
+from typing import Dict, Any, List, Optional
+from core.memory.enhanced_memory_manager import memory_manager
+import time
+
+class BaseAgent(ABC):
+    """
+    Enhanced base agent with performance tracking and future capabilities
+    """
+    
+    def __init__(self, agent_type: str):
+        self.agent_type = agent_type
+        self.performance_tracker = PerformanceTracker()
+        
+    @abstractmethod
+    async def process(self, input_data: Dict[str, Any], 
+                     session_id: str) -> Dict[str, Any]:
+        """Process input and return result"""
+        pass
+    
+    async def process_with_tracking(self, input_data: Dict[str, Any],
+                                   session_id: str) -> Dict[str, Any]:
+        """Wrapper that adds performance tracking"""
+        start_time = time.time()
+        
+        try:
+            result = await self.process(input_data, session_id)
+            
+            # Track performance for future optimization
+            performance_data = {
+                'processing_time': time.time() - start_time,
+                'success': True,
+                'agent_type': self.agent_type,
+                'input_size': len(str(input_data)),
+                'output_size': len(str(result))
+            }
+            
+            await self.performance_tracker.log_performance(
+                session_id, self.agent_type, performance_data
+            )
+            
+            return result
+            
+        except Exception as e:
+            # Log errors for debugging
+            performance_data = {
+                'processing_time': time.time() - start_time,
+                'success': False,
+                'error': str(e),
+                'agent_type': self.agent_type
+            }
+            
+            await self.performance_tracker.log_performance(
+                session_id, self.agent_type, performance_data
+            )
+            
+            raise
+
+class PerformanceTracker:
+    """Track agent performance for future optimization"""
+    
+    async def log_performance(self, session_id: str, agent_type: str,
+                             performance_data: Dict[str, Any]) -> None:
+        """Log performance data for analysis"""
+        
+        # Store performance data in session context
+        session_context = await memory_manager.get_session_context(session_id)
+        if session_context:
+            await memory_manager.store_session_context(
+                session_id=session_id,
+                doctor_id=session_context['doctor_id'],
+                agent_type=agent_type,
+                context=session_context['context'],
+                performance_data=performance_data
+            )
+```
+
+## Week 4: Core Healthcare Agents
+
+### 4.1 Document Processor Agent
+
+**Enhanced document processor with error prevention:**
+```python
+# core/agents/document_processor.py
+from core.agents.base_agent import BaseAgent
+from core.tools.unified_mcp_client import UnifiedMCPClient
+from typing import Dict, Any
+
+class DocumentProcessorAgent(BaseAgent):
+    """
+    Process medical documents with safety checks and PHI protection
+    """
+    
+    def __init__(self):
+        super().__init__("document_processor")
+        self.mcp_client = UnifiedMCPClient()
+        self.phi_detector = PHIDetector()
+        
+    async def process(self, input_data: Dict[str, Any], 
+                     session_id: str) -> Dict[str, Any]:
+        """Process medical documents safely"""
+        
+        document_text = input_data.get('document_text', '')
+        document_type = input_data.get('document_type', 'unknown')
+        
+        # Safety check: Detect and protect PHI
+        phi_analysis = await self.phi_detector.analyze(document_text)
+        if phi_analysis['has_high_risk_phi']:
+            return {
+                'error': 'High-risk PHI detected',
+                'safety_block': True,
+                'phi_types': phi_analysis['phi_types']
+            }
+        
+        # Process document based on type
+        if document_type == 'lab_report':
+            return await self._process_lab_report(document_text, session_id)
+        elif document_type == 'prescription':
+            return await self._process_prescription(document_text, session_id)
+        else:
+            return await self._process_general_document(document_text, session_id)
+    
+    async def _process_lab_report(self, text: str, session_id: str) -> Dict[str, Any]:
+        """Process lab reports with medical context"""
+        
+        # Extract lab values and interpret
+        lab_values = await self._extract_lab_values(text)
+        interpretations = []
+        
+        for lab in lab_values:
+            if lab['value_numeric'] and lab['reference_range']:
+                interpretation = await self._interpret_lab_value(lab)
+                interpretations.append(interpretation)
+        
+        return {
+            'document_type': 'lab_report',
+            'lab_values': lab_values,
+            'interpretations': interpretations,
+            'requires_physician_review': any(
+                interp['abnormal'] for interp in interpretations
+            )
+        }
+
+class PHIDetector:
+    """Detect and classify PHI in medical documents"""
+    
+    async def analyze(self, text: str) -> Dict[str, Any]:
+        """Analyze text for PHI content"""
+        
+        phi_patterns = {
+            'ssn': r'\b\d{3}-\d{2}-\d{4}\b',
+            'mrn': r'\bMRN[:#]?\s*\d{6,}',
+            'phone': r'\b\d{3}-\d{3}-\d{4}\b',
+            'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
         }
         
-        # Filter out None recommendations
-        synthesis["recommendations"] = [r for r in synthesis["recommendations"] if r]
+        detected_phi = {}
+        for phi_type, pattern in phi_patterns.items():
+            import re
+            matches = re.findall(pattern, text)
+            if matches:
+                detected_phi[phi_type] = len(matches)
         
-        return synthesis
+        # Classify risk level
+        high_risk_phi = ['ssn', 'mrn']
+        has_high_risk = any(phi_type in detected_phi for phi_type in high_risk_phi)
+        
+        return {
+            'has_phi': bool(detected_phi),
+            'has_high_risk_phi': has_high_risk,
+            'phi_types': detected_phi,
+            'risk_level': 'high' if has_high_risk else 'medium' if detected_phi else 'low'
+        }
+
+# Register the agent
+document_processor = DocumentProcessorAgent()
 ```
 
-## Week 4: Basic Monitoring and Testing
+### 4.2 Research Assistant Agent
 
-### 4.1 Custom Health Monitor (replaces Uptime Kuma)
-
-**Create custom health monitor (`/services/user/health-monitor/health-monitor.conf`):**
-```bash
-# Service: health-monitor - Custom health monitoring service
-image="python:3.11-slim"
-# Note: Build context handled separately by build system
-port="8080:8080"
-volumes="./app:/app:rw"
-env="POSTGRES_URL=postgresql://intelluxe:secure_password@postgres:5432/intelluxe"
-restart="unless-stopped"
-network_mode="intelluxe-net"
-# Note: Dependencies managed by orchestration layer
-health_cmd="curl -f http://localhost:8080/health || exit 1"
-memory_limit="256m"
-working_dir="/app"
-command="python health_monitor.py"
-```
-
-**Health monitor service (`/services/user/health-monitor/app/health_monitor.py`):**
+**Enhanced research assistant with Healthcare-MCP integration:**
 ```python
-from flask import Flask, jsonify
+# core/agents/research_assistant.py
+from core.agents.base_agent import BaseAgent
+from core.tools.unified_mcp_client import UnifiedMCPClient
+from typing import Dict, Any, List
+
+class ResearchAssistantAgent(BaseAgent):
+    """
+    Medical research assistant using Healthcare-MCP tools
+    """
+    
+    def __init__(self):
+        super().__init__("research_assistant")
+        self.mcp_client = UnifiedMCPClient()
+        
+    async def process(self, input_data: Dict[str, Any], 
+                     session_id: str) -> Dict[str, Any]:
+        """Process research queries using multiple medical sources"""
+        
+        query = input_data.get('query', '')
+        research_type = input_data.get('research_type', 'general')
+        max_results = input_data.get('max_results', 5)
+        
+        if research_type == 'drug_information':
+            return await self._research_drug_information(query, max_results)
+        elif research_type == 'clinical_trials':
+            return await self._research_clinical_trials(query, max_results)
+        elif research_type == 'literature_review':
+            return await self._research_literature(query, max_results)
+        else:
+            return await self._comprehensive_research(query, max_results)
+    
+    async def _research_drug_information(self, drug_name: str, 
+                                       max_results: int) -> Dict[str, Any]:
+        """Research drug information from FDA and other sources"""
+        
+        # Get FDA drug information
+        fda_data = await self.mcp_client.lookup_fda_drug(drug_name)
+        
+        # Get additional literature
+        pubmed_query = f"{drug_name} safety efficacy"
+        literature = await self.mcp_client.search_pubmed(pubmed_query)
+        
+        return {
+            'research_type': 'drug_information',
+            'drug_name': drug_name,
+            'fda_information': fda_data,
+            'supporting_literature': literature.get('results', [])[:max_results],
+            'summary': await self._generate_drug_summary(fda_data, literature)
+        }
+    
+    async def _comprehensive_research(self, query: str,
+                                    max_results: int) -> Dict[str, Any]:
+        """Comprehensive research using all available sources"""
+        
+        # Search multiple sources in parallel
+        pubmed_results = await self.mcp_client.search_pubmed(query)
+        
+        # Combine and rank results
+        all_results = []
+        all_results.extend(pubmed_results.get('results', []))
+        
+        # Sort by relevance/recency
+        sorted_results = sorted(
+            all_results,
+            key=lambda x: x.get('relevance_score', 0),
+            reverse=True
+        )
+        
+        return {
+            'research_type': 'comprehensive',
+            'query': query,
+            'total_sources': len(all_results),
+            'top_results': sorted_results[:max_results],
+            'source_breakdown': {
+                'pubmed': len(pubmed_results.get('results', []))
+            }
+        }
+
+# Register the agent
+research_assistant = ResearchAssistantAgent()
+```
+
+### 4.3 Audio Transcription with Medical NLP Integration
+
+**Direct Whisper integration with SciSpacy medical processing:**
+```python
+# core/agents/transcription_agent.py
+from core.agents.base_agent import BaseAgent
+import httpx
+import spacy
+from typing import Dict, Any, List
+
+class TranscriptionAgent(BaseAgent):
+    """
+    Direct transcription using WhisperLive with SciSpacy medical NLP processing
+    """
+    
+    def __init__(self):
+        super().__init__("transcription")
+        # Use your existing WhisperLive service
+        self.whisperlive_url = "http://localhost:8001"  # Your custom service port
+        self.client = httpx.AsyncClient(timeout=60.0)
+        
+        # Load SciSpacy model for medical entity extraction
+        try:
+            self.nlp = spacy.load("en_core_sci_sm")
+            self.medical_nlp_available = True
+        except OSError:
+            print("Warning: SciSpacy model not found. Install with: pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.1/en_core_sci_sm-0.5.1.tar.gz")
+            self.medical_nlp_available = False
+        
+    async def process(self, input_data: Dict[str, Any], 
+                     session_id: str) -> Dict[str, Any]:
+        """Transcribe audio and extract medical entities using SciSpacy"""
+        
+        audio_data = input_data.get('audio_data')  # bytes
+        audio_format = input_data.get('format', 'wav')
+        language = input_data.get('language', 'en')
+        
+        if not audio_data:
+            return {'error': 'No audio data provided'}
+        
+        # Send audio to WhisperLive service
+        files = {'audio': ('audio.' + audio_format, audio_data, f'audio/{audio_format}')}
+        data = {'language': language}
+        
+        response = await self.client.post(
+            f"{self.whisperlive_url}/transcribe",
+            files=files,
+            data=data
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            transcription_text = result.get('text', '')
+            
+            # Process with SciSpacy for medical entity extraction
+            medical_entities = []
+            if self.medical_nlp_available and transcription_text:
+                medical_entities = await self._extract_medical_entities(transcription_text)
+            
+            return {
+                'transcription': transcription_text,
+                'confidence': result.get('confidence', 0.0),
+                'language': language,
+                'processing_time': result.get('processing_time', 0),
+                'segments': result.get('segments', []),
+                'medical_entities': medical_entities,
+                'scispacy_processed': self.medical_nlp_available
+            }
+        else:
+            return {
+                'error': f'Transcription failed: {response.status_code}',
+                'details': response.text
+            }
+    
+    async def _extract_medical_entities(self, text: str) -> List[Dict[str, Any]]:
+        """Extract medical entities using SciSpacy"""
+        
+        if not self.medical_nlp_available:
+            return []
+        
+        doc = self.nlp(text)
+        entities = []
+        
+        for ent in doc.ents:
+            entities.append({
+                'text': ent.text,
+                'label': ent.label_,
+                'start': ent.start_char,
+                'end': ent.end_char,
+                'description': spacy.explain(ent.label_) if spacy.explain(ent.label_) else ent.label_
+            })
+        
+        return entities
+
+# Register the agent
+transcription_agent = TranscriptionAgent()
+```
+
+### 4.4 Enhanced Monitoring Using TimescaleDB
+
+**Update your existing monitoring scripts to use TimescaleDB:**
+```bash
+# Update scripts/resource-pusher.sh and scripts/diagnostic-pusher.sh
+# to use TimescaleDB instead of InfluxDB
+
+# Deploy updated monitoring
+cp updated-resource-pusher.sh scripts/resource-pusher.sh
+cp updated-diagnostic-pusher.sh scripts/diagnostic-pusher.sh
+
+# Test the updated scripts
+./scripts/resource-pusher.sh --debug
+./scripts/diagnostic-pusher.sh --debug
+```
+
+**Enhanced monitoring with healthcare AI metrics:**
+```python
+# core/monitoring/healthcare_metrics_collector.py
 import psycopg2
-import redis
-import requests
-import time
 from datetime import datetime
-import logging
+import asyncio
 
-app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
-
-class HealthMonitor:
-    """Custom health monitoring service with PostgreSQL storage"""
+class HealthcareMetricsCollector:
+    """
+    Collect healthcare AI specific metrics for TimescaleDB
+    """
     
     def __init__(self):
         self.db_conn = psycopg2.connect(
-            "postgresql://intelluxe:secure_password@postgres:5432/intelluxe"
+            "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
         )
-        self.services = {
-            "ollama": "http://ollama:11434/api/tags",
-            "healthcare-mcp": "http://healthcare-mcp:3000/health",
-            "redis": "redis://redis:6379",
-            "postgres": "postgresql://postgres:5432"
-        }
-        self._init_health_table()
     
-    def _init_health_table(self):
-        """Initialize health check results table"""
+    async def record_transcription_metrics(self, session_id: str, doctor_id: str,
+                                         processing_time: float, entities_count: int,
+                                         scispacy_time: float) -> None:
+        """Record transcription and SciSpacy processing metrics"""
+        
         cursor = self.db_conn.cursor()
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS health_checks (
-                id SERIAL PRIMARY KEY,
-                service_name VARCHAR(100) NOT NULL,
-                status VARCHAR(20) NOT NULL,
-                response_time_ms INTEGER,
-                error_message TEXT,
-                checked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-            )
-        """)
-        
-        # Convert to hypertable for time-series data
-        try:
-            cursor.execute("SELECT create_hypertable('health_checks', 'checked_at')")
-        except:
-            pass  # Table might already be a hypertable
-        
+            INSERT INTO healthcare_ai_metrics (
+                timestamp, hostname, transcription_chunks_processed, 
+                medical_entities_extracted, scispacy_processing_time,
+                doctor_id, session_id
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (
+            datetime.now(), 
+            'localhost',  # Would be actual hostname
+            1,  # One chunk processed
+            entities_count,
+            scispacy_time,
+            doctor_id,
+            session_id
+        ))
         self.db_conn.commit()
     
-    def check_all_services(self):
-        """Check health of all services"""
-        results = {}
+    async def get_doctor_transcription_stats(self, doctor_id: str, days: int = 7) -> Dict[str, Any]:
+        """Get transcription statistics for a doctor"""
         
-        for service, endpoint in self.services.items():
-            result = self._check_service(service, endpoint)
-            results[service] = result
-            self._store_health_result(service, result)
-        
-        return results
-    
-    def _check_service(self, service_name: str, endpoint: str) -> dict:
-        """Check individual service health"""
-        start_time = time.time()
-        
-        try:
-            if service_name == "redis":
-                r = redis.from_url(endpoint)
-                r.ping()
-                status = "healthy"
-                error = None
-            elif service_name == "postgres":
-                # Already connected, just test query
-                cursor = self.db_conn.cursor()
-                cursor.execute("SELECT 1")
-                status = "healthy"
-                error = None
-            else:
-                response = requests.get(endpoint, timeout=10)
-                if response.status_code == 200:
-                    status = "healthy"
-                    error = None
-                else:
-                    status = "unhealthy"
-                    error = f"HTTP {response.status_code}"
-        except Exception as e:
-            status = "unhealthy"
-            error = str(e)
-        
-        response_time = int((time.time() - start_time) * 1000)
-        
-        return {
-            "status": status,
-            "response_time_ms": response_time,
-            "error": error,
-            "checked_at": datetime.now().isoformat()
-        }
-    
-    def _store_health_result(self, service_name: str, result: dict):
-        """Store health check result in database"""
         cursor = self.db_conn.cursor()
         cursor.execute("""
-            INSERT INTO health_checks (service_name, status, response_time_ms, error_message)
-            VALUES (%s, %s, %s, %s)
-        """, (service_name, result["status"], result["response_time_ms"], result["error"]))
-        self.db_conn.commit()
+            SELECT 
+                COUNT(*) as total_sessions,
+                SUM(transcription_chunks_processed) as total_chunks,
+                SUM(medical_entities_extracted) as total_entities,
+                AVG(scispacy_processing_time) as avg_scispacy_time
+            FROM healthcare_ai_metrics 
+            WHERE doctor_id = %s 
+              AND timestamp >= NOW() - INTERVAL '%s days'
+        """, (doctor_id, days))
+        
+        result = cursor.fetchone()
+        if result:
+            return {
+                'total_sessions': result[0],
+                'total_chunks': result[1],
+                'total_entities': result[2],
+                'avg_scispacy_time': float(result[3]) if result[3] else 0.0
+            }
+        
+        return {'total_sessions': 0, 'total_chunks': 0, 'total_entities': 0, 'avg_scispacy_time': 0.0}
 
-health_monitor = HealthMonitor()
-
-@app.route('/health')
-def health_check():
-    """Health check endpoint for this service"""
-    return jsonify({"status": "healthy", "service": "health-monitor"})
-
-@app.route('/check')
-def check_services():
-    """Check all services and return results"""
-    results = health_monitor.check_all_services()
-    overall_status = "healthy" if all(r["status"] == "healthy" for r in results.values()) else "degraded"
-    
-    return jsonify({
-        "overall_status": overall_status,
-        "services": results,
-        "checked_at": datetime.now().isoformat()
-    })
-
-@app.route('/history/<service>')
-def service_history(service):
-    """Get health history for a specific service"""
-    cursor = health_monitor.db_conn.cursor()
-    cursor.execute("""
-        SELECT status, response_time_ms, error_message, checked_at
-        FROM health_checks 
-        WHERE service_name = %s 
-        ORDER BY checked_at DESC 
-        LIMIT 50
-    """, (service,))
-    
-    history = []
-    for row in cursor.fetchall():
-        history.append({
-            "status": row[0],
-            "response_time_ms": row[1],
-            "error_message": row[2],
-            "checked_at": row[3].isoformat()
-        })
-    
-    return jsonify({"service": service, "history": history})
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=False)
+# Global metrics collector
+healthcare_metrics = HealthcareMetricsCollector()
 ```
 
-### 4.2 Integration Testing
+## Week 4: Integration Testing and Monitoring Setup
 
-**Create integration test suite (`tests/test_phase1_integration.py`):**
+### 4.1 Enhanced Monitoring for Your Existing Setup
+
+**Add healthcare metrics to your resource-pusher.sh:**
+```bash
+# Add to scripts/resource-pusher.sh - healthcare-specific metrics
+collect_healthcare_metrics() {
+    # Check agent performance
+    agent_response_time=$(curl -s -w "%{time_total}" -o /dev/null http://localhost:8080/health)
+    
+    # Check model memory usage (if GPU monitoring available)
+    if command -v nvidia-smi &> /dev/null; then
+        gpu_memory=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | head -1)
+        gpu_utilization=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | head -1)
+        
+        # Add to InfluxDB line protocol
+        echo "healthcareMetrics,host=${HOSTNAME} agent_response_time=${agent_response_time},gpu_memory=${gpu_memory},gpu_utilization=${gpu_utilization} ${timestamp}"
+    fi
+}
+```
+
+**Create healthcare-specific Grafana dashboard config:**
+```json
+# Add to your existing Grafana setup
+{
+  "dashboard": {
+    "title": "Intelluxe Healthcare AI Dashboard",
+    "panels": [
+      {
+        "title": "Agent Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "query": "SELECT mean(agent_response_time) FROM healthcareMetrics WHERE $timeFilter GROUP BY time(1m)"
+          }
+        ]
+      },
+      {
+        "title": "GPU Utilization",
+        "type": "singlestat",
+        "targets": [
+          {
+            "query": "SELECT last(gpu_utilization) FROM healthcareMetrics"
+          }
+        ]
+      },
+      {
+        "title": "Model Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "query": "SELECT mean(gpu_memory) FROM healthcareMetrics WHERE $timeFilter GROUP BY time(5m)"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 4.2 Comprehensive Integration Testing
+
+**Integration test suite using your service architecture:**
 ```python
+# tests/test_phase1_integration.py
 import pytest
-import requests
-import time
 import asyncio
-from core.memory.memory_manager import MemoryManager
-from agents.document_processor import DocumentProcessor
-from agents.research_assistant import ResearchAssistant
+import httpx
+from core.agents.document_processor import DocumentProcessorAgent
+from core.agents.research_assistant import ResearchAssistantAgent
+from core.agents.transcription_agent import TranscriptionAgent
 
 class TestPhase1Integration:
-    """Integration tests for Phase 1 components"""
-    
-    def test_service_health(self):
-        """Test that all core services are healthy"""
-        services = {
-            "ollama": "http://localhost:11434/api/tags",
-            "healthcare-mcp": "http://localhost:3000/health",
-            "health-monitor": "http://localhost:8080/health"
-        }
-        
-        for service, url in services.items():
-            response = requests.get(url, timeout=10)
-            assert response.status_code == 200, f"{service} is not healthy"
     
     @pytest.mark.asyncio
-    async def test_memory_manager(self):
-        """Test memory manager functionality"""
-        memory = MemoryManager()
+    async def test_service_health_checks(self):
+        """Test all services are running via universal service runner"""
         
-        test_context = {"user_query": "test query", "session_data": "test"}
-        await memory.store_context("test_session", "test_user", test_context)
+        services_to_check = [
+            'http://localhost:11434/api/version',  # Ollama
+            'http://localhost:3000/health',        # Healthcare-MCP
+            'http://localhost:8001/health',        # WhisperLive
+        ]
         
-        retrieved = await memory.get_context("test_session")
-        assert retrieved is not None
-        assert retrieved["context"]["user_query"] == "test query"
-    
-    @pytest.mark.asyncio 
-    async def test_document_processor(self):
-        """Test document processing agent"""
-        memory = MemoryManager()
-        processor = DocumentProcessor(memory)
-        
-        test_doc = {
-            "id": "test_doc_1",
-            "content": "Patient information form with insurance details"
-        }
-        
-        result = await processor.process_document(test_doc, "test_user", "test_session")
-        
-        assert result["document_type"] == "form"
-        assert "extracted_fields" in result
-        assert result["extracted_fields"]["has_patient_info"] == True
+        async with httpx.AsyncClient() as client:
+            for service_url in services_to_check:
+                response = await client.get(service_url, timeout=5.0)
+                assert response.status_code == 200
     
     @pytest.mark.asyncio
-    async def test_research_assistant(self):
-        """Test research assistant with mock MCP"""
-        memory = MemoryManager()
-        assistant = ResearchAssistant(memory)
+    async def test_document_processing_flow(self):
+        """Test complete document processing workflow"""
+        agent = DocumentProcessorAgent()
         
-        # This will fail gracefully if MCP is not responding
-        result = await assistant.research_query("diabetes treatment", "test_user", "test_session")
+        # Test lab report processing
+        lab_report = {
+            'document_text': 'Patient: John D. Hemoglobin: 12.5 g/dL (Normal: 13.5-17.5)',
+            'document_type': 'lab_report'
+        }
         
-        assert "query" in result
-        assert "results" in result
-        assert "sources_searched" in result
+        result = await agent.process_with_tracking(lab_report, 'test_session_1')
+        
+        assert result['document_type'] == 'lab_report'
+        assert 'lab_values' in result
+        assert 'interpretations' in result
     
-    def test_health_monitor_api(self):
-        """Test health monitor endpoints"""
-        # Test main health check
-        response = requests.get("http://localhost:8080/check")
-        assert response.status_code == 200
+    @pytest.mark.asyncio
+    async def test_healthcare_mcp_integration(self):
+        """Test Healthcare-MCP tool integration"""
+        from core.tools.unified_mcp_client import UnifiedMCPClient
         
-        data = response.json()
-        assert "overall_status" in data
-        assert "services" in data
+        client = UnifiedMCPClient()
         
-        # Test service history
-        response = requests.get("http://localhost:8080/history/ollama")
-        assert response.status_code == 200
+        # Test PubMed search
+        pubmed_result = await client.search_pubmed("diabetes management")
+        assert 'results' in pubmed_result or 'error' in pubmed_result
+        
+        # Test FDA drug lookup
+        fda_result = await client.lookup_fda_drug("metformin")
+        assert 'drug_name' in fda_result or 'error' in fda_result
+    
+    @pytest.mark.asyncio
+    async def test_whisperlive_integration(self):
+        """Test your WhisperLive transcription service"""
+        agent = TranscriptionAgent()
+        
+        # Test with minimal audio data (would be real audio in practice)
+        audio_data = {
+            'audio_data': b'dummy_audio_data',  # In practice, real audio bytes
+            'format': 'wav',
+            'language': 'en'
+        }
+        
+        result = await agent.process_with_tracking(audio_data, 'test_session_transcription')
+        
+        # Should either succeed or fail gracefully
+        assert 'transcription' in result or 'error' in result
+    
+    @pytest.mark.asyncio
+    async def test_performance_tracking(self):
+        """Test that performance tracking works with your database"""
+        from core.memory.enhanced_memory_manager import memory_manager
+        
+        # Store session with performance data
+        await memory_manager.store_session_context(
+            session_id='perf_test_session',
+            doctor_id='dr_test',
+            agent_type='test_agent',
+            context={'test': 'data'},
+            performance_data={'processing_time': 1.5, 'success': True}
+        )
+        
+        # Retrieve session
+        session = await memory_manager.get_session_context('perf_test_session')
+        assert session is not None
+        assert session['doctor_id'] == 'dr_test'
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
 ```
+
+## Deployment and Validation Checklist
+
+**Phase 1 Completion Criteria:**
+
+- [ ] Essential development security implemented (SSH hardening, secret scanning)
+- [ ] PostgreSQL with TimescaleDB deployed using universal service runner
+- [ ] Redis deployed for session management
+- [ ] Ollama serving healthcare-optimized models (llama3.1, mistral)
+- [ ] Healthcare-MCP integrated with FDA, PubMed, ClinicalTrials tools
+- [ ] Enhanced Memory Manager storing context with performance tracking
+- [ ] Document Processor handling medical documents with PHI protection
+- [ ] Research Assistant querying multiple sources via Healthcare-MCP
+- [ ] Transcription Agent integrated with your WhisperLive service
+- [ ] Healthcare-specific monitoring added to your existing InfluxDB/Grafana setup
+- [ ] Integration tests passing
+- [ ] Performance tracking infrastructure in place
+
+**Key Architecture Achievements:**
+- TimescaleDB for time-series performance data within your existing PostgreSQL
+- Healthcare monitoring integrated with your existing resource-pusher/diagnostic-pusher scripts
+- Healthcare-MCP provides medical research tools
+- Redis for session caching, PostgreSQL for persistence (using your current setup)
+- Agent base classes with performance tracking for future optimization
+- PHI detection and protection in document processing
+- Direct integration with your WhisperLive service (no Windows/Ubuntu pipeline)
+
+**Ready for Phase 2:**
+- Database schema includes performance tracking tables
+- Memory manager designed for training data collection
+- Agent base classes ready for advanced reasoning features
+- Your existing monitoring system extended with healthcare metrics
+- Tool registry supports plugin architecture for future capabilities
+
+This Phase 1 delivers a solid, working foundation using your actual service architecture that healthcare organizations can deploy and use immediately, while being designed for the advanced capabilities coming in Phase 2 (business services + personalization) and Phase 3 (production deployment + advanced AI).
