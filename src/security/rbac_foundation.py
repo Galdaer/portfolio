@@ -113,6 +113,9 @@ class HealthcareRBACManager:
         self.STRICT_MODE = rbac_strict_mode == 'true'
         self.logger.info(f"RBAC strict mode: {'enabled' if self.STRICT_MODE else 'disabled'}")
 
+        # Configure placeholder warnings
+        self.ENABLE_PLACEHOLDER_WARNINGS = os.getenv('RBAC_PLACEHOLDER_WARNINGS', 'true').lower() == 'true'
+
         # Initialize RBAC tables
         self._init_rbac_tables()
 
@@ -490,10 +493,11 @@ class HealthcareRBACManager:
             # Phase 2 TODO: Replace with actual patient assignment check
             for patient_id in assigned_patients:
                 if not self.is_user_assigned_to_patient(user_id, patient_id):
-                    self.logger.warning(
-                        f"Access denied: user {user_id} not assigned to patient {patient_id}. "
-                        "Phase 2 will implement proper patient assignment validation."
-                    )
+                    if self.ENABLE_PLACEHOLDER_WARNINGS:
+                        self.logger.warning(
+                            f"Access denied: user {user_id} not assigned to patient {patient_id}. "
+                            "Phase 2 will implement proper patient assignment validation."
+                        )
                     return False
 
         # Add other constraint checks as needed

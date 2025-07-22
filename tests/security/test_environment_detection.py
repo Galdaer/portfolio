@@ -195,10 +195,25 @@ class TestEnvironmentDetectorIntegration:
         with patch.dict(os.environ, {'ENVIRONMENT': 'production'}):
             with pytest.raises(RuntimeError):
                 EnvironmentDetector.require_non_production()
-        
+
         # Test that they're allowed in development
         with patch.dict(os.environ, {'ENVIRONMENT': 'development'}):
             EnvironmentDetector.require_non_production()  # Should not raise
+
+    def test_production_fallback_with_logging(self, caplog):
+        """Test that production fallback logs appropriate warnings"""
+        with patch.dict(os.environ, {}, clear=True):
+            with patch('src.security.environment_detector.EnvironmentDetector.get_environment',
+                      side_effect=RuntimeError("Cannot determine environment")):
+
+                result = EnvironmentDetector.is_production()
+
+                # Should return True for security
+                assert result is True
+
+                # Should log error message
+                assert "Environment could not be determined" in caplog.text
+                assert "Falling back to production mode" in caplog.text
 
 
 if __name__ == "__main__":

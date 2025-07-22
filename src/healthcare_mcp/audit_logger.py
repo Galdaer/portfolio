@@ -116,6 +116,7 @@ class HealthcareAuditLogger:
 
         # Initialize PHI detection cache with proper management
         self._phi_cache = LRUCacheWithTTL(max_size=100, ttl=300)
+        self._phi_cache_version = "v1.0"  # Add versioning for cache invalidation
 
         # Initialize database connection for audit storage
         self._init_audit_database()
@@ -398,20 +399,28 @@ class HealthcareAuditLogger:
             self.logger.error("Failed to log PHI detection", error=str(e))
 
     async def _get_cached_phi_result(self, phi_detector, details_str: str):
-        """Cache PHI detection results for similar content with proper cache management"""
-        # Create hash of content for caching
+        """Cache PHI detection results for similar content with version checking"""
+        # Create hash of content for caching with version
         content_hash = hashlib.sha256(details_str.encode()).hexdigest()
+        cache_key = f"{self._phi_cache_version}_{content_hash}"
 
         # Check cache
-        cached_result = self._phi_cache.get(content_hash)
+        cached_result = self._phi_cache.get(cache_key)
         if cached_result is not None:
             return cached_result
 
-        # Perform detection and cache result
+        # Perform detection and cache result with version
         result = await phi_detector.detect_phi(details_str)
-        self._phi_cache.set(content_hash, result)
+        self._phi_cache.set(cache_key, result)
 
         return result
+
+    def invalidate_phi_cache(self, new_version: str = None):
+        """Invalidate PHI cache when detection rules change"""
+        if new_version:
+            self._phi_cache_version = new_version
+        self._phi_cache.clear()
+        self.logger.info(f"PHI cache invalidated, new version: {self._phi_cache_version}")
 
     async def log_security_violation(self, violation_type: str, details: Dict[str, Any],
                                    user_id: Optional[str] = None):

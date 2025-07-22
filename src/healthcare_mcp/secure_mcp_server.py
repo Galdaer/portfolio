@@ -87,11 +87,14 @@ class HealthcareMCPServer:
     def __init__(self, config: HealthcareConfig):
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.HealthcareMCPServer")
-        
+
+        # Rate limiting for development warnings
+        self._dev_auth_warning_logged = False
+
         # Initialize security components
         self.phi_detector = PHIDetector() if config.phi_detection_enabled else None
         self.audit_logger = HealthcareAuditLogger(config)
-        
+
         # Initialize connections
         self._init_database_connections()
         self._init_app()
@@ -245,9 +248,11 @@ class HealthcareMCPServer:
         if EnvironmentDetector.is_production():
             return self._validate_jwt_token(token)
         elif EnvironmentDetector.is_development():
-            # Development mode - basic validation with warning
+            # Development mode - basic validation with rate-limited warning
             if len(token) > 0:
-                self.logger.warning("Using basic token validation - NOT SUITABLE FOR PRODUCTION")
+                if not self._dev_auth_warning_logged:
+                    self.logger.warning("Using basic token validation - NOT SUITABLE FOR PRODUCTION")
+                    self._dev_auth_warning_logged = True
                 return True
             return False
         else:

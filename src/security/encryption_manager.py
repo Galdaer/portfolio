@@ -56,7 +56,11 @@ class EncryptionKey:
 
 class KeyManager:
     """Manages encryption keys with rotation and versioning"""
-    
+
+    # Security constants
+    MIN_ENTROPY_THRESHOLD = 4.0  # Minimum Shannon entropy for cryptographic keys
+    MIN_KEY_LENGTH = 32  # Minimum key length in bytes (256 bits)
+
     def __init__(self, postgres_conn):
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.KeyManager")
@@ -174,15 +178,15 @@ class KeyManager:
                 decoded_key = base64.urlsafe_b64decode(master_key.encode())
 
                 # Validate key length (minimum 32 bytes for AES-256)
-                if len(decoded_key) < 32:
-                    self.logger.error("MASTER_ENCRYPTION_KEY is too short. Must be at least 32 bytes.")
-                    raise ValueError("MASTER_ENCRYPTION_KEY does not meet minimum length requirements (32 bytes)")
+                if len(decoded_key) < self.MIN_KEY_LENGTH:
+                    self.logger.error(f"MASTER_ENCRYPTION_KEY is too short. Must be at least {self.MIN_KEY_LENGTH} bytes.")
+                    raise ValueError(f"MASTER_ENCRYPTION_KEY does not meet minimum length requirements ({self.MIN_KEY_LENGTH} bytes)")
 
                 # Validate key entropy
                 entropy = self._calculate_entropy(decoded_key)
-                if entropy < 4.0:  # Minimum entropy threshold
+                if entropy < self.MIN_ENTROPY_THRESHOLD:
                     self.logger.error(f"MASTER_ENCRYPTION_KEY has insufficient entropy: {entropy:.2f}")
-                    raise ValueError("MASTER_ENCRYPTION_KEY does not meet minimum entropy requirements (4.0)")
+                    raise ValueError(f"MASTER_ENCRYPTION_KEY does not meet minimum entropy requirements ({self.MIN_ENTROPY_THRESHOLD})")
 
                 self.logger.info(f"Master key validated: {len(decoded_key)} bytes, entropy: {entropy:.2f}")
                 return decoded_key
@@ -201,7 +205,13 @@ class KeyManager:
             raise RuntimeError("Key generation only allowed in development environment")
 
         # Generate secure key for development
-        self.logger.warning("Generating master key for development - NOT FOR PRODUCTION")
+        warning_msg = "Generating master key for development - NOT FOR PRODUCTION"
+        self.logger.warning(warning_msg)
+
+        # Also log to stderr for immediate visibility
+        import sys
+        print(f"SECURITY WARNING: {warning_msg}", file=sys.stderr)
+
         return secrets.token_bytes(32)  # Use secrets module for cryptographic randomness
 
     def generate_secure_key(self) -> str:
@@ -210,11 +220,11 @@ class KeyManager:
         EnvironmentDetector.require_environment(Environment.DEVELOPMENT)
 
         # Generate 32 bytes of cryptographically secure random data
-        key_bytes = secrets.token_bytes(32)
+        key_bytes = secrets.token_bytes(self.MIN_KEY_LENGTH)
 
         # Verify entropy before returning
         entropy = self._calculate_entropy(key_bytes)
-        if entropy < 4.0:
+        if entropy < self.MIN_ENTROPY_THRESHOLD:
             # This should be extremely rare with secrets.token_bytes
             self.logger.warning(f"Generated key has low entropy: {entropy:.2f}, regenerating...")
             return self.generate_secure_key()  # Recursive retry
@@ -386,7 +396,11 @@ class KeyManager:
 
 class HealthcareEncryptionManager:
     """Main encryption manager for healthcare data"""
-    
+
+    # Security constants
+    MIN_ENTROPY_THRESHOLD = 4.0  # Minimum Shannon entropy for cryptographic keys
+    MIN_KEY_LENGTH = 32  # Minimum key length in bytes (256 bits)
+
     def __init__(self, postgres_conn):
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.HealthcareEncryptionManager")
