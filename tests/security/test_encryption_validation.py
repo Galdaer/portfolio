@@ -21,30 +21,29 @@ class TestEncryptionValidation:
         self.mock_factory = MockConnectionFactory()
         
     def test_master_key_length_validation_too_short(self):
-        """Test master key minimum length validation - too short"""
+        """Test master key minimum length validation - too short using configuration injection"""
         with patch.dict(os.environ, {'ENVIRONMENT': 'development'}):
-            manager = HealthcareEncryptionManager(self.mock_factory)
-            
-            # Test short key (should fail)
+            # Test short key (should fail) using configuration injection
             short_key = base64.urlsafe_b64encode(b'short').decode()
-            config = {"MASTER_ENCRYPTION_KEY": short_key}
-            
-            with patch.object(manager, '_load_configuration', return_value=config):
-                with pytest.raises(ValueError, match="minimum length requirements"):
-                    manager._get_or_create_master_key()
+            test_config = {"MASTER_ENCRYPTION_KEY": short_key}
+
+            # Use configuration injection instead of mocking private methods
+            manager = HealthcareEncryptionManager(self.mock_factory, config=test_config)
+
+            with pytest.raises(ValueError, match="does not meet security requirements"):
+                manager.key_manager._get_or_create_master_key()
     
     def test_master_key_length_validation_minimum_valid(self):
-        """Test master key minimum length validation - exactly 32 bytes"""
+        """Test master key minimum length validation - exactly 32 bytes using configuration injection"""
         with patch.dict(os.environ, {'ENVIRONMENT': 'development'}):
-            manager = HealthcareEncryptionManager(self.mock_factory)
-            
-            # Test minimum valid key (32 bytes)
+            # Test minimum valid key (32 bytes) using configuration injection
             valid_key = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
-            config = {"MASTER_ENCRYPTION_KEY": valid_key}
-            
-            with patch.object(manager, '_load_configuration', return_value=config):
-                result = manager._get_or_create_master_key()
-                assert len(result) == 32
+            test_config = {"MASTER_ENCRYPTION_KEY": valid_key}
+
+            # Use configuration injection instead of mocking private methods
+            manager = HealthcareEncryptionManager(self.mock_factory, config=test_config)
+            result = manager.key_manager._get_or_create_master_key()
+            assert len(result) == 32
     
     def test_master_key_entropy_validation_low_entropy(self):
         """Test master key entropy validation - low entropy key"""
@@ -245,6 +244,57 @@ class TestRBACStrictModeValidation:
             mock_factory = MockConnectionFactory()
             manager = HealthcareRBACManager(mock_factory)
             assert manager.STRICT_MODE is True
+
+
+class TestConfigurationInjection:
+    """Test configuration injection pattern for better test maintainability"""
+
+    def setup_method(self):
+        """Setup test environment"""
+        self.mock_factory = MockConnectionFactory()
+
+    def test_configuration_injection_pattern(self):
+        """Test that configuration injection works without mocking private methods"""
+        with patch.dict(os.environ, {'ENVIRONMENT': 'development'}):
+            # Create test configuration
+            test_config = {
+                "MASTER_ENCRYPTION_KEY": base64.urlsafe_b64encode(secrets.token_bytes(32)).decode(),
+                "ENCRYPTION_ALGORITHM": "AES-256-GCM",
+                "KEY_ROTATION_DAYS": 90
+            }
+
+            # Inject configuration via constructor
+            manager = HealthcareEncryptionManager(self.mock_factory, config=test_config)
+
+            # Test behavior without mocking internal methods
+            assert manager.config == test_config
+            assert manager.key_manager.config == test_config
+
+    def test_configuration_override_behavior(self):
+        """Test that injected configuration overrides default loading"""
+        with patch.dict(os.environ, {'ENVIRONMENT': 'development'}):
+            # Test configuration with specific values
+            override_config = {
+                "MASTER_ENCRYPTION_KEY": base64.urlsafe_b64encode(b'test_key_32_bytes_long_exactly!').decode(),
+                "TEST_MODE": True
+            }
+
+            # Create manager with injected config
+            manager = HealthcareEncryptionManager(self.mock_factory, config=override_config)
+
+            # Verify configuration is used
+            assert manager.config.get("TEST_MODE") is True
+            assert "MASTER_ENCRYPTION_KEY" in manager.config
+
+    def test_fallback_to_default_configuration(self):
+        """Test that manager falls back to default configuration when none injected"""
+        with patch.dict(os.environ, {'ENVIRONMENT': 'development'}):
+            # Create manager without injected config
+            manager = HealthcareEncryptionManager(self.mock_factory)
+
+            # Should have loaded default configuration
+            assert manager.config is not None
+            assert isinstance(manager.config, dict)
 
 
 if __name__ == "__main__":

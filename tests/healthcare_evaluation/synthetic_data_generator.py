@@ -126,7 +126,7 @@ class SyntheticHealthcareDataGenerator:
     # - Eliminates risk of contacting real patients or providers
     # - Prevents HIPAA violations from accidental real-world contact
     # - Ensures test data cannot be confused with actual healthcare records
-    PHONE_PREFIX = "555"
+    FICTIONAL_PHONE_PREFIX = "555"  # NANP-compliant prefix for fictional phone numbers
 
     # Synthetic insurance names prevent confusion with real providers
     # and ensure test data is clearly identified as non-production
@@ -166,7 +166,7 @@ class SyntheticHealthcareDataGenerator:
         birth_date = self.fake.date_of_birth(minimum_age=18, maximum_age=90)
         
         # Generate contact information (clearly synthetic)
-        phone = f"{self.PHONE_PREFIX}-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
+        phone = f"{self.FICTIONAL_PHONE_PREFIX}-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
         email = f"{first_name.lower()}.{last_name.lower()}@synthetic-email.test"
         
         # Generate address
@@ -182,7 +182,7 @@ class SyntheticHealthcareDataGenerator:
         emergency_contact = {
             "name": self.fake.name(),
             "relationship": self.fake.random_element(['Spouse', 'Parent', 'Sibling', 'Child', 'Friend']),
-            "phone": f"{self.PHONE_PREFIX}-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
+            "phone": f"{self.FICTIONAL_PHONE_PREFIX}-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
         }
         
         # Generate insurance information (synthetic)

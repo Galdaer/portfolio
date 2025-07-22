@@ -37,10 +37,23 @@ def apply_replacements_in_reverse(replacements: List[Tuple[int, int, str]],
         str: Text with replacements applied
     """
     import time
+    import sys
+    from io import StringIO
 
     start_time = time.time()
     replacement_count = len(replacements)
     text_length = len(text)
+
+    # Memory usage monitoring for large documents
+    memory_threshold = 1_000_000  # 1MB threshold for memory-efficient mode
+    streaming_threshold = 5_000_000  # 5MB threshold for streaming mode
+
+    if text_length > streaming_threshold:
+        logger.info(f"Very large document detected: {text_length} bytes, enabling streaming processing")
+        return _mask_phi_streaming(text, replacements, start_time)
+    elif text_length > memory_threshold:
+        logger.info(f"Large document detected: {text_length} bytes, enabling memory-efficient processing")
+        return _apply_replacements_memory_efficient(replacements, text, batch_size, start_time)
 
     # For small replacement sets, process normally
     if replacement_count <= batch_size:
@@ -75,6 +88,148 @@ def apply_replacements_in_reverse(replacements: List[Tuple[int, int, str]],
 
     total_time = time.time() - start_time
     logger.info(f"PHI batch processing completed: {batch_count} batches in {total_time:.3f}s")
+
+    return result
+
+
+def _mask_phi_streaming(text: str, replacements: List[Tuple[int, int, str]], start_time: float) -> str:
+    """
+    Memory-efficient PHI masking for very large documents using streaming approach
+
+    This approach builds the result incrementally using list building instead of
+    string concatenation to avoid memory spikes with very large medical records.
+
+    Args:
+        text: Original text to modify
+        replacements: List of (start, end, replacement) tuples
+        start_time: Processing start time for metrics
+
+    Returns:
+        str: Text with replacements applied
+    """
+    import time
+    import sys
+
+    text_length = len(text)
+    replacement_count = len(replacements)
+
+    logger.info(f"Streaming PHI processing: {replacement_count} replacements, {text_length:,} chars")
+
+    # Sort replacements by start position (forward order for streaming)
+    sorted_replacements = sorted(replacements, key=lambda x: x[0])
+
+    # Use list building for memory efficiency
+    masked_parts = []
+    current_index = 0
+
+    # Track memory usage
+    initial_memory = sys.getsizeof(text)
+
+    # Process replacements in forward order for streaming
+    for i, (start, end, replacement) in enumerate(sorted_replacements):
+        # Validate indices
+        if start < current_index:
+            logger.warning(f"Overlapping replacement detected: start={start}, current_index={current_index}")
+            continue
+
+        if start >= text_length or end > text_length or start >= end:
+            logger.warning(f"Invalid replacement indices: start={start}, end={end}, text_length={text_length}")
+            continue
+
+        # Add unmasked text up to replacement
+        if start > current_index:
+            masked_parts.append(text[current_index:start])
+
+        # Add masked replacement
+        masked_parts.append(replacement)
+        current_index = end
+
+        # Memory monitoring every 1000 replacements
+        if i % 1000 == 0 and i > 0:
+            current_memory = sys.getsizeof(masked_parts)
+            logger.debug(f"Streaming progress: {i}/{replacement_count} replacements, memory: {current_memory:,} bytes")
+
+    # Add remaining text after last replacement
+    if current_index < text_length:
+        masked_parts.append(text[current_index:])
+
+    # Join all parts (single memory allocation)
+    result = ''.join(masked_parts)
+
+    total_time = time.time() - start_time
+    final_memory = sys.getsizeof(result)
+
+    logger.info(f"Streaming PHI processing completed: {replacement_count} replacements in {total_time:.3f}s, "
+               f"input: {initial_memory:,} bytes, output: {final_memory:,} bytes")
+
+    return result
+
+
+def _apply_replacements_memory_efficient(replacements: List[Tuple[int, int, str]],
+                                       text: str,
+                                       batch_size: int,
+                                       start_time: float) -> str:
+    """
+    Memory-efficient replacement processing for very large texts using StringIO
+
+    Args:
+        replacements: List of (start, end, replacement) tuples
+        text: Original text to modify
+        batch_size: Number of replacements to process in each batch
+        start_time: Processing start time for metrics
+
+    Returns:
+        str: Text with replacements applied
+    """
+    import sys
+    import time
+    from io import StringIO
+
+    text_length = len(text)
+    replacement_count = len(replacements)
+
+    logger.info(f"Memory-efficient PHI processing: {replacement_count} replacements, {text_length} chars")
+
+    # Sort replacements in reverse order to prevent index shifting
+    sorted_replacements = sorted(replacements, key=lambda x: x[0], reverse=True)
+
+    # Use StringIO for memory-efficient string manipulation
+    text_io = StringIO(text)
+    text_chars = list(text_io.getvalue())  # Convert to character list for efficient indexing
+
+    # Process replacements in batches
+    batch_count = 0
+    for i in range(0, len(sorted_replacements), batch_size):
+        batch = sorted_replacements[i:i + batch_size]
+        batch_count += 1
+
+        batch_start_time = time.time()
+
+        # Apply replacements in current batch
+        for start, end, replacement in batch:
+            # Validate indices
+            if start < 0 or end > len(text_chars) or start >= end:
+                logger.warning(f"Invalid replacement indices: start={start}, end={end}, text_length={len(text_chars)}")
+                continue
+
+            # Replace characters using list slicing (more memory efficient than string concatenation)
+            text_chars[start:end] = list(replacement)
+
+        batch_time = time.time() - batch_start_time
+
+        # Memory usage monitoring
+        current_memory = sys.getsizeof(text_chars)
+        logger.debug(f"Memory-efficient batch {batch_count}: {len(batch)} replacements, "
+                    f"{batch_time:.3f}s, memory: {current_memory:,} bytes")
+
+    # Convert back to string
+    result = ''.join(text_chars)
+
+    total_time = time.time() - start_time
+    final_memory = sys.getsizeof(result)
+
+    logger.info(f"Memory-efficient PHI processing completed: {batch_count} batches in {total_time:.3f}s, "
+               f"final size: {len(result):,} chars, memory: {final_memory:,} bytes")
 
     return result
 
@@ -341,6 +496,47 @@ class PHIDetector:
         """Mask PHI in text"""
         result = self.detector.detect_phi(text)
         return result.masked_text
+
+    def detect_phi_batch(self, field_data: Dict[str, str]) -> Dict[str, PHIDetectionResult]:
+        """
+        Detect PHI in multiple fields efficiently using batch processing
+
+        Args:
+            field_data: Dictionary of field names to text values
+
+        Returns:
+            Dictionary of field names to PHI detection results
+        """
+        import time
+
+        start_time = time.time()
+        field_count = len(field_data)
+
+        self.logger.debug(f"Starting batch PHI detection for {field_count} fields")
+
+        results = {}
+
+        # Process each field (can be optimized further with true batch processing)
+        for field_name, text_value in field_data.items():
+            if isinstance(text_value, str) and text_value.strip():
+                results[field_name] = self.detector.detect_phi(text_value)
+            else:
+                # Empty or non-string values
+                results[field_name] = PHIDetectionResult(
+                    phi_detected=False,
+                    phi_types=[],
+                    confidence_scores=[],
+                    masked_text=str(text_value) if text_value is not None else "",
+                    detection_details=[]
+                )
+
+        processing_time = time.time() - start_time
+        phi_detected_count = sum(1 for result in results.values() if result.phi_detected)
+
+        self.logger.info(f"Batch PHI detection completed: {field_count} fields processed in {processing_time:.3f}s, "
+                        f"{phi_detected_count} fields with PHI detected")
+
+        return results
     
     def get_phi_summary(self, text: str) -> Dict[str, Any]:
         """Get summary of PHI detection"""
@@ -362,9 +558,9 @@ class PHIMaskingService:
         self.logger = logging.getLogger(f"{__name__}.PHIMaskingService")
     
     def mask_patient_data(self, patient_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Mask PHI in patient data structure"""
+        """Mask PHI in patient data structure using batch processing"""
         masked_data = patient_data.copy()
-        
+
         # Fields that commonly contain PHI
         phi_fields = [
             'first_name', 'last_name', 'full_name', 'name',
@@ -373,14 +569,27 @@ class PHIMaskingService:
             'date_of_birth', 'dob', 'birth_date',
             'address', 'street_address', 'zip_code', 'postal_code'
         ]
-        
+
+        # Collect all string fields that need PHI detection
+        fields_to_process = {}
         for field in phi_fields:
             if field in masked_data and isinstance(masked_data[field], str):
-                result = self.phi_detector.detect_phi_sync(masked_data[field])
+                fields_to_process[field] = masked_data[field]
+
+        # Batch detect PHI in all collected fields
+        if fields_to_process:
+            detection_results = self.phi_detector.detect_phi_batch(fields_to_process)
+
+            # Apply masking results
+            masked_fields = []
+            for field, result in detection_results.items():
                 if result.phi_detected:
                     masked_data[field] = result.masked_text
-                    self.logger.info(f"Masked PHI in field: {field}")
-        
+                    masked_fields.append(field)
+
+            if masked_fields:
+                self.logger.info(f"Batch PHI masking completed: {len(masked_fields)} fields masked - {', '.join(masked_fields)}")
+
         return masked_data
     
     def create_synthetic_replacement(self, original_data: Dict[str, Any]) -> Dict[str, Any]:

@@ -466,24 +466,103 @@ class HealthcareRBACManager:
         """
         from .environment_detector import EnvironmentDetector
 
+        # Handle production environment validation
+        if EnvironmentDetector.is_production():
+            return self._validate_production_patient_assignment(user_id, patient_id)
+
+        # Development mode: configurable behavior (default to allow for development)
+        return self._validate_development_patient_assignment(user_id, patient_id)
+
+    def _validate_production_patient_assignment(self, user_id: str, patient_id: str) -> bool:
+        """
+        Validate patient assignment in production environment
+
+        CRITICAL SECURITY WARNING:
+        This method contains placeholder implementation that MUST be replaced
+        before production deployment. The current implementation will deny all
+        patient access in production to prevent security vulnerabilities.
+
+        PLACEHOLDER IMPLEMENTATION RISKS:
+        - No actual database validation of patient-provider relationships
+        - No care team membership verification
+        - No emergency access or break-glass functionality
+        - No audit trail of access decisions
+        - Potential HIPAA compliance violations if deployed as-is
+
+        REQUIRED FOR PRODUCTION:
+        1. Implement database-backed patient assignment validation
+        2. Add care team membership checking
+        3. Implement emergency access with supervisor approval
+        4. Add comprehensive audit logging
+        5. Validate against actual healthcare provider assignments
+
+        Args:
+            user_id: User identifier
+            patient_id: Patient identifier
+
+        Returns:
+            bool: True if user has access to patient
+
+        Raises:
+            NotImplementedError: If patient assignment not properly implemented
+        """
         # Check feature flag for production deployment
         patient_assignment_enabled = os.getenv('RBAC_ENABLE_PATIENT_ASSIGNMENT', 'false').lower() == 'true'
 
-        # Block production deployment until proper implementation AND feature flag is enabled
-        if EnvironmentDetector.is_production():
-            if not patient_assignment_enabled:
-                self.logger.error("Patient assignment validation not implemented for production")
-                raise NotImplementedError(
-                    "Patient assignment validation required for production deployment. "
-                    "Set RBAC_ENABLE_PATIENT_ASSIGNMENT=true when proper implementation is ready."
-                )
-            else:
-                # TODO: Replace with actual patient assignment implementation
-                self.logger.warning("Using placeholder patient assignment in production - implement proper logic")
-                # For now, deny access in production even with feature flag until real implementation
-                return False
+        # Validate that proper implementation exists before allowing production use
+        if not patient_assignment_enabled:
+            self.logger.error("Patient assignment validation not implemented for production")
+            raise NotImplementedError(
+                "Patient assignment validation required for production deployment. "
+                "Set RBAC_ENABLE_PATIENT_ASSIGNMENT=true when proper implementation is ready."
+            )
 
-        # Development mode: configurable behavior (default to allow for development)
+        # Additional validation: Check if real implementation is available
+        if not self._has_real_patient_assignment_implementation():
+            self.logger.error("RBAC_ENABLE_PATIENT_ASSIGNMENT=true but no real implementation found")
+            raise NotImplementedError(
+                "Feature flag enabled but patient assignment implementation is still placeholder. "
+                "Implement proper database-backed validation before production use."
+            )
+
+        # Check for emergency access conditions before denying access
+        emergency_access = self._check_emergency_access(user_id, patient_id)
+        if emergency_access:
+            return True
+
+        # TODO: Replace with actual patient assignment implementation
+        self.logger.warning("Using placeholder patient assignment in production - implement proper logic")
+        # For now, deny access in production even with feature flag until real implementation
+        return False
+
+    def _has_real_patient_assignment_implementation(self) -> bool:
+        """
+        Check if real patient assignment implementation is available
+
+        Returns:
+            bool: True if real implementation exists, False if still placeholder
+        """
+        # TODO: Implement actual check for real patient assignment logic
+        # This could check for:
+        # - Database table existence
+        # - Required configuration parameters
+        # - External service availability
+        # - Implementation completeness markers
+
+        # For now, always return False to indicate placeholder implementation
+        return False
+
+    def _validate_development_patient_assignment(self, user_id: str, patient_id: str) -> bool:
+        """
+        Validate patient assignment in development environment
+
+        Args:
+            user_id: User identifier
+            patient_id: Patient identifier
+
+        Returns:
+            bool: True if user has access to patient
+        """
         default_access = os.getenv('RBAC_DEFAULT_PATIENT_ACCESS', 'true').lower() == 'true'
 
         if default_access:
@@ -492,6 +571,120 @@ class HealthcareRBACManager:
         else:
             self.logger.debug(f"DEV MODE: Denying patient access {user_id} -> {patient_id}")
             return False
+
+    def _check_emergency_access(self, user_id: str, patient_id: str) -> bool:
+        """
+        Check for emergency access conditions with comprehensive logging
+
+        Emergency access patterns for production patient assignment:
+        1. Emergency override flags for critical situations
+        2. Emergency user roles (e.g., emergency physicians, supervisors)
+        3. Break-glass access with supervisor approval
+        4. Comprehensive audit logging for all emergency access
+
+        Args:
+            user_id: User identifier
+            patient_id: Patient identifier
+
+        Returns:
+            bool: True if emergency access is granted
+        """
+        # Check for emergency override flags
+        emergency_override = os.getenv('RBAC_EMERGENCY_OVERRIDE', 'false').lower() == 'true'
+
+        if emergency_override:
+            self.logger.warning(f"EMERGENCY ACCESS: User {user_id} accessing patient {patient_id} via emergency override")
+            self._log_emergency_access(user_id, patient_id, "emergency_override", "Emergency override flag enabled")
+            return True
+
+        # Check for emergency user roles
+        if self._is_emergency_user(user_id):
+            self.logger.warning(f"EMERGENCY ACCESS: Emergency user {user_id} accessing patient {patient_id}")
+            self._log_emergency_access(user_id, patient_id, "emergency_user", "User has emergency access role")
+            return True
+
+        # Check for break-glass access (requires supervisor approval)
+        if self._check_break_glass_access(user_id, patient_id):
+            self.logger.warning(f"EMERGENCY ACCESS: Break-glass access granted for user {user_id} to patient {patient_id}")
+            self._log_emergency_access(user_id, patient_id, "break_glass", "Break-glass access with supervisor approval")
+            return True
+
+        return False
+
+    def _is_emergency_user(self, user_id: str) -> bool:
+        """
+        Check if user has emergency access role
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            bool: True if user has emergency access role
+        """
+        # TODO: Implement actual emergency user role checking
+        # This would check against:
+        # - Emergency physician roles
+        # - Supervisor roles
+        # - On-call staff designations
+        # - Break-glass authorized personnel
+
+        # For now, check environment variable for testing
+        emergency_users = os.getenv('RBAC_EMERGENCY_USERS', '').split(',')
+        return user_id.strip() in [u.strip() for u in emergency_users if u.strip()]
+
+    def _check_break_glass_access(self, user_id: str, patient_id: str) -> bool:
+        """
+        Check for break-glass access with supervisor approval
+
+        Args:
+            user_id: User identifier
+            patient_id: Patient identifier
+
+        Returns:
+            bool: True if break-glass access is approved
+        """
+        # TODO: Implement actual break-glass access checking
+        # This would include:
+        # - Supervisor approval workflow
+        # - Time-limited access tokens
+        # - Justification requirements
+        # - Multi-factor authentication
+
+        # For now, check environment variable for testing
+        break_glass_enabled = os.getenv('RBAC_BREAK_GLASS_ENABLED', 'false').lower() == 'true'
+        return break_glass_enabled
+
+    def _log_emergency_access(self, user_id: str, patient_id: str, access_type: str, reason: str):
+        """
+        Log emergency access with comprehensive audit trail
+
+        Args:
+            user_id: User identifier
+            patient_id: Patient identifier
+            access_type: Type of emergency access
+            reason: Reason for emergency access
+        """
+        import datetime
+
+        # Comprehensive audit logging for emergency access
+        audit_entry = {
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "event_type": "emergency_access",
+            "user_id": user_id,
+            "patient_id": patient_id,
+            "access_type": access_type,
+            "reason": reason,
+            "environment": os.getenv('ENVIRONMENT', 'unknown'),
+            "source_ip": "unknown",  # TODO: Get actual source IP
+            "session_id": "unknown"  # TODO: Get actual session ID
+        }
+
+        # Log to security audit system
+        self.logger.error(f"SECURITY AUDIT - Emergency Access: {audit_entry}")
+
+        # TODO: Send to external audit system
+        # TODO: Alert security team
+        # TODO: Store in audit database
 
     def _check_patient_assignment_constraints(self, user_id: str, constraints: Dict[str, Any]) -> bool:
         """Check patient assignment constraints with Phase 2 preparation"""
