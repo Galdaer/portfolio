@@ -8,6 +8,9 @@ import os
 from unittest.mock import patch
 from src.security.environment_detector import EnvironmentDetector, Environment
 
+# Test constants for consistent error message validation
+ERROR_MSG_CANNOT_DETERMINE_ENVIRONMENT = "Cannot determine environment"
+
 
 class TestEnvironmentDetector:
     """Test secure environment detection functionality"""
@@ -204,7 +207,7 @@ class TestEnvironmentDetectorIntegration:
         """Test that production fallback logs appropriate warnings"""
         with patch.dict(os.environ, {}, clear=True):
             with patch('src.security.environment_detector.EnvironmentDetector.get_environment',
-                      side_effect=RuntimeError("Cannot determine environment")):
+                      side_effect=RuntimeError(ERROR_MSG_CANNOT_DETERMINE_ENVIRONMENT)):
 
                 result = EnvironmentDetector.is_production()
 
@@ -219,7 +222,7 @@ class TestEnvironmentDetectorIntegration:
         """Test that production fallback logs appropriate warnings with detailed verification"""
         with patch.dict(os.environ, {}, clear=True):
             with patch('src.security.environment_detector.EnvironmentDetector.get_environment',
-                      side_effect=RuntimeError("Cannot determine environment")):
+                      side_effect=RuntimeError(ERROR_MSG_CANNOT_DETERMINE_ENVIRONMENT)):
 
                 result = EnvironmentDetector.is_production()
 
