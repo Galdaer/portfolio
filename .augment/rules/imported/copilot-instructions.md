@@ -382,3 +382,45 @@ Co-designed by father-son team (Jeffrey & Justin Sue) for real-world clinical wo
 - Ollama for local LLM inference
 - Healthcare security middleware
 - Audit logging requirements
+
+## Remote Agent Quality Assurance Patterns
+
+### Iterative Validation Requirements
+- **ALWAYS run validation after each change**: `make lint && make validate`
+- **Continue iterating until both pass**: Never submit work with failing validation
+- **Fix one category at a time**: Don't attempt to fix all issues simultaneously
+- **Test incrementally**: Verify each fix before moving to the next
+
+### Shellcheck Issue Resolution Patterns
+- **SC2317 (Unreachable Code)**: Check function calls, exit statements, nested definitions
+- **SC2016 (Quote Expansion)**: Use double quotes for variable expansion, single quotes for literals
+- **Function Structure**: Ensure all defined functions are called or properly disabled
+- **Exit Code Verification**: Always check `echo $?` after make commands
+
+### Remote Agent Validation Workflow
+1. **Initial Assessment**: Run `make lint` and `make validate` to identify all issues
+2. **Categorize Issues**: Group similar shellcheck warnings together
+3. **Fix Incrementally**: Address one category, then test
+4. **Verify Progress**: Confirm issue count decreases after each iteration
+5. **Final Validation**: Both commands must exit with code 0
+
+### Quality Gates for Remote Agents
+- **Pre-commit**: `make lint` must pass (exit code 0)
+- **Pre-submit**: `make validate` must pass (exit code 0)
+- **Healthcare Compliance**: All security patterns preserved
+- **No Regressions**: Existing functionality maintained
+
+### Common Anti-Patterns to Prevent
+1. **Submitting with failing validation** → Always iterate until clean
+2. **Fixing all issues at once** → Fix incrementally and test
+3. **Ignoring unreachable code warnings** → Properly structure or disable
+4. **Using single quotes for variables** → Use double quotes for expansion
+5. **Not testing after each change** → Always validate incrementally
+
+### Remote Agent Success Criteria Template
+```bash
+# Required validation before task completion
+make lint && make validate && echo "✅ Ready for submission"
+```
+
+**All remote agent tasks must include this validation workflow in success criteria.**
