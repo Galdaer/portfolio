@@ -8,10 +8,33 @@ import json
 import re
 import sys
 import os
+from unittest.mock import patch, MagicMock
 from operator import itemgetter
 
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+
+# Mock external dependencies to prevent service calls
+@pytest.fixture(autouse=True)
+def mock_external_dependencies():
+    """Mock external dependencies to prevent actual service calls during testing"""
+    with patch('psycopg2.connect') as mock_db, \
+         patch('redis.Redis') as mock_redis, \
+         patch('requests.get') as mock_requests, \
+         patch('requests.post') as mock_requests_post:
+
+        # Configure mocks to return safe test data
+        mock_db.return_value = MagicMock()
+        mock_redis.return_value = MagicMock()
+        mock_requests.return_value = MagicMock()
+        mock_requests_post.return_value = MagicMock()
+
+        yield {
+            'db': mock_db,
+            'redis': mock_redis,
+            'requests_get': mock_requests,
+            'requests_post': mock_requests_post
+        }
 
 # Import actual implementation classes instead of duplicating logic
 from healthcare_mcp.phi_detection import BasicPHIDetector, apply_replacements_in_reverse
@@ -19,8 +42,17 @@ from healthcare_mcp.phi_detection import BasicPHIDetector, apply_replacements_in
 
 # Shared utility functions for common test patterns
 def create_test_phi_detector():
-    """Create a PHI detector instance for testing"""
-    return BasicPHIDetector()
+    """Create a PHI detector instance for testing with mocked dependencies"""
+    # Create detector with mocked external dependencies
+    detector = BasicPHIDetector()
+
+    # Ensure no external service calls are made during testing
+    if hasattr(detector, 'database_connection'):
+        detector.database_connection = MagicMock()
+    if hasattr(detector, 'redis_connection'):
+        detector.redis_connection = MagicMock()
+
+    return detector
 
 
 def validate_phi_masking_result(result, expected_phi_detected=True, expected_masked_content=None):

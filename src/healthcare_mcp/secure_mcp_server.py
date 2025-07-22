@@ -95,12 +95,31 @@ class HealthcareMCPServer:
         self.phi_detector = PHIDetector() if config.phi_detection_enabled else None
         self.audit_logger = HealthcareAuditLogger(config)
 
+        # Initialize JWT rate limiting
+        self._init_jwt_rate_limiting()
+
         # Validate configuration at startup
         self._validate_startup_configuration()
 
         # Initialize connections
         self._init_database_connections()
         self._init_app()
+
+    def _init_jwt_rate_limiting(self):
+        """Initialize JWT rate limiting for authentication failures"""
+        import time
+        from collections import defaultdict, deque
+
+        # Rate limiting configuration
+        self.jwt_rate_limit_window = int(os.getenv('JWT_RATE_LIMIT_WINDOW', '300'))  # 5 minutes
+        self.jwt_max_failures = int(os.getenv('JWT_MAX_FAILURES', '5'))  # 5 failures per window
+        self.jwt_lockout_duration = int(os.getenv('JWT_LOCKOUT_DURATION', '900'))  # 15 minutes
+
+        # Track failed attempts by IP address
+        self.jwt_failed_attempts = defaultdict(deque)  # IP -> deque of failure timestamps
+        self.jwt_locked_ips = {}  # IP -> lockout expiry timestamp
+
+        self.logger.info(f"JWT rate limiting initialized: {self.jwt_max_failures} failures per {self.jwt_rate_limit_window}s window")
 
     def _validate_startup_configuration(self):
         """Validate critical configuration at startup to prevent runtime failures"""
@@ -210,6 +229,75 @@ class HealthcareMCPServer:
 
         self.logger.info("Production environment requirements validated")
 
+    def _check_jwt_rate_limit(self, client_ip: str) -> bool:
+        """
+        Check if IP is rate limited for JWT authentication failures
+
+        Args:
+            client_ip: Client IP address
+
+        Returns:
+            bool: True if request is allowed, False if rate limited
+        """
+        import time
+
+        current_time = time.time()
+
+        # Check if IP is currently locked out
+        if client_ip in self.jwt_locked_ips:
+            lockout_expiry = self.jwt_locked_ips[client_ip]
+            if current_time < lockout_expiry:
+                remaining_time = int(lockout_expiry - current_time)
+                self.logger.warning(f"JWT rate limit: IP {client_ip} locked out for {remaining_time}s")
+                return False
+            else:
+                # Lockout expired, remove from locked IPs
+                del self.jwt_locked_ips[client_ip]
+                self.logger.info(f"JWT rate limit: Lockout expired for IP {client_ip}")
+
+        # Clean old failure records outside the window
+        if client_ip in self.jwt_failed_attempts:
+            failures = self.jwt_failed_attempts[client_ip]
+            while failures and current_time - failures[0] > self.jwt_rate_limit_window:
+                failures.popleft()
+
+        return True
+
+    def _record_jwt_failure(self, client_ip: str):
+        """
+        Record JWT authentication failure and apply rate limiting
+
+        Args:
+            client_ip: Client IP address
+        """
+        import time
+
+        current_time = time.time()
+
+        # Record the failure
+        self.jwt_failed_attempts[client_ip].append(current_time)
+        failure_count = len(self.jwt_failed_attempts[client_ip])
+
+        self.logger.warning(f"JWT authentication failure recorded for IP {client_ip}: {failure_count}/{self.jwt_max_failures}")
+
+        # Check if rate limit exceeded
+        if failure_count >= self.jwt_max_failures:
+            lockout_expiry = current_time + self.jwt_lockout_duration
+            self.jwt_locked_ips[client_ip] = lockout_expiry
+
+            self.logger.error(f"JWT rate limit exceeded: IP {client_ip} locked out for {self.jwt_lockout_duration}s")
+
+            # Security audit log
+            self.audit_logger.log_security_event(
+                event_type="jwt_rate_limit_exceeded",
+                details={
+                    "client_ip": client_ip,
+                    "failure_count": failure_count,
+                    "lockout_duration": self.jwt_lockout_duration,
+                    "lockout_expiry": lockout_expiry
+                }
+            )
+
     def _init_database_connections(self):
         """Initialize database connections"""
         try:
@@ -297,12 +385,16 @@ class HealthcareMCPServer:
         @self.app.post("/mcp", response_model=MCPResponse)
         async def mcp_endpoint(
             request: MCPRequest,
-            credentials: HTTPAuthorizationCredentials = Depends(security)
+            credentials: HTTPAuthorizationCredentials = Depends(security),
+            client_request: Request = None
         ):
             """Main MCP endpoint with security validation"""
-            
-            # Validate authentication (basic implementation)
-            if not self._validate_credentials(credentials):
+
+            # Get client IP for rate limiting
+            client_ip = self._get_client_ip(client_request) if client_request else "unknown"
+
+            # Validate authentication with rate limiting
+            if not self._validate_credentials(credentials, client_ip):
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             
             # Process MCP request
@@ -320,10 +412,16 @@ class HealthcareMCPServer:
                 return MCPResponse(error=error, id=request.id)
         
         @self.app.get("/tools")
-        async def list_tools(credentials: HTTPAuthorizationCredentials = Depends(security)):
+        async def list_tools(
+            credentials: HTTPAuthorizationCredentials = Depends(security),
+            client_request: Request = None
+        ):
             """List available healthcare tools"""
-            
-            if not self._validate_credentials(credentials):
+
+            # Get client IP for rate limiting
+            client_ip = self._get_client_ip(client_request) if client_request else "unknown"
+
+            if not self._validate_credentials(credentials, client_ip):
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             
             return {
@@ -351,9 +449,43 @@ class HealthcareMCPServer:
                     }
                 ]
             }
-    
-    def _validate_credentials(self, credentials: HTTPAuthorizationCredentials) -> bool:
-        """Validate authentication credentials with secure environment detection and failure logging"""
+
+    def _get_client_ip(self, request: Request) -> str:
+        """
+        Extract client IP address from request with proxy support
+
+        Args:
+            request: FastAPI request object
+
+        Returns:
+            str: Client IP address
+        """
+        # Check for forwarded headers (common with load balancers/proxies)
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            # X-Forwarded-For can contain multiple IPs, take the first one
+            return forwarded_for.split(",")[0].strip()
+
+        # Check for real IP header
+        real_ip = request.headers.get("X-Real-IP")
+        if real_ip:
+            return real_ip.strip()
+
+        # Fall back to direct client IP
+        if hasattr(request, "client") and request.client:
+            return request.client.host
+
+        return "unknown"
+
+    def _validate_credentials(self, credentials: HTTPAuthorizationCredentials, client_ip: str = "unknown") -> bool:
+        """Validate authentication credentials with rate limiting and secure environment detection"""
+        from .environment_detector import EnvironmentDetector
+
+        # Check rate limiting first
+        if not self._check_jwt_rate_limit(client_ip):
+            self.logger.error(f"JWT rate limit exceeded for IP {client_ip}")
+            return False
+
         token = credentials.credentials
         auth_result = False
 
@@ -372,17 +504,18 @@ class HealthcareMCPServer:
             # Testing/staging - use JWT validation for security
             auth_result = self._validate_jwt_token(token)
 
-        # Log authentication failures for security monitoring
+        # Handle authentication failures with rate limiting
         if not auth_result:
             # Extract client info for security logging (without exposing sensitive data)
             token_preview = token[:8] + "..." if len(token) > 8 else "empty"
             self.logger.warning(
-                f"Authentication failed - Token preview: {token_preview}, "
+                f"Authentication failed - IP: {client_ip}, Token preview: {token_preview}, "
                 f"Environment: {os.getenv('ENVIRONMENT', 'unknown')}"
             )
 
-            # TODO: Add rate limiting and IP blocking for repeated failures
-            # TODO: Integrate with security monitoring system
+            # Record failure for rate limiting (only for production/staging JWT failures)
+            if EnvironmentDetector.is_production() or EnvironmentDetector.is_staging():
+                self._record_jwt_failure(client_ip)
 
         return auth_result
 

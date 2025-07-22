@@ -525,14 +525,25 @@ class HealthcareRBACManager:
                 "Implement proper database-backed validation before production use."
             )
 
-        # Check for emergency access conditions before denying access
+        # Check for emergency access conditions first
         emergency_access = self._check_emergency_access(user_id, patient_id)
         if emergency_access:
             return True
 
-        # TODO: Replace with actual patient assignment implementation
-        self.logger.warning("Using placeholder patient assignment in production - implement proper logic")
-        # For now, deny access in production even with feature flag until real implementation
+        # Check if we have a real patient assignment implementation
+        if self._has_real_patient_assignment_implementation():
+            return self._validate_real_patient_assignment(user_id, patient_id)
+
+        # Check for basic production patient assignment patterns
+        basic_assignment = self._check_basic_patient_assignment(user_id, patient_id)
+        if basic_assignment:
+            return True
+
+        # Log warning about placeholder implementation
+        self.logger.warning(f"Production patient assignment validation incomplete for user {user_id} -> patient {patient_id}")
+        self.logger.warning("Consider implementing proper patient assignment validation or enabling emergency access")
+
+        # For production safety, deny access by default but provide clear guidance
         return False
 
     def _has_real_patient_assignment_implementation(self) -> bool:
@@ -550,6 +561,50 @@ class HealthcareRBACManager:
         # - Implementation completeness markers
 
         # For now, always return False to indicate placeholder implementation
+        return False
+
+    def _check_basic_patient_assignment(self, user_id: str, patient_id: str) -> bool:
+        """
+        Check basic patient assignment patterns for production use
+
+        This provides a basic implementation for production environments where
+        full patient assignment validation is not yet implemented but some
+        access control is needed.
+
+        Args:
+            user_id: User identifier
+            patient_id: Patient identifier
+
+        Returns:
+            bool: True if basic assignment criteria are met
+        """
+        # Check for basic assignment patterns via environment variables
+        # This allows for simple production deployment while proper implementation is developed
+
+        # Pattern 1: Explicit user-patient assignments
+        assignments = os.getenv('RBAC_BASIC_ASSIGNMENTS', '')
+        if assignments:
+            # Format: "user1:patient1,user1:patient2,user2:patient3"
+            assignment_pairs = [pair.strip() for pair in assignments.split(',') if pair.strip()]
+            user_patient_pair = f"{user_id}:{patient_id}"
+
+            if user_patient_pair in assignment_pairs:
+                self.logger.info(f"Basic assignment found: {user_id} -> {patient_id}")
+                return True
+
+        # Pattern 2: Role-based access (all users with specific roles can access all patients)
+        admin_roles = os.getenv('RBAC_ADMIN_ROLES', '').split(',')
+        user_roles = self._get_user_roles(user_id)
+
+        if any(role.strip() in admin_roles for role in user_roles if role.strip()):
+            self.logger.info(f"Admin role access granted: {user_id} -> {patient_id}")
+            return True
+
+        # Pattern 3: Same organization access (if both user and patient are in same org)
+        if self._check_same_organization_access(user_id, patient_id):
+            self.logger.info(f"Same organization access granted: {user_id} -> {patient_id}")
+            return True
+
         return False
 
     def _validate_development_patient_assignment(self, user_id: str, patient_id: str) -> bool:
@@ -571,6 +626,69 @@ class HealthcareRBACManager:
         else:
             self.logger.debug(f"DEV MODE: Denying patient access {user_id} -> {patient_id}")
             return False
+
+    def _validate_real_patient_assignment(self, user_id: str, patient_id: str) -> bool:
+        """
+        Validate patient assignment using real implementation
+
+        This method should be implemented when proper patient assignment
+        validation is available (e.g., database-backed, external service, etc.)
+
+        Args:
+            user_id: User identifier
+            patient_id: Patient identifier
+
+        Returns:
+            bool: True if user has access to patient
+        """
+        # TODO: Implement actual patient assignment validation
+        # This could include:
+        # - Database queries for patient-provider relationships
+        # - Care team membership validation
+        # - Specialty-based access rules
+        # - Time-based access (e.g., on-call schedules)
+        # - Geographic restrictions
+
+        self.logger.info(f"Real patient assignment validation for {user_id} -> {patient_id}")
+
+        # Placeholder for real implementation
+        return False
+
+    def _get_user_roles(self, user_id: str) -> List[str]:
+        """
+        Get user roles for basic role-based access control
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            List[str]: List of user roles
+        """
+        # TODO: Implement actual role retrieval
+        # For now, check environment variable for testing
+        user_roles_env = os.getenv(f'RBAC_USER_ROLES_{user_id.upper()}', '')
+        return [role.strip() for role in user_roles_env.split(',') if role.strip()]
+
+    def _check_same_organization_access(self, user_id: str, patient_id: str) -> bool:
+        """
+        Check if user and patient belong to the same organization
+
+        Args:
+            user_id: User identifier
+            patient_id: Patient identifier
+
+        Returns:
+            bool: True if same organization
+        """
+        # TODO: Implement actual organization checking
+        # For now, use environment variables for basic implementation
+        user_org = os.getenv(f'RBAC_USER_ORG_{user_id.upper()}', '')
+        patient_org = os.getenv(f'RBAC_PATIENT_ORG_{patient_id.upper()}', '')
+
+        if user_org and patient_org and user_org == patient_org:
+            return True
+
+        return False
 
     def _check_emergency_access(self, user_id: str, patient_id: str) -> bool:
         """

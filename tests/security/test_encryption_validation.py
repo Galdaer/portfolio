@@ -27,11 +27,11 @@ class TestEncryptionValidation:
             short_key = base64.urlsafe_b64encode(b'short').decode()
             test_config = {"MASTER_ENCRYPTION_KEY": short_key}
 
-            # Use configuration injection instead of mocking private methods
+            # Use configuration injection and public interface instead of private methods
             manager = HealthcareEncryptionManager(self.mock_factory, config=test_config)
 
-            with pytest.raises(ValueError, match="does not meet security requirements"):
-                manager.key_manager._get_or_create_master_key()
+            with pytest.raises(ValueError, match="length error"):
+                manager.key_manager.validate_master_key_config(test_config)
     
     def test_master_key_length_validation_minimum_valid(self):
         """Test master key minimum length validation - exactly 32 bytes using configuration injection"""
@@ -40,10 +40,12 @@ class TestEncryptionValidation:
             valid_key = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
             test_config = {"MASTER_ENCRYPTION_KEY": valid_key}
 
-            # Use configuration injection instead of mocking private methods
+            # Use configuration injection and public interface instead of private methods
             manager = HealthcareEncryptionManager(self.mock_factory, config=test_config)
-            result = manager.key_manager._get_or_create_master_key()
-            assert len(result) == 32
+
+            # Test through public interface - should not raise exception
+            is_valid = manager.key_manager.validate_master_key_config(test_config)
+            assert is_valid is True
     
     def test_master_key_entropy_validation_low_entropy(self):
         """Test master key entropy validation - low entropy key"""

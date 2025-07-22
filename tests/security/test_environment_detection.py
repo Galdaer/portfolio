@@ -208,6 +208,9 @@ class TestEnvironmentDetectorIntegration:
         # Test actual behavior by setting up conditions that trigger fallback
         # Remove ENVIRONMENT variable to trigger fallback behavior
         with patch.dict(os.environ, {}, clear=True):
+            # Clear any previous log records
+            caplog.clear()
+
             # Call public interface methods to test actual behavior
             result = EnvironmentDetector.is_production()
 
@@ -219,10 +222,21 @@ class TestEnvironmentDetectorIntegration:
             assert EnvironmentDetector.is_testing() is False
             assert EnvironmentDetector.is_staging() is False
 
+            # Verify that appropriate warning messages are logged
+            warning_messages = [record.message for record in caplog.records if record.levelname == "WARNING"]
+            error_messages = [record.message for record in caplog.records if record.levelname == "ERROR"]
+
+            # Should log warnings about environment detection issues
+            assert any("Environment could not be determined" in msg for msg in warning_messages + error_messages), \
+                f"Expected environment warning not found in logs: {warning_messages + error_messages}"
+
     def test_production_fallback_with_logging_verification(self, caplog):
         """Test that production fallback logs appropriate warnings with detailed verification"""
         # Test actual behavior without mocking internal methods
         with patch.dict(os.environ, {}, clear=True):
+            # Clear any previous log records
+            caplog.clear()
+
             # Test multiple public interface calls to verify consistent behavior
             result1 = EnvironmentDetector.is_production()
             result2 = EnvironmentDetector.get_environment()
@@ -231,9 +245,17 @@ class TestEnvironmentDetectorIntegration:
             assert result1 is True
             assert result2 == Environment.PRODUCTION
 
-            # Verify logging behavior through public interface
-            # The actual logging happens in the implementation, we test the behavior
-            assert EnvironmentDetector.is_production() is True
+            # Verify comprehensive logging behavior
+            all_log_messages = [record.message for record in caplog.records]
+            warning_messages = [record.message for record in caplog.records if record.levelname == "WARNING"]
+            error_messages = [record.message for record in caplog.records if record.levelname == "ERROR"]
+
+            # Verify specific warning messages are logged during production fallback
+            assert any("Falling back to production mode" in msg for msg in warning_messages + error_messages), \
+                f"Expected production fallback warning not found in logs: {all_log_messages}"
+
+            # Verify that the fallback behavior is logged appropriately
+            assert len(caplog.records) > 0, "Expected logging during environment detection fallback"
 
 
 class TestEnvironmentDetectorBehavior:

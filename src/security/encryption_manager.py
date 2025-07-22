@@ -190,26 +190,32 @@ class KeyManager:
             import string
             valid_chars = string.ascii_letters + string.digits + '-_='
             if not all(c in valid_chars for c in master_key):
-                self.logger.error("MASTER_ENCRYPTION_KEY contains invalid base64 characters")
-                raise ValueError("MASTER_ENCRYPTION_KEY format is invalid")
+                invalid_chars = [c for c in master_key if c not in valid_chars]
+                self.logger.error(f"MASTER_ENCRYPTION_KEY contains invalid base64 characters: {invalid_chars}")
+                raise ValueError("MASTER_ENCRYPTION_KEY format error: Contains invalid base64 characters")
 
             # Attempt base64 decoding
             decoded_key = base64.urlsafe_b64decode(master_key.encode())
 
+        except ValueError as ve:
+            # Specific base64 decoding error
+            self.logger.error(f"MASTER_ENCRYPTION_KEY base64 decoding failed: {ve}")
+            raise ValueError("MASTER_ENCRYPTION_KEY format error: Invalid base64 encoding")
         except Exception as e:
-            self.logger.error(f"MASTER_ENCRYPTION_KEY base64 decoding failed: {e}")
-            raise ValueError("MASTER_ENCRYPTION_KEY format is invalid")
+            # Other decoding errors
+            self.logger.error(f"MASTER_ENCRYPTION_KEY validation failed during decoding: {e}")
+            raise ValueError("MASTER_ENCRYPTION_KEY format error: Decoding failed")
 
         # Step 2: Validate key length
         if len(decoded_key) < self.MIN_KEY_LENGTH:
             self.logger.error(f"MASTER_ENCRYPTION_KEY validation failed: length {len(decoded_key)} bytes, required minimum {self.MIN_KEY_LENGTH} bytes")
-            raise ValueError("MASTER_ENCRYPTION_KEY does not meet security requirements")
+            raise ValueError(f"MASTER_ENCRYPTION_KEY length error: Key is {len(decoded_key)} bytes, minimum required is {self.MIN_KEY_LENGTH} bytes")
 
         # Step 3: Validate key entropy
         entropy = self._calculate_entropy(decoded_key)
         if entropy < self.MIN_ENTROPY_THRESHOLD:
             self.logger.error(f"MASTER_ENCRYPTION_KEY validation failed: entropy {entropy:.2f}, required minimum {self.MIN_ENTROPY_THRESHOLD}")
-            raise ValueError("MASTER_ENCRYPTION_KEY does not meet security requirements")
+            raise ValueError(f"MASTER_ENCRYPTION_KEY entropy error: Key entropy is {entropy:.2f}, minimum required is {self.MIN_ENTROPY_THRESHOLD}")
 
         self.logger.info(f"Master key validated: {len(decoded_key)} bytes, entropy: {entropy:.2f}")
         return decoded_key
@@ -317,6 +323,30 @@ class KeyManager:
             return secrets.token_bytes(32)
 
         return key
+
+    def validate_master_key_config(self, config: Dict[str, Any]) -> bool:
+        """
+        Public method to validate master key configuration
+
+        This method provides a public interface for testing key validation
+        without exposing private implementation details.
+
+        Args:
+            config: Configuration dictionary containing MASTER_ENCRYPTION_KEY
+
+        Returns:
+            bool: True if key is valid
+
+        Raises:
+            ValueError: If key validation fails
+        """
+        master_key = config.get("MASTER_ENCRYPTION_KEY")
+        if not master_key:
+            raise ValueError("MASTER_ENCRYPTION_KEY not found in configuration")
+
+        # Use the existing validation logic
+        validated_key = self._validate_master_key(master_key)
+        return len(validated_key) >= self.MIN_KEY_LENGTH
 
     def generate_secure_key(self) -> str:
         """Generate a secure base64-encoded key for configuration"""
