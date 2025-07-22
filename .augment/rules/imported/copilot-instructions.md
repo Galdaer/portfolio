@@ -424,3 +424,58 @@ make lint && make validate && echo "✅ Ready for submission"
 ```
 
 **All remote agent tasks must include this validation workflow in success criteria.**
+
+### Remote Agent Environment Setup Requirements
+
+#### CI Environment Variables
+Remote agents must set these environment variables for proper operation:
+```bash
+export ENVIRONMENT=development
+export CI=true
+```
+
+#### Required Dependencies for Remote Agents
+Remote agents operating in CI environments need these additional packages:
+
+**System packages (install with apt/dnf/pacman):**
+- `lsof` - Process monitoring for validation scripts
+- `socat` - Network utilities for service testing  
+- `wireguard-tools` - VPN functionality testing
+
+**Python packages (install with uv, fallback to pip):**
+- `flake8` - Python linting for healthcare AI code
+- `mypy` - Type checking for security-critical code
+- `pytest` - Testing framework for validation
+- `yamllint` - YAML configuration validation
+
+#### Remote Agent Setup Pattern
+```bash
+# Set CI environment
+export ENVIRONMENT=development CI=true
+
+# Install system dependencies
+sudo apt update
+sudo apt install -y lsof socat wireguard-tools
+
+# Install Python tools with uv (preferred) or pip (fallback)
+if command -v uv >/dev/null 2>&1; then
+    uv pip install --system flake8 mypy pytest yamllint
+else
+    pip install --user flake8 mypy pytest yamllint
+fi
+
+# Verify installation
+make lint && make validate
+```
+
+#### Dependency Installation Priority
+1. **Use uv for Python packages** (10-100x faster than pip)
+2. **Fallback to pip** if uv unavailable
+3. **Install system packages** via native package manager
+4. **Always verify** with `make lint && make validate`
+
+#### Remote Agent Pre-flight Checklist
+- [ ] Environment variables set (`ENVIRONMENT=development`, `CI=true`)
+- [ ] System dependencies installed (`lsof`, `socat`, `wireguard-tools`)
+- [ ] Python linting tools available (`flake8`, `mypy`)
+- [ ] Validation passes (`make lint && make validate`)
