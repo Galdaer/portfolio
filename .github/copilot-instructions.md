@@ -265,3 +265,42 @@ Co-designed by father-son team (Jeffrey & Justin Sue) for real-world clinical wo
 4. **Memory Issues**: Processing large datasets without batching
 5. **Undocumented Security**: Security choices without rationale
 6. **Environment Confusion**: Same restrictive behavior in dev and production
+
+### Code Quality and Maintainability Patterns
+
+#### Constant Extraction Guidelines
+- **Extract repeated strings** to named constants, especially error messages
+- **Pattern**: `ERROR_MSG_CANNOT_DETERMINE_ENVIRONMENT = "Cannot determine environment"`
+- **Location**: Define constants at module level or in dedicated constants file
+- **Benefits**: Consistency, easier maintenance, better testing
+
+#### Documentation Enhancement Standards
+- **Technical explanations**: Always explain WHY, not just WHAT
+- **Include examples** for complex algorithms (especially index manipulation)
+- **Pattern**: `# Example: If we replace "123" first, then "456", indices shift...`
+- **Compliance context**: Explain regulatory/standards compliance (NANP, HIPAA, etc.)
+
+#### Feature Flag Implementation
+- **Production readiness**: Use feature flags for incomplete production features
+- **Pattern**: `if os.getenv('FEATURE_ENABLE_X', 'false').lower() != 'true':`
+- **Default to disabled**: Always default to safe/disabled state
+- **Clear naming**: Use descriptive environment variable names
+
+#### Security Monitoring Integration
+- **Log security events**: Authentication failures, access attempts, etc.
+- **Pattern**: `self.logger.warning("Failed authentication attempt in production")`
+- **Return proper values**: Don't just return validation results, handle logging first
+- **Audit trail**: Ensure all security-relevant actions are logged
+
+#### Performance Monitoring Guidelines
+- **Log performance metrics**: When batching, caching, or optimization is used
+- **Pattern**: `logger.info(f"Batching enabled: Total items={len(items)}, Batch size={batch_size}")`
+- **Debug details**: Use debug level for detailed batch processing info
+- **Cache monitoring**: Track cache hit rates and effectiveness
+
+### Anti-Patterns to Avoid
+1. **Hardcoded error messages** → Extract to constants
+2. **Unexplained complex logic** → Add examples and reasoning
+3. **Missing compliance context** → Explain regulatory requirements
+4. **Silent security failures** → Log all security events
+5. **Unmonitored optimizations** → Add performance logging

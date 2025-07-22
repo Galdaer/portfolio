@@ -254,3 +254,37 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 ## Family-Built Heritage
 
 Co-designed by father-son team (Jeffrey & Justin Sue) for real-world clinical workflows, ensuring practical applicability and healthcare industry expertise.
+
+### Code Quality Enhancement Patterns
+
+#### String Constant Management
+- **ALWAYS extract repeated error messages** to named constants
+- **Use descriptive constant names** that explain the context
+- **Group related constants** in dedicated sections or files
+
+#### Technical Documentation Standards
+- **Complex algorithms MUST include examples** showing edge cases
+- **Explain compliance rationale** (NANP standards, HIPAA requirements)
+- **Document WHY technical decisions were made**, not just what they do
+
+#### Feature Flag Best Practices
+- **Incomplete production features** must use feature flags
+- **Default to safe/disabled state** in production
+- **Use environment variables** for feature flag control
+- **Clear error messages** when features are disabled
+
+#### Security Event Logging
+- **ALL authentication events** must be logged (success and failure)
+- **Use appropriate log levels** (warning for failures, info for success)
+- **Include context** in log messages (environment, user info when available)
+
+#### Performance Monitoring Requirements
+- **Optimization features** (batching, caching) must include performance logging
+- **Log when optimizations are triggered** with relevant metrics
+- **Use debug level** for detailed performance information
+- **Monitor effectiveness** of caches and optimizations
+
+### Reference Implementation Patterns
+- See existing code for constant extraction patterns
+- Follow environment detection patterns for feature flags
+- Use structured logging for security and performance events
