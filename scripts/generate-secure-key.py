@@ -15,22 +15,21 @@ def main():
         from security.encryption_manager import HealthcareEncryptionManager
         from security.environment_detector import EnvironmentDetector, Environment
         from security.database_factory import MockConnectionFactory
-        
+
         # Ensure we're in development
         EnvironmentDetector.require_environment(Environment.DEVELOPMENT)
-        
+
         print("🔐 Intelluxe AI Secure Key Generator")
         print("=" * 40)
         print()
-        
+
         # Create encryption manager with mock connection for key generation
         mock_factory = MockConnectionFactory()
         manager = HealthcareEncryptionManager(mock_factory)
-        
+
         # Generate secure key
         print("Generating secure encryption key...")
         secure_key = manager.generate_secure_key()
-        
         print("✅ Generated secure encryption key:")
         print()
         print(f"MASTER_ENCRYPTION_KEY={secure_key}")
@@ -44,11 +43,10 @@ def main():
         print("   Generate separate keys for staging and production environments")
         print()
         print("🔒 Key Properties:")
-        print(f"   - Length: 32 bytes (256 bits)")
-        print(f"   - Encoding: Base64 URL-safe")
-        print(f"   - Entropy: High (cryptographically secure)")
-        print(f"   - Algorithm: AES-256 compatible")
-        
+        print("   - Length: 32 bytes (256 bits)")
+        print("   - Encoding: Base64 URL-safe")
+        print("   - Entropy: High (cryptographically secure)")
+        print("   - Algorithm: AES-256 compatible")
     except ImportError as e:
         print(f"Error: Missing dependencies - {e}", file=sys.stderr)
         print("Make sure you're running from the project root directory", file=sys.stderr)

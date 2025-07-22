@@ -463,7 +463,7 @@ generate_validation_report() {
 
 - **Critical Failures:** $CRITICAL_FAILURES
 - **Warnings:** $WARNINGS
-- **Overall Status:** $([ $CRITICAL_FAILURES -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")
+- **Overall Status:** $([ "$CRITICAL_FAILURES" -eq 0 ] && echo "✅ PASSED" || echo "❌ FAILED")
 
 ## Validation Results
 
@@ -496,12 +496,12 @@ $(validate_ci_cd_pipeline 2>&1 | sed 's/^/- /')
 
 ## Recommendations
 
-$([ $CRITICAL_FAILURES -gt 0 ] && echo "### Critical Issues
+$([ "$CRITICAL_FAILURES" -gt 0 ] && echo "### Critical Issues
 - Address all critical failures before proceeding with development
 - Ensure all required dependencies are installed
 - Verify database and service connections")
 
-$([ $WARNINGS -gt 0 ] && echo "### Warnings
+$([ "$WARNINGS" -gt 0 ] && echo "### Warnings
 - Review and address warnings for optimal development experience
 - Install recommended development tools
 - Configure optional but beneficial components")
@@ -585,7 +585,7 @@ main() {
     log_info "Critical Failures: $CRITICAL_FAILURES"
     log_info "Warnings: $WARNINGS"
     
-    if [ $CRITICAL_FAILURES -eq 0 ]; then
+    if [ "$CRITICAL_FAILURES" -eq 0 ]; then
         log_success "✅ Healthcare AI development environment validation PASSED"
         echo
         log_info "Your development environment is ready for healthcare AI development!"

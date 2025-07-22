@@ -41,8 +41,8 @@ fix_service_file() {
   fi
   
   # Fix EnvironmentFile path if it uses ${CFG_ROOT}
-  if grep -q 'EnvironmentFile=.*\${CFG_ROOT}' "$service_file"; then
-    sed -i 's|EnvironmentFile=-\${CFG_ROOT}|EnvironmentFile=-/opt/intelluxe/stack|g' "$service_file"
+  if grep -q "EnvironmentFile=.*\${CFG_ROOT}" "$service_file"; then
+    sed -i "s|EnvironmentFile=-\${CFG_ROOT}|EnvironmentFile=-/opt/intelluxe/stack|g" "$service_file"
     echo "  Fixed EnvironmentFile path in $service_file"
   fi
   
