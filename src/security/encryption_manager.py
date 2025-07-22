@@ -23,6 +23,8 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import psycopg2
 
+from .environment_detector import EnvironmentDetector
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -142,7 +144,7 @@ class KeyManager:
         return config
 
     def _get_or_create_master_key(self) -> bytes:
-        """Load or generate master encryption key"""
+        """Load or generate master encryption key with secure environment detection"""
         # Load configuration from secure source
         config = self._load_configuration()
         master_key = config.get("MASTER_ENCRYPTION_KEY")
@@ -150,15 +152,18 @@ class KeyManager:
         if master_key:
             return base64.urlsafe_b64decode(master_key.encode())
 
-        # Check configuration to determine if key generation is allowed
-        if config.get("ENVIRONMENT", "development").lower() == "production":
+        # Use secure environment detection
+        if EnvironmentDetector.is_production():
             self.logger.error("MASTER_ENCRYPTION_KEY is not set in production environment")
             raise RuntimeError("MASTER_ENCRYPTION_KEY must be set in production")
 
-        # Generate new master key (for development only)
-        master_key = Fernet.generate_key()
-        self.logger.warning("Generated new master key - store securely for production")
-        return master_key
+        # Only allow key generation in development
+        if not EnvironmentDetector.is_development():
+            raise RuntimeError("Key generation only allowed in development environment")
+
+        # Generate key for development only
+        self.logger.warning("Generating master key for development - NOT FOR PRODUCTION")
+        return Fernet.generate_key()
     
     def generate_key(self, encryption_level: EncryptionLevel, 
                     key_type: KeyType = KeyType.SYMMETRIC) -> EncryptionKey:

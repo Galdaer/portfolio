@@ -19,6 +19,8 @@ import psycopg2
 import redis
 import requests
 import jwt
+
+from ..security.environment_detector import EnvironmentDetector
 from pydantic import BaseModel, Field
 
 from .phi_detection import PHIDetector
@@ -237,18 +239,20 @@ class HealthcareMCPServer:
             }
     
     def _validate_credentials(self, credentials: HTTPAuthorizationCredentials) -> bool:
-        """Validate authentication credentials with proper JWT validation"""
+        """Validate authentication credentials with secure environment detection"""
         token = credentials.credentials
-        environment = os.getenv("ENVIRONMENT", "development").lower()
 
-        if environment == "production":
+        if EnvironmentDetector.is_production():
             return self._validate_jwt_token(token)
-        else:
+        elif EnvironmentDetector.is_development():
             # Development mode - basic validation with warning
             if len(token) > 0:
                 self.logger.warning("Using basic token validation - NOT SUITABLE FOR PRODUCTION")
                 return True
             return False
+        else:
+            # Testing/staging - use JWT validation for security
+            return self._validate_jwt_token(token)
 
     def _validate_jwt_token(self, token: str) -> bool:
         """Validate JWT token for production use"""

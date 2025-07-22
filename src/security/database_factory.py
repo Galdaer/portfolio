@@ -1,0 +1,207 @@
+"""
+Database Connection Factory
+Provides testable database connection management with dependency injection
+"""
+
+import logging
+from abc import ABC, abstractmethod
+from typing import Protocol, Optional, Any
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+from .environment_detector import EnvironmentDetector
+
+logger = logging.getLogger(__name__)
+
+
+class DatabaseConnection(Protocol):
+    """Database connection protocol for type safety"""
+    
+    def cursor(self, cursor_factory=None): ...
+    def commit(self): ...
+    def rollback(self): ...
+    def close(self): ...
+    def closed(self) -> int: ...
+
+
+class ConnectionFactory(ABC):
+    """Abstract connection factory for dependency injection"""
+    
+    @abstractmethod
+    def create_connection(self) -> DatabaseConnection:
+        """Create database connection"""
+        pass
+    
+    @abstractmethod
+    def get_connection_info(self) -> dict:
+        """Get connection information for logging/debugging"""
+        pass
+
+
+class PostgresConnectionFactory(ConnectionFactory):
+    """PostgreSQL connection factory with environment-aware configuration"""
+    
+    def __init__(self, connection_string: Optional[str] = None, **kwargs):
+        """
+        Initialize PostgreSQL connection factory
+        
+        Args:
+            connection_string: Full PostgreSQL connection string
+            **kwargs: Individual connection parameters (host, port, database, etc.)
+        """
+        self.connection_string = connection_string
+        self.connection_params = kwargs
+        self.logger = logging.getLogger(f"{__name__}.PostgresConnectionFactory")
+        
+        # Validate configuration based on environment
+        self._validate_configuration()
+    
+    def _validate_configuration(self):
+        """Validate connection configuration based on environment"""
+        if EnvironmentDetector.is_production():
+            # Production requires secure connection parameters
+            if not self.connection_string and not self.connection_params:
+                raise RuntimeError("Database connection parameters required in production")
+            
+            # Check for secure connection requirements
+            if self.connection_string:
+                if "sslmode=require" not in self.connection_string.lower():
+                    self.logger.warning("SSL not explicitly required in production connection string")
+            elif self.connection_params:
+                if self.connection_params.get("sslmode") != "require":
+                    self.logger.warning("SSL not explicitly required in production connection params")
+    
+    def create_connection(self) -> DatabaseConnection:
+        """Create PostgreSQL database connection"""
+        try:
+            if self.connection_string:
+                connection = psycopg2.connect(self.connection_string)
+            else:
+                # Use individual parameters with secure defaults
+                params = self._get_secure_connection_params()
+                connection = psycopg2.connect(**params)
+            
+            # Set connection properties based on environment
+            connection.autocommit = False
+            
+            self.logger.info("Database connection established successfully")
+            return connection
+            
+        except psycopg2.Error as e:
+            self.logger.error(f"Failed to create database connection: {e}")
+            raise RuntimeError(f"Database connection failed: {e}")
+    
+    def _get_secure_connection_params(self) -> dict:
+        """Get secure connection parameters with environment-specific defaults"""
+        env_config = EnvironmentDetector.get_environment_config()
+        
+        # Base parameters with secure defaults
+        params = {
+            "host": self.connection_params.get("host", "localhost"),
+            "port": self.connection_params.get("port", 5432),
+            "database": self.connection_params.get("database", "intelluxe"),
+            "user": self.connection_params.get("user"),
+            "password": self.connection_params.get("password"),
+            "connect_timeout": self.connection_params.get("connect_timeout", 10),
+            "application_name": "intelluxe-healthcare"
+        }
+        
+        # Environment-specific security settings
+        if EnvironmentDetector.is_production():
+            params.update({
+                "sslmode": self.connection_params.get("sslmode", "require"),
+                "sslcert": self.connection_params.get("sslcert"),
+                "sslkey": self.connection_params.get("sslkey"),
+                "sslrootcert": self.connection_params.get("sslrootcert")
+            })
+        elif EnvironmentDetector.is_development():
+            params.update({
+                "sslmode": self.connection_params.get("sslmode", "prefer")
+            })
+        
+        # Remove None values
+        return {k: v for k, v in params.items() if v is not None}
+    
+    def get_connection_info(self) -> dict:
+        """Get connection information for logging/debugging"""
+        if self.connection_string:
+            # Parse connection string for safe logging (remove password)
+            safe_string = self.connection_string
+            if "password=" in safe_string.lower():
+                import re
+                safe_string = re.sub(r'password=[^\s;]+', 'password=***', safe_string, flags=re.IGNORECASE)
+            return {"connection_string": safe_string}
+        else:
+            safe_params = self.connection_params.copy()
+            if "password" in safe_params:
+                safe_params["password"] = "***"
+            return {"connection_params": safe_params}
+
+
+class MockConnectionFactory(ConnectionFactory):
+    """Mock connection factory for testing"""
+    
+    def __init__(self, mock_connection=None):
+        self.mock_connection = mock_connection
+        self.logger = logging.getLogger(f"{__name__}.MockConnectionFactory")
+    
+    def create_connection(self) -> DatabaseConnection:
+        """Return mock connection for testing"""
+        if self.mock_connection:
+            return self.mock_connection
+        
+        # Create a simple mock connection
+        from unittest.mock import Mock
+        mock_conn = Mock()
+        mock_conn.cursor.return_value.__enter__.return_value = Mock()
+        mock_conn.cursor.return_value.__exit__.return_value = None
+        mock_conn.closed = 0
+        return mock_conn
+    
+    def get_connection_info(self) -> dict:
+        """Get mock connection info"""
+        return {"type": "mock", "connection": "test"}
+
+
+class ConnectionManager:
+    """Manages database connections with proper lifecycle"""
+    
+    def __init__(self, connection_factory: ConnectionFactory):
+        self.connection_factory = connection_factory
+        self._connection: Optional[DatabaseConnection] = None
+        self.logger = logging.getLogger(f"{__name__}.ConnectionManager")
+    
+    @property
+    def connection(self) -> DatabaseConnection:
+        """Get database connection (lazy loading with health check)"""
+        if self._connection is None or self._is_connection_closed():
+            self._connection = self.connection_factory.create_connection()
+        return self._connection
+    
+    def _is_connection_closed(self) -> bool:
+        """Check if connection is closed"""
+        if self._connection is None:
+            return True
+        try:
+            return self._connection.closed != 0
+        except Exception:
+            return True
+    
+    def close(self):
+        """Close database connection"""
+        if self._connection and not self._is_connection_closed():
+            try:
+                self._connection.close()
+                self.logger.info("Database connection closed")
+            except Exception as e:
+                self.logger.warning(f"Error closing database connection: {e}")
+            finally:
+                self._connection = None
+    
+    def __enter__(self):
+        """Context manager entry"""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit"""
+        self.close()

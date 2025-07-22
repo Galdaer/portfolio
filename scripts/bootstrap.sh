@@ -73,6 +73,27 @@
 
 set -euo pipefail
 
+# Environment validation (CRITICAL SECURITY)
+validate_environment() {
+    if [[ -z "${ENVIRONMENT:-}" ]]; then
+        echo "ERROR: ENVIRONMENT variable must be set for security"
+        echo "Valid values: development, testing, staging, production"
+        echo "Example: export ENVIRONMENT=development"
+        exit 1
+    fi
+
+    case "${ENVIRONMENT}" in
+        development|testing|staging|production)
+            echo "✅ Environment validated: ${ENVIRONMENT}"
+            ;;
+        *)
+            echo "ERROR: Invalid ENVIRONMENT value: ${ENVIRONMENT}"
+            echo "Valid values: development, testing, staging, production"
+            exit 1
+            ;;
+    esac
+}
+
 SCRIPT_VERSION="1.0.0"
 # Self-update URL for automatic updates feature
 SELF_UPDATE_URL="https://raw.githubusercontent.com/Intelluxe-AI/intelluxe-core/main/scripts/bootstrap.sh"
@@ -3076,6 +3097,9 @@ use_rolling_restarts_in_main() {
 
 # Entry point for the script
 main() {
+	# CRITICAL: Validate environment before any operations
+	validate_environment
+
 	print_banner
 
 	if ! $NON_INTERACTIVE && ! $FORCE_DEFAULTS; then
