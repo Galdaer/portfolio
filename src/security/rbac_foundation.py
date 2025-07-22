@@ -434,8 +434,26 @@ class HealthcareRBACManager:
             self.logger.error(f"Permission check failed for user {user_id}: {e}")
             self._log_access_attempt(user_id, permission, resource_type, resource_id, False, context)
             return False
-    
-    def _check_resource_constraints(self, role: Role, resource_type: ResourceType, 
+
+    def is_user_assigned_to_patient(self, user_id: str, patient_id: str) -> bool:
+        """Check if user is assigned to specific patient"""
+        # TODO: Replace with actual database/service lookup
+        # For now, implement basic validation logic
+
+        # Example implementation - replace with actual assignment service
+        try:
+            # This should query your patient assignment database/service
+            # assignments = self.assignment_service.get_user_assignments(user_id)
+            # return patient_id in assignments
+
+            # Temporary implementation - log and deny for security
+            self.logger.warning(f"Patient assignment check not fully implemented - denying access to patient {patient_id} for user {user_id}")
+            return False
+        except Exception as e:
+            self.logger.error(f"Error checking patient assignment: {e}")
+            return False
+
+    def _check_resource_constraints(self, role: Role, resource_type: ResourceType,
                                   resource_id: str, context: Optional[Dict[str, Any]]) -> bool:
         """Check resource-specific constraints"""
         constraints = role.resource_constraints.get(resource_type, {})
@@ -445,15 +463,19 @@ class HealthcareRBACManager:
         
         # Check assigned patients only constraint
         if constraints.get("assigned_patients_only") and resource_type == ResourceType.PATIENT:
-            # TODO: Implement actual patient assignment check
-            if self.STRICT_MODE:
-                # Deny access in strict mode to maintain security
-                self.logger.warning(f"Patient access denied - assignment check not implemented for patient {resource_id}")
+            # Check if the user is assigned to the patient
+            user_id = context.get("user_id") if context else None
+            if not user_id:
+                self.logger.warning("No user_id provided in context for patient assignment check")
                 return False
-            else:
-                # Allow access in non-strict mode but log a warning for audit
-                self.logger.warning(f"Patient access granted in non-strict mode - assignment check not implemented for patient {resource_id}")
-                return True
+
+            if not self.is_user_assigned_to_patient(user_id, resource_id):
+                self.logger.warning(f"Patient access denied - user {user_id} is not assigned to patient {resource_id}")
+                return False
+
+            # User is assigned to the patient, allow access
+            self.logger.info(f"Patient access granted - user {user_id} is assigned to patient {resource_id}")
+            return True
 
         # Check anonymized data only constraint
         if constraints.get("anonymized_only") and resource_type == ResourceType.RESEARCH_DATA:

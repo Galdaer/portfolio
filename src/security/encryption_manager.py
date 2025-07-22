@@ -111,17 +111,47 @@ class KeyManager:
         except Exception as e:
             self.logger.error(f"Failed to initialize key tables: {e}")
             raise
-    
+
+    def _load_configuration(self) -> Dict[str, Any]:
+        """Load configuration from secure source"""
+        # Priority order: config file -> environment -> defaults
+        config = {}
+
+        # Try to load from secure config file first
+        config_paths = [
+            "/etc/intelluxe/config.json",
+            "/opt/intelluxe/config/security.json",
+            os.path.expanduser("~/.intelluxe/config.json")
+        ]
+
+        for config_path in config_paths:
+            if os.path.exists(config_path):
+                try:
+                    with open(config_path, 'r') as f:
+                        file_config = json.load(f)
+                        config.update(file_config)
+                        self.logger.info(f"Loaded configuration from {config_path}")
+                        break
+                except Exception as e:
+                    self.logger.warning(f"Failed to load config from {config_path}: {e}")
+
+        # Fallback to environment variables
+        config.setdefault("ENVIRONMENT", os.getenv("ENVIRONMENT", "development"))
+        config.setdefault("MASTER_ENCRYPTION_KEY", os.getenv("MASTER_ENCRYPTION_KEY"))
+
+        return config
+
     def _get_or_create_master_key(self) -> bytes:
-        """Get or create master key for key encryption"""
-        master_key_env = os.getenv("MASTER_ENCRYPTION_KEY")
+        """Load or generate master encryption key"""
+        # Load configuration from secure source
+        config = self._load_configuration()
+        master_key = config.get("MASTER_ENCRYPTION_KEY")
 
-        if master_key_env:
-            return base64.urlsafe_b64decode(master_key_env.encode())
+        if master_key:
+            return base64.urlsafe_b64decode(master_key.encode())
 
-        # Check environment to determine if key generation is allowed
-        environment = os.getenv("ENVIRONMENT", "development").lower()
-        if environment == "production":
+        # Check configuration to determine if key generation is allowed
+        if config.get("ENVIRONMENT", "development").lower() == "production":
             self.logger.error("MASTER_ENCRYPTION_KEY is not set in production environment")
             raise RuntimeError("MASTER_ENCRYPTION_KEY must be set in production")
 

@@ -7,7 +7,7 @@ import os
 import asyncio
 import logging
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 from contextlib import asynccontextmanager
 
@@ -18,6 +18,7 @@ import uvicorn
 import psycopg2
 import redis
 import requests
+import jwt
 from pydantic import BaseModel, Field
 
 from .phi_detection import PHIDetector
@@ -236,20 +237,59 @@ class HealthcareMCPServer:
             }
     
     def _validate_credentials(self, credentials: HTTPAuthorizationCredentials) -> bool:
-        """Validate authentication credentials"""
+        """Validate authentication credentials with proper JWT validation"""
         token = credentials.credentials
         environment = os.getenv("ENVIRONMENT", "development").lower()
 
         if environment == "production":
-            # TODO: Implement proper JWT validation for production
-            raise NotImplementedError("Production JWT validation not implemented - deployment blocked")
+            return self._validate_jwt_token(token)
+        else:
+            # Development mode - basic validation with warning
+            if len(token) > 0:
+                self.logger.warning("Using basic token validation - NOT SUITABLE FOR PRODUCTION")
+                return True
+            return False
 
-        # For development, accept any non-empty token but log warning
-        if len(token) > 0:
-            self.logger.warning("Using basic token validation - NOT SUITABLE FOR PRODUCTION")
+    def _validate_jwt_token(self, token: str) -> bool:
+        """Validate JWT token for production use"""
+        try:
+            # Get JWT secret from environment or config
+            jwt_secret = os.getenv("JWT_SECRET")
+            if not jwt_secret:
+                self.logger.error("JWT_SECRET not configured for production")
+                raise RuntimeError("JWT_SECRET must be set in production")
+
+            # Decode and validate JWT
+            payload = jwt.decode(
+                token,
+                jwt_secret,
+                algorithms=["HS256"],
+                options={"require_exp": True}
+            )
+
+            # Additional validation
+            if payload.get("iss") != "intelluxe-healthcare":
+                self.logger.warning("Invalid JWT issuer")
+                return False
+
+            # Check user permissions
+            user_id = payload.get("sub")
+            if not user_id:
+                self.logger.warning("JWT missing user ID")
+                return False
+
+            self.logger.info(f"JWT validation successful for user {user_id}")
             return True
 
-        return False
+        except jwt.ExpiredSignatureError:
+            self.logger.warning("JWT token expired")
+            return False
+        except jwt.InvalidTokenError as e:
+            self.logger.warning(f"Invalid JWT token: {e}")
+            return False
+        except Exception as e:
+            self.logger.error(f"JWT validation error: {e}")
+            return False
     
     async def _process_mcp_request(self, request: MCPRequest) -> Dict[str, Any]:
         """Process MCP request with PHI detection and security"""
