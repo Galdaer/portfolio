@@ -63,6 +63,27 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 - **Explainable AI**: Implement traceability features for medical compliance
 - **HIPAA Alignment**: Adapt all patterns for healthcare privacy requirements
 
+## Healthcare Security Development Patterns
+
+### Critical Security Rules
+- **Generic Error Messages**: Never expose JWT_SECRET, MASTER_ENCRYPTION_KEY, or other config details in error messages
+- **Environment-Aware Placeholders**: Block production deployment when features incomplete, allow configurable development
+- **Comprehensive Test Coverage**: Test security fallbacks with logging verification using caplog fixture
+- **Scalability by Default**: Use batching (batch_size=500) for large dataset processing
+- **Security Documentation**: Always explain WHY security choices were made (HIPAA, NANP standards, etc.)
+
+### Development Anti-Patterns to Prevent
+1. `raise RuntimeError("JWT_SECRET must be set")` → Use generic error messages
+2. `return False` placeholders → Use environment-aware configurable behavior  
+3. Security tests without logging verification → Always test logging with caplog
+4. Processing all items at once → Use batching for scalability
+5. Undocumented security choices → Explain compliance rationale
+
+### Reference Files
+- See `.augment/rules/healthcare-security-patterns.md` for comprehensive patterns
+- Follow environment detection patterns for secure fallbacks
+- Use synthetic data generation standards (555 phone prefix, clearly marked test data)
+
 ## Healthcare Philosophy & Safety
 
 ### Medical Safety Principles

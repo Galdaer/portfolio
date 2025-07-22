@@ -229,3 +229,39 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 ## Family-Built Heritage
 
 Co-designed by father-son team (Jeffrey & Justin Sue) for real-world clinical workflows, ensuring practical applicability and healthcare industry expertise.
+
+## Healthcare Security Development Patterns
+
+### Security Error Message Guidelines
+- **NEVER expose internal configuration** in error messages (JWT_SECRET, MASTER_ENCRYPTION_KEY, etc.)
+- **Log detailed errors internally**, show generic errors externally
+- **Pattern**: `self.logger.error("Specific internal error")` + `raise RuntimeError("Generic user error")`
+
+### Placeholder Implementation Guidelines
+- **NEVER create overly restrictive placeholders** that block legitimate development
+- **Use environment-aware behavior**: Block production deployment, allow configurable development
+- **Pattern**: Check `ENVIRONMENT` variable, raise `NotImplementedError` in production, use configurable defaults in development
+
+### Test Coverage Requirements
+- **ALWAYS test security fallback behavior** with logging verification
+- **Pattern**: Test both the secure behavior AND that appropriate warnings are logged
+- **Use `caplog` fixture** to verify logging in security tests
+
+### Scalability Patterns
+- **ALWAYS consider large dataset handling** with batching (default batch_size=500)
+- **Memory management**: Include garbage collection for very large datasets
+- **Pattern**: Process items in batches, not all at once
+
+### Documentation Requirements
+- **ALWAYS explain security/compliance choices** with comments
+- **Document WHY** security decisions were made (NANP standards, HIPAA compliance, etc.)
+- **Mark synthetic data clearly** to prevent confusion with real data
+
+## Code Review Anti-Patterns to Avoid
+
+1. **Information Disclosure**: Error messages revealing config details
+2. **Development Blockers**: Placeholders that always return False/deny access
+3. **Untested Fallbacks**: Security fallbacks without logging verification
+4. **Memory Issues**: Processing large datasets without batching
+5. **Undocumented Security**: Security choices without rationale
+6. **Environment Confusion**: Same restrictive behavior in dev and production
