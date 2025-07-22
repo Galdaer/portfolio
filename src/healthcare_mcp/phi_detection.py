@@ -21,6 +21,27 @@ except ImportError:
 # Configure logging
 logger = logging.getLogger(__name__)
 
+
+def apply_replacements_in_reverse(replacements: List[Tuple[int, int, str]], text: str) -> str:
+    """
+    Apply text replacements in reverse order to prevent index shifting
+
+    Args:
+        replacements: List of (start, end, replacement) tuples
+        text: Original text to modify
+
+    Returns:
+        str: Text with replacements applied
+    """
+    modified_text = text
+
+    # Sort by start position in reverse order to prevent IndexError
+    for start, end, replacement in sorted(replacements, key=lambda x: x[0], reverse=True):
+        modified_text = modified_text[:start] + replacement + modified_text[end:]
+
+    return modified_text
+
+
 @dataclass
 class PHIDetectionResult:
     """Result of PHI detection"""
@@ -108,18 +129,35 @@ class BasicPHIDetector:
         phi_types = []
         confidence_scores = []
         detection_details = []
-        masked_text = text
-        
+
+        # Collect all replacements first
+        replacements = []
+
         for phi_type, pattern_info in self.phi_patterns.items():
             pattern = pattern_info['pattern']
             matches = list(re.finditer(pattern, text, re.IGNORECASE))
 
-            # Use extracted method for processing and masking matches
-            phi_detected, phi_types, confidence_scores, detection_details, masked_text = \
-                self._process_and_mask_matches(
-                    matches, phi_type, pattern_info, phi_detected,
-                    phi_types, confidence_scores, detection_details, masked_text
-                )
+            for match in matches:
+                phi_detected = True
+                phi_types.append(phi_type)
+                confidence_scores.append(0.8)
+
+                detection_details.append({
+                    'type': phi_type,
+                    'description': pattern_info['description'],
+                    'start': match.start(),
+                    'end': match.end(),
+                    'text': match.group(),
+                    'confidence': 0.8
+                })
+
+                # Collect replacement
+                mask_length = len(match.group())
+                mask = '*' * mask_length
+                replacements.append((match.start(), match.end(), mask))
+
+        # Apply all replacements using utility function
+        masked_text = apply_replacements_in_reverse(replacements, text)
         
         return PHIDetectionResult(
             phi_detected=phi_detected,

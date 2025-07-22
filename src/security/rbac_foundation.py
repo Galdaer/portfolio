@@ -100,8 +100,17 @@ class HealthcareRBACManager:
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.HealthcareRBACManager")
 
-        # Configure strict mode for security
-        self.STRICT_MODE = os.getenv('RBAC_STRICT_MODE', 'true').lower() == 'true'
+        # Validate RBAC strict mode configuration
+        rbac_strict_mode = os.getenv('RBAC_STRICT_MODE', 'true').lower().strip()
+
+        if rbac_strict_mode not in {'true', 'false'}:
+            self.logger.error(f"Invalid RBAC_STRICT_MODE value: '{rbac_strict_mode}'")
+            raise ValueError(
+                f"Invalid value for RBAC_STRICT_MODE: '{rbac_strict_mode}'. "
+                "Expected 'true' or 'false'."
+            )
+
+        self.STRICT_MODE = rbac_strict_mode == 'true'
         self.logger.info(f"RBAC strict mode: {'enabled' if self.STRICT_MODE else 'disabled'}")
 
         # Initialize RBAC tables
@@ -436,22 +445,59 @@ class HealthcareRBACManager:
             return False
 
     def is_user_assigned_to_patient(self, user_id: str, patient_id: str) -> bool:
-        """Check if user is assigned to specific patient"""
-        # TODO: Replace with actual database/service lookup
-        # For now, implement basic validation logic
+        """
+        Check if user is assigned to patient
 
-        # Example implementation - replace with actual assignment service
-        try:
-            # This should query your patient assignment database/service
-            # assignments = self.assignment_service.get_user_assignments(user_id)
-            # return patient_id in assignments
+        NOTE: This is a Phase 2 feature placeholder.
+        Current implementation returns configurable default for development.
 
-            # Temporary implementation - log and deny for security
-            self.logger.warning(f"Patient assignment check not fully implemented - denying access to patient {patient_id} for user {user_id}")
+        Args:
+            user_id: User identifier
+            patient_id: Patient identifier
+
+        Returns:
+            bool: True if user has access to patient
+        """
+        # Phase 2 TODO: Implement proper patient assignment logic
+        # - Check patient-provider assignments in database
+        # - Validate care team memberships
+        # - Handle emergency access scenarios
+        # - Implement break-glass access with audit logging
+
+        # For now, use configuration to control behavior
+        default_access = os.getenv('RBAC_DEFAULT_PATIENT_ACCESS', 'false').lower() == 'true'
+
+        if default_access:
+            self.logger.warning(
+                f"DEVELOPMENT MODE: Allowing patient access for user {user_id} to patient {patient_id}. "
+                "This is NOT suitable for production - implement proper patient assignment in Phase 2"
+            )
+            return True
+        else:
+            self.logger.info(
+                f"Patient assignment check: user {user_id} -> patient {patient_id} = DENIED (placeholder)"
+            )
             return False
-        except Exception as e:
-            self.logger.error(f"Error checking patient assignment: {e}")
-            return False
+
+    def _check_patient_assignment_constraints(self, user_id: str, constraints: Dict[str, Any]) -> bool:
+        """Check patient assignment constraints with Phase 2 preparation"""
+        if not constraints:
+            return True
+
+        # Check assigned patients constraint
+        assigned_patients = constraints.get('assigned_patients')
+        if assigned_patients:
+            # Phase 2 TODO: Replace with actual patient assignment check
+            for patient_id in assigned_patients:
+                if not self.is_user_assigned_to_patient(user_id, patient_id):
+                    self.logger.warning(
+                        f"Access denied: user {user_id} not assigned to patient {patient_id}. "
+                        "Phase 2 will implement proper patient assignment validation."
+                    )
+                    return False
+
+        # Add other constraint checks as needed
+        return True
 
     def _check_resource_constraints(self, role: Role, resource_type: ResourceType,
                                   resource_id: str, context: Optional[Dict[str, Any]]) -> bool:

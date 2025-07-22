@@ -60,9 +60,18 @@ class EnvironmentDetector:
         """Check if running in production environment"""
         try:
             return EnvironmentDetector.get_environment() == Environment.PRODUCTION
-        except RuntimeError:
+        except RuntimeError as e:
             # If environment cannot be determined, assume production for security
-            logger.warning("Cannot determine environment - assuming production for security")
+            logger.error(
+                "CRITICAL: Environment could not be determined. "
+                f"Falling back to production mode as a secure default. Error: {e}"
+            )
+            # Also log to stderr for immediate visibility
+            import sys
+            print(
+                "CRITICAL: Environment detection failed - assuming production mode for security",
+                file=sys.stderr
+            )
             return True
     
     @staticmethod
@@ -70,8 +79,12 @@ class EnvironmentDetector:
         """Check if running in development environment"""
         try:
             return EnvironmentDetector.get_environment() == Environment.DEVELOPMENT
-        except RuntimeError:
+        except RuntimeError as e:
             # If environment cannot be determined, do not assume development
+            logger.error(
+                "Environment could not be determined. "
+                f"NOT assuming development mode for security. Error: {e}"
+            )
             return False
     
     @staticmethod

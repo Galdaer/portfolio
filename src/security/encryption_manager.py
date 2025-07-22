@@ -6,6 +6,7 @@ Advanced encryption and key management for healthcare data protection
 import os
 import json
 import logging
+import math
 from typing import Dict, List, Optional, Any, Union
 from datetime import datetime, timedelta
 import secrets
@@ -13,6 +14,7 @@ import hashlib
 import base64
 from dataclasses import dataclass
 from enum import Enum
+from collections import Counter
 
 from cryptography.fernet import Fernet, MultiFernet
 from cryptography.hazmat.primitives import hashes, serialization
@@ -23,7 +25,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import psycopg2
 
-from .environment_detector import EnvironmentDetector
+from .environment_detector import EnvironmentDetector, Environment
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -143,14 +145,51 @@ class KeyManager:
 
         return config
 
+    def _calculate_entropy(self, data: bytes) -> float:
+        """Calculate Shannon entropy of data"""
+        if not data:
+            return 0.0
+
+        # Count byte frequencies
+        byte_counts = Counter(data)
+        data_len = len(data)
+
+        # Calculate Shannon entropy
+        entropy = 0.0
+        for count in byte_counts.values():
+            probability = count / data_len
+            if probability > 0:
+                entropy -= probability * math.log2(probability)
+
+        return entropy
+
     def _get_or_create_master_key(self) -> bytes:
-        """Load or generate master encryption key with secure environment detection"""
+        """Load or generate master encryption key with security validation"""
         # Load configuration from secure source
         config = self._load_configuration()
         master_key = config.get("MASTER_ENCRYPTION_KEY")
 
         if master_key:
-            return base64.urlsafe_b64decode(master_key.encode())
+            try:
+                decoded_key = base64.urlsafe_b64decode(master_key.encode())
+
+                # Validate key length (minimum 32 bytes for AES-256)
+                if len(decoded_key) < 32:
+                    self.logger.error("MASTER_ENCRYPTION_KEY is too short. Must be at least 32 bytes.")
+                    raise ValueError("MASTER_ENCRYPTION_KEY does not meet minimum length requirements (32 bytes)")
+
+                # Validate key entropy
+                entropy = self._calculate_entropy(decoded_key)
+                if entropy < 4.0:  # Minimum entropy threshold
+                    self.logger.error(f"MASTER_ENCRYPTION_KEY has insufficient entropy: {entropy:.2f}")
+                    raise ValueError("MASTER_ENCRYPTION_KEY does not meet minimum entropy requirements (4.0)")
+
+                self.logger.info(f"Master key validated: {len(decoded_key)} bytes, entropy: {entropy:.2f}")
+                return decoded_key
+
+            except Exception as e:
+                self.logger.error(f"Failed to decode MASTER_ENCRYPTION_KEY: {e}")
+                raise ValueError("MASTER_ENCRYPTION_KEY is not valid base64 or does not meet security requirements")
 
         # Use secure environment detection
         if EnvironmentDetector.is_production():
@@ -161,11 +200,31 @@ class KeyManager:
         if not EnvironmentDetector.is_development():
             raise RuntimeError("Key generation only allowed in development environment")
 
-        # Generate key for development only
+        # Generate secure key for development
         self.logger.warning("Generating master key for development - NOT FOR PRODUCTION")
-        return Fernet.generate_key()
-    
-    def generate_key(self, encryption_level: EncryptionLevel, 
+        return secrets.token_bytes(32)  # Use secrets module for cryptographic randomness
+
+    def generate_secure_key(self) -> str:
+        """Generate a secure base64-encoded key for configuration"""
+        # Only allow in development
+        EnvironmentDetector.require_environment(Environment.DEVELOPMENT)
+
+        # Generate 32 bytes of cryptographically secure random data
+        key_bytes = secrets.token_bytes(32)
+
+        # Verify entropy before returning
+        entropy = self._calculate_entropy(key_bytes)
+        if entropy < 4.0:
+            # This should be extremely rare with secrets.token_bytes
+            self.logger.warning(f"Generated key has low entropy: {entropy:.2f}, regenerating...")
+            return self.generate_secure_key()  # Recursive retry
+
+        encoded_key = base64.urlsafe_b64encode(key_bytes).decode()
+        self.logger.info(f"Generated secure key: {len(key_bytes)} bytes, entropy: {entropy:.2f}")
+
+        return encoded_key
+
+    def generate_key(self, encryption_level: EncryptionLevel,
                     key_type: KeyType = KeyType.SYMMETRIC) -> EncryptionKey:
         """Generate new encryption key"""
         key_id = f"key_{secrets.token_hex(16)}"
