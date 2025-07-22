@@ -59,26 +59,33 @@ jobs:
       
       - name: Check for passwordless sudo and Docker access
         run: |
-          if ! sudo -n true 2>/dev/null; then
-            echo "Passwordless sudo is required for CI. Please configure it for the runner user." >&2
-            exit 1
-          fi
+          echo "Checking sudo and Docker access for CI..."
           
-          # Check Docker daemon access
-          if ! docker info >/dev/null 2>&1; then
-            echo "Docker daemon not accessible. Attempting to add user to docker group..."
+          # Check if we can run Docker without sudo first
+          if docker info >/dev/null 2>&1; then
+            echo "✅ Docker accessible without sudo"
+            echo "DOCKER_CMD=docker" >> $GITHUB_ENV
+          elif sudo -n docker info >/dev/null 2>&1; then
+            echo "✅ Docker accessible with passwordless sudo"
+            echo "DOCKER_CMD=sudo docker" >> $GITHUB_ENV
+          else
+            echo "❌ Docker not accessible. Attempting to configure..."
+            # Add current user to docker group
             sudo usermod -aG docker $USER
-            echo "User added to docker group. Note: This may require a restart of the runner service."
-            echo "For immediate effect, you can run: sudo systemctl restart actions.runner.*.service"
-            
-            # Try to access Docker with newgrp (may work in some cases)
-            if ! newgrp docker <<< "docker info" >/dev/null 2>&1; then
-              echo "Docker still not accessible. Please restart the GitHub Actions runner service." >&2
-              exit 1
+            # Try to restart Docker service
+            sudo systemctl restart docker
+            sleep 5
+            if docker info >/dev/null 2>&1; then
+              echo "✅ Docker now accessible"
+              echo "DOCKER_CMD=docker" >> $GITHUB_ENV
+            else
+              echo "⚠️  Using sudo for Docker commands"
+              echo "DOCKER_CMD=sudo docker" >> $GITHUB_ENV
             fi
           fi
           
-          echo "Docker access verified"
+          # Test the chosen Docker command
+          $DOCKER_CMD info
       
       - name: Cache tool installs
         uses: actions/cache@v4
