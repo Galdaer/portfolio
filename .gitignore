@@ -51,14 +51,20 @@
 !/config/**/*
 !/tests/
 !/tests/**/*
+!/src/
+!/src/**/*
+!/docker/
+!/docker/**/*
 
 # === AI APPLICATION FILES ===
 !/main.py
 !*.py
 !*.yml
 !*.yaml
+!*.md
 !/requirements.in
 !/.env.example
+!/.pre-commit-config.yaml
 
 # === AI DATA EXCLUSIONS ===
 # Exclude sensitive AI data even if directories are whitelisted

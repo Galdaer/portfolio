@@ -1,0 +1,70 @@
+# Healthcare MCP Server Dockerfile
+# Secure, HIPAA-compliant container for healthcare AI MCP server
+
+FROM python:3.11-slim
+
+# Security: Create non-root user
+RUN groupadd -r healthcare && useradd -r -g healthcare -u 1000 healthcare
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Create necessary directories
+RUN mkdir -p /app/src /app/logs /app/data /tmp /var/tmp \
+    && chown -R healthcare:healthcare /app \
+    && chmod 755 /app/src /app/logs /app/data
+
+# Copy application source
+COPY src/healthcare_mcp/ /app/src/healthcare_mcp/
+
+# Create entrypoint script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+# Ensure log directory exists and is writable\n\
+mkdir -p /app/logs\n\
+chown healthcare:healthcare /app/logs\n\
+\n\
+# Start the healthcare MCP server\n\
+exec python -m src.healthcare_mcp.secure_mcp_server\n\
+' > /app/entrypoint.sh \
+    && chmod +x /app/entrypoint.sh \
+    && chown healthcare:healthcare /app/entrypoint.sh
+
+# Security hardening
+RUN chmod 750 /app \
+    && chmod -R 640 /app/src \
+    && chmod 750 /app/entrypoint.sh
+
+# Switch to non-root user
+USER healthcare
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose port
+EXPOSE 8000
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV MCP_SECURITY_MODE=healthcare
+ENV PHI_DETECTION_ENABLED=true
+ENV AUDIT_LOGGING_LEVEL=comprehensive
+ENV HIPAA_COMPLIANCE_MODE=strict
+
+# Run as non-root with read-only filesystem
+ENTRYPOINT ["/app/entrypoint.sh"]
