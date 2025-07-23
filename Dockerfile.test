@@ -94,7 +94,7 @@ RUN echo "=== Verifying kcov installation ===" && \
     echo "kcov verification completed"
 
 # Install Python linting and testing tools
-RUN pip3 install --break-system-packages \
+RUN pip3 install \
     flake8 \
     mypy \
     pytest \

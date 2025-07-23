@@ -250,6 +250,9 @@ jobs:
           # Use sudo for Docker commands if needed
           DOCKER_CMD="${DOCKER_SUDO:-} docker"
           
+          # Create cache directories
+          mkdir -p ~/.docker /tmp/.buildx-cache
+          
           # Test Docker functionality
           $DOCKER_CMD info
           
@@ -262,8 +265,10 @@ jobs:
       - name: Cache Docker layers
         uses: actions/cache@v4
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ hashFiles('Dockerfile.test') }}-v6
+          path: |
+            ~/.docker
+            /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('Dockerfile.test') }}-v7
           restore-keys: |
             ${{ runner.os }}-buildx-
 
@@ -274,29 +279,21 @@ jobs:
           ENVIRONMENT: development
           BATS_VERBOSE: false
         run: |
-          echo "Running test suite in Docker container for isolation"
-          
           # Use sudo for Docker commands if needed
           DOCKER_CMD="${DOCKER_SUDO:-} docker"
           
-          # Build test runner container (suppress build output)
-          echo "Building test container..."
+          # Build test runner container
           build_success=false
           for attempt in 1 2 3; do
-            echo "Build attempt $attempt/3..."
-            
             if timeout 600 $DOCKER_CMD build \
               --network=host \
               --tag intelluxe-test-runner:latest \
               --file Dockerfile.test \
-              . 2>&1; then
-              echo "Build succeeded on attempt $attempt"
+              . >/dev/null 2>&1; then
               build_success=true
               break
             else
-              echo "Build attempt $attempt failed, exit code: $?"
               if [ $attempt -lt 3 ]; then
-                echo "Cleaning up and retrying..."
                 $DOCKER_CMD system prune -f >/dev/null 2>&1
                 sleep 10
               fi
@@ -304,13 +301,11 @@ jobs:
           done
           
           if [ "$build_success" = true ]; then
-            echo "Container built successfully, running tests..."
-            
             # Ensure coverage directory exists on host
             mkdir -p ./coverage
             chmod 777 ./coverage
             
-            # Run tests in completely isolated environment (suppress verbose output)
+            # Run tests in completely isolated environment
             test_exit_code=0
             $DOCKER_CMD run --rm \
               --network=intelluxe-ci-test \
@@ -339,7 +334,6 @@ jobs:
                   mkdir -p /workspace/coverage
                   chmod 777 /workspace/coverage
                   
-                  # Run with kcov coverage - capture test results properly
                   if timeout 180 kcov \
                     --include-pattern=/workspace/scripts/ \
                     --exclude-pattern=/tmp/workspace-rw/test/,/tmp/workspace-rw/vendor/ \
@@ -366,33 +360,20 @@ jobs:
                 exit \$test_result
               " || test_exit_code=$?
 
-            echo "Tests completed with exit code: $test_exit_code"
-
             # Exit with proper code
             exit $test_exit_code
           else
-            echo "Container build failed, creating placeholder coverage"
+            echo "❌ Container build failed after 3 attempts"
             mkdir -p ./coverage
             echo '<html><body><h1>Tests Skipped</h1><p>Container build failed</p></body></html>' > ./coverage/index.html
+            exit 1
           fi
           
           # Cleanup test network
-          docker network rm intelluxe-ci-test 2>/dev/null || echo "Network cleanup completed"
-          
-          # Check for coverage files
-          echo "=== Checking for coverage files ==="
-          if [ -d "./coverage" ]; then
-            echo "Coverage directory exists"
-            find ./coverage -name "*.html" -o -name "*.json" -o -name "*.xml" | head -10 || echo "No coverage files found"
-            ls -la ./coverage/ || echo "Cannot list coverage directory"
-            # Check if there are any files at all in coverage
-            find ./coverage -type f | wc -l | xargs echo "Total files in coverage directory:"
-          else
-            echo "Coverage directory does not exist"
-          fi
+          docker network rm intelluxe-ci-test 2>/dev/null || true
 
       - name: Debug coverage generation
-        if: always()
+        if: failure()
         run: |
           echo "=== Coverage directory structure ==="
           find ./coverage -type f 2>/dev/null | head -20 || echo "No coverage files found"
