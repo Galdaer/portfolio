@@ -146,6 +146,9 @@
     "github.copilot.chat.instructionEvolution": {
         "enabled": true,
         "patterns": [
+            "Autonomous remote agent execution without interruption",
+            "2-4 hour continuous work sessions for complex tasks",
+            "Context management without asking for continuation",
             "CI environment detection and mocking patterns",
             "Healthcare AI test isolation in Docker containers",
             "Coverage report generation with kcov",

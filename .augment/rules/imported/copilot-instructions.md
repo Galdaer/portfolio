@@ -302,11 +302,32 @@ Co-designed by father-son team (Jeffrey & Justin Sue) for real-world clinical wo
 
 **Your Role**: Analyze current codebase + phase documentation + existing patterns to create detailed, actionable prompts for remote agents.
 
+**MANDATORY: Always Include Autonomous Execution Mode**
+
+Every remote agent prompt MUST include this section:
+
+```markdown
+## AUTONOMOUS EXECUTION MODE
+
+**Work Continuously**: Execute ALL tasks without asking for continuation unless you encounter an unrecoverable error that requires human decision-making.
+
+**Context Management**: If you approach token limits, summarize your progress and continue with remaining tasks. Do NOT ask permission to continue.
+
+**Expected Duration**: [Specify 1-4 hours based on task complexity]
+
+**Interruption Policy**: Only stop for:
+- Unrecoverable errors requiring human input
+- Ambiguous requirements needing clarification  
+- 100% task completion
+
+**Progress Reporting**: Provide brief progress updates every 30-45 minutes, then immediately continue working.
+```
+
 **Remote Agent Limitations**:
 - Cannot read multiple files for context
-- Cannot synthesize architectural decisions  
-- Cannot adapt general templates
+- Cannot synthesize architectural decisions
 - Need very specific, detailed instructions with exact code examples
+- Should work autonomously for 2-4 hours without human intervention
 
 **Prompt Structure Required**:
 ```markdown
