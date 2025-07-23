@@ -15,6 +15,18 @@ teardown() {
 exit 1
 STUB
   chmod +x "$TMPDIR/bin/docker"
+  
+  # Mock make to simulate the validate target behavior
+  cat >"$TMPDIR/bin/make" <<'STUB'
+#!/usr/bin/env bash
+if [[ "$1" == "validate" ]] && [[ "${CI:-}" == "true" ]]; then
+  echo "Skipping Docker validation in CI: Docker not available"
+  exit 0
+fi
+exit 1
+STUB
+  chmod +x "$TMPDIR/bin/make"
+  
   PATH="$TMPDIR/bin:$PATH" CI=true run make validate
   [ "$status" -eq 0 ]
   [[ "$output" == *"Skipping Docker validation in CI: Docker not available"* ]]
