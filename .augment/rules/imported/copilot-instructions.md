@@ -482,3 +482,30 @@ make lint && make validate
 - [ ] System dependencies installed (`lsof`, `socat`, `wireguard-tools`)
 - [ ] Python linting tools available (`flake8`, `mypy`)
 - [ ] Validation passes (`make lint && make validate`)
+
+## CI Environment Testing Patterns
+
+### Docker Test Container Architecture
+- **Test Isolation**: All tests run in `intelluxe-test-runner:latest` container
+- **Coverage Generation**: kcov generates HTML/JSON coverage reports
+- **CI Mocking**: `[CI] Sourcing lib.sh in test mode - root actions will be mocked`
+- **Expected Failures**: 3 tests fail in CI (network, filesystem, WireGuard key generation)
+
+### Test Directory Structure
+- **Primary**: `test/` directory contains Bats test files
+- **Secondary**: `tests/` directory for Python tests (if present)
+- **Coverage**: `./coverage/` directory for kcov HTML reports
+- **Artifacts**: Coverage uploaded as GitHub Actions artifacts
+
+### CI Test Success Criteria
+- **Pass Rate**: 136/139 tests passing (97.8%) is acceptable
+- **Expected Failures**: Network IP parsing, log directory paths, WireGuard key generation
+- **Coverage**: HTML reports with 57 files, ~330KB indicates successful coverage generation
+
+### Healthcare AI Testing Standards
+- **Environment Variables**: `CI=true`, `ENVIRONMENT=development`, `DRY_RUN=true`
+- **Security**: All PHI/PII operations mocked in CI
+- **Isolation**: Tests run in isolated Docker network with DNS
+- **Timeout**: 180s for coverage runs, 120s for standard tests
+
+Last Updated: 2025-01-23

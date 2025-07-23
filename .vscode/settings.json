@@ -139,21 +139,25 @@
     },
     "github.copilot.chat.codeGeneration.instructions": [
         {
-            "text": "You are Augment, an AI code assistant for the Intelluxe AI Healthcare System. Follow the comprehensive instructions in .augment/rules/imported/copilot-instructions.md for healthcare-specific development patterns, security requirements, and architectural guidelines."
-        },
-        {
-            "text": "Instruction Evolution Patterns: When implementing new features, always update AI instructions to reflect architectural changes, new tools, security patterns, and development workflows. This ensures future AI assistance remains optimal and current."
-        },
-        {
-            "text": "Firewall Configuration: All external dependencies must be documented in .github/copilot-firewall-allowlist.txt. When adding new package repositories, APIs, or external services, update the firewall allowlist and run the 'Copilot Setup Steps' workflow to apply changes."
-        },
-        {
-            "text": "Healthcare Security: All code must follow HIPAA compliance patterns, use generic error messages (never expose secrets), implement audit logging, and ensure PHI/PII remains on-premise. Reference healthcare security patterns in .augment/rules/healthcare-security-patterns.md."
-        },
-        {
-            "text": "Universal Service Architecture: All services must use the universal-service-runner.sh pattern with configuration files in services/user/SERVICE/SERVICE.conf. Never bypass this architecture for service deployment."
+            "file": ".augment/rules/imported/copilot-instructions.md",
+            "lastUpdated": "2025-01-23"
         }
     ],
+    "github.copilot.chat.instructionEvolution": {
+        "enabled": true,
+        "patterns": [
+            "CI environment detection and mocking patterns",
+            "Healthcare AI test isolation in Docker containers",
+            "Coverage report generation with kcov",
+            "Universal service runner testing patterns",
+            "WireGuard key management in CI environments"
+        ]
+    },
+    "github.copilot.chat.firewallConfiguration": {
+        "enabled": true,
+        "allowlistFile": ".github/copilot-firewall-allowlist.txt",
+        "healthcareCompliance": true
+    },
     "// Healthcare Testing Configuration": "",
     "python.testing.pytestEnabled": true,
     "python.testing.pytestArgs": [
