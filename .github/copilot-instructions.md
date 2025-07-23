@@ -304,3 +304,53 @@ Co-designed by father-son team (Jeffrey & Justin Sue) for real-world clinical wo
 3. **Missing compliance context** → Explain regulatory requirements
 4. **Silent security failures** → Log all security events
 5. **Unmonitored optimizations** → Add performance logging
+
+## Remote Agent Task Prompt Generation
+
+### Critical Remote Agent Prompt Guidelines
+
+**NEVER Provide Specific Code in Prompts**:
+- Exact implementations guarantee formatting errors
+- Import statements may not match actual codebase
+- Method signatures may conflict with existing code
+- Hardcoded values may break existing functionality
+
+**ALWAYS Require Codebase Analysis First**:
+- Read actual error messages before fixing
+- Examine actual file structure before assuming
+- Understand existing patterns before implementing
+- Match existing code style exactly
+
+**Remote Agent Methodology Template**:
+```markdown
+## MANDATORY FIRST STEP: Analyze Actual Codebase
+1. Read actual error messages: `make lint 2>&1`
+2. Examine actual files: `find src/ -name "*.py"`
+3. Understand actual imports and dependencies
+4. Identify minimal changes needed
+
+## SYSTEMATIC APPROACH: One Error at a Time
+1. Fix specific error only
+2. Validate immediately: `python -m py_compile <file>`
+3. Only proceed if validation passes
+4. Match existing codebase patterns exactly
+
+## SUCCESS CRITERIA: No New Errors
+- Each change validated individually
+- Full validation passes: `make lint && make validate`
+- Existing functionality preserved
+```
+
+### Anti-Patterns to Prevent in Remote Agent Prompts:
+1. **Hardcoded implementations** → Require analysis-first approach
+2. **Assumed file contents** → Require reading actual files
+3. **Predetermined solutions** → Emphasize understanding root causes
+4. **Multiple simultaneous changes** → One error at a time methodology
+5. **Skipped validation** → Mandatory incremental testing
+
+### Healthcare Remote Agent Requirements:
+- **Preserve existing security patterns**
+- **Maintain PHI protection mechanisms**
+- **Keep audit logging functionality intact**
+- **Follow existing healthcare compliance patterns**
+- **No sensitive data in error messages**

@@ -302,6 +302,17 @@ Co-designed by father-son team (Jeffrey & Justin Sue) for real-world clinical wo
 
 **Your Role**: Analyze current codebase + phase documentation + existing patterns to create detailed, actionable prompts for remote agents.
 
+**CRITICAL: NEVER Provide Specific Code Implementations**
+
+Remote agent prompts must NEVER include:
+- Exact code implementations
+- Specific import statements  
+- Hardcoded method signatures
+- Assumed file contents or structure
+- Predetermined configuration values
+
+**Why**: Providing specific code guarantees formatting errors, import mismatches, and structural conflicts with the actual codebase.
+
 **MANDATORY: Always Include Autonomous Execution Mode**
 
 Every remote agent prompt MUST include this section:
@@ -326,64 +337,84 @@ Every remote agent prompt MUST include this section:
 **Remote Agent Limitations**:
 - Cannot read multiple files for context
 - Cannot synthesize architectural decisions
-- Need very specific, detailed instructions with exact code examples
+- Need systematic methodology, not specific implementations
+- Must analyze actual codebase before making changes
 - Should work autonomously for 2-4 hours without human intervention
 
-**Prompt Structure Required**:
+**Required Prompt Structure**:
 ```markdown
 ## Remote Agent Task: Phase X Week Y - [Descriptive Title]
 
 **Objective**: [Specific, measurable goal]
 
-**Specific Actions Required**:
+## MANDATORY FIRST STEP: Codebase Analysis (30-45 minutes)
+1. **Read actual error messages**: `make lint 2>&1 | tee current_errors.txt`
+2. **Examine actual file structure**: `find src/ -name "*.py" | head -20`
+3. **Understand actual imports**: Open and read files mentioned in errors
+4. **Identify root cause patterns**: Missing files? Import paths? Formatting?
 
-1. **Create/Modify `path/to/file.py`**:
-   ```python
-   # Provide exact code implementation
-   # Include all imports, class structures, method signatures
-   # Add healthcare compliance patterns from existing codebase
-   ```
+## SYSTEMATIC APPROACH: Analysis-First Development
+1. **Read the actual file before modifying it**
+2. **Match existing code style exactly**
+3. **Fix only the specific error, don't refactor**
+4. **Validate each change immediately**
+5. **Only proceed if validation passes**
 
-2. **Create/Modify `path/to/config.yml`**:
-   ```yaml
-   # Provide exact configuration
-   # Follow universal service runner patterns
-   ```
+## ERROR PREVENTION METHODOLOGY:
+- **Analysis-First**: Understand actual code before changing
+- **Validation-Driven**: Test each change immediately
+- **Pattern-Matching**: Follow existing codebase conventions
+- **Incremental**: One error at a time
 
 **Success Criteria**:
-- [ ] Specific command works: `./scripts/test-command.sh`
-- [ ] Tests pass: `python -m pytest tests/specific/`
-- [ ] Service starts: `docker-compose up service-name`
+- [ ] Actual codebase analyzed and understood
+- [ ] Root cause identified for each error
+- [ ] Minimal fixes applied matching existing patterns
+- [ ] Each fix validated individually
+- [ ] No new errors introduced
+- [ ] `make lint && make validate && make test` passes
 
 **Healthcare Compliance Checks**:
-- [ ] PHI protection implemented
-- [ ] Audit logging added
-- [ ] Error messages are generic (no sensitive data exposure)
+- [ ] PHI protection preserved
+- [ ] Audit logging maintained
+- [ ] Security patterns intact
+- [ ] No sensitive data exposure in error messages
 
-**Integration Points**:
-- Must work with existing universal service runner
-- Must follow healthcare security patterns
-- Must integrate with Healthcare-MCP tools
+**Validation Commands**:
+```bash
+# Individual file validation (after each change)
+python -m py_compile <modified_file>
+flake8 --max-line-length=100 <modified_file>
+
+# Full validation (only at end)
+make lint && make validate && make test
+```
 ```
 
 ### Task Prompt Generation Process:
 1. **Read phase documentation** (`docs/PHASE_X.md`) for the specific week
-2. **Analyze current codebase** to understand existing patterns
-3. **Extract specific file paths** and implementation requirements
-4. **Provide exact code examples** following healthcare security patterns
-5. **Include integration points** with existing services
-6. **Add healthcare compliance requirements** from security patterns
-7. **Create measurable success criteria** with specific commands to test
+2. **Identify systematic methodology needed** (not specific implementations)
+3. **Emphasize codebase analysis requirements**
+4. **Focus on error prevention and validation workflow**
+5. **Include healthcare compliance preservation requirements**
+6. **Create measurable success criteria** with specific validation commands
 
 ### Healthcare-Specific Requirements for All Prompts:
-- **Security**: Always include PHI protection and generic error messages
-- **Compliance**: Add audit logging and HIPAA-compliant patterns
-- **Integration**: Ensure compatibility with universal service runner
-- **Testing**: Include specific test commands and expected outcomes
-- **Documentation**: Reference existing healthcare security patterns
+- **Security**: Preserve existing PHI protection and security patterns
+- **Compliance**: Maintain audit logging and HIPAA-compliant patterns
+- **Integration**: Ensure compatibility with existing service architecture
+- **Testing**: Include incremental validation workflow
+- **Documentation**: Require understanding existing patterns before changes
+
+### Remote Agent Anti-Patterns to Prevent:
+1. **Providing exact code** → Require codebase analysis first
+2. **Assuming file structure** → Require actual file examination
+3. **Hardcoding implementations** → Emphasize pattern matching
+4. **Skipping validation** → Mandate incremental testing
+5. **Making multiple changes** → One error at a time approach
 
 ### Example Integration Points to Always Include:
-- Universal service runner configuration
+- Universal service runner compatibility
 - Healthcare-MCP tool integration
 - PostgreSQL/Redis for healthcare data
 - Ollama for local LLM inference
