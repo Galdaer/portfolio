@@ -1429,7 +1429,7 @@ enable_config_web_ui() {
 	fi
 	
 	# Always update the timestamp to mark this bootstrap run
-	echo "$(date +%s)" > "$timestamp_file"
+	date +%s > "$timestamp_file"
 	
 	if [[ "$config_changed" == "true" ]]; then
 		log "Enabling intelluxe-config-web-ui.service"
@@ -2165,30 +2165,8 @@ if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
         export SKIP_ROOT_CHECKS=true
     fi
 fi
-				if [[ ${#RESTRICTED_SERVICES[@]} -gt 0 ]]; then
-					restrict_services_to_lan_vpn "${RESTRICTED_SERVICES[@]}"
-				fi
-				;;
-			esac
-		fi
-		;;
-	"restrict")
-		log "Restricting all services to LAN + VPN access only (from command line option)."
-		restrict_services_to_lan_vpn "${restrictable_services[@]}"
-		;;
-	"open")
-		log "Services will be open to all networks (from command line option)."
-		;;
-	"custom")
-		if [[ ${#RESTRICTED_SERVICES[@]} -gt 0 ]]; then
-			log "Applying custom service restrictions (from command line option)."
-			restrict_services_to_lan_vpn "${RESTRICTED_SERVICES[@]}"
-		else
-			warn "Custom restriction mode specified but no services listed. Using open mode."
-		fi
-		;;
-	esac
-}
+
+
 
 # Configure restrictions for individual services interactively
 configure_per_service_restrictions() {
