@@ -192,9 +192,7 @@ jobs:
         run: |
           # Clean up any stale lock files from previous CI runs
           rm -f "$HOME/.cache/bootstrap.lock" "/tmp/bootstrap-$(whoami).lock" ".bootstrap.lock" || true
-          
-          # Run bootstrap validation without sudo in CI environment
-          ./scripts/bootstrap.sh --validate --non-interactive
+          sudo -E ./scripts/bootstrap.sh --validate --non-interactive
 
       - name: Configure Docker daemon for DNS
         run: |
@@ -225,11 +223,15 @@ jobs:
 
       - name: Setup Docker for CI
         run: |
-          # Use sudo for Docker commands if needed
-          DOCKER_CMD="${DOCKER_SUDO:-} docker"
+          # Use the Docker command determined earlier
+          DOCKER_CMD="${DOCKER_CMD:-docker}"
           
           # Test Docker functionality
           $DOCKER_CMD info
+          
+          # Create coverage directory on host
+          mkdir -p ./coverage
+          chmod 755 ./coverage
           
           # Create isolated test network with DNS
           $DOCKER_CMD network create intelluxe-ci-test \
@@ -326,6 +328,10 @@ jobs:
                 mkdir -p /tmp/test-config/{services,logs,backups}
                 mkdir -p /tmp/test-logs /tmp/intelluxe-test /tmp/bats-tmp
                 
+                # Ensure coverage directory exists and is writable
+                mkdir -p /workspace/coverage
+                chmod 777 /workspace/coverage
+                
                 # Copy workspace to writable location for tests that need to modify files
                 echo 'Copying workspace to writable location...'
                 cp -r /workspace /tmp/workspace-rw
@@ -335,16 +341,13 @@ jobs:
                 cd /tmp/workspace-rw
                 
                 # Run tests with kcov for coverage report
-                # The output is directed to /workspace/coverage, which is a mounted volume
                 echo 'Running tests with kcov...'
                 if command -v kcov &> /dev/null; then
-                  # Ensure coverage directory exists and is writable
-                  mkdir -p /workspace/coverage
-                  chmod 777 /workspace/coverage
+                  echo 'kcov found, running with coverage...'
                   
                   # Run with kcov coverage - only include scripts directory
                   timeout 180 kcov \
-                    --include-pattern=/workspace/scripts/ \
+                    --include-pattern=/tmp/workspace-rw/scripts/ \
                     --exclude-pattern=/tmp/workspace-rw/test/,/tmp/workspace-rw/vendor/ \
                     --bash-dont-parse-binary-dir \
                     /workspace/coverage \
@@ -352,13 +355,20 @@ jobs:
                     
                   # Ensure coverage files are readable
                   chmod -R 755 /workspace/coverage
+                  
+                  # Verify coverage was generated
+                  echo 'Coverage files generated:'
+                  find /workspace/coverage -type f | head -10 || echo 'No coverage files found'
                 else
                   echo 'kcov not found, running tests without coverage.'
                   timeout 120 bats -r test/ || echo 'Some tests failed'
+                  
+                  # Create a simple coverage placeholder
+                  echo '<html><body><h1>Coverage not available - kcov not installed</h1></body></html>' > /workspace/coverage/index.html
                 fi
                 
                 echo 'Test execution completed'
-                echo 'Listing coverage directory contents from within the container:'
+                echo 'Final coverage directory contents:'
                 ls -la /workspace/coverage/ 2>/dev/null || echo 'No coverage directory found inside container.'
               "
             
@@ -387,22 +397,37 @@ jobs:
       - name: Debug coverage generation
         if: always()
         run: |
-          echo "=== Coverage directory structure ==="
-          find ./coverage -type f 2>/dev/null | head -20 || echo "No coverage files found"
-          echo "=== Coverage HTML files ==="
-          find ./coverage -name "*.html" 2>/dev/null || echo "No HTML files found"
-          echo "=== Coverage JSON files ==="
-          find ./coverage -name "*.json" 2>/dev/null || echo "No JSON files found"
-          echo "=== Directory listing ==="
-          ls -la ./coverage/ 2>/dev/null || echo "No coverage directory found"
-          echo "=== Sample coverage file content ==="
-          find ./coverage -name "index.html" -exec head -10 {} \; 2>/dev/null || echo "No index.html found"
+          echo "=== Pre-upload Coverage Check ==="
+          echo "Current directory: $(pwd)"
+          echo "Coverage directory exists: $(test -d ./coverage && echo 'yes' || echo 'no')"
+          echo "Coverage directory permissions: $(ls -ld ./coverage 2>/dev/null || echo 'not found')"
           
-          # Generate a coverage summary for the logs
-          if [ -f "./coverage/index.html" ]; then
-            echo "=== Coverage Summary ==="
-            grep -o "pc_cov\">[0-9.]*%" ./coverage/index.html | head -5 || echo "Could not extract coverage percentages"
-            echo "Coverage report generated successfully - see artifacts for full report"
+          if [ -d "./coverage" ]; then
+            echo "=== Coverage directory structure ==="
+            find ./coverage -type f 2>/dev/null | head -20 || echo "No files found"
+            echo "=== Coverage HTML files ==="
+            find ./coverage -name "*.html" 2>/dev/null || echo "No HTML files found"
+            echo "=== Coverage JSON files ==="
+            find ./coverage -name "*.json" 2>/dev/null || echo "No JSON files found"
+            echo "=== Directory listing ==="
+            ls -la ./coverage/ 2>/dev/null || echo "Cannot list coverage directory"
+            echo "=== Sample coverage file content ==="
+            find ./coverage -name "index.html" -exec head -10 {} \; 2>/dev/null || echo "No index.html found"
+            
+            # Generate a coverage summary for the logs
+            if [ -f "./coverage/index.html" ]; then
+              echo "=== Coverage Summary ==="
+              grep -o "pc_cov\">[0-9.]*%" ./coverage/index.html | head -5 || echo "Could not extract coverage percentages"
+              echo "Coverage report generated successfully - see artifacts for full report"
+            else
+              echo "=== Creating placeholder coverage report ==="
+              echo '<html><body><h1>Coverage Report</h1><p>Tests completed but coverage data not available</p></body></html>' > ./coverage/index.html
+            fi
+          else
+            echo "=== Creating coverage directory with placeholder ==="
+            mkdir -p ./coverage
+            echo '<html><body><h1>Coverage Report</h1><p>Tests completed but coverage data not available</p></body></html>' > ./coverage/index.html
+            echo "Placeholder coverage report created"
           fi
 
       - name: Upload coverage artifact
@@ -412,6 +437,7 @@ jobs:
           name: code-coverage-report
           path: ./coverage/
           retention-days: 30
+          if-no-files-found: warn
 
   # TODO: Enable for production - Healthcare AI Integration Tests
   # Commented out during development phase - enable when healthcare services are stable

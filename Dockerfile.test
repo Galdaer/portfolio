@@ -85,6 +85,12 @@ RUN echo "=== Installing kcov for coverage ===" && \
     echo "kcov installed successfully" && \
     kcov --version
 
+# Verify kcov installation and create coverage directory
+RUN echo "=== Verifying kcov installation ===" && \
+    kcov --version && \
+    mkdir -p /tmp/coverage && \
+    echo "kcov verification completed"
+
 # Install Python tools - cache this layer  
 RUN echo "=== Installing uv and Python linting tools ===" && \
     # Install uv for faster Python package management
@@ -95,8 +101,7 @@ RUN echo "=== Installing uv and Python linting tools ===" && \
     # Install tools with uv (faster) or fallback to pip
     for i in 1 2; do \
     echo "Attempt $i/2: Installing Python tools..." && \
-    (uv pip install --system flake8 mypy pytest pytest-asyncio yamllint psycopg2-binary cryptography || \
-    pip3 install --no-cache-dir flake8 mypy pytest pytest-asyncio yamllint psycopg2-binary cryptography) && \
+    (uv pip install --system flake8 mypy || pip3 install --no-cache-dir flake8 mypy) && \
     echo "Python linting tools installed successfully" && break || \
     (echo "Attempt $i failed, retrying..." && sleep 2); \
     done || echo "Python linting tools failed to install"
