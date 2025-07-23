@@ -1,7 +1,7 @@
 # Intelluxe AI Healthcare MCP Server Dockerfile
 # Secure, HIPAA-compliant container for healthcare AI MCP server
 
-FROM node:20-alpine
+FROM node: 20-alpine
 
 # Healthcare AI metadata with security documentation
 LABEL maintainer="Intelluxe AI Healthcare Team"
@@ -26,15 +26,19 @@ WORKDIR /app
 COPY --chown=node:intelluxe package*.json ./
 COPY --chown=node:intelluxe tsconfig.json ./
 
-# Copy source files BEFORE building
+# Copy source files BEFORE building (inside container only)
 COPY --chown=node:intelluxe src/ ./src/
+COPY --chown=node:intelluxe package*.json ./
+COPY --chown=node:intelluxe tsconfig.json ./
 
 # Install dependencies, build, and clean up in single layer
 RUN npm ci && \
     npm run build && \
     npm prune --omit=dev && \
     npm cache clean --force && \
-    rm -rf src/ tsconfig.json package*.json
+    rm -rf src/ tsconfig.json package*.json node_modules/
+
+# Only the built JavaScript remains in the final image
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/data \

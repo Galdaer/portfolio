@@ -549,3 +549,56 @@ qrencode -t PNG -s 10 -o /tmp/qr.png < client1.conf && xdg-open /tmp/qr.png
 3. **Confirm DNS resolution** for domain name
 4. **Check client IP doesn't conflict** with existing network
 
+## 🔧 Manual Image Rebuilding
+
+Some services require manual Docker image rebuilding after source code changes. This keeps deployment fast and predictable.
+
+### WhisperLive Healthcare Service
+
+After editing files in `services/user/whisperlive/`:
+
+```bash
+# Navigate to WhisperLive directory
+cd services/user/whisperlive
+
+# Rebuild healthcare-hardened image
+docker build -f Dockerfile.healthcare -t intelluxe/whisperlive-healthcare:latest .
+
+# Restart the service to use new image
+./scripts/universal-service-runner.sh restart whisperlive
+```
+
+### Healthcare MCP Server
+
+After editing TypeScript files in `mcps/healthcare/src/`:
+
+```bash
+# Navigate to Healthcare MCP directory  
+cd mcps/healthcare
+
+# Rebuild healthcare MCP image
+docker build -f ../../docker/mcp-server/Dockerfile.healthcare -t intelluxe/healthcare-mcp:latest .
+
+# Restart the service to use new image
+./scripts/universal-service-runner.sh restart healthcare-mcp
+```
+
+### 🔍 Verification Commands
+
+After rebuilding, verify the new image is working:
+
+```bash
+# Check image was created
+docker images | grep intelluxe
+
+# Check service health after restart
+curl -f http://localhost:3000/health  # Healthcare MCP
+curl -f http://localhost:9090/health  # WhisperLive (if health endpoint exists)
+
+# Check service logs for any issues
+docker logs intelluxe-healthcare-mcp
+docker logs intelluxe-whisperlive
+```
+
+**💡 Pro Tip**: Only rebuild images when you've made changes to the source code. The universal service runner uses pre-built images for fast, reliable deployments.
+

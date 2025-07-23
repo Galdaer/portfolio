@@ -21,7 +21,14 @@
         "**/*.key": true,
         "**/*.pem": true,
         "**/patient_data/**": true,
-        "**/data/phi/**": true
+        "**/data/phi/**": true,
+        "**/node_modules/": true,
+        "**/build/": true,
+        "**/dist/": true,
+        "**/.npm": true,
+        "**/.cache": true,
+        "**/coverage/": true,
+        "**/*.tsbuildinfo": true
     },
     "search.exclude": {
         "**/logs/": true,
@@ -199,5 +206,8 @@
     "terminal.integrated.cwd": "${workspaceFolder}",
     "// Auto-save for Healthcare Safety": "",
     "files.autoSave": "afterDelay",
-    "files.autoSaveDelay": 30000
+    "files.autoSaveDelay": 30000,
+    "typescript.preferences.includePackageJsonAutoImports": "off",
+    "typescript.suggest.autoImports": false,
+    "typescript.validate.enable": false
 }
