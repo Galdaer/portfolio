@@ -312,6 +312,7 @@ jobs:
             chmod 777 ./coverage
             
             # Run tests in completely isolated environment (suppress verbose output)
+            test_exit_code=0
             $DOCKER_CMD run --rm \
               --network=intelluxe-ci-test \
               --dns=1.1.1.1 \
@@ -371,10 +372,13 @@ jobs:
                 fi
                 
                 echo 'Test execution completed'
-              " 2>/dev/null
-            
+                exit \$test_result
+              " || test_exit_code=$?
+
+            echo "Tests completed with exit code: $test_exit_code"
+
             # Exit with proper code
-            exit $test_result
+            exit $test_exit_code
           else
             echo "Container build failed, creating placeholder coverage"
             mkdir -p ./coverage
