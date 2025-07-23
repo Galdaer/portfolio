@@ -637,4 +637,81 @@ sudo make install
 make lint && make validate && make test
 ```
 
+## Remote Agent Autonomous Execution Guidelines
+
+### Scope Expansion Requirements
+
+**Remote agents MUST work autonomously for 2-4 hours minimum**. Prompts should:
+
+1. **Give broad objectives** rather than narrow tasks
+2. **Allow agents to discover related issues** during analysis
+3. **Encourage comprehensive solutions** not just single fixes
+4. **Let agents determine their own work breakdown**
+5. **Expect agents to find and fix additional problems** they discover
+
+### Autonomous Decision-Making Patterns
+
+**Instead of**: "Fix these 3 specific Pylance errors"
+**Use**: "Systematically resolve all code quality issues, starting with Pylance/Flake8 but expanding to related problems you discover"
+
+**Instead of**: "Create file X with methods Y and Z"  
+**Use**: "Analyze the codebase architecture and implement the missing components needed for proper functionality"
+
+**Instead of**: "Follow these 5 specific steps"
+**Use**: "Use this systematic methodology but adapt it based on what you discover in the actual codebase"
+
+### Expected Work Patterns
+
+Remote agents should:
+- **Start with analysis** (30-45 minutes)
+- **Discover the full scope** of related issues (not just what's explicitly mentioned)
+- **Work systematically** through all discovered problems
+- **Continue until comprehensive completion** (2-4 hours total)
+- **Only stop for unrecoverable errors** or 100% completion
+
+### Prompt Structure for Autonomous Work
+
+```markdown
+## Remote Agent Task: [Broad Objective] - Comprehensive Implementation
+
+**Objective**: [High-level goal that allows for scope expansion]
+
+**Autonomous Scope**: You are expected to work for 2-4 hours and discover/fix related issues beyond the initial objective.
+
+## DISCOVERY PHASE (45-60 minutes)
+1. **Analyze the full problem space** - don't just fix what's mentioned
+2. **Identify all related issues** that should be addressed together  
+3. **Plan comprehensive solution** that addresses root causes
+4. **Expand scope** to include logical extensions and improvements
+
+## IMPLEMENTATION PHASE (90-180 minutes)
+- **Work systematically** through all discovered issues
+- **Make architectural improvements** where needed
+- **Add comprehensive testing** for new functionality
+- **Document your changes** and reasoning
+
+## VALIDATION PHASE (30-45 minutes)
+- **Test everything thoroughly** including edge cases
+- **Verify no regressions** in existing functionality
+- **Ensure healthcare compliance** is maintained
+
+**Expected Discoveries**: You should find and address issues beyond the initial scope. This is expected and encouraged.
+```
+
+### Anti-Patterns That Limit Autonomy
+
+❌ **Micro-task lists** - Don't break work into tiny steps
+❌ **Predetermined file lists** - Let agents discover what needs to be created/modified
+❌ **Specific time allocations** - Don't say "spend 15 minutes on X"
+❌ **Narrow problem definitions** - Allow scope expansion during analysis
+❌ **Prescriptive solutions** - Let agents determine the best approach
+
+### Patterns That Enable Autonomy
+
+✅ **Broad problem statements** - "Improve system reliability" not "fix error X"
+✅ **Discovery-driven work** - "Analyze and address all related issues"
+✅ **Architectural thinking** - "Design and implement proper solution"
+✅ **Comprehensive scope** - "Continue until system is production-ready"
+✅ **Quality-driven completion** - "Work until all validation passes"
+
 Last Updated: 2025-01-23

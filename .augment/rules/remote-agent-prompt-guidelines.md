@@ -93,6 +93,68 @@ make lint && make validate && make test
 - **Security middleware must remain functional**
 - **Healthcare-specific logging must be maintained**
 
+## Remote Agent Autonomous Execution Requirements
+
+### Minimum Work Duration: 2-4 Hours
+
+**Problem**: Previous prompts were too narrow, causing agents to finish in 20 minutes instead of working autonomously for hours.
+
+**Solution**: Prompts must encourage scope expansion and comprehensive work.
+
+### Autonomous Scope Expansion
+
+Remote agents should:
+- **Start with the stated objective** but expand scope during analysis
+- **Discover related problems** and address them comprehensively  
+- **Make architectural improvements** not just quick fixes
+- **Continue working** until reaching natural completion points
+- **Only stop** for unrecoverable errors or 100% task completion
+
+### Prompt Patterns for Long-Duration Work
+
+**Broad Objectives** (not narrow tasks):
+```markdown
+**Objective**: Systematically improve codebase quality and resolve all related issues
+
+**Scope**: Start with [initial focus] but expand to address all discovered problems
+```
+
+**Discovery-Driven Approach**:
+```markdown
+## EXPECTED WORK PATTERN:
+1. **Deep Analysis** (45-60 min) - Understand full problem space
+2. **Comprehensive Implementation** (90-180 min) - Address all discovered issues  
+3. **Thorough Validation** (30-45 min) - Test everything extensively
+
+**Scope Expansion Expected**: You should find and fix issues beyond the initial description.
+```
+
+**Quality-Driven Completion**:
+```markdown
+**Success Criteria**: Continue working until:
+- All discovered issues are resolved
+- System passes comprehensive validation
+- Code quality meets production standards
+- Healthcare compliance is verified
+- No obvious improvements remain
+```
+
+### Anti-Patterns That Cause Short Sessions
+
+❌ **"Fix these 3 specific errors"** → Too narrow
+❌ **"Create file X with method Y"** → Too prescriptive  
+❌ **"Spend 20 minutes on Z"** → Artificial time limits
+❌ **"Follow these exact steps"** → No room for discovery
+❌ **"Only address what's mentioned"** → Prevents scope expansion
+
+### Patterns That Enable Long Sessions
+
+✅ **"Systematically improve system reliability"** → Broad scope
+✅ **"Analyze and implement comprehensive solution"** → Discovery-driven
+✅ **"Continue until production-ready"** → Quality-driven completion
+✅ **"Address all related architectural issues"** → Scope expansion encouraged
+✅ **"Work autonomously for 2-4 hours"** → Clear duration expectation
+
 ## Why These Rules Matter
 
 ### The Cascade Effect
