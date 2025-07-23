@@ -71,9 +71,11 @@ retry_with_backoff() {
     shift
     local attempt=1
     local delay=1
+    
     until "$@"; do
         if (( attempt >= max_attempts )); then
             err "Command failed after $attempt attempts: $*"
+            echo "attempts=$attempt" >&2
             return 1
         fi
         warn "Attempt $attempt failed. Retrying in $delay seconds..."
@@ -81,6 +83,8 @@ retry_with_backoff() {
         attempt=$(( attempt + 1 ))
         delay=$(( delay * 2 ))
     done
+    echo "attempts=$attempt" >&2
+    return 0
 }
 
 verify_installation() {
@@ -297,27 +301,30 @@ install_system_deps() {
         ok "No system dependencies to install"
         return 0
     fi
-
-    log "Installing system dependencies in bulk"
-
+    
+    log "Installing system dependencies: ${DEPENDENCIES[*]}"
+    local failed_packages=()
+    
+    # Try to install all packages at once first
     if "${PKG_INSTALL[@]}" "${DEPENDENCIES[@]}" >/dev/null 2>&1; then
-        ok "All system packages installed"
-    else
-        warn "Some packages failed to install, retrying individual packages"
-        # Try installing packages individually to identify failures
-        FAILED_PACKAGES=()
-        for pkg in "${DEPENDENCIES[@]}"; do
-            if "${PKG_INSTALL[@]}" "$pkg" >/dev/null 2>&1; then
-                log "✓ $pkg installed"
-            else
-                warn "✗ $pkg failed to install"
-                FAILED_PACKAGES+=("$pkg")
-            fi
-        done
-        if [[ ${#FAILED_PACKAGES[@]} -gt 0 ]]; then
-            err "The following packages failed to install: ${FAILED_PACKAGES[*]}"
-            exit 1
+        ok "All system packages installed successfully"
+        return 0
+    fi
+    
+    # If batch install failed, try individual packages
+    warn "Batch installation failed, trying individual packages..."
+    for pkg in "${DEPENDENCIES[@]}"; do
+        if ! "${PKG_INSTALL[@]}" "$pkg" >/dev/null 2>&1; then
+            failed_packages+=("$pkg")
         fi
+    done
+    
+    if [[ ${#failed_packages[@]} -gt 0 ]]; then
+        warn "Some packages failed to install: ${failed_packages[*]}"
+        return 1
+    else
+        ok "All system packages installed successfully"
+        return 0
     fi
 }
 

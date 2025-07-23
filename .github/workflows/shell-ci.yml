@@ -262,10 +262,10 @@ jobs:
       - name: Cache Docker layers
         uses: actions/cache@v4
         with:
-          path: /var/lib/docker
-          key: ${{ runner.os }}-docker-${{ hashFiles('Dockerfile.test') }}-v5
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('Dockerfile.test') }}-v6
           restore-keys: |
-            ${{ runner.os }}-docker-
+            ${{ runner.os }}-buildx-
 
       - name: Run tests
         env:
@@ -289,8 +289,7 @@ jobs:
               --network=host \
               --tag intelluxe-test-runner:latest \
               --file Dockerfile.test \
-              --quiet \
-              . >/dev/null 2>&1; then
+              . 2>&1; then
               echo "Build succeeded on attempt $attempt"
               build_success=true
               break
@@ -332,12 +331,10 @@ jobs:
               --tmpfs /tmp:rw,exec,nosuid,size=2G \
               intelluxe-test-runner:latest \
               bash -c "
-                echo 'Setting up isolated test environment...'
                 mkdir -p /tmp/test-config/{services,logs,backups}
                 mkdir -p /tmp/test-logs /tmp/intelluxe-test /tmp/bats-tmp
                 
-                # Run tests with kcov for coverage report (suppress verbose output)
-                echo 'Running tests with kcov...'
+                # Run tests with kcov for coverage report
                 if command -v kcov &> /dev/null; then
                   mkdir -p /workspace/coverage
                   chmod 777 /workspace/coverage
@@ -349,21 +346,16 @@ jobs:
                     --bash-dont-parse-binary-dir \
                     /workspace/coverage \
                     bats -r test/ 2>/dev/null; then
-                    echo 'All tests passed with coverage'
                     test_result=0
                   else
-                    echo 'Some tests failed - check coverage report for details'
                     test_result=1
                   fi
                   
                   chmod -R 755 /workspace/coverage
                 else
-                  echo 'kcov not found, running tests without coverage.'
                   if timeout 120 bats -r test/ 2>/dev/null; then
-                    echo 'All tests passed'
                     test_result=0
                   else
-                    echo 'Some tests failed'
                     test_result=1
                   fi
                   
@@ -371,7 +363,6 @@ jobs:
                   echo '<html><body><h1>Coverage not available</h1><p>kcov not found in container</p></body></html>' > /workspace/coverage/index.html
                 fi
                 
-                echo 'Test execution completed'
                 exit \$test_result
               " || test_exit_code=$?
 
