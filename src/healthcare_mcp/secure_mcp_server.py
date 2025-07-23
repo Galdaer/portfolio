@@ -41,8 +41,7 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 class HealthcareConfig:
-    """Healthcare MCP server configuration"""
-    
+    """Healthcare MCP server configuration"""    
     def __init__(self):
         # Security settings
         self.security_mode = os.getenv("MCP_SECURITY_MODE", "healthcare")
