@@ -435,25 +435,7 @@ install_uv() {
 }
 
 install_python_deps() {
-    log "Installing Python dependencies with uv"
-    if [[ $PKG_MANAGER == apt ]]; then
-        local py_pkgs=(python3 python3-dev python3-venv libyaml-dev build-essential)
-        # Ubuntu 24.04 dropped python3-distutils
-        if apt-cache show python3-distutils 2>/dev/null | grep -q '^Package:'; then
-            py_pkgs+=(python3-distutils)
-        fi
-        log "Installing Python system packages: ${py_pkgs[*]}"
-        if ! "${PKG_INSTALL[@]}" "${py_pkgs[@]}" >/dev/null 2>&1; then
-            warn "Some Python packages failed to install, trying individually"
-            for pkg in "${py_pkgs[@]}"; do
-                if "${PKG_INSTALL[@]}" "$pkg" >/dev/null 2>&1; then
-                    log "✓ $pkg installed"
-                else
-                    warn "✗ $pkg failed to install"
-                fi
-            done
-        fi
-    fi
+    log "Installing Python dependencies"
     
     # Install uv first
     install_uv
@@ -465,20 +447,42 @@ install_python_deps() {
         return
     fi
     
-    # Install only essential system-wide Python packages for infrastructure
+    # Install essential system-wide Python packages for infrastructure
     # Note: Most AI/ML packages should be in virtual environments
     log "Installing essential system Python packages with uv"
-    uv pip install --system --break-system-packages \
-        flake8 mypy pytest pytest-asyncio \
-        yamllint \
-        pyyaml \
-        requests \
-        flask waitress psutil docker \
-        psycopg2-binary cryptography
+    
+    # Always install linting tools system-wide for CI/development
+    if command -v uv >/dev/null 2>&1; then
+        uv pip install --system --break-system-packages \
+            flake8 mypy pytest pytest-asyncio \
+            yamllint \
+            pyyaml \
+            requests \
+            flask waitress psutil docker \
+            psycopg2-binary cryptography || {
+            warn "uv installation failed, falling back to pip"
+            pip3 install --break-system-packages \
+                flake8 mypy pytest pytest-asyncio \
+                yamllint \
+                pyyaml \
+                requests \
+                flask waitress psutil docker \
+                psycopg2-binary cryptography
+        }
+    else
+        pip3 install --break-system-packages \
+            flake8 mypy pytest pytest-asyncio \
+            yamllint \
+            pyyaml \
+            requests \
+            flask waitress psutil docker \
+            psycopg2-binary cryptography
+    fi
     
     ok "Essential Python dependencies installed system-wide"
     log "💡 For AI/ML development, use virtual environments with requirements.in"
     verify_installation "python3 -c 'import yaml'" "Essential Python dependencies" || exit 1
+    verify_installation "flake8 --version" "flake8 linting tool" || exit 1
 }
 
 setup_directories() {

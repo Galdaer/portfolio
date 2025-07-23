@@ -113,12 +113,18 @@ jobs:
           # Install uv for faster Python package management
           curl -LsSf https://astral.sh/uv/install.sh | sh || echo "Warning: uv installation failed"
           
+          # Add to PATH immediately for this step
+          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+          
           # Install Python linting tools for healthcare AI (prefer uv for speed)
           if command -v uv >/dev/null 2>&1; then
+            echo "Installing with uv..."
             uv pip install --system flake8 mypy pytest pytest-asyncio yamllint psycopg2-binary cryptography || echo "Warning: uv installation failed, falling back to pip"
           fi
+          
           # Fallback to pip if uv is not available or failed
           if ! command -v flake8 >/dev/null 2>&1; then
+            echo "Installing with pip..."
             python3 -m pip install --user flake8 mypy pytest pytest-asyncio yamllint psycopg2-binary cryptography || echo "Warning: Python linting tools failed to install"
           fi
           
@@ -132,13 +138,28 @@ jobs:
       - name: Verify linting tools
         run: |
           echo "Checking for linting tools..."
+          echo "PATH: $PATH"
           which shellcheck || echo "shellcheck not found"
-          which flake8 || echo "flake8 not found"
-          which mypy || echo "mypy not found"
+          which flake8 || echo "flake8 not found in PATH"
+          which mypy || echo "mypy not found in PATH"
           which uv || echo "uv not found"
+          
+          # Test if tools work via python -m
+          python3 -m flake8 --version || echo "flake8 not available via python -m"
+          python3 -m mypy --version || echo "mypy not available via python -m"
+          
+          # Show versions
           shellcheck --version || echo "shellcheck version check failed"
-          flake8 --version || echo "flake8 version check failed"
-          mypy --version || echo "mypy version check failed"
+          if command -v flake8 >/dev/null 2>&1; then
+            flake8 --version || echo "flake8 version check failed"
+          else
+            python3 -m flake8 --version || echo "flake8 version check failed"
+          fi
+          if command -v mypy >/dev/null 2>&1; then
+            mypy --version || echo "mypy version check failed"
+          else
+            python3 -m mypy --version || echo "mypy version check failed"
+          fi
           uv --version || echo "uv version check failed"
 
       - name: Run lint (shell and Python)

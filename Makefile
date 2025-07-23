@@ -238,8 +238,36 @@ lint:
 
 lint-python:
 	@echo "🔍  Running Python lint (flake8 and mypy) for healthcare AI components"
-	@flake8 scripts/*.py test/python/*.py
-	@mypy scripts/*.py
+	@# Try multiple ways to find flake8
+	@if command -v flake8 >/dev/null 2>&1; then \
+		flake8 scripts/*.py test/python/*.py; \
+	elif python3 -m flake8 --version >/dev/null 2>&1; then \
+		python3 -m flake8 scripts/*.py test/python/*.py; \
+	else \
+		echo "⚠️  flake8 not found - installing..."; \
+		python3 -m pip install --user flake8 || echo "Failed to install flake8"; \
+		if command -v flake8 >/dev/null 2>&1; then \
+			flake8 scripts/*.py test/python/*.py; \
+		else \
+			echo "❌ flake8 still not available after installation"; \
+			exit 1; \
+		fi; \
+	fi
+	@# Try multiple ways to find mypy
+	@if command -v mypy >/dev/null 2>&1; then \
+		mypy scripts/*.py; \
+	elif python3 -m mypy --version >/dev/null 2>&1; then \
+		python3 -m mypy scripts/*.py; \
+	else \
+		echo "⚠️  mypy not found - installing..."; \
+		python3 -m pip install --user mypy || echo "Failed to install mypy"; \
+		if command -v mypy >/dev/null 2>&1; then \
+			mypy scripts/*.py; \
+		else \
+			echo "❌ mypy still not available after installation"; \
+			exit 1; \
+		fi; \
+	fi
 
 validate:
 	@echo "✅  Validating healthcare AI configuration and dependencies (non-interactive)"

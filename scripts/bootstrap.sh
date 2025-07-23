@@ -462,13 +462,16 @@ auto_install_deps() {
 	# Core dependencies required for basic operation
 	local core_deps=(ip iptables docker curl ss lsof jq stat less)
 	
+	# Python linting tools required for validation
+	local python_tools=(flake8 mypy)
+	
 	# Optional dependencies for specific features
 	local optional_feature_deps=(socat wg-quick)
 
-  # Add qrencode to optional deps if WireGuard is selected
-    if [[ " ${SELECTED_CONTAINERS[*]} " == *" wireguard "* ]]; then
-        optional_feature_deps+=(qrencode)
-    fi
+	# Add qrencode to optional deps if WireGuard is selected
+	if [[ " ${SELECTED_CONTAINERS[*]} " == *" wireguard "* ]]; then
+		optional_feature_deps+=(qrencode)
+	fi
 
 	# Check core dependencies
 	for dep in "${core_deps[@]}"; do
@@ -476,7 +479,14 @@ auto_install_deps() {
 			missing_deps+=("$dep")
 		fi
 	done
-	
+
+	# Check Python tools
+	for tool in "${python_tools[@]}"; do
+		if ! command -v "$tool" &>/dev/null && ! python3 -m "$tool" --version &>/dev/null 2>&1; then
+			missing_deps+=("$tool")
+		fi
+	done
+
 	# Check optional dependencies
 	for dep in "${optional_feature_deps[@]}"; do
 		if ! command -v "$dep" &>/dev/null; then
