@@ -337,6 +337,23 @@ EOF
     for svc in "${!CONTAINER_PORTS[@]}"; do
         local sanitized
         sanitized=$(echo "$svc" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+# Check if we're in CI and adjust behavior accordingly
+if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    log "Running in CI environment - adjusting permissions and sudo usage"
+    
+    # In CI, we typically don't need sudo for most operations
+    # Only use sudo when absolutely necessary and available
+    if [[ $EUID -eq 0 ]]; then
+        log "Already running as root in CI"
+    elif sudo -n true 2>/dev/null; then
+        log "Passwordless sudo available in CI"
+    else
+        log "No sudo available in CI - running with user permissions only"
+        # Set flag to skip operations that require root
+        export CI_NO_SUDO=true
+    fi
+fi
+
         echo "${sanitized}_PORT=\"${CONTAINER_PORTS[$svc]}\"" >> "$CONFIG_FILE"
     done
 
@@ -462,16 +479,13 @@ auto_install_deps() {
 	# Core dependencies required for basic operation
 	local core_deps=(ip iptables docker curl ss lsof jq stat less)
 	
-	# Python linting tools required for validation
-	local python_tools=(flake8 mypy)
-	
 	# Optional dependencies for specific features
 	local optional_feature_deps=(socat wg-quick)
 
-	# Add qrencode to optional deps if WireGuard is selected
-	if [[ " ${SELECTED_CONTAINERS[*]} " == *" wireguard "* ]]; then
-		optional_feature_deps+=(qrencode)
-	fi
+  # Add qrencode to optional deps if WireGuard is selected
+    if [[ " ${SELECTED_CONTAINERS[*]} " == *" wireguard "* ]]; then
+        optional_feature_deps+=(qrencode)
+    fi
 
 	# Check core dependencies
 	for dep in "${core_deps[@]}"; do
@@ -479,14 +493,7 @@ auto_install_deps() {
 			missing_deps+=("$dep")
 		fi
 	done
-
-	# Check Python tools
-	for tool in "${python_tools[@]}"; do
-		if ! command -v "$tool" &>/dev/null && ! python3 -m "$tool" --version &>/dev/null 2>&1; then
-			missing_deps+=("$tool")
-		fi
-	done
-
+	
 	# Check optional dependencies
 	for dep in "${optional_feature_deps[@]}"; do
 		if ! command -v "$dep" &>/dev/null; then

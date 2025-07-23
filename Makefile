@@ -282,15 +282,16 @@ lint-python:
 validate:
 	@echo "✅  Validating healthcare AI configuration and dependencies (non-interactive)"
 	@if [ "${CI}" = "true" ]; then \
-	    if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then \
-	        ./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check; \
-	        $(MAKE) systemd-verify; \
-	    else \
-	        echo "Skipping Docker validation in CI: Docker not available"; \
-	    fi; \
+		if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then \
+			./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check; \
+			$(MAKE) systemd-verify; \
+		else \
+			echo "Skipping Docker validation in CI: Docker not available"; \
+			./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check --dry-run; \
+		fi; \
 	else \
-	    ./scripts/bootstrap.sh --validate --non-interactive; \
-	    $(MAKE) systemd-verify; \
+		./scripts/bootstrap.sh --validate --non-interactive; \
+		$(MAKE) systemd-verify; \
 	fi
 
 systemd-verify:
