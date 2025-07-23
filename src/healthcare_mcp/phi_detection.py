@@ -5,7 +5,7 @@ Detects and masks Protected Health Information (PHI) for HIPAA compliance
 
 import re
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Tuple, Any
 from datetime import datetime
 import json
 from dataclasses import dataclass
@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 
 def apply_replacements_in_reverse(replacements: List[Tuple[int, int, str]],
-                                text: str,
-                                batch_size: int = 500) -> str:
+                                  text: str,
+                                  batch_size: int = 500) -> str:
     """
     Apply text replacements in reverse order with batching for large texts
 
@@ -38,7 +38,6 @@ def apply_replacements_in_reverse(replacements: List[Tuple[int, int, str]],
     """
     import time
     import sys
-    from io import StringIO
 
     start_time = time.time()
     replacement_count = len(replacements)
@@ -160,15 +159,15 @@ def _mask_phi_streaming(text: str, replacements: List[Tuple[int, int, str]], sta
     final_memory = sys.getsizeof(result)
 
     logger.info(f"Streaming PHI processing completed: {replacement_count} replacements in {total_time:.3f}s, "
-               f"input: {initial_memory:,} bytes, output: {final_memory:,} bytes")
+                f"input: {initial_memory:,} bytes, output: {final_memory:,} bytes")
 
     return result
 
 
 def _apply_replacements_memory_efficient(replacements: List[Tuple[int, int, str]],
-                                       text: str,
-                                       batch_size: int,
-                                       start_time: float) -> str:
+                                         text: str,
+                                         batch_size: int,
+                                         start_time: float) -> str:
     """
     Memory-efficient replacement processing for very large texts using StringIO
 
@@ -220,7 +219,7 @@ def _apply_replacements_memory_efficient(replacements: List[Tuple[int, int, str]
         # Memory usage monitoring
         current_memory = sys.getsizeof(text_chars)
         logger.debug(f"Memory-efficient batch {batch_count}: {len(batch)} replacements, "
-                    f"{batch_time:.3f}s, memory: {current_memory:,} bytes")
+                     f"{batch_time:.3f}s, memory: {current_memory:,} bytes")
 
     # Convert back to string
     result = ''.join(text_chars)
@@ -229,7 +228,7 @@ def _apply_replacements_memory_efficient(replacements: List[Tuple[int, int, str]
     final_memory = sys.getsizeof(result)
 
     logger.info(f"Memory-efficient PHI processing completed: {batch_count} batches in {total_time:.3f}s, "
-               f"final size: {len(result):,} chars, memory: {final_memory:,} bytes")
+                f"final size: {len(result):,} chars, memory: {final_memory:,} bytes")
 
     return result
 
@@ -245,10 +244,10 @@ class PHIDetectionResult:
 
 class BasicPHIDetector:
     """Basic PHI detector using regex patterns"""
-    
+
     def __init__(self):
         self.logger = logging.getLogger(f"{__name__}.BasicPHIDetector")
-        
+
         # PHI patterns based on HIPAA identifiers
         self.phi_patterns = {
             'ssn': {
@@ -286,8 +285,8 @@ class BasicPHIDetector:
         }
 
     def _process_and_mask_matches(self, matches, phi_type: str, pattern_info: Dict,
-                                 phi_detected: bool, phi_types: List, confidence_scores: List,
-                                 detection_details: List, masked_text: str) -> tuple:
+                                  phi_detected: bool, phi_types: List, confidence_scores: List,
+                                  detection_details: List, masked_text: str) -> tuple:
         """Process matches and mask detected PHI"""
         # Process matches in reverse order to maintain valid positions during masking.
         # Masking modifies the string, which shifts the indices of subsequent matches.
@@ -350,7 +349,7 @@ class BasicPHIDetector:
 
         # Apply all replacements using utility function
         masked_text = apply_replacements_in_reverse(replacements, text)
-        
+
         return PHIDetectionResult(
             phi_detected=phi_detected,
             phi_types=list(set(phi_types)),
@@ -361,24 +360,24 @@ class BasicPHIDetector:
 
 class PresidioPHIDetector:
     """Advanced PHI detector using Microsoft Presidio"""
-    
+
     def __init__(self):
         self.logger = logging.getLogger(f"{__name__}.PresidioPHIDetector")
-        
+
         if not PRESIDIO_AVAILABLE:
             raise ImportError("Presidio is not available")
-        
+
         # Initialize Presidio engines
         self.analyzer = AnalyzerEngine()
         self.anonymizer = AnonymizerEngine()
-        
+
         # Healthcare-specific entities
         self.healthcare_entities = [
             "PERSON", "PHONE_NUMBER", "EMAIL_ADDRESS", "DATE_TIME",
             "LOCATION", "US_SSN", "MEDICAL_LICENSE", "US_PASSPORT",
             "CREDIT_CARD", "US_BANK_NUMBER", "IP_ADDRESS", "URL"
         ]
-    
+
     def detect_phi(self, text: str) -> PHIDetectionResult:
         """Detect PHI using Presidio analyzer"""
         try:
@@ -388,18 +387,18 @@ class PresidioPHIDetector:
                 entities=self.healthcare_entities,
                 language='en'
             )
-            
+
             phi_detected = len(results) > 0
             phi_types = [result.entity_type for result in results]
             confidence_scores = [result.score for result in results]
-            
+
             # Create anonymized version
             anonymized_result = self.anonymizer.anonymize(
                 text=text,
                 analyzer_results=results
             )
             masked_text = anonymized_result.text
-            
+
             # Create detection details
             detection_details = []
             for result in results:
@@ -411,7 +410,7 @@ class PresidioPHIDetector:
                     'text': text[result.start:result.end],
                     'confidence': result.score
                 })
-            
+
             return PHIDetectionResult(
                 phi_detected=phi_detected,
                 phi_types=list(set(phi_types)),
@@ -419,7 +418,7 @@ class PresidioPHIDetector:
                 masked_text=masked_text,
                 detection_details=detection_details
             )
-            
+
         except Exception as e:
             self.logger.error(f"Presidio PHI detection failed: {e}")
             # Fallback to basic detection
@@ -428,11 +427,11 @@ class PresidioPHIDetector:
 
 class PHIDetector:
     """Main PHI detector with fallback capabilities"""
-    
+
     def __init__(self, use_presidio: bool = True):
         self.logger = logging.getLogger(f"{__name__}.PHIDetector")
         self.use_presidio = use_presidio and PRESIDIO_AVAILABLE
-        
+
         if self.use_presidio:
             try:
                 self.detector = PresidioPHIDetector()
@@ -444,19 +443,19 @@ class PHIDetector:
         else:
             self.detector = BasicPHIDetector()
             self.logger.info("Using basic PHI detection")
-    
+
     async def detect_phi(self, text: str) -> PHIDetectionResult:
         """Detect PHI in text (async wrapper)"""
         return self.detector.detect_phi(text)
-    
+
     def detect_phi_sync(self, text: str) -> PHIDetectionResult:
         """Detect PHI in text (synchronous)"""
         return self.detector.detect_phi(text)
-    
+
     async def detect_phi_in_json(self, data: Dict[str, Any]) -> Dict[str, PHIDetectionResult]:
         """Detect PHI in JSON data structure"""
         results = {}
-        
+
         def process_value(key: str, value: Any) -> PHIDetectionResult:
             if isinstance(value, str):
                 return self.detector.detect_phi(value)
@@ -473,11 +472,11 @@ class PHIDetector:
                     masked_text=str(value),
                     detection_details=[]
                 )
-        
+
         def traverse_dict(obj: Dict[str, Any], prefix: str = ""):
             for key, value in obj.items():
                 full_key = f"{prefix}.{key}" if prefix else key
-                
+
                 if isinstance(value, dict):
                     traverse_dict(value, full_key)
                 elif isinstance(value, list):
@@ -488,10 +487,10 @@ class PHIDetector:
                             results[f"{full_key}[{i}]"] = process_value(f"{full_key}[{i}]", item)
                 else:
                     results[full_key] = process_value(full_key, value)
-        
+
         traverse_dict(data)
         return results
-    
+
     def mask_phi_in_text(self, text: str, mask_char: str = '*') -> str:
         """Mask PHI in text"""
         result = self.detector.detect_phi(text)
@@ -537,11 +536,11 @@ class PHIDetector:
                         f"{phi_detected_count} fields with PHI detected")
 
         return results
-    
+
     def get_phi_summary(self, text: str) -> Dict[str, Any]:
         """Get summary of PHI detection"""
         result = self.detector.detect_phi(text)
-        
+
         return {
             'phi_detected': result.phi_detected,
             'phi_count': len(result.detection_details),
@@ -552,11 +551,11 @@ class PHIDetector:
 
 class PHIMaskingService:
     """Service for masking PHI in various data formats"""
-    
+
     def __init__(self, phi_detector: PHIDetector):
         self.phi_detector = phi_detector
         self.logger = logging.getLogger(f"{__name__}.PHIMaskingService")
-    
+
     def mask_patient_data(self, patient_data: Dict[str, Any]) -> Dict[str, Any]:
         """Mask PHI in patient data structure using batch processing"""
         masked_data = patient_data.copy()
@@ -591,11 +590,11 @@ class PHIMaskingService:
                 self.logger.info(f"Batch PHI masking completed: {len(masked_fields)} fields masked - {', '.join(masked_fields)}")
 
         return masked_data
-    
+
     def create_synthetic_replacement(self, original_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create synthetic replacement for data containing PHI"""
         synthetic_data = original_data.copy()
-        
+
         # Replace with clearly synthetic values
         replacements = {
             'first_name': 'John',
@@ -608,31 +607,31 @@ class PHIMaskingService:
             'address': '123 Synthetic St',
             'zip_code': '00000'
         }
-        
+
         for field, synthetic_value in replacements.items():
             if field in synthetic_data:
                 synthetic_data[field] = synthetic_value
-        
+
         # Add synthetic marker
         synthetic_data['_synthetic'] = True
         synthetic_data['_original_masked'] = datetime.now().isoformat()
-        
+
         return synthetic_data
 
 # Example usage and testing
 if __name__ == "__main__":
     # Test PHI detection
     detector = PHIDetector()
-    
+
     test_text = """
     Patient John Smith, DOB: 01/15/1980, SSN: 123-45-6789
     Phone: (555) 123-4567, Email: john.smith@email.com
     Address: 123 Main Street, Anytown, NY 12345
     MRN: MED123456
     """
-    
+
     result = detector.detect_phi_sync(test_text)
-    
+
     print(f"PHI Detected: {result.phi_detected}")
     print(f"PHI Types: {result.phi_types}")
     print(f"Masked Text: {result.masked_text}")

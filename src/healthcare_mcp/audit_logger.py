@@ -3,13 +3,11 @@ Healthcare Audit Logger
 Comprehensive audit logging for HIPAA compliance and healthcare AI systems
 """
 
-import os
 import json
-import logging
 import time
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any
 from datetime import datetime, timezone
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 import hashlib
 import uuid
 from enum import Enum
@@ -108,7 +106,7 @@ class AuditEvent:
 
 class HealthcareAuditLogger:
     """Healthcare-specific audit logger with HIPAA compliance"""
-    
+
     def __init__(self, config):
         self.config = config
         self.logger = structlog.get_logger("healthcare_audit")
@@ -123,7 +121,7 @@ class HealthcareAuditLogger:
 
         # Create audit tables if they don't exist
         self._create_audit_tables()
-    
+
     def _init_audit_database(self):
         """Initialize audit database connection"""
         try:
@@ -135,13 +133,13 @@ class HealthcareAuditLogger:
                 password=self.config.postgres_password
             )
             self.audit_conn.autocommit = True
-            
+
             self.logger.info("Audit database connection initialized")
-            
+
         except Exception as e:
             self.logger.error("Failed to initialize audit database", error=str(e))
             raise
-    
+
     def _create_audit_tables(self):
         """Create audit tables if they don't exist"""
         try:
@@ -167,7 +165,7 @@ class HealthcareAuditLogger:
                         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                     )
                 """)
-                
+
                 # PHI access log table
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS phi_access_log (
@@ -183,7 +181,7 @@ class HealthcareAuditLogger:
                         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                     )
                 """)
-                
+
                 # API request log table
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS api_request_log (
@@ -201,39 +199,39 @@ class HealthcareAuditLogger:
                         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                     )
                 """)
-                
+
                 # Create indexes for performance
                 cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_audit_timestamp 
+                    CREATE INDEX IF NOT EXISTS idx_audit_timestamp
                     ON healthcare_audit_log(timestamp)
                 """)
                 cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_audit_event_type 
+                    CREATE INDEX IF NOT EXISTS idx_audit_event_type
                     ON healthcare_audit_log(event_type)
                 """)
                 cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_audit_user_id 
+                    CREATE INDEX IF NOT EXISTS idx_audit_user_id
                     ON healthcare_audit_log(user_id)
                 """)
                 cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_phi_access_timestamp 
+                    CREATE INDEX IF NOT EXISTS idx_phi_access_timestamp
                     ON phi_access_log(timestamp)
                 """)
-                
+
             self.logger.info("Audit tables created successfully")
-            
+
         except Exception as e:
             self.logger.error("Failed to create audit tables", error=str(e))
             raise
-    
+
     def _generate_event_id(self) -> str:
         """Generate unique event ID"""
         return str(uuid.uuid4())
-    
+
     def _hash_sensitive_data(self, data: str) -> str:
         """Hash sensitive data for audit trail"""
         return hashlib.sha256(data.encode()).hexdigest()
-    
+
     def _extract_user_info(self, request: Request) -> Dict[str, Optional[str]]:
         """Extract user information from request"""
         return {
@@ -242,7 +240,7 @@ class HealthcareAuditLogger:
             "session_id": request.headers.get("x-session-id"),
             "user_id": request.headers.get("x-user-id", "anonymous")
         }
-    
+
     async def log_audit_event(self, event: AuditEvent):
         """Log audit event to database and structured logs"""
         try:
@@ -258,13 +256,13 @@ class HealthcareAuditLogger:
                 risk_level=event.risk_level,
                 details=event.details
             )
-            
+
             # Store in database
             with self.audit_conn.cursor() as cursor:
                 cursor.execute("""
-                    INSERT INTO healthcare_audit_log 
-                    (event_id, timestamp, event_type, user_id, session_id, ip_address, 
-                     user_agent, resource_accessed, action_performed, outcome, details, 
+                    INSERT INTO healthcare_audit_log
+                    (event_id, timestamp, event_type, user_id, session_id, ip_address,
+                     user_agent, resource_accessed, action_performed, outcome, details,
                      phi_involved, compliance_status, risk_level)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
@@ -283,22 +281,22 @@ class HealthcareAuditLogger:
                     event.compliance_status,
                     event.risk_level
                 ))
-            
+
         except Exception as e:
             self.logger.error("Failed to log audit event", error=str(e), event_id=event.event_id)
-    
+
     async def log_request(self, request: Request, response: Response, processing_time: float):
         """Log API request for audit trail"""
         user_info = self._extract_user_info(request)
         event_id = self._generate_event_id()
-        
+
         # Determine risk level based on endpoint and method
         risk_level = "low"
         if "patient" in str(request.url).lower():
             risk_level = "medium"
         if request.method in ["POST", "PUT", "DELETE"]:
             risk_level = "medium"
-        
+
         # Create audit event
         audit_event = AuditEvent(
             event_id=event_id,
@@ -322,14 +320,14 @@ class HealthcareAuditLogger:
             compliance_status="compliant",
             risk_level=risk_level
         )
-        
+
         await self.log_audit_event(audit_event)
-        
+
         # Also log to API request table
         try:
             with self.audit_conn.cursor() as cursor:
                 cursor.execute("""
-                    INSERT INTO api_request_log 
+                    INSERT INTO api_request_log
                     (event_id, timestamp, method, endpoint, status_code, processing_time,
                      user_id, ip_address)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -345,14 +343,14 @@ class HealthcareAuditLogger:
                 ))
         except Exception as e:
             self.logger.error("Failed to log API request", error=str(e))
-    
+
     async def log_phi_detection(self, request_data: Any, phi_details: Dict[str, Any]):
         """Log PHI detection event"""
         event_id = self._generate_event_id()
-        
+
         # Hash the data for audit trail
         data_hash = self._hash_sensitive_data(json.dumps(request_data, default=str))
-        
+
         audit_event = AuditEvent(
             event_id=event_id,
             timestamp=datetime.now(timezone.utc).isoformat(),
@@ -374,16 +372,16 @@ class HealthcareAuditLogger:
             compliance_status="requires_review",
             risk_level="high"
         )
-        
+
         await self.log_audit_event(audit_event)
-        
+
         # Log to PHI access table
         try:
             with self.audit_conn.cursor() as cursor:
                 for detail in phi_details.get("detection_details", []):
                     cursor.execute("""
-                        INSERT INTO phi_access_log 
-                        (event_id, timestamp, phi_type, access_reason, data_hash, 
+                        INSERT INTO phi_access_log
+                        (event_id, timestamp, phi_type, access_reason, data_hash,
                          detection_confidence, masked_data)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """, (
@@ -423,7 +421,7 @@ class HealthcareAuditLogger:
         self.logger.info(f"PHI cache invalidated, new version: {self._phi_cache_version}")
 
     async def log_security_violation(self, violation_type: str, details: Dict[str, Any],
-                                   user_id: Optional[str] = None):
+                                     user_id: Optional[str] = None):
         """Log security violation with PHI protection"""
         event_id = self._generate_event_id()
 
@@ -481,7 +479,7 @@ class HealthcareAuditLogger:
         )
 
         await self.log_audit_event(audit_event)
-    
+
     def get_audit_summary(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
         """Get audit summary for a date range"""
         try:
@@ -494,7 +492,7 @@ class HealthcareAuditLogger:
                     GROUP BY event_type
                 """, (start_date, end_date))
                 event_counts = dict(cursor.fetchall())
-                
+
                 # Get PHI access counts
                 cursor.execute("""
                     SELECT COUNT(*) as phi_access_count
@@ -502,7 +500,7 @@ class HealthcareAuditLogger:
                     WHERE timestamp BETWEEN %s AND %s AND phi_involved = true
                 """, (start_date, end_date))
                 phi_access_count = cursor.fetchone()["phi_access_count"]
-                
+
                 # Get security violations
                 cursor.execute("""
                     SELECT COUNT(*) as violation_count
@@ -510,7 +508,7 @@ class HealthcareAuditLogger:
                     WHERE timestamp BETWEEN %s AND %s AND event_type = %s
                 """, (start_date, end_date, AuditEventType.SECURITY_VIOLATION.value))
                 violation_count = cursor.fetchone()["violation_count"]
-                
+
                 return {
                     "period": {
                         "start": start_date.isoformat(),
@@ -521,11 +519,11 @@ class HealthcareAuditLogger:
                     "security_violations": violation_count,
                     "compliance_status": "compliant" if violation_count == 0 else "violations_detected"
                 }
-                
+
         except Exception as e:
             self.logger.error("Failed to generate audit summary", error=str(e))
             return {"error": "Failed to generate audit summary"}
-    
+
     def close(self):
         """Close audit database connection"""
         if hasattr(self, 'audit_conn'):

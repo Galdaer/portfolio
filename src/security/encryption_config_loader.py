@@ -2,12 +2,11 @@
 import os
 import base64
 import secrets
-from typing import Optional
 from .environment_detector import EnvironmentDetector
 
 class EncryptionConfigLoader:
     """Centralized encryption configuration management"""
-    
+
     @staticmethod
     def get_or_create_master_key(logger) -> bytes:
         """Get or create master encryption key with proper base64 encoding"""
@@ -48,12 +47,12 @@ class EncryptionConfigLoader:
         else:
             # Generate key for development - return base64 encoded
             return EncryptionConfigLoader._get_or_create_development_key(logger)
-    
+
     @staticmethod
     def _get_or_create_development_key(logger) -> bytes:
         """Get or create persistent development key - returns base64 encoded bytes"""
         key_file = "/opt/intelluxe/stack/security/dev_master_key"
-        
+
         try:
             if os.path.exists(key_file):
                 with open(key_file, 'rb') as f:
@@ -65,20 +64,20 @@ class EncryptionConfigLoader:
                             return stored_key  # Already base64 encoded
                     except Exception:
                         pass
-            
+
             # Generate new key and store as base64
             key_bytes = secrets.token_bytes(32)
             encoded_key = base64.urlsafe_b64encode(key_bytes)
-            
+
             # Store for persistence
             os.makedirs(os.path.dirname(key_file), exist_ok=True)
             with open(key_file, 'wb') as f:
                 f.write(encoded_key)
             os.chmod(key_file, 0o600)
-            
+
             logger.warning("Using generated encryption key - not suitable for production")
             return encoded_key
-            
+
         except Exception as e:
             logger.warning(f"Development key persistence failed: {e}")
             # Fallback to in-memory key

@@ -7,10 +7,10 @@ import json
 import logging
 import os
 from typing import Dict, List, Optional, Set, Any
-from datetime import datetime, timedelta
-from dataclasses import dataclass, asdict
+from datetime import datetime
+from dataclasses import dataclass
 from enum import Enum
-import psycopg2
+
 from psycopg2.extras import RealDictCursor
 from .environment_detector import EnvironmentDetector
 
@@ -98,7 +98,7 @@ class AccessRequest:
 
 class HealthcareRBACManager:
     """Healthcare-specific RBAC manager"""
-    
+
     def __init__(self, postgres_conn):
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.HealthcareRBACManager")
@@ -124,7 +124,7 @@ class HealthcareRBACManager:
 
         # Initialize default roles
         self._init_default_roles()
-    
+
     def _init_rbac_tables(self):
         """Initialize RBAC database tables"""
         try:
@@ -143,7 +143,7 @@ class HealthcareRBACManager:
                         updated_at TIMESTAMP DEFAULT NOW()
                     )
                 """)
-                
+
                 # Users table
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS rbac_users (
@@ -158,7 +158,7 @@ class HealthcareRBACManager:
                         updated_at TIMESTAMP DEFAULT NOW()
                     )
                 """)
-                
+
                 # Access log table
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS rbac_access_log (
@@ -172,7 +172,7 @@ class HealthcareRBACManager:
                         timestamp TIMESTAMP DEFAULT NOW()
                     )
                 """)
-                
+
                 # Role assignments audit table
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS rbac_role_assignments (
@@ -186,28 +186,28 @@ class HealthcareRBACManager:
                         reason TEXT
                     )
                 """)
-                
+
                 # Create indexes
                 cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_rbac_users_user_id 
+                    CREATE INDEX IF NOT EXISTS idx_rbac_users_user_id
                     ON rbac_users(user_id)
                 """)
                 cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_rbac_access_log_user_id 
+                    CREATE INDEX IF NOT EXISTS idx_rbac_access_log_user_id
                     ON rbac_access_log(user_id)
                 """)
                 cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_rbac_access_log_timestamp 
+                    CREATE INDEX IF NOT EXISTS idx_rbac_access_log_timestamp
                     ON rbac_access_log(timestamp)
                 """)
-                
+
             self.postgres_conn.commit()
             self.logger.info("RBAC tables initialized")
-            
+
         except Exception as e:
             self.logger.error(f"Failed to initialize RBAC tables: {e}")
             raise
-    
+
     def _init_default_roles(self):
         """Initialize default healthcare roles"""
         default_roles = [
@@ -299,7 +299,7 @@ class HealthcareRBACManager:
                 }
             }
         ]
-        
+
         for role_data in default_roles:
             try:
                 # Check if role already exists
@@ -307,10 +307,10 @@ class HealthcareRBACManager:
                     cursor.execute("""
                         SELECT role_id FROM rbac_roles WHERE role_id = %s
                     """, (role_data["role_id"],))
-                    
+
                     if cursor.fetchone():
                         continue  # Role already exists
-                
+
                 # Create role
                 role = Role(
                     role_id=role_data["role_id"],
@@ -322,19 +322,19 @@ class HealthcareRBACManager:
                     created_at=datetime.now(),
                     updated_at=datetime.now()
                 )
-                
+
                 self.create_role(role)
                 self.logger.info(f"Created default role: {role.name}")
-                
+
             except Exception as e:
                 self.logger.error(f"Failed to create default role {role_data['role_id']}: {e}")
-    
+
     def create_role(self, role: Role) -> bool:
         """Create a new role"""
         try:
             with self.postgres_conn.cursor() as cursor:
                 cursor.execute("""
-                    INSERT INTO rbac_roles 
+                    INSERT INTO rbac_roles
                     (role_id, name, description, permissions, resource_constraints, is_active)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (
@@ -345,21 +345,21 @@ class HealthcareRBACManager:
                     json.dumps(role.resource_constraints, default=str),
                     role.is_active
                 ))
-            
+
             self.postgres_conn.commit()
             self.logger.info(f"Created role: {role.name}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Failed to create role {role.role_id}: {e}")
             return False
-    
+
     def create_user(self, user: User) -> bool:
         """Create a new user"""
         try:
             with self.postgres_conn.cursor() as cursor:
                 cursor.execute("""
-                    INSERT INTO rbac_users 
+                    INSERT INTO rbac_users
                     (user_id, username, email, roles, is_active)
                     VALUES (%s, %s, %s, %s, %s)
                 """, (
@@ -369,15 +369,15 @@ class HealthcareRBACManager:
                     json.dumps(list(user.roles)),
                     user.is_active
                 ))
-            
+
             self.postgres_conn.commit()
             self.logger.info(f"Created user: {user.username}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Failed to create user {user.user_id}: {e}")
             return False
-    
+
     async def assign_role(self, user_id: str, role_id: str, assigned_by: str, reason: str = "") -> bool:
         """Assign role to user"""
         try:
@@ -390,33 +390,33 @@ class HealthcareRBACManager:
             role = await self.get_role(role_id)
             if not role:
                 raise ValueError(f"Role not found: {role_id}")
-            
+
             # Add role to user
             user.roles.add(role_id)
-            
+
             # Update user in database
             with self.postgres_conn.cursor() as cursor:
                 cursor.execute("""
-                    UPDATE rbac_users 
+                    UPDATE rbac_users
                     SET roles = %s, updated_at = NOW()
                     WHERE user_id = %s
                 """, (json.dumps(list(user.roles)), user_id))
-                
+
                 # Log role assignment
                 cursor.execute("""
-                    INSERT INTO rbac_role_assignments 
+                    INSERT INTO rbac_role_assignments
                     (user_id, role_id, assigned_by, reason)
                     VALUES (%s, %s, %s, %s)
                 """, (user_id, role_id, assigned_by, reason))
-            
+
             self.postgres_conn.commit()
             self.logger.info(f"Assigned role {role_id} to user {user_id}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Failed to assign role {role_id} to user {user_id}: {e}")
             return False
-    
+
     async def check_permission(self, user_id: str, permission: Permission,
                         resource_type: ResourceType, resource_id: str,
                         context: Optional[Dict[str, Any]] = None) -> bool:
@@ -433,18 +433,18 @@ class HealthcareRBACManager:
                 role = await self.get_role(role_id)
                 if not role or not role.is_active:
                     continue
-                
+
                 # Check if role has permission
                 if permission in role.permissions:
                     # Check resource constraints
                     if await self._check_resource_constraints(role, resource_type, resource_id, context):
                         self._log_access_attempt(user_id, permission, resource_type, resource_id, True, context)
                         return True
-            
+
             # No role granted permission
             self._log_access_attempt(user_id, permission, resource_type, resource_id, False, context)
             return False
-            
+
         except Exception as e:
             self.logger.error(f"Permission check failed for user {user_id}: {e}")
             self._log_access_attempt(user_id, permission, resource_type, resource_id, False, context)
@@ -815,10 +815,10 @@ class HealthcareRBACManager:
                                   resource_id: str, context: Optional[Dict[str, Any]]) -> bool:
         """Check resource-specific constraints"""
         constraints = role.resource_constraints.get(resource_type, {})
-        
+
         if not constraints:
             return True  # No constraints
-        
+
         # Check assigned patients only constraint
         if constraints.get("assigned_patients_only") and resource_type == ResourceType.PATIENT:
             # Check if the user is assigned to the patient
@@ -844,7 +844,7 @@ class HealthcareRBACManager:
 
         # Default to allow for other constraint types not yet implemented
         return True
-    
+
     async def get_user(self, user_id: str) -> Optional[User]:
         """Get user by ID"""
         try:
@@ -852,11 +852,11 @@ class HealthcareRBACManager:
                 cursor.execute("""
                     SELECT * FROM rbac_users WHERE user_id = %s
                 """, (user_id,))
-                
+
                 row = cursor.fetchone()
                 if not row:
                     return None
-                
+
                 return User(
                     user_id=row["user_id"],
                     username=row["username"],
@@ -867,11 +867,11 @@ class HealthcareRBACManager:
                     created_at=row["created_at"],
                     updated_at=row["updated_at"]
                 )
-                
+
         except Exception as e:
             self.logger.error(f"Failed to get user {user_id}: {e}")
             return None
-    
+
     async def get_role(self, role_id: str) -> Optional[Role]:
         """Get role by ID"""
         try:
@@ -879,11 +879,11 @@ class HealthcareRBACManager:
                 cursor.execute("""
                     SELECT * FROM rbac_roles WHERE role_id = %s
                 """, (role_id,))
-                
+
                 row = cursor.fetchone()
                 if not row:
                     return None
-                
+
                 return Role(
                     role_id=row["role_id"],
                     name=row["name"],
@@ -894,19 +894,19 @@ class HealthcareRBACManager:
                     created_at=row["created_at"],
                     updated_at=row["updated_at"]
                 )
-                
+
         except Exception as e:
             self.logger.error(f"Failed to get role {role_id}: {e}")
             return None
-    
-    def _log_access_attempt(self, user_id: str, permission: Permission, 
+
+    def _log_access_attempt(self, user_id: str, permission: Permission,
                            resource_type: ResourceType, resource_id: str,
                            granted: bool, context: Optional[Dict[str, Any]]):
         """Log access attempt for audit"""
         try:
             with self.postgres_conn.cursor() as cursor:
                 cursor.execute("""
-                    INSERT INTO rbac_access_log 
+                    INSERT INTO rbac_access_log
                     (user_id, resource_type, resource_id, permission, granted, context)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (
@@ -920,7 +920,7 @@ class HealthcareRBACManager:
             self.postgres_conn.commit()
         except Exception as e:
             self.logger.error(f"Failed to log access attempt: {e}")
-    
+
     async def get_user_permissions(self, user_id: str) -> Set[Permission]:
         """Get all permissions for a user"""
         user = await self.get_user(user_id)
@@ -934,25 +934,25 @@ class HealthcareRBACManager:
                 permissions.update(role.permissions)
 
         return permissions
-    
+
     def get_access_summary(self, user_id: str, days: int = 7) -> Dict[str, Any]:
         """Get access summary for user"""
         try:
             with self.postgres_conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute("""
-                    SELECT 
+                    SELECT
                         resource_type,
                         permission,
                         COUNT(*) as access_count,
                         SUM(CASE WHEN granted THEN 1 ELSE 0 END) as granted_count
-                    FROM rbac_access_log 
-                    WHERE user_id = %s 
+                    FROM rbac_access_log
+                    WHERE user_id = %s
                     AND timestamp > NOW() - INTERVAL '%s days'
                     GROUP BY resource_type, permission
                 """, (user_id, days))
-                
+
                 access_stats = cursor.fetchall()
-                
+
                 return {
                     "user_id": user_id,
                     "period_days": days,
@@ -960,7 +960,7 @@ class HealthcareRBACManager:
                     "total_attempts": sum(row["access_count"] for row in access_stats),
                     "total_granted": sum(row["granted_count"] for row in access_stats)
                 }
-                
+
         except Exception as e:
             self.logger.error(f"Failed to get access summary for {user_id}: {e}")
             return {"error": str(e)}

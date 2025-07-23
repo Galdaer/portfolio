@@ -6,7 +6,7 @@ Provides robust environment detection with security-first approach
 import os
 import logging
 from enum import Enum
-from typing import Optional
+
 
 logger = logging.getLogger(__name__)
 
@@ -21,20 +21,20 @@ class Environment(Enum):
 
 class EnvironmentDetector:
     """Secure environment detection with validation"""
-    
+
     @staticmethod
     def get_environment() -> Environment:
         """
         Get current environment with security-first validation
-        
+
         Returns:
             Environment: The detected environment
-            
+
         Raises:
             RuntimeError: If environment cannot be safely determined
         """
         env_var = os.getenv("ENVIRONMENT", "").strip().lower()
-        
+
         # Security-first approach: require explicit environment setting
         if not env_var:
             logger.error("ENVIRONMENT variable is not set - this is required for security")
@@ -42,7 +42,7 @@ class EnvironmentDetector:
                 "ENVIRONMENT variable must be explicitly set. "
                 "Valid values: development, testing, staging, production"
             )
-        
+
         # Validate against known environments
         try:
             environment = Environment(env_var)
@@ -54,7 +54,7 @@ class EnvironmentDetector:
                 f"Invalid ENVIRONMENT value: '{env_var}'. "
                 f"Valid values: {', '.join([e.value for e in Environment])}"
             )
-    
+
     @staticmethod
     def is_production() -> bool:
         """Check if running in production environment"""
@@ -73,7 +73,7 @@ class EnvironmentDetector:
                 file=sys.stderr
             )
             return True
-    
+
     @staticmethod
     def is_development() -> bool:
         """Check if running in development environment"""
@@ -86,7 +86,7 @@ class EnvironmentDetector:
                 f"NOT assuming development mode for security. Error: {e}"
             )
             return False
-    
+
     @staticmethod
     def is_testing() -> bool:
         """Check if running in testing environment"""
@@ -94,7 +94,7 @@ class EnvironmentDetector:
             return EnvironmentDetector.get_environment() == Environment.TESTING
         except RuntimeError:
             return False
-    
+
     @staticmethod
     def is_staging() -> bool:
         """Check if running in staging environment"""
@@ -102,15 +102,15 @@ class EnvironmentDetector:
             return EnvironmentDetector.get_environment() == Environment.STAGING
         except RuntimeError:
             return False
-    
+
     @staticmethod
     def require_environment(required_env: Environment) -> None:
         """
         Require specific environment or raise error
-        
+
         Args:
             required_env: The required environment
-            
+
         Raises:
             RuntimeError: If not running in required environment
         """
@@ -120,12 +120,12 @@ class EnvironmentDetector:
                 f"This operation requires {required_env.value} environment, "
                 f"but running in {current_env.value}"
             )
-    
+
     @staticmethod
     def require_non_production() -> None:
         """
         Require non-production environment for dangerous operations
-        
+
         Raises:
             RuntimeError: If running in production
         """
@@ -133,17 +133,17 @@ class EnvironmentDetector:
             raise RuntimeError(
                 "This operation is not allowed in production environment"
             )
-    
+
     @staticmethod
     def get_environment_config() -> dict:
         """
         Get environment-specific configuration
-        
+
         Returns:
             dict: Environment-specific settings
         """
         env = EnvironmentDetector.get_environment()
-        
+
         config = {
             Environment.DEVELOPMENT: {
                 "debug": True,
@@ -174,5 +174,5 @@ class EnvironmentDetector:
                 "enable_test_endpoints": False
             }
         }
-        
+
         return config[env]
