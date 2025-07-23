@@ -97,20 +97,24 @@ class AccessRequest:
     timestamp: datetime
 
 class HealthcareRBACManager:
-    """Healthcare-specific RBAC manager"""
+    """Healthcare Role-Based Access Control Manager with HIPAA compliance"""
 
-    def __init__(self, postgres_conn):
+    # Class constants for validation
+    VALID_BOOLEAN_VALUES = {'true', 'false'}
+    VALID_ENVIRONMENTS = {'development', 'testing', 'staging', 'production'}
+
+    def __init__(self, postgres_conn, config=None):
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.HealthcareRBACManager")
 
         # Validate RBAC strict mode configuration
         rbac_strict_mode = os.getenv('RBAC_STRICT_MODE', 'true').lower().strip()
 
-        if rbac_strict_mode not in {'true', 'false'}:
+        if rbac_strict_mode not in self.VALID_BOOLEAN_VALUES:
             self.logger.error(f"Invalid RBAC_STRICT_MODE value: '{rbac_strict_mode}'")
             raise ValueError(
                 f"Invalid value for RBAC_STRICT_MODE: '{rbac_strict_mode}'. "
-                "Expected 'true' or 'false'."
+                f"Expected one of {self.VALID_BOOLEAN_VALUES}."
             )
 
         self.STRICT_MODE = rbac_strict_mode == 'true'
@@ -459,8 +463,8 @@ class HealthcareRBACManager:
         """Check if user is assigned to specific patient with environment-aware behavior"""
         # Use centralized environment detection pattern
         if not EnvironmentDetector.is_production():
-            # Phase 1 Development Mode: Patient assignment is a Phase 2 business service
-            # For Phase 1 Core AI Infrastructure, we allow access with logging
+            # Development Mode: Patient assignment is planned as a Phase 2 business service
+            # For the current phase, we allow access with logging for Core AI Infrastructure
             self.logger.info(f"Development mode: Allowing patient access for user {user_id}")
             return True
         else:

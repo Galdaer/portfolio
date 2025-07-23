@@ -43,7 +43,18 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 class HealthcareConfig:
-    """pip install mypyHealthcare MCP server configuration"""
+    """
+    Configuration manager for the Healthcare MCP server.
+
+    This class handles security settings, database connections, Redis and Ollama configurations,
+    and server settings required for the operation of the Healthcare MCP server with HIPAA compliance.
+
+    Attributes:
+        security_mode: Healthcare security mode (healthcare/development)
+        phi_detection_enabled: Enable PHI detection and masking
+        audit_logging_level: Level of audit logging (basic/comprehensive)
+        hipaa_compliance_mode: HIPAA compliance enforcement level
+    """
 
     def __init__(self):
         # Security settings
@@ -298,6 +309,24 @@ class HealthcareMCPServer:
                     "lockout_expiry": lockout_expiry
                 }
             )
+
+    def _record_auth_failure(self, client_ip: str, failure_type: str = "jwt_validation"):
+        """Record authentication failure for rate limiting and security monitoring"""
+        try:
+            # Record JWT-specific failure for rate limiting
+            self._record_jwt_failure(client_ip)
+
+            # Log security event for audit trail
+            self.logger.warning(
+                f"Authentication failure recorded: {failure_type} from {client_ip}"
+            )
+
+            # Update failure metrics if available
+            if hasattr(self, 'metrics_collector'):
+                self.metrics_collector.increment_auth_failure(client_ip, failure_type)
+
+        except Exception as e:
+            self.logger.error(f"Failed to record auth failure: {e}")
 
     def _init_database_connections(self):
         """Initialize database connections"""

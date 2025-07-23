@@ -24,11 +24,10 @@ class TestProductionEncryptionKeyValidation:
 
                     # Should raise RuntimeError in production without key
                     with pytest.raises(RuntimeError, match="MASTER_ENCRYPTION_KEY"):
-                        manager = HealthcareEncryptionManager(mock_conn)
+                        HealthcareEncryptionManager(mock_conn)
 
                     # Verify the mock connection was passed to constructor
                     assert mock_connect.called, "Database connection should be attempted"
-    
     def test_development_environment_allows_key_generation(self):
         """Test that development environment allows key generation"""
 
@@ -48,22 +47,27 @@ class TestProductionEncryptionKeyValidation:
 class TestSecureMCPAuthentication:
     """Test Fix 2: Secure MCP Authentication"""
 
-    def test_production_blocks_basic_authentication(self):
-        """Test that production environment blocks basic authentication"""
-
-        with patch.dict(os.environ, {'ENVIRONMENT': 'production'}, clear=False):
+    def test_production_jwt_validation_implemented(self):
+        """Test that JWT validation works in production mode"""
+        with patch.dict(os.environ, {'ENVIRONMENT': 'production'}):
             from src.healthcare_mcp.secure_mcp_server import HealthcareMCPServer
 
-            mock_config = Mock()
-            server = HealthcareMCPServer(mock_config)
+            config = Mock()
+            server = HealthcareMCPServer(config)
 
-            # Mock credentials
-            mock_credentials = Mock()
-            mock_credentials.credentials = "test_token"
+            # Test that JWT validation is implemented (not raising NotImplementedError)
+            # Use a mock JWT token for testing
+            mock_token = "mock.jwt.token"
 
-            # Should raise NotImplementedError in production
-            with pytest.raises(NotImplementedError, match="Production JWT validation not implemented"):
-                server._validate_credentials(mock_credentials)
+            # Should return False for invalid token, not raise NotImplementedError
+            result = server._validate_jwt_token(mock_token)
+            assert result is False  # Invalid token should return False
+
+            # Verify no NotImplementedError is raised
+            try:
+                server._validate_jwt_token(mock_token)
+            except NotImplementedError:
+                pytest.fail("JWT validation should be implemented, not raise NotImplementedError")
 
     def test_development_allows_basic_authentication_with_warning(self):
         """Test that development allows basic auth but logs warning"""

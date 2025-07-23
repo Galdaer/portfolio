@@ -222,7 +222,16 @@ class KeyManager:
 
     def _get_or_create_master_key(self) -> bytes:
         """Get master encryption key using centralized configuration"""
-        return EncryptionConfigLoader.get_or_create_master_key(self.logger)
+        # Use self.config for consistent configuration usage
+        if hasattr(self.config, 'master_key_override') and self.config.master_key_override:
+            self.logger.info("Using configuration-provided master key")
+            return self.config.master_key_override
+
+        # Delegate to centralized loader with configuration context
+        return EncryptionConfigLoader.get_or_create_master_key(
+            self.logger,
+            config=self.config
+        )
 
     def _get_or_create_development_key(self) -> bytes:
         """

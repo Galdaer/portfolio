@@ -230,8 +230,15 @@ class HealthcareSecurityMiddleware:
         self.redis_conn = redis_conn
         self.logger = logging.getLogger(f"{__name__}.HealthcareSecurityMiddleware")
 
-        # Initialize security components
-        self.encryption_manager = EncryptionManager(config)
+        # Initialize security components with proper parameters
+        encryption_key = None
+        if hasattr(config, 'encryption_key') and config.encryption_key:
+            if isinstance(config.encryption_key, str):
+                encryption_key = config.encryption_key.encode('utf-8')
+            else:
+                encryption_key = config.encryption_key
+
+        self.encryption_manager = EncryptionManager(encryption_key)
         self.session_manager = SessionManager(config, redis_conn)
         self.rate_limiter = RateLimiter(config, redis_conn)
 

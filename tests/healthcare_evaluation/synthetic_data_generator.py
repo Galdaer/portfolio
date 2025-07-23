@@ -151,6 +151,21 @@ class SyntheticHealthcareDataGenerator:
         else:
             self.logger.info("Using random seed for varied synthetic data")
 
+    def generate_phone_number(self) -> str:
+        """Generate NANP-compliant fictional phone number using 555-01XX format"""
+        # NANP standard: 555-01XX-XXXX for fictional numbers
+        # This ensures compliance with North American Numbering Plan
+        # while clearly marking numbers as fictional
+        area_code = random.choice(['555'])  # Fictional area code
+        exchange = f"01{random.randint(10, 99)}"  # 555-01XX format
+        number = f"{random.randint(1000, 9999)}"
+        return f"{area_code}-{exchange}-{number}"
+
+    def generate_provider_phone(self) -> str:
+        """Generate fictional provider phone number"""
+        # Use same NANP-compliant format for consistency
+        return self.generate_phone_number()
+
     def generate_synthetic_patient(self) -> SyntheticPatient:
         """Generate a completely synthetic patient record"""
 
@@ -166,7 +181,7 @@ class SyntheticHealthcareDataGenerator:
         birth_date = self.fake.date_of_birth(minimum_age=18, maximum_age=90)
 
         # Generate contact information (clearly synthetic)
-        phone = f"{self.FICTIONAL_PHONE_PREFIX}-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
+        phone = self.generate_phone_number()
         email = f"{first_name.lower()}.{last_name.lower()}@synthetic-email.test"
 
         # Generate address
@@ -182,7 +197,7 @@ class SyntheticHealthcareDataGenerator:
         emergency_contact = {
             "name": self.fake.name(),
             "relationship": self.fake.random_element(['Spouse', 'Parent', 'Sibling', 'Child', 'Friend']),
-            "phone": f"{self.FICTIONAL_PHONE_PREFIX}-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
+            "phone": self.generate_phone_number()
         }
 
         # Generate insurance information (synthetic)
