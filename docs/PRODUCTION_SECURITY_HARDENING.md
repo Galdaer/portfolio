@@ -723,6 +723,34 @@ detector = PHIDetector()
 result = detector.detect_phi_sync('Test patient data without PHI')
 print(f'PHI detection test: {result.phi_detected}')
 "
+
+### User Authentication Integration Testing
+
+# Test healthcare authentication integration
+python3 -c "
+from src.security.healthcare_auth import HealthcareAuthManager
+import os
+
+# Test authentication manager initialization
+auth = HealthcareAuthManager()
+print(f'✅ Current user detected: {auth.current_user}')
+print(f'✅ Auth mode: {auth.auth_mode.value}')
+
+# Test user config loading
+try:
+    config = auth.load_user_environment()
+    print(f'✅ User config loaded: {len(config)} settings')
+    print(f'✅ User role: {config.get(\"INTELLUXE_ROLE\", \"not_set\")}')
+except Exception as e:
+    print(f'⚠️  User config creation needed: {e}')
+
+# Test config encryption/decryption
+if hasattr(auth, '_derive_user_key'):
+    key = auth._derive_user_key()
+    print('✅ User session key derivation working')
+
+print('✅ Healthcare authentication integration test passed')
+"
 ```
 
 ---

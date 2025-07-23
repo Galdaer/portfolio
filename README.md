@@ -320,3 +320,34 @@ git checkout -b feature/your-feature
 - **Community Forum:** [https://community.intelluxe.ai](https://community.intelluxe.ai)
 
 ---
+
+## Authentication Setup
+
+Intelluxe integrates with your existing clinic authentication or provides standalone auth:
+
+### Option 1: Integrate with Existing Systems
+```bash
+# Configure for Active Directory integration
+echo "AUTH_MODE=active_directory" >> .env
+echo "EXISTING_AUTH_DOMAIN=yourclinic.local" >> .env
+echo "USER_ENV_FILES=true" >> .env
+
+# Each user gets encrypted personal config
+# /home/dr_jones/.intelluxe/user.env.encrypted
+# /home/nurse_smith/.intelluxe/user.env.encrypted
+```
+
+### Option 2: Standalone Authentication
+```bash
+# Independent authentication for small clinics
+echo "AUTH_MODE=standalone" >> .env
+echo "USER_ENV_FILES=true" >> .env
+echo "STANDALONE_AUTH_ENABLED=true" >> .env
+```
+
+### User Configuration
+Each staff member gets personal AI settings automatically encrypted based on their system login:
+- **No additional passwords** - uses existing clinic authentication
+- **Personal AI preferences** - model selection, specialty focus, workflow settings
+- **Role-based permissions** - automatic access control based on job function
+- **Session security** - config only accessible when user is logged in
