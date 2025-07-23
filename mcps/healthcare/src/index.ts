@@ -66,9 +66,121 @@ app.get('/health', (req, res) => {
     res.json({ status: 'healthy', service: 'healthcare-mcp', timestamp: new Date().toISOString() });
 });
 
-// MCP endpoint (placeholder for future HTTP MCP implementation)
-app.post('/mcp', (req, res) => {
-    res.json({ message: 'MCP endpoint - implementation pending' });
+// MCP JSON-RPC endpoint
+app.post('/mcp', async (req, res) => {
+    try {
+        const { jsonrpc, method, params, id } = req.body;
+
+        // Debug logging
+        console.log(`MCP Request: ${method}`, params ? JSON.stringify(params, null, 2) : 'no params');
+
+        // Basic JSON-RPC validation
+        if (jsonrpc !== '2.0') {
+            return res.status(400).json({
+                jsonrpc: '2.0',
+                error: { code: -32600, message: 'Invalid Request' },
+                id: id || null
+            });
+        }
+
+        // Handle MCP methods
+        switch (method) {
+            case 'initialize':
+                res.json({
+                    jsonrpc: '2.0',
+                    result: {
+                        protocolVersion: '2024-11-05',
+                        capabilities: {
+                            tools: {},
+                            resources: {},
+                            prompts: {},
+                            logging: {}
+                        },
+                        serverInfo: {
+                            name: 'intelluxe-healthcare-mcp-server',
+                            version: '1.0.0'
+                        }
+                    },
+                    id
+                });
+                break;
+
+            case 'notifications/initialized':
+                // Acknowledge initialization
+                res.json({
+                    jsonrpc: '2.0',
+                    result: {},
+                    id
+                });
+                break;
+
+            case 'ping':
+                res.json({
+                    jsonrpc: '2.0',
+                    result: {},
+                    id
+                });
+                break;
+
+            case 'tools/list':
+                res.json({
+                    jsonrpc: '2.0',
+                    result: {
+                        tools: [
+                            {
+                                name: 'health_check',
+                                description: 'Check healthcare MCP server health',
+                                inputSchema: {
+                                    type: 'object',
+                                    properties: {},
+                                    required: []
+                                }
+                            }
+                        ]
+                    },
+                    id
+                });
+                break;
+
+            case 'tools/call':
+                if (params?.name === 'health_check') {
+                    res.json({
+                        jsonrpc: '2.0',
+                        result: {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: 'Healthcare MCP Server is healthy and running'
+                                }
+                            ]
+                        },
+                        id
+                    });
+                } else {
+                    res.status(400).json({
+                        jsonrpc: '2.0',
+                        error: { code: -32601, message: 'Method not found' },
+                        id
+                    });
+                }
+                break;
+
+            default:
+                console.log(`Unknown MCP method: ${method}`);
+                res.status(400).json({
+                    jsonrpc: '2.0',
+                    error: { code: -32601, message: `Method not found: ${method}` },
+                    id
+                });
+        }
+    } catch (error) {
+        console.error('MCP endpoint error:', error);
+        res.status(500).json({
+            jsonrpc: '2.0',
+            error: { code: -32603, message: 'Internal error' },
+            id: req.body?.id || null
+        });
+    }
 });
 
 // Start HTTP server
