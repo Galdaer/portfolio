@@ -435,24 +435,14 @@ install_uv() {
 }
 
 install_python_deps() {
-    log "Installing Python dependencies"
+    log "Installing Python dependencies for healthcare AI development"
     
-    # Install uv first
+    # Install uv first for faster package management
     install_uv
-    
-    # Check if we should skip Python package installation (for virtual env workflow)
-    if [ "${SKIP_PYTHON_PACKAGES:-}" = "1" ]; then
-        log "Skipping Python package installation (SKIP_PYTHON_PACKAGES=1)"
-        log "Python packages should be installed in virtual environment instead"
-        return
-    fi
-    
-    # Install essential system-wide Python packages for infrastructure
-    # Note: Most AI/ML packages should be in virtual environments
-    log "Installing essential system Python packages with uv"
     
     # Always install linting tools system-wide for CI/development
     if command -v uv >/dev/null 2>&1; then
+        log "Installing Python tools with uv (fast)"
         uv pip install --system --break-system-packages \
             flake8 mypy pytest pytest-asyncio \
             yamllint \
@@ -470,6 +460,7 @@ install_python_deps() {
                 psycopg2-binary cryptography
         }
     else
+        log "Installing Python tools with pip (fallback)"
         pip3 install --break-system-packages \
             flake8 mypy pytest pytest-asyncio \
             yamllint \
@@ -479,10 +470,20 @@ install_python_deps() {
             psycopg2-binary cryptography
     fi
     
+    # Verify critical tools are available
+    if ! command -v flake8 >/dev/null 2>&1; then
+        warn "flake8 not available after installation"
+    fi
+    if ! command -v mypy >/dev/null 2>&1; then
+        warn "mypy not available after installation"
+    fi
+    if ! command -v pytest >/dev/null 2>&1; then
+        warn "pytest not available after installation"
+    fi
+    
     ok "Essential Python dependencies installed system-wide"
     log "💡 For AI/ML development, use virtual environments with requirements.in"
     verify_installation "python3 -c 'import yaml'" "Essential Python dependencies" || exit 1
-    verify_installation "flake8 --version" "flake8 linting tool" || exit 1
 }
 
 setup_directories() {

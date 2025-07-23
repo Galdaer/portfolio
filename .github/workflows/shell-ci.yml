@@ -341,18 +341,30 @@ jobs:
                   mkdir -p /workspace/coverage
                   chmod 777 /workspace/coverage
                   
-                  # Run with kcov coverage - suppress verbose test output
-                  timeout 180 kcov \
+                  # Run with kcov coverage - capture test results properly
+                  if timeout 180 kcov \
                     --include-pattern=/workspace/scripts/ \
                     --exclude-pattern=/tmp/workspace-rw/test/,/tmp/workspace-rw/vendor/ \
                     --bash-dont-parse-binary-dir \
                     /workspace/coverage \
-                    bats -r test/ 2>/dev/null || echo 'Coverage run finished (some tests may have failed).'
-                    
+                    bats -r test/ 2>/dev/null; then
+                    echo 'All tests passed with coverage'
+                    test_result=0
+                  else
+                    echo 'Some tests failed - check coverage report for details'
+                    test_result=1
+                  fi
+                  
                   chmod -R 755 /workspace/coverage
                 else
                   echo 'kcov not found, running tests without coverage.'
-                  timeout 120 bats -r test/ 2>/dev/null || echo 'Some tests failed'
+                  if timeout 120 bats -r test/ 2>/dev/null; then
+                    echo 'All tests passed'
+                    test_result=0
+                  else
+                    echo 'Some tests failed'
+                    test_result=1
+                  fi
                   
                   mkdir -p /workspace/coverage
                   echo '<html><body><h1>Coverage not available</h1><p>kcov not found in container</p></body></html>' > /workspace/coverage/index.html
@@ -361,8 +373,8 @@ jobs:
                 echo 'Test execution completed'
               " 2>/dev/null
             
-            test_exit_code=$?
-            echo "Tests completed with exit code: $test_exit_code"
+            # Exit with proper code
+            exit $test_result
           else
             echo "Container build failed, creating placeholder coverage"
             mkdir -p ./coverage

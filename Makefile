@@ -158,15 +158,28 @@ fix-permissions:
 
 deps:
 	@echo "📦  Installing healthcare AI dependencies with uv (fast) or pip (fallback)"
+	@# Ensure system dependencies are installed first
+	@if ! command -v uv >/dev/null 2>&1; then \
+		echo "🔧  Installing uv for faster Python package management..."; \
+		curl -LsSf https://astral.sh/uv/install.sh | sh; \
+		export PATH="$$HOME/.cargo/bin:$$PATH"; \
+	fi
 	@if command -v uv >/dev/null 2>&1; then \
 		echo "🚀  Using uv for fast installation..."; \
-		uv pip install -r requirements.in; \
-		echo "🔒  Generating lockfile for reproducible builds..."; \
-		uv pip compile requirements.in -o requirements.txt; \
+		uv pip install --system --break-system-packages flake8 mypy pytest pytest-asyncio yamllint; \
+		if [ -f requirements.in ]; then \
+			uv pip install -r requirements.in; \
+			echo "🔒  Generating lockfile for reproducible builds..."; \
+			uv pip compile requirements.in -o requirements.txt; \
+		fi; \
 	else \
 		echo "⚠️  UV not found, installing with pip (slower)..."; \
-		pip install -r requirements.in; \
+		pip3 install --break-system-packages flake8 mypy pytest pytest-asyncio yamllint; \
+		if [ -f requirements.in ]; then \
+			pip install -r requirements.in; \
+		fi; \
 	fi
+	@echo "✅  Dependencies installed successfully"
 
 update:
 	@echo "🔄  Running healthcare AI system update and upgrade"
