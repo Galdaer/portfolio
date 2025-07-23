@@ -54,6 +54,13 @@
         "--profile",
         "black"
     ],
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingImports": "none",
+        "reportUnusedImport": "none"
+    },
+    "python.linting.flake8Args": [
+        "--config=.flake8"
+    ],
     "// Medical Terminology and Healthcare Terms": "",
     "cSpell.words": [
         "Galdaer",

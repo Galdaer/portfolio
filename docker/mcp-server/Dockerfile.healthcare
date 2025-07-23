@@ -1,70 +1,66 @@
-# Healthcare MCP Server Dockerfile
+# Intelluxe AI Healthcare MCP Server Dockerfile
 # Secure, HIPAA-compliant container for healthcare AI MCP server
 
-FROM python:3.11-slim
+FROM node:20-alpine
 
-# Security: Create non-root user
-RUN groupadd -r healthcare && useradd -r -g healthcare -u 1000 healthcare
+# Healthcare AI metadata with security documentation
+LABEL maintainer="Intelluxe AI Healthcare Team"
+LABEL description="HIPAA-compliant MCP server for healthcare AI workflows"
+LABEL version="1.0.1"
+LABEL security="hardened-healthcare"
+LABEL documentation="Security assessment: Network-isolated deployment mitigates container CVEs"
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Security: Use existing node user (UID 1000) - matches Intelluxe pattern
+RUN addgroup -g 1001 intelluxe && adduser node intelluxe
+
+# Security hardening - update all packages for vulnerability mitigation
+RUN apk update && apk upgrade && apk add --no-cache \
     curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    ca-certificates \
+    && rm -rf /var/cache/apk/*
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy package files first for better caching
+COPY --chown=node:intelluxe package*.json ./
+COPY --chown=node:intelluxe tsconfig.json ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy source files BEFORE building
+COPY --chown=node:intelluxe src/ ./src/
+
+# Install dependencies, build, and clean up in single layer
+RUN npm ci && \
+    npm run build && \
+    npm prune --omit=dev && \
+    npm cache clean --force && \
+    rm -rf src/ tsconfig.json package*.json
 
 # Create necessary directories
-RUN mkdir -p /app/src /app/logs /app/data /tmp /var/tmp \
-    && chown -R healthcare:healthcare /app \
-    && chmod 755 /app/src /app/logs /app/data
-
-# Copy application source
-COPY src/healthcare_mcp/ /app/src/healthcare_mcp/
-
-# Create entrypoint script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Ensure log directory exists and is writable\n\
-mkdir -p /app/logs\n\
-chown healthcare:healthcare /app/logs\n\
-\n\
-# Start the healthcare MCP server\n\
-exec python -m src.healthcare_mcp.secure_mcp_server\n\
-' > /app/entrypoint.sh \
-    && chmod +x /app/entrypoint.sh \
-    && chown healthcare:healthcare /app/entrypoint.sh
-
-# Security hardening
-RUN chmod 750 /app \
-    && chmod -R 640 /app/src \
-    && chmod 750 /app/entrypoint.sh
+RUN mkdir -p /app/logs /app/data \
+    && chown -R node:intelluxe /app \
+    && chmod 755 /app/build /app/logs /app/data
 
 # Switch to non-root user
-USER healthcare
+USER node
 
-# Health check
+# Health check for healthcare service monitoring with security validation
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:3000/health || exit 1
 
 # Expose port
-EXPOSE 8000
+EXPOSE 3000
 
 # Set environment variables
-ENV PYTHONPATH=/app
-ENV PYTHONUNBUFFERED=1
+ENV NODE_ENV=production
 ENV MCP_SECURITY_MODE=healthcare
 ENV PHI_DETECTION_ENABLED=true
 ENV AUDIT_LOGGING_LEVEL=comprehensive
 ENV HIPAA_COMPLIANCE_MODE=strict
 
-# Run as non-root with read-only filesystem
-ENTRYPOINT ["/app/entrypoint.sh"]
+# Security hardening environment variables
+ENV NODE_OPTIONS="--max-old-space-size=512"
+ENV TMPDIR=/tmp
+
+# Start the healthcare MCP server
+CMD ["node", "/app/build/index.js"]

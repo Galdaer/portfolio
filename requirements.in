@@ -23,6 +23,7 @@ requests
 # === AUTHENTICATION AND SECURITY ===
 python-multipart
 python-jose[cryptography]
+pyjwt
 passlib
 bcrypt
 cryptography

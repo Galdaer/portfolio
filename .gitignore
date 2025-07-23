@@ -171,9 +171,7 @@ ENV/
 env.bak
 venv.bak
 
-# === NODE.JS / HEALTHCARE-MCP EXCLUSIONS ===
-# Node.js dependencies and build artifacts
-**/node_modules/
+# === HEALTHCARE-MCP EXCLUSIONS / NODE.JS  ===
 **/dist/
 **/build/
 **/.npm
@@ -194,6 +192,11 @@ yarn-error.log*
 # Healthcare MCP specific directories
 !/mcps/
 !/mcps/**
+
+# Node.js dependencies and build artifacts
+**/node_modules/
+**/node_modules/**
+**/node_modules/**/*
 
 # TypeScript and linting cache
 .eslintcache

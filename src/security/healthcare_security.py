@@ -6,7 +6,7 @@ Comprehensive security framework for healthcare AI systems with HIPAA compliance
 import os
 import json
 import logging
-from typing import Dict, Optional, Any, Callable
+from typing import Dict, Optional, Any, Callable, Union
 from datetime import datetime, timedelta
 
 import secrets
@@ -19,7 +19,6 @@ import base64
 
 from fastapi import HTTPException, Request
 import redis
-
 
 from .environment_detector import EnvironmentDetector
 
@@ -52,50 +51,23 @@ class SecurityConfig:
         self.rate_limit_window_minutes = 15
 
 class EncryptionManager:
-    """Manages encryption for healthcare data"""
+    """Handles encryption/decryption for healthcare data"""
 
-    def __init__(self, key: Optional[bytes] = None):
-        """Initialize healthcare security with proper key management"""
-        self.logger = logging.getLogger(__name__)
-
-        if key:
-            self.fernet = Fernet(key)
+    def __init__(self, encryption_key: Optional[bytes] = None):
+        if encryption_key:
+            self.fernet = Fernet(base64.urlsafe_b64encode(encryption_key[:32].ljust(32, b'\0')))
         else:
-            # Generate key if not provided (for development only)
-            generated_key = Fernet.generate_key()
-            self.fernet = Fernet(generated_key)
-
-            if EnvironmentDetector.is_production():
-                self.logger.error(
-                    "No encryption key provided in production environment. "
-                    "Generated keys will cause data loss on restart. "
-                    "Set HEALTHCARE_ENCRYPTION_KEY environment variable."
-                )
-                raise RuntimeError("Production encryption key required")
-            else:
-                self.logger.warning(
-                    "Using generated encryption key - not suitable for production. "
-                    f"To persist this key, set HEALTHCARE_ENCRYPTION_KEY={generated_key.decode()}"
-                )
+            # Generate a key for development
+            key = Fernet.generate_key()
+            self.fernet = Fernet(key)
 
     def encrypt_data(self, data: str) -> str:
         """Encrypt sensitive data"""
-        try:
-            encrypted = self.fernet.encrypt(data.encode())
-            return base64.urlsafe_b64encode(encrypted).decode()
-        except Exception as e:
-            self.logger.error(f"Encryption failed: {e}")
-            raise
+        return self.fernet.encrypt(data.encode()).decode()
 
     def decrypt_data(self, encrypted_data: str) -> str:
         """Decrypt sensitive data"""
-        try:
-            encrypted_bytes = base64.urlsafe_b64decode(encrypted_data.encode())
-            decrypted = self.fernet.decrypt(encrypted_bytes)
-            return decrypted.decode()
-        except Exception as e:
-            self.logger.error(f"Decryption failed: {e}")
-            raise
+        return self.fernet.decrypt(encrypted_data.encode()).decode()
 
     def hash_password(self, password: str, salt: Optional[str] = None) -> tuple[str, str]:
         """Hash password with salt"""
@@ -123,7 +95,7 @@ class EncryptionManager:
             return False
 
 class SessionManager:
-    """Manages user sessions with security controls"""
+    """Manages user sessions with Redis"""
 
     def __init__(self, config: SecurityConfig, redis_conn: redis.Redis):
         self.config = config
@@ -143,11 +115,12 @@ class SessionManager:
             "user_agent": user_data.get("user_agent")
         }
 
-        # Store session in Redis with expiration
+        # Store session in Redis with expiration - convert timedelta to seconds
         session_key = f"session:{session_id}"
+        timeout_seconds = int(timedelta(minutes=self.config.session_timeout_minutes).total_seconds())
         self.redis_conn.setex(
             session_key,
-            timedelta(minutes=self.config.session_timeout_minutes),
+            timeout_seconds,
             json.dumps(session_data)
         )
 
@@ -157,13 +130,23 @@ class SessionManager:
     def validate_session(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Validate and refresh session"""
         session_key = f"session:{session_id}"
-        session_data = self.redis_conn.get(session_key)
-
-        if not session_data:
-            return None
 
         try:
-            session = json.loads(session_data)
+            session_data_raw = self.redis_conn.get(session_key)
+
+            if not session_data_raw:
+                return None
+
+            # Handle bytes response from Redis - be more explicit
+            if isinstance(session_data_raw, bytes):
+                session_data_str = session_data_raw.decode('utf-8')
+            elif isinstance(session_data_raw, str):
+                session_data_str = session_data_raw
+            else:
+                # Fallback for other types
+                session_data_str = str(session_data_raw)
+
+            session = json.loads(session_data_str)
 
             # Update last activity
             session["last_activity"] = datetime.now().isoformat()
@@ -171,13 +154,13 @@ class SessionManager:
             # Refresh session expiration
             self.redis_conn.setex(
                 session_key,
-                timedelta(minutes=self.config.session_timeout_minutes),
+                int(timedelta(minutes=self.config.session_timeout_minutes).total_seconds()),
                 json.dumps(session)
             )
 
             return session
 
-        except Exception as e:
+        except (json.JSONDecodeError, ValueError, TypeError, AttributeError) as e:
             self.logger.error(f"Session validation failed: {e}")
             return None
 
@@ -192,34 +175,43 @@ class RateLimiter:
 
     def __init__(self, config: SecurityConfig, redis_conn: redis.Redis):
         self.config = config
-        self.redis_conn = redis_conn
+        self.redis_conn: redis.Redis = redis_conn  # Explicit type annotation
         self.logger = logging.getLogger(f"{__name__}.RateLimiter")
 
     def check_rate_limit(self, identifier: str, endpoint: str) -> bool:
         """Check if request is within rate limits"""
         key = f"rate_limit:{identifier}:{endpoint}"
 
-        # Use sliding window
-        current_count = self.redis_conn.get(key)
+        try:
+            # Get current count - explicitly handle the response type
+            current_count_raw = self.redis_conn.get(key)
 
-        if current_count is None:
-            # First request in window
-            self.redis_conn.setex(
-                key,
-                timedelta(minutes=self.config.rate_limit_window_minutes),
-                1
-            )
+            if current_count_raw is None:
+                # First request in window
+                timeout_seconds = int(timedelta(minutes=self.config.rate_limit_window_minutes).total_seconds())
+                self.redis_conn.setex(key, timeout_seconds, "1")
+                return True
+
+            # Convert Redis response to integer
+            if isinstance(current_count_raw, bytes):
+                current_count = int(current_count_raw.decode('utf-8'))
+            elif isinstance(current_count_raw, str):
+                current_count = int(current_count_raw)
+            else:
+                # This shouldn't happen with sync Redis, but handle it
+                current_count = int(str(current_count_raw))
+
+            if current_count >= self.config.rate_limit_requests:
+                self.logger.warning(f"Rate limit exceeded for {identifier} on {endpoint}")
+                return False
+
+            # Increment counter
+            self.redis_conn.incr(key)
             return True
 
-        current_count = int(current_count)
-
-        if current_count >= self.config.rate_limit_requests:
-            self.logger.warning(f"Rate limit exceeded for {identifier} on {endpoint}")
-            return False
-
-        # Increment counter
-        self.redis_conn.incr(key)
-        return True
+        except (ValueError, TypeError, AttributeError) as e:
+            self.logger.error(f"Rate limit check failed: {e}")
+            return True  # Fail open for availability
 
 class HealthcareSecurityMiddleware:
     """Main security middleware for healthcare applications"""
@@ -362,8 +354,9 @@ class HealthcareSecurityMiddleware:
         # Check if user has access
         has_access = "*" in allowed_resources or resource in allowed_resources
 
-        # Log access attempt
-        await self._log_access_attempt(user_id, resource, action, has_access)
+        # Log access attempt - ensure user_id is a string
+        if user_id:
+            await self._log_access_attempt(str(user_id), resource, action, has_access)
 
         return has_access
 
