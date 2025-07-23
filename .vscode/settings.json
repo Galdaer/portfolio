@@ -43,7 +43,7 @@
         "*.py": "python",
         "*.phi": "plaintext",
         "*.hipaa": "yaml",
-        "*.healthcare": "json",
+        "*.healthcare": "dockerfile",
         "*.conf": "properties"
     },
     "// Python Healthcare AI Configuration": "",
