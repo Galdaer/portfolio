@@ -417,9 +417,14 @@ class HealthcareRBACManager:
             self.logger.error(f"Failed to assign role {role_id} to user {user_id}: {e}")
             return False
 
-    async def check_permission(self, user_id: str, permission: Permission,
-                        resource_type: ResourceType, resource_id: str,
-                        context: Optional[Dict[str, Any]] = None) -> bool:
+    async def check_permission(
+        self,
+        user_id: str,
+        permission: Permission,
+        resource_type: ResourceType,
+        resource_id: str,
+        context: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """Check if user has permission for resource"""
         try:
             # Get user
@@ -452,16 +457,16 @@ class HealthcareRBACManager:
 
     async def is_user_assigned_to_patient(self, user_id: str, patient_id: str) -> bool:
         """Check if user is assigned to specific patient with environment-aware behavior"""
-        # Phase 1 Development Mode: Patient assignment is a Phase 2 business service
-        # For Phase 1 Core AI Infrastructure, we allow access with logging
-        if EnvironmentDetector.is_production():
+        # Use centralized environment detection pattern
+        if not EnvironmentDetector.is_production():
+            # Phase 1 Development Mode: Patient assignment is a Phase 2 business service
+            # For Phase 1 Core AI Infrastructure, we allow access with logging
+            self.logger.info(f"Development mode: Allowing patient access for user {user_id}")
+            return True
+        else:
             # Production implementation will be added in Phase 2
             self.logger.warning(f"Patient assignment check in production - user {user_id}, patient {patient_id}")
             return False
-        else:
-            # Development mode - allow access with logging
-            self.logger.info(f"Development mode: allowing patient access - user {user_id}, patient {patient_id}")
-            return True
 
     async def check_patient_access(self, user_id: str, patient_id: str) -> bool:
         """Check if user has access to specific patient"""
@@ -811,8 +816,13 @@ class HealthcareRBACManager:
         # Add other constraint checks as needed
         return True
 
-    async def _check_resource_constraints(self, role: Role, resource_type: ResourceType,
-                                  resource_id: str, context: Optional[Dict[str, Any]]) -> bool:
+    async def _check_resource_constraints(
+        self,
+        role: Role,
+        resource_type: ResourceType,
+        resource_id: str,
+        context: Optional[Dict[str, Any]]
+    ) -> bool:
         """Check resource-specific constraints"""
         constraints = role.resource_constraints.get(resource_type, {})
 
@@ -899,9 +909,15 @@ class HealthcareRBACManager:
             self.logger.error(f"Failed to get role {role_id}: {e}")
             return None
 
-    def _log_access_attempt(self, user_id: str, permission: Permission,
-                           resource_type: ResourceType, resource_id: str,
-                           granted: bool, context: Optional[Dict[str, Any]]):
+    def _log_access_attempt(
+        self,
+        user_id: str,
+        permission: Permission,
+        resource_type: ResourceType,
+        resource_id: str,
+        granted: bool,
+        context: Optional[Dict[str, Any]]
+    ):
         """Log access attempt for audit"""
         try:
             with self.postgres_conn.cursor() as cursor:
@@ -964,6 +980,39 @@ class HealthcareRBACManager:
         except Exception as e:
             self.logger.error(f"Failed to get access summary for {user_id}: {e}")
             return {"error": str(e)}
+
+    def _validate_real_patient_assignment(self, user_id: str, patient_id: str) -> bool:
+        """
+        Real patient assignment validation implementation
+
+        This method provides the actual database-backed patient assignment validation
+        that should be implemented for production use.
+
+        Args:
+            user_id: User identifier
+            patient_id: Patient identifier
+
+        Returns:
+            bool: True if user has validated access to patient
+        """
+        try:
+            # TODO: Implement actual database validation
+            # This should check:
+            # - Patient-provider relationships in database
+            # - Care team membership
+            # - Active assignments
+            # - Time-based access restrictions
+
+            # Placeholder implementation - replace with real logic
+            self.logger.info(f"Real patient assignment validation: {user_id} -> {patient_id}")
+
+            # For now, return False to maintain security
+            # Real implementation should query patient assignment database
+            return False
+
+        except Exception as e:
+            self.logger.error(f"Real patient assignment validation failed: {e}")
+            return False
 
 # Example usage
 if __name__ == "__main__":
