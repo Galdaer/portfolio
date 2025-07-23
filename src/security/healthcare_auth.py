@@ -19,19 +19,19 @@ class HealthcareAuthManager:
     """
     Flexible authentication that integrates with existing clinic systems
     """
-    
+
     def __init__(self):
         self.auth_mode = AuthenticationMode(
             os.getenv("AUTH_MODE", "standalone")
         )
         self.enable_user_env_files = os.getenv("USER_ENV_FILES", "true").lower() == "true"
-        
+
     def get_user_config_path(self, username: str) -> str:
         """Get encrypted user configuration path"""
         if self.enable_user_env_files:
             return f"/home/{username}/.intelluxe/user.env.encrypted"
         return None
-        
+
     def authenticate_user(self, username: str, credentials: Dict[str, Any]) -> bool:
         """Authenticate against existing clinic systems"""
         if self.auth_mode == AuthenticationMode.STANDALONE:
@@ -39,7 +39,7 @@ class HealthcareAuthManager:
         elif self.auth_mode == AuthenticationMode.ACTIVE_DIRECTORY:
             return self._ad_auth(username, credentials)
         # Add other auth methods as needed
-        
+
     def _standalone_auth(self, username: str, credentials: Dict[str, Any]) -> bool:
         """Independent authentication for clinics without existing systems"""
         # Use existing JWT/encryption approach
