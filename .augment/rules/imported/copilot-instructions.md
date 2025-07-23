@@ -17,26 +17,21 @@ type: "always_apply"
 
 ### Main Healthcare AI Infrastructure
 - **`bootstrap.sh`** - Main healthcare AI infrastructure bootstrapper
-  - Sets up Docker, Ollama, Healthcare-MCP, PostgreSQL, Redis with medical-grade security
-- **`universal-service-runner.sh`** - Universal service runner
-  - Deploys ANY Docker service from pure configuration
-  - Handles healthcare AI services (Ollama, Healthcare-MCP, etc.)
-- **`config_web_ui.py`** - Healthcare-focused web interface
-  - AI system management with service health monitoring
-  - Medical service icons and healthcare-specific UI
+- **`universal-service-runner.sh`** - Universal service runner for ANY Docker service
+- **`config_web_ui.py`** - Healthcare-focused web interface with service health monitoring
 - **`lib.sh`** - Common utility functions for Intelluxe AI healthcare operations
 
 ### Directory Structure
 ```
-reference/ai-patterns/  # MIT licensed AI engineering patterns (git submodule from ai-engineering-hub)
-mcps/healthcare/        # Healthcare MCP server code (copied from agentcare-mcp repository)
-services/user/          # Service configurations - each service has services/user/SERVICE/SERVICE.conf
-agents/                 # AI agent implementations (intake/, document_processor/, research_assistant/, billing_helper/, scheduling_optimizer/)
-core/                   # Core healthcare AI infrastructure (memory/, orchestration/, models/, tools/)
-data/                   # AI training and evaluation data management (training/, evaluation/, vector_stores/)
-infrastructure/         # Healthcare deployment configs (docker/, monitoring/, security/, backup/)
-docs/                   # Comprehensive healthcare AI documentation including PHASE_*.md guides
-scripts/                # Primary shell scripts (universal-service-runner.sh, lib.sh, bootstrap.sh, systemd-verify.sh)
+reference/ai-patterns/  # MIT licensed AI engineering patterns (git submodule)
+mcps/healthcare/        # Healthcare MCP server code (copied from agentcare-mcp)
+services/user/          # Service configurations - each service has SERVICE.conf
+agents/                 # AI agent implementations (intake/, document_processor/, etc.)
+core/                   # Core healthcare AI infrastructure (memory/, orchestration/, etc.)
+data/                   # AI training and evaluation data management
+infrastructure/         # Healthcare deployment configs (docker/, monitoring/, etc.)
+docs/                   # Comprehensive healthcare AI documentation including PHASE_*.md
+scripts/                # Primary shell scripts (universal-service-runner.sh, lib.sh, etc.)
 ```
 
 ## AI Engineering Patterns
@@ -66,15 +61,15 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 ## Healthcare Security Development Patterns
 
 ### Critical Security Rules
-- **Generic Error Messages**: Never expose JWT_SECRET, MASTER_ENCRYPTION_KEY, or other config details in error messages
-- **Environment-Aware Placeholders**: Block production deployment when features incomplete, allow configurable development
+- **Generic Error Messages**: Never expose JWT_SECRET, MASTER_ENCRYPTION_KEY, or config details
+- **Environment-Aware Placeholders**: Block production deployment when incomplete, allow configurable development
 - **Comprehensive Test Coverage**: Test security fallbacks with logging verification using caplog fixture
 - **Scalability by Default**: Use batching (batch_size=500) for large dataset processing
 - **Security Documentation**: Always explain WHY security choices were made (HIPAA, NANP standards, etc.)
 
 ### Development Anti-Patterns to Prevent
 1. `raise RuntimeError("JWT_SECRET must be set")` → Use generic error messages
-2. `return False` placeholders → Use environment-aware configurable behavior  
+2. `return False` placeholders → Use environment-aware configurable behavior
 3. Security tests without logging verification → Always test logging with caplog
 4. Processing all items at once → Use batching for scalability
 5. Undocumented security choices → Explain compliance rationale
@@ -100,29 +95,20 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 ## Service Management
 
 ### Healthcare Services
-- **Ollama** (local LLM)
-- **Healthcare-MCP** (medical tools)
-- **PostgreSQL** (patient context)
-- **Redis** (session cache)
-- **n8n** (workflows)
-- **WhisperLive** (real-time transcription) - Healthcare-hardened fork with security improvements
+- **Ollama** (local LLM), **Healthcare-MCP** (medical tools), **PostgreSQL** (patient context)
+- **Redis** (session cache), **n8n** (workflows), **WhisperLive** (real-time transcription)
 
 ### Healthcare Container Security
-- **User/Group Model**: Development containers use justin:intelluxe (1000:1001) for consistency with host system
-- **Production Transition**: Production containers use clinic-admin:intelluxe (same UID/GID, different username)
-- **Security Hardening**: Python 3.12-slim-bookworm base with latest security patches and non-root execution
-- **Network Isolation**: All healthcare containers run on intelluxe-net with no external data egress
-- **Volume Permissions**: Shared model storage with consistent ownership across whisper services
+- **User/Group Model**: Development uses justin:intelluxe (1000:1001), production uses clinic-admin:intelluxe
+- **Security Hardening**: Python 3.12-slim-bookworm base with latest security patches
+- **Network Isolation**: All containers run on intelluxe-net with no external data egress
 - **Fork Strategy**: Healthcare improvements made directly on main branch of forked repositories
 
 ### Service Configuration Pattern
 - **Service Structure**: Each service configured at `services/user/SERVICE/SERVICE.conf`
 - **Deployment Flow**: `bootstrap.sh` calls `universal-service-runner.sh` for each SERVICE.conf file
 - **Universal Runner**: `universal-service-runner.sh` is the ONLY method for deploying services
-- **Web UI Integration**: `config_web_ui.py` creates .conf files directly in `services/user/SERVICE/` directories
-- **Rolling Restarts**: `bootstrap.sh` uses rolling restart mode - stops one service, starts it, waits for health, then moves to next service
-- **Dependency Ordering**: Services restart in dependency order: wireguard → traefik → config-web-ui → whisper → scispacy → n8n → grafana
-- **Security**: HIPAA-compliant service orchestration with audit logging and role-based access
+- **Rolling Restarts**: Services restart in dependency order with health checks
 
 ## Development Guidelines
 
@@ -133,9 +119,9 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 
 ### Path Management & Directory Structure
 - **Production Paths**: All scripts use `CFG_ROOT:=/opt/intelluxe/stack` for production consistency
-- **Development Symlinks**: `make install` creates symlinks from `/home/intelluxe/` → `/opt/intelluxe/` for development convenience
-- **Log Directory Exception**: `/opt/intelluxe/logs` remains a real directory (not symlinked) for systemd service write access
-- **Ownership Model**: Consistent `CFG_UID=1000:CFG_GID=1001` (justin:intelluxe) across all components for development, production uses clinic-admin:intelluxe (same UID/GID, different username)
+- **Development Symlinks**: `make install` creates symlinks from `/home/intelluxe/` → `/opt/intelluxe/`
+- **Log Directory Exception**: `/opt/intelluxe/logs` remains a real directory for systemd service access
+- **Ownership Model**: Consistent `CFG_UID=1000:CFG_GID=1001` across all components
 
 ### Systemd Service Management
 - **Service Paths**: All systemd services use `/opt/intelluxe/scripts/` paths (via symlinks)
@@ -507,5 +493,56 @@ make lint && make validate
 - **Security**: All PHI/PII operations mocked in CI
 - **Isolation**: Tests run in isolated Docker network with DNS
 - **Timeout**: 180s for coverage runs, 120s for standard tests
+
+## Code Quality and Linting Standards
+
+### Python Code Quality Requirements
+- **ALWAYS follow flake8 standards**: No trailing whitespace (W293), proper blank lines (E302, E305)
+- **Line length**: Maximum 100 characters per line
+- **Import organization**: One import per line, grouped properly
+- **Blank line rules**: 
+  - Two blank lines before class definitions
+  - One blank line before method definitions
+  - No trailing blank lines at end of functions
+- **String formatting**: Use f-strings for Python 3.6+
+- **Method verification**: Always check if methods exist before calling them in tests
+- **Unused imports**: Remove all unused imports to pass Pylance validation
+- **Defensive programming**: Use hasattr() checks before calling unknown methods
+
+### Code Generation Anti-Patterns to Prevent
+1. **Trailing whitespace** → Always strip whitespace from generated code
+2. **Inconsistent blank lines** → Follow E302/E305 rules strictly
+3. **Long lines** → Break at 100 characters with proper indentation
+4. **Unused imports** → Remove imports that aren't used in the code
+5. **Method assumptions** → Use hasattr() to verify methods exist before calling them
+
+### Pre-Generation Checklist
+Before generating any Python code:
+- [ ] Check line length compliance (≤100 chars)
+- [ ] Verify proper blank line spacing
+- [ ] Ensure no trailing whitespace
+- [ ] Remove unused imports
+- [ ] Use hasattr() checks for method calls
+- [ ] Test flake8 and Pylance compliance
+
+### Shell Script Quality Standards
+- **Shellcheck compliance**: All scripts must pass shellcheck validation
+- **Quote expansion**: Use double quotes for variables, single for literals
+- **Function structure**: Proper if/fi, case/esac matching
+- **Variable safety**: Check for unbound variables
+
+### Healthcare Code Quality Patterns
+- **Security-first**: Generic error messages, no config exposure
+- **Compliance**: HIPAA-compliant logging and audit trails
+- **Testing**: Real functionality tests, not mocked placeholders
+- **Documentation**: Explain WHY security choices were made
+
+### Validation Workflow
+```bash
+# Required validation before any code submission
+make lint && make validate && echo "✅ Code quality verified"
+```
+
+**CRITICAL**: All generated code must pass `make lint` without warnings.
 
 Last Updated: 2025-01-23

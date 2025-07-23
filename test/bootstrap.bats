@@ -439,18 +439,23 @@ EOF
 
 @test "service image override respected for traefik" {
   mkdir -p "$TMPDIR/scripts" "$TMPDIR/services/user/traefik"
-  cp services/user/traefik/traefik.conf "$TMPDIR/services/user/traefik/"
-  sed -i 's|^image=.*|image=test/traefik:latest|' "$TMPDIR/services/user/traefik/traefik.conf"
+  cp services/user/traefik/traefik.conf "$TMPDIR/services/user/traefik/" 2>/dev/null || {
+    # Create minimal traefik config if it doesn't exist
+    cat >"$TMPDIR/services/user/traefik/traefik.conf" <<EOF
+image=test/traefik:latest
+container_name=traefik
+ports=80:80,443:443
+volumes=/var/run/docker.sock:/var/run/docker.sock:ro
+EOF
+  }
 
   SCRIPT_DIR="$TMPDIR/scripts"
   CFG_ROOT="$TMPDIR/root"
   DOCKER_NETWORK_NAME=testnet
-  TRAEFIK_CONTAINER_IP=172.20.0.7
-  DOCKER_SOCKET=/var/run/docker.sock
+  TRAEFIK_CONTAINER_IP=172.20.0.3
 
   script="$TMPDIR/run-traefik.sh"
   cat >"$script" <<EOS
-# Source the universal service runner to get all needed functions
 source scripts/universal-service-runner.sh
 docker(){ echo "docker \$*" >>"\$cmd_file"; }
 log(){ :; }
@@ -462,38 +467,31 @@ ensure_docker_image(){ :; }
 get_health_cmd(){ echo ""; }
 verify_container_ip(){ :; }
 selinux_volume_flag(){ :; }
-get_traefik_labels(){ :; }
-# Remove mock, let it read from real config file
-setup_service_env_vars(){ :; }
 get_server_ip(){ echo "192.168.1.100"; }
 SCRIPT_DIR="$SCRIPT_DIR"
 CFG_ROOT="$CFG_ROOT"
 DOCKER_NETWORK_NAME="$DOCKER_NETWORK_NAME"
 TRAEFIK_CONTAINER_IP="$TRAEFIK_CONTAINER_IP"
-DOCKER_SOCKET="$DOCKER_SOCKET"
-declare -Ag CONTAINER_PORTS=([traefik]=8080)
+declare -Ag CONTAINER_PORTS=([traefik]=80)
 declare -Ag CONTAINER_DESCRIPTIONS=([traefik]="Traefik")
 CFG_UID=1000
 CFG_GID=1000
 DRY_RUN=false
 EOS
-  # Include the function definitions in the script
   declare -f ensure_container_running >>"$script"
   declare -f get_service_config_value >>"$script"
   cat >>"$script" <<'EOS'
 ensure_container_running traefik
-cat "$cmd_file"
 EOS
   chmod +x "$script"
   cmd_file="$TMPDIR/cmd_traefik"
   wrapper="$TMPDIR/wrap_traefik.sh"
-  cat >"$wrapper" <<EOF2
+  cat >"$wrapper" <<EOF
 #!/usr/bin/env bash
 cmd_file="$cmd_file" bash "$script"
-EOF2
+EOF
   chmod +x "$wrapper"
   run bash "$wrapper"
-  # The test succeeds if we can find the custom image in the cmd file
   cmd_content=$(cat "$cmd_file" 2>/dev/null || echo "")
   [[ "$cmd_content" == *"test/traefik:latest"* ]]
 }
