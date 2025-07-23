@@ -67,6 +67,7 @@ RUN echo "=== Installing additional test dependencies ===" && \
     libelf-dev \
     libiberty-dev \
     binutils-dev \
+    libcurl4-openssl-dev \
     && \
     echo "All test dependencies installed successfully" && \
     apt-get clean && \
