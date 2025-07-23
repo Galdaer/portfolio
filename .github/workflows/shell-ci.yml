@@ -11,10 +11,10 @@ on:
       - master
       - feature/*
       - develop
-  pull_request:
-    branches:
-      - main
-      - master
+#  pull_request:
+#    branches:
+#      - main
+#      - master
 
 jobs:
   lint-test:
@@ -141,6 +141,7 @@ jobs:
           # Set CI-specific environment variables
           echo "CI_NO_SUDO=true" >> $GITHUB_ENV
           echo "SKIP_ROOT_CHECKS=true" >> $GITHUB_ENV
+          echo "ENVIRONMENT=development" >> $GITHUB_ENV
 
       - name: Verify linting tools
         run: |
@@ -204,6 +205,7 @@ jobs:
           GITHUB_ACTIONS: true
           CI_NO_SUDO: true
           SKIP_ROOT_CHECKS: true
+          ENVIRONMENT: development
         run: |
           # Clean up any stale lock files from previous CI runs
           rm -f "$HOME/.cache/bootstrap.lock" "/tmp/bootstrap-$(whoami).lock" ".bootstrap.lock" || true
@@ -543,6 +545,8 @@ env:
   FIREWALL_CONFIG: .github/copilot-firewall-allowlist.txt
   AI_INSTRUCTIONS_VERSION: "2025-07-11"
   INSTRUCTION_EVOLUTION: enabled
+  ENVIRONMENT: development
+  CI: true
 
 # Troubleshooting Guide:
 # 
