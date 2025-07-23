@@ -337,23 +337,6 @@ EOF
     for svc in "${!CONTAINER_PORTS[@]}"; do
         local sanitized
         sanitized=$(echo "$svc" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
-# Check if we're in CI and adjust behavior accordingly
-if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
-    log "Running in CI environment - adjusting permissions and sudo usage"
-    
-    # In CI, we typically don't need sudo for most operations
-    # Only use sudo when absolutely necessary and available
-    if [[ $EUID -eq 0 ]]; then
-        log "Already running as root in CI"
-    elif sudo -n true 2>/dev/null; then
-        log "Passwordless sudo available in CI"
-    else
-        log "No sudo available in CI - running with user permissions only"
-        # Set flag to skip operations that require root
-        export CI_NO_SUDO=true
-    fi
-fi
-
         echo "${sanitized}_PORT=\"${CONTAINER_PORTS[$svc]}\"" >> "$CONFIG_FILE"
     done
 
@@ -2143,6 +2126,45 @@ configure_service_restrictions() {
 				restrict_services_to_lan_vpn "${restrictable_services[@]}"
 				;;
 			"custom")
+				if [[ ${#RESTRICTED_SERVICES[@]} -gt 0 ]]; then
+					restrict_services_to_lan_vpn "${RESTRICTED_SERVICES[@]}"
+				fi
+				;;
+			esac
+		fi
+		;;
+	"restrict")
+		restrict_services_to_lan_vpn "${restrictable_services[@]}"
+		;;
+	"open")
+		log "Services will be open to all networks."
+		;;
+	"custom")
+		configure_per_service_restrictions "${restrictable_services[@]}"
+		;;
+	esac
+}
+
+# Check if we're in CI and adjust behavior accordingly
+if [[ "${CI:-}" == "true" || "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    log "Running in CI environment - adjusting permissions and sudo usage"
+    
+    # In CI, we typically don't need sudo for most operations
+    # Only use sudo when absolutely necessary and available
+    if [[ $EUID -eq 0 ]]; then
+        log "Already running as root in CI"
+    elif [[ "${CI_NO_SUDO:-}" == "true" ]]; then
+        log "CI_NO_SUDO flag set - skipping all sudo operations"
+        export SKIP_ROOT_CHECKS=true
+    elif sudo -n true 2>/dev/null; then
+        log "Passwordless sudo available in CI"
+    else
+        log "No sudo available in CI - running with user permissions only"
+        # Set flag to skip operations that require root
+        export CI_NO_SUDO=true
+        export SKIP_ROOT_CHECKS=true
+    fi
+fi
 				if [[ ${#RESTRICTED_SERVICES[@]} -gt 0 ]]; then
 					restrict_services_to_lan_vpn "${RESTRICTED_SERVICES[@]}"
 				fi
