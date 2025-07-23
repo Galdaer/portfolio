@@ -54,25 +54,30 @@ class SecurityConfig:
 
 class EncryptionManager:
     """Manages encryption for healthcare data"""
-    
-    def __init__(self, config: SecurityConfig):
-        self.config = config
-        self.logger = logging.getLogger(f"{__name__}.EncryptionManager")
-        
-        # Initialize encryption key with environment-aware validation
-        if config.encryption_key:
-            self.fernet = Fernet(config.encryption_key.encode())
-            self.logger.info("Encryption key loaded from configuration")
-        else:
-            # Check environment before allowing key generation
-            if EnvironmentDetector.is_production():
-                self.logger.error("MCP_ENCRYPTION_KEY not configured for production environment")
-                raise RuntimeError("Application cannot start in production without encryption key")
 
-            # Generate key if not provided (for development only)
-            key = Fernet.generate_key()
+    def __init__(self, key: Optional[bytes] = None):
+        """Initialize healthcare security with proper key management"""
+        self.logger = logging.getLogger(__name__)
+
+        if key:
             self.fernet = Fernet(key)
-            self.logger.warning("Using generated encryption key - not suitable for production")
+        else:
+            # Generate key if not provided (for development only)
+            generated_key = Fernet.generate_key()
+            self.fernet = Fernet(generated_key)
+
+            if EnvironmentDetector.is_production():
+                self.logger.error(
+                    "No encryption key provided in production environment. "
+                    "Generated keys will cause data loss on restart. "
+                    "Set HEALTHCARE_ENCRYPTION_KEY environment variable."
+                )
+                raise RuntimeError("Production encryption key required")
+            else:
+                self.logger.warning(
+                    "Using generated encryption key - not suitable for production. "
+                    f"To persist this key, set HEALTHCARE_ENCRYPTION_KEY={generated_key.decode()}"
+                )
     
     def encrypt_data(self, data: str) -> str:
         """Encrypt sensitive data"""

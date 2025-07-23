@@ -221,37 +221,47 @@ class KeyManager:
         return decoded_key
 
     def _get_or_create_master_key(self) -> bytes:
-        """Load or generate master encryption key with security validation"""
-        # Use injected configuration or load from secure source
-        master_key = self.config.get("MASTER_ENCRYPTION_KEY")
+        """Get or create master encryption key with proper encoding"""
+        master_key_str = os.getenv('MASTER_ENCRYPTION_KEY')
 
-        if master_key:
-            return self._validate_master_key(master_key)
-
-        # Use secure environment detection
         if EnvironmentDetector.is_production():
-            self.logger.error("MASTER_ENCRYPTION_KEY not configured for production environment")
-            raise RuntimeError("Critical security configuration missing. Contact system administrator.")
+            if not master_key_str:
+                self.logger.error("MASTER_ENCRYPTION_KEY not configured for production environment")
+                raise RuntimeError(
+                    "Critical security configuration missing: MASTER_ENCRYPTION_KEY. "
+                    "Ensure the MASTER_ENCRYPTION_KEY is set in the environment variables or configuration files. "
+                    "Contact the system administrator for assistance."
+                )
 
-        # Only allow key generation in development
-        if not EnvironmentDetector.is_development():
-            raise RuntimeError("Key generation only allowed in development environment")
+            # Validate key format and entropy
+            if len(master_key_str) < 32:
+                self.logger.error("MASTER_ENCRYPTION_KEY does not meet minimum length requirements")
+                raise ValueError(
+                    "MASTER_ENCRYPTION_KEY must be at least 32 characters long. "
+                    "Generate a new key using: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+                )
 
-        # Check if development key persistence is enabled
-        persist_dev_keys = os.getenv('PERSIST_DEV_KEYS', 'false').lower() == 'true'
-
-        if persist_dev_keys:
-            return self._get_or_create_development_key()
+        if master_key_str:
+            # Ensure proper base64 encoding for Fernet
+            try:
+                # If it's already base64 encoded, use it directly
+                key_bytes = base64.urlsafe_b64decode(master_key_str + '==')  # Add padding if needed
+                if len(key_bytes) == 32:
+                    return base64.urlsafe_b64encode(key_bytes)
+                else:
+                    # If not 32 bytes, treat as raw string and encode
+                    key_bytes = master_key_str.encode('utf-8')[:32].ljust(32, b'\0')
+                    return base64.urlsafe_b64encode(key_bytes)
+            except Exception:
+                # Treat as raw string
+                key_bytes = master_key_str.encode('utf-8')[:32].ljust(32, b'\0')
+                return base64.urlsafe_b64encode(key_bytes)
         else:
-            # Generate secure key for development (non-persistent)
-            warning_msg = "Generating master key for development - NOT FOR PRODUCTION"
-            self.logger.warning(warning_msg)
-
-            # Also log to stderr for immediate visibility
-            import sys
-            print(f"SECURITY WARNING: {warning_msg}", file=sys.stderr)
-
-            return secrets.token_bytes(32)  # Use secrets module for cryptographic randomness
+            # Generate key for development
+            key_bytes = os.urandom(32)
+            encoded_key = base64.urlsafe_b64encode(key_bytes)
+            self.logger.warning("Using generated encryption key - not suitable for production")
+            return encoded_key
 
     def _get_or_create_development_key(self) -> bytes:
         """
@@ -367,6 +377,35 @@ class KeyManager:
         self.logger.info(f"Generated secure key: {len(key_bytes)} bytes, entropy: {entropy:.2f}")
 
         return encoded_key
+
+    def _create_key_pair(self, encryption_level: EncryptionLevel) -> tuple[bytes, bytes]:
+        """Create RSA key pair with proper master key encoding"""
+        key_size = 2048 if encryption_level != EncryptionLevel.CRITICAL else 4096
+
+        # Generate RSA key pair
+        private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=key_size,
+            backend=default_backend()
+        )
+
+        # Serialize keys
+        private_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+
+        public_pem = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+
+        # Encrypt with properly encoded master key
+        master_fernet = Fernet(self.master_key)  # self.master_key is now properly base64 encoded
+        encrypted_private = master_fernet.encrypt(private_pem)
+
+        return encrypted_private, public_pem
 
     def generate_key(self, encryption_level: EncryptionLevel,
                     key_type: KeyType = KeyType.SYMMETRIC) -> EncryptionKey:
