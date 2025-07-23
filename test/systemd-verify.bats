@@ -42,7 +42,17 @@ setup() {
 echo "\$@" >"$TMPDIR/call"
 EOS
   chmod +x "$TMPDIR/bin/systemd-analyze"
-  CI=false PATH="$TMPDIR/bin:$PATH" run bash scripts/systemd-verify.sh --no-color
+  # Mock ls to return no installed units so it checks source units instead
+  cat >"$TMPDIR/bin/ls" <<'EOS'
+#!/usr/bin/env bash
+if [[ "$*" == *"intelluxe-"* ]]; then
+  exit 1  # No installed units found
+else
+  /bin/ls "$@"
+fi
+EOS
+  chmod +x "$TMPDIR/bin/ls"
+  CI=false CFG_ROOT="$TMPDIR" PATH="$TMPDIR/bin:$PATH" run bash scripts/systemd-verify.sh --no-color
   [ -f "$TMPDIR/call" ]
   grep -q verify "$TMPDIR/call"
   rm -rf "$TMPDIR"
@@ -60,9 +70,19 @@ EOS
 exit 0
 EOS
   chmod +x "$TMPDIR/bin/systemd-analyze"
+  # Mock ls to return no installed units so it checks source units instead
+  cat >"$TMPDIR/bin/ls" <<'EOS'
+#!/usr/bin/env bash
+if [[ "$*" == *"intelluxe-"* ]]; then
+  exit 1  # No installed units found
+else
+  /bin/ls "$@"
+fi
+EOS
+  chmod +x "$TMPDIR/bin/ls"
   JSON_FILE="/tmp/systemd-verify.json"
   rm -f "$JSON_FILE"
-  CI=false PATH="$TMPDIR/bin:$PATH" run bash scripts/systemd-verify.sh --export-json
+  CI=false CFG_ROOT="$TMPDIR" PATH="$TMPDIR/bin:$PATH" run bash scripts/systemd-verify.sh --export-json
   [ -f "$JSON_FILE" ]
   grep -q '"timestamp"' "$JSON_FILE"
   jq empty "$JSON_FILE" >/dev/null

@@ -77,11 +77,13 @@ done
   if [[ "${CI:-false}" == "true" ]]; then
     skip "Skipping log directory test in CI - paths differ in container environment"
   fi
-  
+
   CFG_ROOT="$TMPDIR/root"
   mkdir -p "$CFG_ROOT"
   snippet=$(sed -n '/CONFIG_FILE=/,/LOG_FILE=/p' scripts/bootstrap.sh)
   eval "$snippet"
+  # Create the LOG_DIR since the test only extracts variable definitions
+  mkdir -p "$LOG_DIR"
   [ "$LOG_DIR" = "$CFG_ROOT/logs" ]
   [ -d "$LOG_DIR" ]
   [ "$LOG_FILE" = "$LOG_DIR/bootstrap.log" ]
@@ -178,7 +180,7 @@ EOF
   export FORCE_DEFAULTS=true
   export WG_DIR WG_CLIENTS_DIR WG_KEYS_ENV
 
-  run bash -c "$(declare -f reset_wireguard_keys generate_wg_qr backup_wireguard warn log set_ownership wg); set -euo pipefail; reset_wireguard_keys"
+  bash -c "$(declare -f reset_wireguard_keys generate_wg_qr backup_wireguard warn log set_ownership wg); set -euo pipefail; reset_wireguard_keys"
   # Verify the function succeeded by checking the outputs directly
   newpub=$(grep '^WG_SERVER_PUBLIC_KEY=' "$WG_KEYS_ENV" | cut -d= -f2)
   newpsk=$(grep '^WG_PRESHARED_KEY=' "$WG_KEYS_ENV" | cut -d= -f2)

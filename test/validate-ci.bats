@@ -59,7 +59,13 @@ STUB
 exit 1
 STUB
   chmod +x "$TMPDIR/bin/docker"
-  PATH="$TMPDIR/bin:$PATH" run ./scripts/bootstrap.sh --validate --skip-docker-check
+  # Mock lsof to avoid dependency error
+  cat >"$TMPDIR/bin/lsof" <<'STUB'
+#!/usr/bin/env bash
+exit 0
+STUB
+  chmod +x "$TMPDIR/bin/lsof"
+  ENVIRONMENT=testing CFG_ROOT="$TMPDIR" PATH="$TMPDIR/bin:$PATH" run ./scripts/bootstrap.sh --validate --skip-docker-check
   [ "$status" -eq 110 ]
   [[ "$output" == *"Docker daemon is not running"* ]]
 }

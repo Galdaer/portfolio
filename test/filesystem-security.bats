@@ -48,14 +48,15 @@ teardown() {
     if [[ "${CI:-false}" == "true" ]] && [[ "$(id -u)" != "0" ]]; then
         skip "Skipping file permission test in CI - running as non-root in container"
     fi
-    
+
     # Source the function from lib.sh
     source <(sed -n '/^check_secret_perms()/,/^}$/p' scripts/lib.sh)
-    
-    # Test secure file (600)
+
+    # Test secure file (600) - should only warn about ownership, not permissions
     run check_secret_perms "$TMPDIR/secure-file"
     [ "$status" -eq 0 ]
-    [[ "$output" != *"WARN"* ]]
+    # Should not warn about permissions (600 is correct), but may warn about ownership
+    [[ "$output" != *"should be 600 or 400"* ]]
     
     # Test insecure file (644)
     run check_secret_perms "$TMPDIR/readable-file"

@@ -5,20 +5,22 @@ load test_helper
 
 setup() {
     export DRY_RUN=true
-    export CFG_ROOT="${BATS_TEST_TMPDIR}/stack"
+    # Use a temporary directory that we can create
+    TMPDIR=$(mktemp -d)
+    export CFG_ROOT="$TMPDIR/stack"
     export INTELLUXE_USER="testuser"
     export TRAEFIK_DOMAIN_NAME="test.localhost"
     export DOCKER_NETWORK_NAME="test-net"
-    
+
     mkdir -p "$CFG_ROOT"
-    mkdir -p "${BATS_TEST_TMPDIR}/services/user"
-    
+    mkdir -p "$TMPDIR/services/user"
+
     # Source required functions from lib.sh and universal-service-runner.sh
     source scripts/lib.sh
     source scripts/universal-service-runner.sh
     
     # Create test service config
-    cat > "${BATS_TEST_TMPDIR}/services/user/redis.conf" << 'EOF'
+    cat > "$TMPDIR/services/user/redis.conf" << 'EOF'
 image=redis:alpine
 port=6379
 env=REDIS_PASSWORD=mypassword
@@ -26,8 +28,12 @@ volumes=/data:/data
 EOF
 }
 
+teardown() {
+    rm -rf "$TMPDIR"
+}
+
 @test "parse_service_config should parse Redis configuration correctly" {
-    local config_file="${BATS_TEST_TMPDIR}/services/user/redis.conf"
+    local config_file="$TMPDIR/services/user/redis.conf"
     
     # Test that parsing succeeds 
     parse_universal_service_config "redis" "$config_file"
@@ -40,7 +46,7 @@ EOF
 }
 
 @test "build_docker_command should generate correct Docker command" {
-    local config_file="${BATS_TEST_TMPDIR}/services/user/redis.conf"
+    local config_file="$TMPDIR/services/user/redis.conf"
     
     # Parse config first
     parse_universal_service_config "redis" "$config_file"
@@ -69,11 +75,11 @@ EOF
 
 @test "build_docker_command should handle minimal configuration" {
     # Create minimal config
-    cat > "${BATS_TEST_TMPDIR}/services/user/minimal.conf" << 'EOF'
+    cat > "$TMPDIR/services/user/minimal.conf" << 'EOF'
 image=nginx:alpine
 EOF
-    
-    parse_universal_service_config "minimal" "${BATS_TEST_TMPDIR}/services/user/minimal.conf"
+
+    parse_universal_service_config "minimal" "$TMPDIR/services/user/minimal.conf"
     
     build_docker_command "minimal"
     
@@ -83,7 +89,7 @@ EOF
 }
 
 @test "universal system should handle any Docker option via mapping" {
-    cat > "${BATS_TEST_TMPDIR}/services/user/advanced.conf" << 'EOF'
+    cat > "$TMPDIR/services/user/advanced.conf" << 'EOF'
 image=postgres:13
 port=5432
 env=POSTGRES_DB=intelluxe,POSTGRES_USER=admin,POSTGRES_PASSWORD=secret
@@ -97,7 +103,7 @@ user=postgres
 working_dir=/var/lib/postgresql
 EOF
     
-    parse_universal_service_config "advanced" "${BATS_TEST_TMPDIR}/services/user/advanced.conf"
+    parse_universal_service_config "advanced" "$TMPDIR/services/user/advanced.conf"
     
     build_docker_command "advanced"
     
@@ -112,14 +118,14 @@ EOF
 }
 
 @test "universal system should handle unknown config options gracefully" {
-    cat > "${BATS_TEST_TMPDIR}/services/user/unknown.conf" << 'EOF'
+    cat > "$TMPDIR/services/user/unknown.conf" << 'EOF'
 image=nginx:alpine
 unknown_option=some_value
 another_unknown=test
 EOF
     
     # Capture stderr to check for warnings
-    parse_universal_service_config "unknown" "${BATS_TEST_TMPDIR}/services/user/unknown.conf"
+    parse_universal_service_config "unknown" "$TMPDIR/services/user/unknown.conf"
     
     build_docker_command "unknown" 2>/dev/null
     

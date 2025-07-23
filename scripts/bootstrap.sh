@@ -1058,7 +1058,7 @@ reset_wireguard_keys() {
                 echo "WG_SERVER_PUBLIC_KEY=$WG_SERVER_PUBLIC_KEY"
                 echo "WG_PRESHARED_KEY=$WG_PRESHARED_KEY"
         } >"$WG_KEYS_ENV"
-        run chmod 0600 "$WG_KEYS_ENV"
+        chmod 0600 "$WG_KEYS_ENV"
         set_ownership "$WG_KEYS_ENV"
         log "WireGuard server keys reset in $WG_KEYS_ENV"
 
