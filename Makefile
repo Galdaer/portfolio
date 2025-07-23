@@ -301,10 +301,10 @@ systemd-verify:
 test:
 	@echo "🧪  Running healthcare AI Bats tests"
 	@if [ "${CI}" = "true" ]; then \
-	    echo "Running healthcare AI tests in CI mode with appropriate skips"; \
-	    CI=true bash ./scripts/test.sh; \
+		echo "Running healthcare AI tests in CI mode with appropriate skips"; \
+		CI=true bash ./scripts/test.sh; \
 	else \
-	    bash ./scripts/test.sh; \
+		bash ./scripts/test.sh; \
 	fi
 
 test-quiet:

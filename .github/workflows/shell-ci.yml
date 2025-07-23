@@ -97,6 +97,7 @@ jobs:
             ~/.local/bin
             /usr/local/bin/kcov
             /usr/local/share/doc/kcov
+            /tmp/.docker-cache
           key: ${{ runner.os }}-deps-${{ hashFiles('scripts/setup-environment.sh') }}-v5
       
       - name: Install dependencies
