@@ -85,56 +85,62 @@ class TestSecureMCPAuthentication:
 class TestRBACStrictMode:
     """Test Fix 3: RBAC Strict Mode Configuration"""
     
-    def test_strict_mode_denies_patient_access(self):
+    @pytest.mark.asyncio
+    async def test_strict_mode_denies_patient_access(self):
         """Test that strict mode denies patient access"""
-        
-        with patch.dict(os.environ, {'RBAC_STRICT_MODE': 'true'}, clear=False):
+
+        with patch.dict(os.environ, {'RBAC_STRICT_MODE': 'true', 'ENVIRONMENT': 'production'}, clear=False):
             mock_conn = Mock()
-            mock_conn.cursor.return_value.__enter__.return_value = Mock()
-            mock_conn.cursor.return_value.__exit__.return_value = None
-            
+            mock_cursor = Mock()
+            mock_conn.cursor.return_value = mock_cursor
+            mock_cursor.__enter__ = Mock(return_value=mock_cursor)
+            mock_cursor.__exit__ = Mock(return_value=None)
+
             with patch('src.security.rbac_foundation.psycopg2.connect'):
                 from src.security.rbac_foundation import HealthcareRBACManager, ResourceType
                 from datetime import datetime
-                
+
                 manager = HealthcareRBACManager(mock_conn)
                 assert manager.STRICT_MODE is True
-                
+
                 # Create mock role with patient constraint
                 mock_role = Mock()
                 mock_role.resource_constraints = {
                     ResourceType.PATIENT: {"assigned_patients_only": True}
                 }
-                
+
                 # Should deny access in strict mode
-                result = manager._check_resource_constraints(
-                    mock_role, ResourceType.PATIENT, "patient_123", {}
+                result = await manager._check_resource_constraints(
+                    mock_role, ResourceType.PATIENT, "patient_123", {"user_id": "test_user"}
                 )
                 assert result is False
     
-    def test_non_strict_mode_allows_patient_access(self):
+    @pytest.mark.asyncio
+    async def test_non_strict_mode_allows_patient_access(self):
         """Test that non-strict mode allows patient access with warning"""
-        
-        with patch.dict(os.environ, {'RBAC_STRICT_MODE': 'false'}, clear=False):
+
+        with patch.dict(os.environ, {'RBAC_STRICT_MODE': 'false', 'ENVIRONMENT': 'development'}, clear=False):
             mock_conn = Mock()
-            mock_conn.cursor.return_value.__enter__.return_value = Mock()
-            mock_conn.cursor.return_value.__exit__.return_value = None
-            
+            mock_cursor = Mock()
+            mock_conn.cursor.return_value = mock_cursor
+            mock_cursor.__enter__ = Mock(return_value=mock_cursor)
+            mock_cursor.__exit__ = Mock(return_value=None)
+
             with patch('src.security.rbac_foundation.psycopg2.connect'):
                 from src.security.rbac_foundation import HealthcareRBACManager, ResourceType
-                
+
                 manager = HealthcareRBACManager(mock_conn)
                 assert manager.STRICT_MODE is False
-                
+
                 # Create mock role with patient constraint
                 mock_role = Mock()
                 mock_role.resource_constraints = {
                     ResourceType.PATIENT: {"assigned_patients_only": True}
                 }
-                
+
                 # Should allow access in non-strict mode
-                result = manager._check_resource_constraints(
-                    mock_role, ResourceType.PATIENT, "patient_123", {}
+                result = await manager._check_resource_constraints(
+                    mock_role, ResourceType.PATIENT, "patient_123", {"user_id": "test_user"}
                 )
                 assert result is True
 

@@ -376,16 +376,16 @@ class HealthcareRBACManager:
             self.logger.error(f"Failed to create user {user.user_id}: {e}")
             return False
     
-    def assign_role(self, user_id: str, role_id: str, assigned_by: str, reason: str = "") -> bool:
+    async def assign_role(self, user_id: str, role_id: str, assigned_by: str, reason: str = "") -> bool:
         """Assign role to user"""
         try:
             # Get current user roles
-            user = self.get_user(user_id)
+            user = await self.get_user(user_id)
             if not user:
                 raise ValueError(f"User not found: {user_id}")
-            
+
             # Check if role exists
-            role = self.get_role(role_id)
+            role = await self.get_role(role_id)
             if not role:
                 raise ValueError(f"Role not found: {role_id}")
             
@@ -421,14 +421,14 @@ class HealthcareRBACManager:
         """Check if user has permission for resource"""
         try:
             # Get user
-            user = self.get_user(user_id)
+            user = await self.get_user(user_id)
             if not user or not user.is_active:
                 self._log_access_attempt(user_id, permission, resource_type, resource_id, False, context)
                 return False
-            
+
             # Check each role
             for role_id in user.roles:
-                role = self.get_role(role_id)
+                role = await self.get_role(role_id)
                 if not role or not role.is_active:
                     continue
                 
@@ -460,6 +460,35 @@ class HealthcareRBACManager:
             # Development mode - allow access with logging
             self.logger.info(f"Development mode: allowing patient access - user {user_id}, patient {patient_id}")
             return True
+
+    async def check_patient_access(self, user_id: str, patient_id: str) -> bool:
+        """Check if user can access specific patient data"""
+        try:
+            # Get user role
+            user = await self.get_user(user_id)
+            if not user or not user.is_active:
+                self.logger.warning(f"Patient access denied - no active user found for {user_id}")
+                return False
+
+            # Check each role for patient access
+            for role_id in user.roles:
+                role = await self.get_role(role_id)
+                if not role or not role.is_active:
+                    continue
+
+                # Check if role has patient read permission
+                if Permission.PATIENT_READ in role.permissions:
+                    # Check resource constraints
+                    context = {"user_id": user_id}
+                    if await self._check_resource_constraints(role, ResourceType.PATIENT, patient_id, context):
+                        self.logger.info(f"Patient access granted for user {user_id} to patient {patient_id}")
+                        return True
+
+            self.logger.warning(f"Patient access denied - user {user_id} is not assigned to patient {patient_id}")
+            return False
+        except Exception as e:
+            self.logger.error(f"Error checking patient access: {e}")
+            return False
 
     def _validate_production_patient_assignment(self, user_id: str, patient_id: str) -> bool:
         """
@@ -765,7 +794,7 @@ class HealthcareRBACManager:
         # TODO: Alert security team
         # TODO: Store in audit database
 
-    def _check_patient_assignment_constraints(self, user_id: str, constraints: Dict[str, Any]) -> bool:
+    async def _check_patient_assignment_constraints(self, user_id: str, constraints: Dict[str, Any]) -> bool:
         """Check patient assignment constraints with Phase 2 preparation"""
         if not constraints:
             return True
@@ -775,7 +804,7 @@ class HealthcareRBACManager:
         if assigned_patients:
             # Phase 2 TODO: Replace with actual patient assignment check
             for patient_id in assigned_patients:
-                if not self.is_user_assigned_to_patient(user_id, patient_id):
+                if not await self.is_user_assigned_to_patient(user_id, patient_id):
                     if self.ENABLE_PLACEHOLDER_WARNINGS:
                         self.logger.warning(
                             f"Access denied: user {user_id} not assigned to patient {patient_id}. "
@@ -820,7 +849,7 @@ class HealthcareRBACManager:
         # Default to allow for other constraint types not yet implemented
         return True
     
-    def get_user(self, user_id: str) -> Optional[User]:
+    async def get_user(self, user_id: str) -> Optional[User]:
         """Get user by ID"""
         try:
             with self.postgres_conn.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -847,7 +876,7 @@ class HealthcareRBACManager:
             self.logger.error(f"Failed to get user {user_id}: {e}")
             return None
     
-    def get_role(self, role_id: str) -> Optional[Role]:
+    async def get_role(self, role_id: str) -> Optional[Role]:
         """Get role by ID"""
         try:
             with self.postgres_conn.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -896,18 +925,18 @@ class HealthcareRBACManager:
         except Exception as e:
             self.logger.error(f"Failed to log access attempt: {e}")
     
-    def get_user_permissions(self, user_id: str) -> Set[Permission]:
+    async def get_user_permissions(self, user_id: str) -> Set[Permission]:
         """Get all permissions for a user"""
-        user = self.get_user(user_id)
+        user = await self.get_user(user_id)
         if not user:
             return set()
-        
+
         permissions = set()
         for role_id in user.roles:
-            role = self.get_role(role_id)
+            role = await self.get_role(role_id)
             if role and role.is_active:
                 permissions.update(role.permissions)
-        
+
         return permissions
     
     def get_access_summary(self, user_id: str, days: int = 7) -> Dict[str, Any]:
