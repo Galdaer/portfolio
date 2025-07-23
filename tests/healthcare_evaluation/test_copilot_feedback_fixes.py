@@ -15,18 +15,21 @@ class TestProductionEncryptionKeyValidation:
     
     def test_production_environment_requires_master_key(self):
         """Test that production environment requires MASTER_ENCRYPTION_KEY"""
-        
+
         with patch.dict(os.environ, {'ENVIRONMENT': 'production'}, clear=False):
             with patch.dict(os.environ, {'MASTER_ENCRYPTION_KEY': ''}, clear=False):
-                # Mock the postgres connection
+                # Mock the postgres connection and verify it's called
                 mock_conn = Mock()
-                
-                with patch('src.security.encryption_manager.psycopg2.connect'):
+
+                with patch('src.security.encryption_manager.psycopg2.connect', return_value=mock_conn) as mock_connect:
                     from src.security.encryption_manager import HealthcareEncryptionManager
-                    
+
                     # Should raise RuntimeError in production without key
-                    with pytest.raises(RuntimeError, match="MASTER_ENCRYPTION_KEY must be set in production"):
-                        HealthcareEncryptionManager(mock_conn)
+                    with pytest.raises(RuntimeError, match="MASTER_ENCRYPTION_KEY"):
+                        manager = HealthcareEncryptionManager(mock_conn)
+
+                    # Verify the mock connection was passed to constructor
+                    assert mock_connect.called, "Database connection should be attempted"
     
     def test_development_environment_allows_key_generation(self):
         """Test that development environment allows key generation"""

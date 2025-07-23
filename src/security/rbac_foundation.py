@@ -18,33 +18,35 @@ from .environment_detector import EnvironmentDetector
 logger = logging.getLogger(__name__)
 
 class Permission(Enum):
-    """System permissions"""
-    # Patient data permissions
+    """Healthcare RBAC permissions"""
     READ_PATIENT_DATA = "read_patient_data"
     WRITE_PATIENT_DATA = "write_patient_data"
     DELETE_PATIENT_DATA = "delete_patient_data"
-    
+    ACCESS_PHI = "access_phi"
+    ADMIN_USERS = "admin_users"
+    SYSTEM_CONFIG = "system_config"
+
     # Medical records permissions
     READ_MEDICAL_RECORDS = "read_medical_records"
     WRITE_MEDICAL_RECORDS = "write_medical_records"
     DELETE_MEDICAL_RECORDS = "delete_medical_records"
-    
+
     # Research permissions
     READ_RESEARCH_DATA = "read_research_data"
     WRITE_RESEARCH_DATA = "write_research_data"
     EXPORT_RESEARCH_DATA = "export_research_data"
-    
+
     # Administrative permissions
     MANAGE_USERS = "manage_users"
     MANAGE_ROLES = "manage_roles"
     VIEW_AUDIT_LOGS = "view_audit_logs"
     MANAGE_SYSTEM = "manage_system"
-    
+
     # AI/ML permissions
     USE_AI_TOOLS = "use_ai_tools"
     TRAIN_AI_MODELS = "train_ai_models"
     DEPLOY_AI_MODELS = "deploy_ai_models"
-    
+
     # Billing permissions
     READ_BILLING_DATA = "read_billing_data"
     WRITE_BILLING_DATA = "write_billing_data"
@@ -462,12 +464,10 @@ class HealthcareRBACManager:
             return True
 
     async def check_patient_access(self, user_id: str, patient_id: str) -> bool:
-        """Check if user can access specific patient data"""
+        """Check if user has access to specific patient"""
         try:
-            # Get user role
             user = await self.get_user(user_id)
             if not user or not user.is_active:
-                self.logger.warning(f"Patient access denied - no active user found for {user_id}")
                 return False
 
             # Check each role for patient access
@@ -476,18 +476,14 @@ class HealthcareRBACManager:
                 if not role or not role.is_active:
                     continue
 
-                # Check if role has patient read permission
-                if Permission.PATIENT_READ in role.permissions:
-                    # Check resource constraints
-                    context = {"user_id": user_id}
-                    if await self._check_resource_constraints(role, ResourceType.PATIENT, patient_id, context):
-                        self.logger.info(f"Patient access granted for user {user_id} to patient {patient_id}")
+                # Use correct permission name
+                if Permission.READ_PATIENT_DATA in role.permissions:
+                    if await self.is_user_assigned_to_patient(user_id, patient_id):
                         return True
 
-            self.logger.warning(f"Patient access denied - user {user_id} is not assigned to patient {patient_id}")
             return False
         except Exception as e:
-            self.logger.error(f"Error checking patient access: {e}")
+            self.logger.error(f"Patient access check failed: {e}")
             return False
 
     def _validate_production_patient_assignment(self, user_id: str, patient_id: str) -> bool:

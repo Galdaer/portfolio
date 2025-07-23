@@ -37,7 +37,11 @@ def mock_external_dependencies():
         }
 
 # Import actual implementation classes instead of duplicating logic
-from src.healthcare_mcp.phi_detection import BasicPHIDetector, apply_replacements_in_reverse
+from src.healthcare_mcp.phi_detection import BasicPHIDetector
+# Removed: apply_replacements_in_reverse (unused)
+
+# Simplify redundant comment
+FICTIONAL_PHONE_PREFIX = "555"
 
 
 # Shared utility functions for common test patterns

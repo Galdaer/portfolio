@@ -513,9 +513,9 @@ class HealthcareMCPServer:
                 f"Environment: {os.getenv('ENVIRONMENT', 'unknown')}"
             )
 
-            # Record failure for rate limiting (only for production/staging JWT failures)
-            if EnvironmentDetector.is_production() or EnvironmentDetector.is_staging():
-                self._record_jwt_failure(client_ip)
+            # Record failure for rate limiting (only for production JWT failures)
+            if EnvironmentDetector.is_production():
+                self._record_auth_failure(client_ip, "jwt_validation_failed")
 
         return auth_result
 
