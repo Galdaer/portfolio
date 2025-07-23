@@ -524,6 +524,55 @@ class HealthcareAuditLogger:
             self.logger.error("Failed to generate audit summary", error=str(e))
             return {"error": "Failed to generate audit summary"}
 
+    def log_security_event(self, event_type: str, details: Dict[str, Any]):
+        """Log security events for HIPAA compliance"""
+        try:
+            # Create security event with proper structure
+            event_id = self._generate_event_id()
+            timestamp = datetime.now(timezone.utc)
+
+            # Log to structured logger
+            self.logger.warning(
+                "security_event",
+                event_id=event_id,
+                event_type=event_type,
+                timestamp=timestamp.isoformat(),
+                details=details
+            )
+
+            # Store in database if available
+            if hasattr(self, 'audit_conn'):
+                try:
+                    with self.audit_conn.cursor() as cursor:
+                        cursor.execute("""
+                            INSERT INTO healthcare_audit_log
+                            (event_id, timestamp, event_type, user_id, session_id, ip_address,
+                             user_agent, resource_accessed, action_performed, outcome, details,
+                             phi_involved, compliance_status, risk_level)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            event_id,
+                            timestamp,
+                            event_type,
+                            details.get('user_id', 'system'),
+                            details.get('session_id', 'unknown'),
+                            details.get('client_ip', 'unknown'),
+                            details.get('user_agent', 'unknown'),
+                            details.get('resource', 'security_event'),
+                            event_type,
+                            details.get('outcome', 'security_violation'),
+                            json.dumps(details),
+                            False,  # PHI not involved in security events
+                            'violation_detected',
+                            details.get('risk_level', 'high')
+                        ))
+                        self.audit_conn.commit()
+                except Exception as db_error:
+                    self.logger.error("Failed to store security event in database", error=str(db_error))
+
+        except Exception as e:
+            self.logger.error("Failed to log security event", error=str(e), event_type=event_type)
+
     def close(self):
         """Close audit database connection"""
         if hasattr(self, 'audit_conn'):

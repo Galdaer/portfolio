@@ -25,6 +25,7 @@ from cryptography.hazmat.backends import default_backend
 
 from .environment_detector import EnvironmentDetector, Environment
 from .encryption_config_loader import EncryptionConfigLoader
+from .exceptions import SecurityError
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -374,7 +375,7 @@ class KeyManager:
     ) -> EncryptionKey:
         """Generate new encryption key"""
         key_id = f"key_{secrets.token_hex(16)}"
-        
+
         # Initialize variables to prevent unbound errors
         raw_key = None
         algorithm = "Unknown"
@@ -406,7 +407,7 @@ class KeyManager:
             )
             algorithm = "RSA"
             key_size = 2048 if encryption_level != EncryptionLevel.CRITICAL else 4096
-        
+
         # Validate that key was generated
         if raw_key is None:
             raise ValueError(f"Failed to generate key for type {key_type} and level {encryption_level}")
@@ -562,7 +563,7 @@ class HealthcareEncryptionManager:
         if EnvironmentDetector.is_production():
             if config and hasattr(config, 'dev_key_path'):
                 raise SecurityError("Development key configuration not allowed in production")
-        
+
         self.key_manager = KeyManager(postgres_conn, self.config)
 
         # Initialize default keys for different encryption levels
@@ -571,14 +572,14 @@ class HealthcareEncryptionManager:
     def _load_configuration(self) -> Dict[str, Any]:
         """Load encryption configuration with environment-aware defaults"""
         from src.security.environment_detector import EnvironmentDetector
-        
+
         base_config = {
             'key_rotation_days': 365,
             'audit_logging': True,
             'entropy_threshold': self.MIN_ENTROPY_THRESHOLD,
             'min_key_length': self.MIN_KEY_LENGTH
         }
-        
+
         if EnvironmentDetector.is_development():
             base_config.update({
                 'dev_key_path': os.path.join(
@@ -587,7 +588,7 @@ class HealthcareEncryptionManager:
                 ),
                 'allow_weak_keys': True  # Only for development
             })
-        
+
         return base_config
 
     def _init_default_keys(self):

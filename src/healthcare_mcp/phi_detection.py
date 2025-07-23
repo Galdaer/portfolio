@@ -37,7 +37,6 @@ def apply_replacements_in_reverse(replacements: List[Tuple[int, int, str]],
         str: Text with replacements applied
     """
     import time
-    import sys
 
     start_time = time.time()
     replacement_count = len(replacements)
@@ -533,7 +532,7 @@ class PHIDetector:
         phi_detected_count = sum(1 for result in results.values() if result.phi_detected)
 
         self.logger.info(f"Batch PHI detection completed: {field_count} fields processed in {processing_time:.3f}s, "
-                        f"{phi_detected_count} fields with PHI detected")
+                         f"{phi_detected_count} fields with PHI detected")
 
         return results
 

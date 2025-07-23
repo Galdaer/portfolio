@@ -27,11 +27,13 @@ from .phi_detection import PHIDetector
 from .audit_logger import HealthcareAuditLogger
 
 # Configure logging
+log_dir = os.getenv('LOG_DIR', '/tmp')
+os.makedirs(log_dir, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('/app/logs/healthcare_mcp.log'),
+        logging.FileHandler(os.path.join(log_dir, 'healthcare_mcp.log')),
         logging.StreamHandler()
     ]
 )
@@ -568,8 +570,32 @@ class HealthcareMCPServer:
             )
             return False
 
-    async def handle_request(self, request) -> Any:
+    def _record_auth_failure(self, client_ip: str, failure_type: str):
+        """Record authentication failure for rate limiting"""
+        # Use existing JWT failure recording mechanism
+        self._record_jwt_failure(client_ip)
+
+        # Log the specific failure type
+        self.logger.warning(f"Auth failure: {failure_type} from {client_ip}")
+
+        # Log security event for audit trail
+        if hasattr(self, 'audit_logger'):
+            self.audit_logger.log_security_event(
+                event_type="authentication_failure",
+                details={
+                    "client_ip": client_ip,
+                    "failure_type": failure_type,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "risk_level": "medium"
+                }
+            )
+
+    async def handle_request(self, request: Optional[Request] = None) -> Any:
         """Handle MCP request with enhanced security logging"""
+        if request is None:
+            self.logger.error("No request provided")
+            return {"error": "Invalid request"}
+
         # Store request IP for security logging
         self._current_request_ip = getattr(request, 'remote_addr', 'unknown')
 
@@ -582,8 +608,15 @@ class HealthcareMCPServer:
         # Check for PHI in request
         if self.phi_detector:
             phi_detected = await self.phi_detector.detect_phi(json.dumps(request.params))
-            if phi_detected:
-                await self.audit_logger.log_phi_detection(request, phi_detected)
+            if phi_detected and phi_detected.phi_detected:
+                # Convert PHIDetectionResult to dictionary for logging
+                phi_details_dict = {
+                    "entities": phi_detected.phi_types if hasattr(phi_detected, 'phi_types') else [],
+                    "confidence": max(phi_detected.confidence_scores) if hasattr(phi_detected, 'confidence_scores') and phi_detected.confidence_scores else 0.0,
+                    "detected_at": datetime.utcnow().isoformat(),
+                    "detection_details": phi_detected.detection_details if hasattr(phi_detected, 'detection_details') else []
+                }
+                await self.audit_logger.log_phi_detection(request, phi_details_dict)
                 if self.config.hipaa_compliance_mode:
                     raise HTTPException(status_code=400, detail="PHI detected in request")
 

@@ -374,7 +374,7 @@ class HealthcareSecurityMiddleware:
             self.logger.error(f"Failed to log access attempt: {e}")
 
     async def log_security_event(self, event_type: str, severity: str,
-                                user_id: Optional[str], details: Dict[str, Any]):
+                                 user_id: Optional[str], details: Dict[str, Any]):
         """Log security event"""
         try:
             with self.postgres_conn.cursor() as cursor:
