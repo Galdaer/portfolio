@@ -12,6 +12,7 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from .environment_detector import EnvironmentDetector
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -447,55 +448,18 @@ class HealthcareRBACManager:
             self._log_access_attempt(user_id, permission, resource_type, resource_id, False, context)
             return False
 
-<<<<<<<
-    def is_user_assigned_to_patient(self, user_id: str, patient_id: str) -> bool:
-        """
-        Check if user is assigned to patient with environment-aware behavior
-=======
     async def is_user_assigned_to_patient(self, user_id: str, patient_id: str) -> bool:
-        """Check if user is assigned to specific patient"""
+        """Check if user is assigned to specific patient with environment-aware behavior"""
         # Phase 1 Development Mode: Patient assignment is a Phase 2 business service
         # For Phase 1 Core AI Infrastructure, we allow access with logging
->>>>>>>
-
-<<<<<<<
-        NOTE: This is a Phase 2 feature placeholder.
-        Production deployment is blocked until proper implementation.
-=======
-        # Check if we're in development mode (Phase 1)
-        development_mode = os.getenv("PATIENT_ASSIGNMENT_MODE", "development") == "development"
-
-        if development_mode:
-            # Phase 1: Allow access but log for future Phase 2 implementation
-            self.logger.info(f"Phase 1 Development Mode: Allowing patient access for user {user_id} to patient {patient_id}")
-            self.logger.info("Patient assignment will be fully implemented in Phase 2 Business Services")
-            return True
-
-        # Phase 2+ Production Mode: Use actual patient assignment service
-        try:
-            # Check if Phase 2 patient assignment service is available
-            assignment_service_url = os.getenv("PATIENT_ASSIGNMENT_SERVICE_URL", "http://localhost:8012")
->>>>>>>
-
-<<<<<<<
-        Args:
-            user_id: User identifier
-            patient_id: Patient identifier
-
-        Returns:
-            bool: True if user has access to patient
-
-        Raises:
-            NotImplementedError: In production environment
-        """
-        from .environment_detector import EnvironmentDetector
-
-        # Handle production environment validation
         if EnvironmentDetector.is_production():
-            return self._validate_production_patient_assignment(user_id, patient_id)
-
-        # Development mode: configurable behavior (default to allow for development)
-        return self._validate_development_patient_assignment(user_id, patient_id)
+            # Production implementation will be added in Phase 2
+            self.logger.warning(f"Patient assignment check in production - user {user_id}, patient {patient_id}")
+            return False
+        else:
+            # Development mode - allow access with logging
+            self.logger.info(f"Development mode: allowing patient access - user {user_id}, patient {patient_id}")
+            return True
 
     def _validate_production_patient_assignment(self, user_id: str, patient_id: str) -> bool:
         """
@@ -650,62 +614,6 @@ class HealthcareRBACManager:
         else:
             self.logger.debug(f"DEV MODE: Denying patient access {user_id} -> {patient_id}")
             return False
-=======
-            # Try to call the patient assignment service
-            import httpx
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{assignment_service_url}/check-permission/{user_id}/{patient_id}",
-                    timeout=5.0
-                )
-
-                if response.status_code == 200:
-                    result = response.json()
-                    has_permission = result.get("has_permission", False)
-
-                    if has_permission:
-                        self.logger.info(f"Patient assignment service granted access for user {user_id} to patient {patient_id}")
-                    else:
-                        self.logger.warning(f"Patient assignment service denied access for user {user_id} to patient {patient_id}")
-
-                    return has_permission
-                else:
-                    self.logger.error(f"Patient assignment service returned status {response.status_code}")
-                    return False
-
-        except Exception as e:
-            self.logger.error(f"Error connecting to patient assignment service: {e}")
-            self.logger.warning("Falling back to deny access for security")
-            return False
->>>>>>>
-
-<<<<<<<
-    def _validate_real_patient_assignment(self, user_id: str, patient_id: str) -> bool:
-        """
-        Validate patient assignment using real implementation
-
-        This method should be implemented when proper patient assignment
-        validation is available (e.g., database-backed, external service, etc.)
-
-        Args:
-            user_id: User identifier
-            patient_id: Patient identifier
-
-        Returns:
-            bool: True if user has access to patient
-        """
-        # TODO: Implement actual patient assignment validation
-        # This could include:
-        # - Database queries for patient-provider relationships
-        # - Care team membership validation
-        # - Specialty-based access rules
-        # - Time-based access (e.g., on-call schedules)
-        # - Geographic restrictions
-
-        self.logger.info(f"Real patient assignment validation for {user_id} -> {patient_id}")
-
-        # Placeholder for real implementation
-        return False
 
     def _get_user_roles(self, user_id: str) -> List[str]:
         """
@@ -878,10 +786,7 @@ class HealthcareRBACManager:
         # Add other constraint checks as needed
         return True
 
-    def _check_resource_constraints(self, role: Role, resource_type: ResourceType,
-=======
     async def _check_resource_constraints(self, role: Role, resource_type: ResourceType,
->>>>>>>
                                   resource_id: str, context: Optional[Dict[str, Any]]) -> bool:
         """Check resource-specific constraints"""
         constraints = role.resource_constraints.get(resource_type, {})

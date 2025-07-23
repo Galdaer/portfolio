@@ -20,7 +20,7 @@ import redis
 import requests
 import jwt
 
-from ..security.environment_detector import EnvironmentDetector
+from src.security.environment_detector import EnvironmentDetector
 from pydantic import BaseModel, Field
 
 from .phi_detection import PHIDetector
@@ -123,7 +123,7 @@ class HealthcareMCPServer:
 
     def _validate_startup_configuration(self):
         """Validate critical configuration at startup to prevent runtime failures"""
-        from .environment_detector import EnvironmentDetector
+        from src.security.environment_detector import EnvironmentDetector
 
         # First validate environment configuration
         environment = self._validate_environment_config()
@@ -479,7 +479,7 @@ class HealthcareMCPServer:
 
     def _validate_credentials(self, credentials: HTTPAuthorizationCredentials, client_ip: str = "unknown") -> bool:
         """Validate authentication credentials with rate limiting and secure environment detection"""
-        from .environment_detector import EnvironmentDetector
+        from src.security.environment_detector import EnvironmentDetector
 
         # Check rate limiting first
         if not self._check_jwt_rate_limit(client_ip):

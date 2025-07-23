@@ -37,7 +37,7 @@ def mock_external_dependencies():
         }
 
 # Import actual implementation classes instead of duplicating logic
-from healthcare_mcp.phi_detection import BasicPHIDetector, apply_replacements_in_reverse
+from src.healthcare_mcp.phi_detection import BasicPHIDetector, apply_replacements_in_reverse
 
 
 # Shared utility functions for common test patterns
