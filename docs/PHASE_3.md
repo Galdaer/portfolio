@@ -668,6 +668,668 @@ class EnterpriseComplianceManagerExtensions:
         return recommendations if recommendations else ["AI compliance standards are being met"]
 ```
 
+### 1.3 Single-Clinic Production Hardening
+
+**On-premise deployment for individual healthcare organizations:**
+```python
+# core/enterprise/clinic_manager.py
+from typing import Dict, List, Optional, Any
+import asyncio
+from datetime import datetime
+from dataclasses import dataclass
+from enum import Enum
+
+@dataclass
+class ClinicConfiguration:
+    clinic_id: str
+    clinic_name: str
+    clinic_type: str  # family_practice, urgent_care, specialty_clinic
+    expected_patient_volume: int
+    provider_count: int
+    enabled_ai_features: List[str]
+    compliance_requirements: Dict[str, Any]
+    database_config: Dict[str, Any]
+    ai_config: 'AIConfiguration'
+    data_retention_years: int
+
+@dataclass
+class AIConfiguration:
+    gpu_memory_gb: int
+    concurrent_models: int
+    reasoning_complexity: str
+    personalization_enabled: bool
+    real_time_processing: bool
+
+@dataclass
+class ClinicProvisioningResult:
+    clinic_id: str
+    status: str
+    ai_endpoints: Dict[str, str]
+    database_schema: str
+    compliance_level: str
+    provisioned_at: datetime
+
+class SingleClinicManager:
+    """
+    On-premise deployment for individual healthcare organizations
+    """
+
+    def __init__(self, postgres_client, redis_client):
+        self.db_client = postgres_client
+        self.redis_client = redis_client
+        self.clinic_registry = ClinicRegistry()
+        self.resource_allocator = ResourceAllocator()
+
+    async def provision_new_clinic(self,
+                                 clinic_config: ClinicConfiguration) -> ClinicProvisioningResult:
+        """
+        Provision new healthcare clinic with isolated resources
+
+        Features:
+        - Isolated database schemas
+        - Dedicated AI model instances
+        - Separate audit logging
+        - Custom compliance configurations
+        - Isolated patient data storage
+        """
+
+        clinic_id = clinic_config.clinic_id
+
+        # Create isolated database schema
+        await self._create_clinic_schema(clinic_id, clinic_config.database_config)
+
+        # Provision dedicated AI resources
+        ai_resources = await self._provision_ai_resources(clinic_id, clinic_config.ai_config)
+
+        # Setup clinic-specific compliance configuration
+        compliance_config = await self._setup_compliance_configuration(
+            clinic_id, clinic_config.compliance_requirements
+        )
+
+        # Initialize clinic-specific services
+        services = await self._initialize_clinic_services(clinic_id, clinic_config)
+
+        # Setup monitoring and alerting
+        monitoring = await self._setup_clinic_monitoring(clinic_id, clinic_config)
+
+        # Register clinic
+        clinic_record = await self.clinic_registry.register_clinic(
+            clinic_id=clinic_id,
+            configuration=clinic_config,
+            ai_resources=ai_resources,
+            compliance_config=compliance_config,
+            services=services,
+            monitoring=monitoring
+        )
+
+        return ClinicProvisioningResult(
+            clinic_id=clinic_id,
+            status="provisioned",
+            ai_endpoints=ai_resources.endpoints,
+            database_schema=f"clinic_{clinic_id}",
+            compliance_level=compliance_config.level,
+            provisioned_at=datetime.utcnow()
+        )
+
+    async def _provision_ai_resources(self, clinic_id: str, ai_config: AIConfiguration) -> 'AIResources':
+        """Provision dedicated AI resources for clinic"""
+
+        # Allocate GPU resources
+        gpu_allocation = await self.resource_allocator.allocate_gpu_resources(
+            clinic_id=clinic_id,
+            required_memory=ai_config.gpu_memory_gb,
+            model_count=ai_config.concurrent_models
+        )
+
+        # Deploy clinic-specific Ollama instance
+        ollama_endpoint = await self._deploy_clinic_ollama(clinic_id, gpu_allocation)
+
+        # Deploy clinic-specific reasoning services
+        reasoning_endpoint = await self._deploy_clinic_reasoning(clinic_id, ai_config)
+
+        # Setup clinic-specific model registry
+        model_registry = await self._setup_clinic_model_registry(clinic_id, ai_config)
+
+        return AIResources(
+            clinic_id=clinic_id,
+            gpu_allocation=gpu_allocation,
+            endpoints={
+                "ollama": ollama_endpoint,
+                "reasoning": reasoning_endpoint,
+                "personalization": f"http://personalization-{clinic_id}:8011"
+            },
+            model_registry=model_registry
+        )
+
+    async def _create_clinic_schema(self, clinic_id: str, database_config: Dict[str, Any]) -> None:
+        """Create isolated database schema for clinic"""
+
+        schema_name = f"clinic_{clinic_id}"
+
+        # Create schema with proper permissions
+        await self.db_client.execute(f"""
+            CREATE SCHEMA IF NOT EXISTS {schema_name};
+
+            -- Create clinic-specific tables
+            CREATE TABLE IF NOT EXISTS {schema_name}.patients (
+                patient_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                clinic_id VARCHAR(255) NOT NULL DEFAULT '{clinic_id}',
+                encrypted_data BYTEA NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS {schema_name}.clinical_sessions (
+                session_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                patient_id UUID REFERENCES {schema_name}.patients(patient_id),
+                provider_id VARCHAR(255) NOT NULL,
+                session_data JSONB NOT NULL,
+                phi_detected BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS {schema_name}.ai_interactions (
+                interaction_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                session_id UUID REFERENCES {schema_name}.clinical_sessions(session_id),
+                ai_model VARCHAR(255) NOT NULL,
+                input_data JSONB NOT NULL,
+                output_data JSONB NOT NULL,
+                confidence_score FLOAT,
+                processing_time_ms INTEGER,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+
+            -- Create indexes for performance
+            CREATE INDEX IF NOT EXISTS idx_{clinic_id}_patients_clinic ON {schema_name}.patients(clinic_id);
+            CREATE INDEX IF NOT EXISTS idx_{clinic_id}_sessions_patient ON {schema_name}.clinical_sessions(patient_id);
+            CREATE INDEX IF NOT EXISTS idx_{clinic_id}_interactions_session ON {schema_name}.ai_interactions(session_id);
+
+            -- Setup row-level security
+            ALTER TABLE {schema_name}.patients ENABLE ROW LEVEL SECURITY;
+            ALTER TABLE {schema_name}.clinical_sessions ENABLE ROW LEVEL SECURITY;
+            ALTER TABLE {schema_name}.ai_interactions ENABLE ROW LEVEL SECURITY;
+        """)
+
+# Register single clinic manager
+single_clinic_manager = SingleClinicManager(None, None)
+```
+
+**Enterprise Resource Management:**
+```python
+# core/enterprise/resource_allocator.py
+from typing import Dict, List, Optional, Any
+import asyncio
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+@dataclass
+class ResourceRequirements:
+    gpu_memory_gb: int
+    storage_gb: int
+    bandwidth_mbps: int
+    cpu_cores: int
+    ram_gb: int
+
+@dataclass
+class ResourceAllocationPlan:
+    clinic_allocations: Dict[str, ResourceRequirements]
+    total_resources_needed: ResourceRequirements
+    optimization_score: float
+    feasibility_score: float
+    recommendations: List[str]
+
+class EnterpriseResourceAllocator:
+    """
+    Intelligent resource allocation for enterprise healthcare deployments
+    """
+
+    def __init__(self):
+        self.gpu_manager = GPUResourceManager()
+        self.memory_manager = MemoryResourceManager()
+        self.storage_manager = StorageResourceManager()
+        self.network_manager = NetworkResourceManager()
+
+    async def optimize_resource_allocation(self,
+                                         clinics: List[ClinicConfiguration]) -> ResourceAllocationPlan:
+        """
+        Optimize resource allocation across multiple healthcare clinics
+        """
+
+        # Analyze current resource usage
+        current_usage = await self._analyze_current_usage()
+
+        # Predict resource requirements
+        predicted_requirements = await self._predict_resource_requirements(clinics)
+
+        # Generate optimal allocation plan
+        allocation_plan = await self._generate_allocation_plan(
+            current_usage, predicted_requirements
+        )
+
+        # Validate allocation feasibility
+        validation_result = await self._validate_allocation_plan(allocation_plan)
+
+        if not validation_result.is_feasible:
+            # Generate alternative plan
+            allocation_plan = await self._generate_alternative_plan(
+                predicted_requirements, validation_result.constraints
+            )
+
+        return allocation_plan
+
+    async def _predict_resource_requirements(self, clinics: List[ClinicConfiguration]) -> Dict[str, ResourceRequirements]:
+        """Predict resource requirements based on clinic profiles"""
+
+        requirements = {}
+
+        for clinic in clinics:
+            # Analyze clinic characteristics
+            patient_volume = clinic.expected_patient_volume
+            provider_count = clinic.provider_count
+            ai_features = clinic.enabled_ai_features
+
+            # Calculate GPU requirements
+            gpu_memory_needed = self._calculate_gpu_requirements(
+                patient_volume, provider_count, ai_features
+            )
+
+            # Calculate storage requirements
+            storage_needed = self._calculate_storage_requirements(
+                patient_volume, clinic.data_retention_years
+            )
+
+            # Calculate network bandwidth
+            bandwidth_needed = self._calculate_bandwidth_requirements(
+                provider_count, patient_volume, ai_features
+            )
+
+            requirements[clinic.clinic_id] = ResourceRequirements(
+                gpu_memory_gb=gpu_memory_needed,
+                storage_gb=storage_needed,
+                bandwidth_mbps=bandwidth_needed,
+                cpu_cores=self._calculate_cpu_requirements(provider_count),
+                ram_gb=self._calculate_ram_requirements(patient_volume)
+            )
+
+        return requirements
+
+    def _calculate_gpu_requirements(self, patient_volume: int, provider_count: int, ai_features: List[str]) -> int:
+        """Calculate GPU memory requirements based on usage patterns"""
+
+        base_gpu_memory = 8  # Base 8GB for basic AI operations
+
+        # Add memory based on patient volume (more patients = more concurrent processing)
+        volume_multiplier = min(patient_volume / 1000, 4.0)  # Cap at 4x multiplier
+
+        # Add memory based on provider count (more providers = more concurrent sessions)
+        provider_multiplier = min(provider_count / 10, 2.0)  # Cap at 2x multiplier
+
+        # Add memory based on AI features
+        feature_memory = 0
+        if "advanced_reasoning" in ai_features:
+            feature_memory += 4
+        if "real_time_transcription" in ai_features:
+            feature_memory += 2
+        if "personalization" in ai_features:
+            feature_memory += 2
+        if "multi_agent_orchestration" in ai_features:
+            feature_memory += 4
+
+        total_gpu_memory = int(base_gpu_memory * volume_multiplier * provider_multiplier + feature_memory)
+        return min(total_gpu_memory, 80)  # Cap at 80GB for practical limits
+
+    def _calculate_storage_requirements(self, patient_volume: int, retention_years: int) -> int:
+        """Calculate storage requirements based on patient volume and retention"""
+
+        # Estimate storage per patient per year (including PHI, audio, transcripts, AI outputs)
+        storage_per_patient_per_year = 0.5  # 500MB per patient per year
+
+        total_storage_gb = int(patient_volume * retention_years * storage_per_patient_per_year)
+
+        # Add overhead for backups, logs, and system data
+        overhead_multiplier = 1.5
+
+        return int(total_storage_gb * overhead_multiplier)
+
+# Register resource allocator
+enterprise_resource_allocator = EnterpriseResourceAllocator()
+```
+
+### 1.2 Advanced Compliance and Audit System
+
+**Enterprise-grade compliance management for healthcare AI systems supporting HIPAA, HITECH, SOC 2, and international healthcare regulations:**
+```python
+# core/compliance/enterprise_compliance.py
+from typing import Dict, List, Optional, Any
+import asyncio
+import time
+from datetime import datetime, timedelta
+from dataclasses import dataclass
+from enum import Enum
+
+class AuditScope(Enum):
+    FULL_SYSTEM = "full_system"
+    TENANT_SPECIFIC = "tenant_specific"
+    AI_MODELS_ONLY = "ai_models_only"
+    DATA_GOVERNANCE = "data_governance"
+    SECURITY_ONLY = "security_only"
+
+@dataclass
+class ComplianceAuditResult:
+    audit_id: str
+    tenant_id: str
+    overall_compliance_score: float
+    compliance_report: 'ComplianceReport'
+    risk_level: str
+    recommendations: List[str]
+    audit_timestamp: datetime
+
+@dataclass
+class AIComplianceResult:
+    tenant_id: str
+    overall_score: float
+    explainability_score: float
+    bias_fairness_score: float
+    auditability_score: float
+    validation_score: float
+    data_usage_score: float
+    compliance_checks: List['ComplianceCheck']
+    recommendations: List[str]
+
+@dataclass
+class AuditContext:
+    tenant_id: str
+    audit_scope: AuditScope
+    audit_timestamp: datetime
+    auditor_id: str
+    compliance_frameworks: List[str]
+
+class EnterpriseComplianceManager:
+    """
+    Enterprise-grade compliance management for healthcare AI systems
+    Supports HIPAA, HITECH, SOC 2, and international healthcare regulations
+    """
+
+    def __init__(self):
+        self.audit_logger = EnterpriseAuditLogger()
+        self.compliance_monitor = ComplianceMonitor()
+        self.risk_assessor = RiskAssessor()
+        self.report_generator = ComplianceReportGenerator()
+
+    async def perform_comprehensive_compliance_audit(self,
+                                                   tenant_id: str,
+                                                   audit_scope: AuditScope) -> ComplianceAuditResult:
+        """
+        Perform comprehensive compliance audit across all systems
+        """
+
+        audit_id = f"audit_{tenant_id}_{int(time.time())}"
+
+        # Initialize audit context
+        audit_context = await self._initialize_audit_context(tenant_id, audit_scope)
+
+        # Perform HIPAA compliance checks
+        hipaa_results = await self._audit_hipaa_compliance(tenant_id, audit_context)
+
+        # Perform HITECH compliance checks
+        hitech_results = await self._audit_hitech_compliance(tenant_id, audit_context)
+
+        # Perform SOC 2 compliance checks
+        soc2_results = await self._audit_soc2_compliance(tenant_id, audit_context)
+
+        # Perform AI-specific compliance checks
+        ai_compliance_results = await self._audit_ai_compliance(tenant_id, audit_context)
+
+        # Perform data governance checks
+        data_governance_results = await self._audit_data_governance(tenant_id, audit_context)
+
+        # Risk assessment
+        risk_assessment = await self.risk_assessor.assess_compliance_risks(
+            hipaa_results, hitech_results, soc2_results, ai_compliance_results
+        )
+
+        # Generate comprehensive report
+        compliance_report = await self.report_generator.generate_compliance_report(
+            audit_id=audit_id,
+            tenant_id=tenant_id,
+            hipaa_results=hipaa_results,
+            hitech_results=hitech_results,
+            soc2_results=soc2_results,
+            ai_compliance_results=ai_compliance_results,
+            data_governance_results=data_governance_results,
+            risk_assessment=risk_assessment
+        )
+
+        return ComplianceAuditResult(
+            audit_id=audit_id,
+            tenant_id=tenant_id,
+            overall_compliance_score=compliance_report.overall_score,
+            compliance_report=compliance_report,
+            risk_level=risk_assessment.overall_risk_level,
+            recommendations=compliance_report.recommendations,
+            audit_timestamp=datetime.utcnow()
+        )
+
+    async def _audit_ai_compliance(self, tenant_id: str, audit_context: AuditContext) -> AIComplianceResult:
+        """Audit AI-specific compliance requirements"""
+
+        compliance_checks = []
+
+        # Check AI model explainability
+        explainability_check = await self._check_ai_explainability(tenant_id)
+        compliance_checks.append(explainability_check)
+
+        # Check AI bias and fairness
+        bias_check = await self._check_ai_bias_fairness(tenant_id)
+        compliance_checks.append(bias_check)
+
+        # Check AI decision auditability
+        auditability_check = await self._check_ai_auditability(tenant_id)
+        compliance_checks.append(auditability_check)
+
+        # Check AI model validation and testing
+        validation_check = await self._check_ai_validation_processes(tenant_id)
+        compliance_checks.append(validation_check)
+
+        # Check AI data usage compliance
+        data_usage_check = await self._check_ai_data_usage_compliance(tenant_id)
+        compliance_checks.append(data_usage_check)
+
+        overall_score = sum(check.score for check in compliance_checks) / len(compliance_checks)
+
+        return AIComplianceResult(
+            tenant_id=tenant_id,
+            overall_score=overall_score,
+            explainability_score=explainability_check.score,
+            bias_fairness_score=bias_check.score,
+            auditability_score=auditability_check.score,
+            validation_score=validation_check.score,
+            data_usage_score=data_usage_check.score,
+            compliance_checks=compliance_checks,
+            recommendations=self._generate_ai_compliance_recommendations(compliance_checks)
+        )
+
+    async def _check_ai_explainability(self, tenant_id: str) -> 'ComplianceCheck':
+        """Check AI model explainability requirements"""
+
+        # Verify that AI models provide explanations for clinical decisions
+        explainability_score = 0.0
+        issues = []
+
+        # Check if models support SHAP/LIME explanations
+        models_with_explanations = await self._count_models_with_explanations(tenant_id)
+        total_models = await self._count_total_models(tenant_id)
+
+        if total_models > 0:
+            explainability_score = models_with_explanations / total_models
+
+        if explainability_score < 0.8:
+            issues.append("Less than 80% of AI models provide adequate explanations")
+
+        # Check explanation quality and clinical relevance
+        explanation_quality = await self._assess_explanation_quality(tenant_id)
+        explainability_score = (explainability_score + explanation_quality) / 2
+
+        return ComplianceCheck(
+            check_name="AI Explainability",
+            score=explainability_score,
+            passed=explainability_score >= 0.8,
+            issues=issues,
+            recommendations=self._get_explainability_recommendations(explainability_score)
+        )
+
+    async def _check_ai_bias_fairness(self, tenant_id: str) -> 'ComplianceCheck':
+        """Check AI bias and fairness across demographic groups"""
+
+        bias_score = 0.0
+        issues = []
+
+        # Check for demographic bias in AI recommendations
+        demographic_bias_results = await self._assess_demographic_bias(tenant_id)
+
+        # Check for clinical bias (e.g., specialty-specific biases)
+        clinical_bias_results = await self._assess_clinical_bias(tenant_id)
+
+        # Calculate overall bias score (higher score = less bias)
+        bias_score = (demographic_bias_results.fairness_score + clinical_bias_results.fairness_score) / 2
+
+        if demographic_bias_results.has_significant_bias:
+            issues.append("Significant demographic bias detected in AI recommendations")
+
+        if clinical_bias_results.has_significant_bias:
+            issues.append("Significant clinical bias detected in AI recommendations")
+
+        return ComplianceCheck(
+            check_name="AI Bias and Fairness",
+            score=bias_score,
+            passed=bias_score >= 0.85 and not any([demographic_bias_results.has_significant_bias, clinical_bias_results.has_significant_bias]),
+            issues=issues,
+            recommendations=self._get_bias_mitigation_recommendations(demographic_bias_results, clinical_bias_results)
+        )
+
+# Register enterprise compliance manager
+enterprise_compliance_manager = EnterpriseComplianceManager()
+```
+
+**Supporting classes for enterprise compliance:**
+```python
+# core/compliance/compliance_support_classes.py
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass
+from datetime import datetime
+
+@dataclass
+class ComplianceCheck:
+    check_name: str
+    score: float
+    passed: bool
+    issues: List[str]
+    recommendations: List[str]
+
+@dataclass
+class ComplianceReport:
+    overall_score: float
+    recommendations: List[str]
+
+@dataclass
+class BiasAssessmentResult:
+    fairness_score: float
+    has_significant_bias: bool
+
+class EnterpriseAuditLogger:
+    """Enterprise audit logging system"""
+    pass
+
+class ComplianceMonitor:
+    """Real-time compliance monitoring"""
+    pass
+
+class RiskAssessor:
+    """Risk assessment for compliance violations"""
+
+    async def assess_compliance_risks(self, *args) -> 'RiskAssessment':
+        return RiskAssessment(overall_risk_level="low")
+
+class ComplianceReportGenerator:
+    """Generate comprehensive compliance reports"""
+
+    async def generate_compliance_report(self, **kwargs) -> ComplianceReport:
+        return ComplianceReport(
+            overall_score=0.95,
+            recommendations=["Maintain current compliance standards"]
+        )
+
+@dataclass
+class RiskAssessment:
+    overall_risk_level: str
+
+# Additional methods for EnterpriseComplianceManager
+class EnterpriseComplianceManagerExtensions:
+    """Extensions for the enterprise compliance manager"""
+
+    async def _initialize_audit_context(self, tenant_id: str, audit_scope: AuditScope) -> AuditContext:
+        return AuditContext(
+            tenant_id=tenant_id,
+            audit_scope=audit_scope,
+            audit_timestamp=datetime.utcnow(),
+            auditor_id="system",
+            compliance_frameworks=["HIPAA", "HITECH", "SOC2"]
+        )
+
+    async def _audit_hipaa_compliance(self, tenant_id: str, audit_context: AuditContext) -> Dict[str, Any]:
+        return {"score": 0.95, "status": "compliant"}
+
+    async def _audit_hitech_compliance(self, tenant_id: str, audit_context: AuditContext) -> Dict[str, Any]:
+        return {"score": 0.93, "status": "compliant"}
+
+    async def _audit_soc2_compliance(self, tenant_id: str, audit_context: AuditContext) -> Dict[str, Any]:
+        return {"score": 0.91, "status": "compliant"}
+
+    async def _audit_data_governance(self, tenant_id: str, audit_context: AuditContext) -> Dict[str, Any]:
+        return {"score": 0.94, "status": "compliant"}
+
+    async def _count_models_with_explanations(self, tenant_id: str) -> int:
+        return 8  # Mock value
+
+    async def _count_total_models(self, tenant_id: str) -> int:
+        return 10  # Mock value
+
+    async def _assess_explanation_quality(self, tenant_id: str) -> float:
+        return 0.88  # Mock value
+
+    async def _assess_demographic_bias(self, tenant_id: str) -> BiasAssessmentResult:
+        return BiasAssessmentResult(fairness_score=0.92, has_significant_bias=False)
+
+    async def _assess_clinical_bias(self, tenant_id: str) -> BiasAssessmentResult:
+        return BiasAssessmentResult(fairness_score=0.89, has_significant_bias=False)
+
+    def _get_explainability_recommendations(self, score: float) -> List[str]:
+        if score < 0.8:
+            return [
+                "Implement SHAP explanations for all clinical AI models",
+                "Add clinical reasoning transparency features",
+                "Create explanation quality validation processes"
+            ]
+        return ["Maintain current explainability standards"]
+
+    def _get_bias_mitigation_recommendations(self, demo_bias: BiasAssessmentResult, clinical_bias: BiasAssessmentResult) -> List[str]:
+        recommendations = []
+        if demo_bias.has_significant_bias:
+            recommendations.append("Implement demographic bias mitigation strategies")
+        if clinical_bias.has_significant_bias:
+            recommendations.append("Review clinical decision algorithms for specialty bias")
+        if not recommendations:
+            recommendations.append("Continue monitoring for bias in AI recommendations")
+        return recommendations
+
+    def _generate_ai_compliance_recommendations(self, compliance_checks: List[ComplianceCheck]) -> List[str]:
+        recommendations = []
+        for check in compliance_checks:
+            if not check.passed:
+                recommendations.extend(check.recommendations)
+        return recommendations if recommendations else ["AI compliance standards are being met"]
+```
+
 ### 1.3 File Ownership and Permissions Hardening
 
 **Multi-tenant architecture for healthcare organizations supporting multiple clinics, health systems, and practice groups:**
@@ -1516,572 +2178,7 @@ class ProductionPatientAssignmentManager:
                 "access_result": access_result,
                 "expires_at": (datetime.utcnow() + timedelta(minutes=1)).isoformat()
             })
-        )
-
-        await self._log_access_attempt(provider_id, patient_id, requested_permission, True, "assignment_validated")
-
-        return access_result
-
-    async def _store_assignment_securely(self, assignment: PatientAssignment) -> None:
-        """Store patient assignment with encryption and audit trail"""
-
-        # Encrypt sensitive assignment data
-        encrypted_assignment_data = await self._encrypt_assignment_data(assignment)
-
-        # Store in database
-        async with self.db_client.transaction():
-            await self.db_client.execute("""
-                INSERT INTO patient_assignments (
-                    assignment_id, patient_id, provider_id, assignment_type,
-                    start_date, end_date, encrypted_permissions, assigned_by,
-                    reason, is_active, created_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            """,
-            assignment.assignment_id,
-            assignment.patient_id,
-            assignment.provider_id,
-            assignment.assignment_type.value,
-            assignment.start_date,
-            assignment.end_date,
-            encrypted_assignment_data['permissions'],
-            assignment.assigned_by,
-            assignment.reason,
-            assignment.is_active,
-            datetime.utcnow()
-            )
-
-            # Create assignment audit record
-            await self.db_client.execute("""
-                INSERT INTO patient_assignment_audit (
-                    assignment_id, event_type, event_timestamp, performed_by,
-                    event_details, compliance_validated
-                ) VALUES ($1, $2, $3, $4, $5, $6)
-            """,
-            assignment.assignment_id,
-            "assignment_created",
-            datetime.utcnow(),
-            assignment.assigned_by,
-            json.dumps({
-                "assignment_type": assignment.assignment_type.value,
-                "permissions_count": len(assignment.permissions),
-                "reason": assignment.reason
-            }),
-            True
-            )
-
-# Register patient assignment manager
-patient_assignment_manager = ProductionPatientAssignmentManager(None, None, None)
-```
-
-### 1.4 File Ownership and Permissions Hardening
-
-**Create dedicated service users for production clinic deployment:**
-```bash
-#!/bin/bash
-# scripts/production-security-hardening.sh
-
-echo "🔒 Hardening Intelluxe AI for clinic production deployment..."
-
-# Create dedicated intelluxe service user (no shell, no home)
-sudo useradd -r -s /bin/false -d /opt/intelluxe -M intelluxe-service
-
-# Create dedicated group for production
-sudo groupadd --gid 2001 intelluxe-prod
-
-# Update CFG_UID/CFG_GID in all scripts for production
-find scripts/ -name "*.sh" -exec sed -i 's/DEFAULT_UID=1000/DEFAULT_UID=2000/g' {} \;
-find scripts/ -name "*.sh" -exec sed -i 's/DEFAULT_GID=1001/DEFAULT_GID=2001/g' {} \;
-
-# Apply production permissions
-chmod 750 scripts/*.sh scripts/*.py
-chmod 640 systemd/*.service systemd/*.timer
-find services/ -name "*.conf" -exec chmod 640 {} \;
-find /opt/intelluxe/logs/ -name "*.log" -exec chmod 640 {} \; 2>/dev/null || true
-chmod 700 /opt/intelluxe/stack/data/ /opt/intelluxe/stack/backups/ 2>/dev/null || true
-
-# Set ownership
-chown -R intelluxe-service:intelluxe-prod /opt/intelluxe/
-
-echo "✅ Production security hardening complete"
-```
-
-**Enhanced file permissions for clinic production:**
-```bash
-# Production permission model
-Scripts: 750 (owner execute only)
-Configs: 640 (owner read/write, group read only) 
-Logs: 640 (owner read/write, group read only)
-Data directories: 700 (owner only)
-PHI storage: 600 (owner only, no group access)
-Service configs: 640 (secure but readable by service runner)
-```
-
-### 1.2 Production SSL/TLS and Network Security
-
-**Enhanced nginx configuration for clinic deployment:**
-```bash
-# services/user/nginx-ssl/nginx-ssl.conf
-image="nginx:alpine"
-port="443:443,80:80"
-description="Production SSL/TLS proxy for clinic deployment"
-env="NGINX_ENTRYPOINT_QUIET_LOGS=1"
-volumes="./certs:/etc/nginx/certs:ro,./nginx-prod.conf:/etc/nginx/nginx.conf:ro"
-network_mode="intelluxe-net"
-restart_policy="unless-stopped"
-healthcheck="nginx -t"
-depends_on="health-monitor"
-```
-
-**Production nginx configuration:**
-```nginx
-# services/user/nginx-ssl/nginx-prod.conf
-events {
-    worker_connections 1024;
-}
-
-http {
-    # Security headers for HIPAA compliance
-    add_header X-Frame-Options DENY;
-    add_header X-Content-Type-Options nosniff;
-    add_header X-XSS-Protection "1; mode=block";
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";
-    
-    # HIPAA compliance - minimal logging of potentially sensitive data
-    access_log off;
-    error_log /var/log/nginx/error.log crit;
-    
-    upstream intelluxe_backend {
-        server health-monitor:8080;
-    }
-    
-    server {
-        listen 443 ssl http2;
-        server_name intelluxe.clinic;
-        
-        ssl_certificate /etc/nginx/certs/intelluxe.clinic.crt;
-        ssl_certificate_key /etc/nginx/certs/intelluxe.clinic.key;
-        
-        # Modern SSL configuration
-        ssl_protocols TLSv1.2 TLSv1.3;
-        ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
-        ssl_prefer_server_ciphers off;
-        
-        location / {
-            proxy_pass http://intelluxe_backend;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            
-            # Timeouts for healthcare applications
-            proxy_connect_timeout 60s;
-            proxy_send_timeout 60s;
-            proxy_read_timeout 60s;
-        }
-        
-        # WebSocket support for real-time features
-        location /ws {
-            proxy_pass http://intelluxe_backend;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
-            proxy_set_header Host $host;
-        }
-    }
-    
-    # Redirect HTTP to HTTPS
-    server {
-        listen 80;
-        server_name intelluxe.clinic;
-        return 301 https://$server_name$request_uri;
-    }
-}
-```
-
-**Deploy production SSL proxy:**
-```bash
-./scripts/universal-service-runner.sh start nginx-ssl
-
-# Verify SSL configuration
-curl -k https://localhost/health
-```
-
-### 1.3 HIPAA Security Framework
-
-**Production HIPAA compliance implementation:**
-```python
-# core/security/hipaa_security_layer.py
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-import base64
-import os
-import logging
-import json
-from datetime import datetime
-from typing import Dict, Any, Optional
-
-class HIPAASecurityLayer:
-    """
-    Production HIPAA security implementation with AES-256 encryption
-    """
-    
-    def __init__(self):
-        self.encryption_key = self._derive_encryption_key()
-        self.fernet = Fernet(self.encryption_key)
-        self.audit_logger = self._setup_hipaa_audit_logging()
-        
-    def _derive_encryption_key(self) -> bytes:
-        """Derive encryption key from environment variables"""
-        password = os.environ.get('HIPAA_ENCRYPTION_PASSWORD', '').encode()
-        salt = os.environ.get('HIPAA_ENCRYPTION_SALT', '').encode()
-        
-        if not password or not salt:
-            raise ValueError("HIPAA encryption credentials not configured")
-        
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=100000,
-        )
-        key = base64.urlsafe_b64encode(kdf.derive(password))
-        return key
-    
-    def _setup_hipaa_audit_logging(self) -> logging.Logger:
-        """Setup HIPAA-compliant audit logging"""
-        logger = logging.getLogger('hipaa_audit')
-        logger.setLevel(logging.INFO)
-        
-        # File handler with strict permissions
-        handler = logging.FileHandler('/opt/intelluxe/logs/hipaa_audit.log', mode='a')
-        os.chmod('/opt/intelluxe/logs/hipaa_audit.log', 0o600)  # Owner read/write only
-        
-        formatter = logging.Formatter(
-            '%(asctime)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S UTC'
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        
-        return logger
-    
-    def encrypt_phi_data(self, data: Dict[str, Any], user_id: str) -> bytes:
-        """Encrypt PHI data with audit logging"""
-        
-        # Audit log encryption event
-        self.audit_logger.info(json.dumps({
-            'event': 'phi_encryption',
-            'user_id': user_id,
-            'timestamp': datetime.utcnow().isoformat(),
-            'data_fields': list(data.keys()),
-            'encryption_method': 'AES-256'
-        }))
-        
-        # Encrypt data
-        json_data = json.dumps(data).encode()
-        encrypted_data = self.fernet.encrypt(json_data)
-        
-        return encrypted_data
-    
-    def decrypt_phi_data(self, encrypted_data: bytes, user_id: str, 
-                        purpose: str) -> Dict[str, Any]:
-        """Decrypt PHI data with audit logging"""
-        
-        # Audit log decryption event
-        self.audit_logger.info(json.dumps({
-            'event': 'phi_decryption',
-            'user_id': user_id,
-            'purpose': purpose,
-            'timestamp': datetime.utcnow().isoformat(),
-            'ip_address': self._get_client_ip(),
-            'session_id': self._get_session_id()
-        }))
-        
-        try:
-            decrypted_json = self.fernet.decrypt(encrypted_data).decode()
-            return json.loads(decrypted_json)
-        except Exception as e:
-            # Audit log decryption failure
-            self.audit_logger.error(json.dumps({
-                'event': 'phi_decryption_failed',
-                'user_id': user_id,
-                'error': str(e),
-                'timestamp': datetime.utcnow().isoformat()
-            }))
-            raise
-    
-    def log_phi_access(self, user_id: str, action: str, resource_type: str,
-                      resource_id: Optional[str] = None, 
-                      additional_context: Optional[Dict[str, Any]] = None) -> None:
-        """Log PHI access for HIPAA compliance"""
-        
-        log_entry = {
-            'event': 'phi_access',
-            'user_id': user_id,
-            'action': action,
-            'resource_type': resource_type,
-            'resource_id': resource_id,
-            'timestamp': datetime.utcnow().isoformat(),
-            'ip_address': self._get_client_ip(),
-            'session_id': self._get_session_id(),
-            'user_agent': self._get_user_agent()
-        }
-        
-        if additional_context:
-            log_entry['context'] = additional_context
-        
-        self.audit_logger.info(json.dumps(log_entry))
-    
-    def _get_client_ip(self) -> str:
-        """Get client IP address from request context"""
-        # Implementation would extract from Flask/FastAPI request
-        return "0.0.0.0"  # Placeholder
-    
-    def _get_session_id(self) -> str:
-        """Get session ID from request context"""
-        # Implementation would extract from session
-        return "session_placeholder"
-    
-    def _get_user_agent(self) -> str:
-        """Get user agent from request context"""
-        # Implementation would extract from request headers
-        return "user_agent_placeholder"
-
-# Global HIPAA security instance
-hipaa_security = HIPAASecurityLayer()
-```
-
-### 1.4 Production Backup and Recovery
-
-**Automated backup system for clinic deployment:**
-```bash
-#!/bin/bash
-# scripts/production-backup.sh
-
-# Production backup configuration
-BACKUP_ROOT="/opt/intelluxe/backups"
-ENCRYPTION_KEY_FILE="/opt/intelluxe/certs/backup.key"
-RETENTION_DAYS=90
-
-create_encrypted_backup() {
-    local backup_name="intelluxe_$(date +%Y%m%d_%H%M%S)"
-    local backup_dir="$BACKUP_ROOT/$backup_name"
-    
-    echo "🔄 Creating encrypted backup: $backup_name"
-    
-    # Create backup directory with strict permissions
-    mkdir -p "$backup_dir"
-    chmod 700 "$backup_dir"
-    
-    # Backup PostgreSQL with encryption
-    echo "📊 Backing up PostgreSQL database..."
-    docker exec postgres pg_dump -U intelluxe intelluxe | \
-        gpg --cipher-algo AES256 --compress-algo 2 --symmetric \
-            --output "$backup_dir/database.sql.gpg"
-    
-    # Backup Redis data
-    echo "🗃️ Backing up Redis data..."
-    docker exec redis redis-cli BGSAVE
-    docker cp redis:/data/dump.rdb "$backup_dir/"
-    gpg --cipher-algo AES256 --symmetric \
-        --output "$backup_dir/redis.rdb.gpg" "$backup_dir/dump.rdb"
-    rm "$backup_dir/dump.rdb"
-    
-    # Backup configuration files (excluding secrets)
-    echo "⚙️ Backing up configuration files..."
-    tar -czf "$backup_dir/configs.tar.gz" \
-        --exclude='*.key' --exclude='*.pem' --exclude='.env' \
-        /opt/intelluxe/services/
-    
-    # Create backup manifest
-    cat > "$backup_dir/manifest.json" << EOF
-{
-    "backup_timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-    "backup_type": "full",
-    "components": ["database", "redis", "configs"],
-    "retention_date": "$(date -u -d '+90 days' +%Y-%m-%dT%H:%M:%SZ)"
-}
-EOF
-    
-    echo "✅ Backup created: $backup_dir"
-}
-
-cleanup_old_backups() {
-    find "$BACKUP_ROOT" -type d -name "intelluxe_*" -mtime +$RETENTION_DAYS -exec rm -rf {} \;
-}
-
-# Run backup
-create_encrypted_backup
-cleanup_old_backups
-```
-
-**Add backup automation to your existing systemd setup:**
-```ini
-# systemd/intelluxe-backup.service
-[Unit]
-Description=Intelluxe AI Production Backup
-After=network-online.target docker.service
-Wants=network-online.target
-Requires=docker.service
-
-[Service]
-Type=oneshot
-ExecStart=/opt/intelluxe/scripts/production-backup.sh
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=intelluxe-backup
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```ini
-# systemd/intelluxe-backup.timer
-[Unit]
-Description=Run Intelluxe AI Production Backup daily
-Requires=intelluxe-backup.service
-
-[Timer]
-OnCalendar=daily
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-<<<<<<<
-## Week 2: Advanced AI Reasoning with Enterprise Orchestration
-=======
-### 1.5 Patient Assignment Backup and Recovery
->>>>>>>
-
-<<<<<<<
-### 2.1 Enterprise AI Orchestration Platform
-=======
-**Enhanced backup system with patient assignment data protection:**
-```bash
-#!/bin/bash
-# scripts/backup-patient-assignments.sh
->>>>>>>
-
-<<<<<<<
-**Advanced AI orchestration for enterprise healthcare deployments managing multiple AI models, reasoning systems, and personalization engines:**
-```python
-# core/enterprise/ai_orchestration.py
-from typing import Dict, List, Optional, Any
-import asyncio
-from datetime import datetime
-from dataclasses import dataclass
-from enum import Enum
-
-class WorkflowStageType(Enum):
-    CLINICAL_REASONING = "clinical_reasoning"
-    PERSONALIZATION = "personalization"
-    KNOWLEDGE_SYNTHESIS = "knowledge_synthesis"
-    MULTI_AGENT_COLLABORATION = "multi_agent_collaboration"
-
-@dataclass
-class WorkflowStage:
-    stage_id: str
-    stage_type: WorkflowStageType
-    clinical_data: Dict[str, Any]
-    complexity_level: str
-    dependencies: List[str]
-
-@dataclass
-class ClinicalWorkflowRequest:
-    workflow_id: str
-    tenant_id: str
-    workflow_type: str
-    patient_context: Dict[str, Any]
-    provider_context: Dict[str, Any]
-    clinical_scenario: Dict[str, Any]
-    priority_level: str
-
-@dataclass
-class WorkflowResult:
-    workflow_id: str
-    tenant_id: str
-    stages_completed: List[str]
-    final_recommendations: Dict[str, Any]
-    confidence_scores: Dict[str, float]
-    execution_time_ms: int
-    resource_utilization: Dict[str, Any]
-
-class EnterpriseAIOrchestrator:
-    """
-    Advanced AI orchestration for enterprise healthcare deployments
-    Manages multiple AI models, reasoning systems, and personalization engines
-    """
-
-    def __init__(self):
-        self.model_manager = EnterpriseModelManager()
-        self.reasoning_coordinator = ReasoningCoordinator()
-        self.personalization_engine = PersonalizationEngine()
-        self.load_balancer = AILoadBalancer()
-
-    async def orchestrate_complex_clinical_workflow(self,
-                                                  workflow_request: ClinicalWorkflowRequest) -> WorkflowResult:
-        """
-        Orchestrate complex clinical workflows across multiple AI systems
-
-        Example workflows:
-        - Comprehensive patient assessment
-        - Multi-specialist consultation coordination
-        - Complex treatment planning
-        - Population health analysis
-        """
-
-        workflow_id = workflow_request.workflow_id
-        tenant_id = workflow_request.tenant_id
-
-        # Initialize workflow context
-        workflow_context = await self._initialize_workflow_context(workflow_request)
-
-        # Determine optimal AI resource allocation
-        resource_allocation = await self.load_balancer.allocate_resources_for_workflow(
-            workflow_request, workflow_context
-        )
-
-        # Execute workflow stages
-        workflow_stages = await self._plan_workflow_stages(workflow_request)
-
-        results = []
-        for stage in workflow_stages:
-            stage_result = await self._execute_workflow_stage(
-                stage, workflow_context, resource_allocation
-            )
-            results.append(stage_result)
-
-            # Update context with stage results
-            workflow_context = await self._update_workflow_context(
-                workflow_context, stage_result
-            )
-
-        # Synthesize final results
-        final_result = await self._synthesize_workflow_results(
-            workflow_id, results, workflow_context
-        )
-
-        return final_result
-
-    async def _execute_workflow_stage(self,
-                                    stage: WorkflowStage,
-                                    context: 'WorkflowContext',
-                                    resources: 'ResourceAllocation') -> 'StageResult':
-        """Execute individual workflow stage with appropriate AI systems"""
-
-        stage_type = stage.stage_type
-
-        if stage_type == WorkflowStageType.CLINICAL_REASONING:
-            return await self._execute_clinical_reasoning_stage(stage, context, resources)
-        elif stage_type == WorkflowStageType.PERSONALIZATION:
-            return await self._execute_personalization_stage(stage, context, resources)
-        elif stage_type == WorkflowStageType.KNOWLEDGE_SYNTHESIS:
-            return await self._execute_knowledge_synthesis_stage(stage, context, resources)
-        elif stage_type == WorkflowStageType.MULTI_AGENT_COLLABORATION:
-            return await self._execute_multi_agent_stage(stage, context, resources)
+       
         else:
             raise ValueError(f"Unknown workflow stage type: {stage_type}")
 
