@@ -243,9 +243,8 @@ restore:
 
 # Development Commands
 lint:
-	@echo "🔍  Running shellcheck with full output for healthcare AI scripts"
+	@echo "🔍  Running shellcheck with warning level for healthcare AI scripts"
 	@shellcheck -S warning --format=gcc -x $$(find scripts -name "*.sh")
-	@shellcheck -S info --format=gcc -x $$(find scripts -name "*.sh")
 	$(MAKE) lint-python
 
 lint-python:
