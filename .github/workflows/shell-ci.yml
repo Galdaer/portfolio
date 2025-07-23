@@ -278,7 +278,19 @@ jobs:
           GITHUB_ACTIONS: true
           ENVIRONMENT: development
           BATS_VERBOSE: false
+          # Add missing environment variables that tests expect
+          CFG_ROOT: /opt/intelluxe/stack
+          CFG_UID: 1000
+          CFG_GID: 1001
         run: |
+          # Ensure proper directory structure exists
+          sudo mkdir -p /opt/intelluxe/stack/{logs,backups,qrcodes}
+          sudo mkdir -p /etc/wireguard
+          sudo chown -R $(id -u):$(id -g) /opt/intelluxe/stack
+          
+          # Run make install to set up symlinks
+          sudo make install
+          
           # Use sudo for Docker commands if needed
           DOCKER_CMD="${DOCKER_SUDO:-} docker"
           

@@ -584,4 +584,26 @@ grep -A 20 "test failure name" test/relevant-file.bats
 make lint && make validate && make test
 ```
 
+#### Required Setup Commands for Remote Agents
+```bash
+# Set CI environment with all required variables
+export ENVIRONMENT=development CI=true
+export CFG_ROOT=/opt/intelluxe/stack CFG_UID=1000 CFG_GID=1001
+
+# Create required directory structure
+sudo mkdir -p /opt/intelluxe/stack/{logs,backups,qrcodes}
+sudo mkdir -p /etc/wireguard
+sudo chown -R $(id -u):$(id -g) /opt/intelluxe/stack
+
+# Install dependencies and run make install
+sudo apt update
+sudo apt install -y lsof socat wireguard-tools shellcheck python3-flake8 python3-pytest python3-yaml python3-cryptography python3-psycopg2
+
+# CRITICAL: Run make install to set up symlinks and systemd units
+sudo make install
+
+# Verify everything works
+make lint && make validate && make test
+```
+
 Last Updated: 2025-01-23
