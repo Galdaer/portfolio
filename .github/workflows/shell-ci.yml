@@ -115,11 +115,11 @@ jobs:
           
           # Install Python linting tools for healthcare AI (prefer uv for speed)
           if command -v uv >/dev/null 2>&1; then
-            uv pip install --system flake8 mypy pytest pytest-asyncio || echo "Warning: uv installation failed, falling back to pip"
+            uv pip install --system flake8 mypy pytest pytest-asyncio yamllint psycopg2-binary cryptography || echo "Warning: uv installation failed, falling back to pip"
           fi
           # Fallback to pip if uv is not available or failed
           if ! command -v flake8 >/dev/null 2>&1; then
-            python3 -m pip install --user flake8 mypy pytest pytest-asyncio || echo "Warning: Python linting tools failed to install"
+            python3 -m pip install --user flake8 mypy pytest pytest-asyncio yamllint psycopg2-binary cryptography || echo "Warning: Python linting tools failed to install"
           fi
           
           # Add to PATH for subsequent steps

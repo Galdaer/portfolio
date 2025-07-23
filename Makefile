@@ -157,41 +157,30 @@ fix-permissions:
 	@echo "✅ Permissions and ownership fixed"
 
 deps:
-	@echo "📦  Installing healthcare AI system dependencies"
-	@if [ ! -x "./scripts/setup-environment.sh" ]; then \
-	    echo "❌ setup-environment.sh not found" >&2; \
-	    exit 1; \
-	fi
-	@echo "⚠️  Note: This will install system packages (Docker, UV, etc.) but not Python packages"
-	@sudo SKIP_PYTHON_PACKAGES=1 ./scripts/setup-environment.sh || { \
-	    echo "❌ System dependency installation failed" >&2; exit 1; \
-	}
-	@echo "📦  Installing Python dependencies in virtual environment with UV"
-	@if [ ! -f "requirements.in" ]; then \
-	    echo "❌ requirements.in not found" >&2; \
-	    exit 1; \
-	fi
-	@if [ -z "$$VIRTUAL_ENV" ]; then \
-	    echo "⚠️  No virtual environment detected. Creating one..."; \
-	    python3 -m venv .venv; \
-	    echo "💡 Virtual environment created. Activate it with: source .venv/bin/activate"; \
-	    echo "💡 Then run 'make deps' again"; \
-	    exit 1; \
-	fi
+	@echo "📦  Installing healthcare AI dependencies with uv (fast) or pip (fallback)"
 	@if command -v uv >/dev/null 2>&1; then \
-	    echo "🚀 Installing with UV (fast) in virtual environment..."; \
-	    uv pip install -r requirements.in; \
-	    uv pip compile requirements.in -o requirements.lock; \
-	    uv pip freeze > requirements.txt; \
-	    echo "✅ Python dependencies installed in virtual environment"; \
+		echo "🚀  Using uv for fast installation..."; \
+		uv pip install -r requirements.in; \
+		echo "🔒  Generating lockfile for reproducible builds..."; \
+		uv pip compile requirements.in -o requirements.txt; \
 	else \
-	    echo "⚠️  UV not found, installing with pip (slower)..."; \
-	    pip install -r requirements.in; \
+		echo "⚠️  UV not found, installing with pip (slower)..."; \
+		pip install -r requirements.in; \
 	fi
 
 update:
 	@echo "🔄  Running healthcare AI system update and upgrade"
 	sudo ./scripts/auto-upgrade.sh
+
+# Update and regenerate lockfile
+update-deps:
+	@echo "🔄  Updating healthcare AI dependencies"
+	@if command -v uv >/dev/null 2>&1; then \
+		uv pip compile --upgrade requirements.in -o requirements.txt; \
+		uv pip install -r requirements.txt; \
+	else \
+		pip install --upgrade -r requirements.in; \
+	fi
 
 # Main Setup Commands
 setup:

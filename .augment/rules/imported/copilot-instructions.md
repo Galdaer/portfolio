@@ -446,7 +446,10 @@ Remote agents operating in CI environments need these additional packages:
 - `flake8` - Python linting for healthcare AI code
 - `mypy` - Type checking for security-critical code
 - `pytest` - Testing framework for validation
+- `pytest-asyncio` - Async testing support for healthcare AI
 - `yamllint` - YAML configuration validation
+- `psycopg2-binary` - PostgreSQL adapter for healthcare data
+- `cryptography` - Security and encryption libraries
 
 #### Remote Agent Setup Pattern
 ```bash
@@ -459,9 +462,9 @@ sudo apt install -y lsof socat wireguard-tools
 
 # Install Python tools with uv (preferred) or pip (fallback)
 if command -v uv >/dev/null 2>&1; then
-    uv pip install --system flake8 mypy pytest yamllint
+    uv pip install --system flake8 mypy pytest pytest-asyncio yamllint psycopg2-binary cryptography
 else
-    pip install --user flake8 mypy pytest yamllint
+    pip install --user flake8 mypy pytest pytest-asyncio yamllint psycopg2-binary cryptography
 fi
 
 # Verify installation

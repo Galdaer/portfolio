@@ -17,12 +17,12 @@ RUN echo "=== Configuring package management ===" && \
 RUN echo "=== Installing core system packages ===" && \
     apt-get update --fix-missing && \
     apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
-        wget \
-        gnupg \
-        lsb-release \
-        apt-transport-https \
+    ca-certificates \
+    curl \
+    wget \
+    gnupg \
+    lsb-release \
+    apt-transport-https \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && echo "Core packages installed successfully"
@@ -32,26 +32,26 @@ RUN echo "=== Installing development tools ===" && \
     apt-get update && \
     # Try package installation with robust error handling and timeout
     for i in 1 2; do \
-        echo "Attempt $i/2: Installing development packages..." && \
-        timeout 400 apt-get install -y --no-install-recommends \
-            bash \
-            git \
-            sudo \
-            shellcheck \
-            python3 \
-            python3-pip \
-            build-essential \
-            coreutils \
-            util-linux \
-            procps \
-            jq \
-            expect \
-            iproute2 \
-            iputils-ping \
-            netcat-openbsd \
-            dnsutils \
-        && echo "Development packages installed successfully" && break || \
-        (echo "Attempt $i failed, trying package update..." && apt-get clean && apt-get update && sleep 10); \
+    echo "Attempt $i/2: Installing development packages..." && \
+    timeout 400 apt-get install -y --no-install-recommends \
+    bash \
+    git \
+    sudo \
+    shellcheck \
+    python3 \
+    python3-pip \
+    build-essential \
+    coreutils \
+    util-linux \
+    procps \
+    jq \
+    expect \
+    iproute2 \
+    iputils-ping \
+    netcat-openbsd \
+    dnsutils \
+    && echo "Development packages installed successfully" && break || \
+    (echo "Attempt $i failed, trying package update..." && apt-get clean && apt-get update && sleep 10); \
     done && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -60,14 +60,14 @@ RUN echo "=== Installing development tools ===" && \
 RUN echo "=== Installing additional test dependencies ===" && \
     apt-get update && \
     apt-get install -y \
-        strace \
-        time \
-        cmake \
-        libdw-dev \
-        libelf-dev \
-        libiberty-dev \
-        binutils-dev \
-        && \
+    strace \
+    time \
+    cmake \
+    libdw-dev \
+    libelf-dev \
+    libiberty-dev \
+    binutils-dev \
+    && \
     echo "All test dependencies installed successfully" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -94,10 +94,11 @@ RUN echo "=== Installing uv and Python linting tools ===" && \
     python3 -m pip install --upgrade pip && \
     # Install tools with uv (faster) or fallback to pip
     for i in 1 2; do \
-        echo "Attempt $i/2: Installing Python tools..." && \
-        (uv pip install --system flake8 mypy || pip3 install --no-cache-dir flake8 mypy) && \
-        echo "Python linting tools installed successfully" && break || \
-        (echo "Attempt $i failed, retrying..." && sleep 2); \
+    echo "Attempt $i/2: Installing Python tools..." && \
+    (uv pip install --system flake8 mypy pytest pytest-asyncio yamllint psycopg2-binary cryptography || \
+    pip3 install --no-cache-dir flake8 mypy pytest pytest-asyncio yamllint psycopg2-binary cryptography) && \
+    echo "Python linting tools installed successfully" && break || \
+    (echo "Attempt $i failed, retrying..." && sleep 2); \
     done || echo "Python linting tools failed to install"
 
 # Install bats test framework - expensive operation, cache it well

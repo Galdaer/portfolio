@@ -473,7 +473,8 @@ install_python_deps() {
         yamllint \
         pyyaml \
         requests \
-        flask waitress psutil docker
+        flask waitress psutil docker \
+        psycopg2-binary cryptography
     
     ok "Essential Python dependencies installed system-wide"
     log "💡 For AI/ML development, use virtual environments with requirements.in"
