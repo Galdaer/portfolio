@@ -195,8 +195,7 @@ EOF
     source scripts/setup-environment.sh; \
     install_system_deps"
   [ "$status" -eq 1 ]
-  [[ "$output" == *"Some packages failed to install"* ]]
-  [[ "$output" == *"The following packages failed to install: failpkg"* ]]
+  [[ "$output" == *"Some packages failed to install: failpkg"* ]]
 }
 
 @test "install_system_deps handles empty dependency list" {

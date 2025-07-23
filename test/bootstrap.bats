@@ -280,23 +280,15 @@ EOF
 
 @test "saved user service ports override defaults" {
   # Extract the actual loop from bootstrap.sh that handles port overrides
-  loop_code=$(sed -n '/# Apply user service port overrides/,/^$/p' scripts/bootstrap.sh | grep -A 20 'for container in')
-  if [[ -z "$loop_code" ]]; then
-    # Fallback to the comment-based extraction
-    loop_code=$(sed -n '/<USER_PORT_ENV_OVERRIDES>/,/done/p' scripts/bootstrap.sh | tail -n +2)
-  fi
-  
+  loop_code=$(sed -n '/<USER_PORT_ENV_OVERRIDES>/,/<\/USER_PORT_ENV_OVERRIDES>/p' scripts/bootstrap.sh | sed '1d;$d')
+
   result=$(bash -c "set -euo pipefail; declare -Ag CONTAINER_PORTS=([my-svc]=8080); MY_SVC_PORT=9999; $loop_code; echo \${CONTAINER_PORTS[my-svc]}" 2>/dev/null || echo "8080")
   [ "$result" = "9999" ]
 }
 
 @test "default user service port preserved when not in config" {
   # Extract the actual loop from bootstrap.sh that handles port overrides
-  loop_code=$(sed -n '/# Apply user service port overrides/,/^$/p' scripts/bootstrap.sh | grep -A 20 'for container in')
-  if [[ -z "$loop_code" ]]; then
-    # Fallback to the comment-based extraction
-    loop_code=$(sed -n '/<USER_PORT_ENV_OVERRIDES>/,/done/p' scripts/bootstrap.sh | tail -n +2)
-  fi
+  loop_code=$(sed -n '/<USER_PORT_ENV_OVERRIDES>/,/<\/USER_PORT_ENV_OVERRIDES>/p' scripts/bootstrap.sh | sed '1d;$d')
   
   result=$(bash -c "set -euo pipefail; declare -Ag CONTAINER_PORTS=([my-svc]=8080); $loop_code; echo \${CONTAINER_PORTS[my-svc]}" 2>/dev/null || echo "8080")
   [ "$result" = "8080" ]
@@ -382,6 +374,7 @@ EOS
 
 @test "service image override respected" {
   mkdir -p "$TMPDIR/scripts" "$TMPDIR/services/user/wireguard"
+  cp scripts/universal-service-runner.sh scripts/lib.sh "$TMPDIR/scripts/"
   cp services/user/wireguard/wireguard.conf "$TMPDIR/services/user/wireguard/"
   sed -i 's|^image=.*|image=test/wireguard:latest|' "$TMPDIR/services/user/wireguard/wireguard.conf"
 
@@ -431,7 +424,8 @@ EOS
 cmd_file="$cmd_file" bash "$script"
 EOF
   chmod +x "$wrapper"
-  run bash "$wrapper"
+
+  bash "$wrapper" >/dev/null 2>&1
   # The test succeeds if we can find the custom image in the cmd file
   cmd_content=$(cat "$cmd_file" 2>/dev/null || echo "")
   [[ "$cmd_content" == *"test/wireguard:latest"* ]]
@@ -439,15 +433,18 @@ EOF
 
 @test "service image override respected for traefik" {
   mkdir -p "$TMPDIR/scripts" "$TMPDIR/services/user/traefik"
+  cp scripts/universal-service-runner.sh scripts/lib.sh "$TMPDIR/scripts/"
   cp services/user/traefik/traefik.conf "$TMPDIR/services/user/traefik/" 2>/dev/null || {
     # Create minimal traefik config if it doesn't exist
     cat >"$TMPDIR/services/user/traefik/traefik.conf" <<EOF
 image=test/traefik:latest
-container_name=traefik
-ports=80:80,443:443
+port=8080
+additional_ports=80,443
 volumes=/var/run/docker.sock:/var/run/docker.sock:ro
 EOF
   }
+  # Override the image in the config file
+  sed -i 's|^image=.*|image=test/traefik:latest|' "$TMPDIR/services/user/traefik/traefik.conf"
 
   SCRIPT_DIR="$TMPDIR/scripts"
   CFG_ROOT="$TMPDIR/root"
@@ -491,7 +488,7 @@ EOS
 cmd_file="$cmd_file" bash "$script"
 EOF
   chmod +x "$wrapper"
-  run bash "$wrapper"
+  bash "$wrapper" >/dev/null 2>&1
   cmd_content=$(cat "$cmd_file" 2>/dev/null || echo "")
   [[ "$cmd_content" == *"test/traefik:latest"* ]]
 }
