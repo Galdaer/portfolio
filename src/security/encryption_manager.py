@@ -367,10 +367,18 @@ class KeyManager:
 
         return encrypted_private, public_pem
 
-    def generate_key(self, encryption_level: EncryptionLevel,
-                    key_type: KeyType = KeyType.SYMMETRIC) -> EncryptionKey:
+    def generate_key(
+        self,
+        encryption_level: EncryptionLevel,
+        key_type: KeyType = KeyType.SYMMETRIC,
+    ) -> EncryptionKey:
         """Generate new encryption key"""
         key_id = f"key_{secrets.token_hex(16)}"
+        
+        # Initialize variables to prevent unbound errors
+        raw_key = None
+        algorithm = "Unknown"
+        key_size = 0
 
         if key_type == KeyType.SYMMETRIC:
             if encryption_level == EncryptionLevel.CRITICAL:
@@ -398,6 +406,10 @@ class KeyManager:
             )
             algorithm = "RSA"
             key_size = 2048 if encryption_level != EncryptionLevel.CRITICAL else 4096
+        
+        # Validate that key was generated
+        if raw_key is None:
+            raise ValueError(f"Failed to generate key for type {key_type} and level {encryption_level}")
 
         # Encrypt the key with master key
         master_fernet = Fernet(self.master_key)
@@ -513,8 +525,13 @@ class KeyManager:
             self.logger.error(f"Failed to rotate key {old_key_id}: {e}")
             raise
 
-    def _log_key_usage(self, key_id: str, operation: str,
-                      data_type: Optional[str] = None, user_id: Optional[str] = None):
+    def _log_key_usage(
+        self,
+        key_id: str,
+        operation: str,
+        data_type: Optional[str] = None,
+        user_id: Optional[str] = None
+    ):
         """Log key usage for audit"""
         try:
             with self.postgres_conn.cursor() as cursor:
@@ -541,10 +558,37 @@ class HealthcareEncryptionManager:
         # Support configuration injection for testing
         self.config = config or self._load_configuration()
 
+        # Environment-specific key storage path with production validation
+        if EnvironmentDetector.is_production():
+            if config and hasattr(config, 'dev_key_path'):
+                raise SecurityError("Development key configuration not allowed in production")
+        
         self.key_manager = KeyManager(postgres_conn, self.config)
 
         # Initialize default keys for different encryption levels
         self._init_default_keys()
+
+    def _load_configuration(self) -> Dict[str, Any]:
+        """Load encryption configuration with environment-aware defaults"""
+        from src.security.environment_detector import EnvironmentDetector
+        
+        base_config = {
+            'key_rotation_days': 365,
+            'audit_logging': True,
+            'entropy_threshold': self.MIN_ENTROPY_THRESHOLD,
+            'min_key_length': self.MIN_KEY_LENGTH
+        }
+        
+        if EnvironmentDetector.is_development():
+            base_config.update({
+                'dev_key_path': os.path.join(
+                    os.getenv('CFG_ROOT', '/opt/intelluxe/stack'),
+                    'security', 'dev_master_key'
+                ),
+                'allow_weak_keys': True  # Only for development
+            })
+        
+        return base_config
 
     def _init_default_keys(self):
         """Initialize default encryption keys"""
@@ -577,23 +621,33 @@ class HealthcareEncryptionManager:
             self.logger.error(f"Failed to initialize default keys: {e}")
             raise
 
-    def encrypt_phi_data(self, data: Union[str, Dict[str, Any]],
-                        user_id: Optional[str] = None) -> Dict[str, Any]:
+    def encrypt_phi_data(
+            self, data: Union[str, Dict[str, Any]],
+            user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Encrypt PHI data with healthcare-level encryption"""
         return self._encrypt_data(data, EncryptionLevel.HEALTHCARE, user_id)
 
-    def encrypt_critical_data(self, data: Union[str, Dict[str, Any]],
-                            user_id: Optional[str] = None) -> Dict[str, Any]:
+    def encrypt_critical_data(
+            self, data: Union[str, Dict[str, Any]],
+            user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Encrypt critical data with maximum security"""
         return self._encrypt_data(data, EncryptionLevel.CRITICAL, user_id)
 
-    def encrypt_basic_data(self, data: Union[str, Dict[str, Any]],
-                          user_id: Optional[str] = None) -> Dict[str, Any]:
+    def encrypt_basic_data(
+            self, data: Union[str, Dict[str, Any]],
+            user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Encrypt non-PHI data with basic encryption"""
         return self._encrypt_data(data, EncryptionLevel.BASIC, user_id)
 
-    def _encrypt_data(self, data: Union[str, Dict[str, Any]],
-                     level: EncryptionLevel, user_id: Optional[str] = None) -> Dict[str, Any]:
+    def _encrypt_data(
+            self,
+            data: Union[str, Dict[str, Any]],
+            level: EncryptionLevel,
+            user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Internal method to encrypt data"""
         try:
             # Convert data to string if needed
@@ -632,8 +686,11 @@ class HealthcareEncryptionManager:
             self.logger.error(f"Encryption failed: {e}")
             raise
 
-    def decrypt_data(self, encrypted_package: Dict[str, Any],
-                    user_id: Optional[str] = None) -> Union[str, Dict[str, Any]]:
+    def decrypt_data(
+            self,
+            encrypted_package: Dict[str, Any],
+            user_id: Optional[str] = None
+    ) -> Union[str, Dict[str, Any]]:
         """Decrypt data package"""
         try:
             key_id = encrypted_package["key_id"]
