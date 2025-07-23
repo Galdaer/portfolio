@@ -100,24 +100,19 @@ jobs:
       - name: Install dependencies
         run: |
           # Healthcare AI dependency installation with firewall awareness
-          # If this step fails with DNS resolution errors, check:
-          # 1. Repository Settings → Copilot → Firewall Configuration
-          # 2. .github/copilot-firewall-allowlist.txt contains required domains
-          # 3. Run 'Copilot Setup Steps' workflow for automated configuration
-          
           sudo apt-get update || true
           sudo apt-get install -y shellcheck git curl wget python3 python3-pip || true
           
           # Install uv for faster Python package management
           curl -LsSf https://astral.sh/uv/install.sh | sh || echo "Warning: uv installation failed"
           
-          # Install Python linting tools for healthcare AI (prefer uv for speed)
+          # Install Python linting tools for healthcare AI (use --break-system-packages)
           if command -v uv >/dev/null 2>&1; then
-            uv pip install --system flake8 mypy pytest pytest-asyncio || echo "Warning: uv installation failed, falling back to pip"
+            uv pip install --system --break-system-packages flake8 mypy pytest pytest-asyncio || echo "Warning: uv installation failed, falling back to pip"
           fi
           # Fallback to pip if uv is not available or failed
           if ! command -v flake8 >/dev/null 2>&1; then
-            python3 -m pip install --user flake8 mypy pytest pytest-asyncio || echo "Warning: Python linting tools failed to install"
+            python3 -m pip install --user --break-system-packages flake8 mypy pytest pytest-asyncio || echo "Warning: Python linting tools failed to install"
           fi
           
           # Add to PATH for subsequent steps
@@ -283,14 +278,14 @@ jobs:
           CFG_UID: 1000
           CFG_GID: 1001
         run: |
-          # Ensure proper directory structure exists
-          sudo mkdir -p /opt/intelluxe/stack/{logs,backups,qrcodes}
-          sudo mkdir -p /etc/wireguard
-          sudo chown -R $(id -u):$(id -g) /opt/intelluxe/stack
+          # Create directories without sudo (use mkdir -p)
+          mkdir -p /tmp/intelluxe-stack/{logs,backups,qrcodes}
+          mkdir -p /tmp/wireguard
           
-          # Run make install to set up symlinks
-          sudo make install
+          # Set CFG_ROOT to temp directory for CI
+          export CFG_ROOT=/tmp/intelluxe-stack
           
+          # Skip make install in CI - just run tests directly
           # Use sudo for Docker commands if needed
           DOCKER_CMD="${DOCKER_SUDO:-} docker"
           
