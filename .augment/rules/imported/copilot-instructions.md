@@ -566,4 +566,22 @@ make lint && make validate && echo "✅ Code quality verified"
 
 **CRITICAL**: All generated code must pass `make lint` without warnings.
 
+### Remote Agent Testing Guidelines
+- **Use project test infrastructure**: Always use `CI=true bash ./scripts/test.sh` or `make test` instead of raw bats commands
+- **Debug with grep**: Use `grep -A 20 "test name" test/file.bats` to examine specific test failures
+- **Validation workflow**: Always end with `make lint && make validate && make test`
+- **No direct bats installation**: Remote agents should leverage existing project infrastructure
+
+### Remote Agent Debugging Commands Template
+```bash
+# Use project test infrastructure (handles bats installation)
+CI=true bash ./scripts/test.sh
+
+# Debug specific test failures by examining test files
+grep -A 20 "test failure name" test/relevant-file.bats
+
+# Use make targets for validation
+make lint && make validate && make test
+```
+
 Last Updated: 2025-01-23
