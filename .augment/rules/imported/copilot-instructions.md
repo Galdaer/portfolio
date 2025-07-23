@@ -456,15 +456,15 @@ Remote agents operating in CI environments need these additional packages:
 # Set CI environment
 export ENVIRONMENT=development CI=true
 
-# Install system dependencies
+# Install system dependencies (preferred for Ubuntu/Debian)
 sudo apt update
-sudo apt install -y lsof socat wireguard-tools
+sudo apt install -y lsof socat wireguard-tools python3-flake8 python3-pytest python3-yaml python3-cryptography python3-psycopg2
 
 # Install Python tools with uv (preferred) or pip (fallback)
 if command -v uv >/dev/null 2>&1; then
-    uv pip install --system flake8 mypy pytest pytest-asyncio yamllint psycopg2-binary cryptography
+    uv pip install --system --break-system-packages mypy pytest-asyncio yamllint || echo "uv install failed"
 else
-    pip install --user flake8 mypy pytest pytest-asyncio yamllint psycopg2-binary cryptography
+    pip install --user --break-system-packages mypy pytest-asyncio yamllint || echo "pip install failed"
 fi
 
 # Verify installation

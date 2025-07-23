@@ -238,16 +238,24 @@ lint:
 
 lint-python:
 	@echo "🔍  Running Python lint (flake8 and mypy) for healthcare AI components"
-	@# Try multiple ways to find flake8
+	@# Try multiple ways to find flake8 (system package, command, python module)
 	@if command -v flake8 >/dev/null 2>&1; then \
 		flake8 scripts/*.py test/python/*.py; \
 	elif python3 -m flake8 --version >/dev/null 2>&1; then \
 		python3 -m flake8 scripts/*.py test/python/*.py; \
 	else \
-		echo "⚠️  flake8 not found - installing..."; \
-		python3 -m pip install --user flake8 || echo "Failed to install flake8"; \
+		echo "⚠️  flake8 not found - trying to install..."; \
+		if command -v apt >/dev/null 2>&1; then \
+			echo "Trying system package installation..."; \
+			sudo apt install -y python3-flake8 2>/dev/null || true; \
+		fi; \
+		if ! command -v flake8 >/dev/null 2>&1 && ! python3 -m flake8 --version >/dev/null 2>&1; then \
+			python3 -m pip install --user --break-system-packages flake8 || echo "Failed to install flake8"; \
+		fi; \
 		if command -v flake8 >/dev/null 2>&1; then \
 			flake8 scripts/*.py test/python/*.py; \
+		elif python3 -m flake8 --version >/dev/null 2>&1; then \
+			python3 -m flake8 scripts/*.py test/python/*.py; \
 		else \
 			echo "❌ flake8 still not available after installation"; \
 			exit 1; \
@@ -259,10 +267,12 @@ lint-python:
 	elif python3 -m mypy --version >/dev/null 2>&1; then \
 		python3 -m mypy scripts/*.py; \
 	else \
-		echo "⚠️  mypy not found - installing..."; \
-		python3 -m pip install --user mypy || echo "Failed to install mypy"; \
+		echo "⚠️  mypy not found - trying to install..."; \
+		python3 -m pip install --user --break-system-packages mypy || echo "Failed to install mypy"; \
 		if command -v mypy >/dev/null 2>&1; then \
 			mypy scripts/*.py; \
+		elif python3 -m mypy --version >/dev/null 2>&1; then \
+			python3 -m mypy scripts/*.py; \
 		else \
 			echo "❌ mypy still not available after installation"; \
 			exit 1; \
