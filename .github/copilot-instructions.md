@@ -13,26 +13,21 @@
 
 ### Main Healthcare AI Infrastructure
 - **`bootstrap.sh`** - Main healthcare AI infrastructure bootstrapper
-  - Sets up Docker, Ollama, Healthcare-MCP, PostgreSQL, Redis with medical-grade security
-- **`universal-service-runner.sh`** - Universal service runner
-  - Deploys ANY Docker service from pure configuration
-  - Handles healthcare AI services (Ollama, Healthcare-MCP, etc.)
-- **`config_web_ui.py`** - Healthcare-focused web interface
-  - AI system management with service health monitoring
-  - Medical service icons and healthcare-specific UI
+- **`universal-service-runner.sh`** - Universal service runner for ANY Docker service
+- **`config_web_ui.py`** - Healthcare-focused web interface with service health monitoring
 - **`lib.sh`** - Common utility functions for Intelluxe AI healthcare operations
 
 ### Directory Structure
 ```
-reference/ai-patterns/  # MIT licensed AI engineering patterns (git submodule from ai-engineering-hub)
-mcps/healthcare/        # Healthcare MCP server code (copied from agentcare-mcp repository)
-services/user/          # Service configurations - each service has services/user/SERVICE/SERVICE.conf
-agents/                 # AI agent implementations (intake/, document_processor/, research_assistant/, billing_helper/, scheduling_optimizer/)
-core/                   # Core healthcare AI infrastructure (memory/, orchestration/, models/, tools/)
-data/                   # AI training and evaluation data management (training/, evaluation/, vector_stores/)
-infrastructure/         # Healthcare deployment configs (docker/, monitoring/, security/, backup/)
-docs/                   # Comprehensive healthcare AI documentation including PHASE_*.md guides
-scripts/                # Primary shell scripts (universal-service-runner.sh, lib.sh, bootstrap.sh, systemd-verify.sh)
+reference/ai-patterns/  # MIT licensed AI engineering patterns (git submodule)
+mcps/healthcare/        # Healthcare MCP server code (copied from agentcare-mcp)
+services/user/          # Service configurations - each service has SERVICE.conf
+agents/                 # AI agent implementations (intake/, document_processor/, etc.)
+core/                   # Core healthcare AI infrastructure (memory/, orchestration/, etc.)
+data/                   # AI training and evaluation data management
+infrastructure/         # Healthcare deployment configs (docker/, monitoring/, etc.)
+docs/                   # Comprehensive healthcare AI documentation including PHASE_*.md
+scripts/                # Primary shell scripts (universal-service-runner.sh, lib.sh, etc.)
 ```
 
 ## AI Engineering Patterns
@@ -59,6 +54,27 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 - **Explainable AI**: Implement traceability features for medical compliance
 - **HIPAA Alignment**: Adapt all patterns for healthcare privacy requirements
 
+## Healthcare Security Development Patterns
+
+### Critical Security Rules
+- **Generic Error Messages**: Never expose JWT_SECRET, MASTER_ENCRYPTION_KEY, or config details
+- **Environment-Aware Placeholders**: Block production deployment when incomplete, allow configurable development
+- **Comprehensive Test Coverage**: Test security fallbacks with logging verification using caplog fixture
+- **Scalability by Default**: Use batching (batch_size=500) for large dataset processing
+- **Security Documentation**: Always explain WHY security choices were made (HIPAA, NANP standards, etc.)
+
+### Development Anti-Patterns to Prevent
+1. `raise RuntimeError("JWT_SECRET must be set")` → Use generic error messages
+2. `return False` placeholders → Use environment-aware configurable behavior
+3. Security tests without logging verification → Always test logging with caplog
+4. Processing all items at once → Use batching for scalability
+5. Undocumented security choices → Explain compliance rationale
+
+### Reference Files
+- See `.augment/rules/healthcare-security-patterns.md` for comprehensive patterns
+- Follow environment detection patterns for secure fallbacks
+- Use synthetic data generation standards (555 phone prefix, clearly marked test data)
+
 ## Healthcare Philosophy & Safety
 
 ### Medical Safety Principles
@@ -75,29 +91,20 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 ## Service Management
 
 ### Healthcare Services
-- **Ollama** (local LLM)
-- **Healthcare-MCP** (medical tools)
-- **PostgreSQL** (patient context)
-- **Redis** (session cache)
-- **n8n** (workflows)
-- **WhisperLive** (real-time transcription) - Healthcare-hardened fork with security improvements
+- **Ollama** (local LLM), **Healthcare-MCP** (medical tools), **PostgreSQL** (patient context)
+- **Redis** (session cache), **n8n** (workflows), **WhisperLive** (real-time transcription)
 
 ### Healthcare Container Security
-- **User/Group Model**: Development containers use justin:intelluxe (1000:1001) for consistency with host system
-- **Production Transition**: Production containers use clinic-admin:intelluxe (same UID/GID, different username)
-- **Security Hardening**: Python 3.12-slim-bookworm base with latest security patches and non-root execution
-- **Network Isolation**: All healthcare containers run on intelluxe-net with no external data egress
-- **Volume Permissions**: Shared model storage with consistent ownership across whisper services
+- **User/Group Model**: Development uses justin:intelluxe (1000:1001), production uses clinic-admin:intelluxe
+- **Security Hardening**: Python 3.12-slim-bookworm base with latest security patches
+- **Network Isolation**: All containers run on intelluxe-net with no external data egress
 - **Fork Strategy**: Healthcare improvements made directly on main branch of forked repositories
 
 ### Service Configuration Pattern
 - **Service Structure**: Each service configured at `services/user/SERVICE/SERVICE.conf`
 - **Deployment Flow**: `bootstrap.sh` calls `universal-service-runner.sh` for each SERVICE.conf file
 - **Universal Runner**: `universal-service-runner.sh` is the ONLY method for deploying services
-- **Web UI Integration**: `config_web_ui.py` creates .conf files directly in `services/user/SERVICE/` directories
-- **Rolling Restarts**: `bootstrap.sh` uses rolling restart mode - stops one service, starts it, waits for health, then moves to next service
-- **Dependency Ordering**: Services restart in dependency order: wireguard → traefik → config-web-ui → whisper → scispacy → n8n → grafana
-- **Security**: HIPAA-compliant service orchestration with audit logging and role-based access
+- **Rolling Restarts**: Services restart in dependency order with health checks
 
 ## Development Guidelines
 
@@ -108,9 +115,9 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 
 ### Path Management & Directory Structure
 - **Production Paths**: All scripts use `CFG_ROOT:=/opt/intelluxe/stack` for production consistency
-- **Development Symlinks**: `make install` creates symlinks from `/home/intelluxe/` → `/opt/intelluxe/` for development convenience
-- **Log Directory Exception**: `/opt/intelluxe/logs` remains a real directory (not symlinked) for systemd service write access
-- **Ownership Model**: Consistent `CFG_UID=1000:CFG_GID=1001` (justin:intelluxe) across all components for development, production uses clinic-admin:intelluxe (same UID/GID, different username)
+- **Development Symlinks**: `make install` creates symlinks from `/home/intelluxe/` → `/opt/intelluxe/`
+- **Log Directory Exception**: `/opt/intelluxe/logs` remains a real directory for systemd service access
+- **Ownership Model**: Consistent `CFG_UID=1000:CFG_GID=1001` across all components
 
 ### Systemd Service Management
 - **Service Paths**: All systemd services use `/opt/intelluxe/scripts/` paths (via symlinks)
@@ -230,127 +237,477 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 
 Co-designed by father-son team (Jeffrey & Justin Sue) for real-world clinical workflows, ensuring practical applicability and healthcare industry expertise.
 
-## Healthcare Security Development Patterns
+### Code Quality Enhancement Patterns
 
-### Security Error Message Guidelines
-- **NEVER expose internal configuration** in error messages (JWT_SECRET, MASTER_ENCRYPTION_KEY, etc.)
-- **Log detailed errors internally**, show generic errors externally
-- **Pattern**: `self.logger.error("Specific internal error")` + `raise RuntimeError("Generic user error")`
+#### String Constant Management
+- **ALWAYS extract repeated error messages** to named constants
+- **Use descriptive constant names** that explain the context
+- **Group related constants** in dedicated sections or files
 
-### Placeholder Implementation Guidelines
-- **NEVER create overly restrictive placeholders** that block legitimate development
-- **Use environment-aware behavior**: Block production deployment, allow configurable development
-- **Pattern**: Check `ENVIRONMENT` variable, raise `NotImplementedError` in production, use configurable defaults in development
+#### Technical Documentation Standards
+- **Complex algorithms MUST include examples** showing edge cases
+- **Explain compliance rationale** (NANP standards, HIPAA requirements)
+- **Document WHY technical decisions were made**, not just what they do
 
-### Test Coverage Requirements
-- **ALWAYS test security fallback behavior** with logging verification
-- **Pattern**: Test both the secure behavior AND that appropriate warnings are logged
-- **Use `caplog` fixture** to verify logging in security tests
+#### Feature Flag Best Practices
+- **Incomplete production features** must use feature flags
+- **Default to safe/disabled state** in production
+- **Use environment variables** for feature flag control
+- **Clear error messages** when features are disabled
 
-### Scalability Patterns
-- **ALWAYS consider large dataset handling** with batching (default batch_size=500)
-- **Memory management**: Include garbage collection for very large datasets
-- **Pattern**: Process items in batches, not all at once
+#### Security Event Logging
+- **ALL authentication events** must be logged (success and failure)
+- **Use appropriate log levels** (warning for failures, info for success)
+- **Include context** in log messages (environment, user info when available)
 
-### Documentation Requirements
-- **ALWAYS explain security/compliance choices** with comments
-- **Document WHY** security decisions were made (NANP standards, HIPAA compliance, etc.)
-- **Mark synthetic data clearly** to prevent confusion with real data
+#### Performance Monitoring Requirements
+- **Optimization features** (batching, caching) must include performance logging
+- **Log when optimizations are triggered** with relevant metrics
+- **Use debug level** for detailed performance information
+- **Monitor effectiveness** of caches and optimizations
 
-## Code Review Anti-Patterns to Avoid
+### Reference Implementation Patterns
+- See existing code for constant extraction patterns
+- Follow environment detection patterns for feature flags
+- Use structured logging for security and performance events
 
-1. **Information Disclosure**: Error messages revealing config details
-2. **Development Blockers**: Placeholders that always return False/deny access
-3. **Untested Fallbacks**: Security fallbacks without logging verification
-4. **Memory Issues**: Processing large datasets without batching
-5. **Undocumented Security**: Security choices without rationale
-6. **Environment Confusion**: Same restrictive behavior in dev and production
+## Remote Agent Workflow Guidelines
 
-### Code Quality and Maintainability Patterns
+### Task Scope Management
+- **Focus on weekly deliverables** from phase documentation
+- **Prioritize functional completeness** over perfect optimization
+- **Implement healthcare security patterns** from day one
+- **Test incrementally** - don't wait for full phase completion
 
-#### Constant Extraction Guidelines
-- **Extract repeated strings** to named constants, especially error messages
-- **Pattern**: `ERROR_MSG_CANNOT_DETERMINE_ENVIRONMENT = "Cannot determine environment"`
-- **Location**: Define constants at module level or in dedicated constants file
-- **Benefits**: Consistency, easier maintenance, better testing
+### Remote Agent Best Practices
+- **Read phase documentation first** before starting implementation
+- **Follow existing code patterns** in the repository
+- **Maintain healthcare compliance** in all implementations
+- **Create meaningful commit messages** that explain healthcare context
+- **Test with realistic medical scenarios** using synthetic data
 
-#### Documentation Enhancement Standards
-- **Technical explanations**: Always explain WHY, not just WHAT
-- **Include examples** for complex algorithms (especially index manipulation)
-- **Pattern**: `# Example: If we replace "123" first, then "456", indices shift...`
-- **Compliance context**: Explain regulatory/standards compliance (NANP, HIPAA, etc.)
-
-#### Feature Flag Implementation
-- **Production readiness**: Use feature flags for incomplete production features
-- **Pattern**: `if os.getenv('FEATURE_ENABLE_X', 'false').lower() != 'true':`
-- **Default to disabled**: Always default to safe/disabled state
-- **Clear naming**: Use descriptive environment variable names
-
-#### Security Monitoring Integration
-- **Log security events**: Authentication failures, access attempts, etc.
-- **Pattern**: `self.logger.warning("Failed authentication attempt in production")`
-- **Return proper values**: Don't just return validation results, handle logging first
-- **Audit trail**: Ensure all security-relevant actions are logged
-
-#### Performance Monitoring Guidelines
-- **Log performance metrics**: When batching, caching, or optimization is used
-- **Pattern**: `logger.info(f"Batching enabled: Total items={len(items)}, Batch size={batch_size}")`
-- **Debug details**: Use debug level for detailed batch processing info
-- **Cache monitoring**: Track cache hit rates and effectiveness
-
-### Anti-Patterns to Avoid
-1. **Hardcoded error messages** → Extract to constants
-2. **Unexplained complex logic** → Add examples and reasoning
-3. **Missing compliance context** → Explain regulatory requirements
-4. **Silent security failures** → Log all security events
-5. **Unmonitored optimizations** → Add performance logging
+### Integration Points
+- **Universal service runner** for all service deployments
+- **Healthcare-MCP** for medical tool integration
+- **PostgreSQL/Redis** for persistent storage and caching
+- **Ollama** for local LLM inference
 
 ## Remote Agent Task Prompt Generation
 
-### Critical Remote Agent Prompt Guidelines
+### When User Requests: "Create remote agent task prompt for Phase X Week Y"
 
-**NEVER Provide Specific Code in Prompts**:
-- Exact implementations guarantee formatting errors
-- Import statements may not match actual codebase
-- Method signatures may conflict with existing code
-- Hardcoded values may break existing functionality
+**Your Role**: Analyze current codebase + phase documentation + existing patterns to create detailed, actionable prompts for remote agents.
 
-**ALWAYS Require Codebase Analysis First**:
-- Read actual error messages before fixing
-- Examine actual file structure before assuming
-- Understand existing patterns before implementing
-- Match existing code style exactly
+**CRITICAL: NEVER Provide Specific Code Implementations**
 
-**Remote Agent Methodology Template**:
+Remote agent prompts must NEVER include:
+- Exact code implementations
+- Specific import statements  
+- Hardcoded method signatures
+- Assumed file contents or structure
+- Predetermined configuration values
+
+**Why**: Providing specific code guarantees formatting errors, import mismatches, and structural conflicts with the actual codebase.
+
+**MANDATORY: Always Include Autonomous Execution Mode**
+
+Every remote agent prompt MUST include this section:
+
 ```markdown
-## MANDATORY FIRST STEP: Analyze Actual Codebase
-1. Read actual error messages: `make lint 2>&1`
-2. Examine actual files: `find src/ -name "*.py"`
-3. Understand actual imports and dependencies
-4. Identify minimal changes needed
+## AUTONOMOUS EXECUTION MODE
 
-## SYSTEMATIC APPROACH: One Error at a Time
-1. Fix specific error only
-2. Validate immediately: `python -m py_compile <file>`
-3. Only proceed if validation passes
-4. Match existing codebase patterns exactly
+**Work Continuously**: Execute ALL tasks without asking for continuation unless you encounter an unrecoverable error that requires human decision-making.
 
-## SUCCESS CRITERIA: No New Errors
-- Each change validated individually
-- Full validation passes: `make lint && make validate`
-- Existing functionality preserved
+**Context Management**: If you approach token limits, summarize your progress and continue with remaining tasks. Do NOT ask permission to continue.
+
+**Expected Duration**: [Specify 1-4 hours based on task complexity]
+
+**Interruption Policy**: Only stop for:
+- Unrecoverable errors requiring human input
+- Ambiguous requirements needing clarification  
+- 100% task completion
+
+**Progress Reporting**: Provide brief progress updates every 30-45 minutes, then immediately continue working.
 ```
 
-### Anti-Patterns to Prevent in Remote Agent Prompts:
-1. **Hardcoded implementations** → Require analysis-first approach
-2. **Assumed file contents** → Require reading actual files
-3. **Predetermined solutions** → Emphasize understanding root causes
-4. **Multiple simultaneous changes** → One error at a time methodology
-5. **Skipped validation** → Mandatory incremental testing
+**Remote Agent Limitations**:
+- Cannot read multiple files for context
+- Cannot synthesize architectural decisions
+- Need systematic methodology, not specific implementations
+- Must analyze actual codebase before making changes
+- Should work autonomously for 2-4 hours without human intervention
 
-### Healthcare Remote Agent Requirements:
-- **Preserve existing security patterns**
-- **Maintain PHI protection mechanisms**
-- **Keep audit logging functionality intact**
-- **Follow existing healthcare compliance patterns**
-- **No sensitive data in error messages**
+**Required Prompt Structure**:
+```markdown
+## Remote Agent Task: Phase X Week Y - [Descriptive Title]
+
+**Objective**: [Specific, measurable goal]
+
+## MANDATORY FIRST STEP: Codebase Analysis (30-45 minutes)
+1. **Read actual error messages**: `make lint 2>&1 | tee current_errors.txt`
+2. **Examine actual file structure**: `find src/ -name "*.py" | head -20`
+3. **Understand actual imports**: Open and read files mentioned in errors
+4. **Identify root cause patterns**: Missing files? Import paths? Formatting?
+
+## SYSTEMATIC APPROACH: Analysis-First Development
+1. **Read the actual file before modifying it**
+2. **Match existing code style exactly**
+3. **Fix only the specific error, don't refactor**
+4. **Validate each change immediately**
+5. **Only proceed if validation passes**
+
+## ERROR PREVENTION METHODOLOGY:
+- **Analysis-First**: Understand actual code before changing
+- **Validation-Driven**: Test each change immediately
+- **Pattern-Matching**: Follow existing codebase conventions
+- **Incremental**: One error at a time
+
+**Success Criteria**:
+- [ ] Actual codebase analyzed and understood
+- [ ] Root cause identified for each error
+- [ ] Minimal fixes applied matching existing patterns
+- [ ] Each fix validated individually
+- [ ] No new errors introduced
+- [ ] `make lint && make validate && make test` passes
+
+**Healthcare Compliance Checks**:
+- [ ] PHI protection preserved
+- [ ] Audit logging maintained
+- [ ] Security patterns intact
+- [ ] No sensitive data exposure in error messages
+
+**Validation Commands**:
+```bash
+# Individual file validation (after each change)
+python -m py_compile <modified_file>
+flake8 --max-line-length=100 <modified_file>
+
+# Full validation (only at end)
+make lint && make validate && make test
+```
+```
+
+### Task Prompt Generation Process:
+1. **Read phase documentation** (`docs/PHASE_X.md`) for the specific week
+2. **Identify systematic methodology needed** (not specific implementations)
+3. **Emphasize codebase analysis requirements**
+4. **Focus on error prevention and validation workflow**
+5. **Include healthcare compliance preservation requirements**
+6. **Create measurable success criteria** with specific validation commands
+
+### Healthcare-Specific Requirements for All Prompts:
+- **Security**: Preserve existing PHI protection and security patterns
+- **Compliance**: Maintain audit logging and HIPAA-compliant patterns
+- **Integration**: Ensure compatibility with existing service architecture
+- **Testing**: Include incremental validation workflow
+- **Documentation**: Require understanding existing patterns before changes
+
+### Remote Agent Anti-Patterns to Prevent:
+1. **Providing exact code** → Require codebase analysis first
+2. **Assuming file structure** → Require actual file examination
+3. **Hardcoding implementations** → Emphasize pattern matching
+4. **Skipping validation** → Mandate incremental testing
+5. **Making multiple changes** → One error at a time approach
+
+### Example Integration Points to Always Include:
+- Universal service runner compatibility
+- Healthcare-MCP tool integration
+- PostgreSQL/Redis for healthcare data
+- Ollama for local LLM inference
+- Healthcare security middleware
+- Audit logging requirements
+
+## Remote Agent Quality Assurance Patterns
+
+### Iterative Validation Requirements
+- **ALWAYS run validation after each change**: `make lint && make validate`
+- **Continue iterating until both pass**: Never submit work with failing validation
+- **Fix one category at a time**: Don't attempt to fix all issues simultaneously
+- **Test incrementally**: Verify each fix before moving to the next
+
+### Shellcheck Issue Resolution Patterns
+- **SC2317 (Unreachable Code)**: Check function calls, exit statements, nested definitions
+- **SC2016 (Quote Expansion)**: Use double quotes for variable expansion, single quotes for literals
+- **Function Structure**: Ensure all defined functions are called or properly disabled
+- **Exit Code Verification**: Always check `echo $?` after make commands
+
+### Remote Agent Validation Workflow
+1. **Initial Assessment**: Run `make lint` and `make validate` to identify all issues
+2. **Categorize Issues**: Group similar shellcheck warnings together
+3. **Fix Incrementally**: Address one category, then test
+4. **Verify Progress**: Confirm issue count decreases after each iteration
+5. **Final Validation**: Both commands must exit with code 0
+
+### Quality Gates for Remote Agents
+- **Pre-commit**: `make lint` must pass (exit code 0)
+- **Pre-submit**: `make validate` must pass (exit code 0)
+- **Healthcare Compliance**: All security patterns preserved
+- **No Regressions**: Existing functionality maintained
+
+### Common Anti-Patterns to Prevent
+1. **Submitting with failing validation** → Always iterate until clean
+2. **Fixing all issues at once** → Fix incrementally and test
+3. **Ignoring unreachable code warnings** → Properly structure or disable
+4. **Using single quotes for variables** → Use double quotes for expansion
+5. **Not testing after each change** → Always validate incrementally
+
+### Remote Agent Success Criteria Template
+```bash
+# Required validation before task completion
+make lint && make validate && echo "✅ Ready for submission"
+```
+
+**All remote agent tasks must include this validation workflow in success criteria.**
+
+### Remote Agent Environment Setup Requirements
+
+#### CI Environment Variables
+Remote agents must set these environment variables for proper operation:
+```bash
+export ENVIRONMENT=development
+export CI=true
+```
+
+#### Required Dependencies for Remote Agents
+Remote agents operating in CI environments need these additional packages:
+
+**System packages (install with apt/dnf/pacman):**
+- `lsof` - Process monitoring for validation scripts
+- `socat` - Network utilities for service testing  
+- `wireguard-tools` - VPN functionality testing
+
+**Python packages (install with uv, fallback to pip):**
+- `flake8` - Python linting for healthcare AI code
+- `mypy` - Type checking for security-critical code
+- `pytest` - Testing framework for validation
+- `pytest-asyncio` - Async testing support for healthcare AI
+- `yamllint` - YAML configuration validation
+- `psycopg2-binary` - PostgreSQL adapter for healthcare data
+- `cryptography` - Security and encryption libraries
+
+#### Remote Agent Setup Pattern
+```bash
+# Set CI environment
+export ENVIRONMENT=development CI=true
+
+# Install system dependencies (preferred for Ubuntu/Debian)
+sudo apt update
+sudo apt install -y lsof socat wireguard-tools python3-flake8 python3-pytest python3-yaml python3-cryptography python3-psycopg2
+
+# Install Python tools with uv (preferred) or pip (fallback)
+if command -v uv >/dev/null 2>&1; then
+    uv pip install --system --break-system-packages mypy pytest-asyncio yamllint || echo "uv install failed"
+else
+    pip install --user --break-system-packages mypy pytest-asyncio yamllint || echo "pip install failed"
+fi
+
+# Verify installation
+make lint && make validate
+```
+
+#### Dependency Installation Priority
+1. **Use uv for Python packages** (10-100x faster than pip)
+2. **Fallback to pip** if uv unavailable
+3. **Install system packages** via native package manager
+4. **Always verify** with `make lint && make validate`
+
+#### Remote Agent Pre-flight Checklist
+- [ ] Environment variables set (`ENVIRONMENT=development`, `CI=true`)
+- [ ] System dependencies installed (`lsof`, `socat`, `wireguard-tools`)
+- [ ] Python linting tools available (`flake8`, `mypy`)
+- [ ] Validation passes (`make lint && make validate`)
+
+## CI Environment Testing Patterns
+
+### Docker Test Container Architecture
+- **Test Isolation**: All tests run in `intelluxe-test-runner:latest` container
+- **Coverage Generation**: kcov generates HTML/JSON coverage reports
+- **CI Mocking**: `[CI] Sourcing lib.sh in test mode - root actions will be mocked`
+- **Expected Failures**: 3 tests fail in CI (network, filesystem, WireGuard key generation)
+
+### Test Directory Structure
+- **Primary**: `test/` directory contains Bats test files
+- **Secondary**: `tests/` directory for Python tests (if present)
+- **Coverage**: `./coverage/` directory for kcov HTML reports
+- **Artifacts**: Coverage uploaded as GitHub Actions artifacts
+
+### CI Test Success Criteria
+- **Pass Rate**: 136/139 tests passing (97.8%) is acceptable
+- **Expected Failures**: Network IP parsing, log directory paths, WireGuard key generation
+- **Coverage**: HTML reports with 57 files, ~330KB indicates successful coverage generation
+
+### Healthcare AI Testing Standards
+- **Environment Variables**: `CI=true`, `ENVIRONMENT=development`, `DRY_RUN=true`
+- **Security**: All PHI/PII operations mocked in CI
+- **Isolation**: Tests run in isolated Docker network with DNS
+- **Timeout**: 180s for coverage runs, 120s for standard tests
+
+## Code Quality and Linting Standards
+
+### Python Code Quality Requirements
+- **ALWAYS follow flake8 standards**: No trailing whitespace (W293), proper blank lines (E302, E305)
+- **Line length**: Maximum 100 characters per line
+- **Import organization**: One import per line, grouped properly
+- **Blank line rules**: 
+  - Two blank lines before class definitions
+  - One blank line before method definitions
+  - No trailing blank lines at end of functions
+- **String formatting**: Use f-strings for Python 3.6+
+- **Method verification**: Always check if methods exist before calling them in tests
+- **Unused imports**: Remove all unused imports to pass Pylance validation
+- **Defensive programming**: Use hasattr() checks before calling unknown methods
+
+### Code Generation Anti-Patterns to Prevent
+1. **Trailing whitespace** → Always strip whitespace from generated code
+2. **Inconsistent blank lines** → Follow E302/E305 rules strictly
+3. **Long lines** → Break at 100 characters with proper indentation
+4. **Unused imports** → Remove imports that aren't used in the code
+5. **Method assumptions** → Use hasattr() to verify methods exist before calling them
+
+### Pre-Generation Checklist
+Before generating any Python code:
+- [ ] Check line length compliance (≤100 chars)
+- [ ] Verify proper blank line spacing
+- [ ] Ensure no trailing whitespace
+- [ ] Remove unused imports
+- [ ] Use hasattr() checks for method calls
+- [ ] Test flake8 and Pylance compliance
+
+### Shell Script Quality Standards
+- **Shellcheck compliance**: All scripts must pass shellcheck validation
+- **Quote expansion**: Use double quotes for variables, single for literals
+- **Function structure**: Proper if/fi, case/esac matching
+- **Variable safety**: Check for unbound variables
+
+### Healthcare Code Quality Patterns
+- **Security-first**: Generic error messages, no config exposure
+- **Compliance**: HIPAA-compliant logging and audit trails
+- **Testing**: Real functionality tests, not mocked placeholders
+- **Documentation**: Explain WHY security choices were made
+
+### Validation Workflow
+```bash
+# Required validation before any code submission
+make lint && make validate && echo "✅ Code quality verified"
+```
+
+**CRITICAL**: All generated code must pass `make lint` without warnings.
+
+### Remote Agent Testing Guidelines
+- **Use project test infrastructure**: Always use `CI=true bash ./scripts/test.sh` or `make test` instead of raw bats commands
+- **Debug with grep**: Use `grep -A 20 "test name" test/file.bats` to examine specific test failures
+- **Validation workflow**: Always end with `make lint && make validate && make test`
+- **No direct bats installation**: Remote agents should leverage existing project infrastructure
+
+### Remote Agent Debugging Commands Template
+```bash
+# Use project test infrastructure (handles bats installation)
+CI=true bash ./scripts/test.sh
+
+# Debug specific test failures by examining test files
+grep -A 20 "test failure name" test/relevant-file.bats
+
+# Use make targets for validation
+make lint && make validate && make test
+```
+
+#### Required Setup Commands for Remote Agents
+```bash
+# Set CI environment with all required variables
+export ENVIRONMENT=development CI=true
+export CFG_ROOT=/opt/intelluxe/stack CFG_UID=1000 CFG_GID=1001
+
+# Create required directory structure
+sudo mkdir -p /opt/intelluxe/stack/{logs,backups,qrcodes}
+sudo mkdir -p /etc/wireguard
+sudo chown -R $(id -u):$(id -g) /opt/intelluxe/stack
+
+# Install dependencies and run make install
+sudo apt update
+sudo apt install -y lsof socat wireguard-tools shellcheck python3-flake8 python3-pytest python3-yaml python3-cryptography python3-psycopg2
+
+# CRITICAL: Run make install to set up symlinks and systemd units
+sudo make install
+
+# Verify everything works
+make lint && make validate && make test
+```
+
+## Remote Agent Autonomous Execution Guidelines
+
+### Scope Expansion Requirements
+
+**Remote agents MUST work autonomously for 2-4 hours minimum**. Prompts should:
+
+1. **Give broad objectives** rather than narrow tasks
+2. **Allow agents to discover related issues** during analysis
+3. **Encourage comprehensive solutions** not just single fixes
+4. **Let agents determine their own work breakdown**
+5. **Expect agents to find and fix additional problems** they discover
+
+### Autonomous Decision-Making Patterns
+
+**Instead of**: "Fix these 3 specific Pylance errors"
+**Use**: "Systematically resolve all code quality issues, starting with Pylance/Flake8 but expanding to related problems you discover"
+
+**Instead of**: "Create file X with methods Y and Z"  
+**Use**: "Analyze the codebase architecture and implement the missing components needed for proper functionality"
+
+**Instead of**: "Follow these 5 specific steps"
+**Use**: "Use this systematic methodology but adapt it based on what you discover in the actual codebase"
+
+### Expected Work Patterns
+
+Remote agents should:
+- **Start with analysis** (30-45 minutes)
+- **Discover the full scope** of related issues (not just what's explicitly mentioned)
+- **Work systematically** through all discovered problems
+- **Continue until comprehensive completion** (2-4 hours total)
+- **Only stop for unrecoverable errors** or 100% completion
+
+### Prompt Structure for Autonomous Work
+
+```markdown
+## Remote Agent Task: [Broad Objective] - Comprehensive Implementation
+
+**Objective**: [High-level goal that allows for scope expansion]
+
+**Autonomous Scope**: You are expected to work for 2-4 hours and discover/fix related issues beyond the initial objective.
+
+## DISCOVERY PHASE (45-60 minutes)
+1. **Analyze the full problem space** - don't just fix what's mentioned
+2. **Identify all related issues** that should be addressed together  
+3. **Plan comprehensive solution** that addresses root causes
+4. **Expand scope** to include logical extensions and improvements
+
+## IMPLEMENTATION PHASE (90-180 minutes)
+- **Work systematically** through all discovered issues
+- **Make architectural improvements** where needed
+- **Add comprehensive testing** for new functionality
+- **Document your changes** and reasoning
+
+## VALIDATION PHASE (30-45 minutes)
+- **Test everything thoroughly** including edge cases
+- **Verify no regressions** in existing functionality
+- **Ensure healthcare compliance** is maintained
+
+**Expected Discoveries**: You should find and address issues beyond the initial scope. This is expected and encouraged.
+```
+
+### Anti-Patterns That Limit Autonomy
+
+❌ **Micro-task lists** - Don't break work into tiny steps
+❌ **Predetermined file lists** - Let agents discover what needs to be created/modified
+❌ **Specific time allocations** - Don't say "spend 15 minutes on X"
+❌ **Narrow problem definitions** - Allow scope expansion during analysis
+❌ **Prescriptive solutions** - Let agents determine the best approach
+
+### Patterns That Enable Autonomy
+
+✅ **Broad problem statements** - "Improve system reliability" not "fix error X"
+✅ **Discovery-driven work** - "Analyze and address all related issues"
+✅ **Architectural thinking** - "Design and implement proper solution"
+✅ **Comprehensive scope** - "Continue until system is production-ready"
+✅ **Quality-driven completion** - "Work until all validation passes"
+
+Last Updated: 2025-01-23
