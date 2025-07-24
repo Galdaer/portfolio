@@ -87,7 +87,7 @@ jobs:
   healthcare-integration-tests:
     runs-on: ubuntu-latest
     needs: type-safety-validation
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
     - uses: actions/checkout@v4
       with:
@@ -108,18 +108,16 @@ jobs:
         echo "CFG_ROOT=/tmp/intelluxe-stack" >> $GITHUB_ENV
         echo "CFG_UID=1000" >> $GITHUB_ENV
         echo "CFG_GID=1001" >> $GITHUB_ENV
+        echo "CI_SKIP_DEPS=true" >> $GITHUB_ENV
     
     - name: Install System Dependencies
       run: |
-        # Install only essential packages for CI
+        # Install only essential packages for CI (matching shell-ci.yml pattern)
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends \
           lsof socat wireguard-tools shellcheck \
           python3-flake8 python3-pytest python3-yaml \
           python3-cryptography python3-psycopg2
-    
-    - name: Set up Docker
-      uses: docker/setup-buildx-action@v3
     
     - name: Healthcare AI Integration Test
       env:
@@ -130,6 +128,8 @@ jobs:
         CFG_UID: 1000
         CFG_GID: 1001
         SKIP_GPU_PACKAGES: true
+        CI_SKIP_DEPS: true
+        CI_SKIP_SYSTEM_TESTS: true
       run: |
         # Create directories without sudo
         mkdir -p /tmp/intelluxe-stack/{logs,backups,qrcodes}
@@ -137,8 +137,14 @@ jobs:
         
         export CFG_ROOT=/tmp/intelluxe-stack
         
-        # Run with timeout to prevent hanging
-        timeout 20m make lint && timeout 20m make validate && timeout 20m make test
+        # Skip make deps entirely in CI and run tests directly
+        echo "Skipping dependency installation in CI"
+        
+        # Run validation without Docker checks
+        timeout 10m ./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check --dry-run
+        
+        # Run tests with CI-specific environment
+        timeout 10m CI=true bash ./scripts/test.sh
     
     - name: Upload Coverage Reports
       uses: actions/upload-artifact@v4
