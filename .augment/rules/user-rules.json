@@ -5,15 +5,16 @@
             "maxLineLength": 100,
             "removeTrailingWhitespace": true,
             "enforceBlankLineRules": true,
-            "asyncConsistency": "required",
+            "pydanticConstructors": "explicit-keywords",
+            "optionalTypes": "strict",
             "rules": [
                 "No trailing whitespace (W293)",
                 "Proper blank line spacing (E302, E305)",
                 "Import organization (E401)",
                 "Line length compliance (E501)",
-                "Consistent async/sync patterns throughout codebase",
-                "Use sync Redis for healthcare security middleware",
-                "Convert timedelta to seconds for Redis operations"
+                "Pydantic models use keyword arguments",
+                "Optional[Type] for nullable parameters",
+                "All required fields in response models"
             ]
         },
         "shell": {
@@ -37,7 +38,8 @@
     "healthcareCompliance": {
         "phiProtection": "strict",
         "auditLogging": "required",
-        "errorMessages": "generic"
+        "errorMessages": "generic",
+        "typeSafety": "strict"
     },
     "deploymentStrategy": {
         "architecture": "single-clinic-on-premise",
@@ -74,6 +76,18 @@
             "Convert timedelta objects to seconds for Redis",
             "Be explicit about async/sync boundaries",
             "Healthcare middleware should support both patterns"
+        ]
+    },
+    "typeSafety": {
+        "pydanticModels": "explicit-keywords",
+        "optionalParameters": "strict-typing",
+        "methodSignatures": "exact-match",
+        "requestHandling": "optional-aware",
+        "rules": [
+            "Use Optional[Type] not Type = None",
+            "Provide all Pydantic model fields explicitly",
+            "Match exact method signatures for security methods",
+            "Handle None values gracefully in all auth methods"
         ]
     }
 }
