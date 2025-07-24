@@ -1809,7 +1809,7 @@ check_permissions() {
 	# Warn if sensitive files are world-readable.
 	# Be more lenient in development environments (when CFG_ROOT points to /opt/intelluxe/stack)
 	local is_development=false
-	if [[ "$CFG_ROOT" == "/opt/intelluxe/stack" ]]; then
+	if [[ "$CFG_ROOT" == "/opt/intelluxe/stack" ]] || [[ "${CI:-}" == "true" ]]; then
 		is_development=true
 	fi
 	
@@ -1818,8 +1818,8 @@ check_permissions() {
 			local perm
 			perm=$(stat -c '%a' "$f" 2>/dev/null || echo "")
 			if [ -n "$perm" ]; then
-				if [[ "$is_development" == "true" ]]; then
-					# In development, allow more permissive permissions up to 664/660
+				if [[ "$is_development" == "true" ]] || [[ "${CI:-}" == "true" ]]; then
+					# In development/CI, allow more permissive permissions up to 664/660
 					if [ "$perm" -gt 664 ]; then
 						warn "File $f is world-writable ($perm). Consider using 660 or 664 for development."
 					fi
@@ -1832,12 +1832,15 @@ check_permissions() {
 			fi
 
 			# Check ownership - should match CFG_UID:CFG_GID, not necessarily root
-			local file_uid file_gid
-			file_uid=$(stat -c '%u' "$f" 2>/dev/null || echo "")
-			file_gid=$(stat -c '%g' "$f" 2>/dev/null || echo "")
-			if [[ -n "$file_uid" && -n "$file_gid" ]]; then
-				if [[ "$file_uid" != "$CFG_UID" || "$file_gid" != "$CFG_GID" ]]; then
-					warn "File $f ownership ($file_uid:$file_gid) doesn't match expected ($CFG_UID:$CFG_GID). Consider running: sudo chown $CFG_UID:$CFG_GID $f"
+			# Skip ownership warnings in CI since GitHub Actions uses different UIDs
+			if [[ "${CI:-}" != "true" ]]; then
+				local file_uid file_gid
+				file_uid=$(stat -c '%u' "$f" 2>/dev/null || echo "")
+				file_gid=$(stat -c '%g' "$f" 2>/dev/null || echo "")
+				if [[ -n "$file_uid" && -n "$file_gid" ]]; then
+					if [[ "$file_uid" != "$CFG_UID" || "$file_gid" != "$CFG_GID" ]]; then
+						warn "File $f ownership ($file_uid:$file_gid) doesn't match expected ($CFG_UID:$CFG_GID). Consider running: sudo chown $CFG_UID:$CFG_GID $f"
+					fi
 				fi
 			fi
 		fi

@@ -136,6 +136,8 @@ jobs:
         mkdir -p /tmp/wireguard
         
         export CFG_ROOT=/tmp/intelluxe-stack
+        export CI=true
+        export GITHUB_ACTIONS=true
         
         # Skip make deps entirely in CI and run tests directly
         echo "Skipping dependency installation in CI"
@@ -143,8 +145,8 @@ jobs:
         # Run validation without Docker checks
         timeout 10m ./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check --dry-run
         
-        # Run tests with CI-specific environment
-        timeout 10m CI=true bash ./scripts/test.sh
+        # Run tests with CI-specific environment (fix the CI=true syntax)
+        timeout 10m bash ./scripts/test.sh
     
     - name: Upload Coverage Reports
       uses: actions/upload-artifact@v4
