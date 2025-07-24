@@ -35,18 +35,18 @@ mkdir -p "$COVERAGE_DIR"
 
 # Determine which test directory to use
 if [[ -d "$TEST_DIR" && -d "$TESTS_DIR" ]]; then
-    echo "Both test/ and tests/ directories found. Using test/ (primary)" >&2
-    ACTIVE_TEST_DIR="$TEST_DIR"
+    echo "Both test/ and tests/ directories found. Running tests from both directories" >&2
+    ACTIVE_TEST_DIRS=("$TEST_DIR" "$TESTS_DIR")
 elif [[ -d "$TEST_DIR" ]]; then
-    ACTIVE_TEST_DIR="$TEST_DIR"
+    ACTIVE_TEST_DIRS=("$TEST_DIR")
 elif [[ -d "$TESTS_DIR" ]]; then
-    ACTIVE_TEST_DIR="$TESTS_DIR"
+    ACTIVE_TEST_DIRS=("$TESTS_DIR")
 else
     echo "No test directory found (test/ or tests/)" >&2
     exit 1
 fi
 
-echo "Using test directory: $ACTIVE_TEST_DIR" >&2
+echo "Using test directories: ${ACTIVE_TEST_DIRS[*]}" >&2
 
 if ! command -v bats >/dev/null 2>&1; then
     if [[ -x "$REPO_ROOT/scripts/setup-environment.sh" ]]; then
@@ -68,20 +68,20 @@ if command -v kcov >/dev/null 2>&1 && [[ "${USE_KCOV:-false}" == "true" ]] && [[
         --include-pattern="$REPO_ROOT/scripts" \
         --coveralls-id="${GITHUB_RUN_ID:-local}" \
         "$COVERAGE_DIR" \
-        bats -r "$ACTIVE_TEST_DIR" || echo "Tests completed or timed out"
+        bats -r "${ACTIVE_TEST_DIRS[@]}" || echo "Tests completed or timed out"
 else
     if [[ "$QUIET" == "true" ]]; then
         echo "Running tests in quiet mode..." >&2
         # Pass through environment variables to bats with minimal output
         timeout 300 env CI="${CI:-false}" GITHUB_ACTIONS="${GITHUB_ACTIONS:-false}" \
-            bats -p "$ACTIVE_TEST_DIR" 2>/dev/null || \
+            bats -p "${ACTIVE_TEST_DIRS[@]}" 2>/dev/null || \
             timeout 300 env CI="${CI:-false}" GITHUB_ACTIONS="${GITHUB_ACTIONS:-false}" \
-            bats -p "$ACTIVE_TEST_DIR" || echo "Tests completed or timed out"
+            bats -p "${ACTIVE_TEST_DIRS[@]}" || echo "Tests completed or timed out"
     else
         echo "Running tests without coverage (kcov not available)..." >&2
         # Pass through environment variables to bats with less verbose output
         timeout 300 env CI="${CI:-false}" GITHUB_ACTIONS="${GITHUB_ACTIONS:-false}" \
-            bats -p "$ACTIVE_TEST_DIR" || echo "Tests completed or timed out"
+            bats -p "${ACTIVE_TEST_DIRS[@]}" || echo "Tests completed or timed out"
     fi
 fi
 

@@ -455,15 +455,21 @@ done
 
 # ----------------- Dependency Checks and Auto-Install -----------------
 auto_install_deps() {
-	# Auto-install missing dependencies unless --validate-only
-	local missing_deps=()
-	local optional_deps=()
-	
-	# Core dependencies required for basic operation
-	local core_deps=(ip iptables docker curl ss lsof jq stat less)
-	
-	# Optional dependencies for specific features
-	local optional_feature_deps=(socat wg-quick)
+    # Skip dependency installation entirely in CI when CI_SKIP_DEPS is set
+    if [[ "${CI_SKIP_DEPS:-}" == "true" ]]; then
+        log "Skipping dependency installation (CI_SKIP_DEPS=true)"
+        return 0
+    fi
+    
+    # Auto-install missing dependencies unless --validate-only
+    local missing_deps=()
+    local optional_deps=()
+    
+    # Core dependencies required for basic operation
+    local core_deps=(ip iptables docker curl ss lsof jq stat less)
+    
+    # Optional dependencies for specific features
+    local optional_feature_deps=(socat wg-quick)
 
   # Add qrencode to optional deps if WireGuard is selected
     if [[ " ${SELECTED_CONTAINERS[*]} " == *" wireguard "* ]]; then
