@@ -87,6 +87,7 @@ jobs:
   healthcare-integration-tests:
     runs-on: ubuntu-latest
     needs: type-safety-validation
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4
       with:
@@ -102,10 +103,20 @@ jobs:
         # Set CI-specific environment variables
         echo "CI_NO_SUDO=true" >> $GITHUB_ENV
         echo "SKIP_ROOT_CHECKS=true" >> $GITHUB_ENV
+        echo "SKIP_GPU_PACKAGES=true" >> $GITHUB_ENV
         echo "ENVIRONMENT=development" >> $GITHUB_ENV
         echo "CFG_ROOT=/tmp/intelluxe-stack" >> $GITHUB_ENV
         echo "CFG_UID=1000" >> $GITHUB_ENV
         echo "CFG_GID=1001" >> $GITHUB_ENV
+    
+    - name: Install System Dependencies
+      run: |
+        # Install only essential packages for CI
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          lsof socat wireguard-tools shellcheck \
+          python3-flake8 python3-pytest python3-yaml \
+          python3-cryptography python3-psycopg2
     
     - name: Set up Docker
       uses: docker/setup-buildx-action@v3
@@ -118,6 +129,7 @@ jobs:
         CFG_ROOT: /tmp/intelluxe-stack
         CFG_UID: 1000
         CFG_GID: 1001
+        SKIP_GPU_PACKAGES: true
       run: |
         # Create directories without sudo
         mkdir -p /tmp/intelluxe-stack/{logs,backups,qrcodes}
@@ -125,7 +137,8 @@ jobs:
         
         export CFG_ROOT=/tmp/intelluxe-stack
         
-        make lint && make validate && make test
+        # Run with timeout to prevent hanging
+        timeout 20m make lint && timeout 20m make validate && timeout 20m make test
     
     - name: Upload Coverage Reports
       uses: actions/upload-artifact@v4
