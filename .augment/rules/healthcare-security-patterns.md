@@ -1,3 +1,7 @@
+---
+type: "always_apply"
+---
+
 # Healthcare Security Development Patterns
 
 ## Security Error Message Guidelines

@@ -1,3 +1,7 @@
+---
+type: "always_apply"
+---
+
 # Healthcare Development Patterns - Updated
 
 ## Current Development Status (Phase 1)

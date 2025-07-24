@@ -1,3 +1,7 @@
+---
+type: "always_apply"
+---
+
 # Python Type Safety Patterns for Healthcare AI
 
 ## Critical Type Safety Rules
