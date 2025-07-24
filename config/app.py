@@ -12,7 +12,7 @@ from pydantic_settings import BaseSettings
 
 class IntelluxeConfig(BaseSettings):
     """Main configuration class for Intelluxe AI"""
-    
+
     # Core application settings
     project_name: str = Field(default="intelluxe-ai", json_schema_extra={"env": "PROJECT_NAME"})
     version: str = "1.0.0"
@@ -34,13 +34,13 @@ class IntelluxeConfig(BaseSettings):
     @property
     def postgres_url(self) -> str:
         return f"postgresql://intelluxe:{self.postgres_password}@postgres:5432/{self.database_name}"
-    
+
     @property
     def redis_url(self) -> str:
         if self.redis_password:
             return f"redis://:{self.redis_password}@redis:6379"
         return "redis://redis:6379"
-    
+
     # AI Model configuration
     ollama_url: str = Field(default="intelluxe-ai", json_schema_extra={"env": "OLLAMA_URL"})
     ollama_max_loaded_models: int = Field(default=3, json_schema_extra={"env": "OLLAMA_MAX_LOADED_MODELS"})
@@ -48,7 +48,7 @@ class IntelluxeConfig(BaseSettings):
 
     # MCP configuration
     mcp_server_url: str = Field(default="http://healthcare-mcp:3000", json_schema_extra={"env": "MCP_SERVER_URL"})
-    
+
     # Training configuration (Phase 2+)
     unsloth_training_enabled: bool = Field(default=False, json_schema_extra={"env": "UNSLOTH_TRAINING_ENABLED"})
     training_data_path: str = Field(default="/app/data/training", json_schema_extra={"env": "TRAINING_DATA_PATH"})
@@ -69,12 +69,17 @@ class IntelluxeConfig(BaseSettings):
     health_alert_webhook: Optional[str] = Field(default=None, json_schema_extra={"env": "HEALTH_ALERT_WEBHOOK"})
     health_page_public: bool = Field(default=False, json_schema_extra={"env": "HEALTH_PAGE_PUBLIC"})
 
-    model_config = ConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore"  # Ignore extra fields from .env
-    )
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+        "extra": "ignore",
+        "env_prefix": "",
+        "env_ignore_empty": False,
+        "env_nested_delimiter": "__",
+        "env_nested_max_split": 1,
+        "nested_model_default_partial_update": False
+    }
 
 
 # Global configuration instance

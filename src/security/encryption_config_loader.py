@@ -2,7 +2,7 @@
 import os
 import base64
 import secrets
-from .environment_detector import EnvironmentDetector
+from src.security.environment_detector import EnvironmentDetector
 
 class EncryptionConfigLoader:
     """Centralized encryption configuration management"""

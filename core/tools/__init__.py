@@ -17,11 +17,11 @@ logger = logging.getLogger(__name__)
 class ToolRegistry:
     """
     Registry for managing healthcare tools through MCP integration
-    
+
     Provides tool discovery, capability mapping, and execution
     through the Healthcare-MCP server.
     """
-    
+
     def __init__(self):
         self.mcp_client: Optional[httpx.AsyncClient] = None
         self._available_tools: List[Dict[str, Any]] = []
@@ -37,7 +37,7 @@ class ToolRegistry:
     def get_transcription_plugin(self, plugin_name: str) -> Any:
         """Get a registered transcription plugin"""
         return self._summary_plugins.get(plugin_name)
-    
+
     async def initialize(self) -> None:
         """Initialize MCP client and discover available tools"""
         try:
@@ -45,34 +45,34 @@ class ToolRegistry:
                 base_url=config.mcp_server_url,
                 timeout=30.0
             )
-            
+
             # Test connection and discover tools
             await self._discover_tools()
             self._initialized = True
-            
+
             logger.info(f"Tool registry initialized with {len(self._available_tools)} tools")
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize tool registry: {e}")
             raise
-    
+
     async def close(self) -> None:
         """Close MCP client"""
         if self.mcp_client:
             await self.mcp_client.aclose()
-        
+
         self._initialized = False
         logger.info("Tool registry closed")
-    
+
     async def health_check(self) -> Dict[str, Any]:
         """Check health of tool services"""
-        if not self._initialized:
+        if not self._initialized or self.mcp_client is None:
             return {"status": "not_initialized"}
-        
+
         try:
             # Test MCP server connection
             response = await self.mcp_client.get("/health")
-            
+
             if response.status_code == 200:
                 return {
                     "status": "healthy",
@@ -86,13 +86,17 @@ class ToolRegistry:
                     "mcp_connected": False,
                     "error": f"HTTP {response.status_code}"
                 }
-                
+
         except Exception as e:
             logger.error(f"Tool health check failed: {e}")
             return {"status": "unhealthy", "error": str(e)}
-    
+
     async def _discover_tools(self) -> None:
         """Discover available tools from MCP server and track version/capabilities"""
+        if self.mcp_client is None:
+            logger.error("MCP client is not initialized")
+            self._available_tools = []
+            return
         try:
             response = await self.mcp_client.get("/tools")
             response.raise_for_status()
@@ -103,8 +107,9 @@ class ToolRegistry:
                 name = tool.get("name")
                 version = tool.get("version", "unknown")
                 capabilities = tool.get("capabilities", {})
-                self._tool_versions[name] = version
-                self._tool_capabilities[name] = capabilities
+                if name is not None:
+                    self._tool_versions[name] = version
+                    self._tool_capabilities[name] = capabilities
             logger.info(f"Discovered {len(self._available_tools)} tools")
         except Exception as e:
             logger.warning(f"Failed to discover tools: {e}")
@@ -120,45 +125,51 @@ class ToolRegistry:
     def get_summary_plugin(self, plugin_name: str) -> Any:
         """Get a registered summary/transcription plugin"""
         return self._summary_plugins.get(plugin_name)
-    
+
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         """Get list of available tools"""
         if not self._initialized:
             raise RuntimeError("Tool registry not initialized")
-        
+
         return self._available_tools.copy()
-    
+
     async def execute_tool(self, tool_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a tool with given parameters"""
         if not self._initialized:
             raise RuntimeError("Tool registry not initialized")
-        
+
         try:
+            if self.mcp_client is None:
+                raise RuntimeError("MCP client is not initialized")
+
             payload = {
                 "tool": tool_name,
                 "parameters": parameters
             }
-            
+
             response = await self.mcp_client.post("/execute", json=payload)
             response.raise_for_status()
-            
+
             return response.json()
-            
+
         except Exception as e:
             logger.error(f"Failed to execute tool {tool_name}: {e}")
             raise
-    
+
     async def get_tool_capabilities(self, tool_name: str) -> Dict[str, Any]:
         """Get capabilities and schema for a specific tool"""
         if not self._initialized:
             raise RuntimeError("Tool registry not initialized")
-        
+
+        if self.mcp_client is None:
+            raise RuntimeError("MCP client is not initialized")
+
         try:
             response = await self.mcp_client.get(f"/tools/{tool_name}")
             response.raise_for_status()
-            
+
             return response.json()
-            
+
         except Exception as e:
             logger.error(f"Failed to get capabilities for tool {tool_name}: {e}")
             raise

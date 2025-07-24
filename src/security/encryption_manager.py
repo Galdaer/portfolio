@@ -24,7 +24,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
-from .environment_detector import EnvironmentDetector, Environment
+from src.security.environment_detector import EnvironmentDetector, Environment
 from .encryption_config_loader import EncryptionConfigLoader
 from .exceptions import SecurityError
 

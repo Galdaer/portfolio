@@ -457,7 +457,7 @@ class MedicalAIAgent:
 
         # Remove treatment recommendations
         filtered_response = re.sub(
-            r'\b(take|use|apply|administer)\s+\w+\s+(medication|drug|medicine)\b',
+            '\\\\b(take|use|apply|administer)\\\\s+\\\\w+\\\\s+(medication|drug|medicine)\\\\b',
             'consult a healthcare provider about appropriate treatment',
             filtered_response,
             flags=re.IGNORECASE

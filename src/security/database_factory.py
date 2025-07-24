@@ -9,7 +9,7 @@ from typing import Protocol, Optional
 import psycopg2
 
 
-from .environment_detector import EnvironmentDetector
+from src.security.environment_detector import EnvironmentDetector
 
 logger = logging.getLogger(__name__)
 

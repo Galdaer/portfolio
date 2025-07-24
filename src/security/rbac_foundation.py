@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from psycopg2.extras import RealDictCursor
-from .environment_detector import EnvironmentDetector
+from src.security.environment_detector import EnvironmentDetector
 
 # Configure logging
 logger = logging.getLogger(__name__)

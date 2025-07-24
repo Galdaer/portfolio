@@ -21,7 +21,7 @@ import base64
 from fastapi import HTTPException, Request
 import redis
 
-from .environment_detector import EnvironmentDetector
+from src.security.environment_detector import EnvironmentDetector
 from .phi_detection import PHIDetector
 from ..healthcare_mcp.audit_logger import HealthcareAuditLogger
 
