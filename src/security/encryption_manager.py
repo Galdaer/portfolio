@@ -29,9 +29,6 @@ from .encryption_config_loader import EncryptionConfigLoader
 from .exceptions import SecurityError
 
 
-# Configure logging
-logger = logging.getLogger(__name__)
-
 class EncryptionLevel(Enum):
     """Encryption levels for different data types"""
     BASIC = "basic"          # Standard encryption for non-PHI
