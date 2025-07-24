@@ -8,7 +8,7 @@ class EncryptionConfigLoader:
     """Centralized encryption configuration management"""
 
     @staticmethod
-    def get_or_create_master_key(logger) -> bytes:
+    def get_or_create_master_key(logger, config=None) -> bytes:
         """Get or create master encryption key with proper base64 encoding"""
         master_key_str = os.getenv('MASTER_ENCRYPTION_KEY')
 
@@ -46,12 +46,20 @@ class EncryptionConfigLoader:
                 return base64.urlsafe_b64encode(key_bytes)
         else:
             # Generate key for development - return base64 encoded
-            return EncryptionConfigLoader._get_or_create_development_key(logger)
+            return EncryptionConfigLoader._get_or_create_development_key(logger, config)
 
     @staticmethod
-    def _get_or_create_development_key(logger) -> bytes:
-        """Get or create persistent development key - returns base64 encoded bytes"""
-        key_file = "/opt/intelluxe/stack/security/dev_master_key"
+    def _get_or_create_development_key(logger, config=None) -> bytes:
+        """Generate or load development encryption key with persistence"""
+
+        # Use config path if provided, otherwise default
+        if config and isinstance(config, dict) and config.get('dev_key_path'):
+            key_file = config['dev_key_path']
+        else:
+            key_file = os.path.join(
+                os.getenv('CFG_ROOT', '/opt/intelluxe/stack'),
+                'security', 'dev_master_key'
+            )
 
         try:
             if os.path.exists(key_file):

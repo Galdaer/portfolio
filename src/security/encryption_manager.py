@@ -7,6 +7,8 @@ import os
 import json
 import logging
 import math
+import string
+import sys
 from typing import Dict, Optional, Any, Union
 from datetime import datetime, timedelta
 import secrets
@@ -22,10 +24,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
-
 from .environment_detector import EnvironmentDetector, Environment
 from .encryption_config_loader import EncryptionConfigLoader
 from .exceptions import SecurityError
+
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -187,7 +189,6 @@ class KeyManager:
         # Step 1: Validate base64 format first
         try:
             # Check if the string contains valid base64 characters
-            import string
             valid_chars = string.ascii_letters + string.digits + '-_='
             if not all(c in valid_chars for c in master_key):
                 invalid_chars = [c for c in master_key if c not in valid_chars]
@@ -222,10 +223,10 @@ class KeyManager:
 
     def _get_or_create_master_key(self) -> bytes:
         """Get master encryption key using centralized configuration"""
-        # Use self.config for consistent configuration usage
-        if hasattr(self.config, 'master_key_override') and self.config.master_key_override:
+        # Check if config has master_key_override (for testing)
+        if isinstance(self.config, dict) and self.config.get('master_key_override'):
             self.logger.info("Using configuration-provided master key")
-            return self.config.master_key_override
+            return self.config['master_key_override']
 
         # Delegate to centralized loader with configuration context
         return EncryptionConfigLoader.get_or_create_master_key(
@@ -293,7 +294,6 @@ class KeyManager:
             self.logger.warning("SECURITY: Development key persisted to disk - remove before production deployment")
 
             # Also log to stderr for immediate visibility
-            import sys
             print(f"DEVELOPMENT KEY PERSISTENCE: Key stored at {key_file}", file=sys.stderr)
             print("WARNING: Remove development keys before production deployment", file=sys.stderr)
 
@@ -570,7 +570,7 @@ class HealthcareEncryptionManager:
 
         # Environment-specific key storage path with production validation
         if EnvironmentDetector.is_production():
-            if config and hasattr(config, 'dev_key_path'):
+            if isinstance(self.config, dict) and self.config.get('dev_key_path'):
                 raise SecurityError("Development key configuration not allowed in production")
 
         self.key_manager = KeyManager(postgres_conn, self.config)
@@ -580,7 +580,6 @@ class HealthcareEncryptionManager:
 
     def _load_configuration(self) -> Dict[str, Any]:
         """Load encryption configuration with environment-aware defaults"""
-        from src.security.environment_detector import EnvironmentDetector
 
         base_config = {
             'key_rotation_days': 365,

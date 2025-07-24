@@ -20,7 +20,6 @@ import redis
 import requests
 import jwt
 
-
 from pydantic import BaseModel, Field
 
 from .phi_detection import PHIDetector
@@ -100,6 +99,7 @@ class HealthcareMCPServer:
     def __init__(self, config: HealthcareConfig):
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.HealthcareMCPServer")
+        self._current_request_ip: Optional[str] = None
 
         # Rate limiting for development warnings
         self._dev_auth_warning_logged = False
@@ -310,24 +310,6 @@ class HealthcareMCPServer:
                 }
             )
 
-    def _record_auth_failure(self, client_ip: str, failure_type: str = "jwt_validation"):
-        """Record authentication failure for rate limiting and security monitoring"""
-        try:
-            # Record JWT-specific failure for rate limiting
-            self._record_jwt_failure(client_ip)
-
-            # Log security event for audit trail
-            self.logger.warning(
-                f"Authentication failure recorded: {failure_type} from {client_ip}"
-            )
-
-            # Update failure metrics if available
-            if hasattr(self, 'metrics_collector'):
-                self.metrics_collector.increment_auth_failure(client_ip, failure_type)
-
-        except Exception as e:
-            self.logger.error(f"Failed to record auth failure: {e}")
-
     def _init_database_connections(self):
         """Initialize database connections"""
         try:
@@ -416,7 +398,7 @@ class HealthcareMCPServer:
         async def mcp_endpoint(
             request: MCPRequest,
             credentials: HTTPAuthorizationCredentials = Depends(security),
-            client_request: Request = None
+            client_request: Optional[Request] = None
         ):
             """Main MCP endpoint with security validation"""
 
@@ -430,7 +412,7 @@ class HealthcareMCPServer:
             # Process MCP request
             try:
                 result = await self._process_mcp_request(request)
-                return MCPResponse(result=result, id=request.id)
+                return MCPResponse(result=result, error=None, id=request.id)
 
             except Exception as e:
                 self.logger.error(f"MCP request processing failed: {e}")
@@ -439,12 +421,12 @@ class HealthcareMCPServer:
                     "message": "Internal error",
                     "data": str(e) if not self.config.hipaa_compliance_mode else "Processing error"
                 }
-                return MCPResponse(error=error, id=request.id)
+                return MCPResponse(result=None, error=error, id=request.id)
 
         @self.app.get("/tools")
         async def list_tools(
             credentials: HTTPAuthorizationCredentials = Depends(security),
-            client_request: Request = None
+            client_request: Optional[Request] = None
         ):
             """List available healthcare tools"""
 
@@ -549,6 +531,10 @@ class HealthcareMCPServer:
 
         return auth_result
 
+    def get_request_ip(self) -> str:
+        """Get current request IP with fallback"""
+        return self._current_request_ip or "unknown"
+
     def _validate_jwt_token(self, token: str) -> bool:
         """Validate JWT token with comprehensive security logging"""
         try:
@@ -574,28 +560,31 @@ class HealthcareMCPServer:
             return True
 
         except jwt.ExpiredSignatureError:
+            timestamp = datetime.utcnow().isoformat()
             self.logger.warning(
                 f"JWT validation failed - token expired - "
                 f"timestamp: {timestamp}, "
-                f"source_ip: {getattr(self, '_current_request_ip', 'unknown')}"
+                f"source_ip: {self.get_request_ip()}"
             )
             return False
 
         except jwt.InvalidTokenError as e:
+            timestamp = datetime.utcnow().isoformat()
             self.logger.warning(
                 f"JWT validation failed - invalid token - "
                 f"timestamp: {timestamp}, "
                 f"error: {str(e)}, "
-                f"source_ip: {getattr(self, '_current_request_ip', 'unknown')}"
+                f"source_ip: {self.get_request_ip()}"
             )
             return False
 
         except Exception as e:
+            timestamp = datetime.utcnow().isoformat()
             self.logger.error(
                 f"JWT validation error - unexpected failure - "
                 f"timestamp: {timestamp}, "
                 f"error: {str(e)}, "
-                f"source_ip: {getattr(self, '_current_request_ip', 'unknown')}"
+                f"source_ip: {self.get_request_ip()}"
             )
             return False
 
@@ -607,7 +596,7 @@ class HealthcareMCPServer:
         # Log the specific failure type
         self.logger.warning(f"Auth failure: {failure_type} from {client_ip}")
 
-        # Log security event for audit trail
+        # Log security event for audit trail (synchronous call)
         if hasattr(self, 'audit_logger'):
             self.audit_logger.log_security_event(
                 event_type="authentication_failure",
@@ -619,17 +608,36 @@ class HealthcareMCPServer:
                 }
             )
 
-    async def handle_request(self, request: Optional[Request] = None) -> Any:
+    async def handle_request(self, request: Request) -> Any:
         """Handle MCP request with enhanced security logging"""
-        if request is None:
-            self.logger.error("No request provided")
-            return {"error": "Invalid request"}
-
         # Store request IP for security logging
-        self._current_request_ip = getattr(request, 'remote_addr', 'unknown')
+        self._current_request_ip = self._get_client_ip(request)
 
-        # Rest of the existing method...
-        # (Keep existing PHI detection and other logic)
+        try:
+            # Process the request (your existing logic here)
+            result = await self._process_request(request)
+
+            # Log successful request - create a mock response object
+            mock_response = type('MockResponse', (), {'status_code': 200})()
+            await self.audit_logger.log_request(request, mock_response, 0.0)
+
+            return result
+
+        except Exception as error:
+            # Log error with security context (synchronous call)
+            self.audit_logger.log_security_event(
+                "request_error",
+                {
+                    "error": str(error),
+                    "request_ip": self.get_request_ip(),
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
+            raise
+
+    async def _process_request(self, request: Request) -> Dict[str, Any]:
+        """Process the actual request - placeholder for your logic"""
+        return {"status": "success", "data": "processed"}
 
     async def _process_mcp_request(self, request: MCPRequest) -> Dict[str, Any]:
         """Process MCP request with PHI detection and security"""
@@ -646,6 +654,7 @@ class HealthcareMCPServer:
                     "detection_details": phi_detected.detection_details if hasattr(phi_detected, 'detection_details') else []
                 }
                 await self.audit_logger.log_phi_detection(request, phi_details_dict)
+
                 if self.config.hipaa_compliance_mode:
                     raise HTTPException(status_code=400, detail="PHI detected in request")
 

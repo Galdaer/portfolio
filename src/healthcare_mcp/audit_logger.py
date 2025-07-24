@@ -26,17 +26,45 @@ class HealthcareAuditLogger:
     HIPAA-compliant audit logger for healthcare AI operations
     """
 
-    def __init__(self, log_level: str = "INFO"):
-        self.logger = logging.getLogger("healthcare_audit")
-        self.logger.setLevel(getattr(logging, log_level.upper()))
+    VALID_LOG_LEVELS = {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'}
 
-        # Create structured handler
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    def __init__(self, config, log_level: str = "INFO"):
+        self.config = config
+        self.logger = logging.getLogger("healthcare_audit")
+
+        # Validate log level before setting
+        log_level_upper = log_level.upper()
+        if log_level_upper not in self.VALID_LOG_LEVELS:
+            raise ValueError(
+                f"Invalid log level: {log_level}. "
+                f"Must be one of: {', '.join(sorted(self.VALID_LOG_LEVELS))}"
+            )
+
+        self.logger.setLevel(getattr(logging, log_level_upper))
+
+    async def log_request(self, request, response, processing_time: float):
+        """Log HTTP request for audit trail"""
+        self.logger.info(
+            f"REQUEST: method={getattr(request, 'method', 'unknown')}, "
+            f"path={getattr(request, 'url', 'unknown')}, "
+            f"processing_time={processing_time:.3f}s, "
+            f"status={getattr(response, 'status_code', 'unknown')}"
         )
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+
+    def log_security_event(self, event_type: str, details: Dict[str, Any]):
+        """Log security events for monitoring (synchronous)"""
+        self.logger.warning(f"SECURITY_EVENT: {event_type}, details={details}")
+
+    async def log_phi_detection(self, request_data, phi_details: Dict[str, Any]):
+        """Log PHI detection events"""
+        request_id = getattr(request_data, 'id', 'unknown')
+        phi_types = phi_details.get('entities', [])
+
+        self.logger.warning(
+            f"PHI_DETECTION: request_id={request_id}, "
+            f"types={phi_types}, "
+            f"confidence={phi_details.get('confidence', 0.0)}"
+        )
 
     def log_audit_event(
         self,

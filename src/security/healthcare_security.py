@@ -6,7 +6,8 @@ Comprehensive security framework for healthcare AI systems with HIPAA compliance
 import os
 import json
 import logging
-from typing import Dict, Optional, Any, Callable, Union
+import psycopg2
+from typing import Dict, Optional, Any, Callable, Union, Tuple
 from datetime import datetime, timedelta
 
 import secrets
@@ -21,6 +22,8 @@ from fastapi import HTTPException, Request
 import redis
 
 from .environment_detector import EnvironmentDetector
+from .phi_detection import PHIDetector
+from ..healthcare_mcp.audit_logger import HealthcareAuditLogger
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -31,9 +34,13 @@ class SecurityConfig:
     def __init__(self):
         # Encryption settings
         self.encryption_key = os.getenv("MCP_ENCRYPTION_KEY")
+        self.master_encryption_key = os.getenv("MASTER_ENCRYPTION_KEY")
         self.jwt_secret = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))
         self.jwt_algorithm = "HS256"
         self.jwt_expiration_hours = 8
+
+        # Audit logging
+        self.audit_log_level = os.getenv("AUDIT_LOGGING_LEVEL", "INFO")
 
         # Session settings
         self.session_timeout_minutes = 30
@@ -70,7 +77,12 @@ class EncryptionManager:
         return self.fernet.decrypt(encrypted_data.encode()).decode()
 
     def hash_password(self, password: str, salt: Optional[str] = None) -> tuple[str, str]:
-        """Hash password with salt"""
+        """
+        Hash password with salt for secure storage
+
+        Returns:
+            tuple[str, str]: (hashed_password, salt) - Python 3.9+ syntax
+        """
         if salt is None:
             salt = secrets.token_hex(16)
 
@@ -216,10 +228,23 @@ class RateLimiter:
 class HealthcareSecurityMiddleware:
     """Main security middleware for healthcare applications"""
 
-    def __init__(self, config: SecurityConfig, postgres_conn, redis_conn):
+    def __init__(self, config: SecurityConfig, postgres_conn: psycopg2.extensions.connection, redis_conn: redis.Redis):
         self.config = config
         self.postgres_conn = postgres_conn
         self.redis_conn = redis_conn
+
+        # Convert string encryption key to bytes if needed
+        encryption_key = None
+        if config.master_encryption_key:
+            if isinstance(config.master_encryption_key, str):
+                encryption_key = config.master_encryption_key.encode('utf-8')
+            else:
+                encryption_key = config.master_encryption_key
+
+        self.encryption_manager = EncryptionManager(encryption_key)
+        self.phi_detector = PHIDetector()
+        self.audit_logger = HealthcareAuditLogger(config, config.audit_log_level)
+        self._current_request_ip: Optional[str] = None
         self.logger = logging.getLogger(f"{__name__}.HealthcareSecurityMiddleware")
 
         # Initialize security components with proper parameters
