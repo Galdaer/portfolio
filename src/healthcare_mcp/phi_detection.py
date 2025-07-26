@@ -5,7 +5,7 @@ Detects and masks Protected Health Information (PHI) for HIPAA compliance
 
 import re
 import logging
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, cast
 from datetime import datetime
 import json
 from dataclasses import dataclass
@@ -15,6 +15,8 @@ try:
     from presidio_anonymizer import AnonymizerEngine
     PRESIDIO_AVAILABLE = True
 except ImportError:
+    AnalyzerEngine = None
+    AnonymizerEngine = None
     PRESIDIO_AVAILABLE = False
     logging.warning("Presidio not available, using basic PHI detection")
 
@@ -66,15 +68,14 @@ def apply_replacements_in_reverse(replacements: List[Tuple[int, int, str]],
         return result
 
     # For large replacement sets, process in batches
-    logger.info(f"PHI batching enabled: {replacement_count} replacements in {replacement_count // batch_size + 1} batches")
-    logger.info(f"PHI batch processing: text_length={text_length}, batch_size={batch_size}")
-
     result = text
     sorted_replacements = sorted(replacements, key=lambda x: x[0], reverse=True)
     batch_count = 0
 
+    logger.info(f"Batching enabled: Total replacements={len(sorted_replacements)}, Batch size={batch_size}")
     for i in range(0, len(sorted_replacements), batch_size):
         batch = sorted_replacements[i:i + batch_size]
+        logger.debug(f"Processing batch {i // batch_size + 1}: Batch size={len(batch)}")
         batch_count += 1
 
         batch_start_time = time.time()
@@ -363,7 +364,7 @@ class PresidioPHIDetector:
     def __init__(self):
         self.logger = logging.getLogger(f"{__name__}.PresidioPHIDetector")
 
-        if not PRESIDIO_AVAILABLE:
+        if not PRESIDIO_AVAILABLE or AnalyzerEngine is None or AnonymizerEngine is None:
             raise ImportError("Presidio is not available")
 
         # Initialize Presidio engines
@@ -394,7 +395,7 @@ class PresidioPHIDetector:
             # Create anonymized version
             anonymized_result = self.anonymizer.anonymize(
                 text=text,
-                analyzer_results=results
+                analyzer_results=cast(List[Any], results)  # Type cast to resolve Presidio type mismatch
             )
             masked_text = anonymized_result.text
 
