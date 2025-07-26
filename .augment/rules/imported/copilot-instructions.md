@@ -567,6 +567,13 @@ make lint && make validate
 3. **Long lines** → Break at 100 characters with proper indentation
 4. **Unused imports** → Remove imports that aren't used in the code
 5. **Method assumptions** → Use hasattr() to verify methods exist before calling them
+6. **Optional parameter type safety** → Always check if optional parameters are None before calling methods on them
+
+### Type Safety Requirements for Optional Parameters
+- **ALWAYS check None before method calls**: When a parameter can be None, check `if param is not None:` before calling methods
+- **Database connections**: Check `if self.postgres_conn:` before calling `.cursor()` or `.commit()`
+- **Optional objects**: Use `if obj:` or `if obj is not None:` before accessing attributes or methods
+- **Graceful degradation**: Provide fallback behavior when optional dependencies are unavailable
 
 ### Pre-Generation Checklist
 Before generating any Python code:
@@ -575,6 +582,7 @@ Before generating any Python code:
 - [ ] Ensure no trailing whitespace
 - [ ] Remove unused imports
 - [ ] Use hasattr() checks for method calls
+- [ ] Add None checks for optional parameters before calling methods
 - [ ] Test flake8 and Pylance compliance
 
 ### Shell Script Quality Standards
