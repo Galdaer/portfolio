@@ -1905,26 +1905,24 @@ fix_development_permissions() {
     local ownership_fixed=0
 
     # Fix ownership in workspace directory only
-    for dir in "$workspace_root"; do
-        if [[ -d "$dir" ]]; then
-            while IFS= read -r -d '' file; do
-                ((ownership_count++))
-                local current_uid current_gid
-                current_uid=$(stat -c '%u' "$file" 2>/dev/null || echo "")
-                current_gid=$(stat -c '%g' "$file" 2>/dev/null || echo "")
+    if [[ -d "$workspace_root" ]]; then
+        while IFS= read -r -d '' file; do
+            ((ownership_count++))
+            local current_uid current_gid
+            current_uid=$(stat -c '%u' "$file" 2>/dev/null || echo "")
+            current_gid=$(stat -c '%g' "$file" 2>/dev/null || echo "")
 
-                if [[ "$current_uid" != "1000" || "$current_gid" != "1001" ]]; then
-                    if chown 1000:1001 "$file" 2>/dev/null; then
-                        ((ownership_fixed++))
-                        log "Fixed ownership: $file ($current_uid:$current_gid -> 1000:1001)"
-                    else
-                        # Don't warn about chown failures in development - may not have sudo
-                        :
-                    fi
+            if [[ "$current_uid" != "1000" || "$current_gid" != "1001" ]]; then
+                if chown 1000:1001 "$file" 2>/dev/null; then
+                    ((ownership_fixed++))
+                    log "Fixed ownership: $file ($current_uid:$current_gid -> 1000:1001)"
+                else
+                    # Don't warn about chown failures in development - may not have sudo
+                    :
                 fi
-            done < <(find "$dir" -type f -print0 2>/dev/null)
-        fi
-    done
+            fi
+        done < <(find "$workspace_root" -type f -print0 2>/dev/null)
+    fi
 
     log "Permission fixes completed: $fixed_count/$script_count scripts fixed, $ownership_fixed/$ownership_count files ownership fixed"
 }
