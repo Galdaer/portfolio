@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail # Removed -e to prevent systemd service failure blocking boot
 # wg-setup.sh - WireGuard client setup in clinic namespace
 # Author: Justin Michael Sue (Galdaer)
 # Repo: https://github.com/Intelluxe-AI/intelluxe-core
@@ -54,21 +54,21 @@ parse_basic_flags "$@"
 # Script-specific flags
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --iface)
-        IFACE="$2"
-        shift 2
-        ;;
-    --netns)
-        NS_NAME="$2"
-        shift 2
-        ;;
-    --)
-        shift
-        break
-        ;;
-    *)
-        break
-        ;;
+        --iface)
+            IFACE="$2"
+            shift 2
+            ;;
+        --netns)
+            NS_NAME="$2"
+            shift 2
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            break
+            ;;
     esac
 done
 

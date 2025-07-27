@@ -33,8 +33,9 @@ CFG_UID := $(or $(CFG_UID),$(DEFAULT_UID))
 CFG_GID := $(or $(CFG_GID),$(DEFAULT_GID))
 
 # Production directories to symlink (excluding development dirs: archive, coverage, docs, reference, test)
+# Note: stack is excluded - configs should remain in user space (/home/intelluxe/stack)
 # Note: logs is excluded - it should remain as a real directory in /opt/intelluxe/logs for systemd services
-PROD_DIRS := agents config core data infrastructure mcps notebooks scripts services stack systemd
+PROD_DIRS := agents config core data infrastructure mcps notebooks scripts services systemd
 
 # Installation Commands
 install:

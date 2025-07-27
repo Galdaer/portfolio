@@ -71,7 +71,7 @@
 #
 # For detailed usage, run: ./bootstrap.sh --help
 
-set -euo pipefail
+set -uo pipefail # Removed -e to prevent systemd service failure blocking boot
 
 # Environment validation (CRITICAL SECURITY)
 validate_environment() {
