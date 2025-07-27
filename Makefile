@@ -169,8 +169,8 @@ deps:
 		uv pip install --system --break-system-packages flake8 mypy pytest pytest-asyncio yamllint; \
 		if [ -f requirements.in ]; then \
 			uv pip install -r requirements.in; \
-			echo "🔒  Generating lockfile for reproducible builds..."; \
-			uv pip compile requirements.in -o requirements.txt; \
+			echo "🔒  Generating lockfiles for reproducible builds..."; \
+			python3 scripts/generate-requirements.py; \
 		fi; \
 	else \
 		echo "⚠️  UV not found, installing with pip (slower)..."; \
@@ -185,11 +185,11 @@ update:
 	@echo "🔄  Running healthcare AI system update and upgrade"
 	sudo ./scripts/auto-upgrade.sh
 
-# Update and regenerate lockfile
+# Update and regenerate lockfiles
 update-deps:
 	@echo "🔄  Updating healthcare AI dependencies"
 	@if command -v uv >/dev/null 2>&1; then \
-		uv pip compile --upgrade requirements.in -o requirements.txt; \
+		python3 scripts/generate-requirements.py; \
 		uv pip install -r requirements.txt; \
 	else \
 		pip install --upgrade -r requirements.in; \

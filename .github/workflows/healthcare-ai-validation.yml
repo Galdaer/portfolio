@@ -172,17 +172,22 @@ jobs:
     - name: Flake8 Code Quality - ${{ matrix.directory }}
       run: |
         # Ensure tools are available in PATH
-        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/hostedtoolcache/Python/3.12.*/x64/bin:$PATH"
         
-        # Verify flake8 is available
-        if ! command -v flake8 >/dev/null 2>&1; then
+        # Try multiple ways to run flake8
+        if command -v flake8 >/dev/null 2>&1; then
+          FLAKE8_CMD="flake8"
+        elif python3 -m flake8 --version >/dev/null 2>&1; then
+          FLAKE8_CMD="python3 -m flake8"
+        else
           echo "Installing flake8 with pip fallback..."
           python3 -m pip install --user --break-system-packages flake8 || echo "Flake8 install failed"
+          FLAKE8_CMD="python3 -m flake8"
         fi
         
         if [ -d "${{ matrix.directory }}/" ] && [ "$(find ${{ matrix.directory }}/ -name '*.py' | head -1)" ]; then
-          echo "🔍 Running Flake8 on ${{ matrix.directory }}/"
-          flake8 ${{ matrix.directory }}/ --max-line-length=100 --exclude=__pycache__,*.pyc
+          echo "🔍 Running Flake8 on ${{ matrix.directory }}/ using: $FLAKE8_CMD"
+          $FLAKE8_CMD ${{ matrix.directory }}/ --max-line-length=100 --exclude=__pycache__,*.pyc
           echo "✅ Flake8 passed for ${{ matrix.directory }}/"
         else
           echo "⚠️  No Python files found in ${{ matrix.directory }}/ - skipping"
@@ -224,17 +229,22 @@ jobs:
     - name: MyPy Type Check - ${{ matrix.directory }}
       run: |
         # Ensure tools are available in PATH
-        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/hostedtoolcache/Python/3.12.*/x64/bin:$PATH"
         
-        # Verify mypy is available
-        if ! command -v mypy >/dev/null 2>&1; then
+        # Try multiple ways to run mypy
+        if command -v mypy >/dev/null 2>&1; then
+          MYPY_CMD="mypy"
+        elif python3 -m mypy --version >/dev/null 2>&1; then
+          MYPY_CMD="python3 -m mypy"
+        else
           echo "Installing mypy with pip fallback..."
           python3 -m pip install --user --break-system-packages mypy || echo "MyPy install failed"
+          MYPY_CMD="python3 -m mypy"
         fi
         
         if [ -d "${{ matrix.directory }}/" ] && [ "$(find ${{ matrix.directory }}/ -name '*.py' | head -1)" ]; then
-          echo "🔍 Running MyPy on ${{ matrix.directory }}/"
-          mypy ${{ matrix.directory }}/ --ignore-missing-imports --strict-optional
+          echo "🔍 Running MyPy on ${{ matrix.directory }}/ using: $MYPY_CMD"
+          $MYPY_CMD ${{ matrix.directory }}/ --ignore-missing-imports --strict-optional
           echo "✅ MyPy type check passed for ${{ matrix.directory }}/"
         else
           echo "⚠️  No Python files found in ${{ matrix.directory }}/ - skipping"
@@ -758,3 +768,4 @@ env:
   PHI_PROTECTION: strict
   ENVIRONMENT: development
   CI: true
+  CI_MINIMAL_DEPS: true

@@ -841,22 +841,34 @@ When designing any workflow, CI/CD pipeline, or system component:
 
 **MANDATORY for all CI/CD workflows:**
 
-1. **Shared dependency installation** - Never install the same dependencies multiple times
-2. **Aggressive caching** - Cache everything that can be cached (pip, uv, models, compiled assets)
-3. **Strategic job dependencies** - Use `needs:` to create optimal dependency graphs
-4. **Resource-conscious design** - Every minute saved helps the entire development team
+1. **Use specialized CI requirements**: Always use `requirements-ci.txt` for CI/CD, which excludes heavy GPU/ML packages
+2. **Never modify workflow files to skip dependencies**: Instead, fix the requirements files using `scripts/generate-requirements.py`
+3. **Shared dependency installation** - Never install the same dependencies multiple times
+4. **Aggressive caching** - Cache everything that can be cached (pip, uv, models, compiled assets)
+5. **Strategic job dependencies** - Use `needs:` to create optimal dependency graphs
+6. **Resource-conscious design** - Every minute saved helps the entire development team
+
+**Requirements File Management:**
+- **Source of truth**: `requirements.in` contains all package specifications
+- **Auto-generation**: Run `python3 scripts/generate-requirements.py` to generate both:
+  - `requirements.txt` - Full dependencies for local development and production
+  - `requirements-ci.txt` - Minimal dependencies for CI/CD (excludes GPU packages)
+- **Never manually edit** `requirements.txt` or `requirements-ci.txt`
+- **Use `make deps` or `make update-deps`** to regenerate requirements files
 
 **CI/CD Anti-Patterns to REJECT:**
 - Installing Python dependencies in every job separately
 - Downloading spaCy models multiple times
 - Running the same setup scripts across multiple jobs
 - "Simple" approaches that multiply resource usage
+- **Modifying workflows to skip requirements installation instead of fixing requirements files**
 
 **CI/CD Patterns to EMBRACE:**
 - One setup job that caches everything for reuse
 - Parallel execution wherever possible
 - Smart dependency graphs that optimize the critical path
 - Comprehensive caching strategies that benefit all subsequent runs
+- **Proper requirements file separation for different environments**
 
 ### Code Quality and Linting Standards
 
