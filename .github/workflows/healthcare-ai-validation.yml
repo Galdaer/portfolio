@@ -7,7 +7,8 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  type-safety-validation:
+  # Fast dependency setup - shared by all other jobs
+  setup-dependencies:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -32,23 +33,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-python-
           ${{ runner.os }}-
-    
-    - name: Check cache status
-      run: |
-        echo "=== Cache Status Check ==="
-        echo "Cache key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2"
-        if [ -d ~/.cache/pip ] && [ "$(ls -A ~/.cache/pip 2>/dev/null)" ]; then
-          echo "✅ pip cache exists and has content"
-          echo "📊 pip cache size: $(du -sh ~/.cache/pip 2>/dev/null || echo 'unknown')"
-        else
-          echo "❌ pip cache is empty or missing"
-        fi
-        if [ -d ~/.cache/uv ] && [ "$(ls -A ~/.cache/uv 2>/dev/null)" ]; then
-          echo "✅ uv cache exists and has content"
-          echo "📊 uv cache size: $(du -sh ~/.cache/uv 2>/dev/null || echo 'unknown')"
-        else
-          echo "❌ uv cache is empty or missing"
-        fi
     
     - name: Install dependencies
       run: |
@@ -76,7 +60,7 @@ jobs:
           python3 -m pip install --user --break-system-packages flake8 mypy pydantic fastapi pytest pytest-asyncio types-requests || echo "Warning: Python tools failed to install"
         fi
         
-        # Install main dependencies using uv if available, otherwise pip
+        # Install main dependencies
         if [ -f "requirements-ci.txt" ]; then
           if command -v uv >/dev/null 2>&1; then
             echo "Installing requirements-ci.txt with uv..."
@@ -84,14 +68,6 @@ jobs:
           else
             echo "Installing requirements-ci.txt with pip..."
             pip install -r requirements-ci.txt || echo "CI requirements installation with pip completed with warnings"
-          fi
-        else
-          if command -v uv >/dev/null 2>&1; then
-            echo "Installing requirements.txt with uv..."
-            uv pip install --system -r requirements.txt || echo "Requirements installation with uv completed with warnings"
-          else
-            echo "Installing requirements.txt with pip..."
-            pip install -r requirements.txt || echo "Requirements installation with pip completed with warnings"
           fi
         fi
     
@@ -106,181 +82,348 @@ jobs:
           echo "📊 uv cache size: $(du -sh ~/.cache/uv || echo 'unknown')"
           echo "📦 uv cache entries: $(find ~/.cache/uv -type f | wc -l) files"
         fi
-        echo "🎯 Cache will speed up subsequent runs"
+
+  # Python compilation check - fast fail for syntax errors
+  python-syntax-check:
+    runs-on: ubuntu-latest
+    needs: setup-dependencies
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: [src, agents, mcps]
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.cache/uv
+          ~/.local/bin
+          ~/.local/lib
+          ~/.cargo/bin
+        key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2
     
-    - name: Verify tools installation
+    - name: Python Syntax Check - ${{ matrix.directory }}
       run: |
-        echo "Checking for tools..."
-        which flake8 || echo "flake8 not found"
-        which mypy || echo "mypy not found"
-        flake8 --version || echo "flake8 version check failed"
-        mypy --version || echo "mypy version check failed"
-    
-    - name: Type Safety Check (Python Compilation)
-      run: |
-        find src/ -name "*.py" -exec python -m py_compile {} \; || echo "No src/ directory"
-        find agents/ -name "*.py" -exec python -m py_compile {} \; || echo "No agents/ directory"
-        find mcps/ -name "*.py" -exec python -m py_compile {} \; || echo "No mcps/ directory"
-    
-    - name: Healthcare Code Quality (Flake8)
-      run: |
-        flake8 src/ --max-line-length=100 --exclude=__pycache__,*.pyc || echo "No src/ directory"
-        flake8 agents/ --max-line-length=100 --exclude=__pycache__,*.pyc || echo "No agents/ directory"
-        flake8 mcps/ --max-line-length=100 --exclude=__pycache__,*.pyc || echo "No mcps/ directory"
-    
-    - name: Type Checking (MyPy)
-      run: |
-        # Check if directories exist and have Python files before running mypy
-        error_count=0
-        
-        # Function to check if directory has Python files
-        has_python_files() {
-          [ -d "$1" ] && [ "$(find "$1" -name "*.py" -type f | head -1)" ]
-        }
-        
-        if has_python_files "src/"; then
-          echo "Running MyPy on src/..."
-          mypy_output=$(mypy src/ --ignore-missing-imports --strict-optional 2>&1)
-          mypy_exit_code=$?
-          echo "$mypy_output"
-          if [ $mypy_exit_code -ne 0 ] && ! echo "$mypy_output" | grep -q "There are no \.py\[i\] files in directory"; then
-            echo "❌ MyPy errors found in src/"
-            ((error_count++))
-          fi
+        if [ -d "${{ matrix.directory }}/" ]; then
+          echo "🐍 Checking Python syntax in ${{ matrix.directory }}/"
+          find ${{ matrix.directory }}/ -name "*.py" -exec python -m py_compile {} \;
+          echo "✅ Python syntax valid in ${{ matrix.directory }}/"
         else
-          echo "⚠️  No Python files found in src/ directory"
-        fi
-        
-        if has_python_files "agents/"; then
-          echo "Running MyPy on agents/..."
-          mypy_output=$(mypy agents/ --ignore-missing-imports --strict-optional 2>&1)
-          mypy_exit_code=$?
-          echo "$mypy_output"
-          if [ $mypy_exit_code -ne 0 ] && ! echo "$mypy_output" | grep -q "There are no \.py\[i\] files in directory"; then
-            echo "❌ MyPy errors found in agents/"
-            ((error_count++))
-          fi
-        else
-          echo "⚠️  No Python files found in agents/ directory"
-        fi
-        
-        if has_python_files "mcps/"; then
-          echo "Running MyPy on mcps/..."
-          mypy_output=$(mypy mcps/ --ignore-missing-imports --strict-optional 2>&1)
-          mypy_exit_code=$?
-          echo "$mypy_output"
-          if [ $mypy_exit_code -ne 0 ] && ! echo "$mypy_output" | grep -q "There are no \.py\[i\] files in directory"; then
-            echo "❌ MyPy errors found in mcps/"
-            ((error_count++))
-          fi
-        else
-          echo "⚠️  No Python files found in mcps/ directory"
-        fi
-        
-        if [ $error_count -gt 0 ]; then
-          echo "💥 MyPy validation failed with $error_count error(s)"
-          exit 1
-        else
-          echo "✅ MyPy validation passed"
+          echo "⚠️  Directory ${{ matrix.directory }}/ not found - skipping"
         fi
 
-    - name: Healthcare Security Pattern Validation
+  # Flake8 code quality - separate job per directory
+  flake8-quality-check:
+    runs-on: ubuntu-latest
+    needs: setup-dependencies
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: [src, agents, mcps]
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.cache/uv
+          ~/.local/bin
+          ~/.local/lib
+          ~/.cargo/bin
+        key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2
+    - name: Install flake8
       run: |
-        error_count=0
-        
-        echo "🏥 Validating Healthcare Compliance Implementation..."
-        
-        # Function to check if directories exist and contain files
-        has_files() {
-          [ -d "$1" ] && [ "$(find "$1" -type f | head -1)" ]
-        }
-        
-        # Check PHI detection is properly enabled
-        if has_files "src/healthcare_mcp/" && grep -r -q 'phi_detection_enabled.*=.*True\|PHI_DETECTION_ENABLED.*true' src/healthcare_mcp/ 2>/dev/null; then
-          echo "✅ PHI detection enabled"
-        elif has_files "src/healthcare_mcp/"; then
-          echo "❌ PHI detection not properly enabled in MCP server"
-          ((error_count++))
+        python -m pip install --user flake8
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+    
+    - name: Flake8 Code Quality - ${{ matrix.directory }}
+      run: |
+        if [ -d "${{ matrix.directory }}/" ] && [ "$(find ${{ matrix.directory }}/ -name '*.py' | head -1)" ]; then
+          echo "🔍 Running Flake8 on ${{ matrix.directory }}/"
+          flake8 ${{ matrix.directory }}/ --max-line-length=100 --exclude=__pycache__,*.pyc
+          echo "✅ Flake8 passed for ${{ matrix.directory }}/"
         else
-          echo "⚠️  No healthcare_mcp directory found - skipping PHI detection check"
+          echo "⚠️  No Python files found in ${{ matrix.directory }}/ - skipping"
         fi
-        
-        # Check audit logging is configured
-        audit_found=false
-        if has_files "src/security/" && grep -r -q 'audit_logging.*=.*True\|AUDIT_LOGGING_LEVEL' src/security/ 2>/dev/null; then
-          audit_found=true
+
+  # MyPy type checking - separate job per directory
+  mypy-type-check:
+    runs-on: ubuntu-latest
+    needs: setup-dependencies
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: [src, agents, mcps]
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.cache/uv
+          ~/.local/bin
+          ~/.local/lib
+          ~/.cargo/bin
+        key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2
+    - name: Install MyPy and dependencies
+      run: |
+        python -m pip install --user mypy types-requests
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+        # Install main dependencies for type checking
+        if [ -f "requirements-ci.txt" ]; then
+          python -m pip install --user -r requirements-ci.txt || echo "Some dependencies failed - continuing"
         fi
-        if has_files "src/healthcare_mcp/" && grep -r -q 'audit_logging.*=.*True\|AUDIT_LOGGING_LEVEL' src/healthcare_mcp/ 2>/dev/null; then
-          audit_found=true
-        fi
-        
-        if [ "$audit_found" = true ]; then
-          echo "✅ Audit logging configured"
-        elif has_files "src/security/" || has_files "src/healthcare_mcp/"; then
-          echo "❌ Audit logging not properly configured"
-          ((error_count++))
+    
+    - name: MyPy Type Check - ${{ matrix.directory }}
+      run: |
+        if [ -d "${{ matrix.directory }}/" ] && [ "$(find ${{ matrix.directory }}/ -name '*.py' | head -1)" ]; then
+          echo "🔍 Running MyPy on ${{ matrix.directory }}/"
+          mypy ${{ matrix.directory }}/ --ignore-missing-imports --strict-optional
+          echo "✅ MyPy type check passed for ${{ matrix.directory }}/"
         else
-          echo "⚠️  No security directories found - skipping audit logging check"
+          echo "⚠️  No Python files found in ${{ matrix.directory }}/ - skipping"
         fi
+
+  # Healthcare Security Validation - split into individual checks
+  rbac-foundation-check:
+    runs-on: ubuntu-latest
+    needs: setup-dependencies
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.cache/uv
+          ~/.local/bin
+          ~/.local/lib
+          ~/.cargo/bin
+        key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2
+    
+    - name: RBAC Foundation Check
+      run: |
+        echo "🏥 Checking RBAC Foundation..."
         
-        # Check HIPAA compliance mode
-        if has_files "src/healthcare_mcp/" && grep -r -q 'hipaa_compliance_mode.*=.*strict\|HIPAA_COMPLIANCE_MODE.*strict' src/healthcare_mcp/ 2>/dev/null; then
-          echo "✅ HIPAA compliance in strict mode"
-        elif has_files "src/healthcare_mcp/"; then
-          echo "❌ HIPAA compliance not in strict mode"
-          ((error_count++))
-        else
-          echo "⚠️  No healthcare_mcp directory found - skipping HIPAA compliance check"
-        fi
+        rbac_errors=0
         
-        # Verify PHI detection classes exist and are importable
-        if [ -f "src/healthcare_mcp/phi_detection.py" ]; then
-          if python3 -c "import sys; sys.path.append('src'); from healthcare_mcp.phi_detection import PHIDetector; PHIDetector(); print('✅ PHI detection functional')" 2>/dev/null; then
-            echo "✅ PHI detection classes functional"
-          else
-            echo "❌ PHI detection classes not functional"
-            ((error_count++))
-          fi
-        else
-          echo "⚠️  PHI detection module not found - skipping functionality check"
-        fi
-        
-        # Verify RBAC foundation exists
         if [ -f "src/security/rbac_foundation.py" ]; then
           if python3 -c "import sys; sys.path.append('src'); from security.rbac_foundation import RBACFoundation; print('✅ RBAC foundation available')" 2>/dev/null; then
             echo "✅ RBAC foundation functional"
           else
             echo "❌ RBAC foundation not functional"
-            ((error_count++))
+            ((rbac_errors++))
           fi
         else
           echo "⚠️  RBAC foundation module not found - skipping functionality check"
         fi
         
-        # Check for healthcare security middleware
+        # Additional RBAC checks
+        if [ -d "src/security/" ] && [ "$(find src/security/ -type f -name '*.py' | head -1)" ]; then
+          if grep -r -q 'role.*=.*\|permission.*=.*\|rbac' src/security/ 2>/dev/null; then
+            echo "✅ RBAC patterns found in security modules"
+          else
+            echo "⚠️  No RBAC patterns found in security modules"
+          fi
+        fi
+        
+        # Exit with error count (0 = success)
+        exit $rbac_errors
+
+  healthcare-security-middleware-check:
+    runs-on: ubuntu-latest
+    needs: setup-dependencies
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.cache/uv
+          ~/.local/bin
+          ~/.local/lib
+          ~/.cargo/bin
+        key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2
+    
+    - name: Healthcare Security Middleware Check
+      run: |
+        echo "🏥 Checking Healthcare Security Middleware..."
+        
+        middleware_errors=0
+        
         if [ -f "src/security/healthcare_security.py" ]; then
           if python3 -c "import sys; sys.path.append('src'); from security.healthcare_security import HealthcareSecurityMiddleware; print('✅ Healthcare security middleware available')" 2>/dev/null; then
             echo "✅ Healthcare security middleware functional"
           else
             echo "❌ Healthcare security middleware not functional"
-            ((error_count++))
+            ((middleware_errors++))
           fi
         else
           echo "⚠️  Healthcare security middleware not found - skipping functionality check"
         fi
         
-        if [ $error_count -gt 0 ]; then
-          echo "💥 Healthcare compliance validation failed with $error_count error(s)"
-          echo "🚨 This system would not be HIPAA compliant if deployed"
-          exit 1
-        else
-          echo "✅ Healthcare compliance validation passed"
-          echo "🏥 System meets HIPAA compliance requirements"
+        # Additional middleware pattern checks
+        if [ -d "src/security/" ] && [ "$(find src/security/ -type f -name '*.py' | head -1)" ]; then
+          if grep -r -q 'middleware.*=.*\|HealthcareSecurity\|audit.*middleware' src/security/ 2>/dev/null; then
+            echo "✅ Security middleware patterns found"
+          else
+            echo "⚠️  No security middleware patterns found"
+          fi
         fi
+        
+        # Exit with error count (0 = success)
+        exit $middleware_errors
 
+  phi-detection-check:
+    runs-on: ubuntu-latest
+    needs: setup-dependencies
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.cache/uv
+          ~/.local/bin
+          ~/.local/lib
+          ~/.cargo/bin
+        key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2
+    
+    - name: PHI Detection Configuration Check
+      run: |
+        echo "🏥 Checking PHI Detection Configuration..."
+        
+        phi_errors=0
+        
+        if [ -d "src/healthcare_mcp/" ] && [ "$(find src/healthcare_mcp/ -type f | head -1)" ]; then
+          if grep -r -q 'phi_detection_enabled.*=.*True\|PHI_DETECTION_ENABLED.*true' src/healthcare_mcp/ 2>/dev/null; then
+            echo "✅ PHI detection properly enabled"
+          else
+            echo "❌ PHI detection not properly enabled in MCP server"
+            ((phi_errors++))
+          fi
+        else
+          echo "⚠️  No healthcare_mcp directory found - skipping PHI detection check"
+        fi
+        
+        # Exit with error count so far
+        exit $phi_errors
+    
+    - name: PHI Detection Functionality Check
+      run: |
+        echo "🏥 Testing PHI Detection Functionality..."
+        
+        phi_errors=0
+        
+        if [ -f "src/healthcare_mcp/phi_detection.py" ]; then
+          if python3 -c "import sys; sys.path.append('src'); from healthcare_mcp.phi_detection import PHIDetector; PHIDetector(); print('✅ PHI detection functional')" 2>/dev/null; then
+            echo "✅ PHI detection classes functional"
+          else
+            echo "❌ PHI detection classes not functional"
+            ((phi_errors++))
+          fi
+        else
+          echo "⚠️  PHI detection module not found - skipping functionality check"
+        fi
+        
+        # Exit with error count (0 = success)
+        exit $phi_errors
+
+  audit-logging-check:
+    runs-on: ubuntu-latest
+    needs: setup-dependencies
+    steps:
+    - uses: actions/checkout@v4
+    - name: Audit Logging Configuration Check
+      run: |
+        echo "🏥 Checking Audit Logging Configuration..."
+        
+        audit_errors=0
+        audit_found=false
+        
+        if [ -d "src/security/" ] && [ "$(find src/security/ -type f | head -1)" ]; then
+          if grep -r -q 'audit_logging.*=.*True\|AUDIT_LOGGING_LEVEL' src/security/ 2>/dev/null; then
+            audit_found=true
+          fi
+        fi
+        
+        if [ -d "src/healthcare_mcp/" ] && [ "$(find src/healthcare_mcp/ -type f | head -1)" ]; then
+          if grep -r -q 'audit_logging.*=.*True\|AUDIT_LOGGING_LEVEL' src/healthcare_mcp/ 2>/dev/null; then
+            audit_found=true
+          fi
+        fi
+        
+        if [ "$audit_found" = true ]; then
+          echo "✅ Audit logging properly configured"
+        elif [ -d "src/security/" ] || [ -d "src/healthcare_mcp/" ]; then
+          echo "❌ Audit logging not properly configured"
+          ((audit_errors++))
+        else
+          echo "⚠️  No security directories found - skipping audit logging check"
+        fi
+        
+        # Exit with error count (0 = success)
+        exit $audit_errors
+
+  hipaa-compliance-check:
+    runs-on: ubuntu-latest
+    needs: setup-dependencies
+    steps:
+    - uses: actions/checkout@v4
+    - name: HIPAA Compliance Mode Check
+      run: |
+        echo "🏥 Checking HIPAA Compliance Mode..."
+        
+        hipaa_errors=0
+        
+        if [ -d "src/healthcare_mcp/" ] && [ "$(find src/healthcare_mcp/ -type f | head -1)" ]; then
+          if grep -r -q 'hipaa_compliance_mode.*=.*strict\|HIPAA_COMPLIANCE_MODE.*strict' src/healthcare_mcp/ 2>/dev/null; then
+            echo "✅ HIPAA compliance in strict mode"
+          else
+            echo "❌ HIPAA compliance not in strict mode"
+            ((hipaa_errors++))
+          fi
+        else
+          echo "⚠️  No healthcare_mcp directory found - skipping HIPAA compliance check"
+        fi
+        
+        # Exit with error count (0 = success)
+        exit $hipaa_errors
+
+  # Integration tests - now lightweight and focused
   healthcare-integration-tests:
     runs-on: ubuntu-latest
-    needs: type-safety-validation
+    needs: [python-syntax-check, flake8-quality-check, mypy-type-check]
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
@@ -300,9 +443,6 @@ jobs:
     - name: Setup CI Environment
       run: |
         echo "=== Setting up CI Environment ==="
-        echo "User: $(whoami)"
-        echo "UID: $(id -u)"
-        echo "Groups: $(groups)"
         
         # Set CI-specific environment variables
         echo "CI_NO_SUDO=true" >> $GITHUB_ENV
@@ -319,30 +459,16 @@ jobs:
         # Create CI-friendly directories
         mkdir -p /tmp/intelluxe-stack/{logs,backups,qrcodes}
         mkdir -p /tmp/wireguard
-        
-        # Create minimal WireGuard config for testing
         echo "# CI WireGuard config" > /tmp/wireguard/wg0.conf
     
     - name: Install System Dependencies
       run: |
-        # Install only essential packages for CI (avoiding timeout)
         sudo apt-get update -q
-        
-        # Install in smaller groups to avoid timeout
-        echo "Installing core tools..."
         sudo apt-get install -y --no-install-recommends \
-          curl wget git jq shellcheck || echo "Core tools installation completed with warnings"
-        
-        echo "Installing network tools..."
-        sudo apt-get install -y --no-install-recommends \
-          lsof socat wireguard-tools || echo "Network tools installation completed with warnings"
-        
-        echo "Installing Python tools..."
-        sudo apt-get install -y --no-install-recommends \
+          curl wget git jq shellcheck \
+          lsof socat wireguard-tools \
           python3-flake8 python3-pytest python3-yaml \
-          python3-cryptography python3-psycopg2 || echo "Python tools installation completed with warnings"
-        
-        echo "Dependency installation completed"
+          python3-cryptography python3-psycopg2 || echo "Dependencies installation completed with warnings"
     
     - name: Healthcare AI Integration Test
       env:
@@ -363,14 +489,11 @@ jobs:
         mkdir -p /tmp/intelluxe-stack/{logs,backups,qrcodes}
         mkdir -p /tmp/wireguard
         
-        # Set CI-friendly WireGuard directory
+        # Set CI-friendly environment
         export WG_CONFIG_DIR="/tmp/wireguard"
         export CFG_ROOT=/tmp/intelluxe-stack
         export CI=true
         export GITHUB_ACTIONS=true
-        
-        # Skip dependency installation and WireGuard setup in CI
-        echo "Skipping dependency installation and WireGuard setup in CI"
         
         # Run validation with CI-friendly settings
         timeout 5m ./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check --dry-run --skip-deps || echo "Bootstrap validation completed with warnings"
@@ -385,6 +508,59 @@ jobs:
         name: healthcare-ai-coverage
         path: coverage/
         retention-days: 30
+
+  # Final status check - only runs if all critical checks pass
+  healthcare-compliance-summary:
+    runs-on: ubuntu-latest
+    needs: [
+      phi-detection-check, 
+      audit-logging-check, 
+      hipaa-compliance-check, 
+      rbac-foundation-check, 
+      healthcare-security-middleware-check,
+      healthcare-integration-tests
+    ]
+    if: always()
+    steps:
+    - name: Healthcare Compliance Summary
+      run: |
+        echo "🏥 Healthcare AI Compliance Summary"
+        echo "=================================="
+        
+        # Check if all healthcare security checks passed
+        phi_status="${{ needs.phi-detection-check.result }}"
+        audit_status="${{ needs.audit-logging-check.result }}"
+        hipaa_status="${{ needs.hipaa-compliance-check.result }}"
+        rbac_status="${{ needs.rbac-foundation-check.result }}"
+        middleware_status="${{ needs.healthcare-security-middleware-check.result }}"
+        integration_status="${{ needs.healthcare-integration-tests.result }}"
+        
+        echo "PHI Detection: $phi_status"
+        echo "Audit Logging: $audit_status" 
+        echo "HIPAA Compliance: $hipaa_status"
+        echo "RBAC Foundation: $rbac_status"
+        echo "Security Middleware: $middleware_status"
+        echo "Integration Tests: $integration_status"
+        
+        # Determine overall compliance status
+        failed_checks=0
+        
+        [[ "$phi_status" != "success" && "$phi_status" != "skipped" ]] && ((failed_checks++))
+        [[ "$audit_status" != "success" && "$audit_status" != "skipped" ]] && ((failed_checks++))
+        [[ "$hipaa_status" != "success" && "$hipaa_status" != "skipped" ]] && ((failed_checks++))
+        [[ "$rbac_status" != "success" && "$rbac_status" != "skipped" ]] && ((failed_checks++))
+        [[ "$middleware_status" != "success" && "$middleware_status" != "skipped" ]] && ((failed_checks++))
+        [[ "$integration_status" != "success" && "$integration_status" != "skipped" ]] && ((failed_checks++))
+        
+        echo ""
+        if [ $failed_checks -eq 0 ]; then
+          echo "✅ Healthcare compliance validation PASSED"
+          echo "🏥 System meets HIPAA compliance requirements"
+        else
+          echo "❌ Healthcare compliance validation FAILED ($failed_checks checks failed)"
+          echo "🚨 This system would NOT be HIPAA compliant if deployed"
+          exit 1
+        fi
 
 # Environment variables for healthcare AI development
 env:
