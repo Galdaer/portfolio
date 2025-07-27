@@ -40,6 +40,13 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 - **Explainable AI**: All AI decisions must be traceable and auditable for healthcare compliance
 - **All PHI/PII remains on-premise** - no cloud dependencies or external API calls with patient data
 
+### Medical Module Development Patterns
+
+- **Mock Strategy**: For missing methods in medical modules, create mock implementations with TODO comments rather than leaving undefined
+- **Type Error Priority**: Fix type errors systematically: imports → unused variables → type annotations → method implementations
+- **Medical Disclaimers**: All medical module mocks must include healthcare compliance disclaimers in method docstrings
+- **Context-First**: Always read 50+ lines of file context before making medical module edits
+
 ## Development Workflow & Code Quality
 
 ### Quick Developer Setup
@@ -74,6 +81,12 @@ make install && make deps && make hooks && make validate
 - **Type-Safe Dictionary Operations**: Use `isinstance()` checks before operations
 - **Environment Variable Safety**: Handle `os.getenv()` returning None
 - **Mixed Dictionary Types**: Use `Dict[str, Any]` for mixed-type dictionaries
+
+### Type Checking Best Practices
+
+- **Mypy Medical Modules**: Use `python3 -m mypy [file] --config-file mypy.ini --ignore-missing-imports` for medical modules
+- **Systematic Resolution**: Address type errors in order: missing imports, unused variables, type annotations, missing method implementations
+- **Safe Attribute Access**: Use `getattr()` with defaults for accessing attributes that may not exist on all object types
 
 ### Validation Standards
 
@@ -120,6 +133,13 @@ make lint && make validate && echo "✅ Code quality verified"
 - **Discover and fix related issues** beyond initial scope
 - **Only stop for unrecoverable errors** or 100% completion
 - **NEVER waste premium requests**: Always read current file contents before editing, pay attention to user's explicit instructions about infrastructure (self-hosted runners, etc.)
+
+### When to Use Sequential Thinking
+
+- **Complex Implementation Decisions**: Mock vs implement, architecture choices, technical debt tradeoffs
+- **Large Codebase Analysis**: Understanding module relationships and dependencies before changes
+- **Multi-Step Problem Solving**: Breaking down complex fixes into manageable phases
+- **Phase 0 Prioritization**: Deciding what to implement now vs defer to future phases
 
 ### Required Environment Setup
 
