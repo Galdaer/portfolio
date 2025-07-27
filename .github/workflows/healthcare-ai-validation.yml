@@ -96,41 +96,6 @@ jobs:
           echo "📦 uv cache entries: $(find ~/.cache/uv -type f | wc -l) files"
         fi
         echo "🎯 Cache will speed up subsequent runs"
-        
-        # Install Python tools with uv (preferred) or pip (fallback)
-        if command -v uv >/dev/null 2>&1; then
-          echo "Using uv for faster package installation..."
-          uv pip install --system --break-system-packages flake8 mypy pydantic fastapi pytest pytest-asyncio types-requests || echo "Warning: uv tools installation failed, falling back to pip"
-        fi
-        
-        # Fallback to pip if uv is not available or failed
-        if ! command -v flake8 >/dev/null 2>&1; then
-          echo "Using pip for package installation..."
-          python3 -m pip install --user --break-system-packages flake8 mypy pydantic fastapi pytest pytest-asyncio types-requests || echo "Warning: Python tools failed to install"
-        fi
-        
-        # Install main dependencies
-        if [ -f "requirements-ci.txt" ]; then
-          if command -v uv >/dev/null 2>&1; then
-            echo "Installing requirements-ci.txt with uv..."
-            uv pip install --system -r requirements-ci.txt || echo "CI requirements installation with uv completed with warnings"
-          else
-            echo "Installing requirements-ci.txt with pip..."
-            pip install -r requirements-ci.txt || echo "CI requirements installation with pip completed with warnings"
-          fi
-        fi
-    
-    - name: Cache effectiveness report
-      run: |
-        echo "=== Post-Installation Cache Report ==="
-        if [ -d ~/.cache/pip ]; then
-          echo "📊 pip cache size: $(du -sh ~/.cache/pip || echo 'unknown')"
-          echo "📦 pip cache entries: $(find ~/.cache/pip -name "*.whl" | wc -l) wheel files"
-        fi
-        if [ -d ~/.cache/uv ]; then
-          echo "📊 uv cache size: $(du -sh ~/.cache/uv || echo 'unknown')"
-          echo "📦 uv cache entries: $(find ~/.cache/uv -type f | wc -l) files"
-        fi
 
   # Python compilation check - fast fail for syntax errors
   python-syntax-check:
@@ -146,7 +111,7 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.12'
-    - name: Cache Python dependencies
+    - name: Restore cached dependencies
       uses: actions/cache@v4
       with:
         path: |
@@ -155,7 +120,11 @@ jobs:
           ~/.local/bin
           ~/.local/lib
           ~/.cargo/bin
-        key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2
+          /opt/hostedtoolcache/Python/3.12.*/x64/lib/python3.12/site-packages
+        key: ${{ runner.os }}-python-full-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v3
+        restore-keys: |
+          ${{ runner.os }}-python-full-
+          ${{ runner.os }}-python-
     
     - name: Python Syntax Check - ${{ matrix.directory }}
       run: |
@@ -181,7 +150,7 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.12'
-    - name: Cache Python dependencies
+    - name: Restore cached dependencies
       uses: actions/cache@v4
       with:
         path: |
@@ -190,11 +159,15 @@ jobs:
           ~/.local/bin
           ~/.local/lib
           ~/.cargo/bin
-        key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2
-    - name: Install flake8
+          /opt/hostedtoolcache/Python/3.12.*/x64/lib/python3.12/site-packages
+        key: ${{ runner.os }}-python-full-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v3
+        restore-keys: |
+          ${{ runner.os }}-python-full-
+          ${{ runner.os }}-python-
+    - name: Setup Python PATH
       run: |
-        python -m pip install --user flake8
         echo "$HOME/.local/bin" >> $GITHUB_PATH
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     
     - name: Flake8 Code Quality - ${{ matrix.directory }}
       run: |
@@ -220,7 +193,7 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.12'
-    - name: Cache Python dependencies
+    - name: Restore cached dependencies
       uses: actions/cache@v4
       with:
         path: |
@@ -229,15 +202,15 @@ jobs:
           ~/.local/bin
           ~/.local/lib
           ~/.cargo/bin
-        key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2
-    - name: Install MyPy and dependencies
+          /opt/hostedtoolcache/Python/3.12.*/x64/lib/python3.12/site-packages
+        key: ${{ runner.os }}-python-full-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v3
+        restore-keys: |
+          ${{ runner.os }}-python-full-
+          ${{ runner.os }}-python-
+    - name: Setup Python PATH
       run: |
-        python -m pip install --user mypy types-requests
         echo "$HOME/.local/bin" >> $GITHUB_PATH
-        # Install main dependencies for type checking
-        if [ -f "requirements-ci.txt" ]; then
-          python -m pip install --user -r requirements-ci.txt || echo "Some dependencies failed - continuing"
-        fi
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     
     - name: MyPy Type Check - ${{ matrix.directory }}
       run: |
@@ -259,7 +232,7 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.12'
-    - name: Cache Python dependencies
+    - name: Restore cached dependencies
       uses: actions/cache@v4
       with:
         path: |
@@ -268,7 +241,15 @@ jobs:
           ~/.local/bin
           ~/.local/lib
           ~/.cargo/bin
-        key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2
+          /opt/hostedtoolcache/Python/3.12.*/x64/lib/python3.12/site-packages
+        key: ${{ runner.os }}-python-full-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v3
+        restore-keys: |
+          ${{ runner.os }}-python-full-
+          ${{ runner.os }}-python-
+    - name: Setup Python PATH
+      run: |
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     
     - name: RBAC Foundation Check
       run: |
@@ -308,7 +289,7 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.12'
-    - name: Cache Python dependencies
+    - name: Restore cached dependencies
       uses: actions/cache@v4
       with:
         path: |
@@ -317,7 +298,15 @@ jobs:
           ~/.local/bin
           ~/.local/lib
           ~/.cargo/bin
-        key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2
+          /opt/hostedtoolcache/Python/3.12.*/x64/lib/python3.12/site-packages
+        key: ${{ runner.os }}-python-full-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v3
+        restore-keys: |
+          ${{ runner.os }}-python-full-
+          ${{ runner.os }}-python-
+    - name: Setup Python PATH
+      run: |
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     
     - name: Healthcare Security Middleware Check
       run: |
@@ -357,7 +346,7 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.12'
-    - name: Cache Python dependencies
+    - name: Restore cached dependencies
       uses: actions/cache@v4
       with:
         path: |
@@ -366,7 +355,15 @@ jobs:
           ~/.local/bin
           ~/.local/lib
           ~/.cargo/bin
-        key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2
+          /opt/hostedtoolcache/Python/3.12.*/x64/lib/python3.12/site-packages
+        key: ${{ runner.os }}-python-full-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v3
+        restore-keys: |
+          ${{ runner.os }}-python-full-
+          ${{ runner.os }}-python-
+    - name: Setup Python PATH
+      run: |
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     
     - name: PHI Detection Configuration Check
       run: |
@@ -469,15 +466,35 @@ jobs:
         # Exit with error count (0 = success)
         exit $hipaa_errors
 
-  # Integration tests - now lightweight and focused
-  healthcare-integration-tests:
+  # Bootstrap validation - lightweight infrastructure check
+  bootstrap-validation-check:
     runs-on: ubuntu-latest
-    needs: [python-syntax-check, flake8-quality-check, mypy-type-check]
-    timeout-minutes: 10
+    needs: setup-dependencies
+    timeout-minutes: 8
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
+    
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    
+    - name: Restore cached dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.cache/uv
+          ~/.local/bin
+          ~/.local/lib
+          ~/.cargo/bin
+          /opt/hostedtoolcache/Python/3.12.*/x64/lib/python3.12/site-packages
+        key: ${{ runner.os }}-python-full-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v3
+        restore-keys: |
+          ${{ runner.os }}-python-full-
+          ${{ runner.os }}-python-
     
     - name: Cache system dependencies
       uses: actions/cache@v4
@@ -488,6 +505,11 @@ jobs:
         key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/healthcare-ai-validation.yml') }}-v1
         restore-keys: |
           ${{ runner.os }}-apt-
+    
+    - name: Setup Python PATH
+      run: |
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     
     - name: Setup CI Environment
       run: |
@@ -510,16 +532,121 @@ jobs:
         mkdir -p /tmp/wireguard
         echo "# CI WireGuard config" > /tmp/wireguard/wg0.conf
     
-    - name: Install System Dependencies
+    - name: Install System Dependencies (if not cached)
       run: |
-        sudo apt-get update -q
-        sudo apt-get install -y --no-install-recommends \
-          curl wget git jq shellcheck \
-          lsof socat wireguard-tools \
-          python3-flake8 python3-pytest python3-yaml \
-          python3-cryptography python3-psycopg2 || echo "Dependencies installation completed with warnings"
+        # Only install if not already available
+        if ! command -v shellcheck >/dev/null 2>&1; then
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            curl wget git jq shellcheck \
+            lsof socat wireguard-tools || echo "Dependencies installation completed with warnings"
+        else
+          echo "✅ System dependencies already available from cache"
+        fi
     
-    - name: Healthcare AI Integration Test
+    - name: Bootstrap Infrastructure Validation
+      env:
+        CI: true
+        GITHUB_ACTIONS: true
+        ENVIRONMENT: development
+        CFG_ROOT: /tmp/intelluxe-stack
+        CFG_UID: 1000
+        CFG_GID: 1001
+        SKIP_GPU_PACKAGES: true
+        CI_SKIP_DEPS: true
+        CI_NO_SUDO: true
+        SKIP_ROOT_CHECKS: true
+        SKIP_WIREGUARD_SETUP: true
+      run: |
+        # Set CI-friendly environment
+        export WG_CONFIG_DIR="/tmp/wireguard"
+        export CFG_ROOT=/tmp/intelluxe-stack
+        
+        echo "🏥 Running bootstrap infrastructure validation..."
+        timeout 5m ./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check --dry-run --skip-deps || echo "Bootstrap validation completed with warnings"
+
+  # Shell script test suite - focused on script functionality
+  shell-script-test-suite:
+    runs-on: ubuntu-latest
+    needs: setup-dependencies
+    timeout-minutes: 8
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    
+    - name: Restore cached dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.cache/uv
+          ~/.local/bin
+          ~/.local/lib
+          ~/.cargo/bin
+          /opt/hostedtoolcache/Python/3.12.*/x64/lib/python3.12/site-packages
+        key: ${{ runner.os }}-python-full-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v3
+        restore-keys: |
+          ${{ runner.os }}-python-full-
+          ${{ runner.os }}-python-
+    
+    - name: Cache system dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          /var/cache/apt
+          /var/lib/apt
+        key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/healthcare-ai-validation.yml') }}-v1
+        restore-keys: |
+          ${{ runner.os }}-apt-
+    
+    - name: Setup Python PATH
+      run: |
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    
+    - name: Setup CI Environment
+      run: |
+        echo "=== Setting up CI Environment ==="
+        
+        # Set CI-specific environment variables
+        echo "CI_NO_SUDO=true" >> $GITHUB_ENV
+        echo "SKIP_ROOT_CHECKS=true" >> $GITHUB_ENV
+        echo "SKIP_GPU_PACKAGES=true" >> $GITHUB_ENV
+        echo "ENVIRONMENT=development" >> $GITHUB_ENV
+        echo "CFG_ROOT=/tmp/intelluxe-stack" >> $GITHUB_ENV
+        echo "CFG_UID=1000" >> $GITHUB_ENV
+        echo "CFG_GID=1001" >> $GITHUB_ENV
+        echo "CI_SKIP_DEPS=true" >> $GITHUB_ENV
+        echo "CI_SKIP_SYSTEM_TESTS=true" >> $GITHUB_ENV
+        echo "SKIP_WIREGUARD_SETUP=true" >> $GITHUB_ENV
+        echo "WG_CONFIG_DIR=/tmp/wireguard" >> $GITHUB_ENV
+        
+        # Create CI-friendly directories
+        mkdir -p /tmp/intelluxe-stack/{logs,backups,qrcodes}
+        mkdir -p /tmp/wireguard
+        echo "# CI WireGuard config" > /tmp/wireguard/wg0.conf
+    
+    - name: Install System Dependencies (if not cached)
+      run: |
+        # Only install if not already available
+        if ! command -v shellcheck >/dev/null 2>&1; then
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends \
+            curl wget git jq shellcheck \
+            lsof socat wireguard-tools \
+            python3-flake8 python3-pytest python3-yaml \
+            python3-cryptography python3-psycopg2 || echo "Dependencies installation completed with warnings"
+        else
+          echo "✅ System dependencies already available from cache"
+        fi
+    
+    - name: Healthcare AI Shell Script Tests
       env:
         CI: true
         GITHUB_ACTIONS: true
@@ -534,20 +661,11 @@ jobs:
         SKIP_ROOT_CHECKS: true
         SKIP_WIREGUARD_SETUP: true
       run: |
-        # Create directories without sudo
-        mkdir -p /tmp/intelluxe-stack/{logs,backups,qrcodes}
-        mkdir -p /tmp/wireguard
-        
         # Set CI-friendly environment
         export WG_CONFIG_DIR="/tmp/wireguard"
         export CFG_ROOT=/tmp/intelluxe-stack
-        export CI=true
-        export GITHUB_ACTIONS=true
         
-        # Run validation with CI-friendly settings
-        timeout 5m ./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check --dry-run --skip-deps || echo "Bootstrap validation completed with warnings"
-        
-        # Run tests with reduced timeout and CI environment
+        echo "🏥 Running healthcare AI shell script test suite..."
         timeout 5m bash ./scripts/test.sh || echo "Tests completed with some expected failures in CI"
     
     - name: Upload Coverage Reports
@@ -567,7 +685,8 @@ jobs:
       hipaa-compliance-check, 
       rbac-foundation-check, 
       healthcare-security-middleware-check,
-      healthcare-integration-tests
+      bootstrap-validation-check,
+      shell-script-test-suite
     ]
     if: always()
     steps:
@@ -582,14 +701,16 @@ jobs:
         hipaa_status="${{ needs.hipaa-compliance-check.result }}"
         rbac_status="${{ needs.rbac-foundation-check.result }}"
         middleware_status="${{ needs.healthcare-security-middleware-check.result }}"
-        integration_status="${{ needs.healthcare-integration-tests.result }}"
+        bootstrap_status="${{ needs.bootstrap-validation-check.result }}"
+        shell_tests_status="${{ needs.shell-script-test-suite.result }}"
         
         echo "PHI Detection: $phi_status"
         echo "Audit Logging: $audit_status" 
         echo "HIPAA Compliance: $hipaa_status"
         echo "RBAC Foundation: $rbac_status"
         echo "Security Middleware: $middleware_status"
-        echo "Integration Tests: $integration_status"
+        echo "Bootstrap Validation: $bootstrap_status"
+        echo "Shell Script Tests: $shell_tests_status"
         
         # Determine overall compliance status
         failed_checks=0
@@ -599,7 +720,8 @@ jobs:
         [[ "$hipaa_status" != "success" && "$hipaa_status" != "skipped" ]] && ((failed_checks++))
         [[ "$rbac_status" != "success" && "$rbac_status" != "skipped" ]] && ((failed_checks++))
         [[ "$middleware_status" != "success" && "$middleware_status" != "skipped" ]] && ((failed_checks++))
-        [[ "$integration_status" != "success" && "$integration_status" != "skipped" ]] && ((failed_checks++))
+        [[ "$bootstrap_status" != "success" && "$bootstrap_status" != "skipped" ]] && ((failed_checks++))
+        [[ "$shell_tests_status" != "success" && "$shell_tests_status" != "skipped" ]] && ((failed_checks++))
         
         echo ""
         if [ $failed_checks -eq 0 ]; then
