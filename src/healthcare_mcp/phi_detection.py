@@ -249,7 +249,7 @@ class PHIDetectionResult:
 class BasicPHIDetector:
     """Basic PHI detector using regex patterns"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(f"{__name__}.BasicPHIDetector")
 
         # PHI patterns based on HIPAA identifiers
@@ -365,7 +365,7 @@ class BasicPHIDetector:
 class PresidioPHIDetector:
     """Advanced PHI detector using Microsoft Presidio"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(f"{__name__}.PresidioPHIDetector")
 
         if not PRESIDIO_AVAILABLE or AnalyzerEngine is None or AnonymizerEngine is None:
@@ -432,7 +432,7 @@ class PresidioPHIDetector:
 class PHIDetector:
     """Main PHI detector with fallback capabilities"""
 
-    def __init__(self, use_presidio: bool = True):
+    def __init__(self, use_presidio: bool = True) -> None:
         self.logger = logging.getLogger(f"{__name__}.PHIDetector")
         self.use_presidio = use_presidio and PRESIDIO_AVAILABLE
 
@@ -591,7 +591,7 @@ class PHIDetector:
 class PHIMaskingService:
     """Service for masking PHI in various data formats"""
 
-    def __init__(self, phi_detector: PHIDetector):
+    def __init__(self, phi_detector: PHIDetector) -> None:
         self.phi_detector = phi_detector
         self.logger = logging.getLogger(f"{__name__}.PHIMaskingService")
 

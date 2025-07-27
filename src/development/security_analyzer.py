@@ -26,7 +26,7 @@ class SecurityIssue:
 class SecurityAnalyzer:
     """AST-based security analysis for healthcare code"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(f"{__name__}.SecurityAnalyzer")
         self.issues: List[SecurityIssue] = []
 
@@ -351,7 +351,7 @@ class SecurityAnalyzer:
         if issues is None:
             issues = self.issues
 
-        results = {
+        results: Dict[str, Any] = {
             'total_issues': len(issues),
             'issues_by_severity': {
                 'critical': [issue for issue in issues if issue.severity == 'critical'],
@@ -364,9 +364,12 @@ class SecurityAnalyzer:
         }
 
         # Group by category
+        issues_by_category: Dict[str, List[SecurityIssue]] = {}
         for issue in issues:
-            if issue.category not in results['issues_by_category']:
-                results['issues_by_category'][issue.category] = []
-            results['issues_by_category'][issue.category].append(issue)
+            if issue.category not in issues_by_category:
+                issues_by_category[issue.category] = []
+            issues_by_category[issue.category].append(issue)
+
+        results['issues_by_category'] = issues_by_category
 
         return results

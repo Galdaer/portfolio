@@ -177,7 +177,10 @@ class SessionManager:
     """Session management for authenticated healthcare users"""
 
     def __init__(self, secret_key: Optional[str] = None):
-        self.secret_key = secret_key or os.getenv('JWT_SECRET_KEY', secrets.token_hex(32))
+        # Ensure we always have a valid secret key
+        default_key = secrets.token_hex(32)
+        env_key = os.getenv('JWT_SECRET_KEY')
+        self.secret_key: str = secret_key or env_key or default_key
         self.db = PatientAssignmentDB()
         self.logger = logging.getLogger(f"{__name__}.SessionManager")
 

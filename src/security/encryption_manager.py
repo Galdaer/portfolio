@@ -578,7 +578,7 @@ class HealthcareEncryptionManager:
     def _load_configuration(self) -> Dict[str, Any]:
         """Load encryption configuration with environment-aware defaults"""
 
-        base_config = {
+        base_config: Dict[str, Any] = {
             'key_rotation_days': 365,
             'audit_logging': True,
             'entropy_threshold': self.MIN_ENTROPY_THRESHOLD,

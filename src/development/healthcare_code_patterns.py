@@ -522,7 +522,7 @@ class MedicalAIAgent:
 
     def validate_code_against_patterns(self, code: str) -> Dict[str, Any]:
         """Validate code against healthcare patterns"""
-        validation_results = {
+        validation_results: Dict[str, Any] = {
             "patterns_detected": [],
             "compliance_score": 0.0,
             "recommendations": [],
@@ -550,22 +550,26 @@ class MedicalAIAgent:
         compliance_score = sum(all_checks.values()) / len(all_checks)
         validation_results["compliance_score"] = compliance_score
 
-        # Generate recommendations
-        if not security_checks["authentication"]:
-            validation_results["recommendations"].append("Add authentication requirements")
+        # Generate recommendations with proper type casting
+        recommendations = validation_results["recommendations"]
+        if isinstance(recommendations, list):
+            if not security_checks["authentication"]:
+                recommendations.append("Add authentication requirements")
 
-        if not security_checks["audit_logging"]:
-            validation_results["recommendations"].append("Implement audit logging")
+            if not security_checks["audit_logging"]:
+                recommendations.append("Implement audit logging")
 
-        if not medical_checks["medical_disclaimers"]:
-            validation_results["recommendations"].append("Add medical disclaimers")
+            if not medical_checks["medical_disclaimers"]:
+                recommendations.append("Add medical disclaimers")
 
-        # Detect security issues
-        if "password" in code.lower() and "hash" not in code.lower():
-            validation_results["security_issues"].append("Potential plaintext password usage")
+        # Detect security issues with proper type casting
+        security_issues = validation_results["security_issues"]
+        if isinstance(security_issues, list):
+            if "password" in code.lower() and "hash" not in code.lower():
+                security_issues.append("Potential plaintext password usage")
 
-        if "sql" in code.lower() and "prepare" not in code.lower():
-            validation_results["security_issues"].append("Potential SQL injection vulnerability")
+            if "sql" in code.lower() and "prepare" not in code.lower():
+                security_issues.append("Potential SQL injection vulnerability")
 
         return validation_results
 
