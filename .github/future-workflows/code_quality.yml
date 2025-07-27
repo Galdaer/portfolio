@@ -27,7 +27,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install flake8 black isort mypy pylint bandit
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Run Flake8
       run: |
@@ -67,7 +67,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install bandit safety
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Run Bandit Security Linting
       run: |
@@ -109,7 +109,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pydocstyle doc8
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Check Docstring Style
       run: |
@@ -138,7 +138,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Run Comprehensive Linting
       run: |
@@ -172,7 +172,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install radon xenon mccabe
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Run Radon Complexity Analysis
       run: |
@@ -221,7 +221,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install coverage pytest-cov
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Run Tests with Coverage
       env:
@@ -257,7 +257,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pipdeptree pip-audit
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Generate Dependency Tree
       run: |
@@ -297,7 +297,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install memory-profiler line-profiler
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Run Performance Tests
       run: |
@@ -330,7 +330,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Download All Artifacts
       uses: actions/download-artifact@v3

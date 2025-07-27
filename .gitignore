@@ -6,6 +6,7 @@
 !/tests.txt
 !/Makefile
 !/requirements.txt
+!/requirements-ci.txt
 !/mypy.ini
 !/Dockerfile.test
 !/.copilotignore

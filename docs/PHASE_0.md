@@ -301,7 +301,7 @@ jobs:
         uv venv
         source .venv/bin/activate
         uv pip install deepeval pytest-asyncio
-        uv pip install -r requirements.txt
+        uv pip install -r requirements-ci.txt
         
     - name: Run HIPAA-Compliant Synthetic Data Generation
       run: |

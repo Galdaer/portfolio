@@ -183,7 +183,7 @@ jobs:
     - name: Setup Healthcare Evaluation Environment
       run: |
         pip install deepeval pytest-asyncio
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
 
     - name: Run HIPAA-Compliant Synthetic Data Generation
       run: |

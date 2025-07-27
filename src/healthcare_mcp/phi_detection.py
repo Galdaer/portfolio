@@ -5,19 +5,24 @@ Detects and masks Protected Health Information (PHI) for HIPAA compliance
 
 import re
 import logging
-from typing import Dict, List, Tuple, Any, cast
+from typing import Dict, List, Tuple, Any, cast, Union, Optional, Type
 from datetime import datetime
 import json
 from dataclasses import dataclass
+from io import StringIO
 
 try:
     from presidio_analyzer import AnalyzerEngine
     from presidio_anonymizer import AnonymizerEngine
     PRESIDIO_AVAILABLE = True
+    AnalyzerEngineType = Type[AnalyzerEngine]
+    AnonymizerEngineType = Type[AnonymizerEngine]
 except ImportError:
-    AnalyzerEngine = None
-    AnonymizerEngine = None
+    AnalyzerEngine = None  # type: ignore
+    AnonymizerEngine = None  # type: ignore
     PRESIDIO_AVAILABLE = False
+    AnalyzerEngineType = None  # type: ignore
+    AnonymizerEngineType = None  # type: ignore
     logging.warning("Presidio not available, using basic PHI detection")
 
 # Configure logging
@@ -182,7 +187,6 @@ def _apply_replacements_memory_efficient(replacements: List[Tuple[int, int, str]
     """
     import sys
     import time
-    from io import StringIO
 
     text_length = len(text)
     replacement_count = len(replacements)
@@ -367,9 +371,9 @@ class PresidioPHIDetector:
         if not PRESIDIO_AVAILABLE or AnalyzerEngine is None or AnonymizerEngine is None:
             raise ImportError("Presidio is not available")
 
-        # Initialize Presidio engines
-        self.analyzer = AnalyzerEngine()
-        self.anonymizer = AnonymizerEngine()
+        # Initialize Presidio engines with proper typing
+        self.analyzer: Any = AnalyzerEngine()  # AnalyzerEngine when available
+        self.anonymizer: Any = AnonymizerEngine()  # AnonymizerEngine when available
 
         # Healthcare-specific entities
         self.healthcare_entities = [
@@ -432,6 +436,9 @@ class PHIDetector:
         self.logger = logging.getLogger(f"{__name__}.PHIDetector")
         self.use_presidio = use_presidio and PRESIDIO_AVAILABLE
 
+        # Initialize detector with proper typing
+        self.detector: Union['PresidioPHIDetector', 'BasicPHIDetector']
+
         if self.use_presidio:
             try:
                 self.detector = PresidioPHIDetector()
@@ -463,28 +470,28 @@ class PHIDetector:
                 return self.detector.detect_phi(value)
             elif isinstance(value, dict):
                 # Recursively process nested dictionaries
-                nested_results = {}
+                dict_phi_results = {}
                 for nested_key, nested_value in value.items():
-                    nested_results[nested_key] = process_value(nested_key, nested_value)
+                    dict_phi_results[nested_key] = process_value(nested_key, nested_value)
                 return PHIDetectionResult(
-                    phi_detected=any(res.phi_detected for res in nested_results.values()),
-                    phi_types=list({ptype for res in nested_results.values() for ptype in res.phi_types}),
-                    confidence_scores=[score for res in nested_results.values() for score in res.confidence_scores],
-                    masked_text=json.dumps({k: res.masked_text for k, res in nested_results.items()}),
-                    detection_details=[detail for res in nested_results.values() for detail in res.detection_details]
+                    phi_detected=any(res.phi_detected for res in dict_phi_results.values()),
+                    phi_types=list({ptype for res in dict_phi_results.values() for ptype in res.phi_types}),
+                    confidence_scores=[score for res in dict_phi_results.values() for score in res.confidence_scores],
+                    masked_text=json.dumps({k: res.masked_text for k, res in dict_phi_results.items()}),
+                    detection_details=[detail for res in dict_phi_results.values() for detail in res.detection_details]
                 )
             elif isinstance(value, list):
                 # Recursively process lists
-                nested_results = []
+                list_phi_results = []
                 for i, item in enumerate(value):
-                    nested_results.append(process_value(f"{key}[{i}]", item))
+                    list_phi_results.append(process_value(f"{key}[{i}]", item))
                 try:
                     return PHIDetectionResult(
-                        phi_detected=any(res.phi_detected for res in nested_results),
-                        phi_types=list({ptype for res in nested_results for ptype in res.phi_types}),
-                        confidence_scores=[score for res in nested_results for score in res.confidence_scores],
-                        masked_text=json.dumps([res.masked_text for res in nested_results]),
-                        detection_details=[detail for res in nested_results for detail in res.detection_details]
+                        phi_detected=any(res.phi_detected for res in list_phi_results),
+                        phi_types=list({ptype for res in list_phi_results for ptype in res.phi_types}),
+                        confidence_scores=[score for res in list_phi_results for score in res.confidence_scores],
+                        masked_text=json.dumps([res.masked_text for res in list_phi_results]),
+                        detection_details=[detail for res in list_phi_results for detail in res.detection_details]
                     )
                 except (TypeError, ValueError) as e:
                     self.logger.error("Failed to serialize value to JSON: %s", str(e))

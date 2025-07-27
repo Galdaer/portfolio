@@ -30,7 +30,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install bandit safety semgrep
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Run Bandit Security Scan
       run: |
@@ -82,7 +82,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Test Encryption Manager
       env:
@@ -128,7 +128,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Test RBAC Foundation
       env:
@@ -162,7 +162,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Test PHI Detection Accuracy
       run: |
@@ -207,7 +207,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Test Audit Logger Security
       env:
@@ -240,7 +240,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Test JWT Authentication
       env:
@@ -273,7 +273,7 @@ jobs:
     - name: Install penetration testing tools
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
         pip install requests-oauthlib sqlmap
     
     - name: Run SQL Injection Tests
@@ -304,7 +304,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r requirements-ci.txt
     
     - name: Validate HIPAA Compliance
       run: |
