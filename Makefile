@@ -158,29 +158,32 @@ fix-permissions:
 	@echo "✅ Permissions and ownership fixed"
 
 deps:
-	@echo "📦  Installing healthcare AI dependencies with uv (fast) or pip (fallback)"
-	@# Ensure system dependencies are installed first
-	@if ! command -v uv >/dev/null 2>&1; then \
-		echo "🔧  Installing uv for faster Python package management..."; \
-		curl -LsSf https://astral.sh/uv/install.sh | sh; \
-		export PATH="$$HOME/.cargo/bin:$$PATH"; \
+	@echo "📦  Installing healthcare AI dependencies for development (all packages)"
+	@# Generate lockfiles first if they don't exist or requirements.in is newer
+	@if [ ! -f requirements.txt ] || [ requirements.in -nt requirements.txt ]; then \
+		echo "🔒  Generating lockfiles from requirements.in..."; \
+		python3 scripts/generate-requirements.py; \
 	fi
+	@# Try to install dependencies using the best available method
 	@if command -v uv >/dev/null 2>&1; then \
-		echo "🚀  Using uv for fast installation..."; \
-		uv pip install --system --break-system-packages flake8 mypy pytest pytest-asyncio yamllint; \
-		if [ -f requirements.in ]; then \
-			uv pip install -r requirements.in; \
-			echo "🔒  Generating lockfiles for reproducible builds..."; \
-			python3 scripts/generate-requirements.py; \
+		echo "🚀  Using uv for fast installation (development = all dependencies)..."; \
+		sudo uv pip install --system --break-system-packages flake8 mypy pytest pytest-asyncio yamllint; \
+		if [ -f requirements.txt ]; then \
+			sudo uv pip install --system --break-system-packages -r requirements.txt; \
 		fi; \
 	else \
-		echo "⚠️  UV not found, installing with pip (slower)..."; \
-		pip3 install --break-system-packages flake8 mypy pytest pytest-asyncio yamllint; \
-		if [ -f requirements.in ]; then \
-			pip install -r requirements.in; \
+		echo "⚠️  UV not found, installing with pip..."; \
+		if ! command -v uv >/dev/null 2>&1; then \
+			echo "🔧  Installing uv for faster Python package management..."; \
+			curl -LsSf https://astral.sh/uv/install.sh | sh; \
+			export PATH="$$HOME/.cargo/bin:$$PATH"; \
+		fi; \
+		pip3 install --user --break-system-packages flake8 mypy pytest pytest-asyncio yamllint; \
+		if [ -f requirements.txt ]; then \
+			pip3 install --user --break-system-packages -r requirements.txt; \
 		fi; \
 	fi
-	@echo "✅  Dependencies installed successfully"
+	@echo "✅  All development dependencies installed successfully"
 
 update:
 	@echo "🔄  Running healthcare AI system update and upgrade"

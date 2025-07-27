@@ -10,124 +10,112 @@ Heavy GPU/ML packages are excluded from CI to improve build times and efficiency
 """
 
 import os
-import sys
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
 # Packages that should be excluded from CI (GPU, heavy ML packages)
 CI_EXCLUDED_PACKAGES = {
     # GPU/CUDA packages
-    'torch',
-    'nvidia-cublas-cu12',
-    'nvidia-cuda-cupti-cu12',
-    'nvidia-cuda-nvrtc-cu12',
-    'nvidia-cuda-runtime-cu12',
-    'nvidia-cudnn-cu12',
-    'nvidia-cufft-cu12',
-    'nvidia-cufile-cu12',
-    'nvidia-curand-cu12',
-    'nvidia-cusolver-cu12',
-    'nvidia-cusparse-cu12',
-    'nvidia-cusparselt-cu12',
-    'nvidia-nccl-cu12',
-    'nvidia-nvjitlink-cu12',
-    'nvidia-nvtx-cu12',
-    'triton',
-
+    "torch",
+    "nvidia-cublas-cu12",
+    "nvidia-cuda-cupti-cu12",
+    "nvidia-cuda-nvrtc-cu12",
+    "nvidia-cuda-runtime-cu12",
+    "nvidia-cudnn-cu12",
+    "nvidia-cufft-cu12",
+    "nvidia-cufile-cu12",
+    "nvidia-curand-cu12",
+    "nvidia-cusolver-cu12",
+    "nvidia-cusparse-cu12",
+    "nvidia-cusparselt-cu12",
+    "nvidia-nccl-cu12",
+    "nvidia-nvjitlink-cu12",
+    "nvidia-nvtx-cu12",
+    "triton",
     # Heavy ML/AI packages not needed for validation
-    'unsloth',
-    'unsloth-zoo',
-    'accelerate',
-    'bitsandbytes',
-    'trl',
-    'wandb',
-    'datasets',
-    'transformers',
-    'peft',
-
+    "unsloth",
+    "unsloth-zoo",
+    "accelerate",
+    "bitsandbytes",
+    "trl",
+    "wandb",
+    "datasets",
+    "transformers",
+    "peft",
     # Large data processing packages
-    'matplotlib',
-    'seaborn',
-    'pandas',
-    'scipy',
-    'scikit-learn',
-    'pillow',
-
+    "matplotlib",
+    "seaborn",
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "pillow",
     # Audio/video processing (if any)
-    'ffmpeg',
-    'opencv-python',
-
+    "ffmpeg",
+    "opencv-python",
     # Development packages that aren't needed in CI
-    'jupyter',
-    'notebook',
-    'ipython',
+    "jupyter",
+    "notebook",
+    "ipython",
 }
 
 # Core packages that CI validation DOES need
 CI_REQUIRED_PACKAGES = {
     # Web framework and API
-    'flask',
-    'fastapi',
-    'uvicorn',
-    'pydantic',
-    'pydantic-settings',
-    'starlette',
-
+    "flask",
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "pydantic-settings",
+    "starlette",
     # Database and storage
-    'sqlalchemy',
-    'alembic',
-    'redis',
-    'asyncpg',
-    'psycopg2-binary',
-
+    "sqlalchemy",
+    "alembic",
+    "redis",
+    "asyncpg",
+    "psycopg2-binary",
     # HTTP clients and async
-    'httpx',
-    'aiofiles',
-    'requests',
-
+    "httpx",
+    "aiofiles",
+    "requests",
     # Authentication and security
-    'python-multipart',
-    'python-jose',
-    'pyjwt',
-    'passlib',
-    'bcrypt',
-    'cryptography',
-
+    "python-multipart",
+    "python-jose",
+    "pyjwt",
+    "passlib",
+    "bcrypt",
+    "cryptography",
     # Configuration
-    'python-dotenv',
-    'pyyaml',
-    'jinja2',
-
+    "python-dotenv",
+    "pyyaml",
+    "jinja2",
     # Testing and validation
-    'pytest',
-    'pytest-asyncio',
-    'flake8',
-    'mypy',
-    'yamllint',
-    'black',
-    'isort',
-    'pylint',
-
+    "pytest",
+    "pytest-asyncio",
+    "flake8",
+    "mypy",
+    "yamllint",
+    "black",
+    "isort",
+    "pylint",
     # Healthcare-specific
-    'fastmcp',
-    'presidio-analyzer',
-    'presidio-anonymizer',
-    'structlog',
-
+    "fastmcp",
+    "presidio-analyzer",
+    "presidio-anonymizer",
+    "structlog",
     # Core AI (lightweight)
-    'langchain',
-    'langgraph',
-    'chromadb',
-    'qdrant-client',
-    'faiss-cpu',
-
+    "langchain",
+    "langgraph",
+    "chromadb",
+    "qdrant-client",
+    "faiss-cpu",
     # Monitoring
-    'prometheus-client',
-
+    "prometheus-client",
     # Type stubs
-    'types-requests',
+    "types-requests",
 }
+
 
 def run_command(cmd, cwd=None):
     """Run a command and return the result"""
@@ -142,9 +130,10 @@ def run_command(cmd, cwd=None):
         print(f"Exception running command: {cmd} - {e}")
         return None
 
+
 def create_ci_requirements_in(requirements_in_path):
     """Create a filtered requirements.in for CI by excluding heavy packages"""
-    with open(requirements_in_path, 'r') as f:
+    with open(requirements_in_path, "r") as f:
         lines = f.readlines()
 
     filtered_lines = []
@@ -153,12 +142,14 @@ def create_ci_requirements_in(requirements_in_path):
         line_stripped = line.strip()
 
         # Skip comments and empty lines
-        if not line_stripped or line_stripped.startswith('#'):
+        if not line_stripped or line_stripped.startswith("#"):
             filtered_lines.append(line)
             continue
 
         # Check if this line contains a package we want to exclude
-        package_name = line_stripped.split('>=')[0].split('==')[0].split('[')[0].split('@')[0].strip()
+        package_name = (
+            line_stripped.split(">=")[0].split("==")[0].split("[")[0].split("@")[0].strip()
+        )
 
         if package_name in CI_EXCLUDED_PACKAGES:
             print(f"Excluding from CI: {package_name}")
@@ -166,7 +157,34 @@ def create_ci_requirements_in(requirements_in_path):
 
         filtered_lines.append(line)
 
-    return ''.join(filtered_lines)
+    return "".join(filtered_lines)
+
+
+def clean_requirements_content(content):
+    """Clean up pip-compile generated content by removing via comments and temp paths"""
+    lines = content.splitlines()
+    cleaned_lines = []
+
+    for line in lines:
+        # Skip auto-generated header lines that reference temp files
+        if line.startswith("#    uv pip compile") and "/tmp/" in line:
+            continue
+        # Skip "via" comment lines that clutter the output
+        if line.strip().startswith("# via") and not line.strip().startswith("# via -r"):
+            continue
+        # Skip lines that are just "# via" with continuation
+        if line.strip() == "# via" or line.strip() == "#   via":
+            continue
+        # Skip lines that are just continuation of via comments
+        if line.strip().startswith("#   ") and any(
+            pkg in line for pkg in ["deepeval", "fsspec", "langchain"]
+        ):
+            continue
+
+        cleaned_lines.append(line)
+
+    return "\n".join(cleaned_lines)
+
 
 def generate_requirements_files():
     """Generate both requirements.txt and requirements-ci.txt"""
@@ -194,7 +212,7 @@ def generate_requirements_files():
     print("🏗️ Generating requirements-ci.txt (CI-optimized dependencies)...")
 
     # Create temporary filtered requirements.in
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.in', delete=False) as temp_file:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".in", delete=False) as temp_file:
         filtered_content = create_ci_requirements_in(requirements_in)
         temp_file.write(filtered_content)
         temp_requirements_in = temp_file.name
@@ -213,11 +231,15 @@ def generate_requirements_files():
             print("❌ Failed to generate requirements-ci.txt")
             return False
 
-        # Prepend header to CI requirements
-        with open(requirements_ci_txt, 'r') as f:
+        # Prepend header to CI requirements and clean up via comments
+        with open(requirements_ci_txt, "r") as f:
             ci_content = f.read()
-        with open(requirements_ci_txt, 'w') as f:
-            f.write(ci_header + ci_content)
+
+        # Clean up the pip-compile generated content
+        cleaned_content = clean_requirements_content(ci_content)
+
+        with open(requirements_ci_txt, "w") as f:
+            f.write(ci_header + cleaned_content)
 
         print(f"✅ Generated {requirements_ci_txt}")
 
@@ -237,9 +259,10 @@ def generate_requirements_files():
         # Clean up temp file
         os.unlink(temp_requirements_in)
 
+
 def main():
     """Main entry point"""
-    if len(sys.argv) > 1 and sys.argv[1] == '--help':
+    if len(sys.argv) > 1 and sys.argv[1] == "--help":
         print(__doc__)
         return
 
@@ -250,6 +273,7 @@ def main():
     print("\n🎯 Requirements generation complete!")
     print("   Use 'make deps' to install full dependencies for development")
     print("   CI will automatically use requirements-ci.txt for validation")
+
 
 if __name__ == "__main__":
     main()
