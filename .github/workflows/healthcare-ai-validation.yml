@@ -522,16 +522,6 @@ jobs:
           ${{ runner.os }}-python-full-
           ${{ runner.os }}-python-
     
-    - name: Cache system dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          /var/cache/apt
-          /var/lib/apt
-        key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/healthcare-ai-validation.yml') }}-v1
-        restore-keys: |
-          ${{ runner.os }}-apt-
-    
     - name: Setup Python PATH
       run: |
         echo "$HOME/.local/bin" >> $GITHUB_PATH
@@ -618,16 +608,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-python-full-
           ${{ runner.os }}-python-
-    
-    - name: Cache system dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          /var/cache/apt
-          /var/lib/apt
-        key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/healthcare-ai-validation.yml') }}-v1
-        restore-keys: |
-          ${{ runner.os }}-apt-
     
     - name: Setup Python PATH
       run: |
