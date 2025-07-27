@@ -33,23 +33,8 @@ class EncryptionConfigLoader:
                 )
 
         if master_key_str:
-            # Ensure proper base64 encoding for Fernet
-            try:
-                # If it's already base64 encoded, use it directly
-                # Calculate required padding for base64 decoding
-                padding = (4 - len(master_key_str) % 4) % 4
-                padded_key_str = master_key_str + ("=" * padding)
-                key_bytes = base64.urlsafe_b64decode(padded_key_str)  # Decode with proper padding
-                if len(key_bytes) == 32:
-                    return base64.urlsafe_b64encode(key_bytes)
-                else:
-                    # If not 32 bytes, treat as raw string and encode
-                    key_bytes = master_key_str.encode("utf-8")[:32].ljust(32, b"\0")
-                    return base64.urlsafe_b64encode(key_bytes)
-            except Exception:
-                # Treat as raw string
-                key_bytes = master_key_str.encode("utf-8")[:32].ljust(32, b"\0")
-                return base64.urlsafe_b64encode(key_bytes)
+            # Use helper function to handle all key conversion logic
+            return EncryptionConfigLoader.create_fernet_key_from_string(master_key_str)
         else:
             # Generate key for development - return base64 encoded
             return EncryptionConfigLoader._get_or_create_development_key(logger, config)
@@ -98,3 +83,58 @@ class EncryptionConfigLoader:
             encoded_key = base64.urlsafe_b64encode(key_bytes)
             logger.warning("Using generated encryption key - not suitable for production")
             return encoded_key
+
+    @staticmethod
+    def calculate_base64_padding(length: int) -> int:
+        """Calculate required padding for base64 decoding"""
+        return (4 - length % 4) % 4
+
+    @staticmethod
+    def validate_fernet_key_length(key_bytes: bytes) -> bool:
+        """Validate that key bytes are the correct length for Fernet (32 bytes)"""
+        return len(key_bytes) == 32
+
+    @staticmethod
+    def normalize_string_to_fernet_key(key_str: str) -> bytes:
+        """Convert a string to a properly formatted 32-byte Fernet key"""
+        key_bytes = key_str.encode("utf-8")[:32].ljust(32, b"\0")
+        return base64.urlsafe_b64encode(key_bytes)
+
+    @staticmethod
+    def try_decode_as_base64_key(key_str: str) -> tuple[bool, bytes]:
+        """
+        Attempt to decode string as base64 and validate as Fernet key
+
+        Returns:
+            tuple: (success: bool, key_bytes: bytes)
+        """
+        try:
+            padding = EncryptionConfigLoader.calculate_base64_padding(len(key_str))
+            padded_key_str = key_str + ("=" * padding)
+            key_bytes = base64.urlsafe_b64decode(padded_key_str)
+
+            if EncryptionConfigLoader.validate_fernet_key_length(key_bytes):
+                return True, base64.urlsafe_b64encode(key_bytes)
+            else:
+                return False, b""
+        except Exception:
+            return False, b""
+
+    @staticmethod
+    def create_fernet_key_from_string(key_str: str) -> bytes:
+        """
+        Convert any string to a valid Fernet key with proper error handling
+
+        Args:
+            key_str: Input key string (may be base64 encoded or raw)
+
+        Returns:
+            bytes: Base64-encoded 32-byte key suitable for Fernet
+        """
+        # First, try to decode as existing base64 key
+        success, base64_key = EncryptionConfigLoader.try_decode_as_base64_key(key_str)
+        if success:
+            return base64_key
+
+        # If not valid base64, treat as raw string and normalize
+        return EncryptionConfigLoader.normalize_string_to_fernet_key(key_str)

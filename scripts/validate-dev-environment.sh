@@ -201,11 +201,11 @@ validate_ollama_service() {
         local available_models
         if [[ "$ollama_url" == https* ]]; then
             local cacert_path="/etc/ssl/certs/ca-certificates.crt"
-            local curl_command="curl -s"
+            local curl_command=("curl" "-s")
             if [[ -f "$cacert_path" ]]; then
-                curl_command="curl --cacert $cacert_path -s"
+                curl_command+=("--cacert" "$cacert_path")
             fi
-            available_models=$($curl_command "$ollama_url/api/tags" | python3 -c "
+            available_models=$("${curl_command[@]}" "$ollama_url/api/tags" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)

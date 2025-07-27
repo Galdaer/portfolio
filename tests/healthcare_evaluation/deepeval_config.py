@@ -3,36 +3,37 @@ DeepEval Healthcare Testing Framework Configuration
 Comprehensive AI evaluation framework for Intelluxe AI healthcare system
 """
 
-import os
 import logging
-from typing import Dict, List, Optional, Any
+import os
 from dataclasses import dataclass
-from deepeval import evaluate
-from deepeval.metrics import (
-    AnswerRelevancyMetric,
-    FaithfulnessMetric,
-    ContextualPrecisionMetric,
-    ContextualRecallMetric,
-    HallucinationMetric,
-    BiasMetric,
-    ToxicityMetric
-)
-from deepeval.test_case import LLMTestCase
-from deepeval.dataset import EvaluationDataset
+from typing import Any, Dict, List, Optional
+
 import psycopg2
 import redis
 import requests
+from deepeval import evaluate
+from deepeval.metrics import (
+    AnswerRelevancyMetric,
+    BiasMetric,
+    ContextualPrecisionMetric,
+    ContextualRecallMetric,
+    FaithfulnessMetric,
+    HallucinationMetric,
+    ToxicityMetric,
+)
+from deepeval.test_case import LLMTestCase
 
 # Configure logging for healthcare compliance
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler('/opt/intelluxe/logs/healthcare_evaluation.log'),
-        logging.StreamHandler()
-    ]
+        logging.FileHandler("/opt/intelluxe/logs/healthcare_evaluation.log"),
+        logging.StreamHandler(),
+    ],
 )
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class HealthcareEvaluationConfig:
@@ -53,7 +54,7 @@ class HealthcareEvaluationConfig:
     # Ollama connection
     ollama_host: str = "localhost"
     ollama_port: int = 11434
-    ollama_models: List[str] = None
+    ollama_models: Optional[List[str]] = None
 
     # Evaluation settings
     evaluation_threshold: float = 0.7
@@ -68,6 +69,7 @@ class HealthcareEvaluationConfig:
     def __post_init__(self):
         if self.ollama_models is None:
             self.ollama_models = ["llama3.1:8b-instruct-q4_K_M", "mistral:7b-instruct-q4_K_M"]
+
 
 class HealthcareMetrics:
     """Healthcare-specific evaluation metrics for AI systems"""
@@ -85,7 +87,7 @@ class HealthcareMetrics:
             ContextualRecallMetric(threshold=self.config.evaluation_threshold),
             HallucinationMetric(threshold=0.3),  # Stricter for healthcare
             BiasMetric(threshold=0.1),  # Very strict for healthcare
-            ToxicityMetric(threshold=0.1)  # Very strict for healthcare
+            ToxicityMetric(threshold=0.1),  # Very strict for healthcare
         ]
 
     def get_healthcare_specific_metrics(self) -> List[Any]:
@@ -99,6 +101,7 @@ class HealthcareMetrics:
             # Drug interaction detection metrics
             # Diagnostic accuracy metrics
         ]
+
 
 class HealthcareEvaluationFramework:
     """Main evaluation framework for healthcare AI systems"""
@@ -121,7 +124,7 @@ class HealthcareEvaluationFramework:
                 port=self.config.postgres_port,
                 database=self.config.postgres_db,
                 user=self.config.postgres_user,
-                password=self.config.postgres_password
+                password=self.config.postgres_password,
             )
 
             # Redis connection
@@ -129,7 +132,7 @@ class HealthcareEvaluationFramework:
                 host=self.config.redis_host,
                 port=self.config.redis_port,
                 db=self.config.redis_db,
-                decode_responses=True
+                decode_responses=True,
             )
 
             self.logger.info("Database connections initialized successfully")
@@ -151,11 +154,12 @@ class HealthcareEvaluationFramework:
             models_response = requests.get(f"{ollama_url}/api/tags", timeout=10)
             models_response.raise_for_status()
 
-            available_models = [model['name'] for model in models_response.json().get('models', [])]
+            available_models = [model["name"] for model in models_response.json().get("models", [])]
 
-            for model in self.config.ollama_models:
-                if model not in available_models:
-                    self.logger.warning(f"Model {model} not available in Ollama")
+            if self.config.ollama_models:
+                for model in self.config.ollama_models:
+                    if model not in available_models:
+                        self.logger.warning(f"Model {model} not available in Ollama")
 
             self.logger.info(f"Ollama connection initialized. Available models: {available_models}")
 
@@ -163,35 +167,37 @@ class HealthcareEvaluationFramework:
             self.logger.error(f"Failed to initialize Ollama connection: {e}")
             raise
 
-    def create_test_case(self, input_text: str, expected_output: str,
-                        context: List[str], retrieval_context: List[str]) -> LLMTestCase:
+    def create_test_case(
+        self,
+        input_text: str,
+        expected_output: str,
+        context: List[str],
+        retrieval_context: List[str],
+        actual_output: str = "",
+    ) -> LLMTestCase:
         """Create a test case for evaluation"""
         return LLMTestCase(
             input=input_text,
+            actual_output=actual_output,
             expected_output=expected_output,
             context=context,
-            retrieval_context=retrieval_context
+            retrieval_context=retrieval_context,
         )
 
-    def evaluate_healthcare_ai(self, test_cases: List[LLMTestCase],
-                              model_name: str = "llama3.1:8b-instruct-q4_K_M") -> Dict[str, Any]:
+    def evaluate_healthcare_ai(
+        self, test_cases: List[LLMTestCase], model_name: str = "llama3.1:8b-instruct-q4_K_M"
+    ) -> Any:
         """Evaluate healthcare AI system with comprehensive metrics"""
 
         self.logger.info(f"Starting healthcare AI evaluation with {len(test_cases)} test cases")
 
         # Get all metrics
-        all_metrics = self.metrics.get_core_metrics() + self.metrics.get_healthcare_specific_metrics()
-
-        # Create evaluation dataset
-        dataset = EvaluationDataset(test_cases=test_cases)
-
-        # Run evaluation
-        results = evaluate(
-            dataset=dataset,
-            metrics=all_metrics,
-            print_results=True,
-            write_cache=True
+        all_metrics = (
+            self.metrics.get_core_metrics() + self.metrics.get_healthcare_specific_metrics()
         )
+
+        # Run evaluation using the correct API
+        results = evaluate(test_cases=test_cases, metrics=all_metrics)
 
         # Log results for audit trail
         if self.config.audit_logging_enabled:
@@ -199,7 +205,7 @@ class HealthcareEvaluationFramework:
 
         return results
 
-    def _log_evaluation_results(self, results: Dict[str, Any], model_name: str):
+    def _log_evaluation_results(self, results: Any, model_name: str):
         """Log evaluation results for healthcare audit trail"""
         audit_entry = {
             "timestamp": "now()",
@@ -207,18 +213,21 @@ class HealthcareEvaluationFramework:
             "model_name": model_name,
             "results_summary": results,
             "compliance_status": "evaluated",
-            "phi_detected": False  # Would be set by PHI detection
+            "phi_detected": False,  # Would be set by PHI detection
         }
 
         # Store in PostgreSQL for audit trail
         try:
             with self.postgres_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO evaluation_audit_log
                     (timestamp, evaluation_type, model_name, results_summary, compliance_status, phi_detected)
                     VALUES (%(timestamp)s, %(evaluation_type)s, %(model_name)s, %(results_summary)s,
                            %(compliance_status)s, %(phi_detected)s)
-                """, audit_entry)
+                """,
+                    audit_entry,
+                )
                 self.postgres_conn.commit()
 
         except Exception as e:
@@ -226,10 +235,11 @@ class HealthcareEvaluationFramework:
 
     def close_connections(self):
         """Close all database connections"""
-        if hasattr(self, 'postgres_conn'):
+        if hasattr(self, "postgres_conn"):
             self.postgres_conn.close()
-        if hasattr(self, 'redis_conn'):
+        if hasattr(self, "redis_conn"):
             self.redis_conn.close()
+
 
 # Global configuration instance
 healthcare_eval_config = HealthcareEvaluationConfig()

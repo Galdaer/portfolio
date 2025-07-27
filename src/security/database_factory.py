@@ -5,9 +5,9 @@ Provides testable database connection management with dependency injection
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Protocol, Optional
-import psycopg2
+from typing import Optional, Protocol
 
+import psycopg2
 
 from src.security.environment_detector import EnvironmentDetector
 
@@ -17,20 +17,16 @@ logger = logging.getLogger(__name__)
 class DatabaseConnection(Protocol):
     """Database connection protocol for type safety"""
 
-    def cursor(self, cursor_factory=None):
-        ...
+    def cursor(self, cursor_factory=None) -> psycopg2.extensions.cursor: ...
 
-    def commit(self):
-        ...
+    def commit(self) -> None: ...
 
-    def rollback(self):
-        ...
+    def rollback(self) -> None: ...
 
-    def close(self):
-        ...
+    def close(self) -> None: ...
 
-    def closed(self) -> int:
-        ...
+    @property
+    def closed(self) -> int: ...
 
 
 class ConnectionFactory(ABC):
@@ -75,26 +71,32 @@ class PostgresConnectionFactory(ConnectionFactory):
             # Check for secure connection requirements
             if self.connection_string:
                 if "sslmode=require" not in self.connection_string.lower():
-                    self.logger.warning("SSL not explicitly required in production connection string")
+                    self.logger.warning(
+                        "SSL not explicitly required in production connection string"
+                    )
             elif self.connection_params:
                 if self.connection_params.get("sslmode") != "require":
-                    self.logger.warning("SSL not explicitly required in production connection params")
+                    self.logger.warning(
+                        "SSL not explicitly required in production connection params"
+                    )
 
     def create_connection(self) -> DatabaseConnection:
         """Create PostgreSQL database connection"""
         try:
             if self.connection_string:
-                connection = psycopg2.connect(self.connection_string)
+                connection: psycopg2.extensions.connection = psycopg2.connect(
+                    self.connection_string
+                )
             else:
                 # Use individual parameters with secure defaults
                 params = self._get_secure_connection_params()
-                connection = psycopg2.connect(**params)
+                connection: psycopg2.extensions.connection = psycopg2.connect(**params)
 
             # Set connection properties based on environment
             connection.autocommit = False
 
             self.logger.info("Database connection established successfully")
-            return connection
+            return connection  # type: ignore[return-value]
 
         except psycopg2.Error as e:
             self.logger.error(f"Failed to create database connection: {e}")
@@ -110,21 +112,21 @@ class PostgresConnectionFactory(ConnectionFactory):
             "user": self.connection_params.get("user"),
             "password": self.connection_params.get("password"),
             "connect_timeout": self.connection_params.get("connect_timeout", 10),
-            "application_name": "intelluxe-healthcare"
+            "application_name": "intelluxe-healthcare",
         }
 
         # Environment-specific security settings
         if EnvironmentDetector.is_production():
-            params.update({
-                "sslmode": self.connection_params.get("sslmode", "require"),
-                "sslcert": self.connection_params.get("sslcert"),
-                "sslkey": self.connection_params.get("sslkey"),
-                "sslrootcert": self.connection_params.get("sslrootcert")
-            })
+            params.update(
+                {
+                    "sslmode": self.connection_params.get("sslmode", "require"),
+                    "sslcert": self.connection_params.get("sslcert"),
+                    "sslkey": self.connection_params.get("sslkey"),
+                    "sslrootcert": self.connection_params.get("sslrootcert"),
+                }
+            )
         elif EnvironmentDetector.is_development():
-            params.update({
-                "sslmode": self.connection_params.get("sslmode", "prefer")
-            })
+            params.update({"sslmode": self.connection_params.get("sslmode", "prefer")})
 
         # Remove None values
         return {k: v for k, v in params.items() if v is not None}
@@ -136,7 +138,10 @@ class PostgresConnectionFactory(ConnectionFactory):
             safe_string = self.connection_string
             if "password=" in safe_string.lower():
                 import re
-                safe_string = re.sub(r'password=[^\s;]+', 'password=***', safe_string, flags=re.IGNORECASE)
+
+                safe_string = re.sub(
+                    r'(?i)(password\s*=\s*)(["\']?)(.*?)(\2)(?=;|&|\s|$)', r"\1\2***\2", safe_string
+                )
             return {"connection_string": safe_string}
         else:
             safe_params = self.connection_params.copy()
@@ -159,6 +164,7 @@ class MockConnectionFactory(ConnectionFactory):
 
         # Create a simple mock connection
         from unittest.mock import Mock
+
         mock_conn = Mock()
         mock_conn.cursor.return_value.__enter__.return_value = Mock()
         mock_conn.cursor.return_value.__exit__.return_value = None

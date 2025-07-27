@@ -29,6 +29,9 @@ except ImportError:
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# Constants for PHI detection and redaction
+REDACTION_LENGTH_THRESHOLD = 100  # Minimum length for value redaction in error logs
+
 
 def apply_replacements_in_reverse(
     replacements: List[Tuple[int, int, str]], text: str, batch_size: int = 500
@@ -569,7 +572,11 @@ class PHIDetector:
                     self.logger.error(
                         "Failed to serialize value to JSON. Key: %s, Value: %s, Error: %s",
                         key,
-                        "[REDACTED]" if isinstance(value, str) and len(value) > 100 else value,
+                        (
+                            "[REDACTED]"
+                            if isinstance(value, str) and len(value) > REDACTION_LENGTH_THRESHOLD
+                            else value
+                        ),
                         str(e),
                     )
                     return PHIDetectionResult(

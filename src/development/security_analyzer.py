@@ -6,8 +6,8 @@ Provides advanced security analysis using Abstract Syntax Tree parsing
 import ast
 import logging
 import re
-from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SecurityIssue:
     """Represents a security issue found in code"""
+
     severity: str  # 'critical', 'high', 'medium', 'low'
     category: str  # 'authentication', 'encryption', 'injection', etc.
     message: str
@@ -30,30 +31,45 @@ class SecurityAnalyzer:
         self.logger = logging.getLogger(f"{__name__}.SecurityAnalyzer")
         self.issues: List[SecurityIssue] = []
 
+        # Security configuration
+        self.min_secret_length = 8  # Minimum length threshold for secret detection
+
         # Security patterns to detect
         self.dangerous_functions = {
-            'eval', 'exec', 'compile', '__import__',
-            'open', 'file', 'input', 'raw_input'
+            "eval",
+            "exec",
+            "compile",
+            "__import__",
+            "open",
+            "file",
+            "input",
+            "raw_input",
         }
 
         self.sql_keywords = {
-            'select', 'insert', 'update', 'delete', 'drop',
-            'create', 'alter', 'truncate', 'grant', 'revoke'
+            "select",
+            "insert",
+            "update",
+            "delete",
+            "drop",
+            "create",
+            "alter",
+            "truncate",
+            "grant",
+            "revoke",
         }
 
-        self.crypto_weak_patterns = {
-            'md5', 'sha1', 'des', 'rc4', 'md4'
-        }
+        self.crypto_weak_patterns = {"md5", "sha1", "des", "rc4", "md4"}
 
         self.secret_patterns = [
-            r'api[_-]?key',
-            r'secret[_-]?key',
-            r'password',
-            r'token',
-            r'auth[_-]?token',
-            r'private[_-]?key',
-            r'access[_-]?key',
-            r'secret[_-]?access'
+            r"api[_-]?key",
+            r"secret[_-]?key",
+            r"password",
+            r"token",
+            r"auth[_-]?token",
+            r"private[_-]?key",
+            r"access[_-]?key",
+            r"secret[_-]?access",
         ]
 
     def analyze_code_security(self, code: str, filename: str = "<string>") -> Dict[str, Any]:
@@ -93,14 +109,16 @@ class SecurityAnalyzer:
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
                 if node.func.id in self.dangerous_functions:
-                    severity = 'critical' if node.func.id in ['eval', 'exec'] else 'high'
-                    self.issues.append(SecurityIssue(
-                        severity=severity,
-                        category='dangerous_functions',
-                        message=f"Dangerous function '{node.func.id}' usage detected",
-                        line_number=node.lineno,
-                        column=node.col_offset
-                    ))
+                    severity = "critical" if node.func.id in ["eval", "exec"] else "high"
+                    self.issues.append(
+                        SecurityIssue(
+                            severity=severity,
+                            category="dangerous_functions",
+                            message=f"Dangerous function '{node.func.id}' usage detected",
+                            line_number=node.lineno,
+                            column=node.col_offset,
+                        )
+                    )
 
     def _check_sql_injection_patterns(self, tree: ast.AST):
         """Check for potential SQL injection vulnerabilities"""
@@ -108,50 +126,58 @@ class SecurityAnalyzer:
             # Check for string concatenation with SQL keywords
             if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
                 if self._contains_sql_and_string_concat(node):
-                    self.issues.append(SecurityIssue(
-                        severity='high',
-                        category='sql_injection',
-                        message="Potential SQL injection: string concatenation with SQL keywords",
-                        line_number=node.lineno,
-                        column=node.col_offset
-                    ))
+                    self.issues.append(
+                        SecurityIssue(
+                            severity="high",
+                            category="sql_injection",
+                            message="Potential SQL injection: string concatenation with SQL keywords",
+                            line_number=node.lineno,
+                            column=node.col_offset,
+                        )
+                    )
 
             # Check for f-string with SQL keywords
             elif isinstance(node, ast.JoinedStr):
                 if self._contains_sql_in_fstring(node):
-                    self.issues.append(SecurityIssue(
-                        severity='high',
-                        category='sql_injection',
-                        message="Potential SQL injection: f-string with SQL keywords",
-                        line_number=node.lineno,
-                        column=node.col_offset
-                    ))
+                    self.issues.append(
+                        SecurityIssue(
+                            severity="high",
+                            category="sql_injection",
+                            message="Potential SQL injection: f-string with SQL keywords",
+                            line_number=node.lineno,
+                            column=node.col_offset,
+                        )
+                    )
 
     def _check_hardcoded_secrets(self, tree: ast.AST):
         """Check for hardcoded secrets and credentials"""
         for node in ast.walk(tree):
             # Check string literals
             if isinstance(node, ast.Str) and self._looks_like_secret(node.s):
-                self.issues.append(SecurityIssue(
-                    severity='critical',
-                    category='hardcoded_secrets',
-                    message="Potential hardcoded secret detected",
-                    line_number=node.lineno,
-                    column=node.col_offset
-                ))
+                self.issues.append(
+                    SecurityIssue(
+                        severity="critical",
+                        category="hardcoded_secrets",
+                        message="Potential hardcoded secret detected",
+                        line_number=node.lineno,
+                        column=node.col_offset,
+                    )
+                )
 
             # Check variable assignments
             elif isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name) and self._is_secret_variable_name(target.id):
                         if isinstance(node.value, ast.Str):
-                            self.issues.append(SecurityIssue(
-                                severity='critical',
-                                category='hardcoded_secrets',
-                                message=f"Hardcoded secret in variable '{target.id}'",
-                                line_number=node.lineno,
-                                column=node.col_offset
-                            ))
+                            self.issues.append(
+                                SecurityIssue(
+                                    severity="critical",
+                                    category="hardcoded_secrets",
+                                    message=f"Hardcoded secret in variable '{target.id}'",
+                                    line_number=node.lineno,
+                                    column=node.col_offset,
+                                )
+                            )
 
     def _check_weak_cryptography(self, tree: ast.AST):
         """Check for weak cryptographic algorithms"""
@@ -161,24 +187,28 @@ class SecurityAnalyzer:
                 if isinstance(node.func, ast.Attribute):
                     func_name = node.func.attr.lower()
                     if any(weak in func_name for weak in self.crypto_weak_patterns):
-                        self.issues.append(SecurityIssue(
-                            severity='medium',
-                            category='weak_cryptography',
-                            message=f"Weak cryptographic algorithm detected: {func_name}",
-                            line_number=node.lineno,
-                            column=node.col_offset
-                        ))
+                        self.issues.append(
+                            SecurityIssue(
+                                severity="medium",
+                                category="weak_cryptography",
+                                message=f"Weak cryptographic algorithm detected: {func_name}",
+                                line_number=node.lineno,
+                                column=node.col_offset,
+                            )
+                        )
 
                 # Check imports for weak crypto libraries
                 elif isinstance(node.func, ast.Name):
                     if node.func.id.lower() in self.crypto_weak_patterns:
-                        self.issues.append(SecurityIssue(
-                            severity='medium',
-                            category='weak_cryptography',
-                            message=f"Weak cryptographic function: {node.func.id}",
-                            line_number=node.lineno,
-                            column=node.col_offset
-                        ))
+                        self.issues.append(
+                            SecurityIssue(
+                                severity="medium",
+                                category="weak_cryptography",
+                                message=f"Weak cryptographic function: {node.func.id}",
+                                line_number=node.lineno,
+                                column=node.col_offset,
+                            )
+                        )
 
     def _check_authentication_issues(self, tree: ast.AST):
         """Check for authentication-related security issues"""
@@ -186,43 +216,49 @@ class SecurityAnalyzer:
             # Check for password comparisons without hashing
             if isinstance(node, ast.Compare):
                 if self._contains_password_comparison(node):
-                    self.issues.append(SecurityIssue(
-                        severity='high',
-                        category='authentication',
-                        message="Potential plaintext password comparison",
-                        line_number=node.lineno,
-                        column=node.col_offset
-                    ))
+                    self.issues.append(
+                        SecurityIssue(
+                            severity="high",
+                            category="authentication",
+                            message="Potential plaintext password comparison",
+                            line_number=node.lineno,
+                            column=node.col_offset,
+                        )
+                    )
 
     def _check_input_validation(self, tree: ast.AST):
         """Check for input validation issues"""
         for node in ast.walk(tree):
             # Check for direct user input usage without validation
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-                if node.func.id in ['input', 'raw_input']:
+                if node.func.id in ["input", "raw_input"]:
                     # Check if input is used directly in dangerous contexts
-                    self.issues.append(SecurityIssue(
-                        severity='medium',
-                        category='input_validation',
-                        message="User input should be validated before use",
-                        line_number=node.lineno,
-                        column=node.col_offset
-                    ))
+                    self.issues.append(
+                        SecurityIssue(
+                            severity="medium",
+                            category="input_validation",
+                            message="User input should be validated before use",
+                            line_number=node.lineno,
+                            column=node.col_offset,
+                        )
+                    )
 
     def _check_file_operations(self, tree: ast.AST):
         """Check for unsafe file operations"""
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-                if node.func.id == 'open':
+                if node.func.id == "open":
                     # Check for file operations without proper path validation
                     if len(node.args) > 0 and isinstance(node.args[0], ast.Name):
-                        self.issues.append(SecurityIssue(
-                            severity='medium',
-                            category='file_operations',
-                            message="File path should be validated to prevent path traversal",
-                            line_number=node.lineno,
-                            column=node.col_offset
-                        ))
+                        self.issues.append(
+                            SecurityIssue(
+                                severity="medium",
+                                category="file_operations",
+                                message="File path should be validated to prevent path traversal",
+                                line_number=node.lineno,
+                                column=node.col_offset,
+                            )
+                        )
 
     def _contains_sql_and_string_concat(self, node: ast.BinOp) -> bool:
         """Check if binary operation contains SQL with string concatenation"""
@@ -239,7 +275,7 @@ class SecurityAnalyzer:
 
     def _looks_like_secret(self, value: str) -> bool:
         """Check if string looks like a hardcoded secret"""
-        if len(value) < 8:
+        if len(value) < self.min_secret_length:
             return False
 
         value_lower = value.lower()
@@ -262,7 +298,7 @@ class SecurityAnalyzer:
             if isinstance(comparator, ast.Name):
                 all_names.append(comparator.id)
 
-        return any('password' in name.lower() for name in all_names)
+        return any("password" in name.lower() for name in all_names)
 
     def _is_hashed_value(self, value: str) -> bool:
         """
@@ -297,24 +333,28 @@ class SecurityAnalyzer:
                 and self._is_secret_variable_name(node.targets[0].id)
             ):
                 if isinstance(node.value, ast.Str) and not self._is_hashed_value(node.value.s):
-                    issues.append(SecurityIssue(
-                        severity='medium',
-                        category='authentication',
-                        message="Potential plaintext password usage",
-                        line_number=node.lineno,
-                        code_snippet=ast.get_source_segment(code, node)
-                    ))
+                    issues.append(
+                        SecurityIssue(
+                            severity="medium",
+                            category="authentication",
+                            message="Potential plaintext password usage",
+                            line_number=node.lineno,
+                            code_snippet=ast.get_source_segment(code, node),
+                        )
+                    )
 
         # Check for potential SQL injection vulnerabilities
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and self._is_sql_query(node):
-                issues.append(SecurityIssue(
-                    severity='medium',
-                    category='sql_injection',
-                    message="Potential SQL injection vulnerability",
-                    line_number=node.lineno,
-                    code_snippet=ast.get_source_segment(code, node)
-                ))
+                issues.append(
+                    SecurityIssue(
+                        severity="medium",
+                        category="sql_injection",
+                        message="Potential SQL injection vulnerability",
+                        line_number=node.lineno,
+                        code_snippet=ast.get_source_segment(code, node),
+                    )
+                )
 
         return self._format_results(issues)
 
@@ -352,15 +392,15 @@ class SecurityAnalyzer:
             issues = self.issues
 
         results: Dict[str, Any] = {
-            'total_issues': len(issues),
-            'issues_by_severity': {
-                'critical': [issue for issue in issues if issue.severity == 'critical'],
-                'high': [issue for issue in issues if issue.severity == 'high'],
-                'medium': [issue for issue in issues if issue.severity == 'medium'],
-                'low': [issue for issue in issues if issue.severity == 'low']
+            "total_issues": len(issues),
+            "issues_by_severity": {
+                "critical": [issue for issue in issues if issue.severity == "critical"],
+                "high": [issue for issue in issues if issue.severity == "high"],
+                "medium": [issue for issue in issues if issue.severity == "medium"],
+                "low": [issue for issue in issues if issue.severity == "low"],
             },
-            'issues_by_category': {},
-            'all_issues': issues
+            "issues_by_category": {},
+            "all_issues": issues,
         }
 
         # Group by category
@@ -370,6 +410,6 @@ class SecurityAnalyzer:
                 issues_by_category[issue.category] = []
             issues_by_category[issue.category].append(issue)
 
-        results['issues_by_category'] = issues_by_category
+        results["issues_by_category"] = issues_by_category
 
         return results
