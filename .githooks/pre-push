@@ -39,7 +39,7 @@ fi
 
 echo ""
 echo "🧪 Step 3/3: Running test suite..."
-if ! make test-quiet; then
+if ! make test; then
     echo ""
     echo "❌ Tests failed! Fix the failing tests shown above."
     echo "💡 Run 'make test' locally for detailed test output"
