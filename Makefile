@@ -23,11 +23,7 @@
 	   test-quiet \
 	   uninstall \
 	   update \
-		@echo "📦 Installation:"
-	@echo "  make install         Install healthcare AI scripts and systemd services system-wide"
-	@echo "  make update          Run system update and upgrade"
-	@echo "  make uninstall       Remove healthcare AI systemd services and directories"
-	@echo ""alidate \
+	   validate \
 	   venv
 
 # Constants (matching bootstrap.sh)
