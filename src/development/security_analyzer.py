@@ -264,28 +264,87 @@ class SecurityAnalyzer:
 
         return any('password' in name.lower() for name in all_names)
 
+    def _is_hashed_value(self, value: str) -> bool:
+        """
+        Heuristically check if a string value looks like a hashed password.
+        Returns True if the value matches common hash formats (hex, base64, bcrypt, etc).
+        """
+        # SHA256/MD5 hex: 32 or 64 hex chars
+        if re.fullmatch(r"[a-fA-F0-9]{32,64}", value):
+            return True
+        # bcrypt: starts with $2a$, $2b$, $2y$
+        if value.startswith(("$2a$", "$2b$", "$2y$")):
+            return True
+        # base64: long string ending with =
+        if len(value) > 20 and value.endswith("="):
+            return True
+        # PBKDF2: starts with $pbkdf2-
+        if value.lower().startswith("$pbkdf2-"):
+            return True
+        return False
+
     def _basic_security_analysis(self, code: str) -> Dict[str, Any]:
-        """Fallback basic security analysis using string matching"""
+        """Fallback basic security analysis using AST-based analysis"""
         issues = []
-        code_lower = code.lower()
+        tree = ast.parse(code)
 
-        if "password" in code_lower and "hash" not in code_lower:
-            issues.append(SecurityIssue(
-                severity='medium',
-                category='authentication',
-                message="Potential plaintext password usage",
-                line_number=0
-            ))
+        # Check for potential plaintext password usage
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Assign)
+                and node.targets
+                and isinstance(node.targets[0], ast.Name)
+                and self._is_secret_variable_name(node.targets[0].id)
+            ):
+                if isinstance(node.value, ast.Str) and not self._is_hashed_value(node.value.s):
+                    issues.append(SecurityIssue(
+                        severity='medium',
+                        category='authentication',
+                        message="Potential plaintext password usage",
+                        line_number=node.lineno,
+                        code_snippet=ast.get_source_segment(code, node)
+                    ))
 
-        if any(keyword in code_lower for keyword in self.sql_keywords) and "prepare" not in code_lower:
-            issues.append(SecurityIssue(
-                severity='medium',
-                category='sql_injection',
-                message="Potential SQL injection vulnerability",
-                line_number=0
-            ))
+        # Check for potential SQL injection vulnerabilities
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and self._is_sql_query(node):
+                issues.append(SecurityIssue(
+                    severity='medium',
+                    category='sql_injection',
+                    message="Potential SQL injection vulnerability",
+                    line_number=node.lineno,
+                    code_snippet=ast.get_source_segment(code, node)
+                ))
 
         return self._format_results(issues)
+
+    def _is_sql_query(self, node: ast.Call) -> bool:
+        """
+        Heuristically check if a function call is likely to be a SQL query.
+        Returns True if the function name or its arguments suggest SQL execution.
+        """
+        # Check for common SQL execution function names
+        if isinstance(node.func, ast.Attribute):
+            func_name = node.func.attr.lower()
+            if func_name in {"execute", "executemany", "executescript"}:
+                return True
+        elif isinstance(node.func, ast.Name):
+            func_name = node.func.id.lower()
+            if func_name in {"execute", "executemany", "executescript"}:
+                return True
+
+        # Check if any argument contains SQL keywords
+        for arg in node.args:
+            if isinstance(arg, ast.Str):
+                arg_val = arg.s.lower()
+                if any(keyword in arg_val for keyword in self.sql_keywords):
+                    return True
+            elif isinstance(arg, ast.JoinedStr):
+                for value in arg.values:
+                    if isinstance(value, ast.Str):
+                        if any(keyword in value.s.lower() for keyword in self.sql_keywords):
+                            return True
+        return False
 
     def _format_results(self, issues: Optional[List[SecurityIssue]] = None) -> Dict[str, Any]:
         """Format analysis results"""

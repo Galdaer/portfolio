@@ -53,6 +53,10 @@ class TestPHIMaskingFixes:
             ("MRN: 12345678", True),
             ("Regular medical text without PHI", False),
             ("Temperature 98.6F, BP 120/80", False),
+            # Add more realistic test cases
+            ("Patient John Smith, MRN: 12345, DOB: 01/15/1980", True),
+            ("Lab results: WBC 4.5, RBC 4.2, Hgb 14.2", False),
+            ("Contact Dr. Smith at (555) 123-4567 for consultation", True),
         ]
 
         for text, should_detect_phi in test_cases:

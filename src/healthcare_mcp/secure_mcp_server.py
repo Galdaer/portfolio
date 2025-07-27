@@ -644,14 +644,14 @@ class HealthcareMCPServer:
 
         # Check for PHI in request
         if self.phi_detector:
-            phi_detected = await self.phi_detector.detect_phi(json.dumps(request.params))
-            if phi_detected and phi_detected.phi_detected:
+            phi_detected = await self.phi_detector.detect_phi_in_json(request.params)
+            if any(res.phi_detected for res in phi_detected.values()):
                 # Convert PHIDetectionResult to dictionary for logging
                 phi_details_dict = {
-                    "entities": phi_detected.phi_types if hasattr(phi_detected, 'phi_types') else [],
-                    "confidence": max(phi_detected.confidence_scores) if hasattr(phi_detected, 'confidence_scores') and phi_detected.confidence_scores else 0.0,
+                    "entities": list({phi_type for res in phi_detected.values() for phi_type in getattr(res, 'phi_types', [])}) if hasattr(next(iter(phi_detected.values()), None), 'phi_types') else [],
+                    "confidence": max(res.confidence_scores for res in phi_detected.values()) if hasattr(next(iter(phi_detected.values()), None), 'confidence_scores') else 0.0,
                     "detected_at": datetime.utcnow().isoformat(),
-                    "detection_details": phi_detected.detection_details if hasattr(phi_detected, 'detection_details') else []
+                    "detection_details": list({detail for res in phi_detected.values() for detail in getattr(res, 'detection_details', [])}) if hasattr(next(iter(phi_detected.values()), None), 'detection_details') else []
                 }
                 await self.audit_logger.log_phi_detection(request, phi_details_dict)
 

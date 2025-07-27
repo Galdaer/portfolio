@@ -199,7 +199,8 @@ validate_ollama_service() {
         )
         
         local available_models
-        available_models=$(curl -s "$ollama_url/api/tags" | python3 -c "
+        if [[ "$ollama_url" == https* ]]; then
+            available_models=$(curl --cacert /etc/ssl/certs/ca-certificates.crt -s "$ollama_url/api/tags" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)

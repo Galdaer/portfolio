@@ -77,10 +77,10 @@ class SecurePatientDataHandler:
             raise PermissionError("Unauthorized access to patient data")
 
         # Detect PHI in data
-        phi_result = await self.phi_detector.detect_phi(json.dumps(patient_data))
+        phi_result = await self.phi_detector.detect_phi_in_json(patient_data)
 
-        if phi_result.phi_detected:
-            self.logger.warning(f"PHI detected in patient data: {phi_result.phi_types}")
+        if any(res.phi_detected for res in phi_result.values()):
+            self.logger.warning(f"PHI detected in patient data: {list({res.phi_types for res in phi_result.values()})}")
             # Handle PHI according to compliance requirements
             patient_data = self._mask_phi_data(patient_data, phi_result)
 

@@ -457,12 +457,44 @@ class PHIDetector:
         results = {}
 
         def process_value(key: str, value: Any) -> PHIDetectionResult:
+            # Handle different data types
             if isinstance(value, str):
+                # Detect PHI in strings
                 return self.detector.detect_phi(value)
-            elif isinstance(value, (dict, list)):
-                # Convert to string for detection
-                text = json.dumps(value)
-                return self.detector.detect_phi(text)
+            elif isinstance(value, dict):
+                # Recursively process nested dictionaries
+                nested_results = {}
+                for nested_key, nested_value in value.items():
+                    nested_results[nested_key] = process_value(nested_key, nested_value)
+                return PHIDetectionResult(
+                    phi_detected=any(res.phi_detected for res in nested_results.values()),
+                    phi_types=list({ptype for res in nested_results.values() for ptype in res.phi_types}),
+                    confidence_scores=[score for res in nested_results.values() for score in res.confidence_scores],
+                    masked_text=json.dumps({k: res.masked_text for k, res in nested_results.items()}),
+                    detection_details=[detail for res in nested_results.values() for detail in res.detection_details]
+                )
+            elif isinstance(value, list):
+                # Recursively process lists
+                nested_results = []
+                for i, item in enumerate(value):
+                    nested_results.append(process_value(f"{key}[{i}]", item))
+                try:
+                    return PHIDetectionResult(
+                        phi_detected=any(res.phi_detected for res in nested_results),
+                        phi_types=list({ptype for res in nested_results for ptype in res.phi_types}),
+                        confidence_scores=[score for res in nested_results for score in res.confidence_scores],
+                        masked_text=json.dumps([res.masked_text for res in nested_results]),
+                        detection_details=[detail for res in nested_results for detail in res.detection_details]
+                    )
+                except (TypeError, ValueError) as e:
+                    self.logger.error("Failed to serialize value to JSON: %s", str(e))
+                    return PHIDetectionResult(
+                        phi_detected=False,
+                        phi_types=[],
+                        confidence_scores=[],
+                        masked_text="",
+                        detection_details=[]
+                    )
             else:
                 # No PHI in non-string values
                 return PHIDetectionResult(
