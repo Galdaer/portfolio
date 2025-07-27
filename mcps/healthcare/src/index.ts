@@ -42,7 +42,7 @@ if (!FDA_API_KEY) {
 }
 
 let mcpServer = new Server({
-    name: "intelluxe-healthcare-mcp-server",
+    name: "healthcare-mcp",
     version: "1.0.0"
 }, {
     capabilities: {

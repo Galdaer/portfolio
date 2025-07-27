@@ -148,34 +148,26 @@
     "editor.formatOnSave": true,
     "editor.formatOnPaste": true,
     "// AI Assistant Configuration": "",
-    "github.copilot.enable": {
-        "*": false
-    },
-    "github.copilot.chat.codeGeneration.instructions": [
-        {
-            "file": ".augment/rules/imported/copilot-instructions.md",
-            "lastUpdated": "2025-01-23"
-        }
+    "github.copilot.chat.enabled": true,
+    "github.copilot.chat.instructionsFiles": [
+        ".augment/rules/imported/copilot-instructions.md"
     ],
-    "github.copilot.chat.instructionEvolution": {
-        "enabled": true,
-        "patterns": [
-            "Autonomous remote agent execution without interruption",
-            "2-4 hour continuous work sessions for complex tasks",
-            "Context management without asking for continuation",
-            "NEVER provide specific code implementations in remote agent prompts",
-            "ALWAYS require codebase analysis before any changes",
-            "Analysis-first methodology prevents cascading errors",
-            "Incremental validation after each change",
-            "Match existing codebase patterns exactly",
-            "One error at a time systematic approach",
-            "CI environment detection and mocking patterns",
-            "Healthcare AI test isolation in Docker containers",
-            "Coverage report generation with kcov",
-            "Universal service runner testing patterns",
-            "WireGuard key management in CI environments"
-        ]
-    },
+    "github.copilot.chat.instructionEvolution.patterns": [
+        "Autonomous remote agent execution without interruption",
+        "2-4 hour continuous work sessions for complex tasks",
+        "Context management without asking for continuation",
+        "NEVER provide specific code implementations in remote agent prompts",
+        "ALWAYS require codebase analysis before any changes",
+        "Analysis-first methodology prevents cascading errors",
+        "Incremental validation after each change",
+        "Match existing codebase patterns exactly",
+        "One error at a time systematic approach",
+        "CI environment detection and mocking patterns",
+        "Healthcare AI test isolation in Docker containers",
+        "Coverage report generation with kcov",
+        "Universal service runner testing patterns",
+        "WireGuard key management in CI environments"
+    ],
     "github.copilot.chat.firewallConfiguration": {
         "enabled": true,
         "allowlistFile": ".github/copilot-firewall-allowlist.txt",
@@ -209,5 +201,14 @@
     "files.autoSaveDelay": 30000,
     "typescript.preferences.includePackageJsonAutoImports": "off",
     "typescript.suggest.autoImports": false,
-    "typescript.validate.enable": false
+    "typescript.validate.enable": false,
+    "mcpServers": {
+        "healthcare-mcp": {
+            "command": "npx",
+            "args": [
+                "@modelcontextprotocol/client-http",
+                "http://localhost:3000"
+            ]
+        }
+    }
 }

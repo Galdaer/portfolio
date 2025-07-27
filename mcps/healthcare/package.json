@@ -1,5 +1,5 @@
 {
-    "name": "intelluxe-healthcare-mcp",
+    "name": "healthcare-mcp",
     "version": "1.0.0",
     "description": "Intelluxe AI Healthcare MCP Server - Integrated Healthcare AI Platform",
     "private": true,
@@ -7,7 +7,7 @@
     "author": "Intelluxe AI Healthcare System",
     "license": "PROPRIETARY",
     "bin": {
-        "intelluxe-healthcare-mcp": "./build/index.js"
+        "healthcare-mcp": "./build/index.js"
     },
     "files": [
         "build"

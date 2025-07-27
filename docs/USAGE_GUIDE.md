@@ -12,12 +12,12 @@ sudo ./scripts/clinic-bootstrap.sh
 **Step-by-step process:**
 
 1. **Port Configuration** - Script shows current ports and asks if you want to change them
-   - Shows: Ollama (11434), Grafana (3001), AgentCare-MCP (3000), etc.
+   - Shows: Ollama (11434), Grafana (3001), Healthcare-MCP (3000), etc.
    - Choose: Keep defaults or customize ports to avoid conflicts
 
 2. **Service Configuration** - Configure healthcare AI services
    - Set up Ollama for local LLM inference
-   - Configure AgentCare-MCP for medical tool orchestration
+   - Configure Healthcare-MCP for medical tool orchestration
    - Set database connections for PostgreSQL and Redis
 
 3. **Container Selection** - Choose which services to install
@@ -50,7 +50,7 @@ Container Management Menu
 1) traefik       Reverse proxy with automatic SSL    running
 2) wireguard     Secure VPN server                   running  
 3) ollama        Local LLM inference server          running
-4) agentcare-mcp Medical tool orchestration          running
+4) healthcare-mcp Medical tool orchestration          running
 5) grafana       Dashboards and monitoring           running
 6) influxdb      Time-series database for metrics    running
 7) postgres      Primary database for Intelluxe     running
@@ -147,7 +147,7 @@ Generated during setup:
 │   │   ├── traefik/                   # Traefik configuration
 │   │   ├── grafana/                   # Grafana dashboards
 │   │   ├── ollama/                    # Ollama model configuration
-│   │   ├── agentcare-mcp/             # AgentCare-MCP setup
+│   │   ├── healthcare-mcp/             # Healthcare-MCP setup
 │   │   ├── postgres/                  # PostgreSQL database config
 │   │   ├── redis/                     # Redis cache configuration
 │   │   └── n8n/                       # n8n workflow automation
@@ -596,7 +596,7 @@ curl -f http://localhost:3000/health  # Healthcare MCP
 curl -f http://localhost:9090/health  # WhisperLive (if health endpoint exists)
 
 # Check service logs for any issues
-docker logs intelluxe-healthcare-mcp
+docker logs healthcare-mcp
 docker logs intelluxe-whisperlive
 ```
 

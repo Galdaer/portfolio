@@ -32,8 +32,8 @@ if (!FDA_API_KEY) {
     throw new Error("FDA_API_KEY is missing");
 }
 let mcpServer = new Server({
-    name: "agent-care-mcp-server",
-    version: "0.1.0"
+    name: "healthcare-mcp",
+    version: "1.0.0"
 }, {
     capabilities: {
         resources: {},

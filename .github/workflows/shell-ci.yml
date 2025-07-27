@@ -425,8 +425,8 @@ jobs:
   #         echo "Running healthcare AI integration tests with mocked LLMs..."
   #         
   #         # Test Healthcare-MCP tool configurations
-  #         if [ -f "test/healthcare/test_agentcare_mcp.py" ]; then
-  #           python3 -m pytest test/healthcare/test_agentcare_mcp.py -v --mock-llm
+  #         if [ -f "test/healthcare/test_healthcare_mcp.py" ]; then
+  #           python3 -m pytest test/healthcare/test_healthcare_mcp.py -v --mock-llm
   #         fi
   #         
   #         # Test Ollama configurations

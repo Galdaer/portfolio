@@ -60,7 +60,7 @@ http://localhost:5678
 2. Connect it to the TRUE output of the IF node
 3. Configure:
    - **Method**: POST
-   - **URL**: `http://agentcare-mcp:3000/v1/messages`
+   - **URL**: `http://healthcare-mcp:3000/v1/messages`
    - **Send Body**: Yes
    - **Body Content Type**: JSON
    - **Body**:
@@ -248,10 +248,10 @@ VOLUMES="./data:/home/node/.n8n ./workflows:/workflows"
 ```bash
 # 1. Start all services
 ./clinic-bootstrap.sh
-# Select: ollama, agentcare-mcp, clinical-session, n8n
+# Select: ollama, healthcare-mcp, clinical-session, n8n
 
 # 2. Verify all services are running
-docker ps | grep -E "(ollama|agentcare|clinical-session|n8n)"
+docker ps | grep -E "(ollama|healthcare|clinical-session|n8n)"
 
 # 3. Create a test session
 SESSION_ID=$(curl -s -X POST http://localhost:8090/session/create \
@@ -285,7 +285,7 @@ curl http://localhost:8090/session/$SESSION_ID/status
    docker network inspect clinical-net
    
    # Ensure all services are on same network
-   docker inspect agentcare-mcp | grep NetworkMode
+   docker inspect healthcare-mcp | grep NetworkMode
    ```
 
 2. **Webhook Not Receiving**
@@ -297,7 +297,7 @@ curl http://localhost:8090/session/$SESSION_ID/status
 3. **AgentCare-MCP Connection Issues**
    ```bash
    # Test MCP endpoint
-   docker exec -it n8n curl http://agentcare-mcp:3000/health
+   docker exec -it n8n curl http://healthcare-mcp:3000/health
    ```
 
 **Debug Mode:**
