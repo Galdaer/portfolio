@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - 'remote-agent/*'  # Trigger on remote agent branches
-      - feature/*
   pull_request_review_comment:
     types: [created]
   issue_comment:

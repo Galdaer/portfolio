@@ -9,12 +9,11 @@ on:
     branches:
       - main
       - master
-      - feature/*
-      - develop
   pull_request:
     branches:
       - main
       - master
+      - develop
 
 jobs:
   lint-test:
