@@ -49,7 +49,11 @@ fi
 echo "Using test directories: ${ACTIVE_TEST_DIRS[*]}" >&2
 
 if ! command -v bats >/dev/null 2>&1; then
-    if [[ -x "$REPO_ROOT/scripts/setup-environment.sh" ]]; then
+    if [[ "${CI_SKIP_DEPS:-false}" == "true" ]]; then
+        echo "⚠️  bats not available but CI_SKIP_DEPS=true - skipping dependency installation" >&2
+        echo "Tests may fail due to missing bats. This is expected in CI environments." >&2
+        # Try to continue anyway - some tests might work without bats
+    elif [[ -x "$REPO_ROOT/scripts/setup-environment.sh" ]]; then
         echo "Installing test dependencies..." >&2
         sudo "$REPO_ROOT/scripts/setup-environment.sh"
     else
