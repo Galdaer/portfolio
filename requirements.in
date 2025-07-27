@@ -42,7 +42,6 @@ mypy>=1.17.0
 yamllint>=1.37.0
 black>=25.1.0
 isort>=5.13.0
-pre-commit>=4.2.0
 
 # === MONITORING AND OBSERVABILITY ===
 prometheus-client>=0.22.0

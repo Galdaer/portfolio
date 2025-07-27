@@ -1,0 +1,29 @@
+#!/bin/bash
+# Pre-commit hook for Intelluxe AI Healthcare System
+# Light validation to catch obvious issues before commit
+
+set -e
+
+# Check for obvious problems that would fail CI
+echo "🔍 Pre-commit validation..."
+
+# Check for merge conflict markers
+if git diff --cached | grep -E '^[<>=]{7}'; then
+    echo "❌ Merge conflict markers found in staged files!"
+    exit 1
+fi
+
+# Check for debug statements in Python files
+if git diff --cached --name-only | grep '\.py$' | xargs grep -l 'pdb\.set_trace\|breakpoint()' 2>/dev/null; then
+    echo "❌ Debug statements found in Python files!"
+    echo "💡 Remove pdb.set_trace() or breakpoint() calls"
+    exit 1
+fi
+
+# Check for TODO/FIXME in committed code (warn only)
+if git diff --cached | grep -E '^\+.*\b(TODO|FIXME|XXX)\b'; then
+    echo "⚠️  Warning: TODO/FIXME comments found in staged changes"
+    echo "💡 Consider addressing these before committing"
+fi
+
+echo "✅ Pre-commit checks passed!"

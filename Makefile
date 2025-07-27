@@ -8,6 +8,7 @@
 	   e2e \
 	   fix-permissions \
 	   help \
+	   hooks \
 	   install \
 	   lint \
 	   lint-python \
@@ -22,7 +23,11 @@
 	   test-quiet \
 	   uninstall \
 	   update \
-	   validate \
+		@echo "📦 Installation:"
+	@echo "  make install         Install healthcare AI scripts and systemd services system-wide"
+	@echo "  make update          Run system update and upgrade"
+	@echo "  make uninstall       Remove healthcare AI systemd services and directories"
+	@echo ""alidate \
 	   venv
 
 # Constants (matching bootstrap.sh)
@@ -244,6 +249,10 @@ restore:
 	./scripts/bootstrap.sh --restore-backup "$(BACKUP_FILE)"
 
 # Development Commands
+hooks:
+	@echo "🔗  Installing git hooks for pre-push validation"
+	./.githooks/install-hooks.sh
+
 lint:
 	@echo "🔍  Running shellcheck with warning level for healthcare AI scripts"
 	@shellcheck -S warning --format=gcc -x $$(find scripts -name "*.sh")
@@ -352,7 +361,13 @@ help:
 	@echo "🏥  Intelluxe AI Healthcare Infrastructure Management"
 	@echo "================================================="
 	@echo ""
-	@echo "📦 Installation:"
+	@echo "�️  Quick Developer Setup:"
+	@echo "  make install         Install system-wide (production-like paths)"
+	@echo "  make deps            Install development dependencies"
+	@echo "  make hooks           Install git hooks for code quality"
+	@echo "  make validate        Verify setup works"
+	@echo ""
+	@echo "�📦 Installation:"
 	@echo "  make install         Install healthcare AI scripts and systemd services system-wide"
 	@echo "  make update          Run system update and upgrade"
 	@echo ""
@@ -374,8 +389,11 @@ help:
 	@echo ""
 	@echo "🛠️  Development:"
 	@echo "  make deps            Install healthcare AI lint and test dependencies"
+	@echo "  make update-deps     Update and regenerate dependency lockfiles"
 	@echo "  make venv            Create or activate a virtual environment"
+	@echo "  make hooks           Install git hooks for pre-push validation"
 	@echo "  make lint            Run shell and Python linters for healthcare AI code"
+	@echo "  make lint-python     Run Python-specific linting (flake8, mypy)"
 	@echo "  make validate        Validate healthcare AI configuration and dependencies"
 	@echo "  make test            Run healthcare AI unit tests with Bats"
 	@echo "  make test-quiet      Run healthcare AI tests (quiet mode)"
@@ -385,6 +403,5 @@ help:
 	@echo ""
 	@echo "🔧 Maintenance:"
 	@echo "  make fix-permissions Fix ownership and permissions for healthcare AI files"
-	@echo "  make uninstall       Remove healthcare AI systemd services and directories"
 	@echo ""
 	@echo "  make help            Show this help message"
