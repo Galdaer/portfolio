@@ -1,5 +1,7 @@
 # Copilot Instructions for Intelluxe AI Healthcare System
 
+Use The Sequential Thinking MCP Server to think through your tasks.
+
 ## Project Overview
 
 **Intelluxe AI** - Privacy-First Healthcare AI System built for on-premise clinical deployment. Currently in active development, focusing on core infrastructure and test suite hardening.
