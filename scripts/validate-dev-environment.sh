@@ -49,7 +49,7 @@ cache_validation_result() {
 
 get_cached_validation_result() {
     local test_name="$1"
-    local max_age="${2:-300}"  # 5 minutes default
+    local max_age="${2:-300}" # 5 minutes default
 
     if [[ -n "${VALIDATION_RESULTS[$test_name]:-}" ]]; then
         local timestamp="${VALIDATION_TIMESTAMPS[$test_name]}"
@@ -73,12 +73,12 @@ validate_python_environment() {
         echo "$cached_result"
         return 0
     fi
-    
+
     local output=""
     output+="$(log_info "Validating Python environment...")"$'\n'
-    
+
     # Check Python version
-    if command -v python3 &> /dev/null; then
+    if command -v python3 &>/dev/null; then
         PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
         if [[ "$PYTHON_VERSION" =~ ^3\.(9|10|11|12) ]]; then
             output+="$(log_success "Python version: $PYTHON_VERSION")"$'\n'
@@ -90,7 +90,7 @@ validate_python_environment() {
         output+="$(log_error "Python3 not found")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     # Check virtual environment
     if [[ -n "${VIRTUAL_ENV:-}" ]]; then
         output+="$(log_success "Virtual environment active: $VIRTUAL_ENV")"$'\n'
@@ -98,7 +98,7 @@ validate_python_environment() {
         output+="$(log_warning "No virtual environment detected")"$'\n'
         ((WARNINGS++))
     fi
-    
+
     # Check required packages
     local required_packages=(
         "fastapi"
@@ -110,7 +110,7 @@ validate_python_environment() {
         "presidio-analyzer"
         "structlog"
     )
-    
+
     for package in "${required_packages[@]}"; do
         if python3 -c "import $package" 2>/dev/null; then
             output+="$(log_success "Package $package: installed")"$'\n'
@@ -119,7 +119,7 @@ validate_python_environment() {
             ((CRITICAL_FAILURES++))
         fi
     done
-    
+
     cache_validation_result "$cache_key" "$output"
     echo "$output"
 }
@@ -131,17 +131,17 @@ validate_database_connections() {
         echo "$cached_result"
         return 0
     fi
-    
+
     local output=""
     output+="$(log_info "Validating database connections...")"$'\n'
-    
+
     # PostgreSQL connection
-    if command -v psql &> /dev/null; then
+    if command -v psql &>/dev/null; then
         local pg_host="${POSTGRES_HOST:-localhost}"
         local pg_port="${POSTGRES_PORT:-5432}"
         local pg_db="${POSTGRES_DB:-intelluxe}"
         local pg_user="${POSTGRES_USER:-intelluxe}"
-        
+
         if PGPASSWORD="${POSTGRES_PASSWORD:-intelluxe}" psql -h "$pg_host" -p "$pg_port" -U "$pg_user" -d "$pg_db" -c "SELECT 1;" &>/dev/null; then
             output+="$(log_success "PostgreSQL connection: OK")"$'\n'
         else
@@ -152,12 +152,12 @@ validate_database_connections() {
         output+="$(log_warning "psql not found, skipping PostgreSQL test")"$'\n'
         ((WARNINGS++))
     fi
-    
+
     # Redis connection
-    if command -v redis-cli &> /dev/null; then
+    if command -v redis-cli &>/dev/null; then
         local redis_host="${REDIS_HOST:-localhost}"
         local redis_port="${REDIS_PORT:-6379}"
-        
+
         if redis-cli -h "$redis_host" -p "$redis_port" ping | grep -q "PONG"; then
             output+="$(log_success "Redis connection: OK")"$'\n'
         else
@@ -168,7 +168,7 @@ validate_database_connections() {
         output+="$(log_warning "redis-cli not found, skipping Redis test")"$'\n'
         ((WARNINGS++))
     fi
-    
+
     cache_validation_result "$cache_key" "$output"
     echo "$output"
 }
@@ -180,27 +180,32 @@ validate_ollama_service() {
         echo "$cached_result"
         return 0
     fi
-    
+
     local output=""
     output+="$(log_info "Validating Ollama service...")"$'\n'
-    
+
     local ollama_host="${OLLAMA_HOST:-localhost}"
     local ollama_port="${OLLAMA_PORT:-11434}"
     local ollama_url="http://$ollama_host:$ollama_port"
-    
+
     # Check Ollama health
     if curl -sf "$ollama_url/api/version" &>/dev/null; then
         output+="$(log_success "Ollama service: running")"$'\n'
-        
+
         # Check required models
         local required_models=(
             "llama3.1:8b-instruct-q4_K_M"
             "mistral:7b-instruct-q4_K_M"
         )
-        
+
         local available_models
         if [[ "$ollama_url" == https* ]]; then
-            available_models=$(curl --cacert /etc/ssl/certs/ca-certificates.crt -s "$ollama_url/api/tags" | python3 -c "
+            local cacert_path="/etc/ssl/certs/ca-certificates.crt"
+            local curl_command="curl -s"
+            if [[ -f "$cacert_path" ]]; then
+                curl_command="curl --cacert $cacert_path -s"
+            fi
+            available_models=$($curl_command "$ollama_url/api/tags" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
@@ -220,7 +225,7 @@ except:
     print('')
 ")
         fi
-        
+
         for model in "${required_models[@]}"; do
             if echo "$available_models" | grep -q "$model"; then
                 output+="$(log_success "Model $model: available")"$'\n'
@@ -233,7 +238,7 @@ except:
         output+="$(log_error "Ollama service: not running")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     cache_validation_result "$cache_key" "$output"
     echo "$output"
 }
@@ -245,10 +250,10 @@ validate_healthcare_components() {
         echo "$cached_result"
         return 0
     fi
-    
+
     local output=""
     output+="$(log_info "Validating healthcare-specific components...")"$'\n'
-    
+
     # Check PHI detection
     if python3 -c "
 from src.healthcare_mcp.phi_detection import PHIDetector
@@ -262,7 +267,7 @@ print('PHI detection: OK')
         output+="$(log_error "PHI detection: failed")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     # Check encryption manager
     if python3 -c "
 import psycopg2
@@ -286,7 +291,7 @@ print('Encryption manager: OK')
         output+="$(log_error "Encryption manager: failed")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     # Check RBAC system
     if python3 -c "
 from src.security.rbac_foundation import HealthcareRBACManager, Permission, ResourceType
@@ -309,7 +314,7 @@ print('RBAC system: OK')
         output+="$(log_error "RBAC system: failed")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     cache_validation_result "$cache_key" "$output"
     echo "$output"
 }
@@ -321,10 +326,10 @@ validate_testing_framework() {
         echo "$cached_result"
         return 0
     fi
-    
+
     local output=""
     output+="$(log_info "Validating testing framework...")"$'\n'
-    
+
     # Check DeepEval
     if python3 -c "
 from tests.healthcare_evaluation.deepeval_config import HealthcareEvaluationFramework
@@ -336,7 +341,7 @@ print('DeepEval framework: OK')
         output+="$(log_error "DeepEval framework: failed")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     # Check synthetic data generation
     if python3 -c "
 from tests.healthcare_evaluation.synthetic_data_generator import SyntheticHealthcareDataGenerator
@@ -350,7 +355,7 @@ print('Synthetic data generation: OK')
         output+="$(log_error "Synthetic data generation: failed")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     # Check pytest configuration
     if python3 -m pytest --version &>/dev/null; then
         output+="$(log_success "Pytest: available")"$'\n'
@@ -358,7 +363,7 @@ print('Synthetic data generation: OK')
         output+="$(log_error "Pytest: not available")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     cache_validation_result "$cache_key" "$output"
     echo "$output"
 }
@@ -370,14 +375,14 @@ validate_security_configuration() {
         echo "$cached_result"
         return 0
     fi
-    
+
     local output=""
     output+="$(log_info "Validating security configuration...")"$'\n'
-    
+
     # Check HIPAA configuration
     if [[ -f "$PROJECT_ROOT/config/security/hipaa_compliance.yml" ]]; then
         output+="$(log_success "HIPAA configuration: present")"$'\n'
-        
+
         # Validate HIPAA config structure
         if python3 -c "
 import yaml
@@ -406,7 +411,7 @@ print('HIPAA configuration: valid')
         output+="$(log_error "HIPAA configuration: missing")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     # Check healthcare metrics configuration
     if [[ -f "$PROJECT_ROOT/config/testing/healthcare_metrics.yml" ]]; then
         output+="$(log_success "Healthcare metrics configuration: present")"$'\n'
@@ -414,13 +419,13 @@ print('HIPAA configuration: valid')
         output+="$(log_error "Healthcare metrics configuration: missing")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     # Check pre-commit configuration
     if [[ -f "$PROJECT_ROOT/.pre-commit-config.yaml" ]]; then
         output+="$(log_success "Pre-commit configuration: present")"$'\n'
-        
+
         # Check if pre-commit is installed
-        if command -v pre-commit &> /dev/null; then
+        if command -v pre-commit &>/dev/null; then
             output+="$(log_success "Pre-commit: installed")"$'\n'
         else
             output+="$(log_warning "Pre-commit: not installed")"$'\n'
@@ -430,7 +435,7 @@ print('HIPAA configuration: valid')
         output+="$(log_error "Pre-commit configuration: missing")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     cache_validation_result "$cache_key" "$output"
     echo "$output"
 }
@@ -442,10 +447,10 @@ validate_development_tools() {
         echo "$cached_result"
         return 0
     fi
-    
+
     local output=""
     output+="$(log_info "Validating development tools...")"$'\n'
-    
+
     # Check VS Code configuration
     if [[ -f "$PROJECT_ROOT/.vscode/settings.json" ]]; then
         output+="$(log_success "VS Code configuration: present")"$'\n'
@@ -453,18 +458,18 @@ validate_development_tools() {
         output+="$(log_warning "VS Code configuration: missing")"$'\n'
         ((WARNINGS++))
     fi
-    
+
     # Check code quality tools
     local tools=("black" "flake8" "pylint" "mypy")
     for tool in "${tools[@]}"; do
-        if command -v "$tool" &> /dev/null || python3 -m "$tool" --version &>/dev/null; then
+        if command -v "$tool" &>/dev/null || python3 -m "$tool" --version &>/dev/null; then
             output+="$(log_success "Code quality tool $tool: available")"$'\n'
         else
             output+="$(log_warning "Code quality tool $tool: not available")"$'\n'
             ((WARNINGS++))
         fi
     done
-    
+
     # Check AI assistant configuration
     if python3 -c "
 from src.development.ai_assistant_config import HealthcareAIAssistant, AIAssistantConfig
@@ -476,7 +481,7 @@ print('AI assistant: OK')
         output+="$(log_error "AI assistant configuration: failed")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     cache_validation_result "$cache_key" "$output"
     echo "$output"
 }
@@ -488,14 +493,14 @@ validate_service_deployment() {
         echo "$cached_result"
         return 0
     fi
-    
+
     local output=""
     output+="$(log_info "Validating service deployment configuration...")"$'\n'
-    
+
     # Check universal service runner
     if [[ -f "$PROJECT_ROOT/scripts/universal-service-runner.sh" ]]; then
         output+="$(log_success "Universal service runner: present")"$'\n'
-        
+
         # Check if it's executable
         if [[ -x "$PROJECT_ROOT/scripts/universal-service-runner.sh" ]]; then
             output+="$(log_success "Universal service runner: executable")"$'\n'
@@ -507,7 +512,7 @@ validate_service_deployment() {
         output+="$(log_error "Universal service runner: missing")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     # Check healthcare MCP service configuration
     if [[ -f "$PROJECT_ROOT/services/user/healthcare-mcp/healthcare-mcp.conf" ]]; then
         output+="$(log_success "Healthcare MCP service config: present")"$'\n'
@@ -515,7 +520,7 @@ validate_service_deployment() {
         output+="$(log_error "Healthcare MCP service config: missing")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     # Check Docker configuration
     if [[ -f "$PROJECT_ROOT/docker/mcp-server/Dockerfile.healthcare" ]]; then
         output+="$(log_success "Healthcare MCP Dockerfile: present")"$'\n'
@@ -523,7 +528,7 @@ validate_service_deployment() {
         output+="$(log_error "Healthcare MCP Dockerfile: missing")"$'\n'
         ((CRITICAL_FAILURES++))
     fi
-    
+
     cache_validation_result "$cache_key" "$output"
     echo "$output"
 }
@@ -535,16 +540,16 @@ validate_ci_cd_pipeline() {
         echo "$cached_result"
         return 0
     fi
-    
+
     local output=""
     output+="$(log_info "Validating CI/CD pipeline...")"$'\n'
-    
+
     # Check GitHub workflows
     local workflows=(
         "healthcare_evaluation.yml"
         "security_validation.yml"
     )
-    
+
     for workflow in "${workflows[@]}"; do
         if [[ -f "$PROJECT_ROOT/.github/workflows/$workflow" ]]; then
             output+="$(log_success "Workflow $workflow: present")"$'\n'
@@ -553,17 +558,17 @@ validate_ci_cd_pipeline() {
             ((CRITICAL_FAILURES++))
         fi
     done
-    
+
     cache_validation_result "$cache_key" "$output"
     echo "$output"
 }
 
 generate_validation_report() {
     log_info "Generating validation report..."
-    
+
     local report_file="$PROJECT_ROOT/validation-report.md"
-    
-    cat > "$report_file" << EOF
+
+    cat >"$report_file" <<EOF
 # Healthcare AI Development Environment Validation Report
 
 **Generated:** $(date -u)
@@ -667,35 +672,35 @@ main() {
         *)
             # Run all validations sequentially (default)
             validate_python_environment
-    echo
-    validate_database_connections
-    echo
-    validate_ollama_service
-    echo
-    validate_healthcare_components
-    echo
-    validate_testing_framework
-    echo
-    validate_security_configuration
-    echo
-    validate_development_tools
-    echo
-    validate_service_deployment
-    echo
-    validate_ci_cd_pipeline
-    echo
+            echo
+            validate_database_connections
+            echo
+            validate_ollama_service
+            echo
+            validate_healthcare_components
+            echo
+            validate_testing_framework
+            echo
+            validate_security_configuration
+            echo
+            validate_development_tools
+            echo
+            validate_service_deployment
+            echo
+            validate_ci_cd_pipeline
+            echo
             ;;
     esac
 
     # Generate report
     generate_validation_report
     echo
-    
+
     # Final summary
     log_info "Validation Summary:"
     log_info "Critical Failures: $CRITICAL_FAILURES"
     log_info "Warnings: $WARNINGS"
-    
+
     if [ "$CRITICAL_FAILURES" -eq 0 ]; then
         log_success "✅ Healthcare AI development environment validation PASSED"
         echo

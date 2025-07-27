@@ -1,8 +1,11 @@
 """Centralized encryption configuration management for healthcare AI system"""
-import os
+
 import base64
+import os
 import secrets
+
 from src.security.environment_detector import EnvironmentDetector
+
 
 class EncryptionConfigLoader:
     """Centralized encryption configuration management"""
@@ -10,7 +13,7 @@ class EncryptionConfigLoader:
     @staticmethod
     def get_or_create_master_key(logger, config=None) -> bytes:
         """Get or create master encryption key with proper base64 encoding"""
-        master_key_str = os.getenv('MASTER_ENCRYPTION_KEY')
+        master_key_str = os.getenv("MASTER_ENCRYPTION_KEY")
 
         if EnvironmentDetector.is_production():
             if not master_key_str:
@@ -33,16 +36,19 @@ class EncryptionConfigLoader:
             # Ensure proper base64 encoding for Fernet
             try:
                 # If it's already base64 encoded, use it directly
-                key_bytes = base64.urlsafe_b64decode(master_key_str + '==')  # Add padding if needed
+                # Calculate required padding for base64 decoding
+                padding = (4 - len(master_key_str) % 4) % 4
+                padded_key_str = master_key_str + ("=" * padding)
+                key_bytes = base64.urlsafe_b64decode(padded_key_str)  # Decode with proper padding
                 if len(key_bytes) == 32:
                     return base64.urlsafe_b64encode(key_bytes)
                 else:
                     # If not 32 bytes, treat as raw string and encode
-                    key_bytes = master_key_str.encode('utf-8')[:32].ljust(32, b'\0')
+                    key_bytes = master_key_str.encode("utf-8")[:32].ljust(32, b"\0")
                     return base64.urlsafe_b64encode(key_bytes)
             except Exception:
                 # Treat as raw string
-                key_bytes = master_key_str.encode('utf-8')[:32].ljust(32, b'\0')
+                key_bytes = master_key_str.encode("utf-8")[:32].ljust(32, b"\0")
                 return base64.urlsafe_b64encode(key_bytes)
         else:
             # Generate key for development - return base64 encoded
@@ -53,21 +59,20 @@ class EncryptionConfigLoader:
         """Generate or load development encryption key with persistence"""
 
         # Use config path if provided, otherwise default
-        if config and isinstance(config, dict) and config.get('dev_key_path'):
-            key_file = config['dev_key_path']
+        if config and isinstance(config, dict) and config.get("dev_key_path"):
+            key_file = config["dev_key_path"]
         else:
             key_file = os.path.join(
-                os.getenv('CFG_ROOT', '/opt/intelluxe/stack'),
-                'security', 'dev_master_key'
+                os.getenv("CFG_ROOT", "/opt/intelluxe/stack"), "security", "dev_master_key"
             )
 
         try:
             if os.path.exists(key_file):
-                with open(key_file, 'rb') as f:
+                with open(key_file, "rb") as f:
                     stored_key = f.read().strip()
                     # Validate it's proper base64
                     try:
-                        decoded = base64.urlsafe_b64decode(stored_key + b'==')
+                        decoded = base64.urlsafe_b64decode(stored_key + b"==")
                         if len(decoded) == 32:
                             return stored_key  # Already base64 encoded
                     except Exception:
@@ -79,7 +84,7 @@ class EncryptionConfigLoader:
 
             # Store for persistence
             os.makedirs(os.path.dirname(key_file), exist_ok=True)
-            with open(key_file, 'wb') as f:
+            with open(key_file, "wb") as f:
                 f.write(encoded_key)
             os.chmod(key_file, 0o600)
 

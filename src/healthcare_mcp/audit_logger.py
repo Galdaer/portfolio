@@ -3,15 +3,16 @@ Healthcare Audit Logger
 HIPAA-compliant audit logging with structured output
 """
 
-import logging
 import json
+import logging
 from datetime import datetime
-from typing import Dict, Any, Optional
 from enum import Enum
+from typing import Any, Dict, Optional
 
 
 class AuditEventType(Enum):
     """Healthcare audit event types for HIPAA compliance"""
+
     PHI_ACCESS = "phi_access"
     PHI_MODIFICATION = "phi_modification"
     AUTHENTICATION = "authentication"
@@ -26,7 +27,7 @@ class HealthcareAuditLogger:
     HIPAA-compliant audit logger for healthcare AI operations
     """
 
-    VALID_LOG_LEVELS = {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'}
+    VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 
     def __init__(self, config, log_level: str = "INFO"):
         self.config = config
@@ -57,13 +58,14 @@ class HealthcareAuditLogger:
 
     async def log_phi_detection(self, request_data, phi_details: Dict[str, Any]):
         """Log PHI detection events"""
-        request_id = getattr(request_data, 'id', 'unknown')
-        phi_types = phi_details.get('entities', [])
+        request_id = getattr(request_data, "id", "unknown")
+        phi_types = phi_details.get("entities", [])
 
         self.logger.warning(
             f"PHI_DETECTION: request_id={request_id}, "
             f"types={phi_types}, "
-            f"confidence={phi_details.get('confidence', 0.0)}"
+            f"confidence={phi_details.get('confidence', 0.0)}, "
+            f"details={phi_details.get('detection_details', [])}"
         )
 
     def log_audit_event(
@@ -73,7 +75,7 @@ class HealthcareAuditLogger:
         resource: Optional[str] = None,
         action: Optional[str] = None,
         result: str = "success",
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Log healthcare audit event with structured data"""
 
@@ -84,10 +86,11 @@ class HealthcareAuditLogger:
             "resource": resource,
             "action": action,
             "result": result,
-            "details": details or {}
+            "details": details or {},
         }
 
         self.logger.info(json.dumps(audit_record))
+
 
 # Example usage
 if __name__ == "__main__":
