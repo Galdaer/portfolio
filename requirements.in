@@ -80,7 +80,7 @@ Cython>=0.29.37,<3.0.0
 wheel>=0.45.0
 
 # === HEALTHCARE AI TESTING FRAMEWORK ===
-deepeval>=1.5.4
+deepeval>=3.3.2
 faker>=31.2.0
 pytest-xdist>=3.8.0
 
