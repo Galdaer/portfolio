@@ -1,11 +1,11 @@
 #!/bin/bash
 # Pre-commit hook for Intelluxe AI Healthcare System
-# Light validation to catch obvious issues before commit
+# Light validation and auto-formatting to catch obvious issues before commit
 
 set -e
 
 # Check for obvious problems that would fail CI
-echo "🔍 Pre-commit validation..."
+echo "🔍 Pre-commit validation and formatting..."
 
 # Check for merge conflict markers
 if git diff --cached | grep -E '^[<>=]{7}'; then
@@ -20,10 +20,36 @@ if git diff --cached --name-only | grep '\.py$' | xargs grep -l 'pdb\.set_trace\
     exit 1
 fi
 
+# Auto-format Python files with black and isort
+echo "🎨 Auto-formatting Python files..."
+python_files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+if [ -n "$python_files" ]; then
+    echo "   Formatting with black..."
+    if command -v black >/dev/null 2>&1; then
+        echo "$python_files" | xargs black --line-length=100
+    elif python3 -m black --version >/dev/null 2>&1; then
+        echo "$python_files" | xargs python3 -m black --line-length=100
+    else
+        echo "⚠️  black not found - skipping Python formatting"
+    fi
+    
+    echo "   Organizing imports with isort..."
+    if command -v isort >/dev/null 2>&1; then
+        echo "$python_files" | xargs isort --profile black --line-length=100
+    elif python3 -m isort --version >/dev/null 2>&1; then
+        echo "$python_files" | xargs python3 -m isort --profile black --line-length=100
+    else
+        echo "⚠️  isort not found - skipping import organization"
+    fi
+    
+    # Re-add formatted files to staging
+    echo "$python_files" | xargs git add
+fi
+
 # Check for TODO/FIXME in committed code (warn only)
 if git diff --cached | grep -E '^\+.*\b(TODO|FIXME|XXX)\b'; then
     echo "⚠️  Warning: TODO/FIXME comments found in staged changes"
     echo "💡 Consider addressing these before committing"
 fi
 
-echo "✅ Pre-commit checks passed!"
+echo "✅ Pre-commit checks and formatting complete!"

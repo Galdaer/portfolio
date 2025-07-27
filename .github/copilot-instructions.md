@@ -309,6 +309,13 @@ python3 -m mypy mcps/ --ignore-missing-imports --strict-optional  # if Python fi
 - **Compliance-first**: All features must support HIPAA compliance, audit trails, data retention policies
 - **Real-world validation**: Test with actual clinical scenarios using n8n workflows
 
+### Git Hooks Development Workflow
+- **Lightweight git hooks** over heavy pre-commit framework for development efficiency
+- **Pre-commit hook**: Light validation + auto-formatting (black, isort) + basic file checks (merge conflicts, debug statements)
+- **Pre-push hook**: Comprehensive validation using existing Makefile targets (`make lint && make validate && make test-quiet`)
+- **Installation**: `make hooks` installs git hooks that integrate with existing CI infrastructure
+- **Philosophy**: Local hooks auto-fix formatting and catch obvious mistakes, CI handles comprehensive validation - no duplication
+
 ## Phase Implementation
 
 - **Phase 0**: Project setup and directory structure (`PHASE_0.md`)
@@ -855,6 +862,12 @@ When designing any workflow, CI/CD pipeline, or system component:
   - `requirements-ci.txt` - Minimal dependencies for CI/CD (excludes GPU packages)
 - **Never manually edit** `requirements.txt` or `requirements-ci.txt`
 - **Use `make deps` or `make update-deps`** to regenerate requirements files
+- **Dependency removal**: Remove from `requirements.in`, then run `make update-deps` to regenerate lockfiles
+
+**Developer Workflow Standards:**
+- **Quick setup sequence**: `make install && make deps && make hooks && make validate`
+- **Git hooks over pre-commit framework**: Lightweight local validation that integrates with CI
+- **Makefile-driven development**: Use existing targets (`make lint`, `make validate`, `make test`) for consistency
 
 **CI/CD Anti-Patterns to REJECT:**
 - Installing Python dependencies in every job separately
