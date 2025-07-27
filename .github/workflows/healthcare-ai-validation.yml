@@ -130,37 +130,51 @@ jobs:
     
     - name: Type Checking (MyPy)
       run: |
-        # Check if directories exist before running mypy
+        # Check if directories exist and have Python files before running mypy
         error_count=0
         
-        if [ -d "src/" ]; then
+        # Function to check if directory has Python files
+        has_python_files() {
+          [ -d "$1" ] && [ "$(find "$1" -name "*.py" -type f | head -1)" ]
+        }
+        
+        if has_python_files "src/"; then
           echo "Running MyPy on src/..."
-          if ! mypy src/ --ignore-missing-imports --strict-optional; then
+          mypy_output=$(mypy src/ --ignore-missing-imports --strict-optional 2>&1)
+          mypy_exit_code=$?
+          echo "$mypy_output"
+          if [ $mypy_exit_code -ne 0 ] && ! echo "$mypy_output" | grep -q "There are no \.py\[i\] files in directory"; then
             echo "❌ MyPy errors found in src/"
             ((error_count++))
           fi
         else
-          echo "⚠️  No src/ directory found"
+          echo "⚠️  No Python files found in src/ directory"
         fi
         
-        if [ -d "agents/" ]; then
+        if has_python_files "agents/"; then
           echo "Running MyPy on agents/..."
-          if ! mypy agents/ --ignore-missing-imports --strict-optional; then
+          mypy_output=$(mypy agents/ --ignore-missing-imports --strict-optional 2>&1)
+          mypy_exit_code=$?
+          echo "$mypy_output"
+          if [ $mypy_exit_code -ne 0 ] && ! echo "$mypy_output" | grep -q "There are no \.py\[i\] files in directory"; then
             echo "❌ MyPy errors found in agents/"
             ((error_count++))
           fi
         else
-          echo "⚠️  No agents/ directory found"
+          echo "⚠️  No Python files found in agents/ directory"
         fi
         
-        if [ -d "mcps/" ]; then
+        if has_python_files "mcps/"; then
           echo "Running MyPy on mcps/..."
-          if ! mypy mcps/ --ignore-missing-imports --strict-optional; then
+          mypy_output=$(mypy mcps/ --ignore-missing-imports --strict-optional 2>&1)
+          mypy_exit_code=$?
+          echo "$mypy_output"
+          if [ $mypy_exit_code -ne 0 ] && ! echo "$mypy_output" | grep -q "There are no \.py\[i\] files in directory"; then
             echo "❌ MyPy errors found in mcps/"
             ((error_count++))
           fi
         else
-          echo "⚠️  No mcps/ directory found"
+          echo "⚠️  No Python files found in mcps/ directory"
         fi
         
         if [ $error_count -gt 0 ]; then
