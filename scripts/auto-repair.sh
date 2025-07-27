@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail # Removed -e to prevent systemd service failure blocking boot
 # auto-repair.sh - Automated container health monitoring and repair
 # Author: Justin Michael Sue (Galdaer)
 # Repo: https://github.com/Intelluxe-AI/intelluxe-core
@@ -48,8 +48,8 @@ SCRIPT_VERSION="1.0.0"
 : "${CI:=false}"
 
 # Set proper ownership for Intelluxe system
-: "${CFG_UID:=1000}"    # justin
-: "${CFG_GID:=1001}"    # intelluxe
+: "${CFG_UID:=1000}" # justin
+: "${CFG_GID:=1001}" # intelluxe
 
 # shellcheck disable=SC2034
 EXIT_DEPENDENCY_MISSING=4
@@ -72,17 +72,17 @@ parse_basic_flags "$@"
 
 # Script-specific flags
 while [[ $# -gt 0 ]]; do
-	case "$1" in
-	--log-file)
-		LOG_FILE="$2"
-		shift 2
-		;;
-	--)
-		shift
-		break
-		;;
-	*) break ;;
-	esac
+    case "$1" in
+        --log-file)
+            LOG_FILE="$2"
+            shift 2
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *) break ;;
+    esac
 done
 
 require_deps docker jq "${SCRIPT_DIR}/diagnostics.sh"
@@ -108,21 +108,21 @@ log "🔍 Running auto-repair check..."
 
 log "📋 Running diagnostics"
 if [[ "$DRY_RUN" == "true" ]]; then
-	log "[DRY-RUN] Would run: ${SCRIPT_DIR}/diagnostics.sh --source=\"$SOURCE\" --export-json --no-color --log-file \"$LOG_FILE\" --dry-run"
-	log "[DRY-RUN] Would check diagnostics JSON and restart unhealthy containers"
-	exit 0
+    log "[DRY-RUN] Would run: ${SCRIPT_DIR}/diagnostics.sh --source=\"$SOURCE\" --export-json --no-color --log-file \"$LOG_FILE\" --dry-run"
+    log "[DRY-RUN] Would check diagnostics JSON and restart unhealthy containers"
+    exit 0
 else
-	"${SCRIPT_DIR}/diagnostics.sh" --source="$SOURCE" --export-json --no-color --log-file "$LOG_FILE" || true
+    "${SCRIPT_DIR}/diagnostics.sh" --source="$SOURCE" --export-json --no-color --log-file "$LOG_FILE" || true
 fi
 
 if [[ ! -f "${LOG_DIR}/diagnostics.json" ]]; then
-	fail "❌ Diagnostics JSON not found"
-	exit $EXIT_DIAGNOSTICS_MISSING
+    fail "❌ Diagnostics JSON not found"
+    exit $EXIT_DIAGNOSTICS_MISSING
 fi
 
 if ! jq empty "${LOG_DIR}/diagnostics.json" &>/dev/null; then
-	fail "❌ Diagnostics JSON is invalid. Check the diagnostics script output."
-	exit $EXIT_JSON_INVALID
+    fail "❌ Diagnostics JSON is invalid. Check the diagnostics script output."
+    exit $EXIT_JSON_INVALID
 fi
 
 RESTARTED=()
@@ -130,70 +130,70 @@ RESTARTED=()
 # Parse the failures array and extract container names
 FAILED_SERVICES=()
 if jq -e '.failures | length > 0' "${LOG_DIR}/diagnostics.json" &>/dev/null; then
-	while IFS= read -r failure; do
-		# Extract container names from failure messages
-		if [[ "$failure" =~ "Ollama service is not running" ]]; then
-			FAILED_SERVICES+=("ollama")
-		elif [[ "$failure" =~ "Healthcare-MCP service is not running" ]]; then
-			FAILED_SERVICES+=("healthcare-mcp")
-		fi
-	done < <(jq -r '.failures[]' "${LOG_DIR}/diagnostics.json")
+    while IFS= read -r failure; do
+        # Extract container names from failure messages
+        if [[ "$failure" =~ "Ollama service is not running" ]]; then
+            FAILED_SERVICES+=("ollama")
+        elif [[ "$failure" =~ "Healthcare-MCP service is not running" ]]; then
+            FAILED_SERVICES+=("healthcare-mcp")
+        fi
+    done < <(jq -r '.failures[]' "${LOG_DIR}/diagnostics.json")
 fi
 
 for service in "${FAILED_SERVICES[@]}"; do
-	container_health=$(docker inspect -f '{{.State.Health.Status}}' "$service" 2>/dev/null || echo "missing")
+    container_health=$(docker inspect -f '{{.State.Health.Status}}' "$service" 2>/dev/null || echo "missing")
 
-	if [[ "$container_health" == "healthy" ]]; then
-		ok "✅ $service is healthy (Docker: $container_health)"
-		continue
-	fi
+    if [[ "$container_health" == "healthy" ]]; then
+        ok "✅ $service is healthy (Docker: $container_health)"
+        continue
+    fi
 
-	if [[ "$container_health" == "starting" ]]; then
-		log "⏳ $service is still initializing"
-		continue
-	fi
+    if [[ "$container_health" == "starting" ]]; then
+        log "⏳ $service is still initializing"
+        continue
+    fi
 
-	if [[ "$container_health" == "unhealthy" ]]; then
-		warn "⚠️ $service is unhealthy. Consider manual intervention if it continues to fail."
-	elif [[ "$container_health" == "missing" ]]; then
-		warn "⚠️ $service container is missing. Ensure it is defined and running."
-		continue
-	fi
+    if [[ "$container_health" == "unhealthy" ]]; then
+        warn "⚠️ $service is unhealthy. Consider manual intervention if it continues to fail."
+    elif [[ "$container_health" == "missing" ]]; then
+        warn "⚠️ $service container is missing. Ensure it is defined and running."
+        continue
+    fi
 
-	# Retry restarting the container
-	retry_restart() {
-		local retries=3
-		local attempt=0
-		while ((attempt < retries)); do
-			((attempt++))
-			if docker restart "$service" >>"$LOG_FILE" 2>&1; then
-				ok "♻️ Successfully restarted $service on attempt $attempt."
-				return 0
-			fi
-			warn "⚠️ Failed to restart $service (attempt $attempt/$retries). Retrying..."
-			sleep 5
-		done
-		fail "❌ Failed to restart $service after $retries attempts."
-		return 1
-	}
+    # Retry restarting the container
+    retry_restart() {
+        local retries=3
+        local attempt=0
+        while ((attempt < retries)); do
+            ((attempt++))
+            if docker restart "$service" >>"$LOG_FILE" 2>&1; then
+                ok "♻️ Successfully restarted $service on attempt $attempt."
+                return 0
+            fi
+            warn "⚠️ Failed to restart $service (attempt $attempt/$retries). Retrying..."
+            sleep 5
+        done
+        fail "❌ Failed to restart $service after $retries attempts."
+        return 1
+    }
 
-	log "🛠️ Restarting: $service (Docker: $container_health)"
-	if ! retry_restart "$service"; then
-		warn "⚠️ Final attempt to restart $service failed"
-	fi
-	RESTARTED+=("$service")
+    log "🛠️ Restarting: $service (Docker: $container_health)"
+    if ! retry_restart "$service"; then
+        warn "⚠️ Final attempt to restart $service failed"
+    fi
+    RESTARTED+=("$service")
 done
 
 if [[ ${#RESTARTED[@]} -eq 0 ]]; then
-	ok "✅ All containers OK — no restart triggered."
+    ok "✅ All containers OK — no restart triggered."
 else
-	ok "♻️ Restarted: ${RESTARTED[*]}"
+    ok "♻️ Restarted: ${RESTARTED[*]}"
 fi
 
 rm -f "${LOG_DIR}/diagnostics.json"
 
 # If running in CI, skip privileged actions or mock them
 if [[ "$CI" == "true" && "$EUID" -ne 0 ]]; then
-	echo "[CI] Skipping root-required actions."
-	exit 0
+    echo "[CI] Skipping root-required actions."
+    exit 0
 fi

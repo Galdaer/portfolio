@@ -87,7 +87,7 @@ teardown() {
   source scripts/setup-environment.sh
   set_ownership -R /tmp/testfile
   read -r args <"$CHOWN_LOG"
-  [ "$args" = "1000:1000 -R /tmp/testfile" ]
+  [ "$args" = "1000:1001 -R /tmp/testfile" ]
 }
 
 # Verify set_ownership respects custom UID/GID overrides

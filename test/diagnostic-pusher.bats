@@ -34,6 +34,8 @@ set -euo pipefail
 source scripts/lib.sh
 unset CFG_ROOT
 EOS
+  # Include the default variable settings and the CFG_ROOT check
+  sed -n '37,39p' scripts/diagnostic-pusher.sh >> "$script"
   sed -n '86,95p' scripts/diagnostic-pusher.sh >> "$script"
   chmod +x "$script"
   run bash "$script"

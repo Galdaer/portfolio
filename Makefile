@@ -8,6 +8,7 @@
 	   e2e \
 	   fix-permissions \
 	   help \
+	   hooks \
 	   install \
 	   lint \
 	   lint-python \
@@ -32,8 +33,9 @@ CFG_UID := $(or $(CFG_UID),$(DEFAULT_UID))
 CFG_GID := $(or $(CFG_GID),$(DEFAULT_GID))
 
 # Production directories to symlink (excluding development dirs: archive, coverage, docs, reference, test)
+# Note: stack is excluded - configs should remain in user space (/home/intelluxe/stack)
 # Note: logs is excluded - it should remain as a real directory in /opt/intelluxe/logs for systemd services
-PROD_DIRS := agents config core data infrastructure mcps notebooks scripts services stack systemd
+PROD_DIRS := agents config core data infrastructure mcps notebooks scripts services systemd
 
 # Installation Commands
 install:
@@ -157,41 +159,58 @@ fix-permissions:
 	@echo "✅ Permissions and ownership fixed"
 
 deps:
-	@echo "📦  Installing healthcare AI system dependencies"
-	@if [ ! -x "./scripts/setup-environment.sh" ]; then \
-	    echo "❌ setup-environment.sh not found" >&2; \
-	    exit 1; \
+	@echo "📦  Installing healthcare AI dependencies for development (all packages)"
+	@# Generate lockfiles first if they don't exist or requirements.in is newer
+	@if [ ! -f requirements.txt ] || [ requirements.in -nt requirements.txt ]; then \
+		echo "🔒  Generating lockfiles from requirements.in..."; \
+		python3 scripts/generate-requirements.py; \
 	fi
-	@echo "⚠️  Note: This will install system packages (Docker, UV, etc.) but not Python packages"
-	@sudo SKIP_PYTHON_PACKAGES=1 ./scripts/setup-environment.sh || { \
-	    echo "❌ System dependency installation failed" >&2; exit 1; \
-	}
-	@echo "📦  Installing Python dependencies in virtual environment with UV"
-	@if [ ! -f "requirements.in" ]; then \
-	    echo "❌ requirements.in not found" >&2; \
-	    exit 1; \
-	fi
-	@if [ -z "$$VIRTUAL_ENV" ]; then \
-	    echo "⚠️  No virtual environment detected. Creating one..."; \
-	    python3 -m venv .venv; \
-	    echo "💡 Virtual environment created. Activate it with: source .venv/bin/activate"; \
-	    echo "💡 Then run 'make deps' again"; \
-	    exit 1; \
-	fi
-	@if command -v uv >/dev/null 2>&1; then \
-	    echo "🚀 Installing with UV (fast) in virtual environment..."; \
-	    uv pip install -r requirements.in; \
-	    uv pip compile requirements.in -o requirements.lock; \
-	    uv pip freeze > requirements.txt; \
-	    echo "✅ Python dependencies installed in virtual environment"; \
+	@# Install formatting tools for git hooks
+	@echo "🎨  Installing formatting tools for pre-commit hooks..."
+	@if command -v npm >/dev/null 2>&1; then \
+		sudo npm install -g prettier; \
 	else \
-	    echo "⚠️  UV not found, installing with pip (slower)..."; \
-	    pip install -r requirements.in; \
+		echo "⚠️  npm not found - prettier not installed (for YAML/JSON/Markdown formatting)"; \
 	fi
+	@if command -v go >/dev/null 2>&1; then \
+		go install mvdan.cc/sh/v3/cmd/shfmt@latest; \
+	else \
+		echo "⚠️  go not found - shfmt not installed (for shell script formatting)"; \
+	fi
+	@# Try to install dependencies using the best available method
+	@if command -v uv >/dev/null 2>&1; then \
+		echo "🚀  Using uv for fast installation (development = all dependencies)..."; \
+		sudo uv pip install --system --break-system-packages flake8 mypy pytest pytest-asyncio yamllint; \
+		if [ -f requirements.txt ]; then \
+			sudo uv pip install --system --break-system-packages -r requirements.txt; \
+		fi; \
+	else \
+		echo "⚠️  UV not found, installing with pip..."; \
+		if ! command -v uv >/dev/null 2>&1; then \
+			echo "🔧  Installing uv for faster Python package management..."; \
+			curl -LsSf https://astral.sh/uv/install.sh | sh; \
+			export PATH="$$HOME/.cargo/bin:$$PATH"; \
+		fi; \
+		pip3 install --user --break-system-packages flake8 mypy pytest pytest-asyncio yamllint; \
+		if [ -f requirements.txt ]; then \
+			pip3 install --user --break-system-packages -r requirements.txt; \
+		fi; \
+	fi
+	@echo "✅  All development dependencies installed successfully"
 
 update:
 	@echo "🔄  Running healthcare AI system update and upgrade"
 	sudo ./scripts/auto-upgrade.sh
+
+# Update and regenerate lockfiles
+update-deps:
+	@echo "🔄  Updating healthcare AI dependencies"
+	@if command -v uv >/dev/null 2>&1; then \
+		python3 scripts/generate-requirements.py; \
+		uv pip install -r requirements.txt; \
+	else \
+		pip install --upgrade -r requirements.in; \
+	fi
 
 # Main Setup Commands
 setup:
@@ -206,7 +225,7 @@ debug:
 	@echo "🐛  Debug healthcare AI setup with verbose output and detailed logging"
 	./scripts/bootstrap.sh --dry-run --non-interactive --debug
 
-# Management Commands  
+# Management Commands
 diagnostics:
 	@echo "🔍  Running comprehensive healthcare AI system diagnostics"
 	./scripts/diagnostics.sh
@@ -242,29 +261,71 @@ restore:
 	./scripts/bootstrap.sh --restore-backup "$(BACKUP_FILE)"
 
 # Development Commands
+hooks:
+	@echo "🔗  Installing git hooks for pre-push validation"
+	./.githooks/install-hooks.sh
+
 lint:
-	@echo "🔍  Running shellcheck with full output for healthcare AI scripts"
+	@echo "🔍  Running shellcheck with warning level for healthcare AI scripts"
 	@shellcheck -S warning --format=gcc -x $$(find scripts -name "*.sh")
-	@shellcheck -S info --format=gcc -x $$(find scripts -name "*.sh")
 	$(MAKE) lint-python
 
 lint-python:
 	@echo "🔍  Running Python lint (flake8 and mypy) for healthcare AI components"
-	@flake8 scripts/*.py test/python/*.py
-	@mypy scripts/*.py
+	@# Try multiple ways to find flake8 (system package, command, python module)
+	@if command -v flake8 >/dev/null 2>&1; then \
+		flake8 scripts/*.py test/python/*.py; \
+	elif python3 -m flake8 --version >/dev/null 2>&1; then \
+		python3 -m flake8 scripts/*.py test/python/*.py; \
+	else \
+		echo "⚠️  flake8 not found - trying to install..."; \
+		if command -v apt >/dev/null 2>&1; then \
+			echo "Trying system package installation..."; \
+			sudo apt install -y python3-flake8 2>/dev/null || true; \
+		fi; \
+		if ! command -v flake8 >/dev/null 2>&1 && ! python3 -m flake8 --version >/dev/null 2>&1; then \
+			python3 -m pip install --user --break-system-packages flake8 || echo "Failed to install flake8"; \
+		fi; \
+		if command -v flake8 >/dev/null 2>&1; then \
+			flake8 scripts/*.py test/python/*.py; \
+		elif python3 -m flake8 --version >/dev/null 2>&1; then \
+			python3 -m flake8 scripts/*.py test/python/*.py; \
+		else \
+			echo "❌ flake8 still not available after installation"; \
+			exit 1; \
+		fi; \
+	fi
+	@# Try multiple ways to find mypy
+	@if command -v mypy >/dev/null 2>&1; then \
+		mypy scripts/*.py; \
+	elif python3 -m mypy --version >/dev/null 2>&1; then \
+		python3 -m mypy scripts/*.py; \
+	else \
+		echo "⚠️  mypy not found - trying to install..."; \
+		python3 -m pip install --user --break-system-packages mypy || echo "Failed to install mypy"; \
+		if command -v mypy >/dev/null 2>&1; then \
+			mypy scripts/*.py; \
+		elif python3 -m mypy --version >/dev/null 2>&1; then \
+			python3 -m mypy scripts/*.py; \
+		else \
+			echo "❌ mypy still not available after installation"; \
+			exit 1; \
+		fi; \
+	fi
 
 validate:
 	@echo "✅  Validating healthcare AI configuration and dependencies (non-interactive)"
 	@if [ "${CI}" = "true" ]; then \
-	    if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then \
-	        ./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check; \
-	        $(MAKE) systemd-verify; \
-	    else \
-	        echo "Skipping Docker validation in CI: Docker not available"; \
-	    fi; \
+		if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then \
+			./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check; \
+			$(MAKE) systemd-verify; \
+		else \
+			echo "Skipping Docker validation in CI: Docker not available"; \
+			./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check --dry-run; \
+		fi; \
 	else \
-	    ./scripts/bootstrap.sh --validate --non-interactive; \
-	    $(MAKE) systemd-verify; \
+		./scripts/bootstrap.sh --validate --non-interactive; \
+		$(MAKE) systemd-verify; \
 	fi
 
 systemd-verify:
@@ -274,10 +335,10 @@ systemd-verify:
 test:
 	@echo "🧪  Running healthcare AI Bats tests"
 	@if [ "${CI}" = "true" ]; then \
-	    echo "Running healthcare AI tests in CI mode with appropriate skips"; \
-	    CI=true bash ./scripts/test.sh; \
+		echo "Running healthcare AI tests in CI mode with appropriate skips"; \
+		CI=true bash ./scripts/test.sh; \
 	else \
-	    bash ./scripts/test.sh; \
+		bash ./scripts/test.sh; \
 	fi
 
 test-quiet:
@@ -312,7 +373,13 @@ help:
 	@echo "🏥  Intelluxe AI Healthcare Infrastructure Management"
 	@echo "================================================="
 	@echo ""
-	@echo "📦 Installation:"
+	@echo "�️  Quick Developer Setup:"
+	@echo "  make install         Install system-wide (production-like paths)"
+	@echo "  make deps            Install development dependencies"
+	@echo "  make hooks           Install git hooks for code quality"
+	@echo "  make validate        Verify setup works"
+	@echo ""
+	@echo "�📦 Installation:"
 	@echo "  make install         Install healthcare AI scripts and systemd services system-wide"
 	@echo "  make update          Run system update and upgrade"
 	@echo ""
@@ -334,8 +401,11 @@ help:
 	@echo ""
 	@echo "🛠️  Development:"
 	@echo "  make deps            Install healthcare AI lint and test dependencies"
+	@echo "  make update-deps     Update and regenerate dependency lockfiles"
 	@echo "  make venv            Create or activate a virtual environment"
+	@echo "  make hooks           Install git hooks for pre-push validation"
 	@echo "  make lint            Run shell and Python linters for healthcare AI code"
+	@echo "  make lint-python     Run Python-specific linting (flake8, mypy)"
 	@echo "  make validate        Validate healthcare AI configuration and dependencies"
 	@echo "  make test            Run healthcare AI unit tests with Bats"
 	@echo "  make test-quiet      Run healthcare AI tests (quiet mode)"
@@ -345,6 +415,5 @@ help:
 	@echo ""
 	@echo "🔧 Maintenance:"
 	@echo "  make fix-permissions Fix ownership and permissions for healthcare AI files"
-	@echo "  make uninstall       Remove healthcare AI systemd services and directories"
 	@echo ""
 	@echo "  make help            Show this help message"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail # Removed -e to prevent systemd service failure blocking boot
 # netns-setup.sh - Network namespace setup for container isolation
 # Author: Justin Michael Sue (Galdaer)
 # Repo: https://github.com/Intelluxe-AI/intelluxe-core
@@ -65,21 +65,21 @@ require_deps ip iptables
 
 # Must be run as root
 if [[ "$EUID" -ne 0 ]]; then
-	fail "Must be run as root."
-	exit 1
+    fail "Must be run as root."
+    exit 1
 fi
 
 # Skip root-required actions in CI
 if [[ "$CI" == "true" && "$EUID" -ne 0 ]]; then
-	echo "[CI] Skipping root-required actions."
-	exit 0
+    echo "[CI] Skipping root-required actions."
+    exit 0
 fi
 
 # Outbound interface detection
 OUT_IF=$(ip route get 1.1.1.1 | awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' | head -1)
 if [[ -z "$OUT_IF" ]]; then
-	fail "Could not determine default outbound adapter"
-	exit 1
+    fail "Could not determine default outbound adapter"
+    exit 1
 fi
 log "Using outbound interface: $OUT_IF"
 
@@ -109,17 +109,17 @@ echo "nameserver $DNS_SERVER" >"$RESOLV_CONF"
 
 # Enable NAT on the host
 if ! iptables -t nat -C POSTROUTING -s "$NS_CIDR" -o "$OUT_IF" -j MASQUERADE 2>/dev/null; then
-	iptables -t nat -A POSTROUTING -s "$NS_CIDR" -o "$OUT_IF" -j MASQUERADE
-	log "Added MASQUERADE rule for $NS_CIDR on $OUT_IF"
+    iptables -t nat -A POSTROUTING -s "$NS_CIDR" -o "$OUT_IF" -j MASQUERADE
+    log "Added MASQUERADE rule for $NS_CIDR on $OUT_IF"
 else
-	log "MASQUERADE rule for $NS_CIDR on $OUT_IF already exists"
+    log "MASQUERADE rule for $NS_CIDR on $OUT_IF already exists"
 fi
 
 # Source config file for WG_CONFIG and other settings
 CONFIG_FILE=".bootstrap.conf"
 if [[ -f "$CONFIG_FILE" ]]; then
-	# shellcheck source=/dev/null
-	source "$CONFIG_FILE"
+    # shellcheck source=/dev/null
+    source "$CONFIG_FILE"
 fi
 
 ok "Namespace $NS_NAME setup complete."

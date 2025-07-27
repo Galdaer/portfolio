@@ -12,12 +12,12 @@ sudo ./scripts/clinic-bootstrap.sh
 **Step-by-step process:**
 
 1. **Port Configuration** - Script shows current ports and asks if you want to change them
-   - Shows: Ollama (11434), Grafana (3001), AgentCare-MCP (3000), etc.
+   - Shows: Ollama (11434), Grafana (3001), Healthcare-MCP (3000), etc.
    - Choose: Keep defaults or customize ports to avoid conflicts
 
 2. **Service Configuration** - Configure healthcare AI services
    - Set up Ollama for local LLM inference
-   - Configure AgentCare-MCP for medical tool orchestration
+   - Configure Healthcare-MCP for medical tool orchestration
    - Set database connections for PostgreSQL and Redis
 
 3. **Container Selection** - Choose which services to install
@@ -50,7 +50,7 @@ Container Management Menu
 1) traefik       Reverse proxy with automatic SSL    running
 2) wireguard     Secure VPN server                   running  
 3) ollama        Local LLM inference server          running
-4) agentcare-mcp Medical tool orchestration          running
+4) healthcare-mcp Medical tool orchestration          running
 5) grafana       Dashboards and monitoring           running
 6) influxdb      Time-series database for metrics    running
 7) postgres      Primary database for Intelluxe     running
@@ -147,7 +147,7 @@ Generated during setup:
 │   │   ├── traefik/                   # Traefik configuration
 │   │   ├── grafana/                   # Grafana dashboards
 │   │   ├── ollama/                    # Ollama model configuration
-│   │   ├── agentcare-mcp/             # AgentCare-MCP setup
+│   │   ├── healthcare-mcp/             # Healthcare-MCP setup
 │   │   ├── postgres/                  # PostgreSQL database config
 │   │   ├── redis/                     # Redis cache configuration
 │   │   └── n8n/                       # n8n workflow automation
@@ -548,4 +548,57 @@ qrencode -t PNG -s 10 -o /tmp/qr.png < client1.conf && xdg-open /tmp/qr.png
 2. **Verify firewall allows port 51820**
 3. **Confirm DNS resolution** for domain name
 4. **Check client IP doesn't conflict** with existing network
+
+## 🔧 Manual Image Rebuilding
+
+Some services require manual Docker image rebuilding after source code changes. This keeps deployment fast and predictable.
+
+### WhisperLive Healthcare Service
+
+After editing files in `services/user/whisperlive/`:
+
+```bash
+# Navigate to WhisperLive directory
+cd services/user/whisperlive
+
+# Rebuild healthcare-hardened image
+docker build -f Dockerfile.healthcare -t intelluxe/whisperlive-healthcare:latest .
+
+# Restart the service to use new image
+./scripts/universal-service-runner.sh restart whisperlive
+```
+
+### Healthcare MCP Server
+
+After editing TypeScript files in `mcps/healthcare/src/`:
+
+```bash
+# Navigate to Healthcare MCP directory  
+cd mcps/healthcare
+
+# Rebuild healthcare MCP image
+docker build -f ../../docker/mcp-server/Dockerfile.healthcare -t intelluxe/healthcare-mcp:latest .
+
+# Restart the service to use new image
+./scripts/universal-service-runner.sh restart healthcare-mcp
+```
+
+### 🔍 Verification Commands
+
+After rebuilding, verify the new image is working:
+
+```bash
+# Check image was created
+docker images | grep intelluxe
+
+# Check service health after restart
+curl -f http://localhost:3000/health  # Healthcare MCP
+curl -f http://localhost:9090/health  # WhisperLive (if health endpoint exists)
+
+# Check service logs for any issues
+docker logs healthcare-mcp
+docker logs intelluxe-whisperlive
+```
+
+**💡 Pro Tip**: Only rebuild images when you've made changes to the source code. The universal service runner uses pre-built images for fast, reliable deployments.
 

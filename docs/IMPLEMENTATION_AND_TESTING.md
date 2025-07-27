@@ -16,7 +16,7 @@
 ### Running Services
 ```
 ✓ Ollama AI: http://localhost:11434
-✓ AgentCare-MCP: http://localhost:3000
+✓ Healthcare-MCP: http://localhost:3000
 ✓ Health Monitor: http://localhost:8080
 ✓ PostgreSQL: localhost:5432
 ✓ Redis: localhost:6379

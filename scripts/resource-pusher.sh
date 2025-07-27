@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail # Removed -e to prevent systemd service failure blocking boot
 # resource-pusher.sh - Collect system resource metrics and push to InfluxDB
 # Author: Justin Michael Sue (Galdaer)
 # Repo: https://github.com/Intelluxe-AI/intelluxe-core

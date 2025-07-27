@@ -1,0 +1,146 @@
+name: Remote Agent Feedback Loop
+
+on:
+  push:
+    branches:
+      - "remote-agent/*" # Trigger on remote agent branches
+  pull_request_review_comment:
+    types: [created]
+  issue_comment:
+    types: [created]
+
+jobs:
+  trigger-copilot-review:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/remote-agent/')
+    runs-on: self-hosted
+    # Prevent multiple simultaneous runs
+    concurrency:
+      group: remote-agent-feedback-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Create PR for Copilot Review
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.ref.replace('refs/heads/', '');
+
+            // Check if PR already exists for this branch
+            const existingPRs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${branch}`,
+              state: 'open'
+            });
+
+            if (existingPRs.data.length > 0) {
+              console.log(`PR already exists for branch ${branch}: #${existingPRs.data[0].number}`);
+              core.setOutput('pr_number', existingPRs.data[0].number);
+              return;
+            }
+
+            // Create PR to trigger Copilot review
+            const pr = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[Auto] Remote Agent Changes - ${branch}`,
+              head: branch,
+              base: 'main',
+              body: `
+              🤖 **Automated Remote Agent PR**
+
+              This PR was automatically created to trigger Copilot review of remote agent changes.
+
+              **Branch:** \`${branch}\`
+              **Trigger:** Remote agent push
+
+              @github-copilot please review this code for:
+              - Security issues
+              - Healthcare compliance
+              - Code quality improvements
+              - Testing gaps
+
+              **Auto-feedback enabled:** Remote agent will process review comments automatically.
+              `
+            });
+
+            core.setOutput('pr_number', pr.data.number);
+
+  process-copilot-feedback:
+    if: |
+      (github.event_name == 'pull_request_review_comment' || github.event_name == 'issue_comment') &&
+      contains(github.event.comment.body, 'Copilot') &&
+      startsWith(github.event.pull_request.head.ref, 'remote-agent/')
+    runs-on: self-hosted
+    steps:
+      - name: Extract Copilot Feedback
+        id: extract_feedback
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = context.payload.comment.body;
+            const prNumber = context.payload.pull_request?.number || context.payload.issue.number;
+
+            // Parse Copilot suggestions
+            const suggestions = [];
+            const lines = comment.split('\n');
+
+            let currentSuggestion = null;
+            for (const line of lines) {
+              if (line.includes('Suggested change') || line.includes('Consider')) {
+                if (currentSuggestion) suggestions.push(currentSuggestion);
+                currentSuggestion = { type: 'suggestion', content: line };
+              } else if (line.includes('```') && currentSuggestion) {
+                currentSuggestion.code = line;
+              } else if (currentSuggestion && line.trim()) {
+                currentSuggestion.content += '\n' + line;
+              }
+            }
+            if (currentSuggestion) suggestions.push(currentSuggestion);
+
+            // Create feedback summary for remote agent
+            const feedbackSummary = {
+              pr_number: prNumber,
+              total_suggestions: suggestions.length,
+              suggestions: suggestions,
+              raw_comment: comment,
+              priority: comment.includes('security') ? 'high' : 'medium'
+            };
+
+            core.setOutput('feedback_json', JSON.stringify(feedbackSummary));
+
+      - name: Trigger Remote Agent Response
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const feedback = JSON.parse(process.env.feedback_json);
+
+            // Create issue for remote agent to process
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[Remote Agent Task] Process Copilot Feedback - PR #${feedback.pr_number}`,
+              body: `
+              🔄 **Automated Feedback Processing Task**
+
+              **Source PR:** #${feedback.pr_number}
+              **Priority:** ${feedback.priority}
+              **Suggestions Count:** ${feedback.total_suggestions}
+
+              ## Copilot Feedback to Process:
+
+              \`\`\`json
+              ${JSON.stringify(feedback, null, 2)}
+              \`\`\`
+
+              ## Instructions for Remote Agent:
+
+              1. Review each suggestion in the feedback
+              2. Implement beneficial changes
+              3. Create new commit with improvements
+              4. Comment on original PR with summary of changes made
+              5. Close this issue when complete
+
+              **Auto-assigned to:** @remote-coding-agent
+              `,
+              labels: ['remote-agent-task', 'copilot-feedback', feedback.priority + '-priority']
+            });

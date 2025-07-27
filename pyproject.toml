@@ -1,0 +1,11 @@
+[tool.flake8]
+exclude = [
+    "reference/ai-patterns",
+    "services/user/whisperlive"
+]
+
+[tool.mypy]
+exclude = [
+    "reference/ai-patterns",
+    "services/user/whisperlive"
+]

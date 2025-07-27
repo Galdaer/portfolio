@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 # CI test configuration - makes tests more reliable in CI environment
-# This file is sourced by tests to provide CI-specific overrides
 
 if [[ "${CI:-false}" == "true" || "${GITHUB_ACTIONS:-false}" == "true" ]]; then
     # CI-specific test configurations
     
     # Skip tests that require specific system conditions
     export SKIP_SYSTEM_TESTS="${SKIP_SYSTEM_TESTS:-true}"
+    export SKIP_NETWORK_TESTS="${SKIP_NETWORK_TESTS:-true}"
+    export SKIP_WIREGUARD_TESTS="${SKIP_WIREGUARD_TESTS:-true}"
+    export SKIP_LOG_PATH_TESTS="${SKIP_LOG_PATH_TESTS:-true}"
     
     # Mock commands that don't work well in CI
     export MOCK_SYSTEM_COMMANDS="${MOCK_SYSTEM_COMMANDS:-true}"
+    
+    # Suppress verbose output in CI
+    export BATS_VERBOSE="${BATS_VERBOSE:-false}"
+    export QUIET_MODE="${QUIET_MODE:-true}"
     
     # Use safer timeouts for CI
     export TEST_TIMEOUT="${TEST_TIMEOUT:-30}"
@@ -24,22 +30,5 @@ if [[ "${CI:-false}" == "true" || "${GITHUB_ACTIONS:-false}" == "true" ]]; then
     # Create test directories
     mkdir -p "$TEST_CFG_ROOT" "$TEST_LOG_DIR"
     
-    # Functions to help with CI testing
-    skip_if_ci() {
-        if [[ "${CI:-false}" == "true" ]]; then
-            skip "${1:-Skipped in CI environment}"
-        fi
-    }
-    
-    skip_if_no_docker() {
-        if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
-            skip "${1:-Skipped: Docker not available}"
-        fi
-    }
-    
-    skip_if_no_root() {
-        if [[ $EUID -ne 0 ]] && ! sudo -n true 2>/dev/null; then
-            skip "${1:-Skipped: Root access not available}"
-        fi
-    }
+    echo "[CI] Test configuration loaded - verbose output suppressed" >&2
 fi

@@ -28,7 +28,8 @@ fix_service_file() {
   # Check if SyslogIdentifier exists
   if ! grep -q 'SyslogIdentifier=' "$service_file"; then
     # Get service name from filename
-    local service_name=$(basename "$service_file" .service)
+    local service_name
+    service_name=$(basename "$service_file" .service)
     # Add before the [Install] section or at end of [Service] section
     if grep -q '\[Install\]' "$service_file"; then
       sed -i "/\[Install\]/i SyslogIdentifier=${service_name}" "$service_file"
@@ -40,8 +41,8 @@ fix_service_file() {
   fi
   
   # Fix EnvironmentFile path if it uses ${CFG_ROOT}
-  if grep -q 'EnvironmentFile=.*\${CFG_ROOT}' "$service_file"; then
-    sed -i 's|EnvironmentFile=-\${CFG_ROOT}|EnvironmentFile=-/opt/intelluxe/stack|g' "$service_file"
+  if grep -q "EnvironmentFile=.*\${CFG_ROOT}" "$service_file"; then
+    sed -i "s|EnvironmentFile=-\${CFG_ROOT}|EnvironmentFile=-/opt/intelluxe/stack|g" "$service_file"
     echo "  Fixed EnvironmentFile path in $service_file"
   fi
   

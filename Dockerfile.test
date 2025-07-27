@@ -17,12 +17,12 @@ RUN echo "=== Configuring package management ===" && \
 RUN echo "=== Installing core system packages ===" && \
     apt-get update --fix-missing && \
     apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
-        wget \
-        gnupg \
-        lsb-release \
-        apt-transport-https \
+    ca-certificates \
+    curl \
+    wget \
+    gnupg \
+    lsb-release \
+    apt-transport-https \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && echo "Core packages installed successfully"
@@ -32,26 +32,26 @@ RUN echo "=== Installing development tools ===" && \
     apt-get update && \
     # Try package installation with robust error handling and timeout
     for i in 1 2; do \
-        echo "Attempt $i/2: Installing development packages..." && \
-        timeout 400 apt-get install -y --no-install-recommends \
-            bash \
-            git \
-            sudo \
-            shellcheck \
-            python3 \
-            python3-pip \
-            build-essential \
-            coreutils \
-            util-linux \
-            procps \
-            jq \
-            expect \
-            iproute2 \
-            iputils-ping \
-            netcat-openbsd \
-            dnsutils \
-        && echo "Development packages installed successfully" && break || \
-        (echo "Attempt $i failed, trying package update..." && apt-get clean && apt-get update && sleep 10); \
+    echo "Attempt $i/2: Installing development packages..." && \
+    timeout 400 apt-get install -y --no-install-recommends \
+    bash \
+    git \
+    sudo \
+    shellcheck \
+    python3 \
+    python3-pip \
+    build-essential \
+    coreutils \
+    util-linux \
+    procps \
+    jq \
+    expect \
+    iproute2 \
+    iputils-ping \
+    netcat-openbsd \
+    dnsutils \
+    && echo "Development packages installed successfully" && break || \
+    (echo "Attempt $i failed, trying package update..." && apt-get clean && apt-get update && sleep 10); \
     done && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -60,14 +60,16 @@ RUN echo "=== Installing development tools ===" && \
 RUN echo "=== Installing additional test dependencies ===" && \
     apt-get update && \
     apt-get install -y \
-        strace \
-        time \
-        cmake \
-        libdw-dev \
-        libelf-dev \
-        libiberty-dev \
-        binutils-dev \
-        && \
+    strace \
+    time \
+    cmake \
+    libdw-dev \
+    libelf-dev \
+    libiberty-dev \
+    binutils-dev \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    && \
     echo "All test dependencies installed successfully" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -85,20 +87,23 @@ RUN echo "=== Installing kcov for coverage ===" && \
     echo "kcov installed successfully" && \
     kcov --version
 
-# Install Python tools - cache this layer  
-RUN echo "=== Installing uv and Python linting tools ===" && \
-    # Install uv for faster Python package management
-    curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    export PATH="$HOME/.cargo/bin:$PATH" && \
-    # Ensure pip is up to date as fallback
-    python3 -m pip install --upgrade pip && \
-    # Install tools with uv (faster) or fallback to pip
-    for i in 1 2; do \
-        echo "Attempt $i/2: Installing Python tools..." && \
-        (uv pip install --system flake8 mypy || pip3 install --no-cache-dir flake8 mypy) && \
-        echo "Python linting tools installed successfully" && break || \
-        (echo "Attempt $i failed, retrying..." && sleep 2); \
-    done || echo "Python linting tools failed to install"
+# Verify kcov installation and create coverage directory
+RUN echo "=== Verifying kcov installation ===" && \
+    kcov --version && \
+    mkdir -p /tmp/coverage && \
+    echo "kcov verification completed"
+
+# Install Python linting and testing tools
+RUN pip3 install \
+    flake8 \
+    mypy \
+    pytest \
+    pytest-asyncio \
+    yamllint \
+    pyyaml \
+    requests \
+    psycopg2-binary \
+    cryptography
 
 # Install bats test framework - expensive operation, cache it well
 RUN git clone --depth=1 https://github.com/bats-core/bats-core.git /tmp/bats-core && \

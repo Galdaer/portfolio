@@ -1,40 +1,215 @@
 {
-    "shellcheck.customArgs": [
-        "-x",
-        "--severity=info",
-        "--source-path=SCRIPTDIR"
-    ],
-    "shellcheck.enable": true,
-    "shellcheck.enableQuickFix": true,
-    "shellcheck.run": "onType",
-    "shellcheck.executablePath": "shellcheck",
-    "shellcheck.useWorkspaceRootAsCwd": true,
-    "files.exclude": {
-        "**/logs/": true,
-        "**/bats-core/": true
-    },
-    "search.exclude": {
-        "**/logs/": true,
-        "**/bats-core/": true
-    },
-    "files.associations": {
-        "*.py": "python"
-    },
-    "python.defaultInterpreterPath": "/usr/bin/python3",
-    "python.terminal.activateEnvironment": false,
-    "cSpell.words": [
-        "Galdaer"
-    ],
-    "github-actions.workflows.pinned.workflows": [
-        ".github/workflows/shell-ci.yml"
-    ],
-    "workbench.editor.enablePreview": false,
-    "workbench.editor.enablePreviewFromQuickOpen": true,
-    "workbench.editor.limit.enabled": true,
-    "workbench.editor.limit.value": 10,
-    "workbench.editor.limit.excludeDirty": true,
-    "workbench.editor.closeOnFileDelete": true,
-    "workbench.editor.revealIfOpen": true,
-
-    "terminal.integrated.defaultProfile.linux": "bash"
+  "// Healthcare AI Development Environment": "Intelluxe AI Healthcare System",
+  "// Shell and Script Configuration": "",
+  "shellcheck.customArgs": ["-x", "--severity=info", "--source-path=SCRIPTDIR"],
+  "shellcheck.enable": true,
+  "shellcheck.enableQuickFix": true,
+  "shellcheck.run": "onType",
+  "shellcheck.executablePath": "shellcheck",
+  "shellcheck.useWorkspaceRootAsCwd": true,
+  "// Healthcare Data Protection": "",
+  "files.exclude": {
+    "**/logs/": true,
+    "**/bats-core/": true,
+    "**/.env": true,
+    "**/secrets/**": true,
+    "**/keys/**": true,
+    "**/*.key": true,
+    "**/*.pem": true,
+    "**/patient_data/**": true,
+    "**/data/phi/**": true,
+    "**/node_modules/": true,
+    "**/build/": true,
+    "**/dist/": true,
+    "**/.npm": true,
+    "**/.cache": true,
+    "**/coverage/": true,
+    "**/*.tsbuildinfo": true,
+    "reference/ai-patterns/**": true,
+    "services/user/whisperlive/**": true,
+    "actions-runners/**": true
+  },
+  "search.exclude": {
+    "**/logs/": true,
+    "**/bats-core/": true,
+    "**/data/phi/**": true,
+    "**/backups/**": true,
+    "**/secrets/**": true,
+    "**/.env*": true,
+    "reference/ai-patterns/**": true,
+    "services/user/whisperlive/**": true,
+    "actions-runners/**": true
+  },
+  "// Healthcare File Associations": "",
+  "files.associations": {
+    "*.py": "python",
+    "*.phi": "plaintext",
+    "*.hipaa": "yaml",
+    "*.healthcare": "dockerfile",
+    "*.conf": "properties"
+  },
+  "// Python Healthcare AI Configuration": "",
+  "python.analysis.exclude": [
+    "reference/ai-patterns/**",
+    "services/user/whisperlive/**",
+    "actions-runners/**"
+  ],
+  "python.defaultInterpreterPath": "/usr/bin/python3",
+  "python.terminal.activateEnvironment": false,
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": true,
+  "python.linting.flake8Enabled": true,
+  "python.linting.mypyEnabled": true,
+  "python.formatting.provider": "black",
+  "python.formatting.blackArgs": ["--line-length=100"],
+  "python.sortImports.args": ["--profile", "black"],
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportMissingImports": "none",
+    "reportUnusedImport": "none"
+  },
+  "pylint.args": [
+    "--ignore-patterns=reference/ai-patterns/**,services/user/whisperlive/**,actions-runners/**"
+  ],
+  "python.linting.flake8Args": ["--config=.flake8"],
+  "flake8.args": [
+    "--exclude=reference/ai-patterns/**,services/user/whisperlive/**,actions-runners/**"
+  ],
+  "mypy.exclude": [
+    "reference/ai-patterns/**",
+    "services/user/whisperlive/**",
+    "actions-runners/**"
+  ],
+  "// Medical Terminology and Healthcare Terms": "",
+  "cSpell.words": [
+    "Galdaer",
+    "HIPAA",
+    "PHI",
+    "FHIR",
+    "HL7",
+    "ICD",
+    "CPT",
+    "SNOMED",
+    "LOINC",
+    "healthcare",
+    "telehealth",
+    "telemedicine",
+    "EHR",
+    "EMR",
+    "diagnoses",
+    "comorbidities",
+    "contraindications",
+    "pharmacokinetics",
+    "dosimetry",
+    "radiology",
+    "pathology",
+    "oncology",
+    "cardiology",
+    "endocrinology",
+    "gastroenterology",
+    "nephrology",
+    "pulmonology",
+    "dermatology",
+    "neurology",
+    "psychiatry",
+    "orthopedics",
+    "urology",
+    "gynecology",
+    "pediatrics",
+    "geriatrics",
+    "anesthesiology",
+    "Intelluxe",
+    "ollama",
+    "llama",
+    "mistral",
+    "deepeval",
+    "presidio",
+    "psycopg",
+    "redis",
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "structlog",
+    "cryptography",
+    "fernet",
+    "pbkdf",
+    "scrypt",
+    "asymmetric"
+  ],
+  "// GitHub Actions and Workflows": "",
+  "github-actions.workflows.pinned.workflows": [
+    ".github/workflows/shell-ci.yml"
+  ],
+  "// Editor Configuration for Healthcare Development": "",
+  "workbench.editor.enablePreview": false,
+  "workbench.editor.enablePreviewFromQuickOpen": true,
+  "workbench.editor.limit.enabled": true,
+  "workbench.editor.limit.value": 10,
+  "workbench.editor.limit.excludeDirty": true,
+  "workbench.editor.closeOnFileDelete": true,
+  "workbench.editor.revealIfOpen": true,
+  "editor.rulers": [80, 100],
+  "editor.wordWrap": "wordWrapColumn",
+  "editor.wordWrapColumn": 100,
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+  "editor.detectIndentation": false,
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": true,
+  "// AI Assistant Configuration": "",
+  "github.copilot.chat.enabled": true,
+  "github.copilot.chat.instructionsFiles": [
+    ".augment/rules/imported/copilot-instructions.md"
+  ],
+  "github.copilot.chat.instructionEvolution.patterns": [
+    "Autonomous remote agent execution without interruption",
+    "2-4 hour continuous work sessions for complex tasks",
+    "Context management without asking for continuation",
+    "NEVER provide specific code implementations in remote agent prompts",
+    "ALWAYS require codebase analysis before any changes",
+    "Analysis-first methodology prevents cascading errors",
+    "Incremental validation after each change",
+    "Match existing codebase patterns exactly",
+    "One error at a time systematic approach",
+    "CI environment detection and mocking patterns",
+    "Healthcare AI test isolation in Docker containers",
+    "Coverage report generation with kcov",
+    "Universal service runner testing patterns",
+    "WireGuard key management in CI environments"
+  ],
+  "github.copilot.chat.firewallConfiguration": {
+    "enabled": true,
+    "allowlistFile": ".github/copilot-firewall-allowlist.txt",
+    "healthcareCompliance": true
+  },
+  "// Healthcare Testing Configuration": "",
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["tests/", "--verbose", "--tb=short"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.autoTestDiscoverOnSaveEnabled": true,
+  "// Security and Compliance": "",
+  "security.workspace.trust.untrustedFiles": "prompt",
+  "security.workspace.trust.banner": "always",
+  "telemetry.telemetryLevel": "off",
+  "// Healthcare Workflow Colors": "",
+  "workbench.colorCustomizations": {
+    "statusBar.background": "#005a9d",
+    "statusBar.foreground": "#ffffff",
+    "statusBar.debuggingBackground": "#ff6b6b",
+    "statusBar.noFolderBackground": "#005a9d"
+  },
+  "// Terminal Configuration": "",
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "// Auto-save for Healthcare Safety": "",
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 30000,
+  "typescript.preferences.includePackageJsonAutoImports": "off",
+  "typescript.suggest.autoImports": false,
+  "typescript.validate.enable": false,
+  "mcpServers": {
+    "healthcare-mcp": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/client-http", "http://localhost:3000"]
+    }
+  }
 }

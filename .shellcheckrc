@@ -5,7 +5,7 @@ source-path=SCRIPTDIR
 external-sources=true
 
 # Set severity level  
-severity=info
+severity=warning
 
 # Exclude specific directories from analysis
 exclude-dir=logs

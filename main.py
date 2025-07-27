@@ -37,33 +37,33 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifecycle management"""
     logger.info(f"Starting {config.project_name}")
-    
+
     # Initialize core services
     try:
         # Initialize memory manager
         from core.memory import MemoryManager
         app.state.memory_manager = MemoryManager()
         await app.state.memory_manager.initialize()
-        
+
         # Initialize model registry
         from core.models import ModelRegistry
         app.state.model_registry = ModelRegistry()
         await app.state.model_registry.initialize()
-        
+
         # Initialize tool registry
         from core.tools import ToolRegistry
         app.state.tool_registry = ToolRegistry()
         await app.state.tool_registry.initialize()
-        
+
         logger.info("Core services initialized successfully")
         yield
-        
+
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
         raise
     finally:
         logger.info(f"Shutting down {config.project_name}")
-        
+
         # Cleanup resources
         if hasattr(app.state, 'memory_manager'):
             await app.state.memory_manager.close()
@@ -112,21 +112,21 @@ async def health_check():
             "timestamp": asyncio.get_event_loop().time(),
             "services": {}
         }
-        
+
         # Check memory manager
         if hasattr(app.state, 'memory_manager'):
             health_status["services"]["memory"] = await app.state.memory_manager.health_check()
-        
+
         # Check model registry
         if hasattr(app.state, 'model_registry'):
             health_status["services"]["models"] = await app.state.model_registry.health_check()
-        
+
         # Check tool registry
         if hasattr(app.state, 'tool_registry'):
             health_status["services"]["tools"] = await app.state.tool_registry.health_check()
-        
+
         return health_status
-        
+
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         raise HTTPException(status_code=500, detail="Health check failed")
@@ -137,11 +137,10 @@ try:
     from agents.intake import router as intake_router
     from agents.document_processor import router as document_router
     from agents.research_assistant import router as research_router
-    
     app.include_router(intake_router, prefix="/agents/intake", tags=["intake"])
     app.include_router(document_router, prefix="/agents/document", tags=["document"])
     app.include_router(research_router, prefix="/agents/research", tags=["research"])
-    
+
 except ImportError as e:
     logger.warning(f"Some agent routers not available: {e}")
 
@@ -149,7 +148,7 @@ except ImportError as e:
 if __name__ == "__main__":
     # Ensure logs directory exists
     Path("logs").mkdir(exist_ok=True)
-    
+
     # Run the application
     uvicorn.run(
         "main:app",

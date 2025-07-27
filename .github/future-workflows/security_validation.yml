@@ -1,0 +1,340 @@
+name: Security Validation Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.10'
+  ENVIRONMENT: 'ci'
+
+jobs:
+  security-scanning:
+    name: Security Vulnerability Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety semgrep
+        pip install -r requirements-ci.txt
+    
+    - name: Run Bandit Security Scan
+      run: |
+        bandit -r src/ -f json -o bandit-report.json
+        bandit -r src/ -f txt
+    
+    - name: Check Dependencies for Vulnerabilities
+      run: |
+        safety check --json --output safety-report.json
+        safety check
+    
+    - name: Run Semgrep Security Analysis
+      run: |
+        semgrep --config=auto src/ --json --output=semgrep-report.json
+    
+    - name: Upload Security Reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-scan-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+          semgrep-report.json
+
+  encryption-validation:
+    name: Encryption Standards Validation
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: security_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-ci.txt
+    
+    - name: Test Encryption Manager
+      env:
+        DATABASE_URL: postgresql://postgres:test_password@localhost:5432/security_test
+        MASTER_ENCRYPTION_KEY: ${{ secrets.TEST_MASTER_ENCRYPTION_KEY }}
+      run: |
+        python -m pytest tests/security/test_encryption_manager.py -v
+    
+    - name: Validate Key Management
+      env:
+        DATABASE_URL: postgresql://postgres:test_password@localhost:5432/security_test
+      run: |
+        python -m pytest tests/security/test_key_management.py -v
+    
+    - name: Test Encryption Standards Compliance
+      run: |
+        python scripts/validate-encryption-standards.py
+
+  rbac-security-testing:
+    name: RBAC Security Testing
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: rbac_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-ci.txt
+    
+    - name: Test RBAC Foundation
+      env:
+        DATABASE_URL: postgresql://postgres:test_password@localhost:5432/rbac_test
+        RBAC_STRICT_MODE: 'true'
+      run: |
+        python -m pytest tests/security/test_rbac_foundation.py -v
+    
+    - name: Test Access Control Enforcement
+      env:
+        DATABASE_URL: postgresql://postgres:test_password@localhost:5432/rbac_test
+      run: |
+        python -m pytest tests/security/test_access_control.py -v
+    
+    - name: Validate Permission Boundaries
+      run: |
+        python scripts/validate-rbac-permissions.py
+
+  phi-security-validation:
+    name: PHI Security Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-ci.txt
+    
+    - name: Test PHI Detection Accuracy
+      run: |
+        python -m pytest tests/security/test_phi_detection.py -v
+    
+    - name: Validate PHI Masking
+      run: |
+        python -m pytest tests/security/test_phi_masking.py -v
+    
+    - name: Check for PHI Leakage in Logs
+      run: |
+        python scripts/check-phi-in-logs.py
+    
+    - name: Scan Codebase for PHI Patterns
+      run: |
+        ./scripts/lint-all.sh
+
+  audit-security-testing:
+    name: Audit Security Testing
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: audit_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-ci.txt
+    
+    - name: Test Audit Logger Security
+      env:
+        DATABASE_URL: postgresql://postgres:test_password@localhost:5432/audit_test
+      run: |
+        python -m pytest tests/security/test_audit_logger_security.py -v
+    
+    - name: Validate Audit Trail Integrity
+      env:
+        DATABASE_URL: postgresql://postgres:test_password@localhost:5432/audit_test
+      run: |
+        python -m pytest tests/security/test_audit_integrity.py -v
+    
+    - name: Test Tamper Detection
+      run: |
+        python scripts/test-audit-tamper-detection.py
+
+  mcp-server-security:
+    name: MCP Server Security Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-ci.txt
+    
+    - name: Test JWT Authentication
+      env:
+        JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
+        ENVIRONMENT: 'production'
+      run: |
+        python -m pytest tests/security/test_mcp_authentication.py -v
+    
+    - name: Test API Security
+      run: |
+        python -m pytest tests/security/test_mcp_api_security.py -v
+    
+    - name: Validate Input Sanitization
+      run: |
+        python scripts/test-input-sanitization.py
+
+  penetration-testing:
+    name: Automated Penetration Testing
+    runs-on: ubuntu-latest
+    needs: [security-scanning, encryption-validation, rbac-security-testing]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install penetration testing tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-ci.txt
+        pip install requests-oauthlib sqlmap
+    
+    - name: Run SQL Injection Tests
+      run: |
+        python scripts/test-sql-injection.py
+    
+    - name: Test Authentication Bypass
+      run: |
+        python scripts/test-auth-bypass.py
+    
+    - name: Test Data Exposure
+      run: |
+        python scripts/test-data-exposure.py
+
+  compliance-validation:
+    name: Security Compliance Validation
+    runs-on: ubuntu-latest
+    needs: penetration-testing
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-ci.txt
+    
+    - name: Validate HIPAA Compliance
+      run: |
+        python scripts/validate-hipaa-compliance.py
+    
+    - name: Check SOC 2 Requirements
+      run: |
+        python scripts/check-soc2-compliance.py
+    
+    - name: Generate Security Compliance Report
+      run: |
+        python scripts/generate-security-compliance-report.py
+    
+    - name: Upload Compliance Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-compliance-report
+        path: reports/security-compliance-*.pdf
+
+  security-notification:
+    name: Security Notification
+    runs-on: ubuntu-latest
+    needs: compliance-validation
+    if: failure()
+    
+    steps:
+    - name: Notify Security Team
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: 'Security validation failed! Immediate attention required.'
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SECURITY_SLACK_WEBHOOK }}

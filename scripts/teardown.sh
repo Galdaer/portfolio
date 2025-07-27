@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail # Removed -e to prevent systemd service failure blocking boot
 # teardown.sh - Complete removal of CLINIC stack
 # Author: Justin Michael Sue (Galdaer)
 # Repo: https://github.com/Intelluxe-AI/intelluxe-core
@@ -73,49 +73,48 @@ Version: $SCRIPT_VERSION
 require_deps docker systemctl ip iptables logger jq
 
 if [[ "$EUID" -ne 0 ]]; then
-	fail "This script must be run as root."
-	exit 1
+    fail "This script must be run as root."
+    exit 1
 fi
 
 # If running in CI, skip privileged actions or mock them
 if [[ "$CI" == "true" && "$EUID" -ne 0 ]]; then
-	echo "[CI] Skipping root-required actions."
-	exit 0
+    echo "[CI] Skipping root-required actions."
+    exit 0
 fi
-
 
 # Parse standard/common flags (and --help)
 parse_basic_flags "$@"
 
 # Script-specific flags
 while [[ $# -gt 0 ]]; do
-	case "$1" in
-	--force)
-		FORCE=true
-		shift
-		;;
-	--all)
-		MODE="all"
-		shift
-		;;
-	--vpn-only)
-		MODE="vpn"
-		shift
-		;;
-	--core-only)
-		MODE="clinic"
-		shift
-		;;
-	--help)
-		echo "$USAGE"
-		exit 0
-		;;
-	--)
-		shift
-		break
-		;;
-	*) break ;;
-	esac
+    case "$1" in
+        --force)
+            FORCE=true
+            shift
+            ;;
+        --all)
+            MODE="all"
+            shift
+            ;;
+        --vpn-only)
+            MODE="vpn"
+            shift
+            ;;
+        --core-only)
+            MODE="clinic"
+            shift
+            ;;
+        --help)
+            echo "$USAGE"
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *) break ;;
+    esac
 done
 
 LOG_DIR="${CFG_ROOT}/logs"
@@ -134,31 +133,31 @@ ACTIONS=()
 
 # --- Teardown Steps ---
 if [[ "$MODE" == "all" || "$MODE" == "clinic" ]]; then
-	confirm "Intelluxe containers and services"
-	run systemctl stop bootstrap.service reset.service auto-repair.service || true && STOPPED_SERVICES+=("bootstrap.service" "reset.service" "auto-repair.service")
-	run systemctl disable bootstrap.service reset.service auto-repair.service || true
-	run systemctl stop diagnostics.timer auto-repair.timer || true && DISABLED_TIMERS+=("diagnostics.timer" "auto-repair.timer")
-	run systemctl disable diagnostics.timer auto-repair.timer || true
-	run rm -f ./logs/bootstrap.log ./logs/reset.log ./logs/diagnostics.log ./logs/auto-repair.log && DELETED_FILES+=("./logs/bootstrap.log" "./logs/reset.log" "./logs/diagnostics.log" "./logs/auto-repair.log")
+    confirm "Intelluxe containers and services"
+    run systemctl stop bootstrap.service reset.service auto-repair.service || true && STOPPED_SERVICES+=("bootstrap.service" "reset.service" "auto-repair.service")
+    run systemctl disable bootstrap.service reset.service auto-repair.service || true
+    run systemctl stop diagnostics.timer auto-repair.timer || true && DISABLED_TIMERS+=("diagnostics.timer" "auto-repair.timer")
+    run systemctl disable diagnostics.timer auto-repair.timer || true
+    run rm -f ./logs/bootstrap.log ./logs/reset.log ./logs/diagnostics.log ./logs/auto-repair.log && DELETED_FILES+=("./logs/bootstrap.log" "./logs/reset.log" "./logs/diagnostics.log" "./logs/auto-repair.log")
 fi
 
 if [[ "$MODE" == "all" || "$MODE" == "vpn" ]]; then
-	confirm "WireGuard stack, namespace, and rules"
-	run docker rm -f wireguard || true && REMOVED_CONTAINERS+=("wireguard")
-	run ip netns delete "$NS_NAME" || true && ACTIONS+=("netns_removed:$NS_NAME")
-	run ip link del wg0 || true && ACTIONS+=("wg_interface_removed:wg0")
-	run iptables -F
-	iptables -t nat -F
-	iptables -t mangle -F && ACTIONS+=("iptables_flushed:true")
-	run ip route flush table 66 || true
-        run rm -f /etc/netns/$NS_NAME/resolv.conf /var/run/netns/$NS_NAME && DELETED_FILES+=("/etc/netns/$NS_NAME/resolv.conf" "/var/run/netns/$NS_NAME")
-        run rm -f ./logs/teardown.log && DELETED_FILES+=("./logs/teardown.log")
+    confirm "WireGuard stack, namespace, and rules"
+    run docker rm -f wireguard || true && REMOVED_CONTAINERS+=("wireguard")
+    run ip netns delete "$NS_NAME" || true && ACTIONS+=("netns_removed:$NS_NAME")
+    run ip link del wg0 || true && ACTIONS+=("wg_interface_removed:wg0")
+    run iptables -F
+    iptables -t nat -F
+    iptables -t mangle -F && ACTIONS+=("iptables_flushed:true")
+    run ip route flush table 66 || true
+    run rm -f /etc/netns/$NS_NAME/resolv.conf /var/run/netns/$NS_NAME && DELETED_FILES+=("/etc/netns/$NS_NAME/resolv.conf" "/var/run/netns/$NS_NAME")
+    run rm -f ./logs/teardown.log && DELETED_FILES+=("./logs/teardown.log")
 fi
 
 if [[ "$MODE" == "all" ]]; then
-	for net in "${NETWORKS[@]}"; do
-		run docker network rm "$net" || true && REMOVED_NETWORKS+=("$net")
-	done
+    for net in "${NETWORKS[@]}"; do
+        run docker network rm "$net" || true && REMOVED_NETWORKS+=("$net")
+    done
 fi
 
 ok "🧼 Teardown ($MODE) complete."

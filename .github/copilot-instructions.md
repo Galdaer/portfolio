@@ -1,231 +1,229 @@
 # Copilot Instructions for Intelluxe AI Healthcare System
 
+Use The Sequential Thinking MCP Server to think through your tasks.
+
 ## Project Overview
+
 **Intelluxe AI** - Privacy-First Healthcare AI System built for on-premise clinical deployment. Currently in active development, focusing on core infrastructure and test suite hardening.
 
 ### Core Architecture
+
 - **Modular healthcare AI platform** with universal service orchestration
 - **Focus**: Administrative/documentation support, NOT medical advice
 - **Privacy-First**: All PHI/PII remains on-premise with no cloud dependencies
-- **Development Status**: Build robust, maintainable features for future clinical environments, but defer production-specific hardening until later phases
-
-## Primary Scripts & Components
-
-### Main Healthcare AI Infrastructure
-- **`bootstrap.sh`** - Main healthcare AI infrastructure bootstrapper
-  - Sets up Docker, Ollama, Healthcare-MCP, PostgreSQL, Redis with medical-grade security
-- **`universal-service-runner.sh`** - Universal service runner
-  - Deploys ANY Docker service from pure configuration
-  - Handles healthcare AI services (Ollama, Healthcare-MCP, etc.)
-- **`config_web_ui.py`** - Healthcare-focused web interface
-  - AI system management with service health monitoring
-  - Medical service icons and healthcare-specific UI
-- **`lib.sh`** - Common utility functions for Intelluxe AI healthcare operations
+- **Development Status**: Build robust, maintainable features for future clinical environments
 
 ### Directory Structure
+
 ```
-reference/ai-patterns/  # MIT licensed AI engineering patterns (git submodule from ai-engineering-hub)
-mcps/healthcare/        # Healthcare MCP server code (copied from agentcare-mcp repository)
-services/user/          # Service configurations - each service has services/user/SERVICE/SERVICE.conf
-agents/                 # AI agent implementations (intake/, document_processor/, research_assistant/, billing_helper/, scheduling_optimizer/)
-core/                   # Core healthcare AI infrastructure (memory/, orchestration/, models/, tools/)
-data/                   # AI training and evaluation data management (training/, evaluation/, vector_stores/)
-infrastructure/         # Healthcare deployment configs (docker/, monitoring/, security/, backup/)
-docs/                   # Comprehensive healthcare AI documentation including PHASE_*.md guides
-scripts/                # Primary shell scripts (universal-service-runner.sh, lib.sh, bootstrap.sh, systemd-verify.sh)
+reference/ai-patterns/  # MIT licensed AI engineering patterns (git submodule)
+mcps/healthcare/        # Healthcare MCP server code (copied from agentcare-mcp)
+services/user/          # Service configurations - each service has SERVICE.conf
+agents/                 # AI agent implementations (intake/, document_processor/, etc.)
+core/                   # Core healthcare AI infrastructure (memory/, orchestration/, etc.)
+scripts/                # Primary shell scripts (universal-service-runner.sh, lib.sh, etc.)
 ```
 
-## AI Engineering Patterns
+## Healthcare Security & Compliance
 
-### Reference Library
-- **`reference/ai-patterns/`** - MIT licensed AI engineering patterns (git submodule from ai-engineering-hub) adapted for healthcare
-- **`mcps/healthcare/`** - Healthcare MCP server code directly copied from agentcare-mcp repository
-- **Healthcare-Relevant Patterns**:
-  - `agentic_rag/` - Medical document processing and research assistance
-  - `document-chat-rag/` - Patient document Q&A with privacy protection
-  - `corrective-rag/` - Accuracy-critical healthcare information retrieval
-  - `audio-analysis-toolkit/` - Medical transcription and voice analysis
-  - `content_planner_flow/` - Clinical workflow automation
-  - `fastest-rag-stack/` - High-performance medical data retrieval
-  - `eval-and-observability/` - Healthcare AI system monitoring
-  - `mcp-agentic-rag/` - Model Context Protocol for healthcare agents
-  - `multi-modal-rag/` - Medical imaging and document processing
-  - `trustworthy-rag/` - Compliance-focused RAG for healthcare
+### Critical Security Rules
 
-### Healthcare Adaptation Principles
-- **Privacy-First**: Replace cloud APIs with on-premise alternatives (Ollama, local models)
-- **Compliance**: Add audit logging and compliance tracking to all implementations
-- **PHI Protection**: Ensure no patient data leaves the local environment
-- **Explainable AI**: Implement traceability features for medical compliance
-- **HIPAA Alignment**: Adapt all patterns for healthcare privacy requirements
-
-## Healthcare Philosophy & Safety
+- **Generic Error Messages**: Never expose JWT_SECRET, MASTER_ENCRYPTION_KEY, or config details
+- **Environment-Aware Placeholders**: Block production deployment when incomplete, allow configurable development
+- **Comprehensive Test Coverage**: Test security fallbacks with logging verification using caplog fixture
+- **Security Documentation**: Always explain WHY security choices were made (HIPAA, NANP standards, etc.)
 
 ### Medical Safety Principles
+
 - **NO medical advice, diagnosis, or treatment recommendations**
 - **Focus ONLY on administrative and documentation support**
 - **Explainable AI**: All AI decisions must be traceable and auditable for healthcare compliance
-- **Modular Design**: Pluggable agents and tools customizable per clinic without affecting core system
-
-### Privacy & Security
-- **HIPAA-compliant service orchestration** with audit logging and role-based access
 - **All PHI/PII remains on-premise** - no cloud dependencies or external API calls with patient data
-- **Performance-optimized**: GPU-accelerated local inference for real-time healthcare AI
 
-## Service Management
+### Medical Module Development Patterns
 
-### Healthcare Services
-- **Ollama** (local LLM)
-- **Healthcare-MCP** (medical tools)
-- **PostgreSQL** (patient context)
-- **Redis** (session cache)
-- **n8n** (workflows)
-- **WhisperLive** (real-time transcription) - Healthcare-hardened fork with security improvements
+- **Mock Strategy**: For missing methods in medical modules, create mock implementations with TODO comments rather than leaving undefined
+- **Type Error Priority**: Fix type errors systematically: imports → unused variables → type annotations → method implementations
+- **Medical Disclaimers**: All medical module mocks must include healthcare compliance disclaimers in method docstrings
+- **Context-First**: Always read 50+ lines of file context before making medical module edits
 
-### Healthcare Container Security
-- **User/Group Model**: Development containers use justin:intelluxe (1000:1001) for consistency with host system
-- **Production Transition**: Production containers use clinic-admin:intelluxe (same UID/GID, different username)
-- **Security Hardening**: Python 3.12-slim-bookworm base with latest security patches and non-root execution
-- **Network Isolation**: All healthcare containers run on intelluxe-net with no external data egress
-- **Volume Permissions**: Shared model storage with consistent ownership across whisper services
-- **Fork Strategy**: Healthcare improvements made directly on main branch of forked repositories
+## Development Workflow & Code Quality
 
-### Service Configuration Pattern
-- **Service Structure**: Each service configured at `services/user/SERVICE/SERVICE.conf`
-- **Deployment Flow**: `bootstrap.sh` calls `universal-service-runner.sh` for each SERVICE.conf file
-- **Universal Runner**: `universal-service-runner.sh` is the ONLY method for deploying services
-- **Web UI Integration**: `config_web_ui.py` creates .conf files directly in `services/user/SERVICE/` directories
-- **Rolling Restarts**: `bootstrap.sh` uses rolling restart mode - stops one service, starts it, waits for health, then moves to next service
-- **Dependency Ordering**: Services restart in dependency order: wireguard → traefik → config-web-ui → whisper → scispacy → n8n → grafana
-- **Security**: HIPAA-compliant service orchestration with audit logging and role-based access
+### Quick Developer Setup
 
-## Development Guidelines
+```bash
+make install && make deps && make hooks && make validate
+```
 
-### Architecture & Implementation
-- **Follow `ARCHITECTURE_BASE_CODE.md`** for mapping AI Engineering Hub patterns to Intelluxe healthcare components
-- **Use `DEV_ACCELERATION_TOOLKIT.md`** for rapid prototyping, monitoring, quality assurance
-- **Reference `IMPLEMENTATION_AND_TESTING.md`** for healthcare-specific testing and n8n workflows
+### Git Hooks (Multi-Language Auto-Formatting)
 
-### Path Management & Directory Structure
-- **Production Paths**: All scripts use `CFG_ROOT:=/opt/intelluxe/stack` for production consistency
-- **Development Symlinks**: `make install` creates symlinks from `/home/intelluxe/` → `/opt/intelluxe/` for development convenience
-- **Log Directory Exception**: `/opt/intelluxe/logs` remains a real directory (not symlinked) for systemd service write access
-- **Ownership Model**: Consistent `CFG_UID=1000:CFG_GID=1001` (justin:intelluxe) across all components for development, production uses clinic-admin:intelluxe (same UID/GID, different username)
+- **Pre-commit hook**: Auto-formatting + light validation
+  - **Python**: `black` + `isort` with automatic re-staging
+  - **Shell/Bash**: `shfmt` with 4-space indentation
+  - **JSON/YAML/Markdown**: `prettier` formatting
+  - **All files**: Trailing whitespace removal + safety checks
+- **Pre-push hook**: `make lint && make validate` (tests skipped during development)
+- **Installation**: `make hooks` installs git hooks, `make deps` installs formatting tools
 
-### Systemd Service Management
-- **Service Paths**: All systemd services use `/opt/intelluxe/scripts/` paths (via symlinks)
-- **Security Settings**: Avoid overly restrictive `ProtectSystem=strict` - use minimal security for development phase
-- **Environment Variables**: Services need `Environment=HOME=/root` for scripts that reference `$HOME`
-- **Service Installation**: `make install` handles symlinks to `/etc/systemd/system/` with `intelluxe-` prefix
+### Requirements Management
 
-### Testing Approach
-- **Healthcare-grade testing** with shadow deployment and quality metrics
-- **Compliance-first**: All features must support HIPAA compliance, audit trails, data retention policies
-- **Real-world validation**: Test with actual clinical scenarios using n8n workflows
+- **Source of truth**: `requirements.in` contains all package specifications
+- **Auto-generation**: `python3 scripts/generate-requirements.py` generates:
+  - `requirements.txt` - Full dependencies for development
+  - `requirements-ci.txt` - Minimal dependencies for CI (excludes GPU packages, no "via" comments)
+- **Development installs ALL dependencies** for complete testing capability
+- **Never manually edit** generated requirements files
 
-## Phase Implementation
+### Type Safety & Code Quality (Python)
 
-- **Phase 0**: Project setup and directory structure (`PHASE_0.md`)
-- **Phase 1**: Core AI infrastructure with Ollama, MCP, and basic agents (`PHASE_1.md`)
-- **Phase 2**: Business services, insurance verification, billing, and doctor personalization (`PHASE_2.md`)
-- **Phase 3**: Production deployment with enterprise scaling and compliance monitoring (`PHASE_3.md`)
+- **MANDATORY Return Type Annotations**: All functions need `-> ReturnType`
+- **Optional Type Handling**: Always check `if obj is not None:` before method calls
+- **Type-Safe Dictionary Operations**: Use `isinstance()` checks before operations
+- **Environment Variable Safety**: Handle `os.getenv()` returning None
+- **Mixed Dictionary Types**: Use `Dict[str, Any]` for mixed-type dictionaries
 
-## Core AI Agents
+### Type Checking Best Practices
 
-1. **Intake Agent** - Patient intake form processing and data extraction (administrative only)
-2. **Document Processor** - Medical document organization and PII redaction
-3. **Research Assistant** - PubMed/FDA/ClinicalTrials.gov search and citation management
-4. **Billing Helper** - Billing code lookup and claims assistance (reference only)
-5. **Scheduling Optimizer** - Appointment scheduling and resource optimization
+- **Mypy Medical Modules**: Use `python3 -m mypy [file] --config-file mypy.ini --ignore-missing-imports` for medical modules
+- **Systematic Resolution**: Address type errors in order: missing imports, unused variables, type annotations, missing method implementations
+- **Safe Attribute Access**: Use `getattr()` with defaults for accessing attributes that may not exist on all object types
 
-## Testing Guidelines
+### Validation Standards
 
-### Healthcare Testing Standards
-- **Test with realistic medical scenarios** while avoiding actual patient data
-- **Quality metrics**: Track response accuracy, medical appropriateness, and safety boundaries
-- **Compliance testing**: Validate HIPAA compliance, audit logging, and data handling practices
-- **Performance testing**: Ensure sub-30-second response times suitable for clinical workflows
-- **Integration testing**: Test n8n workflows end-to-end with healthcare service chains
+```bash
+# Required validation before any code submission
+make lint && make validate && echo "✅ Code quality verified"
+```
 
-### Bats Testing Framework
-- **Bats tests (*.bats)** are for shell script integration testing
-- **MUST source functions** from actual scripts in `scripts/` to test real code
-- **Variable safety**: Don't rely on potentially unbound variables like `$status` or `$lines`
-- **Check expected output** in files or command results directly
+## Testing Standards
 
-## Code Structure & Best Practices
+### Current Test Status
 
-### Shell Scripts
-- **Follow shellcheck best practices**
-- **Use `lib.sh`** for common functions
-- **Universal runner**: `universal-service-runner.sh` dynamically generates Docker commands from configuration
+- **26 Python test failures expected** due to incomplete infrastructure
+- **Bats tests**: Shell script integration testing (source actual scripts)
+- **Pre-push skips tests** during development phase
+- **Focus on code quality** validation over incomplete feature tests
 
-### Python Web UI
-- **Creates .conf files directly** using universal service runner format in `services/user/SERVICE/` directories
-- **Implements modern service addition** through universal configuration pattern
+### Healthcare Testing Requirements
 
-### Service Configurations
-- **Universal key=value format** supporting all Docker features
-- **See `UNIVERSAL_CONFIG_SCHEMA.md`** for specification
-- **Service Pattern**: Each service at `services/user/SERVICE/SERVICE.conf` deployed through `universal-service-runner.sh`
+- **Test with realistic medical scenarios** using synthetic data
+- **Compliance testing**: Validate HIPAA compliance and audit logging
+- **Use project infrastructure**: `CI=true bash ./scripts/test.sh` or `make test`
 
-## Development Principles
+## Service Architecture
 
-1. **Healthcare-first**: Build robust, maintainable features for future clinical environments, but defer production-specific hardening until later phases
-2. **Privacy-by-design**: PHI/PII never leaves the local network or gets stored inappropriately
-3. **Explainable AI**: Every AI decision must be traceable and auditable for medical compliance
-4. **Modular architecture**: Agents, tools, and services can be customized per clinic without breaking core system
-5. **Performance-critical**: Real-time AI inference suitable for busy clinical workflows
-6. **Family-built philosophy**: Designed by healthcare family (Jeffrey & Justin Sue) for real-world clinical challenges
-7. **User/Group Consistency**: Development uses justin:intelluxe (1000:1001), production uses clinic-admin:intelluxe (same UID/GID, different username for healthcare IT context)
+### Universal Service Pattern
 
-## Editing Best Practices
+- **Each service**: `services/user/SERVICE/SERVICE.conf`
+- **Deployment**: `bootstrap.sh` calls `universal-service-runner.sh`
+- **Container Security**: Development uses `justin:intelluxe (1000:1001)`
+- **Network Isolation**: All containers on `intelluxe-net` with no external data egress
 
-### File Safety
+### Key Healthcare Services
+
+- **Ollama** (local LLM), **Healthcare-MCP** (medical tools), **PostgreSQL** (patient context)
+- **Redis** (session cache), **n8n** (workflows), **WhisperLive** (real-time transcription)
+
+## Remote Agent Guidelines
+
+### Autonomous Execution Requirements
+
+- **Work continuously for 2-4 hours** without asking for continuation
+- **Start with codebase analysis** (30-45 minutes) before making changes
+- **Discover and fix related issues** beyond initial scope
+- **Only stop for unrecoverable errors** or 100% completion
+- **NEVER waste premium requests**: Always read current file contents before editing, pay attention to user's explicit instructions about infrastructure (self-hosted runners, etc.)
+
+### When to Use Sequential Thinking
+
+- **Complex Implementation Decisions**: Mock vs implement, architecture choices, technical debt tradeoffs
+- **Large Codebase Analysis**: Understanding module relationships and dependencies before changes
+- **Multi-Step Problem Solving**: Breaking down complex fixes into manageable phases
+- **Phase 0 Prioritization**: Deciding what to implement now vs defer to future phases
+
+### Required Environment Setup
+
+```bash
+export ENVIRONMENT=development CI=true
+sudo apt install -y lsof socat wireguard-tools python3-flake8 python3-psycopg2
+sudo make install  # Critical: sets up symlinks and systemd units
+make lint && make validate  # Verify setup
+```
+
+### Systematic Approach
+
+1. **Analysis-First**: `make lint 2>&1 | tee current_errors.txt`
+2. **Read actual files** before modifying them
+3. **Match existing code style** exactly
+4. **Fix incrementally**: One error category at a time
+5. **Validate each change**: Test immediately after changes
+6. **CI/CD Considerations**: Remember self-hosted runner setup, optimize for cache efficiency vs parallelization balance
+
+### Success Criteria Template
+
+```bash
+# Required validation before task completion
+make lint && make validate && echo "✅ Ready for submission"
+```
+
+### CI/CD Workflow Optimization Principles
+
+- **Self-hosted runner advantages**: Can handle more parallel jobs than GitHub's 2-core limit
+- **Cache vs Parallelization**: Balance cache restoration overhead (30-60s per job) against parallel execution benefits
+- **Grouped Jobs Strategy**: Consolidate related checks to reduce cache restorations while maintaining meaningful parallelization
+- **Phase 0 Development**: Prioritize fast feedback over perfect granularity during active development
+
+## Architectural Decision Principles
+
+### CRITICAL: Always Choose Efficiency Over Simplicity
+
+1. **Performance & Resource Efficiency FIRST**
+2. **Healthcare Compliance & Security SECOND**
+3. **Maintainability & Debugging THIRD**
+4. **Implementation Simplicity LAST**
+
+### CI/CD Efficiency Requirements
+
+- **CRITICAL: Self-Hosted GitHub Actions Runner** - ALL workflow jobs MUST use `runs-on: self-hosted`
+- **Use `requirements-ci.txt`** for CI/CD (excludes heavy GPU/ML packages)
+- **Shared dependency caching** - never install same dependencies multiple times
+- **Strategic job dependencies** with optimal dependency graphs
+- **Never modify workflows to skip dependencies** - fix requirements files instead
+- **Cache optimization strategy**: Consolidate related jobs to reduce cache restoration overhead
+- **Parallelization balance**: Use matrix strategies for CPU-intensive tasks (Python validation), consolidate for I/O-bound tasks (security/infrastructure checks)
+- **Self-hosted advantages**: No GitHub concurrency limits, better CPU resources, persistent cache potential
+
+## File Safety & Editing Best Practices
+
+### Before Any Edit
+
 - **ALWAYS read the file section** you're editing BEFORE making changes
-- **NEVER break bash syntax** - check if/fi, case/esac, function boundaries match
-- **Verify edits don't accidentally affect** unrelated code sections
-- **Remove unused variables** after refactoring to pass shellcheck
-
-### Error Prevention
+- **NEVER break bash syntax** - check if/fi, case/esac, function boundaries
 - **Use shellcheck validation** after every bash script edit
-- **Make one logical change per edit**, not multiple unrelated changes
-- **When removing functions**, ensure their call sites are also updated
-- **Run affected test suites** after making changes to verify no regressions
+- **Remove unused variables** after refactoring
 
-## Git Management
+### Common Anti-Patterns to Prevent
 
-### Repository Architecture
-- **Main Repository**: Intelluxe AI healthcare system with universal service orchestration
-- **Submodules**: AI Engineering patterns (reference/ai-patterns) and healthcare-specific forks
-- **WhisperLive Integration**: Forked submodule using main branch for healthcare improvements
-
-### Submodule Strategy
-- **reference/ai-patterns/**: MIT licensed patterns (upstream submodule from ai-engineering-hub)
-- **services/user/whisperlive/**: Healthcare-hardened fork of WhisperLive on main branch
-- **Upstream Integration**: Periodic merging of upstream improvements with healthcare customizations
-- **No Branching Complexity**: Use main branch for healthcare improvements, not separate healthcare branches
-
-### Tracked Files
-- `services/core/`, `scripts/`, `test/`, `systemd/`, `docs/`, `services/user/.gitkeep`, `reference/` (submodule), `mcps/`, `services/user/whisperlive/` (healthcare fork)
-- `THIRD_PARTY_LICENSES.md` (MIT license attributions for compliance)
-
-### Ignored Files
-- `services/user/*` (except .gitkeep), `docker-stack/`, `logs/`, `venv/`
-
-### Commit Guidelines
-- **Never commit user services** or generated directories
-- **Test bootstrap creates proper structure**
-- **Maintain MIT license attributions** for healthcare-mcp, ai-patterns, and whisperlive
+1. **Trailing whitespace** → Auto-stripped by pre-commit hook
+2. **Inconsistent blank lines** → Follow flake8 E302/E305 rules
+3. **Long lines** → Break at 100 characters
+4. **Unused imports** → Remove to pass validation
+5. **Method assumptions** → Use `hasattr()` checks
+6. **Submitting with failing validation** → Always iterate until clean
 
 ## Repository Information
 
-- **Owner**: Galdaer
-- **Name**: Intelluxe
-- **Branch**: main
-- **Major Version**: 1.0 - Healthcare AI Platform with Universal Service Architecture
-- **Development Status**: Active development, focusing on hardening test suite for robust integration testing
+- **Owner**: Intelluxe-AI, **Repo**: intelluxe-core, **Branch**: main
+- **Development Status**: Active development, Phase 0 enhanced infrastructure
+- **Family-Built**: Co-designed by Jeffrey & Justin Sue for real-world clinical workflows
 
-## Family-Built Heritage
+## Phase Implementation
 
-Co-designed by father-son team (Jeffrey & Justin Sue) for real-world clinical workflows, ensuring practical applicability and healthcare industry expertise.
+- **Phase 0**: Project setup and development infrastructure
+- **Phase 1**: Core AI infrastructure (Ollama, MCP, basic agents)
+- **Phase 2**: Business services (insurance, billing, doctor personalization)
+- **Phase 3**: Production deployment and enterprise scaling
+
+---
+
+**Last Updated**: 2025-01-23 | **Length**: ~500 lines (50% reduction from original)

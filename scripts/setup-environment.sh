@@ -71,9 +71,11 @@ retry_with_backoff() {
     shift
     local attempt=1
     local delay=1
+    
     until "$@"; do
         if (( attempt >= max_attempts )); then
             err "Command failed after $attempt attempts: $*"
+            echo "attempts=$attempt" >&2
             return 1
         fi
         warn "Attempt $attempt failed. Retrying in $delay seconds..."
@@ -81,6 +83,8 @@ retry_with_backoff() {
         attempt=$(( attempt + 1 ))
         delay=$(( delay * 2 ))
     done
+    echo "attempts=$attempt" >&2
+    return 0
 }
 
 verify_installation() {
@@ -297,27 +301,30 @@ install_system_deps() {
         ok "No system dependencies to install"
         return 0
     fi
-
-    log "Installing system dependencies in bulk"
-
+    
+    log "Installing system dependencies: ${DEPENDENCIES[*]}"
+    local failed_packages=()
+    
+    # Try to install all packages at once first
     if "${PKG_INSTALL[@]}" "${DEPENDENCIES[@]}" >/dev/null 2>&1; then
-        ok "All system packages installed"
-    else
-        warn "Some packages failed to install, retrying individual packages"
-        # Try installing packages individually to identify failures
-        FAILED_PACKAGES=()
-        for pkg in "${DEPENDENCIES[@]}"; do
-            if "${PKG_INSTALL[@]}" "$pkg" >/dev/null 2>&1; then
-                log "✓ $pkg installed"
-            else
-                warn "✗ $pkg failed to install"
-                FAILED_PACKAGES+=("$pkg")
-            fi
-        done
-        if [[ ${#FAILED_PACKAGES[@]} -gt 0 ]]; then
-            err "The following packages failed to install: ${FAILED_PACKAGES[*]}"
-            exit 1
+        ok "All system packages installed successfully"
+        return 0
+    fi
+    
+    # If batch install failed, try individual packages
+    warn "Batch installation failed, trying individual packages..."
+    for pkg in "${DEPENDENCIES[@]}"; do
+        if ! "${PKG_INSTALL[@]}" "$pkg" >/dev/null 2>&1; then
+            failed_packages+=("$pkg")
         fi
+    done
+    
+    if [[ ${#failed_packages[@]} -gt 0 ]]; then
+        warn "Some packages failed to install: ${failed_packages[*]}"
+        return 1
+    else
+        ok "All system packages installed successfully"
+        return 0
     fi
 }
 
@@ -435,45 +442,51 @@ install_uv() {
 }
 
 install_python_deps() {
-    log "Installing Python dependencies with uv"
-    if [[ $PKG_MANAGER == apt ]]; then
-        local py_pkgs=(python3 python3-dev python3-venv libyaml-dev build-essential)
-        # Ubuntu 24.04 dropped python3-distutils
-        if apt-cache show python3-distutils 2>/dev/null | grep -q '^Package:'; then
-            py_pkgs+=(python3-distutils)
-        fi
-        log "Installing Python system packages: ${py_pkgs[*]}"
-        if ! "${PKG_INSTALL[@]}" "${py_pkgs[@]}" >/dev/null 2>&1; then
-            warn "Some Python packages failed to install, trying individually"
-            for pkg in "${py_pkgs[@]}"; do
-                if "${PKG_INSTALL[@]}" "$pkg" >/dev/null 2>&1; then
-                    log "✓ $pkg installed"
-                else
-                    warn "✗ $pkg failed to install"
-                fi
-            done
-        fi
-    fi
+    log "Installing Python dependencies for healthcare AI development"
     
-    # Install uv first
+    # Install uv first for faster package management
     install_uv
     
-    # Check if we should skip Python package installation (for virtual env workflow)
-    if [ "${SKIP_PYTHON_PACKAGES:-}" = "1" ]; then
-        log "Skipping Python package installation (SKIP_PYTHON_PACKAGES=1)"
-        log "Python packages should be installed in virtual environment instead"
-        return
+    # Always install linting tools system-wide for CI/development
+    if command -v uv >/dev/null 2>&1; then
+        log "Installing Python tools with uv (fast)"
+        uv pip install --system --break-system-packages \
+            flake8 mypy pytest pytest-asyncio \
+            yamllint \
+            pyyaml \
+            requests \
+            flask waitress psutil docker \
+            psycopg2-binary cryptography || {
+            warn "uv installation failed, falling back to pip"
+            pip3 install --break-system-packages \
+                flake8 mypy pytest pytest-asyncio \
+                yamllint \
+                pyyaml \
+                requests \
+                flask waitress psutil docker \
+                psycopg2-binary cryptography
+        }
+    else
+        log "Installing Python tools with pip (fallback)"
+        pip3 install --break-system-packages \
+            flake8 mypy pytest pytest-asyncio \
+            yamllint \
+            pyyaml \
+            requests \
+            flask waitress psutil docker \
+            psycopg2-binary cryptography
     fi
     
-    # Install only essential system-wide Python packages for infrastructure
-    # Note: Most AI/ML packages should be in virtual environments
-    log "Installing essential system Python packages with uv"
-    uv pip install --system --break-system-packages \
-        flake8 mypy pytest pytest-asyncio \
-        yamllint \
-        pyyaml \
-        requests \
-        flask waitress psutil docker
+    # Verify critical tools are available
+    if ! command -v flake8 >/dev/null 2>&1; then
+        warn "flake8 not available after installation"
+    fi
+    if ! command -v mypy >/dev/null 2>&1; then
+        warn "mypy not available after installation"
+    fi
+    if ! command -v pytest >/dev/null 2>&1; then
+        warn "pytest not available after installation"
+    fi
     
     ok "Essential Python dependencies installed system-wide"
     log "💡 For AI/ML development, use virtual environments with requirements.in"
@@ -485,7 +498,6 @@ setup_directories() {
     local dirs=(
         "$CFG_ROOT/config" "$CFG_ROOT/data" "$CFG_ROOT/logs" "$CFG_ROOT/backups" "$CFG_ROOT/scripts"
         "$CFG_ROOT/containers" "$CFG_ROOT/wireguard/clients" 
-        /opt/intelluxe/storage/disk1 /opt/intelluxe/storage/disk2 
         /opt/intelluxe/data /opt/intelluxe/models /opt/intelluxe/agents
     )
     mkdir -p "${dirs[@]}"
