@@ -164,6 +164,18 @@ deps:
 		echo "🔒  Generating lockfiles from requirements.in..."; \
 		python3 scripts/generate-requirements.py; \
 	fi
+	@# Install formatting tools for git hooks
+	@echo "🎨  Installing formatting tools for pre-commit hooks..."
+	@if command -v npm >/dev/null 2>&1; then \
+		sudo npm install -g prettier; \
+	else \
+		echo "⚠️  npm not found - prettier not installed (for YAML/JSON/Markdown formatting)"; \
+	fi
+	@if command -v go >/dev/null 2>&1; then \
+		go install mvdan.cc/sh/v3/cmd/shfmt@latest; \
+	else \
+		echo "⚠️  go not found - shfmt not installed (for shell script formatting)"; \
+	fi
 	@# Try to install dependencies using the best available method
 	@if command -v uv >/dev/null 2>&1; then \
 		echo "🚀  Using uv for fast installation (development = all dependencies)..."; \
@@ -212,7 +224,7 @@ debug:
 	@echo "🐛  Debug healthcare AI setup with verbose output and detailed logging"
 	./scripts/bootstrap.sh --dry-run --non-interactive --debug
 
-# Management Commands  
+# Management Commands
 diagnostics:
 	@echo "🔍  Running comprehensive healthcare AI system diagnostics"
 	./scripts/diagnostics.sh

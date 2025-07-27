@@ -20,11 +20,13 @@ if git diff --cached --name-only | grep '\.py$' | xargs grep -l 'pdb\.set_trace\
     exit 1
 fi
 
-# Auto-format Python files with black and isort
-echo "🎨 Auto-formatting Python files..."
+# Auto-format files by language
+echo "🎨 Auto-formatting staged files..."
+
+# Python files: black + isort
 python_files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
 if [ -n "$python_files" ]; then
-    echo "   Formatting with black..."
+    echo "   🐍 Formatting Python files..."
     if command -v black >/dev/null 2>&1; then
         echo "$python_files" | xargs black --line-length=100
     elif python3 -m black --version >/dev/null 2>&1; then
@@ -32,8 +34,7 @@ if [ -n "$python_files" ]; then
     else
         echo "⚠️  black not found - skipping Python formatting"
     fi
-    
-    echo "   Organizing imports with isort..."
+
     if command -v isort >/dev/null 2>&1; then
         echo "$python_files" | xargs isort --profile black --line-length=100
     elif python3 -m isort --version >/dev/null 2>&1; then
@@ -41,15 +42,83 @@ if [ -n "$python_files" ]; then
     else
         echo "⚠️  isort not found - skipping import organization"
     fi
-    
-    # Re-add formatted files to staging
+
+    # Re-add formatted Python files to staging
     echo "$python_files" | xargs git add
+fi
+
+# Shell/Bash files: shfmt
+shell_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(sh|bash)$' || true)
+if [ -n "$shell_files" ]; then
+    echo "   🐚 Formatting shell files..."
+    if command -v shfmt >/dev/null 2>&1; then
+        echo "$shell_files" | xargs shfmt -w -i 4 -ci
+        echo "$shell_files" | xargs git add
+    else
+        echo "⚠️  shfmt not found - skipping shell formatting (install with: go install mvdan.cc/sh/v3/cmd/shfmt@latest)"
+    fi
+fi
+
+# YAML files: yamllint + prettier
+yaml_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(yml|yaml)$' || true)
+if [ -n "$yaml_files" ]; then
+    echo "   📄 Formatting YAML files..."
+    if command -v prettier >/dev/null 2>&1; then
+        echo "$yaml_files" | xargs prettier --write --tab-width=2
+        echo "$yaml_files" | xargs git add
+    else
+        echo "⚠️  prettier not found - skipping YAML formatting (install with: npm install -g prettier)"
+    fi
+fi
+
+# JSON files: prettier
+json_files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.json$' || true)
+if [ -n "$json_files" ]; then
+    echo "   🔧 Formatting JSON files..."
+    if command -v prettier >/dev/null 2>&1; then
+        echo "$json_files" | xargs prettier --write --tab-width=2
+        echo "$json_files" | xargs git add
+    elif command -v jq >/dev/null 2>&1; then
+        # Fallback to jq for JSON formatting
+        for file in $json_files; do
+            jq . "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+        done
+        echo "$json_files" | xargs git add
+    else
+        echo "⚠️  prettier or jq not found - skipping JSON formatting"
+    fi
+fi
+
+# Markdown files: prettier
+markdown_files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(md|markdown)$' || true)
+if [ -n "$markdown_files" ]; then
+    echo "   📝 Formatting Markdown files..."
+    if command -v prettier >/dev/null 2>&1; then
+        echo "$markdown_files" | xargs prettier --write --prose-wrap=preserve --tab-width=2
+        echo "$markdown_files" | xargs git add
+    else
+        echo "⚠️  prettier not found - skipping Markdown formatting"
+    fi
 fi
 
 # Check for TODO/FIXME in committed code (warn only)
 if git diff --cached | grep -E '^\+.*\b(TODO|FIXME|XXX)\b'; then
     echo "⚠️  Warning: TODO/FIXME comments found in staged changes"
     echo "💡 Consider addressing these before committing"
+fi
+
+# Remove trailing whitespace from all text files
+echo "🧹 Removing trailing whitespace..."
+staged_files=$(git diff --cached --name-only --diff-filter=ACM || true)
+if [ -n "$staged_files" ]; then
+    # Remove trailing whitespace from text files (exclude binary files)
+    echo "$staged_files" | while read -r file; do
+        if [ -f "$file" ] && file "$file" | grep -q "text"; then
+            sed -i 's/[[:space:]]*$//' "$file" 2>/dev/null || true
+        fi
+    done
+    # Re-add files after whitespace cleanup
+    echo "$staged_files" | xargs git add 2>/dev/null || true
 fi
 
 echo "✅ Pre-commit checks and formatting complete!"
