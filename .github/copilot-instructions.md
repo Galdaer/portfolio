@@ -75,6 +75,185 @@ scripts/                # Primary shell scripts (universal-service-runner.sh, li
 - Follow environment detection patterns for secure fallbacks
 - Use synthetic data generation standards (555 phone prefix, clearly marked test data)
 
+## Type Safety and MyPy Compliance Patterns
+
+### MANDATORY Type Annotation Requirements
+
+#### 1. **Always Add Return Type Annotations**
+```python
+# ✅ CORRECT - All methods need return type annotations
+def __init__(self) -> None:
+    self.logger = logging.getLogger(__name__)
+
+def process_data(self, data: str) -> Dict[str, Any]:
+    return {"processed": data}
+
+# ❌ INCORRECT - Missing return type annotations
+def __init__(self):  # Missing -> None
+    pass
+
+def process_data(self, data: str):  # Missing return type
+    return {"data": data}
+```
+
+#### 2. **Proper Optional Type Handling**
+```python
+# ✅ CORRECT - Always check None before method calls
+def process_client(self, client: Optional[httpx.AsyncClient]) -> Dict[str, Any]:
+    if client is None:
+        return {"status": "not_initialized"}
+    
+    # Now safe to call methods on client
+    response = await client.get("/api/endpoint")
+    return {"status": "success"}
+
+# ❌ INCORRECT - Calling methods on Optional type
+def process_client(self, client: Optional[httpx.AsyncClient]) -> Dict[str, Any]:
+    response = await client.get("/api/endpoint")  # MyPy error: client could be None
+    return {"status": "success"}
+```
+
+#### 3. **Type-Safe Dictionary Operations**
+```python
+# ✅ CORRECT - Explicit typing and type guards
+def format_results(self, issues: List[SecurityIssue]) -> Dict[str, Any]:
+    results: Dict[str, Any] = {
+        "issues_by_category": {},
+        "recommendations": []
+    }
+    
+    # Type-safe dictionary operations with type guards
+    issues_by_category: Dict[str, List[SecurityIssue]] = {}
+    for issue in issues:
+        if issue.category not in issues_by_category:
+            issues_by_category[issue.category] = []
+        issues_by_category[issue.category].append(issue)
+    
+    results["issues_by_category"] = issues_by_category
+    
+    # Type-safe list operations
+    recommendations = results["recommendations"]
+    if isinstance(recommendations, list):
+        recommendations.append("New recommendation")
+    
+    return results
+
+# ❌ INCORRECT - Treating object as specific type without checking
+def format_results(self, issues: List[SecurityIssue]) -> Dict[str, Any]:
+    results = {"issues_by_category": {}, "recommendations": []}
+    
+    # MyPy error: "object" has no attribute "append"
+    results["recommendations"].append("recommendation")
+    
+    # MyPy error: Unsupported right operand type for in ("object")
+    if issue.category not in results["issues_by_category"]:
+        results["issues_by_category"][issue.category] = []
+    
+    return results
+```
+
+#### 4. **Environment Variable Type Safety**
+```python
+# ✅ CORRECT - Handle None from os.getenv()
+def __init__(self, secret_key: Optional[str] = None) -> None:
+    default_key = secrets.token_hex(32)
+    env_key = os.getenv('JWT_SECRET_KEY')
+    self.secret_key: str = secret_key or env_key or default_key
+
+# ❌ INCORRECT - os.getenv() can return None
+def __init__(self, secret_key: Optional[str] = None) -> None:
+    self.secret_key: str = secret_key or os.getenv('JWT_SECRET_KEY', secrets.token_hex(32))
+    # MyPy error: expression has type "str | None", variable has type "str"
+```
+
+#### 5. **Mixed Dictionary Type Handling**
+```python
+# ✅ CORRECT - Use Dict[str, Any] for mixed types
+def load_configuration(self) -> Dict[str, Any]:
+    base_config: Dict[str, Any] = {
+        'key_rotation_days': 365,        # int
+        'audit_logging': True,           # bool
+        'entropy_threshold': 0.8,        # float
+        'min_key_length': 32             # int
+    }
+    return base_config
+
+# ❌ INCORRECT - MyPy infers wrong type from first entry
+def load_configuration(self) -> Dict[str, Any]:
+    base_config = {
+        'key_rotation_days': 365,        # MyPy assumes all values are int
+        'audit_logging': True,           # Error: bool not compatible with int
+        'entropy_threshold': 0.8,        # Error: float not compatible with int
+    }
+    return base_config
+```
+
+### Code Generation Anti-Patterns to Prevent
+
+#### MyPy Error Prevention Checklist
+- [ ] **All `__init__` methods have `-> None` return type**
+- [ ] **All functions have explicit return type annotations**
+- [ ] **Optional types checked for None before method calls**
+- [ ] **Dictionary operations use type guards (`isinstance` checks)**
+- [ ] **Mixed-type dictionaries explicitly typed as `Dict[str, Any]`**
+- [ ] **Environment variables properly handle None returns**
+- [ ] **Class attributes have explicit type annotations**
+
+#### Common MyPy Error Patterns and Fixes
+
+**Error Pattern**: `"object" has no attribute "append"`
+**Fix**: Use type guards before operations on dictionary values
+```python
+# Before: results["recommendations"].append(item)
+# After: 
+recommendations = results["recommendations"]
+if isinstance(recommendations, list):
+    recommendations.append(item)
+```
+
+**Error Pattern**: `Unsupported right operand type for in ("object")`
+**Fix**: Use separate typed variable for dictionary operations
+```python
+# Before: if key not in results["dict_field"]: ...
+# After:
+dict_field: Dict[str, List[Item]] = {}
+# ... populate dict_field ...
+results["dict_field"] = dict_field
+```
+
+**Error Pattern**: `Item "None" of "Optional[Type]" has no attribute "method"`
+**Fix**: Add None check before method calls
+```python
+# Before: self.optional_client.get("/endpoint")
+# After:
+if self.optional_client is not None:
+    self.optional_client.get("/endpoint")
+```
+
+**Error Pattern**: `Incompatible types in assignment (expression has type "str | None", variable has type "str")`
+**Fix**: Provide explicit fallback for None values
+```python
+# Before: self.value: str = os.getenv('KEY', 'default')
+# After: 
+env_value = os.getenv('KEY')
+self.value: str = env_value or 'default'
+```
+
+### Healthcare-Specific Type Safety Requirements
+- **PHI Data Structures**: Always use strict typing for patient data with proper sanitization
+- **Audit Logging**: Type-safe event logging with structured data validation
+- **Security Keys**: Never allow None types for encryption/authentication keys
+- **Configuration Management**: Environment-aware type checking with healthcare compliance validation
+
+### Pre-Submission Validation
+**ALWAYS run before committing Python code:**
+```bash
+# MyPy validation for all healthcare directories
+python3 -m mypy src/ --ignore-missing-imports --strict-optional
+python3 -m mypy agents/ --ignore-missing-imports --strict-optional
+python3 -m mypy mcps/ --ignore-missing-imports --strict-optional  # if Python files exist
+```
+
 ## Healthcare Philosophy & Safety
 
 ### Medical Safety Principles
