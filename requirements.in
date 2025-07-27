@@ -95,6 +95,7 @@ pylint>=3.3.3
 
 # === TYPE STUBS FOR MYPY ===
 types-requests>=2.32.0
+types-PyYAML>=6.0.0
 
 # === CONTAINER ORCHESTRATION ===
 # Note: Docker Compose V2 is installed as system package via setup-environment.sh
