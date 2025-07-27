@@ -28,7 +28,9 @@
         "**/.npm": true,
         "**/.cache": true,
         "**/coverage/": true,
-        "**/*.tsbuildinfo": true
+        "**/*.tsbuildinfo": true,
+        "reference/ai-patterns/**": true,
+        "services/user/whisperlive/**": true
     },
     "search.exclude": {
         "**/logs/": true,
@@ -36,7 +38,9 @@
         "**/data/phi/**": true,
         "**/backups/**": true,
         "**/secrets/**": true,
-        "**/.env*": true
+        "**/.env*": true,
+        "reference/ai-patterns/**": true,
+        "services/user/whisperlive/**": true
     },
     "// Healthcare File Associations": "",
     "files.associations": {
@@ -47,6 +51,10 @@
         "*.conf": "properties"
     },
     "// Python Healthcare AI Configuration": "",
+    "python.analysis.exclude": [
+        "reference/ai-patterns/**",
+        "services/user/whisperlive/**"
+    ],
     "python.defaultInterpreterPath": "/usr/bin/python3",
     "python.terminal.activateEnvironment": false,
     "python.linting.enabled": true,
@@ -65,8 +73,18 @@
         "reportMissingImports": "none",
         "reportUnusedImport": "none"
     },
+    "pylint.args": [
+        "--ignore-patterns=reference/ai-patterns/**,services/user/whisperlive/**"
+    ],
     "python.linting.flake8Args": [
         "--config=.flake8"
+    ],
+    "flake8.args": [
+        "--exclude=reference/ai-patterns/**,services/user/whisperlive/**"
+    ],
+    "mypy.exclude": [
+        "reference/ai-patterns/**",
+        "services/user/whisperlive/**"
     ],
     "// Medical Terminology and Healthcare Terms": "",
     "cSpell.words": [

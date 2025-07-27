@@ -218,3 +218,4 @@ services/user/wyoming-whisper/wyoming-whisper.conf
 !THIRD_PARTY_LICENSES.md
 !.augment/
 !.augment/**/*
+!pyproject.toml
