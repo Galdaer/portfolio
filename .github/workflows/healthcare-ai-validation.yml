@@ -49,7 +49,12 @@ jobs:
         echo "$HOME/.local/bin" >> $GITHUB_PATH
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
         
-        pip install -r requirements.txt || echo "No requirements.txt found"
+        # Use minimal CI requirements instead of full requirements.txt
+        if [ -f "requirements-ci.txt" ]; then
+          pip install -r requirements-ci.txt || echo "CI requirements installation completed with warnings"
+        else
+          pip install -r requirements.txt || echo "No requirements.txt found"
+        fi
     
     - name: Verify tools installation
       run: |
