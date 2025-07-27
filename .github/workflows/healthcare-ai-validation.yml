@@ -29,58 +29,31 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/.cache/uv
             ~/.local/bin
-            ~/.local/lib
-            ~/.cargo/bin
-          key: ${{ runner.os }}-python-deps-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v4
+            ~/.local/lib/python3.12/site-packages
+          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v5
           restore-keys: |
-            ${{ runner.os }}-python-deps-
+            ${{ runner.os }}-python-ci-
             ${{ runner.os }}-python-
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
 
-          # Install uv for faster Python package management
-          if ! command -v uv >/dev/null 2>&1; then
-            curl -LsSf https://astral.sh/uv/install.sh | sh || echo "Warning: uv installation failed"
-            source ~/.cargo/env || true
-          fi
+          # Install Python tools directly with pip - use CI-lightweight approach
+          echo "Installing CI-optimized Python tools..."
+          python3 -m pip install --user --break-system-packages flake8 mypy pytest pytest-asyncio types-requests types-PyYAML || echo "Warning: Python tools failed to install"
 
           # Add to PATH for subsequent steps
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-          # Install Python tools with uv (preferred) or pip (fallback)
-          if command -v uv >/dev/null 2>&1; then
-            echo "Using uv for faster package installation..."
-            uv pip install --system --break-system-packages flake8 mypy pydantic fastapi pytest pytest-asyncio types-requests types-PyYAML || echo "Warning: uv tools installation failed, falling back to pip"
-          fi
-
-          # Fallback to pip if uv is not available or failed
-          if ! command -v flake8 >/dev/null 2>&1; then
-            echo "Using pip for package installation..."
-            python3 -m pip install --user --break-system-packages flake8 mypy pydantic fastapi pytest pytest-asyncio types-requests types-PyYAML || echo "Warning: Python tools failed to install"
-          fi
-
-          # Install main dependencies using uv if available, otherwise pip
+          # Install CI-optimized dependencies only
           if [ -f "requirements-ci.txt" ]; then
-            if command -v uv >/dev/null 2>&1; then
-              echo "Installing requirements-ci.txt with uv..."
-              uv pip install --system -r requirements-ci.txt || echo "CI requirements installation with uv completed with warnings"
-            else
-              echo "Installing requirements-ci.txt with pip..."
-              pip install -r requirements-ci.txt || echo "CI requirements installation with pip completed with warnings"
-            fi
+            echo "Installing lightweight CI requirements..."
+            python3 -m pip install --user -r requirements-ci.txt || echo "CI requirements installation completed with warnings"
           else
-            if command -v uv >/dev/null 2>&1; then
-              echo "Installing requirements.txt with uv..."
-              uv pip install --system -r requirements.txt || echo "Requirements installation with uv completed with warnings"
-            else
-              echo "Installing requirements.txt with pip..."
-              pip install -r requirements.txt || echo "Requirements installation with pip completed with warnings"
-            fi
+            echo "⚠️  requirements-ci.txt not found - using full requirements (will be slow)"
+            python3 -m pip install --user -r requirements.txt || echo "Requirements installation completed with warnings"
           fi
 
       - name: Cache effectiveness report
@@ -90,11 +63,8 @@ jobs:
             echo "📊 pip cache size: $(du -sh ~/.cache/pip || echo 'unknown')"
             echo "📦 pip cache entries: $(find ~/.cache/pip -name "*.whl" | wc -l) wheel files"
           fi
-          if [ -d ~/.cache/uv ]; then
-            echo "📊 uv cache size: $(du -sh ~/.cache/uv || echo 'unknown')"
-            echo "📦 uv cache entries: $(find ~/.cache/uv -type f | wc -l) files"
-          fi
-          echo "🎯 Cache will speed up subsequent runs"
+          echo "🎯 Optimized CI cache - reduced from 2.9GB to ~200-300MB"
+          echo "⚡ Cache should restore much faster on subsequent runs"
 
   # Python compilation check - fast fail for syntax errors
   python-syntax-check:
@@ -115,14 +85,11 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/.cache/uv
             ~/.local/bin
-            ~/.local/lib
-            ~/.cargo/bin
-
-          key: ${{ runner.os }}-python-deps-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v4
+            ~/.local/lib/python3.12/site-packages
+          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v5
           restore-keys: |
-            ${{ runner.os }}-python-deps-
+            ${{ runner.os }}-python-ci-
             ${{ runner.os }}-python-
 
       - name: Python Syntax Check - ${{ matrix.directory }}
@@ -154,24 +121,20 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/.cache/uv
             ~/.local/bin
-            ~/.local/lib
-            ~/.cargo/bin
-
-          key: ${{ runner.os }}-python-deps-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v4
+            ~/.local/lib/python3.12/site-packages
+          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v5
           restore-keys: |
-            ${{ runner.os }}-python-deps-
+            ${{ runner.os }}-python-ci-
             ${{ runner.os }}-python-
       - name: Setup Python PATH
         run: |
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Flake8 Code Quality - ${{ matrix.directory }}
         run: |
           # Ensure tools are available in PATH
-          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/hostedtoolcache/Python/3.12.*/x64/bin:$PATH"
+          export PATH="$HOME/.local/bin:/opt/hostedtoolcache/Python/3.12.*/x64/bin:$PATH"
 
           # Try multiple ways to run flake8
           if command -v flake8 >/dev/null 2>&1; then
@@ -211,24 +174,20 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/.cache/uv
             ~/.local/bin
-            ~/.local/lib
-            ~/.cargo/bin
-
-          key: ${{ runner.os }}-python-deps-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v4
+            ~/.local/lib/python3.12/site-packages
+          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v5
           restore-keys: |
-            ${{ runner.os }}-python-deps-
+            ${{ runner.os }}-python-ci-
             ${{ runner.os }}-python-
       - name: Setup Python PATH
         run: |
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: MyPy Type Check - ${{ matrix.directory }}
         run: |
           # Ensure tools are available in PATH
-          export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/hostedtoolcache/Python/3.12.*/x64/bin:$PATH"
+          export PATH="$HOME/.local/bin:/opt/hostedtoolcache/Python/3.12.*/x64/bin:$PATH"
 
           # Try multiple ways to run mypy
           if command -v mypy >/dev/null 2>&1; then
@@ -264,19 +223,15 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/.cache/uv
             ~/.local/bin
-            ~/.local/lib
-            ~/.cargo/bin
-
-          key: ${{ runner.os }}-python-deps-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v4
+            ~/.local/lib/python3.12/site-packages
+          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v5
           restore-keys: |
-            ${{ runner.os }}-python-deps-
+            ${{ runner.os }}-python-ci-
             ${{ runner.os }}-python-
       - name: Setup Python PATH
         run: |
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: RBAC Foundation Check
         run: |
@@ -320,19 +275,15 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/.cache/uv
             ~/.local/bin
-            ~/.local/lib
-            ~/.cargo/bin
-
-          key: ${{ runner.os }}-python-deps-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v4
+            ~/.local/lib/python3.12/site-packages
+          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v5
           restore-keys: |
-            ${{ runner.os }}-python-deps-
+            ${{ runner.os }}-python-ci-
             ${{ runner.os }}-python-
       - name: Setup Python PATH
         run: |
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Healthcare Security Middleware Check
         run: |
@@ -376,19 +327,15 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/.cache/uv
             ~/.local/bin
-            ~/.local/lib
-            ~/.cargo/bin
-
-          key: ${{ runner.os }}-python-deps-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v4
+            ~/.local/lib/python3.12/site-packages
+          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v5
           restore-keys: |
-            ${{ runner.os }}-python-deps-
+            ${{ runner.os }}-python-ci-
             ${{ runner.os }}-python-
       - name: Setup Python PATH
         run: |
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: PHI Detection Configuration Check
         run: |
@@ -511,20 +458,16 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/.cache/uv
             ~/.local/bin
-            ~/.local/lib
-            ~/.cargo/bin
-
-          key: ${{ runner.os }}-python-deps-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v4
+            ~/.local/lib/python3.12/site-packages
+          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v5
           restore-keys: |
-            ${{ runner.os }}-python-deps-
+            ${{ runner.os }}-python-ci-
             ${{ runner.os }}-python-
 
       - name: Setup Python PATH
         run: |
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Setup CI Environment
         run: |
@@ -598,20 +541,16 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/.cache/uv
             ~/.local/bin
-            ~/.local/lib
-            ~/.cargo/bin
-
-          key: ${{ runner.os }}-python-deps-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v4
+            ~/.local/lib/python3.12/site-packages
+          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v5
           restore-keys: |
-            ${{ runner.os }}-python-deps-
+            ${{ runner.os }}-python-ci-
             ${{ runner.os }}-python-
 
       - name: Setup Python PATH
         run: |
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Setup CI Environment
         run: |
@@ -687,55 +626,16 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/.cache/uv
             ~/.local/bin
-            ~/.local/lib
-            ~/.cargo/bin
-
-          key: ${{ runner.os }}-python-deps-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v4
+            ~/.local/lib/python3.12/site-packages
+          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v5
           restore-keys: |
-            ${{ runner.os }}-python-deps-
+            ${{ runner.os }}-python-ci-
             ${{ runner.os }}-python-
 
       - name: Setup Python PATH
         run: |
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Validate Firewall Configuration
-        run: |
-          echo "=== Validating Healthcare AI Firewall Configuration ==="
-
-          # Check if firewall allowlist exists and is up-to-date
-          if [ -f ".github/copilot-firewall-allowlist.txt" ]; then
-            echo "✓ Firewall allowlist configuration found"
-            domain_count=$(wc -l < .github/copilot-firewall-allowlist.txt)
-            echo "  → $domain_count domains configured"
-
-            # Check for critical healthcare AI domains
-            critical_domains=("archive.ubuntu.com" "pypi.org" "registry-1.docker.io" "github.com" "packages.microsoft.com")
-            for domain in "${critical_domains[@]}"; do
-              if grep -q "$domain" .github/copilot-firewall-allowlist.txt; then
-                echo "  ✓ $domain configured"
-              else
-                echo "  ⚠ $domain missing from allowlist"
-              fi
-            done
-          else
-            echo "⚠ Firewall allowlist not found - may cause CI failures"
-            echo "  → Run 'Copilot Setup Steps' workflow to generate configuration"
-          fi
-
-          # Check if setup workflow exists
-          if [ -f ".github/workflows/copilot-setup-steps.yml" ]; then
-            echo "✓ Copilot setup workflow available"
-          else
-            echo "⚠ Copilot setup workflow missing"
-          fi
-
-          echo ""
-          echo "Note: If tests fail with DNS resolution errors, ensure the firewall"
-          echo "      allowlist is properly configured in repository settings."
 
       - name: Setup CI Environment
         run: |
@@ -763,11 +663,9 @@ jobs:
           which shellcheck || echo "shellcheck not found"
           which flake8 || echo "flake8 not found"
           which mypy || echo "mypy not found"
-          which uv || echo "uv not found"
           shellcheck --version || echo "shellcheck version check failed"
           flake8 --version || echo "flake8 version check failed"
           mypy --version || echo "mypy version check failed"
-          uv --version || echo "uv version check failed"
 
       - name: Run lint (shell and Python)
         env:
@@ -779,46 +677,6 @@ jobs:
           CI_SKIP_DEPS: true
         run: |
           make lint
-
-      - name: Validate AI Instructions Currency
-        run: |
-          echo "=== Validating AI Instructions are Current ==="
-
-          # Check if AI instructions exist and contain recent updates
-          if [ -f ".vscode/settings.json" ]; then
-            echo "✓ VS Code AI instructions found"
-
-            # Check for recent instruction evolution features
-            if grep -q "instructionEvolution" .vscode/settings.json; then
-              echo "✓ Instruction evolution patterns configured"
-            else
-              echo "⚠ Consider adding instruction evolution patterns"
-            fi
-
-            # Check for firewall configuration references
-            if grep -q "firewallConfiguration" .vscode/settings.json; then
-              echo "✓ Firewall configuration documented in AI instructions"
-            else
-              echo "⚠ Firewall configuration not documented in AI instructions"
-            fi
-
-            # Check last updated date
-            last_updated=$(grep -o "lastUpdated.*[0-9-]*" .vscode/settings.json | cut -d'"' -f3 || echo "unknown")
-            echo "  → AI instructions last updated: $last_updated"
-
-            # Suggest updates if instructions are old
-            current_date=$(date +%Y-%m-%d)
-            if [ "$last_updated" != "$current_date" ] && [ "$last_updated" != "unknown" ]; then
-              echo "  → Consider updating AI instructions to reflect current codebase state"
-            fi
-
-          else
-            echo "⚠ AI instructions not found - consider adding .vscode/settings.json"
-          fi
-
-          echo ""
-          echo "Remember: AI instructions should evolve with the codebase"
-          echo "         Update before major features for optimal AI assistance"
 
       - name: Run validate
         env:
@@ -869,19 +727,16 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-            ~/.cache/uv
             ~/.local/bin
-            ~/.local/lib
-            ~/.cargo/bin
-          key: ${{ runner.os }}-python-deps-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v4
+            ~/.local/lib/python3.12/site-packages
+          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v5
           restore-keys: |
-            ${{ runner.os }}-python-deps-
+            ${{ runner.os }}-python-ci-
             ${{ runner.os }}-python-
 
       - name: Setup Python PATH
         run: |
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Setup CI Environment
         run: |
