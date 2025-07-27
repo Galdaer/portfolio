@@ -74,7 +74,7 @@ class EnhancedMedicalQueryEngine:
         query_id = self._generate_query_id(query)
 
         # Initialize query session
-        query_session = {
+        query_session: Dict[str, Any] = {
             "query_id": query_id,
             "original_query": query,
             "query_type": query_type,
@@ -192,7 +192,7 @@ class EnhancedMedicalQueryEngine:
             for result in search_results:
                 if isinstance(result, Exception):
                     continue
-                if result and "sources" in result:
+                if result and isinstance(result, dict) and "sources" in result:
                     sources.extend(result["sources"])
 
             # Generate reasoning for source selection
@@ -249,8 +249,8 @@ class EnhancedMedicalQueryEngine:
 
             return {"sources": processed_sources}
 
-        except Exception as e:
-            return {"sources": [], "error": str(e)}
+        except Exception:
+            return {"sources": []}
 
     async def _search_fda_drugs(
         self, query: str, medical_entities: List[Dict[str, Any]]
@@ -302,8 +302,8 @@ class EnhancedMedicalQueryEngine:
 
             return {"sources": fda_sources}
 
-        except Exception as e:
-            return {"sources": [], "error": str(e)}
+        except Exception:
+            return {"sources": []}
 
     async def _refine_query_with_reasoning(
         self,
@@ -341,7 +341,7 @@ class EnhancedMedicalQueryEngine:
             refined_query = response.get("response", "").strip()
             return refined_query if refined_query else original_query
 
-        except Exception as e:
+        except Exception:
             return original_query
 
     async def _extract_medical_entities(self, query: str) -> List[Dict[str, Any]]:
@@ -356,7 +356,7 @@ class EnhancedMedicalQueryEngine:
 
             return entities_result.get("entities", [])
 
-        except Exception as e:
+        except Exception:
             return []
 
     async def _evaluate_result_quality(

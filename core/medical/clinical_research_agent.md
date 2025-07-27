@@ -4,6 +4,7 @@ Integrates dynamic knowledge retrieval with medical reasoning
 """
 
 import asyncio
+import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -107,12 +108,19 @@ class ClinicalResearchAgent(BaseAgent):
                     "diagnosis": (
                         literature_queries[i] if i < len(literature_queries) else "Unknown"
                     ),
-                    "sources": result.sources[:5] if hasattr(result, "sources") else [],
+                    "sources": (
+                        getattr(result, "sources", [])[:5]
+                        if hasattr(result, "sources") and isinstance(getattr(result, "sources", None), list)
+                        else []
+                    ),
                     "source_links": (
-                        result.source_links[:5] if hasattr(result, "source_links") else []
+                        getattr(result, "source_links", [])[:5]
+                        if hasattr(result, "source_links") and isinstance(getattr(result, "source_links", None), list)
+                        else []
                     ),
                 }
                 for i, result in enumerate(literature_results)
+                if not isinstance(result, Exception)
             ],
             "evidence_sources": reasoning_result.evidence_sources,
             "disclaimers": reasoning_result.disclaimers,
@@ -170,7 +178,7 @@ class ClinicalResearchAgent(BaseAgent):
                         ],
                     }
                 )
-            except Exception as e:
+            except Exception:
                 continue
 
         return {
@@ -233,7 +241,7 @@ class ClinicalResearchAgent(BaseAgent):
         research_results = await asyncio.gather(*research_tasks, return_exceptions=True)
 
         # Process and categorize results
-        categorized_results = {
+        categorized_results: Dict[str, List[Dict[str, Any]]] = {
             "primary_literature": [],
             "systematic_reviews": [],
             "clinical_guidelines": [],
@@ -244,8 +252,14 @@ class ClinicalResearchAgent(BaseAgent):
             if isinstance(result, Exception):
                 continue
 
-            stage_desc = research_stages[i]["description"]
-            stage_sources = result.sources if hasattr(result, "sources") else []
+            stage_info = research_stages[i]
+            stage_desc: str = stage_info["description"] if isinstance(stage_info["description"], str) else ""
+            # Type-safe access to sources with proper typing
+            stage_sources: List[Dict[str, Any]] = []
+            if hasattr(result, "sources") and hasattr(result, "__dict__"):
+                sources_attr = getattr(result, "sources", None)
+                if isinstance(sources_attr, list):
+                    stage_sources = sources_attr
 
             categorized_results["all_sources"].extend(stage_sources)
 
@@ -329,7 +343,7 @@ class ClinicalResearchAgent(BaseAgent):
         """
         Analyze distribution of evidence quality levels
         """
-        quality_counts = {}
+        quality_counts: Dict[str, int] = {}
         for source in sources:
             evidence_level = source.get("evidence_level", "unknown")
             quality_counts[evidence_level] = quality_counts.get(evidence_level, 0) + 1

@@ -146,7 +146,7 @@ class MedicalLiteratureSearchAssistant:
                         }
                     )
 
-            except Exception as e:
+            except Exception:
                 continue
 
         return sources
@@ -196,7 +196,7 @@ class MedicalLiteratureSearchAssistant:
                         }
                     )
 
-            except Exception as e:
+            except Exception:
                 continue
 
         return sources
@@ -246,7 +246,7 @@ class MedicalLiteratureSearchAssistant:
                         }
                     )
 
-            except Exception as e:
+            except Exception:
                 continue
 
         return sources
@@ -288,7 +288,7 @@ class MedicalLiteratureSearchAssistant:
                         }
                     )
 
-            except Exception as e:
+            except Exception:
                 continue
 
         return sources
@@ -330,7 +330,7 @@ class MedicalLiteratureSearchAssistant:
                             "evidence_level": source.get("evidence_level", ""),
                             "source_url": source.get("url", ""),
                             "context": "mentioned_in_literature",
-                            "note": f"Condition mentioned in medical literature, not a diagnosis",
+                            "note": "Condition mentioned in medical literature, not a diagnosis",
                         }
                     )
 
@@ -442,7 +442,7 @@ class MedicalLiteratureSearchAssistant:
 
             return list(set(concepts))  # Remove duplicates
 
-        except Exception as e:
+        except Exception:
             # Fallback to simple word extraction
             return search_query.split()
 
