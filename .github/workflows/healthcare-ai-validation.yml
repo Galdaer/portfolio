@@ -171,6 +171,15 @@ jobs:
     
     - name: Flake8 Code Quality - ${{ matrix.directory }}
       run: |
+        # Ensure tools are available in PATH
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+        
+        # Verify flake8 is available
+        if ! command -v flake8 >/dev/null 2>&1; then
+          echo "Installing flake8 with pip fallback..."
+          python3 -m pip install --user --break-system-packages flake8 || echo "Flake8 install failed"
+        fi
+        
         if [ -d "${{ matrix.directory }}/" ] && [ "$(find ${{ matrix.directory }}/ -name '*.py' | head -1)" ]; then
           echo "🔍 Running Flake8 on ${{ matrix.directory }}/"
           flake8 ${{ matrix.directory }}/ --max-line-length=100 --exclude=__pycache__,*.pyc
@@ -214,6 +223,15 @@ jobs:
     
     - name: MyPy Type Check - ${{ matrix.directory }}
       run: |
+        # Ensure tools are available in PATH
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+        
+        # Verify mypy is available
+        if ! command -v mypy >/dev/null 2>&1; then
+          echo "Installing mypy with pip fallback..."
+          python3 -m pip install --user --break-system-packages mypy || echo "MyPy install failed"
+        fi
+        
         if [ -d "${{ matrix.directory }}/" ] && [ "$(find ${{ matrix.directory }}/ -name '*.py' | head -1)" ]; then
           echo "🔍 Running MyPy on ${{ matrix.directory }}/"
           mypy ${{ matrix.directory }}/ --ignore-missing-imports --strict-optional
