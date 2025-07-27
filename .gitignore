@@ -219,3 +219,4 @@ services/user/wyoming-whisper/wyoming-whisper.conf
 !.augment/
 !.augment/**/*
 !pyproject.toml
+!example-user-config.env

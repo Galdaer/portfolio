@@ -17,7 +17,14 @@ logger = logging.getLogger(__name__)
 class PatientAssignmentDB:
     """Database handler for patient assignment validation"""
 
-    def __init__(self, db_path: str = "healthcare.db"):
+    def __init__(self, db_path: Optional[str] = None):
+        # Default to data directory in project root for development/testing
+        if db_path is None:
+            # Create data directory if it doesn't exist
+            data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
+            os.makedirs(data_dir, exist_ok=True)
+            db_path = os.path.join(data_dir, 'healthcare.db')
+
         self.db_path = db_path
         self.logger = logging.getLogger(f"{__name__}.PatientAssignmentDB")
         self.init_database()
@@ -236,7 +243,15 @@ class RBACConfig:
         self.emergency_roles = [role.strip() for role in os.getenv('RBAC_EMERGENCY_ROLES', '').split(',') if role.strip()]
         self.audit_external_endpoint = os.getenv('RBAC_AUDIT_ENDPOINT')
         self.session_timeout_hours = int(os.getenv('RBAC_SESSION_TIMEOUT_HOURS', '8'))
-        self.database_path = os.getenv('RBAC_DATABASE_PATH', 'healthcare.db')
+
+        # Default to data directory for healthcare database
+        default_db_path = os.getenv('RBAC_DATABASE_PATH')
+        if default_db_path is None:
+            data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
+            os.makedirs(data_dir, exist_ok=True)
+            default_db_path = os.path.join(data_dir, 'healthcare.db')
+
+        self.database_path = default_db_path
         self.logger = logging.getLogger(f"{__name__}.RBACConfig")
 
     def is_production_ready(self) -> bool:
