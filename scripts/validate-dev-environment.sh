@@ -209,6 +209,17 @@ try:
 except:
     print('')
 ")
+        else
+            available_models=$(curl -s "$ollama_url/api/tags" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    models = [model['name'] for model in data.get('models', [])]
+    print(' '.join(models))
+except:
+    print('')
+")
+        fi
         
         for model in "${required_models[@]}"; do
             if echo "$available_models" | grep -q "$model"; then

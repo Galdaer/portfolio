@@ -73,16 +73,108 @@ jobs:
     
     - name: Type Checking (MyPy)
       run: |
-        mypy src/ --ignore-missing-imports --strict-optional || echo "No src/ directory"
-        mypy agents/ --ignore-missing-imports --strict-optional || echo "No agents/ directory"
-        mypy mcps/ --ignore-missing-imports --strict-optional || echo "No mcps/ directory"
-    
+        # Check if directories exist before running mypy
+        error_count=0
+        
+        if [ -d "src/" ]; then
+          echo "Running MyPy on src/..."
+          if ! mypy src/ --ignore-missing-imports --strict-optional; then
+            echo "❌ MyPy errors found in src/"
+            ((error_count++))
+          fi
+        else
+          echo "⚠️  No src/ directory found"
+        fi
+        
+        if [ -d "agents/" ]; then
+          echo "Running MyPy on agents/..."
+          if ! mypy agents/ --ignore-missing-imports --strict-optional; then
+            echo "❌ MyPy errors found in agents/"
+            ((error_count++))
+          fi
+        else
+          echo "⚠️  No agents/ directory found"
+        fi
+        
+        if [ -d "mcps/" ]; then
+          echo "Running MyPy on mcps/..."
+          if ! mypy mcps/ --ignore-missing-imports --strict-optional; then
+            echo "❌ MyPy errors found in mcps/"
+            ((error_count++))
+          fi
+        else
+          echo "⚠️  No mcps/ directory found"
+        fi
+        
+        if [ $error_count -gt 0 ]; then
+          echo "💥 MyPy validation failed with $error_count error(s)"
+          exit 1
+        else
+          echo "✅ MyPy validation passed"
+        fi
+
     - name: Healthcare Security Pattern Validation
       run: |
-        # Check for PHI protection patterns
-        grep -r "PHI_DETECTION" src/ || echo "PHI detection patterns checked"
-        grep -r "audit_logging" src/ || echo "Audit logging patterns checked"
-        grep -r "HIPAA" src/ || echo "HIPAA compliance patterns checked"
+        error_count=0
+        
+        echo "🏥 Validating Healthcare Compliance Implementation..."
+        
+        # Check PHI detection is properly enabled
+        if ! grep -q 'phi_detection_enabled.*=.*True\|PHI_DETECTION_ENABLED.*true' src/healthcare_mcp/; then
+          echo "❌ PHI detection not properly enabled in MCP server"
+          ((error_count++))
+        else
+          echo "✅ PHI detection enabled"
+        fi
+        
+        # Check audit logging is configured
+        if ! grep -q 'audit_logging.*=.*True\|AUDIT_LOGGING_LEVEL' src/security/ src/healthcare_mcp/; then
+          echo "❌ Audit logging not properly configured"
+          ((error_count++))
+        else
+          echo "✅ Audit logging configured"
+        fi
+        
+        # Check HIPAA compliance mode
+        if ! grep -q 'hipaa_compliance_mode.*=.*strict\|HIPAA_COMPLIANCE_MODE.*strict' src/healthcare_mcp/; then
+          echo "❌ HIPAA compliance not in strict mode"
+          ((error_count++))
+        else
+          echo "✅ HIPAA compliance in strict mode"
+        fi
+        
+        # Verify PHI detection classes exist and are importable
+        if python3 -c "import sys; sys.path.append('src'); from healthcare_mcp.phi_detection import PHIDetector; PHIDetector(); print('✅ PHI detection functional')" 2>/dev/null; then
+          echo "✅ PHI detection classes functional"
+        else
+          echo "❌ PHI detection classes not functional"
+          ((error_count++))
+        fi
+        
+        # Verify RBAC foundation exists
+        if python3 -c "import sys; sys.path.append('src'); from security.rbac_foundation import RBACFoundation; print('✅ RBAC foundation available')" 2>/dev/null; then
+          echo "✅ RBAC foundation functional"
+        else
+          echo "❌ RBAC foundation not functional"
+          ((error_count++))
+        fi
+        
+        # Check for healthcare security middleware
+        if python3 -c "import sys; sys.path.append('src'); from security.healthcare_security import HealthcareSecurityMiddleware; print('✅ Healthcare security middleware available')" 2>/dev/null; then
+          echo "✅ Healthcare security middleware functional"
+        else
+          echo "❌ Healthcare security middleware not functional"
+          ((error_count++))
+        fi
+        
+        if [ $error_count -gt 0 ]; then
+          echo "💥 Healthcare compliance validation failed with $error_count error(s)"
+          echo "🚨 This system would not be HIPAA compliant if deployed"
+          exit 1
+        else
+          echo "✅ Healthcare compliance validation passed"
+          echo "🏥 System meets HIPAA compliance requirements"
+        fi
 
   healthcare-integration-tests:
     runs-on: ubuntu-latest

@@ -27,10 +27,10 @@ class MemoryManager:
     Implements healthcare-specific memory patterns with audit logging.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.redis_client: Optional[redis.Redis] = None
         self.postgres_pool: Optional[asyncpg.Pool] = None
-        self._initialized = False
+        self._initialized: bool = False
 
     async def initialize(self) -> None:
         """Initialize Redis and PostgreSQL connections"""

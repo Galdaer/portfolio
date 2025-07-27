@@ -22,14 +22,15 @@ class ToolRegistry:
     through the Healthcare-MCP server.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.mcp_client: Optional[httpx.AsyncClient] = None
         self._available_tools: List[Dict[str, Any]] = []
         self._tool_versions: Dict[str, str] = {}
         self._tool_capabilities: Dict[str, Any] = {}
         self._tool_performance: Dict[str, Dict[str, Any]] = {}
         self._summary_plugins: Dict[str, Any] = {}
-        self._initialized = False
+        self._initialized: bool = False
+
     def register_transcription_plugin(self, plugin_name: str, plugin_obj: Any) -> None:
         """Register a transcription plugin (e.g., SOAP note generator, doctor summary style)"""
         self._summary_plugins[plugin_name] = plugin_obj
@@ -114,6 +115,7 @@ class ToolRegistry:
         except Exception as e:
             logger.warning(f"Failed to discover tools: {e}")
             self._available_tools = []
+
     def log_tool_performance(self, tool_name: str, metrics: Dict[str, Any]) -> None:
         """Log performance metrics for a tool"""
         self._tool_performance[tool_name] = metrics
