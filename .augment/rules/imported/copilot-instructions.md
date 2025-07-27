@@ -464,6 +464,9 @@ Co-designed by father-son team (Jeffrey & Justin Sue) for real-world clinical wo
 - **Maintain healthcare compliance** in all implementations
 - **Create meaningful commit messages** that explain healthcare context
 - **Test with realistic medical scenarios** using synthetic data
+- **PRIORITIZE EFFICIENCY**: Always choose resource-efficient solutions over apparent simplicity
+- **DESIGN FOR SCALE**: Implement caching, sharing, and optimization patterns from the start
+- **AVOID DUPLICATION**: Never duplicate expensive operations when sharing is possible
 
 ### Integration Points
 - **Universal service runner** for all service deployments
@@ -721,7 +724,141 @@ make lint && make validate
 - **Isolation**: Tests run in isolated Docker network with DNS
 - **Timeout**: 180s for coverage runs, 120s for standard tests
 
-## Code Quality and Linting Standards
+## Architectural Decision-Making Principles
+
+### CRITICAL: Always Choose Efficiency Over Simplicity
+
+When faced with multiple implementation options, **ALWAYS prioritize efficiency, scalability, and resource optimization** over apparent simplicity. Simple solutions that waste resources or reduce performance are technical debt.
+
+#### Decision Framework (Mandatory Order):
+
+1. **Performance & Resource Efficiency FIRST**
+   - Will this scale with increased load?
+   - Does this minimize resource usage (time, memory, bandwidth, compute)?
+   - Can this be cached, shared, or optimized for reuse?
+
+2. **Healthcare Compliance & Security SECOND** 
+   - Does this maintain HIPAA compliance?
+   - Are audit trails preserved?
+   - Is PHI protection maintained?
+
+3. **Maintainability & Debugging THIRD**
+   - Can this be easily debugged when it fails?
+   - Is the architecture comprehensible to other developers?
+   - Does this reduce or increase technical debt?
+
+4. **Implementation Simplicity LAST**
+   - Only consider "simplicity" after the above are satisfied
+   - "Simple" solutions that waste resources are NOT actually simple
+
+### Architectural Anti-Patterns to REJECT
+
+❌ **"Let each job install its own dependencies"** 
+- Wastes CI minutes, bandwidth, and time
+- Multiplies resource usage unnecessarily
+- Creates maintenance overhead across multiple jobs
+
+❌ **"Keep it simple by duplicating work"**
+- Apparent simplicity that creates hidden complexity
+- Resource waste is never actually "simple"
+- Harder to maintain when changes are needed
+
+❌ **"Avoid caching because it's complex"**
+- Caching is fundamental to efficient systems
+- "Complexity" of proper caching pays dividends immediately
+- Avoiding caching creates performance debt
+
+❌ **"Individual jobs are easier to understand"**
+- False simplicity that ignores system-level efficiency
+- Wastes shared resources (CI time, bandwidth, compute)
+- Creates dependency management nightmares
+
+### Architectural Patterns to EMBRACE
+
+✅ **Shared dependency caching with intelligent job orchestration**
+- One setup job installs and caches everything
+- All other jobs reuse cached dependencies
+- Parallel execution with proper dependency graphs
+
+✅ **Resource sharing and optimization**
+- Cache compiled assets, installed packages, model downloads
+- Share expensive operations across multiple consumers
+- Design for reuse from the beginning
+
+✅ **Strategic complexity for system efficiency**
+- Accept implementation complexity that provides systemic benefits
+- Invest in proper architecture that scales and performs
+- Build once, benefit everywhere
+
+✅ **Performance-first healthcare architecture**
+- Healthcare systems must be fast and reliable
+- Optimize for real-world clinical workflow needs
+- Every second saved helps patient care
+
+### Decision Examples Applied
+
+**WRONG Approach**: 
+```yaml
+# ❌ Each job installs its own deps "for simplicity"
+job-1: install deps → run tests
+job-2: install deps → run tests  
+job-3: install deps → run tests
+# Result: 3x resource usage, 3x time, 3x failure points
+```
+
+**CORRECT Approach**:
+```yaml
+# ✅ Shared setup with parallel execution
+setup-deps: install & cache everything
+job-1: depends on setup-deps → run tests (fast)
+job-2: depends on setup-deps → run tests (fast) 
+job-3: depends on setup-deps → run tests (fast)
+# Result: 1x setup cost, 3x parallel speed benefit
+```
+
+**Healthcare AI Specific Examples**:
+
+❌ **REJECT**: Installing spaCy models in every security check job
+✅ **EMBRACE**: Cache spaCy models once, reuse across PHI detection, audit logging, compliance checks
+
+❌ **REJECT**: "Simple" workflows that reinstall PyTorch/CUDA in every step
+✅ **EMBRACE**: Strategic dependency sharing for ML workloads
+
+❌ **REJECT**: Avoiding optimization "until later" 
+✅ **EMBRACE**: Build efficient patterns from day one
+
+### Implementation Guidelines
+
+When designing any workflow, CI/CD pipeline, or system component:
+
+1. **Map all resource usage** - identify what can be shared
+2. **Design dependency graphs** - maximize parallelization opportunities  
+3. **Implement strategic caching** - cache expensive operations aggressively
+4. **Optimize the critical path** - focus on end-to-end speed
+5. **Accept beneficial complexity** - complex setup that enables simple execution
+
+### CI/CD Efficiency Requirements
+
+**MANDATORY for all CI/CD workflows:**
+
+1. **Shared dependency installation** - Never install the same dependencies multiple times
+2. **Aggressive caching** - Cache everything that can be cached (pip, uv, models, compiled assets)
+3. **Strategic job dependencies** - Use `needs:` to create optimal dependency graphs
+4. **Resource-conscious design** - Every minute saved helps the entire development team
+
+**CI/CD Anti-Patterns to REJECT:**
+- Installing Python dependencies in every job separately
+- Downloading spaCy models multiple times
+- Running the same setup scripts across multiple jobs
+- "Simple" approaches that multiply resource usage
+
+**CI/CD Patterns to EMBRACE:**
+- One setup job that caches everything for reuse
+- Parallel execution wherever possible
+- Smart dependency graphs that optimize the critical path
+- Comprehensive caching strategies that benefit all subsequent runs
+
+### Code Quality and Linting Standards
 
 ### Python Code Quality Requirements
 - **ALWAYS follow flake8 standards**: No trailing whitespace (W293), proper blank lines (E302, E305)
