@@ -119,6 +119,7 @@ make lint && make validate && echo "✅ Code quality verified"
 - **Start with codebase analysis** (30-45 minutes) before making changes
 - **Discover and fix related issues** beyond initial scope
 - **Only stop for unrecoverable errors** or 100% completion
+- **NEVER waste premium requests**: Always read current file contents before editing, pay attention to user's explicit instructions about infrastructure (self-hosted runners, etc.)
 
 ### Required Environment Setup
 
@@ -136,6 +137,7 @@ make lint && make validate  # Verify setup
 3. **Match existing code style** exactly
 4. **Fix incrementally**: One error category at a time
 5. **Validate each change**: Test immediately after changes
+6. **CI/CD Considerations**: Remember self-hosted runner setup, optimize for cache efficiency vs parallelization balance
 
 ### Success Criteria Template
 
@@ -143,6 +145,13 @@ make lint && make validate  # Verify setup
 # Required validation before task completion
 make lint && make validate && echo "✅ Ready for submission"
 ```
+
+### CI/CD Workflow Optimization Principles
+
+- **Self-hosted runner advantages**: Can handle more parallel jobs than GitHub's 2-core limit
+- **Cache vs Parallelization**: Balance cache restoration overhead (30-60s per job) against parallel execution benefits
+- **Grouped Jobs Strategy**: Consolidate related checks to reduce cache restorations while maintaining meaningful parallelization
+- **Phase 0 Development**: Prioritize fast feedback over perfect granularity during active development
 
 ## Architectural Decision Principles
 
@@ -155,10 +164,14 @@ make lint && make validate && echo "✅ Ready for submission"
 
 ### CI/CD Efficiency Requirements
 
+- **CRITICAL: Self-Hosted GitHub Actions Runner** - ALL workflow jobs MUST use `runs-on: self-hosted`
 - **Use `requirements-ci.txt`** for CI/CD (excludes heavy GPU/ML packages)
 - **Shared dependency caching** - never install same dependencies multiple times
 - **Strategic job dependencies** with optimal dependency graphs
 - **Never modify workflows to skip dependencies** - fix requirements files instead
+- **Cache optimization strategy**: Consolidate related jobs to reduce cache restoration overhead
+- **Parallelization balance**: Use matrix strategies for CPU-intensive tasks (Python validation), consolidate for I/O-bound tasks (security/infrastructure checks)
+- **Self-hosted advantages**: No GitHub concurrency limits, better CPU resources, persistent cache potential
 
 ## File Safety & Editing Best Practices
 
