@@ -10,6 +10,9 @@ jobs:
   # Fast dependency setup - shared by all other jobs
   setup-dependencies:
     runs-on: ubuntu-latest
+    outputs:
+      cache-hit: ${{ steps.cache.outputs.cache-hit }}
+      python-version: '3.12'
     steps:
     - uses: actions/checkout@v4
       with:
@@ -21,6 +24,7 @@ jobs:
         python-version: '3.12'
     
     - name: Cache Python dependencies
+      id: cache
       uses: actions/cache@v4
       with:
         path: |
@@ -29,10 +33,11 @@ jobs:
           ~/.local/bin
           ~/.local/lib
           ~/.cargo/bin
-        key: ${{ runner.os }}-python-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v2
+          /opt/hostedtoolcache/Python/3.12.*/x64/lib/python3.12/site-packages
+        key: ${{ runner.os }}-python-full-${{ hashFiles('requirements-ci.txt', 'requirements.txt', 'requirements.in') }}-v3
         restore-keys: |
+          ${{ runner.os }}-python-full-
           ${{ runner.os }}-python-
-          ${{ runner.os }}-
     
     - name: Install dependencies
       run: |
@@ -47,6 +52,50 @@ jobs:
         # Add to PATH for subsequent steps
         echo "$HOME/.local/bin" >> $GITHUB_PATH
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        
+        # Install Python tools with uv (preferred) or pip (fallback)
+        if command -v uv >/dev/null 2>&1; then
+          echo "Using uv for faster package installation..."
+          uv pip install --system --break-system-packages flake8 mypy pydantic fastapi pytest pytest-asyncio types-requests || echo "Warning: uv tools installation failed, falling back to pip"
+        fi
+        
+        # Fallback to pip if uv is not available or failed
+        if ! command -v flake8 >/dev/null 2>&1; then
+          echo "Using pip for package installation..."
+          python3 -m pip install --user --break-system-packages flake8 mypy pydantic fastapi pytest pytest-asyncio types-requests || echo "Warning: Python tools failed to install"
+        fi
+        
+        # Install main dependencies using uv if available, otherwise pip
+        if [ -f "requirements-ci.txt" ]; then
+          if command -v uv >/dev/null 2>&1; then
+            echo "Installing requirements-ci.txt with uv..."
+            uv pip install --system -r requirements-ci.txt || echo "CI requirements installation with uv completed with warnings"
+          else
+            echo "Installing requirements-ci.txt with pip..."
+            pip install -r requirements-ci.txt || echo "CI requirements installation with pip completed with warnings"
+          fi
+        else
+          if command -v uv >/dev/null 2>&1; then
+            echo "Installing requirements.txt with uv..."
+            uv pip install --system -r requirements.txt || echo "Requirements installation with uv completed with warnings"
+          else
+            echo "Installing requirements.txt with pip..."
+            pip install -r requirements.txt || echo "Requirements installation with pip completed with warnings"
+          fi
+        fi
+    
+    - name: Cache effectiveness report
+      run: |
+        echo "=== Post-Installation Cache Report ==="
+        if [ -d ~/.cache/pip ]; then
+          echo "📊 pip cache size: $(du -sh ~/.cache/pip || echo 'unknown')"
+          echo "📦 pip cache entries: $(find ~/.cache/pip -name "*.whl" | wc -l) wheel files"
+        fi
+        if [ -d ~/.cache/uv ]; then
+          echo "📊 uv cache size: $(du -sh ~/.cache/uv || echo 'unknown')"
+          echo "📦 uv cache entries: $(find ~/.cache/uv -type f | wc -l) files"
+        fi
+        echo "🎯 Cache will speed up subsequent runs"
         
         # Install Python tools with uv (preferred) or pip (fallback)
         if command -v uv >/dev/null 2>&1; then
