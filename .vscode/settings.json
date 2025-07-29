@@ -26,7 +26,6 @@
     "**/coverage/": true,
     "**/*.tsbuildinfo": true,
     "reference/ai-patterns/**": true,
-    "services/user/whisperlive/**": true,
     "actions-runners/**": true
   },
   "search.exclude": {
@@ -37,7 +36,6 @@
     "**/secrets/**": true,
     "**/.env*": true,
     "reference/ai-patterns/**": true,
-    "services/user/whisperlive/**": true,
     "actions-runners/**": true
   },
   "// Healthcare File Associations": "",
@@ -155,6 +153,20 @@
   "editor.detectIndentation": false,
   "editor.formatOnSave": true,
   "editor.formatOnPaste": true,
+  "// Continue AI Configuration - Disable VS Code suggestions": "",
+  "editor.quickSuggestions": {
+    "other": false,
+    "comments": false,
+    "strings": false
+  },
+  "editor.acceptSuggestionOnCommitCharacter": false,
+  "editor.acceptSuggestionOnEnter": "off",
+  "editor.suggestOnTriggerCharacters": false,
+  "editor.wordBasedSuggestions": "off",
+  "editor.parameterHints.enabled": false,
+  "// Disable language-specific suggestions": "",
+  "python.analysis.autoImportCompletions": false,
+  "python.analysis.completeFunctionParens": false,
   "// AI Assistant Configuration": "",
   "github.copilot.chat.enabled": true,
   "github.copilot.chat.instructionsFiles": [

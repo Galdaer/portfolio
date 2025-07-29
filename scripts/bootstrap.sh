@@ -1883,14 +1883,20 @@ fix_development_permissions() {
 
     # Fix scripts in the actual working directory
     if [[ -d "$scripts_dir" ]]; then
+        # Debug: Check if find command works
+        local find_output
+        find_output=$(find "$scripts_dir" -type f \( -name "*.sh" -o -name "*.py" \) 2>/dev/null | wc -l)
+        log "Found $find_output script files to check in $scripts_dir"
+
         while IFS= read -r -d '' script_file; do
-            ((script_count++))
+            # Increment counter with error handling
+            script_count=$((script_count + 1))
             local current_perm
             current_perm=$(stat -c '%a' "$script_file" 2>/dev/null || echo "")
 
             if [[ "$current_perm" != "775" ]]; then
                 if chmod 775 "$script_file" 2>/dev/null; then
-                    ((fixed_count++))
+                    fixed_count=$((fixed_count + 1))
                     log "Fixed permissions: $script_file ($current_perm -> 775)"
                 else
                     warn "Failed to fix permissions: $script_file"
@@ -1904,24 +1910,48 @@ fix_development_permissions() {
     local ownership_count=0
     local ownership_fixed=0
 
-    # Fix ownership in workspace directory only
+    # Fix ownership in workspace directory only - target specific directories to avoid performance issues
     if [[ -d "$workspace_root" ]]; then
-        while IFS= read -r -d '' file; do
-            ((ownership_count++))
-            local current_uid current_gid
-            current_uid=$(stat -c '%u' "$file" 2>/dev/null || echo "")
-            current_gid=$(stat -c '%g' "$file" 2>/dev/null || echo "")
+        # Only process specific directories that need ownership fixes, excluding problematic ones
+        local target_dirs=(
+            "$workspace_root/scripts"
+            "$workspace_root/services"
+            "$workspace_root/config"
+            "$workspace_root/core"
+            "$workspace_root/agents"
+            "$workspace_root/mcps"
+            "$workspace_root/tests"
+            "$workspace_root/infrastructure"
+        )
 
-            if [[ "$current_uid" != "1000" || "$current_gid" != "1001" ]]; then
-                if chown 1000:1001 "$file" 2>/dev/null; then
-                    ((ownership_fixed++))
-                    log "Fixed ownership: $file ($current_uid:$current_gid -> 1000:1001)"
-                else
-                    # Don't warn about chown failures in development - may not have sudo
-                    :
+        for target_dir in "${target_dirs[@]}"; do
+            [[ ! -d "$target_dir" ]] && continue
+
+            while IFS= read -r -d '' file; do
+                # Increment counter with error handling
+                ownership_count=$((ownership_count + 1))
+                local current_uid current_gid
+                current_uid=$(stat -c '%u' "$file" 2>/dev/null || echo "")
+                current_gid=$(stat -c '%g' "$file" 2>/dev/null || echo "")
+
+                if [[ "$current_uid" != "1000" || "$current_gid" != "1001" ]]; then
+                    if chown 1000:1001 "$file" 2>/dev/null; then
+                        ownership_fixed=$((ownership_fixed + 1))
+                        log "Fixed ownership: $file ($current_uid:$current_gid -> 1000:1001)"
+                    else
+                        # Don't warn about chown failures in development - may not have sudo
+                        :
+                    fi
                 fi
-            fi
-        done < <(find "$workspace_root" -type f -print0 2>/dev/null)
+            done < <(find "$target_dir" -type f \
+                -not -path "*/.*" \
+                -not -path "*/__pycache__/*" \
+                -not -path "*/node_modules/*" \
+                -not -path "*/.git/*" \
+                -not -path "*/coverage/*" \
+                -not -path "*/logs/*" \
+                -print0 2>/dev/null)
+        done
     fi
 
     log "Permission fixes completed: $fixed_count/$script_count scripts fixed, $ownership_fixed/$ownership_count files ownership fixed"
@@ -3027,14 +3057,18 @@ restart_services_with_dependencies() {
     for service in "${ordered_services[@]}"; do
         log "🔄 Restarting $service..."
 
-        # Clean up existing container to avoid port conflicts
-        if docker ps -q --filter "name=^/${service}$" | grep -q .; then
-            log "🛑 Stopping $service for rolling restart..."
-            docker stop "$service" >/dev/null 2>&1 || true
-        fi
-        if docker ps -aq --filter "name=^/${service}$" | grep -q .; then
-            docker rm "$service" >/dev/null 2>&1 || true
-            log "🗑️  Removed old $service container"
+        # Clean up existing container to avoid port conflicts (only if not dry-run)
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log "[DRY-RUN] Would stop and remove $service container"
+        else
+            if docker ps -q --filter "name=^/${service}$" | grep -q .; then
+                log "🛑 Stopping $service for rolling restart..."
+                docker stop "$service" >/dev/null 2>&1 || true
+            fi
+            if docker ps -aq --filter "name=^/${service}$" | grep -q .; then
+                docker rm "$service" >/dev/null 2>&1 || true
+                log "🗑️  Removed old $service container"
+            fi
         fi
 
         log "🚀 Starting $service..."
@@ -3045,21 +3079,23 @@ restart_services_with_dependencies() {
             continue
         }
 
-        # Brief delay between critical services to respect dependencies
-        case "$service" in
-            "wireguard")
-                # Wait for WireGuard to be healthy before continuing (critical for VPN access)
-                log "⏳ Waiting for critical service $service to be healthy before continuing..."
-                wait_for_service_healthy "$service"
-                sleep 2
-                ;;
-            "traefik" | "config-web-ui")
-                sleep 3 # Brief delay for reverse proxy and config
-                ;;
-            *)
-                sleep 1 # Minimal delay for other services
-                ;;
-        esac
+        # Brief delay between critical services to respect dependencies (skip in dry-run)
+        if [[ "$DRY_RUN" != "true" ]]; then
+            case "$service" in
+                "wireguard")
+                    # Wait for WireGuard to be healthy before continuing (critical for VPN access)
+                    log "⏳ Waiting for critical service $service to be healthy before continuing..."
+                    wait_for_service_healthy "$service"
+                    sleep 2
+                    ;;
+                "traefik" | "config-web-ui")
+                    sleep 3 # Brief delay for reverse proxy and config
+                    ;;
+                *)
+                    sleep 1 # Minimal delay for other services
+                    ;;
+            esac
+        fi
     done
 
     # Phase 2: Wait for all services to become healthy together
@@ -3074,6 +3110,12 @@ wait_for_service_healthy() {
     local service="$1"
     local max_wait=45 # Increased from 15s to 45s for AI services that take longer to start
     local wait_time=0
+
+    # Skip health checks in dry-run mode
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "[DRY-RUN] Would wait for $service to become healthy"
+        return 0
+    fi
 
     log "🏥 Waiting for $service to become healthy..."
 
@@ -3121,6 +3163,12 @@ wait_for_all_services_healthy() {
     local max_wait=60 # Longer timeout for multiple services
     local wait_time=0
     local -a pending_services=("${services[@]}")
+
+    # Skip health checks in dry-run mode
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "[DRY-RUN] Would wait for all ${#services[@]} services to become healthy: ${services[*]}"
+        return 0
+    fi
 
     log "🏥 Monitoring health status for ${#services[@]} services: ${services[*]}"
 
