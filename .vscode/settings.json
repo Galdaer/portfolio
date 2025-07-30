@@ -1,4 +1,6 @@
 {
+  "continue.experimental.agentMode": "agent",
+  "continue.experimental.toolsEnabled": true,
   "// Healthcare AI Development Environment": "Intelluxe AI Healthcare System",
   "// Shell and Script Configuration": "",
   "shellcheck.customArgs": ["-x", "--severity=info", "--source-path=SCRIPTDIR"],
@@ -28,6 +30,26 @@
     "reference/ai-patterns/**": true,
     "actions-runners/**": true
   },
+  "files.watcherExclude": {
+    "**/logs/": true,
+    "**/bats-core/": true,
+    "**/.env": true,
+    "**/secrets/**": true,
+    "**/keys/**": true,
+    "**/*.key": true,
+    "**/*.pem": true,
+    "**/patient_data/**": true,
+    "**/data/phi/**": true,
+    "**/node_modules/": true,
+    "**/build/": true,
+    "**/dist/": true,
+    "**/.npm": true,
+    "**/.cache": true,
+    "**/coverage/": true,
+    "**/*.tsbuildinfo": true,
+    "reference/ai-patterns/**": true,
+    "actions-runners/**": true
+  },
   "search.exclude": {
     "**/logs/": true,
     "**/bats-core/": true,
@@ -35,6 +57,7 @@
     "**/backups/**": true,
     "**/secrets/**": true,
     "**/.env*": true,
+    "mcps/**": true,
     "reference/ai-patterns/**": true,
     "actions-runners/**": true
   },
