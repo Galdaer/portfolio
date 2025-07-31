@@ -23,8 +23,6 @@
 !/.shellcheckrc
 !/.githooks/
 !/.githooks/*
-!/.augment/
-!/.augment/**/*
 !/.devcontainer/
 #!/.vscode/
 #!/.vscode/settings.json
