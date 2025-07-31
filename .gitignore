@@ -212,7 +212,7 @@ Thumbs.db
 # VSCode (excluding settings)
 .vscode/storage.json
 .vscode/*.code-workspace
-!.vscode/settings.json
+.vscode/settings.json
 
 # Development server files
 .tern-port
