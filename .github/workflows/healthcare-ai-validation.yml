@@ -169,7 +169,8 @@ jobs:
               if $FLAKE8_CMD ${{ matrix.directory }}/ --max-line-length=100 --exclude=__pycache__,*.pyc; then
                 echo "✅ Flake8 passed for ${{ matrix.directory }}/"
               else
-                echo "⚠️  Flake8 issues found in ${{ matrix.directory }}/ (non-blocking in Phase 0)"
+                echo "❌ Flake8 issues found in ${{ matrix.directory }}/ - Phase 1 requires clean code"
+                exit 1
               fi
             elif [ "${{ matrix.tool }}" = "mypy" ]; then
               if command -v mypy >/dev/null 2>&1; then
@@ -180,7 +181,8 @@ jobs:
               if $MYPY_CMD ${{ matrix.directory }}/ --ignore-missing-imports --strict-optional; then
                 echo "✅ MyPy passed for ${{ matrix.directory }}/"
               else
-                echo "⚠️  MyPy issues found in ${{ matrix.directory }}/ (non-blocking in Phase 0)"
+                echo "❌ MyPy issues found in ${{ matrix.directory }}/ - Phase 1 requires type safety"
+                exit 1
               fi
             fi
           else
@@ -224,10 +226,12 @@ jobs:
             if python3 -c "import sys; sys.path.append('src'); from security.rbac_foundation import RBACFoundation; print('✅ RBAC foundation available')" 2>/dev/null; then
               echo "✅ RBAC foundation functional"
             else
-              echo "⚠️  RBAC foundation module exists but not yet functional (Phase 0 - expected)"
+              echo "❌ RBAC foundation module exists but not functional - Phase 1 requires working RBAC"
+              exit 1
             fi
           else
-            echo "ℹ️  RBAC foundation not yet implemented (Phase 0 - expected)"
+            echo "❌ RBAC foundation not implemented - Phase 1 requires security foundation"
+            exit 1
           fi
 
           if [ -d "src/security/" ] && [ "$(find src/security/ -type f -name '*.py' | head -1)" ]; then
@@ -245,10 +249,12 @@ jobs:
             if python3 -c "import sys; sys.path.append('src'); from security.healthcare_security import HealthcareSecurityMiddleware; print('✅ Healthcare security middleware available')" 2>/dev/null; then
               echo "✅ Healthcare security middleware functional"
             else
-              echo "⚠️  Healthcare security middleware module exists but not yet functional (Phase 0 - expected)"
+              echo "❌ Healthcare security middleware module exists but not functional - Phase 1 requires working security"
+              exit 1
             fi
           else
-            echo "ℹ️  Healthcare security middleware not yet implemented (Phase 0 - expected)"
+            echo "❌ Healthcare security middleware not implemented - Phase 1 requires security middleware"
+            exit 1
           fi
 
           if [ -d "src/security/" ] && [ "$(find src/security/ -type f -name '*.py' | head -1)" ]; then
