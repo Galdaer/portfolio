@@ -13,35 +13,32 @@ from typing import Any, Dict, List, Optional, Union
 
 from cachetools import TTLCache
 
-
 class QueryType(Enum):
-    SYMPTOM_ANALYSIS = "symptom_analysis"
-    DRUG_INTERACTION = "drug_interaction"
-    DIFFERENTIAL_DIAGNOSIS = "differential_diagnosis"
-    CLINICAL_GUIDELINES = "clinical_guidelines"
-    LITERATURE_RESEARCH = "literature_research"
-
+SYMPTOM_ANALYSIS = "symptom_analysis"
+DRUG_INTERACTION = "drug_interaction"
+DIFFERENTIAL_DIAGNOSIS = "differential_diagnosis"
+CLINICAL_GUIDELINES = "clinical_guidelines"
+LITERATURE_RESEARCH = "literature_research"
 
 @dataclass
 class MedicalQueryResult:
-    query_id: str
-    query_type: QueryType
-    original_query: str
-    refined_queries: List[str]
-    sources: List[Dict[str, Any]]
-    confidence_score: float
-    reasoning_chain: List[Dict[str, Any]]
-    medical_entities: List[Dict[str, Any]]
-    disclaimers: List[str]
-    source_links: List[str]
-    generated_at: datetime
-
+query_id: str
+query_type: QueryType
+original_query: str
+refined_queries: List[str]
+sources: List[Dict[str, Any]]
+confidence_score: float
+reasoning_chain: List[Dict[str, Any]]
+medical_entities: List[Dict[str, Any]]
+disclaimers: List[str]
+source_links: List[str]
+generated_at: datetime
 
 class EnhancedMedicalQueryEngine:
-    """
-    Agentic RAG system for medical literature with dynamic knowledge retrieval
-    Implements NVIDIA's agentic RAG concepts for healthcare
-    """
+"""
+Agentic RAG system for medical literature with dynamic knowledge retrieval
+Implements NVIDIA's agentic RAG concepts for healthcare
+"""
 
     def __init__(self, mcp_client, llm_client):
         self.mcp_client = mcp_client
@@ -409,3 +406,52 @@ class EnhancedMedicalQueryEngine:
             if "url" in source and source["url"]:
                 links.append(source["url"])
         return links
+
+    async def _refine_query_with_trust_feedback(
+        self,
+        original_query: str,
+        previous_response: str,
+        trust_score: MedicalTrustScore,
+        iteration: int
+    ) -> str:
+        """Refine query based on trust score feedback"""
+
+        if trust_score.overall_trust > 0.8:
+            return original_query  # Good enough, don't change
+
+        # Identify specific issues
+        refinement_needed = []
+
+        if trust_score.accuracy_score < 0.6:
+            refinement_needed.append("more specific medical terminology")
+
+        if trust_score.evidence_strength < 0.6:
+            refinement_needed.append("request for peer-reviewed sources")
+
+        if trust_score.safety_score < 0.8:
+            refinement_needed.append("emphasize information-only nature")
+
+        if not refinement_needed:
+            return original_query
+
+        refinement_prompt = f"""
+        Original Query: {original_query}
+        Previous Response Trust Score: {trust_score.overall_trust:.2f}
+        Issues Found: {', '.join(refinement_needed)}
+
+        Refine the query to address these issues while maintaining the original intent.
+        Make the query more specific and likely to return high-quality medical information.
+        """
+
+        try:
+            result = await self.llm_client.generate(
+                prompt=refinement_prompt,
+                model="llama3.1",
+                options={"temperature": 0.3, "max_tokens": 100}
+            )
+
+            refined_query = result.get("response", original_query).strip()
+            return refined_query if refined_query else original_query
+
+        except Exception:
+            return original_query
