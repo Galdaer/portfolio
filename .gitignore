@@ -26,8 +26,8 @@
 !/.augment/
 !/.augment/**/*
 !/.devcontainer/
-!/.vscode/
-!/.vscode/settings.json
+#!/.vscode/
+#!/.vscode/settings.json
 
 # === SOURCE CODE DIRECTORIES ===
 # Core application structure
@@ -177,7 +177,7 @@ venv.bak/
 # Node.js dependencies and build artifacts
 **/node_modules/
 **/dist/
-**/build/
+!**/build/
 **/.npm
 **/.cache
 **/.parcel-cache

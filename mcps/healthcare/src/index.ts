@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+dotenv.config();
+
 import dotenv from "dotenv";
 import { HealthcareServer } from "./server/HealthcareServer.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -55,26 +57,53 @@ let mcpServer = new Server({
 
 const healthcareServer = new HealthcareServer(mcpServer, authConfig, FHIR_BASE_URL, PUBMED_API_KEY, TRIALS_API_KEY, FDA_API_KEY);
 
-// Create Express app for HTTP server mode
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 app.use(express.json());
 
-// Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'healthy', service: 'healthcare-mcp', timestamp: new Date().toISOString() });
 });
 
-// MCP JSON-RPC endpoint
+// Define handlers outside the MCP Server
+const toolsListHandler = async (req: { method: string; params?: any }) => ({
+    tools: [
+        {
+            name: 'health_check',
+            description: 'Check healthcare MCP server health',
+            inputSchema: { type: 'object', properties: {}, required: [] }
+        }
+    ]
+});
+const toolsCallHandler = async (req: { method: string; params?: any }) => ({
+    content: [{ type: 'text', text: 'Healthcare MCP Server is healthy and running' }]
+});
+// Prompts and resources stubs
+const promptsListHandler = async (req: { method: string; params?: any }) => ({
+    prompts: [
+        {
+            name: 'example_prompt',
+            description: 'Mock prompt for development/testing',
+            inputSchema: { type: 'object', properties: {}, required: [] }
+        }
+    ]
+});
+const promptsGetHandler = async (req: { method: string; params?: any }) => ({
+    prompt: {
+        name: 'example_prompt',
+        description: 'Mock prompt for development/testing',
+        inputSchema: { type: 'object', properties: {}, required: [] }
+    }
+});
+const resourcesListHandler = async (req: { method: string; params?: any }) => ({ resources: [] });
+const resourcesReadHandler = async (req: { method: string; params?: any }) => ({ resource: null });
+// Add similar stubs for prompts/resources as needed
+
 app.post('/mcp', async (req, res) => {
     try {
         const { jsonrpc, method, params, id } = req.body;
-
-        // Debug logging
         console.log(`MCP Request: ${method}`, params ? JSON.stringify(params, null, 2) : 'no params');
-
-        // Basic JSON-RPC validation
         if (jsonrpc !== '2.0') {
             return res.status(400).json({
                 jsonrpc: '2.0',
@@ -82,114 +111,84 @@ app.post('/mcp', async (req, res) => {
                 id: id || null
             });
         }
-
-        // Handle MCP methods
+        const mockRequest = {
+            method,
+            params: params || {}
+        };
+        let result;
         switch (method) {
             case 'initialize':
-                res.json({
-                    jsonrpc: '2.0',
-                    result: {
-                        protocolVersion: '2024-11-05',
-                        capabilities: {
-                            tools: {},
-                            resources: {},
-                            prompts: {},
-                            logging: {}
-                        },
-                        serverInfo: {
-                            name: 'intelluxe-healthcare-mcp-server',
-                            version: '1.0.0'
-                        }
+                result = {
+                    protocolVersion: '2024-11-05',
+                    capabilities: {
+                        tools: {},
+                        resources: {},
+                        prompts: {},
+                        logging: {}
                     },
-                    id
-                });
+                    serverInfo: {
+                        name: 'intelluxe-healthcare-mcp-server',
+                        version: '1.0.0'
+                    }
+                };
                 break;
-
             case 'notifications/initialized':
-                // Acknowledge initialization
-                res.json({
-                    jsonrpc: '2.0',
-                    result: {},
-                    id
-                });
+                result = {};
                 break;
-
             case 'ping':
-                res.json({
-                    jsonrpc: '2.0',
-                    result: {},
-                    id
-                });
+                result = {};
                 break;
-
             case 'tools/list':
-                res.json({
-                    jsonrpc: '2.0',
-                    result: {
-                        tools: [
-                            {
-                                name: 'health_check',
-                                description: 'Check healthcare MCP server health',
-                                inputSchema: {
-                                    type: 'object',
-                                    properties: {},
-                                    required: []
-                                }
-                            }
-                        ]
-                    },
-                    id
-                });
+                result = await toolsListHandler({ method, params });
                 break;
-
             case 'tools/call':
-                if (params?.name === 'health_check') {
-                    res.json({
-                        jsonrpc: '2.0',
-                        result: {
-                            content: [
-                                {
-                                    type: 'text',
-                                    text: 'Healthcare MCP Server is healthy and running'
-                                }
-                            ]
-                        },
-                        id
-                    });
-                } else {
-                    res.status(400).json({
-                        jsonrpc: '2.0',
-                        error: { code: -32601, message: 'Method not found' },
-                        id
-                    });
-                }
+                result = await toolsCallHandler({ method, params });
                 break;
-
+            case 'prompts/list':
+                result = await promptsListHandler({ method, params });
+                break;
+            case 'prompts/get':
+                result = await promptsGetHandler({ method, params });
+                break;
+            case 'resources/list':
+                result = await resourcesListHandler({ method, params });
+                break;
+            case 'resources/read':
+                result = await resourcesReadHandler({ method, params });
+                break;
             default:
                 console.log(`Unknown MCP method: ${method}`);
-                res.status(400).json({
+                return res.status(400).json({
                     jsonrpc: '2.0',
                     error: { code: -32601, message: `Method not found: ${method}` },
                     id
                 });
         }
+        res.json({
+            jsonrpc: '2.0',
+            result,
+            id
+        });
     } catch (error) {
         console.error('MCP endpoint error:', error);
         res.status(500).json({
             jsonrpc: '2.0',
-            error: { code: -32603, message: 'Internal error' },
+            error: {
+                code: -32603,
+                message: 'Internal error',
+                data: error instanceof Error ? error.message : 'Unknown error'
+            },
             id: req.body?.id || null
         });
     }
 });
 
-// Start HTTP server
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Healthcare MCP Server running on port ${PORT}`);
     console.log(`Health check available at http://localhost:${PORT}/health`);
+    console.log(`MCP endpoint available at http://localhost:${PORT}/mcp`);
 });
 
-// Keep the stdio version for development/testing
 if (process.env.MCP_TRANSPORT === 'stdio') {
     healthcareServer.run().catch(console.error);
 }

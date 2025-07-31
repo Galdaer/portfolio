@@ -17,7 +17,7 @@ const authConfig = {
 };
 const FHIR_BASE_URL = process.env.FHIR_BASE_URL;
 const PUBMED_API_KEY = process.env.PUBMED_API_KEY;
-const TRIALS_API_KEY = process.env.TRIALS_API_KEY;
+const TRIALS_API_KEY = process.env.CLINICALTRIALS_API_KEY;
 const FDA_API_KEY = process.env.FDA_API_KEY;
 if (!FHIR_BASE_URL) {
     throw new Error("FHIR_BASE_URL is missing");
