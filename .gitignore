@@ -51,6 +51,8 @@
 !/systemd/*
 !/infrastructure/
 !/infrastructure/**/*
+!/interfaces/
+!/interfaces/**/*
 !/docker/
 !/docker/**/*
 !/services/
