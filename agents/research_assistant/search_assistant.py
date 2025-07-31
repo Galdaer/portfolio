@@ -66,7 +66,7 @@ class MedicalLiteratureSearchAssistant:
 
         search_results = await asyncio.gather(*search_tasks, return_exceptions=True)
 
-        # Process results
+        # Process results - ensure we only get lists, not exceptions
         condition_info = search_results[0] if not isinstance(search_results[0], Exception) else []
         symptom_literature = (
             search_results[1] if not isinstance(search_results[1], Exception) else []
@@ -74,8 +74,14 @@ class MedicalLiteratureSearchAssistant:
         drug_info = search_results[2] if not isinstance(search_results[2], Exception) else []
         clinical_refs = search_results[3] if not isinstance(search_results[3], Exception) else []
 
+        # Type assertion to help mypy understand these are definitely lists
+        condition_info = condition_info if isinstance(condition_info, list) else []
+        symptom_literature = symptom_literature if isinstance(symptom_literature, list) else []
+        drug_info = drug_info if isinstance(drug_info, list) else []
+        clinical_refs = clinical_refs if isinstance(clinical_refs, list) else []
+
         # Combine all information sources
-        all_sources = []
+        all_sources: List[Dict[str, Any]] = []
         all_sources.extend(condition_info)
         all_sources.extend(symptom_literature)
         all_sources.extend(drug_info)
