@@ -92,13 +92,10 @@ class PostgresConnectionFactory(ConnectionFactory):
         """Create PostgreSQL database connection"""
         try:
             if self.connection_string:
-                connection: psycopg2.extensions.connection = psycopg2.connect(
-                    self.connection_string
-                )
+                connection = psycopg2.connect(self.connection_string)
             else:
-                # Use individual parameters with secure defaults
                 params = self._get_secure_connection_params()
-                connection: psycopg2.extensions.connection = psycopg2.connect(**params)
+                connection = psycopg2.connect(**params)
 
             # Set connection properties based on environment
             connection.autocommit = False
