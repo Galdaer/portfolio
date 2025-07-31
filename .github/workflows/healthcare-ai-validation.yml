@@ -28,8 +28,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cache/pip
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v7
+            /tmp/ci-python-${{ github.run_id }}
+          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v8
           restore-keys: |
             ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
             ${{ runner.os }}-python-ci-optimized-
@@ -63,12 +63,15 @@ jobs:
       - name: Cache effectiveness report
         run: |
           echo "=== Post-Installation Cache Report ==="
-          if [ -d ~/.cache/pip ]; then
-            echo "📊 pip cache size: $(du -sh ~/.cache/pip || echo 'unknown')"
-            echo "📦 pip cache entries: $(find ~/.cache/pip -name "*.whl" | wc -l) wheel files"
+          export CI_PYTHON_PATH="/tmp/ci-python-${{ github.run_id }}"
+          if [ -d "$CI_PYTHON_PATH" ]; then
+            echo "📊 CI isolated environment size: $(du -sh "$CI_PYTHON_PATH" || echo 'unknown')"
+            echo "📦 Installed packages: $(find "$CI_PYTHON_PATH" -name "*.dist-info" | wc -l) packages"
+            echo "🎯 Caching only CI-optimized isolated environment (not global pip cache)"
+          else
+            echo "⚠️  CI isolated environment not found"
           fi
-          echo "🎯 Optimized CI cache - reduced from 2.9GB to ~200-300MB"
-          echo "⚡ Cache should restore much faster on subsequent runs"
+          echo "⚡ Cache should be much smaller and faster on subsequent runs"
 
   # Fast Python syntax validation - parallel matrix for speed
   python-syntax-validation:
@@ -89,8 +92,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.cache/pip
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v7
+            /tmp/ci-python-${{ github.run_id }}
+          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v8
           restore-keys: |
             ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
             ${{ runner.os }}-python-ci-optimized-
@@ -131,8 +134,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.cache/pip
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v7
+            /tmp/ci-python-${{ github.run_id }}
+          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v8
           restore-keys: |
             ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
             ${{ runner.os }}-python-ci-optimized-
@@ -194,8 +197,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.cache/pip
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v7
+            /tmp/ci-python-${{ github.run_id }}
+          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v8
           restore-keys: |
             ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
             ${{ runner.os }}-python-ci-optimized-
@@ -348,8 +351,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.cache/pip
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v7
+            /tmp/ci-python-${{ github.run_id }}
+          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v8
           restore-keys: |
             ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
             ${{ runner.os }}-python-ci-optimized-
@@ -500,8 +503,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.cache/pip
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v7
+            /tmp/ci-python-${{ github.run_id }}
+          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v8
           restore-keys: |
             ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
             ${{ runner.os }}-python-ci-optimized-
