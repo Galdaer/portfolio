@@ -460,3 +460,342 @@ class EnhancedMedicalQueryEngine:
 
         except Exception:
             return original_query
+
+    async def _calculate_final_confidence(self, query_session: Dict[str, Any]) -> float:
+        """Calculate final confidence score based on query session results"""
+        sources = query_session.get("sources", [])
+        reasoning_chain = query_session.get("reasoning_chain", [])
+
+        if not sources:
+            return 0.0
+
+        # Factors for confidence calculation
+        source_quality = self._calculate_evidence_level_score(sources)
+        source_quantity = min(len(sources) / 15.0, 1.0)  # Up to 15 sources = max score
+        reasoning_quality = sum(step.get("quality_score", 0.5) for step in reasoning_chain) / max(
+            len(reasoning_chain), 1
+        )
+
+        # Weighted average
+        confidence = source_quality * 0.4 + source_quantity * 0.3 + reasoning_quality * 0.3
+        return min(confidence, 1.0)
+
+    async def _search_clinical_trials(
+        self, query: str, medical_entities: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Search clinical trials database"""
+        try:
+            # Use ClinicalTrials.gov API via MCP
+            trials_result = await self.mcp_client.call_healthcare_tool(
+                "search_clinical_trials",
+                {
+                    "query": query,
+                    "max_results": 10,
+                    "study_status": ["recruiting", "completed"],
+                    "study_type": ["interventional", "observational"],
+                },
+            )
+
+            processed_trials = []
+            for trial in trials_result.get("studies", []):
+                processed_trials.append(
+                    {
+                        "source_type": "clinical_trial",
+                        "title": trial.get("title", ""),
+                        "nct_id": trial.get("nct_id", ""),
+                        "status": trial.get("status", ""),
+                        "phase": trial.get("phase", ""),
+                        "condition": trial.get("condition", ""),
+                        "intervention": trial.get("intervention", ""),
+                        "sponsor": trial.get("sponsor", ""),
+                        "url": f"https://clinicaltrials.gov/study/{trial.get('nct_id', '')}",
+                        "evidence_level": "clinical_trial",
+                        "enrollment": trial.get("enrollment", 0),
+                    }
+                )
+
+            return {"sources": processed_trials}
+
+        except Exception:
+            return {"sources": []}
+
+    async def _search_clinical_guidelines(
+        self, query: str, medical_entities: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Search clinical practice guidelines"""
+        try:
+            # Search medical society guidelines
+            guidelines_result = await self.mcp_client.call_healthcare_tool(
+                "search_clinical_guidelines",
+                {
+                    "query": query,
+                    "organizations": ["AMA", "AHA", "ACC", "NIH", "CDC", "WHO"],
+                    "max_results": 8,
+                },
+            )
+
+            processed_guidelines = []
+            for guideline in guidelines_result.get("guidelines", []):
+                processed_guidelines.append(
+                    {
+                        "source_type": "clinical_guideline",
+                        "title": guideline.get("title", ""),
+                        "organization": guideline.get("organization", ""),
+                        "publication_date": guideline.get("date", ""),
+                        "recommendation_grade": guideline.get("grade", ""),
+                        "topic": guideline.get("topic", ""),
+                        "url": guideline.get("url", ""),
+                        "evidence_level": "clinical_guideline",
+                        "summary": guideline.get("summary", ""),
+                    }
+                )
+
+            return {"sources": processed_guidelines}
+
+        except Exception:
+            return {"sources": []}
+
+    async def _generate_source_reasoning(
+        self, query: str, sources: List[Dict[str, Any]], query_type: QueryType
+    ) -> str:
+        """Generate reasoning for source selection and quality"""
+        if not sources:
+            return "No relevant sources found for the query."
+
+        source_summary = {"total": len(sources), "by_type": {}, "high_evidence": 0}
+
+        # Analyze source composition
+        for source in sources:
+            source_type = source.get("source_type", "unknown")
+            if source_type not in source_summary["by_type"]:
+                source_summary["by_type"][source_type] = 0
+            source_summary["by_type"][source_type] += 1
+
+            evidence_level = source.get("evidence_level", "")
+            if evidence_level in [
+                "systematic_review",
+                "meta_analysis",
+                "randomized_controlled_trial",
+                "clinical_guideline",
+            ]:
+                source_summary["high_evidence"] += 1
+
+        reasoning_prompt = f"""
+        Query: {query}
+        Query Type: {query_type.value}
+
+        Sources Found:
+        - Total: {source_summary['total']}
+        - High Evidence Sources: {source_summary['high_evidence']}
+        - By Type: {source_summary['by_type']}
+
+        Provide a brief reasoning for source selection quality and relevance (2-3 sentences):
+        """
+
+        try:
+            result = await self.llm_client.generate(
+                prompt=reasoning_prompt,
+                model="llama3.1",
+                options={"temperature": 0.3, "max_tokens": 150},
+            )
+
+            return result.get(
+                "response", "Sources selected based on relevance and evidence quality."
+            )
+
+        except Exception:
+            return f"Found {len(sources)} sources including {source_summary['high_evidence']} high-evidence sources."
+
+    async def _enhance_query_with_entities(
+        self, query: str, medical_entities: List[Dict[str, Any]]
+    ) -> str:
+        """Enhance query with extracted medical entities"""
+        if not medical_entities:
+            return query
+
+        # Extract relevant entity terms
+        entity_terms = []
+        for entity in medical_entities:
+            entity_type = entity.get("label", "")
+            entity_text = entity.get("text", "")
+
+            # Add medical terminology
+            if entity_type in ["DISEASE", "CONDITION", "SYMPTOM"]:
+                entity_terms.append(f"({entity_text} OR {entity_text.lower()})")
+            elif entity_type in ["DRUG", "MEDICATION", "CHEMICAL"]:
+                entity_terms.append(f"({entity_text} AND (drug OR medication))")
+
+        if entity_terms:
+            enhanced_query = f"{query} AND ({' OR '.join(entity_terms[:3])})"  # Limit to top 3
+            return enhanced_query
+
+        return query
+
+    def _determine_evidence_level(self, article: Dict[str, Any]) -> str:
+        """Determine evidence level from article metadata"""
+        pub_type = article.get("publication_type", "").lower()
+        title = article.get("title", "").lower()
+
+        if any(term in pub_type for term in ["systematic review", "meta-analysis"]):
+            return "systematic_review"
+        elif any(term in pub_type for term in ["randomized controlled trial", "rct"]):
+            return "randomized_controlled_trial"
+        elif any(term in title for term in ["systematic review", "meta-analysis"]):
+            return "systematic_review"
+        elif any(term in title for term in ["randomized", "controlled trial"]):
+            return "randomized_controlled_trial"
+        elif "cohort" in pub_type or "cohort" in title:
+            return "cohort_study"
+        elif "case control" in pub_type or "case-control" in title:
+            return "case_control_study"
+        elif "case series" in pub_type or "case series" in title:
+            return "case_series"
+        else:
+            return "unknown"
+
+    async def _analyze_result_gaps(
+        self, previous_results: List[Dict[str, Any]], query_type: QueryType
+    ) -> str:
+        """Analyze gaps in previous search results"""
+        if not previous_results:
+            return "No previous results to analyze"
+
+        analysis = {
+            "total_sources": len(previous_results),
+            "source_types": {},
+            "evidence_levels": {},
+            "recency": {"recent": 0, "older": 0},
+        }
+
+        current_year = datetime.now().year
+
+        for source in previous_results:
+            # Count by source type
+            source_type = source.get("source_type", "unknown")
+            if source_type not in analysis["source_types"]:
+                analysis["source_types"][source_type] = 0
+            analysis["source_types"][source_type] += 1
+
+            # Count by evidence level
+            evidence_level = source.get("evidence_level", "unknown")
+            if evidence_level not in analysis["evidence_levels"]:
+                analysis["evidence_levels"][evidence_level] = 0
+            analysis["evidence_levels"][evidence_level] += 1
+
+            # Check recency
+            pub_date = source.get("publication_date", "")
+            if pub_date and str(current_year - 3) <= pub_date:  # Last 3 years
+                analysis["recency"]["recent"] += 1
+            else:
+                analysis["recency"]["older"] += 1
+
+        # Identify gaps
+        gaps = []
+        if analysis["evidence_levels"].get("systematic_review", 0) == 0:
+            gaps.append("systematic reviews")
+        if (
+            analysis["source_types"].get("clinical_guideline", 0) == 0
+            and query_type == QueryType.CLINICAL_GUIDELINES
+        ):
+            gaps.append("clinical guidelines")
+        if analysis["recency"]["recent"] < analysis["total_sources"] * 0.5:
+            gaps.append("recent publications")
+
+        if gaps:
+            return f"Missing: {', '.join(gaps)}. Need more specific search terms."
+        else:
+            return "Good coverage of source types and evidence levels."
+
+    def _calculate_evidence_level_score(self, sources: List[Dict[str, Any]]) -> float:
+        """Calculate score based on evidence level quality"""
+        if not sources:
+            return 0.0
+
+        evidence_weights = {
+            "systematic_review": 1.0,
+            "meta_analysis": 1.0,
+            "randomized_controlled_trial": 0.9,
+            "clinical_guideline": 0.8,
+            "cohort_study": 0.7,
+            "case_control_study": 0.6,
+            "case_series": 0.4,
+            "regulatory_approval": 0.8,
+            "clinical_trial": 0.7,
+            "unknown": 0.3,
+        }
+
+        total_weight = 0.0
+        for source in sources:
+            evidence_level = source.get("evidence_level", "unknown")
+            total_weight += evidence_weights.get(evidence_level, 0.3)
+
+        return min(total_weight / len(sources), 1.0)
+
+    def _calculate_recency_score(self, sources: List[Dict[str, Any]]) -> float:
+        """Calculate score based on publication recency"""
+        if not sources:
+            return 0.0
+
+        current_year = datetime.now().year
+        recency_scores = []
+
+        for source in sources:
+            pub_date = source.get("publication_date", "")
+
+            if not pub_date:
+                recency_scores.append(0.3)  # Default for unknown date
+                continue
+
+            try:
+                # Extract year from various date formats
+                if len(pub_date) >= 4 and pub_date[:4].isdigit():
+                    pub_year = int(pub_date[:4])
+                    years_old = current_year - pub_year
+
+                    if years_old <= 1:
+                        recency_scores.append(1.0)
+                    elif years_old <= 3:
+                        recency_scores.append(0.8)
+                    elif years_old <= 5:
+                        recency_scores.append(0.6)
+                    elif years_old <= 10:
+                        recency_scores.append(0.4)
+                    else:
+                        recency_scores.append(0.2)
+                else:
+                    recency_scores.append(0.3)
+
+            except (ValueError, TypeError):
+                recency_scores.append(0.3)
+
+        return sum(recency_scores) / len(recency_scores) if recency_scores else 0.0
+
+    async def _calculate_relevance_score(self, query: str, sources: List[Dict[str, Any]]) -> float:
+        """Calculate relevance score of sources to query"""
+        if not sources:
+            return 0.0
+
+        # For now, use a simplified relevance calculation
+        # In a full implementation, this could use semantic similarity
+        relevance_scores = []
+
+        query_words = set(query.lower().split())
+
+        for source in sources:
+            title = source.get("title", "").lower()
+            abstract = source.get("abstract", "").lower()
+
+            # Count word overlaps
+            title_words = set(title.split())
+            abstract_words = set(abstract.split())
+
+            title_overlap = len(query_words.intersection(title_words)) / max(len(query_words), 1)
+            abstract_overlap = len(query_words.intersection(abstract_words)) / max(
+                len(query_words), 1
+            )
+
+            # Weight title more heavily than abstract
+            source_relevance = (title_overlap * 0.7) + (abstract_overlap * 0.3)
+            relevance_scores.append(min(source_relevance, 1.0))
+
+        return sum(relevance_scores) / len(relevance_scores) if relevance_scores else 0.0
