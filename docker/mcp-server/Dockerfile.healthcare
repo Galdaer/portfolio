@@ -21,19 +21,20 @@ RUN apk update && apk upgrade && apk add --no-cache \
 # Set working directory
 WORKDIR /app
 
-# Copy package files first for better caching
-COPY --chown=node:intelluxe package*.json ./
-COPY --chown=node:intelluxe tsconfig.json ./
-
 # Copy source files BEFORE building (inside container only)
-COPY --chown=node:intelluxe src/ ./src/
+COPY --chown=node:intelluxe ../mcps/healthcare/src/ ./src/
+
+# Copy package files first for better caching
+COPY --chown=node:intelluxe ../mcps/healthcare/package*.json ./
+COPY --chown=node:intelluxe ../mcps/healthcare/tsconfig.json ./
+
+
 
 # Install dependencies and build
 RUN npm install && \
     npm run build && \
-    npm prune --omit=dev && \
     npm cache clean --force && \
-    rm -rf src/ tsconfig.json package*.json
+    rm -rf src/ tsconfig.json
 
 # Keep node_modules for production dependencies, only remove source files
 
