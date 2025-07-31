@@ -2,7 +2,24 @@
 
 ## Overview
 
-Intelluxe AI integrates seamlessly with existing clinic authentication systems while providing secure, user-specific configuration management. No additional passwords or complex setup required.
+Intelluxe AI integrates seamlessly with existing clinic authentication systems while providing secure, user-specific configuration management. **For Phase 1 development, simple standalone mode is sufficient** - no Active Directory/LDAP/SAML integration required yet.
+
+## Phase 1: Standalone Authentication (Current)
+
+For initial development and testing, Intelluxe uses standalone authentication:
+
+```bash
+# .env configuration for Phase 1
+AUTH_MODE=standalone
+STANDALONE_AUTH_ENABLED=true
+USER_ENV_FILES=false  # Use single practice-level .env for simplicity
+```
+
+**Practice-level API keys** are shared across all users in the practice, stored in the main `.env` file. Individual user authentication is handled through simple session management.
+
+## Phase 2+: Enterprise Authentication Integration
+
+Future phases will support enterprise authentication systems for larger clinics.
 
 ## Architecture
 
@@ -21,6 +38,7 @@ Personalized AI Experience
 ## Supported Authentication Systems
 
 ### Active Directory (Most Common)
+
 ```bash
 # .env configuration
 AUTH_MODE=active_directory
@@ -30,8 +48,9 @@ EMERGENCY_ACCESS_ENABLED=true
 ```
 
 ### LDAP Integration
+
 ```bash
-# .env configuration  
+# .env configuration
 AUTH_MODE=ldap
 EXISTING_LDAP_SERVER=ldap://yourclinic.local:389
 EXISTING_LDAP_BASE_DN=dc=yourclinic,dc=local
@@ -39,6 +58,7 @@ USER_ENV_FILES=true
 ```
 
 ### SAML SSO Integration
+
 ```bash
 # .env configuration
 AUTH_MODE=saml_sso
@@ -47,6 +67,7 @@ USER_ENV_FILES=true
 ```
 
 ### Standalone Mode
+
 ```bash
 # .env configuration
 AUTH_MODE=standalone
@@ -57,6 +78,7 @@ USER_ENV_FILES=true
 ## User Configuration Management
 
 ### Automatic User Config Creation
+
 When a user first launches Intelluxe, `healthcare_auth.py` automatically:
 
 1. **Detects system user** (`getpass.getuser()`)
@@ -68,6 +90,7 @@ When a user first launches Intelluxe, `healthcare_auth.py` automatically:
 ### User Configuration Examples
 
 **Healthcare Provider:**
+
 ```bash
 # /home/dr_martinez/.intelluxe/user.env.encrypted (decrypted view)
 INTELLUXE_ROLE=healthcare_provider
@@ -81,6 +104,7 @@ WORKFLOW_OPTIMIZATION=clinical_focused
 ```
 
 **Nurse:**
+
 ```bash
 # /home/nurse_johnson/.intelluxe/user.env.encrypted (decrypted view)
 INTELLUXE_ROLE=nursing_staff
@@ -92,6 +116,7 @@ PATIENT_EDUCATION_TOOLS=enabled
 ```
 
 **Administrative Staff:**
+
 ```bash
 # /home/admin_chen/.intelluxe/user.env.encrypted (decrypted view)
 INTELLUXE_ROLE=administrative_staff
@@ -105,18 +130,21 @@ SCHEDULING_OPTIMIZATION=enabled
 ## Security Features
 
 ### Session-Based Encryption
+
 - **User configs encrypted** with keys derived from system login session
 - **Automatic decryption** when user is authenticated to workstation
 - **Automatic lock** when user logs out or session expires
 - **No password storage** - leverages existing clinic security
 
 ### Role-Based Access Control
+
 - **Automatic role detection** based on system groups/permissions
 - **Healthcare-appropriate permissions** (providers vs. staff vs. admin)
 - **Patient access controls** integrated with clinic assignment systems
 - **Audit logging** for all authentication and access events
 
 ### Emergency Access
+
 - **Fallback authentication** during system outages
 - **Emergency provider access** for critical patient care
 - **Audit trail maintenance** even during emergency access
@@ -125,9 +153,11 @@ SCHEDULING_OPTIMIZATION=enabled
 ## Implementation Steps
 
 ### 1. Choose Authentication Mode
+
 Determine your clinic's authentication system and configure accordingly.
 
 ### 2. Deploy Intelluxe with Auth Integration
+
 ```bash
 # Configure authentication in .env
 vim .env  # Set AUTH_MODE and related settings
@@ -137,6 +167,7 @@ vim .env  # Set AUTH_MODE and related settings
 ```
 
 ### 3. Test User Authentication
+
 ```bash
 # Test authentication integration
 python -c "
@@ -150,7 +181,9 @@ print('✅ Authentication integration working')
 ```
 
 ### 4. Verify User Configs
+
 Check that user-specific configurations are created and encrypted:
+
 ```bash
 # Check user config directories
 ls -la /home/*/\.intelluxe/
@@ -164,12 +197,14 @@ file /home/dr_smith/.intelluxe/user.env.encrypted
 ## Troubleshooting
 
 ### Common Issues
+
 - **Config not decrypting**: Check user session and system authentication
 - **Role not detected**: Verify system groups and permissions
 - **Emergency access needed**: Use `EMERGENCY_ACCESS_ENABLED=true`
 - **Integration failing**: Check domain/LDAP/SAML connectivity
 
 ### Debug Commands
+
 ```bash
 # Test current user detection
 python -c "import getpass; print(f'Current user: {getpass.getuser()}')"

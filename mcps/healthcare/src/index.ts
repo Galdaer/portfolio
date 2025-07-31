@@ -22,26 +22,22 @@ const authConfig: AuthConfig = {
     callbackPort: parseInt(process.env.OAUTH_CALLBACK_PORT!)
 };
 
-const FHIR_BASE_URL = process.env.FHIR_BASE_URL!;
-const PUBMED_API_KEY = process.env.PUBMED_API_KEY!;
-const TRIALS_API_KEY = process.env.TRIALS_API_KEY!;
-const FDA_API_KEY = process.env.FDA_API_KEY!;
+const FHIR_BASE_URL = process.env.FHIR_BASE_URL;
+const PUBMED_API_KEY = process.env.PUBMED_API_KEY;
+// ClinicalTrials.gov and FDA OpenFDA are free - no keys needed
+const ANTHEM_API_KEY = process.env.ANTHEM_API_KEY;
+const UHC_API_USER = process.env.UHC_API_USER;
+const CIGNA_CLIENT_ID = process.env.CIGNA_CLIENT_ID;
 
-if (!FHIR_BASE_URL) {
-    throw new Error("FHIR_BASE_URL is missing");
-}
+// Log availability of different APIs
+console.log('🏥 Healthcare MCP Server - API Availability:');
+console.log(`✅ FHIR/EHR: ${FHIR_BASE_URL ? 'Available' : 'Not configured'}`);
+console.log(`✅ PubMed: ${PUBMED_API_KEY ? 'API key available' : 'Using free tier'}`);
+console.log('✅ ClinicalTrials.gov: Available (free API)');
+console.log('✅ FDA OpenFDA: Available (free API)');
+console.log(`✅ Insurance APIs: ${ANTHEM_API_KEY ? 'Test credentials available' : 'Not configured'}`);
 
-if (!PUBMED_API_KEY) {
-    throw new Error("PUBMED_API_KEY is missing");
-}
-
-if (!TRIALS_API_KEY) {
-    throw new Error("TRIALS_API_KEY is missing");
-}
-
-if (!FDA_API_KEY) {
-    throw new Error("FDA_API_KEY is missing");
-}
+// Don't throw errors for missing keys - gracefully handle in tool calls instead
 
 let mcpServer = new Server({
     name: "healthcare-mcp",
