@@ -22,11 +22,11 @@ RUN apk update && apk upgrade && apk add --no-cache \
 WORKDIR /app
 
 # Copy source files BEFORE building (inside container only)
-COPY --chown=node:intelluxe ../mcps/healthcare/src/ ./src/
+COPY --chown=node:intelluxe src/ ./src/
 
 # Copy package files first for better caching
-COPY --chown=node:intelluxe ../mcps/healthcare/package*.json ./
-COPY --chown=node:intelluxe ../mcps/healthcare/tsconfig.json ./
+COPY --chown=node:intelluxe package*.json ./
+COPY --chown=node:intelluxe tsconfig.json ./
 
 
 

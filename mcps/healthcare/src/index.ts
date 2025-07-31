@@ -24,7 +24,9 @@ const authConfig: AuthConfig = {
 
 const FHIR_BASE_URL = process.env.FHIR_BASE_URL;
 const PUBMED_API_KEY = process.env.PUBMED_API_KEY;
-// ClinicalTrials.gov and FDA OpenFDA are free - no keys needed
+// ClinicalTrials.gov and FDA OpenFDA are free - no keys needed but define for graceful handling
+const TRIALS_API_KEY = process.env.TRIALS_API_KEY || 'not_required_but_prevents_error';
+const FDA_API_KEY = process.env.FDA_API_KEY || 'not_required_but_prevents_error';
 const ANTHEM_API_KEY = process.env.ANTHEM_API_KEY;
 const UHC_API_USER = process.env.UHC_API_USER;
 const CIGNA_CLIENT_ID = process.env.CIGNA_CLIENT_ID;
@@ -51,7 +53,7 @@ let mcpServer = new Server({
     }
 });
 
-const healthcareServer = new HealthcareServer(mcpServer, authConfig, FHIR_BASE_URL, PUBMED_API_KEY, TRIALS_API_KEY, FDA_API_KEY);
+const healthcareServer = new HealthcareServer(mcpServer, authConfig, FHIR_BASE_URL || '', PUBMED_API_KEY || '', TRIALS_API_KEY, FDA_API_KEY);
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);

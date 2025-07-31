@@ -12,6 +12,10 @@
 	   install \
 	   lint \
 	   lint-python \
+	   mcp \
+	   mcp-build \
+	   mcp-rebuild \
+	   mcp-clean \
 	   reset \
 	   restore \
 	   setup \
@@ -260,6 +264,26 @@ restore:
 	fi
 	./scripts/bootstrap.sh --restore-backup "$(BACKUP_FILE)"
 
+# MCP Server Build Commands
+mcp: mcp-build
+	@echo "✅ Healthcare MCP server build complete"
+
+mcp-build:
+	@echo "🏗️  Building Healthcare MCP server Docker image"
+	@cd mcps/healthcare && docker build -t intelluxe/healthcare-mcp:latest .
+	@echo "✅ Healthcare MCP Docker image built successfully"
+
+mcp-rebuild:
+	@echo "🔄  Rebuilding Healthcare MCP server (no cache)"
+	@cd mcps/healthcare && docker build --no-cache -t intelluxe/healthcare-mcp:latest .
+	@echo "✅ Healthcare MCP Docker image rebuilt successfully"
+
+mcp-clean:
+	@echo "🧹  Cleaning up Healthcare MCP Docker artifacts"
+	@docker images intelluxe/healthcare-mcp -q | xargs -r docker rmi -f
+	@docker system prune -f --filter "label=maintainer=Intelluxe AI Healthcare Team"
+	@echo "✅ Healthcare MCP Docker cleanup complete"
+
 # Development Commands
 hooks:
 	@echo "🔗  Installing git hooks for pre-push validation"
@@ -398,6 +422,12 @@ help:
 	@echo "💾 Backup/Restore:"
 	@echo "  make backup          Create WireGuard healthcare VPN configuration backup"
 	@echo "  make restore BACKUP_FILE=<path>  Restore from backup file"
+	@echo ""
+	@echo "🏗️  MCP Server Build:"
+	@echo "  make mcp             Build Healthcare MCP server Docker image"
+	@echo "  make mcp-build       Build Healthcare MCP server Docker image"
+	@echo "  make mcp-rebuild     Rebuild Healthcare MCP server (no cache)"
+	@echo "  make mcp-clean       Clean up Healthcare MCP Docker artifacts"
 	@echo ""
 	@echo "🛠️  Development:"
 	@echo "  make deps            Install healthcare AI lint and test dependencies"
