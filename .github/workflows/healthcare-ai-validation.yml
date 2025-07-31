@@ -665,6 +665,30 @@ jobs:
             exit 1
           fi
 
+  # Test agent configuration loading
+  test-agent-configuration:
+    runs-on: self-hosted
+    needs: setup-dependencies
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+      - name: Test agent configuration
+        run: |
+          echo "Testing agent configuration loading..."
+          if [ -f "config/agent_settings.yml" ]; then
+            python3 -c "
+          import yaml
+          with open('config/agent_settings.yml') as f:
+              config = yaml.safe_load(f)
+              print(f'✅ Agent config loaded: {len(config.get(\"agent_limits\", {}))} agents configured')
+          "
+          else
+            echo "⚠️ Agent settings file not found"
+          fi
+
 # Environment variables for healthcare AI development
 env:
   INTELLUXE_CI_MODE: true

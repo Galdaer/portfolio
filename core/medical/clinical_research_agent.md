@@ -5,6 +5,8 @@ Integrates dynamic knowledge retrieval with medical reasoning
 
 import asyncio
 import json
+import yaml
+import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -12,45 +14,83 @@ from core.agents.base_agent import BaseAgent
 from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType
 from core.reasoning.medical_reasoning_enhanced import EnhancedMedicalReasoning
 
-
 class ClinicalResearchAgent(BaseAgent):
-    """
-    Enhanced Clinical Research Agent with agentic RAG capabilities
-    Integrates dynamic knowledge retrieval with medical reasoning
-    """
+"""
+Enhanced Clinical Research Agent with agentic RAG capabilities
+Integrates dynamic knowledge retrieval with medical reasoning
+"""
 
-    def __init__(self, mcp_client, llm_client):
+    def __init__(self, mcp_client, llm_client, max_steps: Optional[int] = None, config_override: Optional[Dict] = None):
         super().__init__("clinical_research")
+
+        # Load configuration
+        self.config = self._load_agent_config(config_override)
+
+        # Set parameters from config or defaults
+        self.max_steps = max_steps or self.config.get("max_steps", 50)
+        self.max_iterations = self.config.get("max_iterations", 3)
+        self.timeout_seconds = self.config.get("timeout_seconds", 300)
+        self.llm_settings = self.config.get("llm_settings", {})
+
         self.query_engine = EnhancedMedicalQueryEngine(mcp_client, llm_client)
         self.medical_reasoning = EnhancedMedicalReasoning(self.query_engine, llm_client)
         self.mcp_client = mcp_client
         self.llm_client = llm_client
+        self.current_step = 0
+
+    def _load_agent_config(self, config_override: Optional[Dict] = None) -> Dict[str, Any]:
+        """Load agent-specific configuration from file"""
+        if config_override:
+            return config_override
+
+        try:
+            config_path = "config/agent_settings.yml"
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    full_config = yaml.safe_load(f)
+                return full_config.get("agent_limits", {}).get("clinical_research", {})
+        except Exception:
+            pass
+
+        # Return defaults if config fails to load
+        return {
+            "max_steps": 50,
+            "max_iterations": 3,
+            "timeout_seconds": 300,
+            "llm_settings": {"temperature": 0.3, "max_tokens": 1000}
+        }
 
     async def process(self, input_data: Dict[str, Any], session_id: str) -> Dict[str, Any]:
         """
         Process clinical research request with enhanced agentic RAG
         """
-        try:
-            request_type = input_data.get("type", "general_research")
-            query = input_data.get("query", "")
-            clinical_context = input_data.get("clinical_context", {})
+        self.current_step = 0
 
-            # Route to appropriate processing method
-            if request_type == "differential_diagnosis":
-                return await self._process_differential_diagnosis(
-                    query, clinical_context, session_id
-                )
-            elif request_type == "drug_interaction":
-                return await self._process_drug_interaction(query, clinical_context, session_id)
-            elif request_type == "symptom_analysis":
-                return await self._process_symptom_analysis(query, clinical_context, session_id)
-            elif request_type == "literature_research":
-                return await self._process_literature_research(query, clinical_context, session_id)
-            else:
-                return await self._process_general_research(query, clinical_context, session_id)
+        try:
+            # Reset step counter for new queries
+            query = input_data.get("query", "")
+            query_type = input_data.get("query_type", "general_inquiry")
+
+            # Process with step limiting (like their agent.run() with max_steps)
+            while self.current_step < self.max_steps:
+                result = await self._process_with_step_limit(input_data, session_id)
+
+                # Break if we have a complete result
+                if result.get("complete", False):
+                    break
+
+                self.current_step += 1
+
+            return result
 
         except Exception as e:
-            return self._create_error_response(str(e), session_id)
+            return self._create_error_response(f"Processing error: {str(e)}", session_id)
+
+    async def _process_with_step_limit(self, input_data: Dict[str, Any], session_id: str) -> Dict[str, Any]:
+        """Process single step with completion checking"""
+        # Your existing processing logic but with step awareness
+        # Similar to how their MCPAgent limits steps in complex reasoning
+        pass
 
     async def _process_differential_diagnosis(
         self, query: str, clinical_context: Dict[str, Any], session_id: str
@@ -419,3 +459,35 @@ class ClinicalResearchAgent(BaseAgent):
         """Calculate processing time (simplified)"""
         # In real implementation, track start time
         return 0.0
+
+    async def _call_llm_with_config(self, prompt: str, response_type: str = "general") -> str:
+        """Call LLM using configuration settings"""
+        # Get specific settings for response type
+        llm_settings = self.llm_settings.copy()
+
+        # Override for specific response types if needed
+        if response_type == "validation":
+            # Use validation settings from config
+            validation_config = self._get_validation_config()
+            llm_settings.update(validation_config.get("llm_settings", {}))
+
+        response = await self.llm_client.generate(
+            prompt=prompt,
+            model="llama3.1",
+            options=llm_settings
+        )
+
+        return response.get("response", "")
+
+    def _get_validation_config(self) -> Dict[str, Any]:
+        """Get response validation configuration"""
+        try:
+            config_path = "config/agent_settings.yml"
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    full_config = yaml.safe_load(f)
+                return full_config.get("response_validation", {}).get("medical_trust_scoring", {})
+        except Exception:
+            pass
+
+        return {"llm_settings": {"temperature": 0.1, "max_tokens": 10}}

@@ -111,3 +111,30 @@ class MedicalWorkflowOrchestrator:
         })
 
         return state
+
+class HealthcareMCPOrchestrator:
+@classmethod
+def from_config_dict(cls, config_dict: Dict[str, Any]) -> 'HealthcareMCPOrchestrator':
+"""Create orchestrator from configuration dictionary like mcp-use library"""
+
+        # Extract healthcare MCP config
+        healthcare_config = config_dict.get("mcpServers", {}).get("healthcare", {})
+
+        # Initialize with dictionary-based config
+        return cls(
+            host=healthcare_config.get("host", "localhost"),
+            port=healthcare_config.get("port", 8000),
+            timeout=healthcare_config.get("timeout", 30),
+            max_retries=healthcare_config.get("max_retries", 3)
+        )
+
+    async def create_agent_with_mcp(self, llm_client, max_steps: int = 50) -> 'EnhancedHealthcareAgent':
+        """Create healthcare agent with MCP integration like MCPAgent pattern"""
+
+        # Similar to their MCPAgent(llm=llm, client=client, max_steps=100)
+        return EnhancedHealthcareAgent(
+            llm_client=llm_client,
+            mcp_client=self,
+            max_steps=max_steps,
+            healthcare_tools=await self.get_available_tools()
+        )

@@ -486,6 +486,54 @@ print('AI assistant: OK')
     echo "$output"
 }
 
+validate_agent_configuration() {
+    log_info "Validating agent configuration..."
+
+    if [ -f "config/agent_settings.yml" ]; then
+        if python3 -c "
+import yaml
+try:
+    with open('config/agent_settings.yml') as f:
+        config = yaml.safe_load(f)
+    agent_count = len(config.get('agent_limits', {}))
+    print(f'Agent configuration: {agent_count} agents configured')
+
+    # Check for required sections
+    required_sections = ['agent_limits', 'query_engine', 'response_validation', 'compliance']
+    missing_sections = [s for s in required_sections if s not in config]
+
+    if missing_sections:
+        print(f'Warning: Missing config sections: {missing_sections}')
+        exit(1)
+    else:
+        print('All required configuration sections present')
+        exit(0)
+except Exception as e:
+    print(f'Agent config error: {e}')
+    exit(1)
+" 2>/dev/null; then
+            log_success "Agent configuration valid"
+        else
+            log_warning "Agent configuration has issues or incomplete"
+            ((WARNINGS++))
+        fi
+    else
+        log_error "Agent settings file missing"
+        ((CRITICAL_FAILURES++))
+    fi
+
+    # Check if medical files are still .md (need conversion)
+    if [ -f "core/medical/clinical_research_agent.md" ]; then
+        log_warning "Medical agents still in .md format - need conversion to .py for full functionality"
+        ((WARNINGS++))
+    elif [ -f "core/medical/clinical_research_agent.py" ]; then
+        log_success "Medical agents converted to .py format"
+    else
+        log_error "No medical agent files found (.md or .py)"
+        ((CRITICAL_FAILURES++))
+    fi
+}
+
 validate_service_deployment() {
     local cache_key="service_deployment"
     local cached_result
@@ -678,6 +726,8 @@ main() {
             validate_ollama_service
             echo
             validate_healthcare_components
+            echo
+            validate_agent_configuration
             echo
             validate_testing_framework
             echo

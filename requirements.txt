@@ -985,9 +985,9 @@ tzdata==2025.2
     # via
     #   faker
     #   pandas
-unsloth @ git+https://github.com/unslothai/unsloth.git@e6d0877695452b1291ffa17f961397a3a4c21941
+unsloth @ git+https://github.com/unslothai/unsloth.git@5266ead104938c4908c7f2d2a60526555faf7e85
     # via -r requirements.in
-unsloth-zoo==2025.7.10
+unsloth-zoo==2025.7.11
     # via unsloth
 urllib3==2.5.0
     # via
