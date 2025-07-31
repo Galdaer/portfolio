@@ -71,6 +71,11 @@ jobs:
           else
             echo "⚠️  CI isolated environment not found"
           fi
+
+          # Show what we're actually caching vs not caching
+          if [ -d ~/.cache/pip ]; then
+            echo "ℹ️  Global pip cache size (NOT cached): $(du -sh ~/.cache/pip || echo 'unknown')"
+          fi
           echo "⚡ Cache should be much smaller and faster on subsequent runs"
 
   # Fast Python syntax validation - parallel matrix for speed
