@@ -177,7 +177,7 @@ venv.bak/
 # Node.js dependencies and build artifacts
 **/node_modules/
 **/dist/
-!**/build/
+**/build/
 **/.npm
 **/.cache
 **/.parcel-cache
@@ -197,6 +197,18 @@ yarn-error.log*
 .stylelintcache
 .rpt2_cache/
 .rts2_cache_*/
+
+# === VS CODE PERFORMANCE OPTIMIZATION ===
+# Additional exclusions to prevent Git status slowdown
+**/.pytest_cache/
+**/test-results/
+**/playwright-report/
+**/.coverage/
+**/.mypy_cache/
+**/.tox/
+**/.vagrant/
+**/site-packages/
+**/.terraform/
 
 # === DOCKER AND CONTAINERS ===
 # Docker runtime files
