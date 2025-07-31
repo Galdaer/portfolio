@@ -6,7 +6,7 @@ Detects deployment environment and provides appropriate configuration
 
 import os
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 
 class EnvironmentType(Enum):
@@ -71,7 +71,7 @@ class EnvironmentDetector:
         """Check if running in testing environment"""
         return self.detect_environment() == EnvironmentType.TESTING
 
-    def get_environment_settings(self) -> Dict[str, Any]:
+    def get_environment_settings(self) -> Dict[str, Union[str, bool, int]]:
         """
         Get environment-specific settings
 
@@ -80,7 +80,7 @@ class EnvironmentDetector:
         """
         env = self.detect_environment()
 
-        base_settings = {
+        base_settings: Dict[str, Union[str, bool, int]] = {
             "environment": env.value,
             "debug": env != EnvironmentType.PRODUCTION,
             "log_level": "DEBUG" if env == EnvironmentType.DEVELOPMENT else "INFO",
