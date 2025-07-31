@@ -541,16 +541,23 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         not medical advice, diagnosis, or treatment recommendations.
         """
         try:
-            # TODO: Implement general inquiry processing
-            # For now, return a basic response structure
+            # Process general medical inquiry using enhanced query engine
+            result = await self.query_engine.process_medical_query(
+                query=query,
+                query_type=QueryType.LITERATURE_RESEARCH,
+                context={"session_id": session_id},
+            )
+
             return {
                 "success": True,
                 "query": query,
-                "response": "General inquiry processing not yet implemented",
+                "response": f"Research findings for: {result.original_query}",
+                "sources": result.sources,
+                "confidence": result.confidence_score,
                 "session_id": session_id,
-                "clinical_context": clinical_context,
-                "agent_name": self.agent_name,
-                "disclaimer": "This is educational information only. Consult healthcare professionals for medical advice.",
+                "medical_disclaimer": "This information is for educational purposes only.",
+                "query_id": result.query_id,
+                "refined_queries": result.refined_queries,
             }
         except Exception as e:
             return self._create_error_response(f"General inquiry error: {str(e)}", session_id)
