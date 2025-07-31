@@ -17,16 +17,24 @@ logger = logging.getLogger(__name__)
 class DatabaseConnection(Protocol):
     """Database connection protocol for type safety"""
 
-    def cursor(self, cursor_factory=None) -> psycopg2.extensions.cursor: ...
+    @abstractmethod
+    def cursor(self, cursor_factory=None) -> psycopg2.extensions.cursor:
+        """Return a database cursor"""
+        ...
 
-    def commit(self) -> None: ...
+    def commit(self) -> None:
+        pass
 
-    def rollback(self) -> None: ...
+    def rollback(self) -> None:
+        pass
 
-    def close(self) -> None: ...
+    def close(self) -> None:
+        pass
 
     @property
-    def closed(self) -> int: ...
+    def closed(self) -> int:
+        """Return 0 if connection is open, nonzero if closed (abstract)"""
+        raise NotImplementedError("Subclasses must implement 'closed' property")
 
 
 class ConnectionFactory(ABC):
