@@ -107,18 +107,17 @@ if git diff --cached | grep -E '^\+.*\b(TODO|FIXME|XXX)\b'; then
     echo "💡 Consider addressing these before committing"
 fi
 
-# Remove trailing whitespace from all text files
-echo "🧹 Removing trailing whitespace..."
-staged_files=$(git diff --cached --name-only --diff-filter=ACM || true)
-if [ -n "$staged_files" ]; then
-    # Remove trailing whitespace from text files (exclude binary files)
-    echo "$staged_files" | while read -r file; do
+# Final whitespace cleanup for all remaining files after formatting
+echo "🧹 Final whitespace cleanup..."
+all_staged_files=$(git diff --cached --name-only --diff-filter=ACM || true)
+if [ -n "$all_staged_files" ]; then
+    echo "$all_staged_files" | while read -r file; do
         if [ -f "$file" ] && file "$file" | grep -q "text"; then
             sed -i 's/[[:space:]]*$//' "$file" 2>/dev/null || true
         fi
     done
-    # Re-add files after whitespace cleanup
-    echo "$staged_files" | xargs git add 2>/dev/null || true
+    # Re-add all files after final cleanup
+    echo "$all_staged_files" | xargs git add 2>/dev/null || true
 fi
 
 echo "✅ Pre-commit checks and formatting complete!"

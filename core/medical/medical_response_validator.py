@@ -69,7 +69,7 @@ class MedicalResponseValidator:
         # Create validation prompt
         source_summaries = "\n".join(
             [
-                f"Source {i+1}: {source.get('title', 'Unknown')} - {source.get('summary', '')[:200]}"
+                f"Source {i + 1}: {source.get('title', 'Unknown')} - {source.get('summary', '')[:200]}"
                 for i, source in enumerate(sources[:5])
             ]
         )
@@ -133,6 +133,82 @@ class MedicalResponseValidator:
         try:
             result = await self.llm_client.generate(
                 prompt=safety_prompt,
+                model="llama3.1",
+                options={"temperature": 0.1, "max_tokens": 10},
+            )
+
+            score_text = result.get("response", "0.5").strip()
+            return float(score_text) if score_text.replace(".", "").isdigit() else 0.5
+
+        except Exception:
+            return 0.5
+
+    async def _check_evidence_alignment(self, response: str, sources: List[Dict]) -> float:
+        """Check how well the response aligns with evidence from sources"""
+        if not sources:
+            return 0.5  # Neutral if no sources
+
+        evidence_prompt = f"""
+        Medical Response: {response}
+
+        Available Sources: {len(sources)} medical sources provided
+
+        Evidence Alignment Check:
+        - Does the response cite or reference the provided sources?
+        - Are claims in the response supported by the evidence?
+        - Is the strength of claims appropriate for the evidence level?
+
+        Rate evidence alignment (0.0-1.0):
+        - 1.0: Perfect alignment, well-cited, appropriate strength
+        - 0.8: Good alignment, mostly supported
+        - 0.6: Fair alignment, some unsupported claims
+        - 0.4: Poor alignment, weak evidence support
+        - 0.2: Very poor alignment
+        - 0.0: No alignment with evidence
+
+        Return only the numerical score.
+        """
+
+        try:
+            result = await self.llm_client.generate(
+                prompt=evidence_prompt,
+                model="llama3.1",
+                options={"temperature": 0.1, "max_tokens": 10},
+            )
+
+            score_text = result.get("response", "0.5").strip()
+            return float(score_text) if score_text.replace(".", "").isdigit() else 0.5
+
+        except Exception:
+            return 0.5
+
+    async def _check_scope_appropriateness(self, response: str, original_query: str) -> float:
+        """Check if response scope is appropriate for the query"""
+
+        scope_prompt = f"""
+        Original Query: {original_query}
+        Medical Response: {response}
+
+        Scope Appropriateness Check:
+        - Does the response address the original query appropriately?
+        - Is the response within appropriate bounds for an AI system?
+        - Does it avoid overstepping into areas requiring professional medical judgment?
+        - Are appropriate disclaimers and limitations mentioned?
+
+        Rate scope appropriateness (0.0-1.0):
+        - 1.0: Perfect scope, addresses query appropriately with disclaimers
+        - 0.8: Good scope, mostly appropriate
+        - 0.6: Fair scope, some concerns
+        - 0.4: Poor scope, overstepping or under-addressing
+        - 0.2: Very poor scope
+        - 0.0: Completely inappropriate scope
+
+        Return only the numerical score.
+        """
+
+        try:
+            result = await self.llm_client.generate(
+                prompt=scope_prompt,
                 model="llama3.1",
                 options={"temperature": 0.1, "max_tokens": 10},
             )
