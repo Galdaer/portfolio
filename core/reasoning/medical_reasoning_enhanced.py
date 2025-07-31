@@ -33,6 +33,10 @@ class ReasoningStep:
     disclaimers: List[str]
     timestamp: datetime
 
+    def get(self, key: str, default=None):
+        """Dict-like access for backward compatibility"""
+        return getattr(self, key, default)
+
 
 @dataclass
 class ReasoningResult:
@@ -46,6 +50,17 @@ class ReasoningResult:
     medical_disclaimers: List[str]
     sources_consulted: List[str]
     generated_at: datetime
+    # Additional attributes expected by clinical research agent
+    final_assessment: Dict[str, Any]
+    confidence_score: float
+    clinical_recommendations: List[str]
+    evidence_sources: List[Dict[str, Any]]
+    disclaimers: List[str]
+    final_assessment: Dict[str, Any]
+    confidence_score: float
+    clinical_recommendations: List[str]
+    evidence_sources: List[Dict[str, Any]]
+    disclaimers: List[str]
 
 
 class EnhancedMedicalReasoning:
@@ -81,7 +96,7 @@ class EnhancedMedicalReasoning:
 
         Args:
             clinical_scenario: Clinical context and information
-            reasoning_type: Type of reasoning to perform
+            reasoning_type: Type of reasoning to perform (string)
             max_iterations: Maximum reasoning iterations
 
         Returns:
@@ -93,8 +108,7 @@ class EnhancedMedicalReasoning:
         """
         try:
             # Convert string to enum if needed
-            if isinstance(reasoning_type, str):
-                reasoning_type = ReasoningType(reasoning_type)
+            reasoning_type_enum = ReasoningType(reasoning_type)
 
             reasoning_id = f"reasoning_{datetime.now().isoformat()}"
             steps = []
@@ -102,35 +116,53 @@ class EnhancedMedicalReasoning:
             # Perform iterative reasoning
             for iteration in range(max_iterations):
                 step = await self._perform_reasoning_step(
-                    clinical_scenario, reasoning_type, iteration + 1
+                    clinical_scenario, reasoning_type_enum, iteration + 1
                 )
                 steps.append(step)
 
             # Generate final analysis
-            final_analysis = await self._generate_final_analysis(steps, reasoning_type)
+            final_analysis = await self._generate_final_analysis(steps, reasoning_type_enum)
+
+            # Collect evidence sources from steps
+            evidence_sources = self._collect_evidence_sources(steps)
+
+            # Generate clinical recommendations
+            clinical_recommendations = self._generate_clinical_recommendations(final_analysis)
 
             return ReasoningResult(
                 reasoning_id=reasoning_id,
-                reasoning_type=reasoning_type,
+                reasoning_type=reasoning_type_enum,
                 steps=steps,
                 final_analysis=final_analysis,
                 overall_confidence=self._calculate_overall_confidence(steps),
                 medical_disclaimers=self.medical_disclaimers,
                 sources_consulted=self._collect_sources(steps),
                 generated_at=datetime.now(),
+                # Additional attributes for clinical research agent compatibility
+                final_assessment=final_analysis,
+                confidence_score=self._calculate_overall_confidence(steps),
+                clinical_recommendations=clinical_recommendations,
+                evidence_sources=evidence_sources,
+                disclaimers=self.medical_disclaimers,
             )
 
         except Exception as e:
             # Return error with medical disclaimers
             return ReasoningResult(
                 reasoning_id=f"error_{datetime.now().isoformat()}",
-                reasoning_type=reasoning_type,
+                reasoning_type=ReasoningType.GENERAL_INQUIRY,  # Default for errors
                 steps=[],
                 final_analysis={"error": str(e), "success": False},
                 overall_confidence=0.0,
                 medical_disclaimers=self.medical_disclaimers,
                 sources_consulted=[],
                 generated_at=datetime.now(),
+                # Additional attributes for error case
+                final_assessment={"error": str(e), "success": False},
+                confidence_score=0.0,
+                clinical_recommendations=["Consult healthcare professional due to system error"],
+                evidence_sources=[],
+                disclaimers=self.medical_disclaimers,
             )
 
     async def _perform_reasoning_step(
@@ -184,7 +216,7 @@ class EnhancedMedicalReasoning:
             "steps_completed": len(steps),
             "key_findings": "Mock key findings - educational purposes only",
             "confidence_assessment": "Moderate confidence in mock analysis",
-            "next_steps": "Consult qualified healthcare professional for medical advice",
+            "next_steps": "Consult qualified healthcare professional for medical advice;Review additional literature;Consider specialist referral",
             "medical_disclaimer": "This analysis is for educational purposes only and not medical advice",
         }
 
@@ -204,3 +236,31 @@ class EnhancedMedicalReasoning:
 
         # Remove duplicates while preserving order
         return list(dict.fromkeys(all_sources))
+
+    def _collect_evidence_sources(self, steps: List[ReasoningStep]) -> List[Dict[str, Any]]:
+        """Collect evidence sources in structured format for clinical research agent"""
+        evidence_sources = []
+        for step in steps:
+            for source in step.sources:
+                evidence_sources.append(
+                    {
+                        "source": source,
+                        "step": step.step_number,
+                        "confidence": step.confidence,
+                        "reasoning_type": step.reasoning_type,
+                    }
+                )
+        return evidence_sources
+
+    def _generate_clinical_recommendations(self, final_analysis: Dict[str, Any]) -> List[str]:
+        """Generate clinical recommendations from final analysis"""
+        next_steps = final_analysis.get("next_steps", "")
+        if isinstance(next_steps, str) and ";" in next_steps:
+            return [step.strip() for step in next_steps.split(";") if step.strip()]
+
+        # Default recommendations
+        return [
+            "Consult qualified healthcare professional for medical advice",
+            "Verify findings with additional clinical evaluation",
+            "Consider patient-specific factors in decision making",
+        ]
