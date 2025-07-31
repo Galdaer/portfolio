@@ -29,10 +29,10 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v6
+          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v7
           restore-keys: |
-            ${{ runner.os }}-python-ci-
-            ${{ runner.os }}-python-
+            ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
+            ${{ runner.os }}-python-ci-optimized-
 
       - name: Install dependencies
         run: |
@@ -86,14 +86,14 @@ jobs:
         with:
           python-version: "3.12"
       - name: Restore cached dependencies
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/pip
-          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v6
+          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v7
           restore-keys: |
-            ${{ runner.os }}-python-ci-
-            ${{ runner.os }}-python-
+            ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
+            ${{ runner.os }}-python-ci-optimized-
       - name: Setup Python PATH
         run: |
           # Use the isolated CI Python environment created by setup-dependencies
@@ -128,14 +128,14 @@ jobs:
         with:
           python-version: "3.12"
       - name: Restore cached dependencies
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/pip
-          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v6
+          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v7
           restore-keys: |
-            ${{ runner.os }}-python-ci-
-            ${{ runner.os }}-python-
+            ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
+            ${{ runner.os }}-python-ci-optimized-
       - name: Setup Python PATH
         run: |
           # Use the isolated CI Python environment created by setup-dependencies
@@ -191,14 +191,14 @@ jobs:
         with:
           python-version: "3.12"
       - name: Restore cached dependencies
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/pip
-          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v6
+          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v7
           restore-keys: |
-            ${{ runner.os }}-python-ci-
-            ${{ runner.os }}-python-
+            ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
+            ${{ runner.os }}-python-ci-optimized-
       - name: Setup Python PATH
         run: |
           echo "$HOME/.local/bin" >> $GITHUB_PATH
@@ -345,14 +345,14 @@ jobs:
           python-version: "3.12"
 
       - name: Restore cached dependencies
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/pip
-          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v6
+          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v7
           restore-keys: |
-            ${{ runner.os }}-python-ci-
-            ${{ runner.os }}-python-
+            ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
+            ${{ runner.os }}-python-ci-optimized-
 
       - name: Setup Python PATH
         run: |
@@ -497,14 +497,14 @@ jobs:
           python-version: "3.12"
 
       - name: Restore cached dependencies
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/pip
-          key: ${{ runner.os }}-python-ci-${{ hashFiles('requirements-ci.txt') }}-v6
+          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v7
           restore-keys: |
-            ${{ runner.os }}-python-ci-
-            ${{ runner.os }}-python-
+            ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
+            ${{ runner.os }}-python-ci-optimized-
 
       - name: Setup Python PATH
         run: |
