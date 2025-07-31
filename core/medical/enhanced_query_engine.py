@@ -13,32 +13,37 @@ from typing import Any, Dict, List, Optional, Union
 
 from cachetools import TTLCache
 
+from .medical_response_validator import MedicalTrustScore
+
+
 class QueryType(Enum):
-SYMPTOM_ANALYSIS = "symptom_analysis"
-DRUG_INTERACTION = "drug_interaction"
-DIFFERENTIAL_DIAGNOSIS = "differential_diagnosis"
-CLINICAL_GUIDELINES = "clinical_guidelines"
-LITERATURE_RESEARCH = "literature_research"
+    SYMPTOM_ANALYSIS = "symptom_analysis"
+    DRUG_INTERACTION = "drug_interaction"
+    DIFFERENTIAL_DIAGNOSIS = "differential_diagnosis"
+    CLINICAL_GUIDELINES = "clinical_guidelines"
+    LITERATURE_RESEARCH = "literature_research"
+
 
 @dataclass
 class MedicalQueryResult:
-query_id: str
-query_type: QueryType
-original_query: str
-refined_queries: List[str]
-sources: List[Dict[str, Any]]
-confidence_score: float
-reasoning_chain: List[Dict[str, Any]]
-medical_entities: List[Dict[str, Any]]
-disclaimers: List[str]
-source_links: List[str]
-generated_at: datetime
+    query_id: str
+    query_type: QueryType
+    original_query: str
+    refined_queries: List[str]
+    sources: List[Dict[str, Any]]
+    confidence_score: float
+    reasoning_chain: List[Dict[str, Any]]
+    medical_entities: List[Dict[str, Any]]
+    disclaimers: List[str]
+    source_links: List[str]
+    generated_at: datetime
+
 
 class EnhancedMedicalQueryEngine:
-"""
-Agentic RAG system for medical literature with dynamic knowledge retrieval
-Implements NVIDIA's agentic RAG concepts for healthcare
-"""
+    """
+    Agentic RAG system for medical literature with dynamic knowledge retrieval
+    Implements NVIDIA's agentic RAG concepts for healthcare
+    """
 
     def __init__(self, mcp_client, llm_client):
         self.mcp_client = mcp_client
@@ -412,7 +417,7 @@ Implements NVIDIA's agentic RAG concepts for healthcare
         original_query: str,
         previous_response: str,
         trust_score: MedicalTrustScore,
-        iteration: int
+        iteration: int,
     ) -> str:
         """Refine query based on trust score feedback"""
 
@@ -447,7 +452,7 @@ Implements NVIDIA's agentic RAG concepts for healthcare
             result = await self.llm_client.generate(
                 prompt=refinement_prompt,
                 model="llama3.1",
-                options={"temperature": 0.3, "max_tokens": 100}
+                options={"temperature": 0.3, "max_tokens": 100},
             )
 
             refined_query = result.get("response", original_query).strip()

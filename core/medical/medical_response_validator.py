@@ -1,30 +1,29 @@
 # core/medical/medical_response_validator.py
 
-from typing import Dict, Any, List
 import asyncio
 from dataclasses import dataclass
+from typing import Any, Dict, List
+
 
 @dataclass
 class MedicalTrustScore:
-"""Trust score for medical information responses"""
-accuracy_score: float # 0.0-1.0
-evidence_strength: float # Quality of citations
-clinical_appropriateness: float # Appropriate for clinical context
-safety_score: float # No harmful recommendations
-overall_trust: float
+    """Trust score for medical information responses"""
+
+    accuracy_score: float  # 0.0-1.0
+    evidence_strength: float  # Quality of citations
+    clinical_appropriateness: float  # Appropriate for clinical context
+    safety_score: float  # No harmful recommendations
+    overall_trust: float
+
 
 class MedicalResponseValidator:
-"""Validate medical responses for accuracy and safety"""
+    """Validate medical responses for accuracy and safety"""
 
     def __init__(self, llm_client):
         self.llm_client = llm_client
 
     async def validate_medical_response(
-        self,
-        response: str,
-        original_query: str,
-        sources: List[Dict[str, Any]],
-        query_type: str
+        self, response: str, original_query: str, sources: List[Dict[str, Any]], query_type: str
     ) -> MedicalTrustScore:
         """
         Validate medical response for accuracy, safety, and appropriateness
@@ -36,7 +35,7 @@ class MedicalResponseValidator:
             self._check_medical_accuracy(response, sources),
             self._check_clinical_safety(response, query_type),
             self._check_evidence_alignment(response, sources),
-            self._check_scope_appropriateness(response, original_query)
+            self._check_scope_appropriateness(response, original_query),
         ]
 
         results = await asyncio.gather(*validation_tasks)
@@ -48,10 +47,10 @@ class MedicalResponseValidator:
 
         # Calculate overall trust score
         overall_trust = (
-            accuracy_score * 0.3 +
-            safety_score * 0.4 +  # Safety weighted highest
-            evidence_score * 0.2 +
-            scope_score * 0.1
+            accuracy_score * 0.3
+            + safety_score * 0.4  # Safety weighted highest
+            + evidence_score * 0.2
+            + scope_score * 0.1
         )
 
         return MedicalTrustScore(
@@ -59,7 +58,7 @@ class MedicalResponseValidator:
             evidence_strength=evidence_score,
             clinical_appropriateness=scope_score,
             safety_score=safety_score,
-            overall_trust=overall_trust
+            overall_trust=overall_trust,
         )
 
     async def _check_medical_accuracy(self, response: str, sources: List[Dict]) -> float:
@@ -68,10 +67,12 @@ class MedicalResponseValidator:
             return 0.5  # Neutral if no sources
 
         # Create validation prompt
-        source_summaries = "\n".join([
-            f"Source {i+1}: {source.get('title', 'Unknown')} - {source.get('summary', '')[:200]}"
-            for i, source in enumerate(sources[:5])
-        ])
+        source_summaries = "\n".join(
+            [
+                f"Source {i+1}: {source.get('title', 'Unknown')} - {source.get('summary', '')[:200]}"
+                for i, source in enumerate(sources[:5])
+            ]
+        )
 
         validation_prompt = f"""
         Medical Response: {response}
@@ -94,7 +95,7 @@ class MedicalResponseValidator:
             result = await self.llm_client.generate(
                 prompt=validation_prompt,
                 model="llama3.1",
-                options={"temperature": 0.1, "max_tokens": 10}
+                options={"temperature": 0.1, "max_tokens": 10},
             )
 
             score_text = result.get("response", "0.5").strip()
@@ -133,7 +134,7 @@ class MedicalResponseValidator:
             result = await self.llm_client.generate(
                 prompt=safety_prompt,
                 model="llama3.1",
-                options={"temperature": 0.1, "max_tokens": 10}
+                options={"temperature": 0.1, "max_tokens": 10},
             )
 
             score_text = result.get("response", "0.5").strip()

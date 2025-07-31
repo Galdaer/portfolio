@@ -5,23 +5,31 @@ Integrates dynamic knowledge retrieval with medical reasoning
 
 import asyncio
 import json
-import yaml
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from core.agents.base_agent import BaseAgent
+import yaml
+
+from agents import BaseHealthcareAgent
 from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType
 from core.reasoning.medical_reasoning_enhanced import EnhancedMedicalReasoning
 
-class ClinicalResearchAgent(BaseAgent):
-"""
-Enhanced Clinical Research Agent with agentic RAG capabilities
-Integrates dynamic knowledge retrieval with medical reasoning
-"""
 
-    def __init__(self, mcp_client, llm_client, max_steps: Optional[int] = None, config_override: Optional[Dict] = None):
-        super().__init__("clinical_research")
+class ClinicalResearchAgent(BaseHealthcareAgent):
+    """
+    Enhanced Clinical Research Agent with agentic RAG capabilities
+    Integrates dynamic knowledge retrieval with medical reasoning
+    """
+
+    def __init__(
+        self,
+        mcp_client,
+        llm_client,
+        max_steps: Optional[int] = None,
+        config_override: Optional[Dict] = None,
+    ) -> None:
+        super().__init__("clinical_research", "research_assistant")
 
         # Load configuration
         self.config = self._load_agent_config(config_override)
@@ -46,7 +54,7 @@ Integrates dynamic knowledge retrieval with medical reasoning
         try:
             config_path = "config/agent_settings.yml"
             if os.path.exists(config_path):
-                with open(config_path, 'r') as f:
+                with open(config_path, "r") as f:
                     full_config = yaml.safe_load(f)
                 return full_config.get("agent_limits", {}).get("clinical_research", {})
         except Exception:
@@ -57,10 +65,10 @@ Integrates dynamic knowledge retrieval with medical reasoning
             "max_steps": 50,
             "max_iterations": 3,
             "timeout_seconds": 300,
-            "llm_settings": {"temperature": 0.3, "max_tokens": 1000}
+            "llm_settings": {"temperature": 0.3, "max_tokens": 1000},
         }
 
-    async def process(self, input_data: Dict[str, Any], session_id: str) -> Dict[str, Any]:
+    async def _process_implementation(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process clinical research request with enhanced agentic RAG
         """
@@ -68,12 +76,14 @@ Integrates dynamic knowledge retrieval with medical reasoning
 
         try:
             # Reset step counter for new queries
-            query = input_data.get("query", "")
-            query_type = input_data.get("query_type", "general_inquiry")
+            session_id = request.get("session_id", "default")
+
+            # Initialize result with default response
+            result = self._create_error_response("Processing incomplete", session_id)
 
             # Process with step limiting (like their agent.run() with max_steps)
             while self.current_step < self.max_steps:
-                result = await self._process_with_step_limit(input_data, session_id)
+                result = await self._process_with_step_limit(request, session_id)
 
                 # Break if we have a complete result
                 if result.get("complete", False):
@@ -84,13 +94,40 @@ Integrates dynamic knowledge retrieval with medical reasoning
             return result
 
         except Exception as e:
+            session_id = request.get("session_id", "default")
             return self._create_error_response(f"Processing error: {str(e)}", session_id)
 
-    async def _process_with_step_limit(self, input_data: Dict[str, Any], session_id: str) -> Dict[str, Any]:
+    async def _process_with_step_limit(
+        self, input_data: Dict[str, Any], session_id: str
+    ) -> Dict[str, Any]:
         """Process single step with completion checking"""
-        # Your existing processing logic but with step awareness
-        # Similar to how their MCPAgent limits steps in complex reasoning
-        pass
+        # Extract query information
+        query = input_data.get("query", "")
+        query_type = input_data.get("query_type", "general_inquiry")
+        clinical_context = input_data.get("clinical_context", {})
+
+        # Route to appropriate processing method based on query type
+        try:
+            if query_type == "differential_diagnosis":
+                result = await self._process_differential_diagnosis(
+                    query, clinical_context, session_id
+                )
+            elif query_type == "drug_interaction":
+                result = await self._process_drug_interaction(query, clinical_context, session_id)
+            elif query_type == "literature_research":
+                result = await self._process_literature_research(
+                    query, clinical_context, session_id
+                )
+            else:
+                # Default general processing
+                result = await self._process_general_inquiry(query, clinical_context, session_id)
+
+            # Mark as complete
+            result["complete"] = True
+            return result
+
+        except Exception as e:
+            return self._create_error_response(f"Step processing error: {str(e)}", session_id)
 
     async def _process_differential_diagnosis(
         self, query: str, clinical_context: Dict[str, Any], session_id: str
@@ -150,12 +187,14 @@ Integrates dynamic knowledge retrieval with medical reasoning
                     ),
                     "sources": (
                         getattr(result, "sources", [])[:5]
-                        if hasattr(result, "sources") and isinstance(getattr(result, "sources", None), list)
+                        if hasattr(result, "sources")
+                        and isinstance(getattr(result, "sources", None), list)
                         else []
                     ),
                     "source_links": (
                         getattr(result, "source_links", [])[:5]
-                        if hasattr(result, "source_links") and isinstance(getattr(result, "source_links", None), list)
+                        if hasattr(result, "source_links")
+                        and isinstance(getattr(result, "source_links", None), list)
                         else []
                     ),
                 }
@@ -293,7 +332,9 @@ Integrates dynamic knowledge retrieval with medical reasoning
                 continue
 
             stage_info = research_stages[i]
-            stage_desc: str = stage_info["description"] if isinstance(stage_info["description"], str) else ""
+            stage_desc: str = (
+                stage_info["description"] if isinstance(stage_info["description"], str) else ""
+            )
             # Type-safe access to sources with proper typing
             stage_sources: List[Dict[str, Any]] = []
             if hasattr(result, "sources") and hasattr(result, "__dict__"):
@@ -472,9 +513,7 @@ Integrates dynamic knowledge retrieval with medical reasoning
             llm_settings.update(validation_config.get("llm_settings", {}))
 
         response = await self.llm_client.generate(
-            prompt=prompt,
-            model="llama3.1",
-            options=llm_settings
+            prompt=prompt, model="llama3.1", options=llm_settings
         )
 
         return response.get("response", "")
@@ -484,10 +523,34 @@ Integrates dynamic knowledge retrieval with medical reasoning
         try:
             config_path = "config/agent_settings.yml"
             if os.path.exists(config_path):
-                with open(config_path, 'r') as f:
+                with open(config_path, "r") as f:
                     full_config = yaml.safe_load(f)
                 return full_config.get("response_validation", {}).get("medical_trust_scoring", {})
         except Exception:
             pass
 
         return {"llm_settings": {"temperature": 0.1, "max_tokens": 10}}
+
+    async def _process_general_inquiry(
+        self, query: str, clinical_context: Dict[str, Any], session_id: str
+    ) -> Dict[str, Any]:
+        """
+        Process general medical inquiry
+
+        MEDICAL DISCLAIMER: This provides educational information only,
+        not medical advice, diagnosis, or treatment recommendations.
+        """
+        try:
+            # TODO: Implement general inquiry processing
+            # For now, return a basic response structure
+            return {
+                "success": True,
+                "query": query,
+                "response": "General inquiry processing not yet implemented",
+                "session_id": session_id,
+                "clinical_context": clinical_context,
+                "agent_name": self.agent_name,
+                "disclaimer": "This is educational information only. Consult healthcare professionals for medical advice.",
+            }
+        except Exception as e:
+            return self._create_error_response(f"General inquiry error: {str(e)}", session_id)
