@@ -149,17 +149,17 @@ class SyntheticHealthcareDataGenerator:
         os.makedirs(self.output_dir, exist_ok=True)
 
         # Storage for cross-referential data
-        self.doctors = []
-        self.patients = []
-        self.encounters = []
-        self.lab_results = []
-        self.insurance_verifications = []
-        self.agent_sessions = []
+        self.doctors: List[Dict[str, Any]] = []
+        self.patients: List[Dict[str, Any]] = []
+        self.encounters: List[Dict[str, Any]] = []
+        self.lab_results: List[Dict[str, Any]] = []
+        self.insurance_verifications: List[Dict[str, Any]] = []
+        self.agent_sessions: List[Dict[str, Any]] = []
 
         # Phase 2 business data for local deployment
-        self.billing_claims = []
-        self.doctor_preferences = []
-        self.audit_logs = []
+        self.billing_claims: List[Dict[str, Any]] = []
+        self.doctor_preferences: List[Dict[str, Any]] = []
+        self.audit_logs: List[Dict[str, Any]] = []
 
         # Database connections (optional)
         self.db_conn = None
