@@ -261,7 +261,8 @@ if [[ -n "$INSTALLED_UNITS" ]]; then
                 else
                     check_file_secure "$script" script
                 fi
-            elif [[ "$script" =~ ^/ ]]; then
+            elif [[ "$script" =~ ^/ ]] && [[ ! "$script" =~ ^/(bin|usr/bin|sbin|usr/sbin)/ ]]; then
+                # Skip system binaries like /bin/bash, /usr/bin/python, etc.
                 check_file_secure "$script" script
             fi
         done < <(grep -E 'ExecStart|ExecStartPre|ExecStartPost' "$source_unit_path")
@@ -317,7 +318,8 @@ else
                 else
                     check_file_secure "$script" script
                 fi
-            elif [[ "$script" =~ ^/ ]]; then
+            elif [[ "$script" =~ ^/ ]] && [[ ! "$script" =~ ^/(bin|usr/bin|sbin|usr/sbin)/ ]]; then
+                # Skip system binaries like /bin/bash, /usr/bin/python, etc.
                 check_file_secure "$script" script
             fi
         done < <(grep -E 'ExecStart|ExecStartPre|ExecStartPost' "$unit")
