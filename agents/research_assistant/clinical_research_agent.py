@@ -288,7 +288,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         Comprehensive literature research with source prioritization
         """
         # Multi-stage literature search
-        research_stages = [
+        research_stages: List[Dict[str, Any]] = [
             {
                 "query": query,
                 "query_type": QueryType.LITERATURE_RESEARCH,
@@ -309,8 +309,8 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         # Execute research stages in parallel
         research_tasks = [
             self.query_engine.process_medical_query(
-                query=stage["query"],
-                query_type=stage["query_type"],
+                query=str(stage["query"]),
+                query_type=stage["query_type"],  # type: ignore
                 context=clinical_context,
                 max_iterations=2,
             )
