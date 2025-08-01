@@ -3,30 +3,30 @@ Healthcare Security Middleware
 Comprehensive security framework for healthcare AI systems with HIPAA compliance
 """
 
-import os
+import base64
 import json
 import logging
-import psycopg2
-from typing import Dict, Optional, Any, Callable, Union, Tuple
-from datetime import datetime, timedelta
-
+import os
 import secrets
+from datetime import datetime, timedelta
 from functools import wraps
+from typing import Any, Callable, Dict, Optional, Tuple, Union
+
 import jwt
+import psycopg2
+import redis
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-import base64
-
 from fastapi import HTTPException, Request
-import redis
 
+from src.healthcare_mcp.audit_logger import HealthcareAuditLogger
+from src.healthcare_mcp.phi_detection import PHIDetector
 from src.security.environment_detector import EnvironmentDetector
-from .phi_detection import PHIDetector
-from ..healthcare_mcp.audit_logger import HealthcareAuditLogger
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
 
 class SecurityConfig:
     """Security configuration for healthcare systems"""
@@ -57,12 +57,13 @@ class SecurityConfig:
         self.rate_limit_requests = 100
         self.rate_limit_window_minutes = 15
 
+
 class EncryptionManager:
     """Handles encryption/decryption for healthcare data"""
 
     def __init__(self, encryption_key: Optional[bytes] = None):
         if encryption_key:
-            self.fernet = Fernet(base64.urlsafe_b64encode(encryption_key[:32].ljust(32, b'\0')))
+            self.fernet = Fernet(base64.urlsafe_b64encode(encryption_key[:32].ljust(32, b"\0")))
         else:
             # Generate a key for development
             key = Fernet.generate_key()
@@ -106,6 +107,7 @@ class EncryptionManager:
         except Exception:
             return False
 
+
 class SessionManager:
     """Manages user sessions with Redis"""
 
@@ -124,17 +126,15 @@ class SessionManager:
             "last_activity": datetime.now().isoformat(),
             "user_data": user_data,
             "ip_address": user_data.get("ip_address"),
-            "user_agent": user_data.get("user_agent")
+            "user_agent": user_data.get("user_agent"),
         }
 
         # Store session in Redis with expiration - convert timedelta to seconds
         session_key = f"session:{session_id}"
-        timeout_seconds = int(timedelta(minutes=self.config.session_timeout_minutes).total_seconds())
-        self.redis_conn.setex(
-            session_key,
-            timeout_seconds,
-            json.dumps(session_data)
+        timeout_seconds = int(
+            timedelta(minutes=self.config.session_timeout_minutes).total_seconds()
         )
+        self.redis_conn.setex(session_key, timeout_seconds, json.dumps(session_data))
 
         self.logger.info(f"Session created for user {user_id}")
         return session_id
@@ -151,7 +151,7 @@ class SessionManager:
 
             # Handle bytes response from Redis - be more explicit
             if isinstance(session_data_raw, bytes):
-                session_data_str = session_data_raw.decode('utf-8')
+                session_data_str = session_data_raw.decode("utf-8")
             elif isinstance(session_data_raw, str):
                 session_data_str = session_data_raw
             else:
@@ -167,7 +167,7 @@ class SessionManager:
             self.redis_conn.setex(
                 session_key,
                 int(timedelta(minutes=self.config.session_timeout_minutes).total_seconds()),
-                json.dumps(session)
+                json.dumps(session),
             )
 
             return session
@@ -181,6 +181,7 @@ class SessionManager:
         session_key = f"session:{session_id}"
         self.redis_conn.delete(session_key)
         self.logger.info(f"Session {session_id} invalidated")
+
 
 class RateLimiter:
     """Rate limiting for API endpoints"""
@@ -200,13 +201,15 @@ class RateLimiter:
 
             if current_count_raw is None:
                 # First request in window
-                timeout_seconds = int(timedelta(minutes=self.config.rate_limit_window_minutes).total_seconds())
+                timeout_seconds = int(
+                    timedelta(minutes=self.config.rate_limit_window_minutes).total_seconds()
+                )
                 self.redis_conn.setex(key, timeout_seconds, "1")
                 return True
 
             # Convert Redis response to integer
             if isinstance(current_count_raw, bytes):
-                current_count = int(current_count_raw.decode('utf-8'))
+                current_count = int(current_count_raw.decode("utf-8"))
             elif isinstance(current_count_raw, str):
                 current_count = int(current_count_raw)
             else:
@@ -225,10 +228,16 @@ class RateLimiter:
             self.logger.error(f"Rate limit check failed: {e}")
             return True  # Fail open for availability
 
+
 class HealthcareSecurityMiddleware:
     """Main security middleware for healthcare applications"""
 
-    def __init__(self, config: SecurityConfig, postgres_conn: psycopg2.extensions.connection, redis_conn: redis.Redis):
+    def __init__(
+        self,
+        config: SecurityConfig,
+        postgres_conn: psycopg2.extensions.connection,
+        redis_conn: redis.Redis,
+    ):
         self.config = config
         self.postgres_conn = postgres_conn
         self.redis_conn = redis_conn
@@ -237,7 +246,7 @@ class HealthcareSecurityMiddleware:
         encryption_key = None
         if config.master_encryption_key:
             if isinstance(config.master_encryption_key, str):
-                encryption_key = config.master_encryption_key.encode('utf-8')
+                encryption_key = config.master_encryption_key.encode("utf-8")
             else:
                 encryption_key = config.master_encryption_key
 
@@ -249,9 +258,9 @@ class HealthcareSecurityMiddleware:
 
         # Initialize security components with proper parameters
         encryption_key = None
-        if hasattr(config, 'encryption_key') and config.encryption_key:
+        if hasattr(config, "encryption_key") and config.encryption_key:
             if isinstance(config.encryption_key, str):
-                encryption_key = config.encryption_key.encode('utf-8')
+                encryption_key = config.encryption_key.encode("utf-8")
             else:
                 encryption_key = config.encryption_key
 
@@ -267,7 +276,8 @@ class HealthcareSecurityMiddleware:
         try:
             with self.postgres_conn.cursor() as cursor:
                 # User authentication table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS healthcare_users (
                         id SERIAL PRIMARY KEY,
                         user_id VARCHAR(255) UNIQUE NOT NULL,
@@ -282,10 +292,12 @@ class HealthcareSecurityMiddleware:
                         created_at TIMESTAMP DEFAULT NOW(),
                         updated_at TIMESTAMP DEFAULT NOW()
                     )
-                """)
+                """
+                )
 
                 # Access control table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS access_control_log (
                         id SERIAL PRIMARY KEY,
                         user_id VARCHAR(255),
@@ -296,10 +308,12 @@ class HealthcareSecurityMiddleware:
                         ip_address INET,
                         timestamp TIMESTAMP DEFAULT NOW()
                     )
-                """)
+                """
+                )
 
                 # Security events table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS security_events (
                         id SERIAL PRIMARY KEY,
                         event_type VARCHAR(100),
@@ -309,7 +323,8 @@ class HealthcareSecurityMiddleware:
                         details JSONB,
                         timestamp TIMESTAMP DEFAULT NOW()
                     )
-                """)
+                """
+                )
 
             self.postgres_conn.commit()
             self.logger.info("Security tables initialized")
@@ -330,9 +345,7 @@ class HealthcareSecurityMiddleware:
         # Validate JWT token
         try:
             payload = jwt.decode(
-                token,
-                self.config.jwt_secret,
-                algorithms=[self.config.jwt_algorithm]
+                token, self.config.jwt_secret, algorithms=[self.config.jwt_algorithm]
             )
 
             user_id = payload.get("user_id")
@@ -346,11 +359,7 @@ class HealthcareSecurityMiddleware:
                 if not session_data:
                     return None
 
-                return {
-                    "user_id": user_id,
-                    "session_data": session_data,
-                    "token_payload": payload
-                }
+                return {"user_id": user_id, "session_data": session_data, "token_payload": payload}
 
             return {"user_id": user_id, "token_payload": payload}
 
@@ -371,7 +380,7 @@ class HealthcareSecurityMiddleware:
             "admin": ["*"],  # Admin can access everything
             "healthcare_provider": ["patient_data", "medical_records", "research"],
             "researcher": ["research", "anonymized_data"],
-            "user": ["basic_info"]
+            "user": ["basic_info"],
         }
 
         allowed_resources = access_rules.get(user_role, [])
@@ -389,31 +398,40 @@ class HealthcareSecurityMiddleware:
         """Log access attempt for audit"""
         try:
             with self.postgres_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO access_control_log
                     (user_id, resource, action, granted, timestamp)
                     VALUES (%s, %s, %s, %s, NOW())
-                """, (user_id, resource, action, granted))
+                """,
+                    (user_id, resource, action, granted),
+                )
             self.postgres_conn.commit()
         except Exception as e:
             self.logger.error(f"Failed to log access attempt: {e}")
 
-    async def log_security_event(self, event_type: str, severity: str,
-                                 user_id: Optional[str], details: Dict[str, Any]):
+    async def log_security_event(
+        self, event_type: str, severity: str, user_id: Optional[str], details: Dict[str, Any]
+    ):
         """Log security event"""
         try:
             with self.postgres_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO security_events
                     (event_type, severity, user_id, details, timestamp)
                     VALUES (%s, %s, %s, %s, NOW())
-                """, (event_type, severity, user_id, json.dumps(details)))
+                """,
+                    (event_type, severity, user_id, json.dumps(details)),
+                )
             self.postgres_conn.commit()
         except Exception as e:
             self.logger.error(f"Failed to log security event: {e}")
 
+
 def require_authentication(security_middleware: HealthcareSecurityMiddleware):
     """Decorator to require authentication"""
+
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(request: Request, *args, **kwargs):
@@ -424,19 +442,23 @@ def require_authentication(security_middleware: HealthcareSecurityMiddleware):
             # Add user data to request state
             request.state.user_data = user_data
             return await func(request, *args, **kwargs)
+
         return wrapper
+
     return decorator
+
 
 def require_authorization(resource: str, action: str):
     """Decorator to require authorization"""
+
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(request: Request, *args, **kwargs):
-            user_data = getattr(request.state, 'user_data', None)
+            user_data = getattr(request.state, "user_data", None)
             if not user_data:
                 raise HTTPException(status_code=401, detail="Authentication required")
 
-            security_middleware = getattr(request.app.state, 'security_middleware', None)
+            security_middleware = getattr(request.app.state, "security_middleware", None)
             if not security_middleware:
                 raise HTTPException(status_code=500, detail="Security middleware not configured")
 
@@ -445,8 +467,11 @@ def require_authorization(resource: str, action: str):
                 raise HTTPException(status_code=403, detail="Access denied")
 
             return await func(request, *args, **kwargs)
+
         return wrapper
+
     return decorator
+
 
 # Example usage
 if __name__ == "__main__":
