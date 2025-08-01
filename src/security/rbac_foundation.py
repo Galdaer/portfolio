@@ -7,13 +7,14 @@ import json
 import logging
 import os
 import sqlite3
-from typing import Dict, List, Optional, Set, Any
-from datetime import datetime
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional, Set
 
 try:
     from psycopg2.extras import RealDictCursor
+
     PSYCOPG2_AVAILABLE = True
 except ImportError:
     # Use mock cursor for development environments without PostgreSQL
@@ -21,13 +22,15 @@ except ImportError:
     PSYCOPG2_AVAILABLE = False
 
 from src.security.environment_detector import EnvironmentDetector
-from src.security.patient_assignment_db import PatientAssignmentDB, SessionManager, RBACConfig
+from src.security.patient_assignment_db import PatientAssignmentDB, RBACConfig, SessionManager
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
+
 class Permission(Enum):
     """Healthcare RBAC permissions"""
+
     READ_PATIENT_DATA = "read_patient_data"
     WRITE_PATIENT_DATA = "write_patient_data"
     DELETE_PATIENT_DATA = "delete_patient_data"
@@ -61,8 +64,10 @@ class Permission(Enum):
     WRITE_BILLING_DATA = "write_billing_data"
     PROCESS_PAYMENTS = "process_payments"
 
+
 class ResourceType(Enum):
     """Types of resources in the system"""
+
     PATIENT = "patient"
     MEDICAL_RECORD = "medical_record"
     RESEARCH_DATA = "research_data"
@@ -71,9 +76,11 @@ class ResourceType(Enum):
     SYSTEM_CONFIG = "system_config"
     AUDIT_LOG = "audit_log"
 
+
 @dataclass
 class Role:
     """Role definition"""
+
     role_id: str
     name: str
     description: str
@@ -83,9 +90,11 @@ class Role:
     created_at: datetime
     updated_at: datetime
 
+
 @dataclass
 class User:
     """User definition"""
+
     user_id: str
     username: str
     email: str
@@ -95,9 +104,11 @@ class User:
     created_at: datetime
     updated_at: datetime
 
+
 @dataclass
 class AccessRequest:
     """Access request for audit"""
+
     user_id: str
     resource_type: ResourceType
     resource_id: str
@@ -105,12 +116,13 @@ class AccessRequest:
     context: Dict[str, Any]
     timestamp: datetime
 
+
 class HealthcareRBACManager:
     """Healthcare Role-Based Access Control Manager with HIPAA compliance"""
 
     # Class constants for validation
-    VALID_BOOLEAN_VALUES = {'true', 'false'}
-    VALID_ENVIRONMENTS = {'development', 'testing', 'staging', 'production'}
+    VALID_BOOLEAN_VALUES = {"true", "false"}
+    VALID_ENVIRONMENTS = {"development", "testing", "staging", "production"}
 
     def __init__(self, postgres_conn=None, config=None):
         self.postgres_conn = postgres_conn
@@ -121,7 +133,7 @@ class HealthcareRBACManager:
             self.logger.warning("PostgreSQL connection provided but psycopg2 not available")
 
         # Validate RBAC strict mode configuration
-        rbac_strict_mode = os.getenv('RBAC_STRICT_MODE', 'true').lower().strip()
+        rbac_strict_mode = os.getenv("RBAC_STRICT_MODE", "true").lower().strip()
 
         if rbac_strict_mode not in self.VALID_BOOLEAN_VALUES:
             self.logger.error(f"Invalid RBAC_STRICT_MODE value: '{rbac_strict_mode}'")
@@ -130,11 +142,13 @@ class HealthcareRBACManager:
                 f"Expected one of {self.VALID_BOOLEAN_VALUES}."
             )
 
-        self.STRICT_MODE = rbac_strict_mode == 'true'
+        self.STRICT_MODE = rbac_strict_mode == "true"
         self.logger.info(f"RBAC strict mode: {'enabled' if self.STRICT_MODE else 'disabled'}")
 
         # Configure placeholder warnings
-        self.ENABLE_PLACEHOLDER_WARNINGS = os.getenv('RBAC_PLACEHOLDER_WARNINGS', 'true').lower() == 'true'
+        self.ENABLE_PLACEHOLDER_WARNINGS = (
+            os.getenv("RBAC_PLACEHOLDER_WARNINGS", "true").lower() == "true"
+        )
 
         # Initialize RBAC tables only if PostgreSQL is available
         if self.postgres_conn and PSYCOPG2_AVAILABLE:
@@ -152,7 +166,8 @@ class HealthcareRBACManager:
         try:
             with self.postgres_conn.cursor() as cursor:
                 # Roles table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS rbac_roles (
                         id SERIAL PRIMARY KEY,
                         role_id VARCHAR(255) UNIQUE NOT NULL,
@@ -164,10 +179,12 @@ class HealthcareRBACManager:
                         created_at TIMESTAMP DEFAULT NOW(),
                         updated_at TIMESTAMP DEFAULT NOW()
                     )
-                """)
+                """
+                )
 
                 # Users table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS rbac_users (
                         id SERIAL PRIMARY KEY,
                         user_id VARCHAR(255) UNIQUE NOT NULL,
@@ -179,10 +196,12 @@ class HealthcareRBACManager:
                         created_at TIMESTAMP DEFAULT NOW(),
                         updated_at TIMESTAMP DEFAULT NOW()
                     )
-                """)
+                """
+                )
 
                 # Access log table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS rbac_access_log (
                         id SERIAL PRIMARY KEY,
                         user_id VARCHAR(255) NOT NULL,
@@ -193,10 +212,12 @@ class HealthcareRBACManager:
                         context JSONB,
                         timestamp TIMESTAMP DEFAULT NOW()
                     )
-                """)
+                """
+                )
 
                 # Role assignments audit table
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS rbac_role_assignments (
                         id SERIAL PRIMARY KEY,
                         user_id VARCHAR(255) NOT NULL,
@@ -207,21 +228,28 @@ class HealthcareRBACManager:
                         revoked_by VARCHAR(255),
                         reason TEXT
                     )
-                """)
+                """
+                )
 
                 # Create indexes
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE INDEX IF NOT EXISTS idx_rbac_users_user_id
                     ON rbac_users(user_id)
-                """)
-                cursor.execute("""
+                """
+                )
+                cursor.execute(
+                    """
                     CREATE INDEX IF NOT EXISTS idx_rbac_access_log_user_id
                     ON rbac_access_log(user_id)
-                """)
-                cursor.execute("""
+                """
+                )
+                cursor.execute(
+                    """
                     CREATE INDEX IF NOT EXISTS idx_rbac_access_log_timestamp
                     ON rbac_access_log(timestamp)
-                """)
+                """
+                )
 
             self.postgres_conn.commit()
             self.logger.info("RBAC tables initialized")
@@ -250,9 +278,9 @@ class HealthcareRBACManager:
                     Permission.MANAGE_ROLES,
                     Permission.VIEW_AUDIT_LOGS,
                     Permission.MANAGE_SYSTEM,
-                    Permission.USE_AI_TOOLS
+                    Permission.USE_AI_TOOLS,
                 ],
-                "resource_constraints": {}
+                "resource_constraints": {},
             },
             {
                 "role_id": "physician",
@@ -264,11 +292,9 @@ class HealthcareRBACManager:
                     Permission.READ_MEDICAL_RECORDS,
                     Permission.WRITE_MEDICAL_RECORDS,
                     Permission.USE_AI_TOOLS,
-                    Permission.READ_BILLING_DATA
+                    Permission.READ_BILLING_DATA,
                 ],
-                "resource_constraints": {
-                    ResourceType.PATIENT: {"assigned_patients_only": True}
-                }
+                "resource_constraints": {ResourceType.PATIENT: {"assigned_patients_only": True}},
             },
             {
                 "role_id": "nurse",
@@ -278,11 +304,9 @@ class HealthcareRBACManager:
                     Permission.READ_PATIENT_DATA,
                     Permission.WRITE_PATIENT_DATA,
                     Permission.READ_MEDICAL_RECORDS,
-                    Permission.USE_AI_TOOLS
+                    Permission.USE_AI_TOOLS,
                 ],
-                "resource_constraints": {
-                    ResourceType.PATIENT: {"assigned_patients_only": True}
-                }
+                "resource_constraints": {ResourceType.PATIENT: {"assigned_patients_only": True}},
             },
             {
                 "role_id": "researcher",
@@ -293,11 +317,9 @@ class HealthcareRBACManager:
                     Permission.WRITE_RESEARCH_DATA,
                     Permission.EXPORT_RESEARCH_DATA,
                     Permission.USE_AI_TOOLS,
-                    Permission.TRAIN_AI_MODELS
+                    Permission.TRAIN_AI_MODELS,
                 ],
-                "resource_constraints": {
-                    ResourceType.RESEARCH_DATA: {"anonymized_only": True}
-                }
+                "resource_constraints": {ResourceType.RESEARCH_DATA: {"anonymized_only": True}},
             },
             {
                 "role_id": "billing_specialist",
@@ -306,9 +328,9 @@ class HealthcareRBACManager:
                 "permissions": [
                     Permission.READ_BILLING_DATA,
                     Permission.WRITE_BILLING_DATA,
-                    Permission.PROCESS_PAYMENTS
+                    Permission.PROCESS_PAYMENTS,
                 ],
-                "resource_constraints": {}
+                "resource_constraints": {},
             },
             {
                 "role_id": "ai_engineer",
@@ -318,21 +340,22 @@ class HealthcareRBACManager:
                     Permission.READ_RESEARCH_DATA,
                     Permission.USE_AI_TOOLS,
                     Permission.TRAIN_AI_MODELS,
-                    Permission.DEPLOY_AI_MODELS
+                    Permission.DEPLOY_AI_MODELS,
                 ],
-                "resource_constraints": {
-                    ResourceType.RESEARCH_DATA: {"anonymized_only": True}
-                }
-            }
+                "resource_constraints": {ResourceType.RESEARCH_DATA: {"anonymized_only": True}},
+            },
         ]
 
         for role_data in default_roles:
             try:
                 # Check if role already exists
                 with self.postgres_conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT role_id FROM rbac_roles WHERE role_id = %s
-                    """, (role_data["role_id"],))
+                    """,
+                        (role_data["role_id"],),
+                    )
 
                     if cursor.fetchone():
                         continue  # Role already exists
@@ -346,7 +369,7 @@ class HealthcareRBACManager:
                     resource_constraints=role_data["resource_constraints"],
                     is_active=True,
                     created_at=datetime.now(),
-                    updated_at=datetime.now()
+                    updated_at=datetime.now(),
                 )
 
                 self.create_role(role)
@@ -363,18 +386,21 @@ class HealthcareRBACManager:
 
         try:
             with self.postgres_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO rbac_roles
                     (role_id, name, description, permissions, resource_constraints, is_active)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                """, (
-                    role.role_id,
-                    role.name,
-                    role.description,
-                    json.dumps([p.value for p in role.permissions]),
-                    json.dumps(role.resource_constraints, default=str),
-                    role.is_active
-                ))
+                """,
+                    (
+                        role.role_id,
+                        role.name,
+                        role.description,
+                        json.dumps([p.value for p in role.permissions]),
+                        json.dumps(role.resource_constraints, default=str),
+                        role.is_active,
+                    ),
+                )
 
             self.postgres_conn.commit()
             self.logger.info(f"Created role: {role.name}")
@@ -392,17 +418,20 @@ class HealthcareRBACManager:
 
         try:
             with self.postgres_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO rbac_users
                     (user_id, username, email, roles, is_active)
                     VALUES (%s, %s, %s, %s, %s)
-                """, (
-                    user.user_id,
-                    user.username,
-                    user.email,
-                    json.dumps(list(user.roles)),
-                    user.is_active
-                ))
+                """,
+                    (
+                        user.user_id,
+                        user.username,
+                        user.email,
+                        json.dumps(list(user.roles)),
+                        user.is_active,
+                    ),
+                )
 
             self.postgres_conn.commit()
             self.logger.info(f"Created user: {user.username}")
@@ -412,7 +441,9 @@ class HealthcareRBACManager:
             self.logger.error(f"Failed to create user {user.user_id}: {e}")
             return False
 
-    async def assign_role(self, user_id: str, role_id: str, assigned_by: str, reason: str = "") -> bool:
+    async def assign_role(
+        self, user_id: str, role_id: str, assigned_by: str, reason: str = ""
+    ) -> bool:
         """Assign a role to a user"""
         if not self.postgres_conn:
             self.logger.warning("No PostgreSQL connection available for role assignment")
@@ -434,18 +465,24 @@ class HealthcareRBACManager:
 
             # Update user in database
             with self.postgres_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE rbac_users
                     SET roles = %s, updated_at = NOW()
                     WHERE user_id = %s
-                """, (json.dumps(list(user.roles)), user_id))
+                """,
+                    (json.dumps(list(user.roles)), user_id),
+                )
 
                 # Log role assignment
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO rbac_role_assignments
                     (user_id, role_id, assigned_by, reason)
                     VALUES (%s, %s, %s, %s)
-                """, (user_id, role_id, assigned_by, reason))
+                """,
+                    (user_id, role_id, assigned_by, reason),
+                )
 
             self.postgres_conn.commit()
             self.logger.info(f"Assigned role {role_id} to user {user_id}")
@@ -461,14 +498,16 @@ class HealthcareRBACManager:
         permission: Permission,
         resource_type: ResourceType,
         resource_id: str,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Check if user has permission for resource"""
         try:
             # Get user
             user = await self.get_user(user_id)
             if not user or not user.is_active:
-                self._log_access_attempt(user_id, permission, resource_type, resource_id, False, context)
+                self._log_access_attempt(
+                    user_id, permission, resource_type, resource_id, False, context
+                )
                 return False
 
             # Check each role
@@ -480,17 +519,25 @@ class HealthcareRBACManager:
                 # Check if role has permission
                 if permission in role.permissions:
                     # Check resource constraints
-                    if await self._check_resource_constraints(role, resource_type, resource_id, context):
-                        self._log_access_attempt(user_id, permission, resource_type, resource_id, True, context)
+                    if await self._check_resource_constraints(
+                        role, resource_type, resource_id, context
+                    ):
+                        self._log_access_attempt(
+                            user_id, permission, resource_type, resource_id, True, context
+                        )
                         return True
 
             # No role granted permission
-            self._log_access_attempt(user_id, permission, resource_type, resource_id, False, context)
+            self._log_access_attempt(
+                user_id, permission, resource_type, resource_id, False, context
+            )
             return False
 
         except Exception as e:
             self.logger.error(f"Permission check failed for user {user_id}: {e}")
-            self._log_access_attempt(user_id, permission, resource_type, resource_id, False, context)
+            self._log_access_attempt(
+                user_id, permission, resource_type, resource_id, False, context
+            )
             return False
 
     async def is_user_assigned_to_patient(self, user_id: str, patient_id: str) -> bool:
@@ -503,7 +550,9 @@ class HealthcareRBACManager:
             return True
         else:
             # Production implementation will be added in Phase 2
-            self.logger.warning(f"Patient assignment check in production - user {user_id}, patient {patient_id}")
+            self.logger.warning(
+                f"Patient assignment check in production - user {user_id}, patient {patient_id}"
+            )
             return False
 
     async def check_patient_access(self, user_id: str, patient_id: str) -> bool:
@@ -563,7 +612,9 @@ class HealthcareRBACManager:
             NotImplementedError: If patient assignment not properly implemented
         """
         # Check feature flag for production deployment
-        patient_assignment_enabled = os.getenv('RBAC_ENABLE_PATIENT_ASSIGNMENT', 'false').lower() == 'true'
+        patient_assignment_enabled = (
+            os.getenv("RBAC_ENABLE_PATIENT_ASSIGNMENT", "false").lower() == "true"
+        )
 
         # Validate that proper implementation exists before allowing production use
         if not patient_assignment_enabled:
@@ -575,7 +626,9 @@ class HealthcareRBACManager:
 
         # Additional validation: Check if real implementation is available
         if not self._has_real_patient_assignment_implementation():
-            self.logger.error("RBAC_ENABLE_PATIENT_ASSIGNMENT=true but no real implementation found")
+            self.logger.error(
+                "RBAC_ENABLE_PATIENT_ASSIGNMENT=true but no real implementation found"
+            )
             raise NotImplementedError(
                 "Feature flag enabled but patient assignment implementation is still placeholder. "
                 "Implement proper database-backed validation before production use."
@@ -596,8 +649,12 @@ class HealthcareRBACManager:
             return True
 
         # Log warning about placeholder implementation
-        self.logger.warning(f"Production patient assignment validation incomplete for user {user_id} -> patient {patient_id}")
-        self.logger.warning("Consider implementing proper patient assignment validation or enabling emergency access")
+        self.logger.warning(
+            f"Production patient assignment validation incomplete for user {user_id} -> patient {patient_id}"
+        )
+        self.logger.warning(
+            "Consider implementing proper patient assignment validation or enabling emergency access"
+        )
 
         # For production safety, deny access by default but provide clear guidance
         return False
@@ -610,7 +667,7 @@ class HealthcareRBACManager:
             bool: True if real implementation exists, False if still placeholder
         """
         # Check if we're in CI environment
-        if os.getenv('CI') == 'true':
+        if os.getenv("CI") == "true":
             logging.debug("CI environment detected - patient assignment will be mocked")
             return False
 
@@ -643,10 +700,10 @@ class HealthcareRBACManager:
         # This allows for simple production deployment while proper implementation is developed
 
         # Pattern 1: Explicit user-patient assignments
-        assignments = os.getenv('RBAC_BASIC_ASSIGNMENTS', '')
+        assignments = os.getenv("RBAC_BASIC_ASSIGNMENTS", "")
         if assignments:
             # Format: "user1:patient1,user1:patient2,user2:patient3"
-            assignment_pairs = [pair.strip() for pair in assignments.split(',') if pair.strip()]
+            assignment_pairs = [pair.strip() for pair in assignments.split(",") if pair.strip()]
             user_patient_pair = f"{user_id}:{patient_id}"
 
             if user_patient_pair in assignment_pairs:
@@ -654,7 +711,7 @@ class HealthcareRBACManager:
                 return True
 
         # Pattern 2: Role-based access (all users with specific roles can access all patients)
-        admin_roles = os.getenv('RBAC_ADMIN_ROLES', '').split(',')
+        admin_roles = os.getenv("RBAC_ADMIN_ROLES", "").split(",")
         user_roles = self._get_user_roles(user_id)
 
         if any(role.strip() in admin_roles for role in user_roles if role.strip()):
@@ -679,7 +736,7 @@ class HealthcareRBACManager:
         Returns:
             bool: True if user has access to patient
         """
-        default_access = os.getenv('RBAC_DEFAULT_PATIENT_ACCESS', 'true').lower() == 'true'
+        default_access = os.getenv("RBAC_DEFAULT_PATIENT_ACCESS", "true").lower() == "true"
 
         if default_access:
             self.logger.debug(f"DEV MODE: Allowing patient access {user_id} -> {patient_id}")
@@ -700,8 +757,8 @@ class HealthcareRBACManager:
         """
         # TODO: Implement actual role retrieval
         # For now, check environment variable for testing
-        user_roles_env = os.getenv(f'RBAC_USER_ROLES_{user_id.upper()}', '')
-        return [role.strip() for role in user_roles_env.split(',') if role.strip()]
+        user_roles_env = os.getenv(f"RBAC_USER_ROLES_{user_id.upper()}", "")
+        return [role.strip() for role in user_roles_env.split(",") if role.strip()]
 
     def _check_same_organization_access(self, user_id: str, patient_id: str) -> bool:
         """
@@ -716,8 +773,8 @@ class HealthcareRBACManager:
         """
         # TODO: Implement actual organization checking
         # For now, use environment variables for basic implementation
-        user_org = os.getenv(f'RBAC_USER_ORG_{user_id.upper()}', '')
-        patient_org = os.getenv(f'RBAC_PATIENT_ORG_{patient_id.upper()}', '')
+        user_org = os.getenv(f"RBAC_USER_ORG_{user_id.upper()}", "")
+        patient_org = os.getenv(f"RBAC_PATIENT_ORG_{patient_id.upper()}", "")
 
         if user_org and patient_org and user_org == patient_org:
             return True
@@ -742,23 +799,35 @@ class HealthcareRBACManager:
             bool: True if emergency access is granted
         """
         # Check for emergency override flags
-        emergency_override = os.getenv('RBAC_EMERGENCY_OVERRIDE', 'false').lower() == 'true'
+        emergency_override = os.getenv("RBAC_EMERGENCY_OVERRIDE", "false").lower() == "true"
 
         if emergency_override:
-            self.logger.warning(f"EMERGENCY ACCESS: User {user_id} accessing patient {patient_id} via emergency override")
-            self._log_emergency_access(user_id, patient_id, "emergency_override", "Emergency override flag enabled")
+            self.logger.warning(
+                f"EMERGENCY ACCESS: User {user_id} accessing patient {patient_id} via emergency override"
+            )
+            self._log_emergency_access(
+                user_id, patient_id, "emergency_override", "Emergency override flag enabled"
+            )
             return True
 
         # Check for emergency user roles
         if self._is_emergency_user(user_id):
-            self.logger.warning(f"EMERGENCY ACCESS: Emergency user {user_id} accessing patient {patient_id}")
-            self._log_emergency_access(user_id, patient_id, "emergency_user", "User has emergency access role")
+            self.logger.warning(
+                f"EMERGENCY ACCESS: Emergency user {user_id} accessing patient {patient_id}"
+            )
+            self._log_emergency_access(
+                user_id, patient_id, "emergency_user", "User has emergency access role"
+            )
             return True
 
         # Check for break-glass access (requires supervisor approval)
         if self._check_break_glass_access(user_id, patient_id):
-            self.logger.warning(f"EMERGENCY ACCESS: Break-glass access granted for user {user_id} to patient {patient_id}")
-            self._log_emergency_access(user_id, patient_id, "break_glass", "Break-glass access with supervisor approval")
+            self.logger.warning(
+                f"EMERGENCY ACCESS: Break-glass access granted for user {user_id} to patient {patient_id}"
+            )
+            self._log_emergency_access(
+                user_id, patient_id, "break_glass", "Break-glass access with supervisor approval"
+            )
             return True
 
         return False
@@ -781,7 +850,7 @@ class HealthcareRBACManager:
         # - Break-glass authorized personnel
 
         # For now, check environment variable for testing
-        emergency_users = os.getenv('RBAC_EMERGENCY_USERS', '').split(',')
+        emergency_users = os.getenv("RBAC_EMERGENCY_USERS", "").split(",")
         return user_id.strip() in [u.strip() for u in emergency_users if u.strip()]
 
     def _check_break_glass_access(self, user_id: str, patient_id: str) -> bool:
@@ -803,7 +872,7 @@ class HealthcareRBACManager:
         # - Multi-factor authentication
 
         # For now, check environment variable for testing
-        break_glass_enabled = os.getenv('RBAC_BREAK_GLASS_ENABLED', 'false').lower() == 'true'
+        break_glass_enabled = os.getenv("RBAC_BREAK_GLASS_ENABLED", "false").lower() == "true"
         return break_glass_enabled
 
     def _log_emergency_access(self, user_id: str, patient_id: str, access_type: str, reason: str):
@@ -826,9 +895,9 @@ class HealthcareRBACManager:
             "patient_id": patient_id,
             "access_type": access_type,
             "reason": reason,
-            "environment": os.getenv('ENVIRONMENT', 'unknown'),
+            "environment": os.getenv("ENVIRONMENT", "unknown"),
             "source_ip": "unknown",  # TODO: Get actual source IP
-            "session_id": "unknown"  # TODO: Get actual session ID
+            "session_id": "unknown",  # TODO: Get actual session ID
         }
 
         # Log to security audit system
@@ -838,13 +907,15 @@ class HealthcareRBACManager:
         # TODO: Alert security team
         # TODO: Store in audit database
 
-    async def _check_patient_assignment_constraints(self, user_id: str, constraints: Dict[str, Any]) -> bool:
+    async def _check_patient_assignment_constraints(
+        self, user_id: str, constraints: Dict[str, Any]
+    ) -> bool:
         """Check patient assignment constraints with Phase 2 preparation"""
         if not constraints:
             return True
 
         # Check assigned patients constraint
-        assigned_patients = constraints.get('assigned_patients')
+        assigned_patients = constraints.get("assigned_patients")
         if assigned_patients:
             # Phase 2 TODO: Replace with actual patient assignment check
             for patient_id in assigned_patients:
@@ -864,7 +935,7 @@ class HealthcareRBACManager:
         role: Role,
         resource_type: ResourceType,
         resource_id: str,
-        context: Optional[Dict[str, Any]]
+        context: Optional[Dict[str, Any]],
     ) -> bool:
         """Check resource-specific constraints"""
         constraints = role.resource_constraints.get(resource_type, {})
@@ -881,18 +952,24 @@ class HealthcareRBACManager:
                 return False
 
             if not await self.is_user_assigned_to_patient(user_id, resource_id):
-                self.logger.warning(f"Patient access denied - user {user_id} is not assigned to patient {resource_id}")
+                self.logger.warning(
+                    f"Patient access denied - user {user_id} is not assigned to patient {resource_id}"
+                )
                 return False
 
             # User is assigned to the patient, allow access
-            self.logger.info(f"Patient access granted - user {user_id} is assigned to patient {resource_id}")
+            self.logger.info(
+                f"Patient access granted - user {user_id} is assigned to patient {resource_id}"
+            )
             return True
 
         # Check anonymized data only constraint
         if constraints.get("anonymized_only") and resource_type == ResourceType.RESEARCH_DATA:
             # TODO: Implement actual anonymization verification
             # For now, allow research data access but log for audit
-            self.logger.info(f"Research data access granted - anonymization check pending for data {resource_id}")
+            self.logger.info(
+                f"Research data access granted - anonymization check pending for data {resource_id}"
+            )
             return True
 
         # Default to allow for other constraint types not yet implemented
@@ -906,9 +983,12 @@ class HealthcareRBACManager:
 
         try:
             with self.postgres_conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT * FROM rbac_users WHERE user_id = %s
-                """, (user_id,))
+                """,
+                    (user_id,),
+                )
 
                 row = cursor.fetchone()
                 if not row:
@@ -922,7 +1002,7 @@ class HealthcareRBACManager:
                     is_active=row["is_active"],
                     last_login=row["last_login"],
                     created_at=row["created_at"],
-                    updated_at=row["updated_at"]
+                    updated_at=row["updated_at"],
                 )
 
         except Exception as e:
@@ -937,9 +1017,12 @@ class HealthcareRBACManager:
 
         try:
             with self.postgres_conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT * FROM rbac_roles WHERE role_id = %s
-                """, (role_id,))
+                """,
+                    (role_id,),
+                )
 
                 row = cursor.fetchone()
                 if not row:
@@ -953,7 +1036,7 @@ class HealthcareRBACManager:
                     resource_constraints=row["resource_constraints"] or {},
                     is_active=row["is_active"],
                     created_at=row["created_at"],
-                    updated_at=row["updated_at"]
+                    updated_at=row["updated_at"],
                 )
 
         except Exception as e:
@@ -967,28 +1050,33 @@ class HealthcareRBACManager:
         resource_type: ResourceType,
         resource_id: str,
         granted: bool,
-        context: Optional[Dict[str, Any]]
+        context: Optional[Dict[str, Any]],
     ):
         """Log access attempt for audit"""
         if not self.postgres_conn:
             # In development mode, log to file instead
-            self.logger.info(f"Access attempt: user={user_id}, resource={resource_type.value}:{resource_id}, permission={permission.value}, granted={granted}")
+            self.logger.info(
+                f"Access attempt: user={user_id}, resource={resource_type.value}:{resource_id}, permission={permission.value}, granted={granted}"
+            )
             return
 
         try:
             with self.postgres_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO rbac_access_log
                     (user_id, resource_type, resource_id, permission, granted, context)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                """, (
-                    user_id,
-                    resource_type.value,
-                    resource_id,
-                    permission.value,
-                    granted,
-                    json.dumps(context) if context else None
-                ))
+                """,
+                    (
+                        user_id,
+                        resource_type.value,
+                        resource_id,
+                        permission.value,
+                        granted,
+                        json.dumps(context) if context else None,
+                    ),
+                )
             self.postgres_conn.commit()
         except Exception as e:
             self.logger.error(f"Failed to log access attempt: {e}")
@@ -1015,7 +1103,8 @@ class HealthcareRBACManager:
 
         try:
             with self.postgres_conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT
                         resource_type,
                         permission,
@@ -1025,7 +1114,9 @@ class HealthcareRBACManager:
                     WHERE user_id = %s
                     AND timestamp > NOW() - INTERVAL '%s days'
                     GROUP BY resource_type, permission
-                """, (user_id, days))
+                """,
+                    (user_id, days),
+                )
 
                 access_stats = cursor.fetchall()
 
@@ -1034,7 +1125,7 @@ class HealthcareRBACManager:
                     "period_days": days,
                     "access_statistics": [dict(row) for row in access_stats],
                     "total_attempts": sum(row["access_count"] for row in access_stats),
-                    "total_granted": sum(row["granted_count"] for row in access_stats)
+                    "total_granted": sum(row["granted_count"] for row in access_stats),
                 }
 
         except Exception as e:
@@ -1066,11 +1157,11 @@ class HealthcareRBACManager:
             if is_valid:
                 self.logger.info(f"Patient assignment validated: {user_id} -> {patient_id}")
                 # Log successful access
-                db.log_access_attempt(user_id, patient_id, 'read', 'allowed')
+                db.log_access_attempt(user_id, patient_id, "read", "allowed")
             else:
                 self.logger.warning(f"Patient assignment denied: {user_id} -> {patient_id}")
                 # Log denied access
-                db.log_access_attempt(user_id, patient_id, 'read', 'denied')
+                db.log_access_attempt(user_id, patient_id, "read", "denied")
 
             return is_valid
 
@@ -1080,7 +1171,7 @@ class HealthcareRBACManager:
             try:
                 config = RBACConfig()
                 db = PatientAssignmentDB(config.database_path)
-                db.log_access_attempt(user_id, patient_id, 'read', 'error', str(e))
+                db.log_access_attempt(user_id, patient_id, "read", "error", str(e))
             except Exception:
                 pass  # Don't fail on logging errors
             return False
@@ -1129,7 +1220,9 @@ class RBACMixin:
             self.logger.error(f"Patient access check failed: {e}")
             return False
 
-    def log_access_attempt(self, user_id: str, patient_id: str, action: str, result: str, details: Optional[str] = None):
+    def log_access_attempt(
+        self, user_id: str, patient_id: str, action: str, result: str, details: Optional[str] = None
+    ):
         """
         Log access attempt for audit trail
 
@@ -1142,12 +1235,17 @@ class RBACMixin:
         """
         if self.patient_db:
             try:
-                self.patient_db.log_access_attempt(user_id, patient_id, action, result, details or "")
+                self.patient_db.log_access_attempt(
+                    user_id, patient_id, action, result, details or ""
+                )
             except Exception as e:
                 self.logger.error(f"Failed to log access attempt: {e}")
         else:
             self.logger.info(f"Access attempt: {user_id} -> {patient_id} [{action}] = {result}")
 
+
+# Compatibility alias for workflows and external code
+RBACFoundation = HealthcareRBACManager
 
 # Example usage
 if __name__ == "__main__":
