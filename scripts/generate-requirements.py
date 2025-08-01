@@ -64,6 +64,15 @@ CI_EXCLUDED_PACKAGES = {
 
 # Packages to exclude from self-hosted requirements (development/non-core packages only)
 SELF_HOSTED_EXCLUDED_PACKAGES = {
+    # Heavy ML packages that cause cache bloat
+    "unsloth",  # LoRA training - development only
+    "transformers",  # Large model library - use specific models instead
+    "datasets",  # Large dataset library - use specific datasets instead
+    "peft",  # Parameter-efficient fine-tuning - development only
+    "bitsandbytes",  # Quantization library - development only
+    "accelerate",  # Multi-GPU training - development only
+    "trl",  # Reinforcement learning - development only
+    "wandb",  # Experiment tracking - development only
     # Development-only packages that cause cache bloat
     "jupyter",  # Development environment
     "ipython",  # Interactive development
@@ -178,8 +187,17 @@ def create_ci_requirements_in(requirements_in_path):
             continue
 
         # Check if this line contains a package we want to exclude
+        # Handle various package specification formats:
+        # - package==1.0.0
+        # - package[extras]>=1.0.0
+        # - package @ git+https://...
+        # - package[extras] @ git+https://...
         package_name = (
-            line_stripped.split(">=")[0].split("==")[0].split("[")[0].split("@")[0].strip()
+            line_stripped.split("@")[0]  # Remove git URLs first
+            .split(">=")[0]  # Remove version constraints
+            .split("==")[0]  # Remove exact versions
+            .split("[")[0]  # Remove extras specifications
+            .strip()  # Clean whitespace
         )
 
         if package_name in CI_EXCLUDED_PACKAGES:
@@ -207,8 +225,17 @@ def create_self_hosted_requirements_in(requirements_in_path):
             continue
 
         # Check if this line contains a package we want to exclude
+        # Handle various package specification formats:
+        # - package==1.0.0
+        # - package[extras]>=1.0.0
+        # - package @ git+https://...
+        # - package[extras] @ git+https://...
         package_name = (
-            line_stripped.split(">=")[0].split("==")[0].split("[")[0].split("@")[0].strip()
+            line_stripped.split("@")[0]  # Remove git URLs first
+            .split(">=")[0]  # Remove version constraints
+            .split("==")[0]  # Remove exact versions
+            .split("[")[0]  # Remove extras specifications
+            .strip()  # Clean whitespace
         )
 
         if package_name in SELF_HOSTED_EXCLUDED_PACKAGES:
