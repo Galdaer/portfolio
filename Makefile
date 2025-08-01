@@ -1,6 +1,11 @@
 .PHONY: \
 	   auto-repair \
 	   backup \
+	   data-clean \
+	   data-generate \
+	   data-generate-large \
+	   data-generate-small \
+	   data-status \
 	   debug \
 	   deps \
 	   diagnostics \
@@ -373,6 +378,52 @@ test-coverage:
 	@echo "🧪  Running healthcare AI Bats tests with coverage (if available)"
 	USE_KCOV=true bash ./scripts/test.sh
 
+# Synthetic Healthcare Data Generation
+data-generate:
+	@echo "🏥  Generating comprehensive synthetic healthcare data"
+	@echo "   - 75 doctors, 2,500 patients, 6,000 encounters"
+	@echo "   - Cross-referenced Phase 1 & Phase 2 business data"
+	@python3 scripts/generate_synthetic_healthcare_data.py --doctors 75 --patients 2500 --encounters 6000
+
+data-generate-small:
+	@echo "🏥  Generating small test dataset"
+	@echo "   - 10 doctors, 100 patients, 200 encounters"
+	@python3 scripts/generate_synthetic_healthcare_data.py --doctors 10 --patients 100 --encounters 200
+
+data-generate-large:
+	@echo "🏥  Generating large development dataset"
+	@echo "   - 150 doctors, 5,000 patients, 12,000 encounters"
+	@python3 scripts/generate_synthetic_healthcare_data.py --doctors 150 --patients 5000 --encounters 12000
+
+data-clean:
+	@echo "🗑️  Cleaning synthetic healthcare data"
+	@rm -rf data/synthetic/*.json
+	@echo "✅ Synthetic data files removed"
+
+data-status:
+	@echo "📊  Synthetic Healthcare Data Status"
+	@echo "=================================="
+	@if [ -d "data/synthetic" ]; then \
+		file_count=$$(find data/synthetic -name "*.json" -type f | wc -l); \
+		if [ $$file_count -gt 0 ]; then \
+			echo "📁 Files: $$file_count"; \
+			total_size=$$(du -sh data/synthetic 2>/dev/null | cut -f1 || echo "unknown"); \
+			echo "💾 Size: $$total_size"; \
+			echo "📋 Data files:"; \
+			for file in data/synthetic/*.json; do \
+				if [ -f "$$file" ]; then \
+					filename=$$(basename "$$file"); \
+					records=$$(python3 -c "import json; print(len(json.load(open('$$file'))))" 2>/dev/null || echo "?"); \
+					printf "   %-25s %s records\n" "$$filename:" "$$records"; \
+				fi; \
+			done; \
+		else \
+			echo "📂 Directory exists but no data files found"; \
+		fi; \
+	else \
+		echo "📂 No synthetic data directory found"; \
+	fi
+
 # Virtual environment management
 venv:
 	@echo "💡  To use virtual environment for healthcare AI development:"
@@ -442,6 +493,10 @@ help:
 	@echo "  make test-coverage   Run healthcare AI tests with coverage"
 	@echo "  make e2e             Run end-to-end healthcare AI bootstrap test"
 	@echo "  make systemd-verify  Verify healthcare AI systemd service configurations"
+	@echo "  make data-small      Generate small synthetic healthcare dataset (testing)"
+	@echo "  make data-dev        Generate medium synthetic healthcare dataset (development)"
+	@echo "  make data-full       Generate comprehensive synthetic healthcare dataset (production-like)"
+	@echo "  make data-clean      Remove all synthetic healthcare data"
 	@echo ""
 	@echo "🔧 Maintenance:"
 	@echo "  make fix-permissions Fix ownership and permissions for healthcare AI files"
