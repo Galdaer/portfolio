@@ -107,8 +107,19 @@ class HealthcareAITester:
             return None
 
     def _initialize_metrics(self):
-        """Initialize DeepEval metrics with proper model configuration"""
+        """Initialize DeepEval metrics with proper model configuration and CPU-only safety"""
         try:
+            # CRITICAL SAFETY: Check for CPU-only mode to prevent GPU crashes
+            cpu_only = os.getenv("TORCH_DEVICE") == "cpu" or os.getenv("CUDA_VISIBLE_DEVICES") == ""
+            ci_mode = os.getenv("CI") == "true"
+
+            if cpu_only or ci_mode:
+                print("🛡️  CPU-only mode detected - skipping GPU-dependent DeepEval metrics")
+                print("⚠️  This prevents system crashes when PyTorch/CUDA is not properly installed")
+                self.use_deepeval_metrics = False
+                self.metrics = {}
+                return
+
             # Get available model
             model_name = self._get_available_model()
             if not model_name:

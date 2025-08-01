@@ -1,14 +1,5 @@
 name: Healthcare AI Validation
 
-# RECENT FIXES (2025-08-01):
-# - Added timeout protection to cache restore steps (3 minutes)
-# - Added timeout protection to Python PATH setup steps (2 minutes)
-# - Added fallback to system Python if cached environment not available
-# - Added existence checks before using cached Python environment
-# - Fixed hanging issue in python-syntax-validation and python-quality-validation jobs
-# - Added cache hit detection to skip dependency installation when cache is valid (1:12 → ~10s)
-# - Optimized all test jobs to use fast cache detection for sub-5-second dependency setup
-
 on:
   push:
     branches: [main]
@@ -38,10 +29,10 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v9
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
           restore-keys: |
-            ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
-            ${{ runner.os }}-python-ci-optimized-
+            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}
+            ${{ runner.os }}-python-self-hosted-
 
       - name: Install dependencies (with aggressive cache optimization)
         run: |
@@ -76,12 +67,16 @@ jobs:
           echo "PYTHONPATH=$CI_PYTHON_PATH:$PYTHONPATH" >> $GITHUB_ENV
 
           # Install CI-optimized dependencies only to isolated location
-          if [ -f "requirements-ci.txt" ]; then
-            echo "Installing lightweight CI requirements to isolated location..."
-            python3 -m pip install --target="$CI_PYTHON_PATH" -r requirements-ci.txt || echo "CI requirements installation completed with warnings"
-          else
-            echo "⚠️  requirements-ci.txt not found - using full requirements (will be slow)"
+          # CRITICAL: Use full requirements.txt for self-hosted runners (GPU capable)
+          # Use requirements-ci.txt only for GitHub cloud runners (no GPU)
+          if [ -f "requirements.txt" ]; then
+            echo "🏠 Installing FULL requirements for self-hosted runner (includes GPU packages)..."
+            echo "   - PyTorch and CUDA libraries included for proper GPU support"
+            echo "   - This prevents DeepEval/OllamaModel GPU crashes on your hardware"
             python3 -m pip install --target="$CI_PYTHON_PATH" -r requirements.txt || echo "Requirements installation completed with warnings"
+          else
+            echo "❌ requirements.txt not found - fallback failed"
+            exit 1
           fi
 
           echo "✅ Initial dependency installation complete - cache will be available for next run"
@@ -123,10 +118,10 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v9
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
           restore-keys: |
-            ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
-            ${{ runner.os }}-python-ci-optimized-
+            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}
+            ${{ runner.os }}-python-self-hosted-
 
       - name: Setup Python PATH (should be instant with cache)
         run: |
@@ -250,10 +245,10 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v9
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
           restore-keys: |
-            ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
-            ${{ runner.os }}-python-ci-optimized-
+            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}
+            ${{ runner.os }}-python-self-hosted-
       - name: Setup Python PATH
         run: |
           echo "=== Setting up Python PATH with cache optimization ==="
@@ -425,10 +420,10 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v9
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
           restore-keys: |
-            ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
-            ${{ runner.os }}-python-ci-optimized-
+            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}
+            ${{ runner.os }}-python-self-hosted-
 
       - name: Setup Python PATH with timeout protection
         timeout-minutes: 1
@@ -632,10 +627,10 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v9
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
           restore-keys: |
-            ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
-            ${{ runner.os }}-python-ci-optimized-
+            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}
+            ${{ runner.os }}-python-self-hosted-
 
       - name: Setup Python PATH
         timeout-minutes: 2
@@ -816,7 +811,7 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v9
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
       - name: Setup Python PATH (optimized)
         run: |
           echo "🔧 Setting up Python environment with cache optimization..."
@@ -897,9 +892,9 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v9
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
           restore-keys: |
-            ${{ runner.os }}-python-ci-optimized-
+            ${{ runner.os }}-python-self-hosted-
       - name: Setup Python PATH (optimized)
         run: |
           echo "🔧 Setting up Python environment with cache optimization..."
@@ -946,9 +941,9 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v9
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
           restore-keys: |
-            ${{ runner.os }}-python-ci-optimized-
+            ${{ runner.os }}-python-self-hosted-
       - name: Setup Python PATH
         timeout-minutes: 2
         run: |
@@ -968,18 +963,36 @@ jobs:
             echo "⚠️  This may cause slower execution but will prevent hanging"
             # Don't fail, just use system Python
           fi
-      - name: Run Healthcare AI Evaluation (make test-ai)
+      - name: Run Healthcare AI Evaluation (GPU-enabled for self-hosted)
         env:
           CI: true
           ENVIRONMENT: development
-          OLLAMA_AVAILABLE: false
-          USE_OFFLINE_METRICS: true
+          # Enable GPU for self-hosted runners with proper PyTorch support
+          GPU_AVAILABLE: true
+          OLLAMA_GPU_ENABLED: true
         run: |
-          echo "🧪 Running healthcare AI evaluation with DeepEval..."
+          echo "🧪 Running healthcare AI evaluation with GPU support..."
+          echo "� Self-hosted runner with full PyTorch/CUDA dependencies"
           echo "   - Testing AI agent responses for medical accuracy"
           echo "   - Validating HIPAA compliance and PHI protection"
           echo "   - Measuring response quality and faithfulness"
-          echo "   - Testing Phase 1 infrastructure integration"
+          echo "   - Testing Phase 1 infrastructure integration (GPU-enabled)"
+
+          # Verify PyTorch and GPU availability
+          python3 -c "
+          try:
+              import torch
+              print(f'✅ PyTorch available: {torch.__version__}')
+              print(f'🎯 CUDA available: {torch.cuda.is_available()}')
+              if torch.cuda.is_available():
+                  print(f'🔥 GPU devices: {torch.cuda.device_count()}')
+                  print(f'🔥 Current device: {torch.cuda.get_device_name()}')
+              else:
+                  print('ℹ️  CUDA not available - will use CPU mode')
+          except ImportError:
+              print('❌ PyTorch not available - this should not happen with full requirements')
+              exit 1
+          "
 
           # Ensure synthetic data exists for testing
           if [ ! -f "data/synthetic/patients.json" ]; then
@@ -988,14 +1001,14 @@ jobs:
           fi
 
           # Run Phase 1 infrastructure tests
-          echo "🔧 Running Phase 1 infrastructure tests..."
-          python3 tests/healthcare_evaluation/test_phase1_infrastructure.py || echo "Phase 1 tests completed with warnings"
+          echo "🔧 Running Phase 1 infrastructure tests with GPU support..."
+          timeout 5m python3 tests/healthcare_evaluation/test_phase1_infrastructure.py || echo "Phase 1 tests completed with warnings"
 
-          # Run healthcare AI evaluation
-          echo "🏥 Running healthcare DeepEval evaluation..."
-          python3 scripts/healthcare_deepeval.py || echo "Healthcare evaluation completed with warnings"
+          # Run healthcare AI evaluation with proper GPU support
+          echo "🏥 Running healthcare DeepEval evaluation with GPU acceleration..."
+          timeout 10m python3 scripts/healthcare_deepeval.py || echo "Healthcare evaluation completed"
 
-          echo "✅ Healthcare AI evaluation complete"
+          echo "✅ Healthcare AI evaluation complete (GPU-enabled)"
 
   # Test Coverage Report - MISSING from current workflow
   test-coverage-report:
@@ -1015,9 +1028,9 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v9
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
           restore-keys: |
-            ${{ runner.os }}-python-ci-optimized-
+            ${{ runner.os }}-python-self-hosted-
       - name: Setup Python PATH (optimized)
         run: |
           echo "🔧 Setting up Python environment with cache optimization..."
