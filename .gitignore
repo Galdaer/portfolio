@@ -8,6 +8,7 @@
 !/Makefile
 !/requirements.txt
 !/requirements-ci.txt
+!/requirements-self-hosted.txt
 !/requirements.in
 !/mypy.ini
 !/pyproject.toml

@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-Generate requirements.txt and requirements-ci.txt from requirements.in
+Generate requirements.txt, requirements-ci.txt, and requirements-self-hosted.txt from requirements.in
 
-This script generates two requirements files:
+This script generates three requirements files:
 - requirements.txt: Full dependencies for local development and production
-- requirements-ci.txt: Minimal dependencies for CI/CD validation
+- requirements-ci.txt: Minimal dependencies for CI/CD validation (cloud runners)
+- requirements-self-hosted.txt: GPU-optimized dependencies for self-hosted runners
 
 Heavy GPU/ML packages are excluded from CI to improve build times and efficiency.
+Self-hosted includes GPU packages but excludes development-only packages.
 """
 
 import os
@@ -58,6 +60,35 @@ CI_EXCLUDED_PACKAGES = {
     "jupyter",
     "notebook",
     "ipython",
+}
+
+# Packages to exclude from self-hosted requirements (development/non-core packages only)
+SELF_HOSTED_EXCLUDED_PACKAGES = {
+    # Development-only packages that cause cache bloat
+    "jupyter",  # Development environment
+    "ipython",  # Interactive development
+    "notebook",  # Jupyter notebooks
+    "jupyterlab",  # Development IDE
+    "ipykernel",  # Notebook kernel
+    "ipywidgets",  # Interactive widgets
+    # Development tools
+    "pre-commit",  # Git hooks
+    "black",  # Code formatting
+    "isort",  # Import sorting
+    "flake8",  # Linting
+    "mypy",  # Type checking
+    "pytest",  # Testing framework
+    "pytest-cov",  # Coverage testing
+    "pytest-asyncio",  # Async testing
+    # Documentation and visualization packages
+    "sphinx",  # Documentation
+    "mkdocs",  # Documentation
+    "matplotlib",  # Plotting - not needed for AI inference
+    "seaborn",  # Statistical plotting
+    "plotly",  # Interactive plotting
+    # Optional data science packages that can be loaded on-demand
+    "pandas",  # Data manipulation - use specific operations
+    "scikit-learn",  # Classical ML - use specific implementations
 }
 
 # Core packages that CI validation DOES need
@@ -160,6 +191,35 @@ def create_ci_requirements_in(requirements_in_path):
     return "".join(filtered_lines)
 
 
+def create_self_hosted_requirements_in(requirements_in_path):
+    """Create a filtered requirements.in for self-hosted runners by excluding dev-only packages"""
+    with open(requirements_in_path, "r") as f:
+        lines = f.readlines()
+
+    filtered_lines = []
+
+    for line in lines:
+        line_stripped = line.strip()
+
+        # Skip comments and empty lines
+        if not line_stripped or line_stripped.startswith("#"):
+            filtered_lines.append(line)
+            continue
+
+        # Check if this line contains a package we want to exclude
+        package_name = (
+            line_stripped.split(">=")[0].split("==")[0].split("[")[0].split("@")[0].strip()
+        )
+
+        if package_name in SELF_HOSTED_EXCLUDED_PACKAGES:
+            print(f"Excluding from self-hosted: {package_name}")
+            continue
+
+        filtered_lines.append(line)
+
+    return "".join(filtered_lines)
+
+
 def clean_requirements_content(content):
     """Clean up pip-compile generated content by removing via comments and temp paths"""
     lines = content.splitlines()
@@ -187,12 +247,13 @@ def clean_requirements_content(content):
 
 
 def generate_requirements_files():
-    """Generate both requirements.txt and requirements-ci.txt"""
+    """Generate requirements.txt, requirements-ci.txt, and requirements-self-hosted.txt"""
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
     requirements_in = project_root / "requirements.in"
     requirements_txt = project_root / "requirements.txt"
     requirements_ci_txt = project_root / "requirements-ci.txt"
+    requirements_self_hosted_txt = project_root / "requirements-self-hosted.txt"
 
     if not requirements_in.exists():
         print(f"Error: {requirements_in} not found")
@@ -211,11 +272,11 @@ def generate_requirements_files():
     # Generate filtered requirements-ci.txt
     print("🏗️ Generating requirements-ci.txt (CI-optimized dependencies)...")
 
-    # Create temporary filtered requirements.in
+    # Create temporary filtered requirements.in for CI
     with tempfile.NamedTemporaryFile(mode="w", suffix=".in", delete=False) as temp_file:
         filtered_content = create_ci_requirements_in(requirements_in)
         temp_file.write(filtered_content)
-        temp_requirements_in = temp_file.name
+        temp_ci_requirements_in = temp_file.name
 
     try:
         # Add CI-specific header
@@ -226,7 +287,7 @@ def generate_requirements_files():
 
 """
 
-        cmd = f"uv pip compile {temp_requirements_in} -o {requirements_ci_txt}"
+        cmd = f"uv pip compile {temp_ci_requirements_in} -o {requirements_ci_txt}"
         if run_command(cmd, cwd=project_root) is None:
             print("❌ Failed to generate requirements-ci.txt")
             return False
@@ -243,21 +304,65 @@ def generate_requirements_files():
 
         print(f"✅ Generated {requirements_ci_txt}")
 
-        # Show size comparison
-        full_size = os.path.getsize(requirements_txt)
-        ci_size = os.path.getsize(requirements_ci_txt)
-        reduction = ((full_size - ci_size) / full_size) * 100
+    finally:
+        # Clean up temp file
+        os.unlink(temp_ci_requirements_in)
 
-        print("\n📊 Size comparison:")
-        print(f"   requirements.txt: {full_size:,} bytes")
-        print(f"   requirements-ci.txt: {ci_size:,} bytes")
-        print(f"   Reduction: {reduction:.1f}%")
+    # Generate filtered requirements-self-hosted.txt
+    print("🚀 Generating requirements-self-hosted.txt (GPU-enabled, dev-packages excluded)...")
 
-        return True
+    # Create temporary filtered requirements.in for self-hosted
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".in", delete=False) as temp_file:
+        filtered_content = create_self_hosted_requirements_in(requirements_in)
+        temp_file.write(filtered_content)
+        temp_self_hosted_requirements_in = temp_file.name
+
+    try:
+        # Add self-hosted-specific header
+        self_hosted_header = """# Healthcare AI Self-Hosted Requirements
+# Auto-generated from requirements.in with development packages excluded
+# This file includes GPU/PyTorch packages for self-hosted runners
+# But excludes development-only packages to optimize cache size
+
+"""
+
+        cmd = f"uv pip compile {temp_self_hosted_requirements_in} -o {requirements_self_hosted_txt}"
+        if run_command(cmd, cwd=project_root) is None:
+            print("❌ Failed to generate requirements-self-hosted.txt")
+            return False
+
+        # Prepend header to self-hosted requirements and clean up via comments
+        with open(requirements_self_hosted_txt, "r") as f:
+            self_hosted_content = f.read()
+
+        # Clean up the pip-compile generated content
+        cleaned_content = clean_requirements_content(self_hosted_content)
+
+        with open(requirements_self_hosted_txt, "w") as f:
+            f.write(self_hosted_header + cleaned_content)
+
+        print(f"✅ Generated {requirements_self_hosted_txt}")
 
     finally:
         # Clean up temp file
-        os.unlink(temp_requirements_in)
+        os.unlink(temp_self_hosted_requirements_in)
+
+    # Show size comparison
+    full_size = os.path.getsize(requirements_txt)
+    ci_size = os.path.getsize(requirements_ci_txt)
+    self_hosted_size = os.path.getsize(requirements_self_hosted_txt)
+
+    ci_reduction = ((full_size - ci_size) / full_size) * 100
+    self_hosted_reduction = ((full_size - self_hosted_size) / full_size) * 100
+
+    print("\n📊 Size comparison:")
+    print(f"   requirements.txt: {full_size:,} bytes (full)")
+    print(f"   requirements-ci.txt: {ci_size:,} bytes ({ci_reduction:.1f}% reduction)")
+    print(
+        f"   requirements-self-hosted.txt: {self_hosted_size:,} bytes ({self_hosted_reduction:.1f}% reduction)"
+    )
+
+    return True
 
 
 def main():

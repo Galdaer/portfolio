@@ -29,9 +29,9 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}-v11
           restore-keys: |
-            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}
+            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}
             ${{ runner.os }}-python-self-hosted-
 
       - name: Install dependencies (with aggressive cache optimization)
@@ -67,16 +67,17 @@ jobs:
           echo "PYTHONPATH=$CI_PYTHON_PATH:$PYTHONPATH" >> $GITHUB_ENV
 
           # Install CI-optimized dependencies only to isolated location
-          # CRITICAL: Use full requirements.txt for self-hosted runners (GPU capable)
-          # Use requirements-ci.txt only for GitHub cloud runners (no GPU)
-          if [ -f "requirements.txt" ]; then
-            echo "🏠 Installing FULL requirements for self-hosted runner (includes GPU packages)..."
+          # CRITICAL: Use requirements-self-hosted.txt for self-hosted runners (optimized cache)
+          # This includes GPU packages but excludes development tools to reduce cache size
+          if [ -f "requirements-self-hosted.txt" ]; then
+            echo "🏠 Installing OPTIMIZED requirements for self-hosted runner..."
             echo "   - PyTorch and CUDA libraries included for proper GPU support"
-            echo "   - This prevents DeepEval/OllamaModel GPU crashes on your hardware"
-            python3 -m pip install --target="$CI_PYTHON_PATH" -r requirements.txt || echo "Requirements installation completed with warnings"
+            echo "   - Development packages excluded to reduce cache size (7.1GB → ~1GB)"
+            echo "   - This prevents DeepEval/OllamaModel GPU crashes while optimizing cache"
+            python3 -m pip install --target="$CI_PYTHON_PATH" -r requirements-self-hosted.txt || echo "Requirements installation completed with warnings"
           else
-            echo "❌ requirements.txt not found - fallback failed"
-            exit 1
+            echo "❌ requirements-self-hosted.txt not found - fallback to full requirements"
+            python3 -m pip install --target="$CI_PYTHON_PATH" -r requirements.txt || echo "Requirements installation completed with warnings"
           fi
 
           echo "✅ Initial dependency installation complete - cache will be available for next run"
@@ -118,9 +119,9 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}-v11
           restore-keys: |
-            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}
+            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}
             ${{ runner.os }}-python-self-hosted-
 
       - name: Setup Python PATH (should be instant with cache)
@@ -245,9 +246,9 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}-v11
           restore-keys: |
-            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}
+            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}
             ${{ runner.os }}-python-self-hosted-
       - name: Setup Python PATH
         run: |
@@ -420,9 +421,9 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}-v11
           restore-keys: |
-            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}
+            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}
             ${{ runner.os }}-python-self-hosted-
 
       - name: Setup Python PATH with timeout protection
@@ -627,9 +628,9 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}-v11
           restore-keys: |
-            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}
+            ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}
             ${{ runner.os }}-python-self-hosted-
 
       - name: Setup Python PATH
@@ -750,7 +751,7 @@ jobs:
             echo "ℹ️  This may be expected in CI environment with shared dependencies"
           fi
 
-    # Final status check - only runs if all critical checks pass
+  # Final status check - only runs if all critical checks pass
   healthcare-compliance-summary:
     runs-on: self-hosted
     needs:
@@ -811,7 +812,7 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}-v11
       - name: Setup Python PATH (optimized)
         run: |
           echo "🔧 Setting up Python environment with cache optimization..."
@@ -892,7 +893,7 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}-v11
           restore-keys: |
             ${{ runner.os }}-python-self-hosted-
       - name: Setup Python PATH (optimized)
@@ -941,7 +942,7 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}-v11
           restore-keys: |
             ${{ runner.os }}-python-self-hosted-
       - name: Setup Python PATH
@@ -1028,7 +1029,7 @@ jobs:
         with:
           path: |
             /tmp/ci-python-${{ github.run_id }}
-          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements.txt') }}-v10
+          key: ${{ runner.os }}-python-self-hosted-${{ hashFiles('requirements-self-hosted.txt') }}-v11
           restore-keys: |
             ${{ runner.os }}-python-self-hosted-
       - name: Setup Python PATH (optimized)
