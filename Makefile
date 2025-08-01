@@ -431,10 +431,13 @@ test-ai:
 	@echo "   - Testing AI agent responses for medical accuracy"
 	@echo "   - Validating HIPAA compliance and PHI protection"
 	@echo "   - Measuring response quality and faithfulness"
+	@echo "   - Testing Phase 1 infrastructure integration"
+	@python3 tests/healthcare_evaluation/test_phase1_infrastructure.py
 	@python3 scripts/healthcare_deepeval.py
 
 test-ai-report:
 	@echo "📋  Generating healthcare AI evaluation report"
+	@python3 tests/healthcare_evaluation/test_phase1_infrastructure.py
 	@python3 scripts/healthcare_deepeval.py
 	@if [ -f "data/synthetic/healthcare_ai_evaluation_report.txt" ]; then \
 		echo "📄 Report generated:"; \
