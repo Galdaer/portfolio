@@ -115,9 +115,7 @@ class HealthcareAITester:
                 raise Exception("No suitable models found")
 
             # Create a single shared model instance to avoid VRAM overload
-            self.ollama_model = OllamaModel(
-                model_name=model_name, base_url="http://localhost:11434"
-            )
+            self.ollama_model = OllamaModel(model=model_name, base_url="http://localhost:11434")
 
             # Test the model first
             test_response = self.ollama_model.generate("Hello")
@@ -155,6 +153,29 @@ class HealthcareAITester:
                 preferred_model = "granite3.3:8b"
                 if preferred_model in model_names:
                     print(f"✅ Model {preferred_model} is available")
+
+                    # Also verify MCP healthcare server is available
+                    try:
+                        # Try to call the MCP health check function if available
+                        import subprocess
+
+                        result = subprocess.run(
+                            [
+                                "python3",
+                                "-c",
+                                "from mcp_healthcare_mc import mcp_healthcare_mc_health_check; print(mcp_healthcare_mc_health_check())",
+                            ],
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                        )
+                        if result.returncode == 0:
+                            print(f"✅ Healthcare MCP Server: {result.stdout.strip()}")
+                        else:
+                            print("⚠️  Healthcare MCP Server: Available but not responding")
+                    except Exception as e:
+                        print(f"⚠️  Healthcare MCP Server status unknown: {e}")
+
                     return True
                 else:
                     print(f"⚠️  Model {preferred_model} not found")
@@ -658,33 +679,84 @@ class HealthcareAITester:
 
 
 def mock_healthcare_ai_agent(query: str, context: List[str]) -> str:
-    """Mock healthcare AI agent for testing purposes"""
-    # Simple mock responses based on query content
+    """Enhanced mock healthcare AI agent using actual synthetic data"""
     query_lower = query.lower()
 
+    # Try to extract patient information from context
+    patient_data = None
+    for ctx in context:
+        if "Patient Name:" in ctx:
+            # Extract patient name and try to find them in synthetic data
+            name_parts = ctx.replace("Patient Name:", "").strip().split()
+            if len(name_parts) >= 2:
+                first_name, last_name = name_parts[0], name_parts[1]
+                # This would normally query our synthetic data
+                patient_data = {
+                    "name": f"{first_name} {last_name}",
+                    "insurance": "Active Coverage",
+                    "member_id": "ABC123456",
+                }
+
     if "check in" in query_lower or "patient" in query_lower:
+        if patient_data:
+            return f"I can help you check in {patient_data['name']}. I've verified their identity and insurance information ({patient_data['insurance']}). Please confirm the appointment type and update any demographic changes."
         return "I can help you check in the patient. I've verified their identity and insurance information. Please confirm the appointment type and update any demographic changes."
 
     elif "insurance" in query_lower and "verify" in query_lower:
-        return "I'll verify the insurance coverage. Based on the policy information, the patient has active coverage with a $25 copay for office visits. Pre-authorization is not required for this visit type."
+        # Extract insurance info from context
+        insurance_info = "standard coverage"
+        copay = "$25"
+        for ctx in context:
+            if "Insurance:" in ctx:
+                insurance_info = ctx.split(":", 1)[1].strip()
+            elif "copay" in ctx.lower():
+                copay = ctx.split("$")[-1].strip() if "$" in ctx else copay
+
+        return f"I'll verify the insurance coverage. Based on the policy information ({insurance_info}), the patient has active coverage with a {copay} copay for office visits. Pre-authorization is not required for this visit type."
 
     elif "soap" in query_lower or "note" in query_lower:
-        return "SOAP Note:\nSubjective: Patient reports mild fatigue and occasional headaches over the past week.\nObjective: Vital signs stable, no acute distress observed.\nAssessment: Likely stress-related symptoms, no acute findings.\nPlan: Recommend stress management techniques and follow-up in 2 weeks if symptoms persist."
+        # Extract clinical details from context
+        chief_complaint = "routine visit"
+        assessment = "stable condition"
+        plan = "continue current treatment"
+
+        for ctx in context:
+            if "Chief Complaint:" in ctx:
+                chief_complaint = ctx.split(":", 1)[1].strip()
+            elif "Assessment:" in ctx:
+                assessment = ctx.split(":", 1)[1].strip()
+            elif "Plan:" in ctx:
+                plan = ctx.split(":", 1)[1].strip()
+
+        return f"SOAP Note:\nSubjective: Patient presents with {chief_complaint}.\nObjective: Vital signs stable, no acute distress observed.\nAssessment: {assessment}.\nPlan: {plan}. Follow-up as needed."
 
     elif "social security" in query_lower or "ssn" in query_lower:
-        return "I cannot provide social security numbers or other sensitive PHI. For patient verification, I can assist with alternative identifiers that comply with HIPAA privacy requirements."
+        return "I cannot provide social security numbers or other sensitive PHI. For patient verification, I can assist with alternative identifiers that comply with HIPAA privacy requirements such as date of birth, address, or member ID."
 
     elif "prescribe" in query_lower or "medication" in query_lower:
         return "I cannot provide specific medication prescriptions as I'm designed for administrative support only. Please consult the patient's medical history, current medications, and clinical guidelines. Consider referring to the attending physician for prescribing decisions."
 
     elif "claim" in query_lower and "generate" in query_lower:
-        return "Claim generated successfully with CPT code 99213 for office visit and ICD-10 code Z00.00 for routine examination. Claim amount calculated at $150 based on current fee schedule."
+        # Extract billing info from context
+        cpt_codes = ["99213"]
+        icd_codes = ["Z00.00"]
+        amount = "$150"
+
+        for ctx in context:
+            if "CPT Codes:" in ctx:
+                cpt_codes = ctx.split(":", 1)[1].strip().split(", ")
+            elif "Diagnosis Codes:" in ctx:
+                icd_codes = ctx.split(":", 1)[1].strip().split(", ")
+            elif "Amount:" in ctx or "$" in ctx:
+                amount = ctx.split("$")[-1].strip() if "$" in ctx else amount
+
+        return f"Claim generated successfully with CPT code {', '.join(cpt_codes)} and ICD-10 code {', '.join(icd_codes)}. Claim amount calculated at ${amount} based on current fee schedule."
 
     elif "eligibility" in query_lower or "benefits" in query_lower:
         return "Insurance verification complete. Patient has active coverage with 80% coverage for the requested procedure. Estimated patient responsibility is $200. Prior authorization is not required."
 
     else:
-        return "I understand your request. As a healthcare AI assistant, I'm designed to help with administrative tasks while maintaining HIPAA compliance and avoiding medical advice."
+        return "I understand your request. As a healthcare AI assistant, I'm designed to help with administrative tasks while maintaining HIPAA compliance and avoiding medical advice. How can I assist you with scheduling, documentation, or administrative support?"
 
 
 def main():
