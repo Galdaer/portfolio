@@ -285,8 +285,8 @@ if [[ -n "$INSTALLED_UNITS" ]]; then
         check_systemd_logging "$source_unit_path"
         if command -v systemd-analyze >/dev/null 2>&1; then
             # Run systemd-analyze verify on the installed unit, but suppress expected warnings
-            # about dependency name mismatches since we use intelluxe- prefix for installation
-            verify_out=$(systemd-analyze verify "$unit" 2>&1 | grep -v "has different name" || true)
+            # about dependency name mismatches and display-manager.service -> gdm.service aliases
+            verify_out=$(systemd-analyze verify "$unit" 2>&1 | grep -v "display-manager.service target.*gdm.service has different name" || true)
             status=$?
             if [[ -n "$verify_out" ]]; then
                 while IFS= read -r line; do
@@ -341,7 +341,7 @@ else
         # Check for logging/status
         check_systemd_logging "$unit"
         if command -v systemd-analyze >/dev/null 2>&1; then
-            verify_out=$(systemd-analyze verify "$unit" 2>&1)
+            verify_out=$(systemd-analyze verify "$unit" 2>&1 | grep -v "display-manager.service target.*gdm.service has different name" || true)
             status=$?
             if [[ -n "$verify_out" ]]; then
                 while IFS= read -r line; do

@@ -1818,9 +1818,9 @@ is_container_running() {
 
 check_permissions() {
     # Warn if sensitive files are world-readable.
-    # Be more lenient in development environments (when CFG_ROOT points to /opt/intelluxe/stack)
+    # Be more lenient in development environments (when CFG_ROOT points to development or CI)
     local is_development=false
-    if [[ "$CFG_ROOT" == "/opt/intelluxe/stack" ]] || [[ "${CI:-}" == "true" ]]; then
+    if [[ "$CFG_ROOT" == "/home/intelluxe/stack" ]] || [[ "${CI:-}" == "true" ]] || [[ "${ENVIRONMENT:-}" == "development" ]]; then
         is_development=true
     fi
 
@@ -1863,7 +1863,7 @@ fix_development_permissions() {
 
     # Only run in development environment
     local is_development=false
-    if [[ "${CI:-}" == "true" ]] || [[ "$SCRIPT_DIR" == "/home/intelluxe/scripts" ]]; then
+    if [[ "${CI:-}" == "true" ]] || [[ "$SCRIPT_DIR" == "/home/intelluxe/scripts" ]] || [[ "${ENVIRONMENT:-}" == "development" ]]; then
         is_development=true
     fi
 
