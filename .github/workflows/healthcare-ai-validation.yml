@@ -1,5 +1,12 @@
 name: Healthcare AI Validation
 
+# RECENT FIXES (2025-08-01):
+# - Added timeout protection to cache restore steps (3 minutes)
+# - Added timeout protection to Python PATH setup steps (2 minutes)
+# - Added fallback to system Python if cached environment not available
+# - Added existence checks before using cached Python environment
+# - Fixed hanging issue in python-syntax-validation and python-quality-validation jobs
+
 on:
   push:
     branches: [main]
@@ -94,6 +101,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Restore cached dependencies
+        timeout-minutes: 3
         uses: actions/cache/restore@v4
         with:
           path: |
@@ -103,11 +111,25 @@ jobs:
             ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
             ${{ runner.os }}-python-ci-optimized-
       - name: Setup Python PATH
+        timeout-minutes: 2
         run: |
+          echo "=== Setting up Python PATH with timeout protection ==="
+
           # Use the isolated CI Python environment created by setup-dependencies
           export CI_PYTHON_PATH="/tmp/ci-python-${{ github.run_id }}"
-          echo "$CI_PYTHON_PATH" >> $GITHUB_PATH
-          echo "PYTHONPATH=$CI_PYTHON_PATH:$PYTHONPATH" >> $GITHUB_ENV
+
+          # Check if cache was properly restored
+          if [ -d "$CI_PYTHON_PATH" ]; then
+            echo "✅ Cached Python environment found: $CI_PYTHON_PATH"
+            echo "📦 Cached packages: $(find "$CI_PYTHON_PATH" -name "*.dist-info" 2>/dev/null | wc -l) packages"
+            echo "$CI_PYTHON_PATH" >> $GITHUB_PATH
+            echo "PYTHONPATH=$CI_PYTHON_PATH:$PYTHONPATH" >> $GITHUB_ENV
+            echo "✅ Python PATH setup completed"
+          else
+            echo "⚠️  Cached Python environment not found - using system Python"
+            echo "⚠️  This may cause slower execution but will prevent hanging"
+            # Don't fail, just use system Python
+          fi
 
       - name: Python Syntax Check - ${{ matrix.directory }}
         run: |
@@ -136,6 +158,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Restore cached dependencies
+        timeout-minutes: 3
         uses: actions/cache/restore@v4
         with:
           path: |
@@ -145,11 +168,25 @@ jobs:
             ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
             ${{ runner.os }}-python-ci-optimized-
       - name: Setup Python PATH
+        timeout-minutes: 2
         run: |
+          echo "=== Setting up Python PATH with timeout protection ==="
+
           # Use the isolated CI Python environment created by setup-dependencies
           export CI_PYTHON_PATH="/tmp/ci-python-${{ github.run_id }}"
-          echo "$CI_PYTHON_PATH" >> $GITHUB_PATH
-          echo "PYTHONPATH=$CI_PYTHON_PATH:$PYTHONPATH" >> $GITHUB_ENV
+
+          # Check if cache was properly restored
+          if [ -d "$CI_PYTHON_PATH" ]; then
+            echo "✅ Cached Python environment found: $CI_PYTHON_PATH"
+            echo "📦 Cached packages: $(find "$CI_PYTHON_PATH" -name "*.dist-info" 2>/dev/null | wc -l) packages"
+            echo "$CI_PYTHON_PATH" >> $GITHUB_PATH
+            echo "PYTHONPATH=$CI_PYTHON_PATH:$PYTHONPATH" >> $GITHUB_ENV
+            echo "✅ Python PATH setup completed"
+          else
+            echo "⚠️  Cached Python environment not found - using system Python"
+            echo "⚠️  This may cause slower execution but will prevent hanging"
+            # Don't fail, just use system Python
+          fi
 
       - name: Python Quality Check - ${{ matrix.tool }} on ${{ matrix.directory }}
         run: |
@@ -376,6 +413,17 @@ jobs:
         timeout-minutes: 1
         run: |
           echo "=== Setting up Python PATH ==="
+
+          # Check if cache was properly restored
+          export CI_PYTHON_PATH="/tmp/ci-python-${{ github.run_id }}"
+          if [ -d "$CI_PYTHON_PATH" ]; then
+            echo "✅ Using cached Python environment: $CI_PYTHON_PATH"
+            echo "$CI_PYTHON_PATH" >> $GITHUB_PATH || echo "Warning: Could not add cached path to PATH"
+            echo "PYTHONPATH=$CI_PYTHON_PATH:$PYTHONPATH" >> $GITHUB_ENV || echo "Warning: Could not set PYTHONPATH"
+          else
+            echo "⚠️  Cached Python environment not found - using system Python"
+          fi
+
           echo "$HOME/.local/bin" >> $GITHUB_PATH || echo "Warning: Could not add to PATH"
           echo "✅ Python PATH setup completed"
 
@@ -570,8 +618,22 @@ jobs:
             ${{ runner.os }}-python-ci-optimized-
 
       - name: Setup Python PATH
+        timeout-minutes: 2
         run: |
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "=== Setting up Python PATH with timeout protection ==="
+
+          # Check if cache was properly restored
+          export CI_PYTHON_PATH="/tmp/ci-python-${{ github.run_id }}"
+          if [ -d "$CI_PYTHON_PATH" ]; then
+            echo "✅ Using cached Python environment: $CI_PYTHON_PATH"
+            echo "$CI_PYTHON_PATH" >> $GITHUB_PATH
+            echo "PYTHONPATH=$CI_PYTHON_PATH:$PYTHONPATH" >> $GITHUB_ENV
+            echo "✅ Cached Python PATH setup completed"
+          else
+            echo "⚠️  Cached Python environment not found - using system Python"
+            echo "$HOME/.local/bin" >> $GITHUB_PATH
+            echo "✅ System Python PATH setup completed"
+          fi
 
       - name: Setup CI Environment
         run: |
@@ -838,10 +900,24 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-python-ci-optimized-
       - name: Setup Python PATH
+        timeout-minutes: 2
         run: |
+          echo "=== Setting up Python PATH with timeout protection ==="
+
           export CI_PYTHON_PATH="/tmp/ci-python-${{ github.run_id }}"
-          echo "$CI_PYTHON_PATH" >> $GITHUB_PATH
-          echo "PYTHONPATH=$CI_PYTHON_PATH:$PYTHONPATH" >> $GITHUB_ENV
+
+          # Check if cache was properly restored
+          if [ -d "$CI_PYTHON_PATH" ]; then
+            echo "✅ Cached Python environment found: $CI_PYTHON_PATH"
+            echo "📦 Cached packages: $(find "$CI_PYTHON_PATH" -name "*.dist-info" 2>/dev/null | wc -l) packages"
+            echo "$CI_PYTHON_PATH" >> $GITHUB_PATH
+            echo "PYTHONPATH=$CI_PYTHON_PATH:$PYTHONPATH" >> $GITHUB_ENV
+            echo "✅ Python PATH setup completed"
+          else
+            echo "⚠️  Cached Python environment not found - using system Python"
+            echo "⚠️  This may cause slower execution but will prevent hanging"
+            # Don't fail, just use system Python
+          fi
       - name: Run Healthcare AI Evaluation (make test-ai)
         env:
           CI: true
