@@ -624,6 +624,7 @@ jobs:
           python-version: "3.12"
 
       - name: Restore cached dependencies
+        timeout-minutes: 3
         uses: actions/cache/restore@v4
         with:
           path: |
