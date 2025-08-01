@@ -24,6 +24,55 @@ core/                   # Core healthcare AI infrastructure (memory/, orchestrat
 scripts/                # Primary shell scripts (universal-service-runner.sh, lib.sh, etc.)
 ```
 
+## Synthetic Healthcare Data Infrastructure
+
+### Comprehensive Data Generation
+
+**Located at**: `scripts/generate_synthetic_healthcare_data.py`
+
+**Current Dataset**: 22,255+ records across 9 data types (12.9MB)
+
+- 75 doctors, 2,500 patients, 6,000 encounters
+- 5,016 lab results, 4,839 billing claims, 1,544 audit logs
+- Cross-referenced and compliance-ready for local deployment
+
+### Phase-Aligned Data Types
+
+**Phase 1 Core Data (AI Infrastructure):**
+
+- **Doctors** - Healthcare providers with specialties, credentials, NPI numbers
+- **Patients** - Demographics, insurance, contact info (no real PHI)
+- **Encounters** - Medical visits with SOAP notes, assessments, plans
+- **Lab Results** - Laboratory tests with realistic values and reference ranges
+- **Insurance Verifications** - Coverage validation for workflow testing
+- **Agent Sessions** - AI interaction logs for Ollama/Healthcare-MCP integration
+
+**Phase 2 Business Data (Local Automation):**
+
+- **Billing Claims** - CPT/ICD codes, amounts, claim statuses for billing automation
+- **Doctor Preferences** - Workflow settings, documentation styles for LoRA personalization
+- **Audit Logs** - HIPAA compliance tracking, user actions, system events
+
+### Data Generation Commands
+
+```bash
+# Generate comprehensive dataset (recommended for development)
+python3 scripts/generate_synthetic_healthcare_data.py --doctors 75 --patients 2500 --encounters 6000
+
+# Generate smaller test dataset
+python3 scripts/generate_synthetic_healthcare_data.py --doctors 10 --patients 100 --encounters 200
+
+# Include database population (requires running PostgreSQL/Redis)
+python3 scripts/generate_synthetic_healthcare_data.py --use-database
+```
+
+### Data Reuse Strategy
+
+- **DO NOT regenerate** unless adding new data types
+- **Existing dataset supports** all Phase 1-2 testing without regeneration
+- **Cross-referenced integrity** - all foreign keys properly linked
+- **Future-proof design** - extensible for Phase 3 without breaking existing workflows
+
 ## Healthcare Security & Compliance
 
 ### Critical Security Rules
@@ -109,6 +158,14 @@ make lint && make validate && echo "✅ Code quality verified"
 - **Test with realistic medical scenarios** using synthetic data
 - **Compliance testing**: Validate HIPAA compliance and audit logging
 - **Use project infrastructure**: `CI=true bash ./scripts/test.sh` or `make test`
+
+### Synthetic Data Testing Strategy
+
+- **Use existing dataset**: 22,255+ records in `data/synthetic/` cover all testing needs
+- **Cross-reference validation**: Ensure patient IDs, doctor IDs, encounter IDs link correctly
+- **Medical data accuracy**: CPT codes, ICD codes, lab values follow healthcare standards
+- **Privacy compliance**: All synthetic data contains no real PHI/PII
+- **Test data generation**: Validate `scripts/generate_synthetic_healthcare_data.py` works correctly
 
 ## Service Architecture
 
