@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-dotenv.config();
-
 import dotenv from "dotenv";
 import { HealthcareServer } from "./server/HealthcareServer.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -22,24 +20,26 @@ const authConfig: AuthConfig = {
     callbackPort: parseInt(process.env.OAUTH_CALLBACK_PORT!)
 };
 
-const FHIR_BASE_URL = process.env.FHIR_BASE_URL;
-const PUBMED_API_KEY = process.env.PUBMED_API_KEY;
-// ClinicalTrials.gov and FDA OpenFDA are free - no keys needed but define for graceful handling
-const TRIALS_API_KEY = process.env.TRIALS_API_KEY || 'not_required_but_prevents_error';
-const FDA_API_KEY = process.env.FDA_API_KEY || 'not_required_but_prevents_error';
-const ANTHEM_API_KEY = process.env.ANTHEM_API_KEY;
-const UHC_API_USER = process.env.UHC_API_USER;
-const CIGNA_CLIENT_ID = process.env.CIGNA_CLIENT_ID;
+const FHIR_BASE_URL = process.env.FHIR_BASE_URL!;
+const PUBMED_API_KEY = process.env.PUBMED_API_KEY!;
+const TRIALS_API_KEY = process.env.TRIALS_API_KEY!;
+const FDA_API_KEY = process.env.FDA_API_KEY!;
 
-// Log availability of different APIs
-console.log('🏥 Healthcare MCP Server - API Availability:');
-console.log(`✅ FHIR/EHR: ${FHIR_BASE_URL ? 'Available' : 'Not configured'}`);
-console.log(`✅ PubMed: ${PUBMED_API_KEY ? 'API key available' : 'Using free tier'}`);
-console.log('✅ ClinicalTrials.gov: Available (free API)');
-console.log('✅ FDA OpenFDA: Available (free API)');
-console.log(`✅ Insurance APIs: ${ANTHEM_API_KEY ? 'Test credentials available' : 'Not configured'}`);
+if (!FHIR_BASE_URL) {
+    throw new Error("FHIR_BASE_URL is missing");
+}
 
-// Don't throw errors for missing keys - gracefully handle in tool calls instead
+if (!PUBMED_API_KEY) {
+    throw new Error("PUBMED_API_KEY is missing");
+}
+
+if (!TRIALS_API_KEY) {
+    throw new Error("TRIALS_API_KEY is missing");
+}
+
+if (!FDA_API_KEY) {
+    throw new Error("FDA_API_KEY is missing");
+}
 
 let mcpServer = new Server({
     name: "healthcare-mcp",
@@ -53,55 +53,28 @@ let mcpServer = new Server({
     }
 });
 
-const healthcareServer = new HealthcareServer(mcpServer, authConfig, FHIR_BASE_URL || '', PUBMED_API_KEY || '', TRIALS_API_KEY, FDA_API_KEY);
+const healthcareServer = new HealthcareServer(mcpServer, authConfig, FHIR_BASE_URL, PUBMED_API_KEY, TRIALS_API_KEY, FDA_API_KEY);
 
+// Create Express app for HTTP server mode
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 app.use(express.json());
 
+// Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'healthy', service: 'healthcare-mcp', timestamp: new Date().toISOString() });
 });
 
-// Define handlers outside the MCP Server
-const toolsListHandler = async (req: { method: string; params?: any }) => ({
-    tools: [
-        {
-            name: 'health_check',
-            description: 'Check healthcare MCP server health',
-            inputSchema: { type: 'object', properties: {}, required: [] }
-        }
-    ]
-});
-const toolsCallHandler = async (req: { method: string; params?: any }) => ({
-    content: [{ type: 'text', text: 'Healthcare MCP Server is healthy and running' }]
-});
-// Prompts and resources stubs
-const promptsListHandler = async (req: { method: string; params?: any }) => ({
-    prompts: [
-        {
-            name: 'example_prompt',
-            description: 'Mock prompt for development/testing',
-            inputSchema: { type: 'object', properties: {}, required: [] }
-        }
-    ]
-});
-const promptsGetHandler = async (req: { method: string; params?: any }) => ({
-    prompt: {
-        name: 'example_prompt',
-        description: 'Mock prompt for development/testing',
-        inputSchema: { type: 'object', properties: {}, required: [] }
-    }
-});
-const resourcesListHandler = async (req: { method: string; params?: any }) => ({ resources: [] });
-const resourcesReadHandler = async (req: { method: string; params?: any }) => ({ resource: null });
-// Add similar stubs for prompts/resources as needed
-
+// MCP JSON-RPC endpoint
 app.post('/mcp', async (req, res) => {
     try {
         const { jsonrpc, method, params, id } = req.body;
+
+        // Debug logging
         console.log(`MCP Request: ${method}`, params ? JSON.stringify(params, null, 2) : 'no params');
+
+        // Basic JSON-RPC validation
         if (jsonrpc !== '2.0') {
             return res.status(400).json({
                 jsonrpc: '2.0',
@@ -109,84 +82,114 @@ app.post('/mcp', async (req, res) => {
                 id: id || null
             });
         }
-        const mockRequest = {
-            method,
-            params: params || {}
-        };
-        let result;
+
+        // Handle MCP methods
         switch (method) {
             case 'initialize':
-                result = {
-                    protocolVersion: '2024-11-05',
-                    capabilities: {
-                        tools: {},
-                        resources: {},
-                        prompts: {},
-                        logging: {}
+                res.json({
+                    jsonrpc: '2.0',
+                    result: {
+                        protocolVersion: '2024-11-05',
+                        capabilities: {
+                            tools: {},
+                            resources: {},
+                            prompts: {},
+                            logging: {}
+                        },
+                        serverInfo: {
+                            name: 'intelluxe-healthcare-mcp-server',
+                            version: '1.0.0'
+                        }
                     },
-                    serverInfo: {
-                        name: 'intelluxe-healthcare-mcp-server',
-                        version: '1.0.0'
-                    }
-                };
+                    id
+                });
                 break;
+
             case 'notifications/initialized':
-                result = {};
+                // Acknowledge initialization
+                res.json({
+                    jsonrpc: '2.0',
+                    result: {},
+                    id
+                });
                 break;
+
             case 'ping':
-                result = {};
+                res.json({
+                    jsonrpc: '2.0',
+                    result: {},
+                    id
+                });
                 break;
+
             case 'tools/list':
-                result = await toolsListHandler({ method, params });
+                // Use the HealthcareServer to get the actual tools
+                const tools = healthcareServer.getTools();
+                res.json({
+                    jsonrpc: '2.0',
+                    result: {
+                        tools: tools
+                    },
+                    id
+                });
                 break;
+
             case 'tools/call':
-                result = await toolsCallHandler({ method, params });
+                // Route tool calls to the HealthcareServer
+                if (params?.name) {
+                    try {
+                        const result = await healthcareServer.callTool(params.name, params.arguments || {});
+                        res.json({
+                            jsonrpc: '2.0',
+                            result: result,
+                            id
+                        });
+                    } catch (error) {
+                        console.error(`Tool call error for ${params.name}:`, error);
+                        res.status(500).json({
+                            jsonrpc: '2.0',
+                            error: {
+                                code: -32603,
+                                message: `Tool execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+                            },
+                            id
+                        });
+                    }
+                } else {
+                    res.status(400).json({
+                        jsonrpc: '2.0',
+                        error: { code: -32602, message: 'Invalid params: tool name required' },
+                        id
+                    });
+                }
                 break;
-            case 'prompts/list':
-                result = await promptsListHandler({ method, params });
-                break;
-            case 'prompts/get':
-                result = await promptsGetHandler({ method, params });
-                break;
-            case 'resources/list':
-                result = await resourcesListHandler({ method, params });
-                break;
-            case 'resources/read':
-                result = await resourcesReadHandler({ method, params });
-                break;
+
             default:
                 console.log(`Unknown MCP method: ${method}`);
-                return res.status(400).json({
+                res.status(400).json({
                     jsonrpc: '2.0',
                     error: { code: -32601, message: `Method not found: ${method}` },
                     id
                 });
         }
-        res.json({
-            jsonrpc: '2.0',
-            result,
-            id
-        });
     } catch (error) {
         console.error('MCP endpoint error:', error);
         res.status(500).json({
             jsonrpc: '2.0',
-            error: {
-                code: -32603,
-                message: 'Internal error',
-                data: error instanceof Error ? error.message : 'Unknown error'
-            },
+            error: { code: -32603, message: 'Internal error' },
             id: req.body?.id || null
         });
     }
 });
 
+// Start HTTP server
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Healthcare MCP Server running on port ${PORT}`);
     console.log(`Health check available at http://localhost:${PORT}/health`);
-    console.log(`MCP endpoint available at http://localhost:${PORT}/mcp`);
+    console.log(`Available tools: ${healthcareServer.getTools().map(t => t.name).join(', ')}`);
 });
 
+// Keep the stdio version for development/testing
 if (process.env.MCP_TRANSPORT === 'stdio') {
     healthcareServer.run().catch(console.error);
 }
