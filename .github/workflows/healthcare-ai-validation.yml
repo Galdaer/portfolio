@@ -632,6 +632,7 @@ jobs:
         healthcare-security-comprehensive,
         infrastructure-comprehensive,
         healthcare-coverage-report,
+        test-synthetic-data-generation,
       ]
     if: always()
     steps:
@@ -670,6 +671,72 @@ jobs:
             echo "🚨 This system would NOT be HIPAA compliant if deployed"
             exit 1
           fi
+
+  # Synthetic Healthcare Data Validation
+  test-synthetic-data-generation:
+    runs-on: self-hosted
+    needs: setup-dependencies
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+      - name: Restore cached dependencies
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            /tmp/ci-python-${{ github.run_id }}
+          key: ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}-v8
+      - name: Test synthetic data generation
+        run: |
+          echo "🏥 Testing synthetic healthcare data generation..."
+
+          # 1. Validate script syntax
+          if [ -f "scripts/generate_synthetic_healthcare_data.py" ]; then
+            if python3 -m py_compile scripts/generate_synthetic_healthcare_data.py; then
+              echo "✅ Synthetic data generator syntax valid"
+            else
+              echo "❌ Synthetic data generator syntax error"
+              exit 1
+            fi
+          else
+            echo "❌ Synthetic data generator script not found"
+            exit 1
+          fi
+
+          # 2. Test small dataset generation
+          test_dir="/tmp/ci-synthetic-test"
+          mkdir -p "$test_dir"
+
+          echo "📊 Generating test dataset..."
+          if timeout 2m python3 scripts/generate_synthetic_healthcare_data.py \
+            --doctors 2 --patients 5 --encounters 8 --output-dir "$test_dir"; then
+            echo "✅ Test dataset generation successful"
+          else
+            echo "❌ Test dataset generation failed"
+            exit 1
+          fi
+
+          # 3. Validate output files
+          expected_files="doctors.json patients.json encounters.json lab_results.json insurance_verifications.json agent_sessions.json billing_claims.json doctor_preferences.json audit_logs.json"
+
+          for file in $expected_files; do
+            if [ -f "$test_dir/$file" ]; then
+              if python3 -c "import json; json.load(open('$test_dir/$file'))" 2>/dev/null; then
+                echo "✅ $file: Valid JSON"
+              else
+                echo "❌ $file: Invalid JSON"
+                exit 1
+              fi
+            else
+              echo "❌ $file: Not generated"
+              exit 1
+            fi
+          done
+
+          echo "✅ Synthetic data validation complete"
 
   # Test agent configuration loading
   test-agent-configuration:
