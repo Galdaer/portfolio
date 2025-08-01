@@ -947,8 +947,8 @@ class HealthcareAITester:
         return report_text
 
 
-def enhanced_healthcare_ai_agent(query: str, context: List[str]) -> str:
-    """Enhanced healthcare AI agent using real synthetic data patterns"""
+def process_healthcare_query_with_context(query: str, context: List[str]) -> str:
+    """Process healthcare queries with contextual data to generate appropriate responses"""
     query_lower = query.lower()
     
     # Extract key information from context
@@ -1063,7 +1063,7 @@ def main():
 
     # Run evaluation with enhanced AI agent using real synthetic data
     print("\n🚀 Running healthcare AI evaluation...")
-    results = tester.run_healthcare_ai_evaluation(enhanced_healthcare_ai_agent, test_cases)
+    results = tester.run_healthcare_ai_evaluation(process_healthcare_query_with_context, test_cases)
 
     # Generate and display report
     print("\n📋 Generating evaluation report...")
