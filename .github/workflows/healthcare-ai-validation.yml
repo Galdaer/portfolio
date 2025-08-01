@@ -606,7 +606,7 @@ jobs:
         healthcare-security-comprehensive,
         infrastructure-comprehensive,
         test-synthetic-data-generation,
-        test-agent-configuration,
+        test-agent-ai-configuration,
         test-healthcare-ai-evaluation,
         test-coverage-report,
         test-e2e-bootstrap,
@@ -879,10 +879,10 @@ jobs:
           echo "✅ Synthetic data validation complete"
 
   # Test agent configuration loading
-  test-agent-configuration:
+  test-agent-ai-configuration:
     runs-on: self-hosted
     needs: setup-dependencies
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python 3.12
@@ -912,7 +912,69 @@ jobs:
           else
             echo "⚠️  Cache miss - using system Python"
           fi
-      - name: Test agent configuration
+
+      - name: Validate AI configuration files
+        run: |
+          echo "🤖 Validating AI configuration files..."
+
+          # Validate Copilot instructions
+          if [ -f ".github/copilot-instructions.md" ]; then
+            echo "✅ Copilot instructions found"
+            # Check for healthcare compliance mentions
+            if grep -qi "hipaa\|healthcare\|medical" .github/copilot-instructions.md; then
+              echo "✅ Healthcare compliance mentioned in instructions"
+            else
+              echo "⚠️  Healthcare compliance not explicitly mentioned"
+            fi
+          else
+            echo "❌ .github/copilot-instructions.md not found"
+            exit 1
+          fi
+
+          # Validate firewall configuration
+          if [ -f ".github/copilot-firewall-allowlist.txt" ]; then
+            echo "✅ Copilot firewall configuration found"
+          else
+            echo "⚠️  .github/copilot-firewall-allowlist.txt not found"
+          fi
+
+          # Validate copilotignore patterns
+          if [ -f ".copilotignore" ]; then
+            echo "✅ Copilot ignore patterns found"
+          else
+            echo "⚠️  .copilotignore not found"
+          fi
+
+      - name: Validate agent AI instructions
+        run: |
+          echo "🏥 Validating agent-specific AI instructions..."
+
+          if [ -d "agents/" ]; then
+            echo "| Agent | AI Instructions | Status |"
+            echo "|-------|----------------|---------|"
+
+            for agent_dir in agents/*/; do
+              if [ -d "$agent_dir" ]; then
+                agent_name=$(basename "$agent_dir")
+                if [ -f "$agent_dir/ai-instructions.md" ]; then
+                  echo "| $agent_name | ✅ | Ready |"
+
+                  # Validate healthcare compliance in agent instructions
+                  if grep -qi "never provide medical advice\|hipaa\|phi" "$agent_dir/ai-instructions.md"; then
+                    echo "  └─ ✅ Healthcare compliance validated"
+                  else
+                    echo "  └─ ⚠️  Healthcare compliance not explicit"
+                  fi
+                else
+                  echo "| $agent_name | ❌ | Missing Instructions |"
+                fi
+              fi
+            done
+          else
+            echo "⚠️  No agents directory found"
+          fi
+
+      - name: Test agent configuration loading
         run: |
           echo "🔧 Testing agent configuration loading..."
           export CI_PYTHON_PATH="/tmp/ci-python-${{ github.run_id }}"
@@ -925,6 +987,36 @@ jobs:
             python3 -c 'import yaml; f=open("config/agent_settings.yml","r"); config=yaml.safe_load(f); print(f"✅ Agent configuration loaded: {len(config)} sections"); f.close()' || echo "⚠️  Agent configuration validation completed with warnings"
           else
             echo "⚠️  No agent settings found - skipping configuration test"
+          fi
+
+      - name: Validate modern development tools integration
+        run: |
+          echo "🛠️  Validating modern development tools..."
+
+          # Check for Ruff configuration
+          if grep -q "ruff" .github/copilot-instructions.md; then
+            echo "✅ Ruff integration mentioned in instructions"
+          else
+            echo "⚠️  Ruff integration not documented"
+          fi
+
+          # Check for pre-commit configuration
+          if [ -f ".pre-commit-config.yaml" ]; then
+            echo "✅ Pre-commit configuration found"
+          else
+            echo "⚠️  .pre-commit-config.yaml not found"
+          fi
+
+          # Validate VS Code settings for AI enhancement
+          if [ -f ".vscode/settings.json" ]; then
+            echo "✅ VS Code AI settings found"
+            if grep -q "github.copilot" .vscode/settings.json; then
+              echo "  └─ ✅ GitHub Copilot configuration detected"
+            else
+              echo "  └─ ⚠️  GitHub Copilot configuration not explicit"
+            fi
+          else
+            echo "⚠️  .vscode/settings.json not found"
           fi
 
   # Healthcare AI Evaluation Testing - MISSING from current workflow
