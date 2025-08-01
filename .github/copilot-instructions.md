@@ -142,11 +142,13 @@ make install && make deps && make hooks && make validate
 ### Requirements Management
 
 - **Source of truth**: `requirements.in` contains all package specifications
-- **Auto-generation**: `python3 scripts/generate-requirements.py` generates:
-  - `requirements.txt` - Full dependencies for development
-  - `requirements-ci.txt` - Minimal dependencies for CI (excludes GPU packages, no "via" comments)
+- **Three-Tier Auto-generation**: `python3 scripts/generate-requirements.py` generates:
+  - `requirements.txt` - Full dependencies for development (19KB)
+  - `requirements-ci.txt` - Cloud CI optimized (excludes GPU packages, 38.8% reduction)
+  - `requirements-self-hosted.txt` - Self-hosted optimized (includes GPU, excludes dev tools, 26.2% reduction)
+- **CRITICAL: Cache Optimization Strategy**: Self-hosted runners need GPU packages (torch, transformers, deepeval) for proper functionality but exclude development packages (jupyter, pytest, formatters) to prevent cache bloat (7.1GB → ~1GB target)
 - **Development installs ALL dependencies** for complete testing capability
-- **Never manually edit** generated requirements files
+- **Never manually edit** generated requirements files - always regenerate from requirements.in
 
 ### Type Safety & Code Quality (Python)
 
@@ -337,6 +339,19 @@ make lint && make validate && echo "✅ Ready for submission"
 - **Grouped Jobs Strategy**: Consolidate related checks to reduce cache restorations while maintaining meaningful parallelization
 - **Phase 0 Development**: Prioritize fast feedback over perfect granularity during active development
 
+### Cache Optimization Patterns
+
+- **CRITICAL: VM Crash Prevention**: DeepEval + missing PyTorch causes VM and host GPU crashes - self-hosted requirements MUST include GPU packages
+- **Cache Size Targets**: Target ~1-2GB cached environments (down from 7.1GB) for <10 second cache restoration
+- **Package Exclusion Strategy**:
+  - **Self-hosted runners**: Include GPU packages (torch, transformers, deepeval) + exclude dev tools (jupyter, pytest, black)
+  - **Cloud CI runners**: Exclude ALL GPU packages + include only validation tools
+- **Cache Key Versioning**: When changing requirements files, bump cache version (v10 → v11) to invalidate incompatible caches
+- **Requirements File Usage**:
+  - `requirements-self-hosted.txt` for GitHub Actions self-hosted runners
+  - `requirements-ci.txt` for cloud CI/validation
+  - `requirements.txt` for local development only
+
 ## Architectural Decision Principles
 
 ### CRITICAL: Always Choose Efficiency Over Simplicity
@@ -349,7 +364,8 @@ make lint && make validate && echo "✅ Ready for submission"
 ### CI/CD Efficiency Requirements
 
 - **CRITICAL: Self-Hosted GitHub Actions Runner** - ALL workflow jobs MUST use `runs-on: self-hosted`
-- **Use `requirements-ci.txt`** for CI/CD (excludes heavy GPU/ML packages)
+- **Use `requirements-self-hosted.txt`** for GitHub Actions self-hosted runners (optimized cache with GPU support)
+- **Use `requirements-ci.txt`** for cloud CI/validation only (excludes heavy GPU/ML packages)
 - **Shared dependency caching** - never install same dependencies multiple times
 - **Strategic job dependencies** with optimal dependency graphs
 - **Never modify workflows to skip dependencies** - fix requirements files instead
@@ -392,4 +408,4 @@ make lint && make validate && echo "✅ Ready for submission"
 
 ---
 
-**Last Updated**: 2025-08-01 | **Comprehensive Type Safety & Medical Data Preservation Guidelines Added**
+**Last Updated**: 2025-08-01 | **Three-Tier Requirements System & Cache Optimization Patterns Added**
