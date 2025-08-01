@@ -25,8 +25,8 @@
 !/.githooks/
 !/.githooks/*
 !/.devcontainer/
-#!/.vscode/
-#!/.vscode/settings.json
+!/.vscode/
+!/.vscode/settings.json
 
 # === SOURCE CODE DIRECTORIES ===
 # Core application structure
@@ -228,7 +228,7 @@ Thumbs.db
 # VSCode (excluding settings)
 .vscode/storage.json
 .vscode/*.code-workspace
-.vscode/settings.json
+#.vscode/settings.json
 
 # Development server files
 .tern-port
