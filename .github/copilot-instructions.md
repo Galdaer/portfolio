@@ -93,8 +93,33 @@ python3 scripts/generate_synthetic_healthcare_data.py --use-database
 
 - **Real Implementation Strategy**: Phase 1 requires real implementations, not mocks - replace TODOs with functional code
 - **Type Error Priority**: Fix type errors systematically: imports → unused variables → type annotations → method implementations
+- **CRITICAL: Preserve Medical Information**: When fixing "unused" variables/methods, investigate their medical purpose and implement them properly. Never remove potentially valuable medical data to satisfy linting - implement it instead
 - **Medical Disclaimers**: All medical module implementations must include healthcare compliance disclaimers in method docstrings
 - **Context-First**: Always read 50+ lines of file context before making medical module edits
+
+### Medical Data Preservation Protocol
+
+**NEVER remove medical variables without understanding their purpose:**
+
+1. **Investigate First**: Read the surrounding code to understand what the variable represents
+2. **Check Medical Context**: Variables like `reason`, `assessment`, `diagnosis` often contain different medical information
+3. **Implement Properly**: Use the variable in its intended medical context (SOAP notes, patient records, etc.)
+4. **Verify Medical Accuracy**: Ensure medical terminology is used correctly
+
+**Example - Medical Variable Implementation:**
+
+```python
+# ❌ WRONG: Removing unused medical variable
+reason = context_data.get("reason", "routine care")  # Removed to fix linting
+
+# ✅ CORRECT: Implementing medical variable properly
+reason = context_data.get("reason", "routine care")  # Reason for visit
+assessment = context_data.get("assessment", "stable")  # Clinical assessment
+
+# Use both in appropriate medical contexts
+subjective = f"Patient presents with {chief_complaint} (reason: {reason})"
+soap_assessment = f"Assessment: {assessment}"
+```
 
 ## Development Workflow & Code Quality
 
@@ -126,10 +151,63 @@ make install && make deps && make hooks && make validate
 ### Type Safety & Code Quality (Python)
 
 - **MANDATORY Return Type Annotations**: All functions need `-> ReturnType`
+- **MANDATORY Variable Type Annotations**: All class attributes and complex variables need explicit typing
 - **Optional Type Handling**: Always check `if obj is not None:` before method calls
 - **Type-Safe Dictionary Operations**: Use `isinstance()` checks before operations
 - **Environment Variable Safety**: Handle `os.getenv()` returning None
 - **Mixed Dictionary Types**: Use `Dict[str, Any]` for mixed-type dictionaries
+- **CRITICAL: Implement Don't Remove**: When fixing "unused variable" warnings, ALWAYS implement the variable's intended functionality rather than removing it. Unused variables often represent important data (especially medical information) that should be used, not discarded.
+
+### Systematic Type Annotation Checklist
+
+**Before ANY code edit, verify these type patterns:**
+
+1. **Class Attributes**: `self.data: List[Dict[str, Any]] = []`
+2. **Function Returns**: `def process() -> Dict[str, Any]:`
+3. **Complex Variables**: `results: Dict[str, Any] = {}`
+4. **Healthcare Lists**: `patients: List[Dict[str, Any]] = []`
+5. **Set Collections**: Import `Set` from typing when using `set()`
+
+**Common Type Annotation Patterns:**
+
+```python
+# Healthcare data structures
+self.patients: List[Dict[str, Any]] = []
+self.encounters: List[Dict[str, Any]] = []
+
+# Function signatures
+def validate_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+
+# Complex variables
+results: Dict[str, Any] = {"status": "success"}
+scenarios: List[HealthcareTestCase] = []
+```
+
+### MyPy Error Resolution Patterns
+
+**Systematic approach to MyPy errors:**
+
+1. **Missing Type Annotations**: Add explicit types for ALL variables
+2. **Collection Issues**: Import specific types (`Set`, `List`, `Dict`) from typing
+3. **Attribute Errors**: Use type annotations on class attributes
+4. **Return Type Missing**: Add `-> ReturnType` to ALL function definitions
+5. **Optional Handling**: Check `if obj is not None:` before method calls
+
+**Common MyPy Error Fixes:**
+
+```python
+# Error: Need type annotation for "data"
+data = []  # ❌ Wrong
+data: List[Dict[str, Any]] = []  # ✅ Correct
+
+# Error: "Collection[str]" has no attribute "append"
+from typing import Set  # Add missing import
+results["items"] = set()  # Then use proper typing
+
+# Error: Function is missing return type annotation
+def process():  # ❌ Wrong
+def process() -> Dict[str, Any]:  # ✅ Correct
+```
 
 ### Type Checking Best Practices
 
@@ -142,6 +220,35 @@ make install && make deps && make hooks && make validate
 ```bash
 # Required validation before any code submission
 make lint && make validate && echo "✅ Code quality verified"
+```
+
+### Error Prevention Checklist
+
+**Before editing any file:**
+
+1. **Read File Context**: Always read 20+ lines around your target edit area
+2. **Check Imports**: Verify all required typing imports are present (`List`, `Dict`, `Set`, `Any`)
+3. **Type Annotations**: Add explicit types for all new variables and function returns
+4. **Medical Variables**: Investigate purpose of any "unused" variables before modifying
+5. **Test Immediately**: Run `make lint` after each significant change
+
+**Systematic Linting Workflow:**
+
+```bash
+# 1. Check current state
+make lint 2>&1 | tee lint_errors.txt
+
+# 2. Fix one category at a time
+# - Missing imports first
+# - Type annotations second
+# - Unused variable implementation third
+# - Return type annotations last
+
+# 3. Validate each step
+make lint  # Should show fewer errors each iteration
+
+# 4. Final validation
+make lint && make validate
 ```
 
 ## Testing Standards
@@ -261,12 +368,15 @@ make lint && make validate && echo "✅ Ready for submission"
 
 ### Common Anti-Patterns to Prevent
 
-1. **Trailing whitespace** → Auto-stripped by pre-commit hook
-2. **Inconsistent blank lines** → Follow flake8 E302/E305 rules
-3. **Long lines** → Break at 100 characters
-4. **Unused imports** → Remove to pass validation
-5. **Method assumptions** → Use `hasattr()` checks
-6. **Submitting with failing validation** → Always iterate until clean
+1. **Missing Type Annotations** → Add explicit types for ALL variables and functions
+2. **Removing Medical Variables** → Implement unused medical variables instead of removing them
+3. **Inline Comments in Dictionaries** → Never add inline comments in JSON-like structures (syntax error)
+4. **Trailing whitespace** → Auto-stripped by pre-commit hook
+5. **Inconsistent blank lines** → Follow flake8 E302/E305 rules
+6. **Long lines** → Break at 100 characters
+7. **Unused imports** → Remove to pass validation
+8. **Method assumptions** → Use `hasattr()` checks
+9. **Submitting with failing validation** → Always iterate until clean
 
 ## Repository Information
 
@@ -282,4 +392,4 @@ make lint && make validate && echo "✅ Ready for submission"
 
 ---
 
-**Last Updated**: 2025-01-23 | **Length**: ~500 lines (50% reduction from original)
+**Last Updated**: 2025-08-01 | **Comprehensive Type Safety & Medical Data Preservation Guidelines Added**
