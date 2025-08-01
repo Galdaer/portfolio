@@ -28,6 +28,8 @@
 	   teardown \
 	   teardown-vpn \
 	   test \
+	   test-ai \
+	   test-ai-report \
 	   test-coverage \
 	   test-quiet \
 	   uninstall \
@@ -424,6 +426,22 @@ data-status:
 		echo "📂 No synthetic data directory found"; \
 	fi
 
+test-ai:
+	@echo "🧪  Running healthcare AI evaluation with DeepEval"
+	@echo "   - Testing AI agent responses for medical accuracy"
+	@echo "   - Validating HIPAA compliance and PHI protection"
+	@echo "   - Measuring response quality and faithfulness"
+	@python3 scripts/healthcare_deepeval.py
+
+test-ai-report:
+	@echo "📋  Generating healthcare AI evaluation report"
+	@python3 scripts/healthcare_deepeval.py
+	@if [ -f "data/synthetic/healthcare_ai_evaluation_report.txt" ]; then \
+		echo "📄 Report generated:"; \
+		echo "   data/synthetic/healthcare_ai_evaluation_report.txt"; \
+		echo "   data/synthetic/healthcare_ai_test_results.json"; \
+	fi
+
 # Virtual environment management
 venv:
 	@echo "💡  To use virtual environment for healthcare AI development:"
@@ -491,6 +509,8 @@ help:
 	@echo "  make test            Run healthcare AI unit tests with Bats"
 	@echo "  make test-quiet      Run healthcare AI tests (quiet mode)"
 	@echo "  make test-coverage   Run healthcare AI tests with coverage"
+	@echo "  make test-ai         Run healthcare AI evaluation with DeepEval"
+	@echo "  make test-ai-report  Generate healthcare AI evaluation report"
 	@echo "  make e2e             Run end-to-end healthcare AI bootstrap test"
 	@echo "  make systemd-verify  Verify healthcare AI systemd service configurations"
 	@echo "  make data-small      Generate small synthetic healthcare dataset (testing)"
