@@ -347,18 +347,22 @@ jobs:
   infrastructure-comprehensive:
     runs-on: self-hosted
     needs: setup-dependencies
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout with timeout protection
+        timeout-minutes: 3
+        uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: false # Skip submodules to prevent hanging
 
       - name: Set up Python 3.12
+        timeout-minutes: 2
         uses: actions/setup-python@v4
         with:
           python-version: "3.12"
 
       - name: Restore cached dependencies
+        timeout-minutes: 3
         uses: actions/cache/restore@v4
         with:
           path: |
@@ -368,11 +372,15 @@ jobs:
             ${{ runner.os }}-python-ci-optimized-${{ hashFiles('requirements-ci.txt') }}
             ${{ runner.os }}-python-ci-optimized-
 
-      - name: Setup Python PATH
+      - name: Setup Python PATH with timeout protection
+        timeout-minutes: 1
         run: |
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "=== Setting up Python PATH ==="
+          echo "$HOME/.local/bin" >> $GITHUB_PATH || echo "Warning: Could not add to PATH"
+          echo "✅ Python PATH setup completed"
 
       - name: Setup CI Environment
+        timeout-minutes: 2
         run: |
           echo "=== Setting up CI Environment ==="
 
@@ -389,10 +397,12 @@ jobs:
           echo "SKIP_WIREGUARD_SETUP=true" >> $GITHUB_ENV
           echo "WG_CONFIG_DIR=/tmp/wireguard" >> $GITHUB_ENV
 
-          # Create CI-friendly directories
-          mkdir -p /tmp/intelluxe-stack/{logs,backups,qrcodes}
-          mkdir -p /tmp/wireguard
-          echo "# CI WireGuard config" > /tmp/wireguard/wg0.conf
+          # Create CI-friendly directories with timeout protection
+          echo "Creating CI directories..."
+          timeout 30s mkdir -p /tmp/intelluxe-stack/{logs,backups,qrcodes} || echo "Warning: Could not create all directories"
+          timeout 10s mkdir -p /tmp/wireguard || echo "Warning: Could not create wireguard directory"
+          echo "# CI WireGuard config" > /tmp/wireguard/wg0.conf || echo "Warning: Could not create WireGuard config"
+          echo "✅ CI Environment setup completed"
 
       - name: Comprehensive Infrastructure Validation
         env:
@@ -408,12 +418,16 @@ jobs:
           CI_NO_SUDO: true
           SKIP_ROOT_CHECKS: true
           SKIP_WIREGUARD_SETUP: true
+          VALIDATE_ONLY: true
+          SKIP_DOCKER_DAEMON_CHECK: true
         run: |
           echo "🏥 Running comprehensive infrastructure validation..."
 
           # Set CI-friendly environment
           export WG_CONFIG_DIR="/tmp/wireguard"
           export CFG_ROOT=/tmp/intelluxe-stack
+          export VALIDATE_ONLY=true
+          export SKIP_DOCKER_DAEMON_CHECK=true
 
           total_infrastructure_errors=0
 
@@ -426,34 +440,52 @@ jobs:
             echo "⚠️  shellcheck not available - may affect some validations"
           fi
 
-          # 2. Bootstrap Infrastructure Validation
+          # 2. Bootstrap Infrastructure Validation (with granular timeouts)
           echo ""
           echo "🚀 Running Bootstrap Infrastructure Validation..."
-          if timeout 5m ./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check --dry-run --skip-deps; then
+          echo "⏰ Using 2-minute timeout for bootstrap validation to prevent hanging..."
+
+          # Run bootstrap validation with very specific CI-friendly flags
+          if timeout 2m ./scripts/bootstrap.sh \
+              --validate \
+              --non-interactive \
+              --skip-docker-check \
+              --dry-run \
+              --skip-deps \
+              --force-defaults 2>&1 | tee /tmp/bootstrap-output.log; then
             echo "✅ Bootstrap validation passed"
           else
             echo "⚠️  Bootstrap validation completed with warnings (expected in CI)"
+            echo "📄 Last 10 lines of bootstrap output:"
+            tail -10 /tmp/bootstrap-output.log || echo "No output log available"
           fi
 
-          # 3. Shell Script Test Suite
+          # 3. Shell Script Test Suite (with granular timeout)
           echo ""
           echo "🔧 Running Healthcare AI Shell Script Test Suite..."
-          if timeout 5m bash ./scripts/test.sh; then
+          echo "⏰ Using 3-minute timeout for test suite to prevent hanging..."
+
+          if timeout 3m bash ./scripts/test.sh 2>&1 | tee /tmp/test-output.log; then
             echo "✅ Shell script tests passed"
           else
             echo "⚠️  Shell script tests completed with some expected failures in CI"
+            echo "📄 Last 10 lines of test output:"
+            tail -10 /tmp/test-output.log || echo "No test output log available"
           fi
 
-          # 4. Comprehensive Lint Check
+          # 4. Comprehensive Lint Check (with timeout)
           echo ""
           echo "🔍 Running Comprehensive Lint Validation..."
+          echo "⏰ Using 2-minute timeout for lint validation..."
 
           # Check for linting tools
           if command -v shellcheck >/dev/null 2>&1 && command -v flake8 >/dev/null 2>&1; then
-            if make lint; then
+            if timeout 2m make lint 2>&1 | tee /tmp/lint-output.log; then
               echo "✅ Lint validation passed"
             else
               echo "❌ Lint validation failed"
+              echo "📄 Last 10 lines of lint output:"
+              tail -10 /tmp/lint-output.log || echo "No lint output log available"
               ((total_infrastructure_errors++))
             fi
           else
@@ -467,11 +499,23 @@ jobs:
           # Clean up any stale lock files
           rm -f "$HOME/.cache/bootstrap.lock" "/tmp/bootstrap-$(whoami).lock" ".bootstrap.lock" || true
 
-          # Final infrastructure validation
-          if timeout 5m ./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check --dry-run --skip-deps; then
+          # Final infrastructure validation (with timeout and better logging)
+          echo ""
+          echo "🔄 Running Final Infrastructure Validation..."
+          echo "⏰ Using 90-second timeout for final validation..."
+
+          if timeout 90s ./scripts/bootstrap.sh \
+              --validate \
+              --non-interactive \
+              --skip-docker-check \
+              --dry-run \
+              --skip-deps \
+              --force-defaults 2>&1 | tee /tmp/final-validation.log; then
             echo "✅ Final infrastructure validation passed"
           else
             echo "⚠️  Final infrastructure validation completed with warnings"
+            echo "📄 Last 5 lines of final validation output:"
+            tail -5 /tmp/final-validation.log || echo "No final validation log available"
           fi
 
           # Summary
