@@ -304,7 +304,7 @@ class MedicalLiteratureSearchAssistant:
         Extract conditions mentioned in literature (not diagnose them)
         Returns: List of conditions found in literature with context
         """
-        conditions = []
+        conditions: List[Dict[str, Any]] = []
 
         for source in sources:
             # Extract conditions mentioned in abstracts/summaries
@@ -341,11 +341,11 @@ class MedicalLiteratureSearchAssistant:
                     )
 
         # Remove duplicates and limit results
-        unique_conditions = {}
-        for condition in conditions:
-            key = condition["condition_name"]
+        unique_conditions: Dict[str, Dict[str, Any]] = {}
+        for condition_dict in conditions:
+            key = condition_dict["condition_name"]
             if key not in unique_conditions:
-                unique_conditions[key] = condition
+                unique_conditions[key] = condition_dict
 
         return list(unique_conditions.values())[:10]  # Top 10 mentioned conditions
 
@@ -382,8 +382,8 @@ class MedicalLiteratureSearchAssistant:
                 [source.get("title", ""), source.get("abstract", ""), source.get("summary", "")]
             ).lower()
 
-            relevance_score = sum(1 for term in query_terms if term in source_text)
-            relevance_score = relevance_score / len(query_terms) if query_terms else 0
+            relevance_count = sum(1 for term in query_terms if term in source_text)
+            relevance_score = float(relevance_count) / len(query_terms) if query_terms else 0.0
 
             # Recency bonus (recent = more relevant)
             recency_score = self._calculate_recency_score(source.get("publication_date", ""))
