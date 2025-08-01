@@ -1069,12 +1069,17 @@ def process_healthcare_query_with_context(query: str, context: List[str]) -> str
         coverage_details = context_data.get("coverage_details", "standard coverage")
         copay_amount = context_data.get("copay_amount", "$25")
 
-        # Convert copay_amount to string if it's numeric
-        copay_amount = str(copay_amount)
-
-        # Ensure copay amount has $ sign
-        if not copay_amount.startswith("$"):
-            copay_amount = f"${copay_amount}"
+        # Properly format copay_amount if it's numeric
+        if isinstance(copay_amount, (int, float)):
+            copay_amount = f"${copay_amount:.2f}"
+        elif isinstance(copay_amount, str):
+            if not copay_amount.startswith("$"):
+                # Try to convert to float for formatting, else keep as is
+                try:
+                    copay_numeric = float(copay_amount)
+                    copay_amount = f"${copay_numeric:.2f}"
+                except ValueError:
+                    copay_amount = f"${copay_amount}"
 
         return f"Insurance verification completed for {patient_name}. Patient has {verification_status} coverage with {insurance}. {coverage_details}. Copay information and benefits confirmed. Pre-authorization requirements have been checked for this visit type."
 
