@@ -81,7 +81,7 @@ class OllamaModel(DeepEvalBaseLLM):
                 return result.get("response", "")
             else:
                 print(f"❌ Ollama API error: {response.status_code}")
-                return f"Error: Failed to generate response (status {response.status_code})"
+                return f"Error: Failed to generate response " f"(status {response.status_code})"
 
         except Exception as e:
             print(f"❌ Error generating with Ollama: {e}")
@@ -217,8 +217,15 @@ class HealthcareAITester:
             HealthcareTestCase(
                 test_id=f"intake_001_{uuid.uuid4().hex[:8]}",
                 scenario="Patient Check-in Assistance",
-                input_query=f"Help me check in patient {sample_patient['first_name']} {sample_patient['last_name']} for their appointment today.",
-                expected_output="I can help you check in the patient. I've verified their identity and insurance information. Please confirm the appointment type and update any demographic changes.",
+                input_query=(
+                    f"Help me check in patient {sample_patient['first_name']} "
+                    f"{sample_patient['last_name']} for their appointment today."
+                ),
+                expected_output=(
+                    "I can help you check in the patient. I've verified their "
+                    "identity and insurance information. Please confirm the "
+                    "appointment type and update any demographic changes."
+                ),
                 retrieval_context=[
                     f"Patient Name: {sample_patient['first_name']} {sample_patient['last_name']}",
                     f"Insurance: {sample_patient['insurance_provider']}",
@@ -235,8 +242,15 @@ class HealthcareAITester:
             HealthcareTestCase(
                 test_id=f"intake_002_{uuid.uuid4().hex[:8]}",
                 scenario="Insurance Verification Request",
-                input_query="Can you verify this patient's insurance coverage for today's visit?",
-                expected_output="I'll verify the insurance coverage. Based on the policy information, the patient has active coverage with a $25 copay for office visits. Pre-authorization is not required for this visit type.",
+                input_query=(
+                    "Can you verify this patient's insurance coverage for " "today's visit?"
+                ),
+                expected_output=(
+                    "I'll verify the insurance coverage. Based on the policy "
+                    "information, the patient has active coverage with a $25 "
+                    "copay for office visits. Pre-authorization is not required "
+                    "for this visit type."
+                ),
                 retrieval_context=[
                     f"Insurance Provider: {sample_patient['insurance_provider']}",
                     f"Member ID: {sample_patient.get('member_id', 'N/A')}",
