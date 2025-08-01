@@ -31,37 +31,7 @@ export class HealthcareServer {
         this.setupHandlers();
         this.setupErrorHandling();
     }
-    // This method exposes tools for HTTP mode
-    getAvailableTools() {
-        // This should return the same tools that your ToolHandler registers
-        // You'll need to coordinate with your ToolHandler class
-        return this.toolHandler.getRegisteredTools(); // Assuming ToolHandler has this method
-    }
 
-    // This method handles tool calls in HTTP mode
-    async executeToolCall(toolName: string, params: any) {
-        // Delegate to your ToolHandler's implementation
-        return await this.toolHandler.handleToolCall(toolName, params);
-    }
-
-    // Add method to get server status
-    getServerStatus() {
-        return {
-            status: 'healthy',
-            service: 'healthcare-mcp',
-            timestamp: new Date().toISOString(),
-            apis: {
-                fhir: this.fhirClient.isConnected(), // Assuming FhirClient has this method
-                pubmed: !!this.pubmedApi,
-                trials: !!this.trialsApi,
-                fda: !!this.fdaApi
-            },
-            cache: {
-                size: this.cache.size(), // Assuming CacheManager has this method
-                hitRate: this.cache.getHitRate() // Assuming CacheManager tracks this
-            }
-        };
-    }
     private setupHandlers() {
         this.toolHandler.register(this.mcpServer);
     }
