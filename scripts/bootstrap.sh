@@ -486,7 +486,12 @@ auto_install_deps() {
     local optional_deps=()
 
     # Core dependencies required for basic operation
-    local core_deps=(ip iptables docker curl ss lsof jq stat less)
+    local core_deps=(ip iptables curl ss lsof jq stat less)
+
+    # Add Docker to core deps only if not skipping Docker checks
+    if [[ "$SKIP_DOCKER_CHECK" != true ]]; then
+        core_deps+=(docker)
+    fi
 
     # Optional dependencies for specific features
     local optional_feature_deps=(socat wg-quick)
@@ -573,8 +578,12 @@ auto_install_deps() {
                 less) packages+=("less") ;;
                 qrencode) packages+=("qrencode") ;;
                 docker)
-                    warn "Docker installation requires special handling. Please install Docker manually."
-                    die "Visit https://docs.docker.com/engine/install/ for Docker installation instructions." 26
+                    if [[ "$SKIP_DOCKER_CHECK" == true ]]; then
+                        log "Skipping Docker installation (SKIP_DOCKER_CHECK=true)"
+                    else
+                        warn "Docker installation requires special handling. Please install Docker manually."
+                        die "Visit https://docs.docker.com/engine/install/ for Docker installation instructions." 26
+                    fi
                     ;;
             esac
         done
@@ -1557,6 +1566,13 @@ ensure_directories() {
 ensure_docker_network() {
     # Ensure the named Docker network exists.
     local netname="$1" subnet="$2"
+
+    # Skip Docker network creation if flag is set
+    if [[ "$SKIP_DOCKER_CHECK" == true ]]; then
+        log "Skipping Docker network creation (SKIP_DOCKER_CHECK=true)"
+        return 0
+    fi
+
     if docker network inspect "$netname" &>/dev/null; then
         log "Docker network $netname already exists."
     else
@@ -1640,6 +1656,15 @@ suggest_new_clientname() {
 
 load_wg_keys_env() {
     # Load WireGuard server keys from wg-keys.env file.
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log "[DRY-RUN] Would load WireGuard keys from $WG_KEYS_ENV"
+        # Set dummy values for dry run (should match those from setup_wireguard_server_keys)
+        WG_SERVER_PRIVATE_KEY="dummy-private-key"
+        WG_SERVER_PUBLIC_KEY="dummy-public-key"
+        WG_PRESHARED_KEY="dummy-preshared-key"
+        return 0
+    fi
+
     if [[ ! -f "$WG_KEYS_ENV" ]]; then
         die "wg-keys.env missing at $WG_KEYS_ENV. Please create it with required keys before running this script." 23
     fi
@@ -1659,17 +1684,25 @@ setup_wireguard_keys() {
     if [[ ! -f "$WG_KEYS_ENV" ]]; then
         if $NON_INTERACTIVE || $FORCE_DEFAULTS; then
             log "Generating server keypair in wg-keys.env."
-            umask 077
-            WG_SERVER_PRIVATE_KEY=$(wg genkey)
-            WG_SERVER_PUBLIC_KEY=$(echo "$WG_SERVER_PRIVATE_KEY" | wg pubkey)
-            WG_PRESHARED_KEY=$(wg genpsk)
-            {
-                echo "WG_SERVER_PRIVATE_KEY=$WG_SERVER_PRIVATE_KEY"
-                echo "WG_SERVER_PUBLIC_KEY=$WG_SERVER_PUBLIC_KEY"
-                echo "WG_PRESHARED_KEY=$WG_PRESHARED_KEY"
-            } >"$WG_KEYS_ENV"
-            run chmod 0600 "$WG_KEYS_ENV"
-            set_ownership "$WG_KEYS_ENV"
+            if [[ "$DRY_RUN" == "true" ]]; then
+                log "[DRY-RUN] Would generate WireGuard server keys in $WG_KEYS_ENV"
+                # Set dummy values for dry run
+                WG_SERVER_PRIVATE_KEY="dummy-private-key"
+                WG_SERVER_PUBLIC_KEY="dummy-public-key"
+                WG_PRESHARED_KEY="dummy-preshared-key"
+            else
+                umask 077
+                WG_SERVER_PRIVATE_KEY=$(wg genkey)
+                WG_SERVER_PUBLIC_KEY=$(echo "$WG_SERVER_PRIVATE_KEY" | wg pubkey)
+                WG_PRESHARED_KEY=$(wg genpsk)
+                {
+                    echo "WG_SERVER_PRIVATE_KEY=$WG_SERVER_PRIVATE_KEY"
+                    echo "WG_SERVER_PUBLIC_KEY=$WG_SERVER_PUBLIC_KEY"
+                    echo "WG_PRESHARED_KEY=$WG_PRESHARED_KEY"
+                } >"$WG_KEYS_ENV"
+                run chmod 0600 "$WG_KEYS_ENV"
+                set_ownership "$WG_KEYS_ENV"
+            fi
             log "Server keys generated and saved in $WG_KEYS_ENV."
         else
             read -rp "wg-keys.env not found in $WG_DIR. Generate new server keys? [Y/n]: " ans
@@ -1971,6 +2004,12 @@ fix_development_permissions() {
 }
 
 check_docker_socket() {
+    # Skip Docker socket check if flag is set
+    if [[ "$SKIP_DOCKER_CHECK" == true ]]; then
+        log "Skipping Docker socket check (SKIP_DOCKER_CHECK=true)"
+        return 0
+    fi
+
     local sock="$DOCKER_SOCKET"
     local perm=""
     if [ -S "$sock" ]; then
@@ -2950,13 +2989,13 @@ validate_config() {
     fi
 
     # Check if Docker is available
-    if ! command -v docker &>/dev/null; then
+    if [[ "$SKIP_DOCKER_CHECK" != true ]] && ! command -v docker &>/dev/null; then
         warn "Docker is not installed or not in PATH"
         return 1
     fi
 
     # Check if Docker daemon is running
-    if ! docker info >/dev/null 2>&1; then
+    if [[ "$SKIP_DOCKER_CHECK" != true ]] && ! docker info >/dev/null 2>&1; then
         warn "Docker daemon is not running"
         return 1
     fi
@@ -3288,7 +3327,7 @@ main() {
         warn "auto_install_deps function not found, continuing without dependency check"
     fi
 
-    if ! docker info >/dev/null 2>&1; then
+    if [[ "$SKIP_DOCKER_CHECK" != true ]] && ! docker info >/dev/null 2>&1; then
         fail "Docker daemon is not running. Please start Docker and try again."
         exit 110
     fi
