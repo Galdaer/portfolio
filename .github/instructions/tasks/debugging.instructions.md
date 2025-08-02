@@ -161,6 +161,39 @@ def process_patient_encounter(data: Dict[str, Any]) -> Dict[str, Any]:
 ```python
 def assess_mypy_continuation_capability() -> bool:
     """
+    Self-assessment questions for autonomous MyPy fixing:
+    - Are there remaining errors that follow patterns I've already solved?
+    - Can I add more type annotations without changing logic?
+    - Are there import/collection type issues I can systematically resolve?
+    - Do I have capacity to continue with more fixes in this session?
+    - Do remaining errors require human architectural input?
+    
+    Returns True only if confident in continued autonomous progress.
+    """
+    return can_continue_autonomously
+
+# Autonomous workflow pattern with verification
+def autonomous_mypy_fixing_session():
+    """
+    CRITICAL: Always verify completion claims with fresh MyPy scan.
+    Never trust incremental cache for "0 errors" claims.
+    """
+    while True:
+        # Work on errors
+        fix_systematic_mypy_errors()
+        
+        # MANDATORY: Verify with fresh scan (prevents infinite loops)
+        actual_errors = run_fresh_mypy_scan()
+        
+        if actual_errors == 0:
+            break  # True completion verified
+        elif can_continue_autonomously(actual_errors):
+            continue  # More work possible
+        else:
+            create_continuation_issue(actual_errors)
+            break  # Hand off remaining work
+```
+    """
     Healthcare-focused self-assessment for autonomous MyPy fixing.
     Returns True if agent should continue, False if architectural input needed.
     """

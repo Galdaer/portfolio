@@ -70,34 +70,40 @@ results: Dict[str, Any] = {"status": "success"}
 scenarios: List[HealthcareTestCase] = []
 ```
 
-### MyPy Error Resolution Patterns
+### Critical Verification Protocol for MyPy
 
-**Autonomous MyPy Fixing Workflow:**
+**❌ NEVER trust MyPy cache for completion claims** - Always verify with fresh scan
+
+**✅ MANDATORY verification after claiming 0 errors:**
 
 ```bash
-# 1. Get baseline error count
-mypy . | tee mypy_baseline.txt
-INITIAL_ERRORS=$(mypy . 2>&1 | grep "error:" | wc -l)
+# ALWAYS run this after claiming MyPy completion
+python3 -m mypy . --config-file=mypy.ini --no-incremental --show-error-codes | tee mypy_verification.txt
+ACTUAL_ERRORS=$(python3 -m mypy . --config-file=mypy.ini --no-incremental 2>&1 | grep "error:" | wc -l)
+
+if [ $ACTUAL_ERRORS -gt 0 ]; then
+    echo "❌ VERIFICATION FAILED: $ACTUAL_ERRORS errors still exist (cache issue)"
+    echo "Continue fixing remaining errors..."
+else
+    echo "✅ VERIFICATION PASSED: True 0 errors achieved"
+fi
+```
+
+**Why this matters**: MyPy incremental cache can hide new errors introduced by stricter configuration changes.
+
+```bash
+```bash
+# 1. Get baseline error count (use python3 -m mypy for consistency)
+python3 -m mypy . --config-file=mypy.ini --no-incremental | tee mypy_baseline.txt
+INITIAL_ERRORS=$(python3 -m mypy . --config-file=mypy.ini 2>&1 | grep "error:" | wc -l)
 
 # 2. Work in iterations until completion
 while [ $CURRENT_ERRORS -gt 0 ]; do
-    echo "🔄 MyPy Iteration: $CURRENT_ERRORS errors remaining"
-    
-    # Fix batch of 20-30 errors systematically
-    # Focus on patterns: missing returns, type annotations, imports
-    
-    # Validate progress
-    CURRENT_ERRORS=$(mypy . 2>&1 | grep "error:" | wc -l)
-    
-    # Continue if making progress
-    if [ $CURRENT_ERRORS -lt $PREVIOUS_ERRORS ]; then
-        echo "✅ Progress made: $((PREVIOUS_ERRORS - CURRENT_ERRORS)) errors fixed"
-        PREVIOUS_ERRORS=$CURRENT_ERRORS
-    else
-        echo "🛑 No progress - investigating remaining errors"
-        break
+    # Always use fresh scan for accurate counts
+    CURRENT_ERRORS=$(python3 -m mypy . --config-file=mypy.ini --no-incremental 2>&1 | grep "error:" | wc -l)
     fi
 done
+```
 ```
 
 **Healthcare-First MyPy Error Resolution:**

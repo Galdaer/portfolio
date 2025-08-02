@@ -2,7 +2,9 @@
 
 Use The Sequential Thinking MCP Server to think through your tasks.
 
-**Use available MCP servers for RAG-powered development** - leverage Healthcare MCP, GitHub MCP, Pylance MCP, and Sequential Thinking MCP to enhance development capabilities while maintaining healthcare compliance.
+**Use available MCP servers for RAG-powered development** - leverage Healthcare MCP, GitHub MCP, Pylance MCP, Sequential Thinking MCP, and Memory MCP to enhance development capabilities while maintaining healthcare compliance.
+
+**SECURITY NOTE**: Our healthcare compliance patterns (PHI detection, type safety, synthetic data usage) ensure no sensitive healthcare data reaches external MCPs, making developer MCPs safe for production use.
 
 ## Using Specialized AI Instructions
 
@@ -331,6 +333,12 @@ When working on MyPy errors, follow this autonomous pattern:
 - Are there import/typing issues I can systematically resolve?
 - Do I have capacity to continue with more fixes in this session?
 - Do remaining errors require human architectural input?
+
+### Self-Improving Instructions
+- **Tool Issue Discovery**: When encountering environment or tool issues, update relevant instruction files to prevent future problems
+- **Command Standardization**: Update commands that work in your environment for future coding agents
+- **Documentation Gaps**: Add new patterns and solutions to appropriate instruction files
+- **Verification Protocols**: Update verification steps when tools behave unexpectedly
 
 ### When to Use Sequential Thinking
 - **Complex Implementation Decisions**: Mock vs implement, architecture choices, technical debt tradeoffs

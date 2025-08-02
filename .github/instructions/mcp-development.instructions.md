@@ -30,6 +30,14 @@
 - **Use for**: Breaking down complex healthcare AI problems, architecture decisions
 - **Key Tools**: Multi-step reasoning, problem decomposition, solution validation
 
+#### 5. Memory MCP Server
+
+- **Purpose**: Persistent memory and context management across development sessions
+- **Use for**: Maintaining context in long development tasks, remembering previous solutions
+- **Key Tools**: Context storage, session continuity, knowledge retention
+
+**HEALTHCARE COMPLIANCE**: All MCPs are safe for healthcare development since our PHI protection and type safety patterns prevent sensitive data from reaching external services.
+
 ### MCP-Powered Development Workflow
 
 #### Phase 1: Analysis & Planning
