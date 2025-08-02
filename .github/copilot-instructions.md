@@ -2,6 +2,8 @@
 
 Use The Sequential Thinking MCP Server to think through your tasks.
 
+**Use available MCP servers for RAG-powered development** - leverage Healthcare MCP, GitHub MCP, Pylance MCP, and Sequential Thinking MCP to enhance development capabilities while maintaining healthcare compliance.
+
 ## Using Specialized AI Instructions
 
 **When working on specific tasks**, reference these specialized instruction files in `.github/instructions/`:
@@ -16,6 +18,7 @@ Use The Sequential Thinking MCP Server to think through your tasks.
 - **🔒 Security reviews** → Use `tasks/security-review.instructions.md` for PHI protection and HIPAA compliance
 - **🐍 Python development** → Use `languages/python.instructions.md` for modern Python patterns with Ruff/MyPy
 - **🏥 Healthcare domain work** → Use `domains/healthcare.instructions.md` for medical data and compliance
+- **🔌 MCP development** → Use `mcp-development.instructions.md` for RAG-powered development with available MCP servers
 
 **For general architecture, service deployment, and project strategy questions**, continue using these main instructions.
 

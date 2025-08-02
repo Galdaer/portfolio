@@ -44,14 +44,21 @@ This directory contains specialized AI instruction files for different developme
 - **`tasks/refactoring.instructions.md`** → When refactoring code, improving architecture, modernizing
 - **`tasks/documentation.instructions.md`** → When writing docs, creating README files, documenting APIs
 - **`tasks/planning.instructions.md`** → When planning features, designing architecture, making decisions
+- **`tasks/performance.instructions.md`** → When optimizing performance, improving efficiency, scaling systems
+- **`tasks/security-review.instructions.md`** → When conducting security reviews, HIPAA compliance, PHI protection
 
 #### Language-Specific Instructions
 
 - **`languages/python.instructions.md`** → When working with Python files (.py), type safety, modern tooling
+- **`languages/javascript.instructions.md`** → When working with JavaScript files (.js), frontend development, Node.js
 
 #### Domain-Specific Instructions
 
-- **`healthcare.instructions.md`** → When working with medical data, PHI, compliance, patient records
+- **`domains/healthcare.instructions.md`** → When working with medical data, PHI, compliance, patient records
+
+#### Tool-Specific Instructions
+
+- **`mcp-development.instructions.md`** → When using MCP servers for RAG-powered development, tool integration
 
 ## Official GitHub Copilot Support
 
@@ -80,6 +87,9 @@ This means:
 
 # Complex debugging session → Use debugging.instructions.md + healthcare.instructions.md
 "Debug the PHI exposure risk in the agent session logs"
+
+# RAG-powered development → Use mcp-development.instructions.md
+"Use available MCP servers to analyze this healthcare codebase and suggest improvements"
 ```
 
 ### 🚫 **When to Stay with Main Instructions**
@@ -101,11 +111,19 @@ This means:
 .github/instructions/
 ├── tasks/              # Task-specific AI instructions
 │   ├── debugging.instructions.md
-│   └── code-review.instructions.md
+│   ├── code-review.instructions.md
+│   ├── testing.instructions.md
+│   ├── refactoring.instructions.md
+│   ├── documentation.instructions.md
+│   ├── planning.instructions.md
+│   ├── performance.instructions.md
+│   └── security-review.instructions.md
 ├── languages/          # Programming language patterns
 │   └── python.instructions.md
-└── domains/            # Domain-specific guidance
-    └── healthcare.instructions.md
+    └── javascript.instructions.md
+├── domains/            # Domain-specific guidance
+│   └── healthcare.instructions.md
+└── mcp-development.instructions.md  # MCP server integration
 ```
 
 ## How This Enhances Your AI Development
@@ -124,6 +142,7 @@ When you're working on healthcare Python code and ask for debugging help, GitHub
 - **Code reviews**: Applies healthcare compliance checking and modern Python standards
 - **Python development**: Uses healthcare-specific type safety and modern tooling patterns
 - **Healthcare domain**: Ensures medical safety and compliance in all AI suggestions
+- **MCP-powered development**: Leverages RAG capabilities with available MCP servers for enhanced development
 
 ## Usage Patterns
 
