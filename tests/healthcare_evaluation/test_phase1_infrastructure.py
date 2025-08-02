@@ -104,7 +104,8 @@ class MockMCPClient:
         """Mock medical literature search using synthetic data context"""
         # Extract relevant information from synthetic data based on query
         query_lower = query.lower()
-        results = {"sources": [], "confidence": 0.8, "total_results": 0}
+        results: dict[str, Any] = {"sources": [], "confidence": 0.8, "total_results": 0}
+        sources: list[dict[str, Any]] = []
 
         # Search encounters for clinical context
         for encounter in self.synthetic_data.get("encounters", [])[:10]:
@@ -113,7 +114,7 @@ class MockMCPClient:
                 or term in encounter.get("assessment", "").lower()
                 for term in query_lower.split()
             ):
-                results["sources"].append(
+                sources.append(
                     {
                         "title": f"Clinical Case: {encounter.get('chief_complaint', 'Unknown')}",
                         "summary": encounter.get("assessment", ""),
@@ -125,7 +126,7 @@ class MockMCPClient:
 
         # Add mock literature sources based on query
         if "hypertension" in query_lower:
-            results["sources"].append(
+            sources.append(
                 {
                     "title": "Management of Hypertension in Primary Care",
                     "summary": "Evidence-based guidelines for hypertension management in clinical practice.",
@@ -136,7 +137,7 @@ class MockMCPClient:
             )
 
         if "diabetes" in query_lower:
-            results["sources"].append(
+            sources.append(
                 {
                     "title": "Type 2 Diabetes Mellitus: Current Treatment Approaches",
                     "summary": "Comprehensive review of current diabetes management strategies.",
@@ -146,7 +147,8 @@ class MockMCPClient:
                 }
             )
 
-        results["total_results"] = len(results["sources"])
+        results["sources"] = sources
+        results["total_results"] = len(sources)
         return results
 
 
