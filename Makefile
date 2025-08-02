@@ -176,17 +176,17 @@ deps:
 		echo "🔒  Generating lockfiles from requirements.in..."; \
 		python3 scripts/generate-requirements.py; \
 	fi
-	@# Install formatting tools for git hooks
+	@# Install formatting tools for git hooks (CI-safe)
 	@echo "🎨  Installing formatting tools for pre-commit hooks..."
-	@if command -v npm >/dev/null 2>&1; then \
-		sudo npm install -g prettier; \
+	@if command -v npm >/dev/null 2>&1 && [ -z "$$CI" ]; then \
+		sudo npm install -g prettier || echo "⚠️  npm prettier failed - continuing without it"; \
 	else \
-		echo "⚠️  npm not found - prettier not installed (for YAML/JSON/Markdown formatting)"; \
+		echo "⚠️  npm not available or CI environment - skipping prettier (YAML/JSON/Markdown formatting)"; \
 	fi
-	@if command -v go >/dev/null 2>&1; then \
-		go install mvdan.cc/sh/v3/cmd/shfmt@latest; \
+	@if command -v go >/dev/null 2>&1 && [ -z "$$CI" ]; then \
+		go install mvdan.cc/sh/v3/cmd/shfmt@latest || echo "⚠️  go shfmt failed - continuing without it"; \
 	else \
-		echo "⚠️  go not found - shfmt not installed (for shell script formatting)"; \
+		echo "⚠️  go not available or CI environment - skipping shfmt (shell script formatting)"; \
 	fi
 	@# Try to install dependencies using the best available method
 	@if command -v uv >/dev/null 2>&1; then \
