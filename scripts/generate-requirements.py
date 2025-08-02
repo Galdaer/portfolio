@@ -82,10 +82,8 @@ SELF_HOSTED_EXCLUDED_PACKAGES = {
     "ipywidgets",  # Interactive widgets
     # Development tools
     "pre-commit",  # Git hooks
-    "black",  # Code formatting
-    "isort",  # Import sorting
-    "flake8",  # Linting
-    "mypy",  # Type checking
+    "ruff",  # Ultra-fast linting, formatting, and import sorting (replaces black, isort, flake8)
+    "pyright",  # Type checking
     "pytest",  # Testing framework
     "pytest-cov",  # Coverage testing
     "pytest-asyncio",  # Async testing
@@ -133,11 +131,9 @@ CI_REQUIRED_PACKAGES = {
     # Testing and validation
     "pytest",
     "pytest-asyncio",
-    "flake8",
-    "mypy",
+    "ruff",
+    "pyright",
     "yamllint",
-    "black",
-    "isort",
     "pylint",
     # Healthcare-specific
     "fastmcp",

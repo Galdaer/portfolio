@@ -64,32 +64,48 @@ jobs:
             fi
           done
 
-      - name: Python quality checks (flake8 + mypy)
+      - name: Python quality checks (ruff + pyright)
         run: |
           echo "🔍 Running Python quality checks..."
-          mypy_errors=0
-          for dir in src agents mcps; do
-            if [ -d "$dir/" ]; then
-              echo "🔍 Running MyPy on $dir/..."
-              # Check if directory has any Python files
-              if find "$dir/" -name "*.py" | head -1 | grep -q .; then
-                if ! python3 -m mypy $dir/ --config-file mypy.ini --ignore-missing-imports; then
-                  echo "❌ MyPy errors found in $dir/"
-                  ((mypy_errors++))
-                else
-                  echo "✅ MyPy passed for $dir/"
-                fi
+
+          # Run Ruff for linting and formatting
+          echo "🧹 Running Ruff linting..."
+          if ! python3 -m ruff check .; then
+            echo "❌ Ruff linting errors found"
+            exit 1
+          else
+            echo "✅ Ruff linting passed"
+          fi
+
+          echo "🎨 Running Ruff formatting check..."
+          if ! python3 -m ruff format --check .; then
+            echo "❌ Ruff formatting errors found"
+            exit 1
+          else
+            echo "✅ Ruff formatting passed"
+          fi
+
+          # Run Pyright for type checking
+          pyright_errors=0
+          for dir in src agents mcps core; do
+            if [ -d "$dir/" ] && find "$dir/" -name "*.py" -type f | head -1 >/dev/null; then
+              echo "🔍 Running Pyright on $dir/..."
+              if ! python3 -m pyright $dir/; then
+                echo "❌ Pyright errors found in $dir/"
+                ((pyright_errors++))
               else
-                echo "ℹ️  No Python files found in $dir/ - skipping MyPy"
+                echo "✅ Pyright passed for $dir/"
               fi
+            else
+              echo "⚠️  Directory $dir/ not found or no Python files - skipping"
             fi
           done
 
-          if [ $mypy_errors -gt 0 ]; then
-            echo "❌ MyPy found errors in $mypy_errors directories - failing build"
+          if [ $pyright_errors -gt 0 ]; then
+            echo "❌ Pyright found errors in $pyright_errors directories - failing build"
             exit 1
           else
-            echo "✅ All MyPy quality checks passed"
+            echo "✅ All Pyright quality checks passed"
           fi
 
       - name: Healthcare configuration validation

@@ -191,7 +191,7 @@ deps:
 	@# Try to install dependencies using the best available method
 	@if command -v uv >/dev/null 2>&1; then \
 		echo "🚀  Using uv for fast installation (development = all dependencies)..."; \
-		sudo uv pip install --system --break-system-packages flake8 mypy pytest pytest-asyncio yamllint; \
+		sudo uv pip install --system --break-system-packages ruff pyright pytest pytest-asyncio yamllint; \
 		if [ -f requirements.txt ]; then \
 			sudo uv pip install --system --break-system-packages -r requirements.txt; \
 		fi; \
@@ -202,7 +202,7 @@ deps:
 			curl -LsSf https://astral.sh/uv/install.sh | sh; \
 			export PATH="$$HOME/.cargo/bin:$$PATH"; \
 		fi; \
-		pip3 install --user --break-system-packages flake8 mypy pytest pytest-asyncio yamllint; \
+		pip3 install --user --break-system-packages flake8 pyright pytest pytest-asyncio yamllint; \
 		if [ -f requirements.txt ]; then \
 			pip3 install --user --break-system-packages -r requirements.txt; \
 		fi; \
@@ -302,7 +302,7 @@ lint:
 	$(MAKE) lint-python
 
 lint-python:
-	@echo "🔍  Running Python lint (flake8 and mypy) for healthcare AI components"
+	@echo "🔍  Running Python lint (flake8 and pyright) for healthcare AI components"
 	@# Try multiple ways to find flake8 (system package, command, python module)
 	@if command -v flake8 >/dev/null 2>&1; then \
 		flake8 scripts/*.py test/python/*.py; \
@@ -326,20 +326,20 @@ lint-python:
 			exit 1; \
 		fi; \
 	fi
-	@# Try multiple ways to find mypy
-	@if command -v mypy >/dev/null 2>&1; then \
-		mypy scripts/*.py; \
-	elif python3 -m mypy --version >/dev/null 2>&1; then \
-		python3 -m mypy scripts/*.py; \
+	@# Try multiple ways to find pyright
+	@if command -v pyright >/dev/null 2>&1; then \
+		pyright scripts/; \
+	elif python3 -m pyright --version >/dev/null 2>&1; then \
+		python3 -m pyright scripts/; \
 	else \
-		echo "⚠️  mypy not found - trying to install..."; \
-		python3 -m pip install --user --break-system-packages mypy || echo "Failed to install mypy"; \
-		if command -v mypy >/dev/null 2>&1; then \
-			mypy scripts/*.py; \
-		elif python3 -m mypy --version >/dev/null 2>&1; then \
-			python3 -m mypy scripts/*.py; \
+		echo "⚠️  pyright not found - trying to install..."; \
+		python3 -m pip install --user --break-system-packages pyright || echo "Failed to install pyright"; \
+		if command -v pyright >/dev/null 2>&1; then \
+			pyright scripts/; \
+		elif python3 -m pyright --version >/dev/null 2>&1; then \
+			python3 -m pyright scripts/; \
 		else \
-			echo "❌ mypy still not available after installation"; \
+			echo "❌ pyright still not available after installation"; \
 			exit 1; \
 		fi; \
 	fi
@@ -507,7 +507,7 @@ help:
 	@echo "  make venv            Create or activate a virtual environment"
 	@echo "  make hooks           Install git hooks for pre-push validation"
 	@echo "  make lint            Run shell and Python linters for healthcare AI code"
-	@echo "  make lint-python     Run Python-specific linting (flake8, mypy)"
+	@echo "  make lint-python     Run Python-specific linting (flake8, pyright)"
 	@echo "  make validate        Validate healthcare AI configuration and dependencies"
 	@echo "  make test            Run healthcare AI unit tests with Bats"
 	@echo "  make test-quiet      Run healthcare AI tests (quiet mode)"

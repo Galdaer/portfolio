@@ -4,8 +4,25 @@ exclude = [
     "services/user/whisperlive"
 ]
 
-[tool.mypy]
+[tool.pyright]
+include = ["src", "agents", "core", "scripts", "config", "mcps"]
 exclude = [
     "reference/ai-patterns",
-    "services/user/whisperlive"
+    "services/user/whisperlive",
+    "**/__pycache__",
+    "**/.mypy_cache",
+    "**/node_modules"
 ]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+reportMissingImports = false
+reportMissingTypeStubs = false
+reportImportCycles = false
+reportPrivateUsage = false
+reportUnknownParameterType = false
+reportUnknownArgumentType = false
+reportUnknownLambdaType = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false

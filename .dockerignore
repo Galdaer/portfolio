@@ -16,7 +16,7 @@ venv/
 env/
 ENV/
 .pytest_cache/
-.mypy_cache/
+.pyright_cache/
 .coverage
 .coverage.*
 htmlcov/
