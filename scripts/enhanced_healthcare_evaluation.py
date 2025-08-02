@@ -23,7 +23,11 @@ try:
     DEEPEVAL_AVAILABLE = True
 except ImportError:
     DEEPEVAL_AVAILABLE = False
-    LLMTestCase = None
+    # For type checking when DeepEval is not available
+    LLMTestCase = None  # type: ignore
+    AnswerRelevancyMetric = None  # type: ignore
+    ContextualRecallMetric = None  # type: ignore
+    FaithfulnessMetric = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +151,7 @@ class AdvancedPHIDetector:
 
     def detect_phi_violations(self, text: str) -> List[EvaluationFinding]:
         """Detect PHI violations with detailed findings"""
-        findings = []
+        findings: List[EvaluationFinding] = []
 
         if self._is_synthetic_data(text):
             return findings
@@ -350,32 +354,38 @@ class EnhancedDeepEvalWrapper:
             return self._fallback_deepeval_evaluation(query, response, context)
 
         try:
+            # Import here ensures we only use them when available
+            assert LLMTestCase is not None
+            assert AnswerRelevancyMetric is not None
+            assert FaithfulnessMetric is not None
+            assert ContextualRecallMetric is not None
+
             test_case = LLMTestCase(
                 input=query,
                 actual_output=response,
                 retrieval_context=[context] if context else None,
             )
 
-            metrics = {}
+            metrics: Dict[str, float] = {}
 
             relevancy_metric = AnswerRelevancyMetric(
                 threshold=self.healthcare_thresholds["answer_relevancy"]
             )
             relevancy_metric.measure(test_case)
-            metrics["answer_relevancy"] = relevancy_metric.score
+            metrics["answer_relevancy"] = relevancy_metric.score or 0.0
 
             faithfulness_metric = FaithfulnessMetric(
                 threshold=self.healthcare_thresholds["faithfulness"]
             )
             faithfulness_metric.measure(test_case)
-            metrics["faithfulness"] = faithfulness_metric.score
+            metrics["faithfulness"] = faithfulness_metric.score or 0.0
 
             if context:
                 recall_metric = ContextualRecallMetric(
                     threshold=self.healthcare_thresholds["contextual_recall"]
                 )
                 recall_metric.measure(test_case)
-                metrics["contextual_recall"] = recall_metric.score
+                metrics["contextual_recall"] = recall_metric.score or 0.0
 
             return metrics
 
@@ -531,8 +541,12 @@ class ComprehensiveHealthcareEvaluator:
         start_time = time.time()
         evaluation_id = str(uuid.uuid4())
 
-        all_findings = []
-        metrics = {"deepeval_metrics": {}, "healthcare_metrics": {}, "compliance_metrics": {}}
+        all_findings: List[EvaluationFinding] = []
+        metrics: Dict[str, Any] = {
+            "deepeval_metrics": {},
+            "healthcare_metrics": {},
+            "compliance_metrics": {},
+        }
 
         deepeval_metrics = self.deepeval_wrapper.evaluate_with_deepeval(query, response, context)
         metrics["deepeval_metrics"] = deepeval_metrics
@@ -606,7 +620,7 @@ class ComprehensiveHealthcareEvaluator:
 
     def _generate_compliance_summary(self, findings: List[EvaluationFinding]) -> Dict[str, Any]:
         """Generate compliance summary with actionable insights"""
-        summary = {
+        summary: Dict[str, Any] = {
             "total_findings": len(findings),
             "critical_findings": len(
                 [f for f in findings if f.severity == EvaluationSeverity.CRITICAL]
@@ -790,7 +804,7 @@ def generate_evaluation_report(results: List[ComprehensiveEvaluationResult]) -> 
             ]
         )
 
-    compliance_summary = {}
+    compliance_summary: Dict[str, List[float]] = {}
     for result in results:
         for category, score in result.get_compliance_summary().items():
             if category not in compliance_summary:
@@ -837,7 +851,7 @@ def generate_evaluation_report(results: List[ComprehensiveEvaluationResult]) -> 
 
 
 if __name__ == "__main__":
-    sample_test_cases = [
+    sample_test_cases: List[Dict[str, Any]] = [
         {
             "query": "Help me check in a patient",
             "response": "I can help you check in the patient. I've verified their identity and insurance information. Please confirm the appointment type and update any demographic changes.",
@@ -856,7 +870,7 @@ if __name__ == "__main__":
     results = run_evaluation_batch(sample_test_cases)
 
     for i, result in enumerate(results):
-        print(f"\nTest Case {i+1}:")
+        print(f"\nTest Case {i + 1}:")
         print(f"Overall Score: {result.overall_score:.3f}")
         print(f"Weighted Score: {result.weighted_score:.3f}")
         print(f"Passing: {result.is_passing()}")
