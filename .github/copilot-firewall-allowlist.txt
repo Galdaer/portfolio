@@ -8,30 +8,40 @@
 # Supports both DNS names and service records
 
 # Ubuntu Package Repositories (Critical for apt-get operations)
-archive.ubuntu.com.
-azure.archive.ubuntu.com.
-security.ubuntu.com.
-esm.ubuntu.com.
-motd.ubuntu.com.
-_http._tcp.archive.ubuntu.com.
-_https._tcp.archive.ubuntu.com.
-_http._tcp.azure.archive.ubuntu.com.
-_https._tcp.azure.archive.ubuntu.com.
-_https._tcp.security.ubuntu.com.
-_https._tcp.esm.ubuntu.com.
-_https._tcp.motd.ubuntu.com.
+archive.ubuntu.com
+azure.archive.ubuntu.com
+security.ubuntu.com
+esm.ubuntu.com
+motd.ubuntu.com
+ports.ubuntu.com
+keyserver.ubuntu.com
+launchpad.net
+_http._tcp.archive.ubuntu.com
+_https._tcp.archive.ubuntu.com
+_http._tcp.azure.archive.ubuntu.com
+_https._tcp.azure.archive.ubuntu.com
+_https._tcp.security.ubuntu.com
+_https._tcp.esm.ubuntu.com
+_https._tcp.motd.ubuntu.com
+_https._tcp.ports.ubuntu.com
+_https._tcp.keyserver.ubuntu.com
+_https._tcp.launchpad.net
 
 # Microsoft Package Repository (VS Code, .NET tools)
-packages.microsoft.com.
-_https._tcp.packages.microsoft.com.
+packages.microsoft.com
+_https._tcp.packages.microsoft.com
 
 # GitHub Infrastructure (Source control, releases, CI/CD)
-github.com.
-api.github.com.
-raw.githubusercontent.com.
-_https._tcp.github.com.
-_https._tcp.api.github.com.
-_https._tcp.raw.githubusercontent.com.
+github.com
+api.github.com
+raw.githubusercontent.com
+objects.githubusercontent.com
+codeload.github.com
+_https._tcp.github.com
+_https._tcp.api.github.com
+_https._tcp.raw.githubusercontent.com
+_https._tcp.objects.githubusercontent.com
+_https._tcp.codeload.github.com
 
 # Docker Infrastructure (Healthcare container images)
 registry-1.docker.io.

@@ -11,7 +11,32 @@
 	   diagnostics \
 	   dry-run \
 	   e2e \
-	   fix-permissions \
+	   fix	fi; \
+	if [ "$$UV_AVAILABLE" = "false" ]; then \
+		echo "🐍  Using pip with apt fallbacks for maximum compatibility..."; \
+		echo "   📦 Installing system Python tools via apt..."; \
+		sudo apt-get update -qq && sudo apt-get install -y python3-pip python3-dev python3-setuptools python3-wheel || true; \
+		echo "   🔧 Installing development tools via pip..."; \
+		if sudo pip3 install --break-system-packages mypy ruff pytest pytest-asyncio yamllint 2>/dev/null; then \
+			echo "   ✓ Development tools installed system-wide"; \
+		elif pip3 install --user mypy ruff pytest pytest-asyncio yamllint 2>/dev/null; then \
+			echo "   ✓ Development tools installed to user directory"; \
+		else \
+			echo "   ⚠️  pip installation failed - trying apt packages"; \
+			sudo apt-get install -y python3-mypy python3-pytest python3-yaml || true; \
+		fi; \
+		if [ -f requirements.txt ]; then \
+			echo "   📋 Installing healthcare AI requirements via pip..."; \
+			if sudo pip3 install --break-system-packages -r requirements.txt 2>/dev/null; then \
+				echo "   ✓ Healthcare requirements installed system-wide"; \
+			elif pip3 install --user -r requirements.txt 2>/dev/null; then \
+				echo "   ✓ Healthcare requirements installed to user directory"; \
+			else \
+				echo "   ⚠️  Some requirements may have failed - check individual packages"; \
+			fi; \
+		fi; \
+	fi
+	@echo "✅  Development dependencies installation complete"
 	   help \
 	   hooks \
 	   install \
@@ -188,23 +213,47 @@ deps:
 	else \
 		echo "⚠️  go not available or CI environment - skipping shfmt (shell script formatting)"; \
 	fi
-	@# Try to install dependencies using the best available method
-	@if command -v uv >/dev/null 2>&1; then \
-		echo "🚀  Using uv for fast installation (development = all dependencies)..."; \
-		sudo uv pip install --system --break-system-packages ruff pyright pytest pytest-asyncio yamllint; \
-		if [ -f requirements.txt ]; then \
-			sudo uv pip install --system --break-system-packages -r requirements.txt; \
+	@# Smart dependency installation with comprehensive fallbacks
+	@echo "🔍  Determining best installation method..."
+	@UV_AVAILABLE=false; \
+	if command -v uv >/dev/null 2>&1; then \
+		echo "   ✓ uv command found"; \
+		if timeout 5 uv --version >/dev/null 2>&1; then \
+			echo "   ✓ uv responsive"; \
+			UV_AVAILABLE=true; \
+		else \
+			echo "   ⚠️  uv timeout (likely firewall block)"; \
 		fi; \
 	else \
-		echo "⚠️  UV not found, installing with pip..."; \
-		if ! command -v uv >/dev/null 2>&1; then \
-			echo "🔧  Installing uv for faster Python package management..."; \
-			curl -LsSf https://astral.sh/uv/install.sh | sh; \
-			export PATH="$$HOME/.cargo/bin:$$PATH"; \
+		echo "   ✗ uv not installed"; \
+	fi; \
+	if [ "$$UV_AVAILABLE" = "true" ]; then \
+		echo "🚀  Using uv for ultra-fast installation..."; \
+		if timeout 30 sudo uv pip install --system --break-system-packages ruff pyright pytest pytest-asyncio yamllint 2>/dev/null; then \
+			echo "   ✓ Core development tools installed via uv"; \
+		else \
+			echo "   ⚠️  uv installation failed (firewall/network) - falling back to pip"; \
+			UV_AVAILABLE=false; \
 		fi; \
-		pip3 install --user --break-system-packages flake8 pyright pytest pytest-asyncio yamllint; \
+		if [ "$$UV_AVAILABLE" = "true" ] && [ -f requirements.txt ]; then \
+			if timeout 60 sudo uv pip install --system --break-system-packages -r requirements.txt 2>/dev/null; then \
+				echo "   ✓ Healthcare AI requirements installed via uv"; \
+			else \
+				echo "   ⚠️  uv requirements installation failed - falling back to pip"; \
+				UV_AVAILABLE=false; \
+			fi; \
+		fi; \
+	else \
+		echo "⚠️  UV not found or blocked, using pip and apt for CI compatibility..."; \
+		echo "�  Installing core Python tools via apt..."; \
+		sudo apt-get update -qq && sudo apt-get install -y python3-pip python3-dev python3-setuptools; \
+		echo "🔧  Installing development tools via pip..."; \
+		sudo pip3 install --break-system-packages mypy ruff pytest pytest-asyncio yamllint || \
+		pip3 install --user mypy ruff pytest pytest-asyncio yamllint; \
 		if [ -f requirements.txt ]; then \
-			pip3 install --user --break-system-packages -r requirements.txt; \
+			echo "📋  Installing requirements via pip..."; \
+			sudo pip3 install --break-system-packages -r requirements.txt || \
+			pip3 install --user -r requirements.txt; \
 		fi; \
 	fi
 	@echo "✅  All development dependencies installed successfully"
@@ -216,11 +265,17 @@ update:
 # Update and regenerate lockfiles
 update-deps:
 	@echo "🔄  Updating healthcare AI dependencies"
-	@if command -v uv >/dev/null 2>&1; then \
+	@if command -v uv >/dev/null 2>&1 && timeout 5 uv --version >/dev/null 2>&1; then \
+		echo "🚀  Using uv for fast dependency updates..."; \
 		python3 scripts/generate-requirements.py; \
-		uv pip install -r requirements.txt; \
+		sudo uv pip install --system --break-system-packages -r requirements.txt; \
 	else \
-		pip install --upgrade -r requirements.in; \
+		echo "🐍  Using pip for dependency updates..."; \
+		if [ ! -f requirements.txt ]; then \
+			python3 scripts/generate-requirements.py; \
+		fi; \
+		sudo pip3 install --break-system-packages --upgrade -r requirements.txt || \
+		pip3 install --user --upgrade -r requirements.txt; \
 	fi
 
 # Main Setup Commands
