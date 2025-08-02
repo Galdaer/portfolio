@@ -3,20 +3,21 @@ Healthcare Critical Fixes Validation Tests
 Comprehensive validation of security fixes with real functionality testing
 """
 
-import pytest
-import sys
 import os
+import sys
 from unittest.mock import patch
 
+import pytest
+
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 # Import after path modification to avoid E402
 try:
     from src.healthcare_mcp.phi_detection import BasicPHIDetector
-    from src.security.rbac_foundation import HealthcareRBACManager, ResourceType
+    from src.security.database_factory import PostgresConnectionFactory
     from src.security.encryption_manager import HealthcareEncryptionManager
-    from src.security.database_factory import MockConnectionFactory
+    from src.security.rbac_foundation import HealthcareRBACManager, ResourceType
 except ImportError as e:
     pytest.skip(f"Required modules not available: {e}", allow_module_level=True)
 
@@ -24,11 +25,16 @@ except ImportError as e:
 def test_imports_available():
     """Test that all required modules can be imported"""
     try:
-        # Test basic instantiation
-        mock_factory = MockConnectionFactory()
+        # Test basic instantiation with development database credentials
+        connection_factory = PostgresConnectionFactory(
+            host=os.getenv("POSTGRES_HOST", "localhost"),
+            database=os.getenv("POSTGRES_DB", "intelluxe"),
+            user=os.getenv("POSTGRES_USER", "intelluxe"),
+            password=os.getenv("POSTGRES_PASSWORD", "secure_password"),
+        )
         detector = BasicPHIDetector()
-        manager = HealthcareRBACManager(mock_factory)
-        encryption = HealthcareEncryptionManager(mock_factory)
+        manager = HealthcareRBACManager(connection_factory)
+        encryption = HealthcareEncryptionManager(connection_factory)
 
         assert detector is not None
         assert manager is not None
@@ -90,17 +96,26 @@ class TestRBACSecurityFixes:
 
     def test_rbac_patient_access_constraints(self):
         """Test RBAC patient access constraints with real logic"""
-        mock_factory = MockConnectionFactory()
+        connection_factory = PostgresConnectionFactory(
+            host="localhost",
+            database="intelluxe",
+            user="intelluxe",
+            password="secure_password",
+        )
 
-        with patch.dict(os.environ, {'ENVIRONMENT': 'development', 'RBAC_STRICT_MODE': 'true'}):
-            manager = HealthcareRBACManager(mock_factory)
+        with patch.dict(os.environ, {"ENVIRONMENT": "development", "RBAC_STRICT_MODE": "true"}):
+            manager = HealthcareRBACManager(connection_factory)
 
             # Test that strict mode is properly configured
-            assert hasattr(manager, 'strict_mode') or hasattr(manager, 'STRICT_MODE')
+            assert hasattr(manager, "strict_mode") or hasattr(manager, "STRICT_MODE")
 
             # Test available methods defensively - only call methods that exist
-            constraint_methods = ['check_resource_constraints', 'validate_access', 'check_patient_access']
-            access_methods = ['check_access', 'has_access', 'can_access']
+            constraint_methods = [
+                "check_resource_constraints",
+                "validate_access",
+                "check_patient_access",
+            ]
+            access_methods = ["check_access", "has_access", "can_access"]
 
             method_found = False
             for method_name in constraint_methods:
@@ -134,13 +149,22 @@ class TestRBACSecurityFixes:
 
     def test_rbac_role_hierarchy(self):
         """Test RBAC role hierarchy and permissions"""
-        mock_factory = MockConnectionFactory()
+        connection_factory = PostgresConnectionFactory(
+            host="localhost",
+            database="intelluxe",
+            user="intelluxe",
+            password="secure_password",
+        )
 
-        with patch.dict(os.environ, {'ENVIRONMENT': 'development'}):
-            manager = HealthcareRBACManager(mock_factory)
+        with patch.dict(os.environ, {"ENVIRONMENT": "development"}):
+            manager = HealthcareRBACManager(connection_factory)
 
             # Test that manager has role-related functionality
-            assert hasattr(manager, 'roles') or hasattr(manager, 'get_user_role') or manager is not None
+            assert (
+                hasattr(manager, "roles")
+                or hasattr(manager, "get_user_role")
+                or manager is not None
+            )
 
 
 class TestAuditLoggingEnhancements:
@@ -154,7 +178,7 @@ class TestAuditLoggingEnhancements:
         violation_data = {
             "error_message": "Access denied for patient John Smith (SSN: 123-45-6789)",
             "user_id": "test_user",
-            "timestamp": "2024-01-01T12:00:00Z"
+            "timestamp": "2024-01-01T12:00:00Z",
         }
 
         # Process the violation through PHI detection
@@ -167,6 +191,7 @@ class TestAuditLoggingEnhancements:
 
         # Log the sanitized violation
         import logging
+
         logger = logging.getLogger("security_audit")
         logger.warning(f"Security violation: {phi_result.masked_text}")
 
@@ -177,17 +202,25 @@ class TestAuditLoggingEnhancements:
 
 def test_integration_all_security_fixes():
     """Integration test ensuring all security fixes work together"""
-    mock_factory = MockConnectionFactory()
+    connection_factory = PostgresConnectionFactory(
+        host="localhost",
+        database="intelluxe",
+        user="intelluxe",
+        password="secure_password",
+    )
 
-    with patch.dict(os.environ, {
-        'ENVIRONMENT': 'development',
-        'MASTER_ENCRYPTION_KEY': 'dGVzdF9rZXlfMzJfYnl0ZXNfZm9yX2Flc19lbmNyeXB0aW9u',
-        'RBAC_STRICT_MODE': 'true'
-    }):
+    with patch.dict(
+        os.environ,
+        {
+            "ENVIRONMENT": "development",
+            "MASTER_ENCRYPTION_KEY": "dGVzdF9rZXlfMzJfYnl0ZXNfZm9yX2Flc19lbmNyeXB0aW9u",
+            "RBAC_STRICT_MODE": "true",
+        },
+    ):
         # Initialize all security components
         phi_detector = BasicPHIDetector()
-        rbac_manager = HealthcareRBACManager(mock_factory)
-        encryption_manager = HealthcareEncryptionManager(mock_factory)
+        rbac_manager = HealthcareRBACManager(connection_factory)
+        encryption_manager = HealthcareEncryptionManager(connection_factory)
 
         # Test they all work together
         test_data = "Patient data for John Doe"
@@ -197,8 +230,13 @@ def test_integration_all_security_fixes():
         assert phi_result.phi_detected
 
         # 2. Test encryption if methods exist - check multiple possible method names
-        encryption_methods = ['encrypt_data', 'encrypt', 'encrypt_text', 'secure_data']
-        decryption_methods = ['decrypt_data', 'decrypt', 'decrypt_text', 'unsecure_data']
+        encryption_methods = ["encrypt_data", "encrypt", "encrypt_text", "secure_data"]
+        decryption_methods = [
+            "decrypt_data",
+            "decrypt",
+            "decrypt_text",
+            "unsecure_data",
+        ]
 
         encrypted_data = None
         for encrypt_method in encryption_methods:
