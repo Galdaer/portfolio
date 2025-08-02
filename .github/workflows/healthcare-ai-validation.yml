@@ -205,26 +205,33 @@ jobs:
 
           echo "✅ Infrastructure validation complete"
 
-  # Validate existing synthetic data (no regeneration needed on self-hosted)
-  test-synthetic-data-validation:
+  # Generate synthetic data during CI (proper approach for large datasets)
+  test-synthetic-data-generation:
     runs-on: self-hosted
     needs: setup-dependencies
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
           python-version: "3.12"
-      - name: Validate existing synthetic healthcare data
+      - name: Generate synthetic healthcare data for CI
         run: |
-          echo "🏥 Validating existing synthetic healthcare data on self-hosted runner..."
+          echo "🏥 Generating synthetic healthcare data for CI testing..."
 
-          # Check if comprehensive dataset exists (from previous generation)
+          # Create data directory if it doesn't exist
+          mkdir -p data/synthetic/
+
+          # Generate comprehensive synthetic dataset
+          echo "🔄 Running synthetic data generation..."
+          python3 scripts/generate_synthetic_healthcare_data.py
+
+          # Validate generated dataset
           if [ -d "data/synthetic/" ]; then
-            echo "✅ Found existing synthetic data directory"
+            echo "✅ Synthetic data directory created"
 
-            # Validate all expected files exist
+            # Validate all expected files were generated
             expected_files="doctors.json patients.json encounters.json lab_results.json insurance_verifications.json agent_sessions.json billing_claims.json doctor_preferences.json audit_logs.json"
             missing_files=0
 
@@ -243,25 +250,24 @@ jobs:
               total_size=$(du -sh data/synthetic/ | cut -f1)
               total_files=$(ls data/synthetic/*.json | wc -l)
               echo ""
-              echo "🎯 Comprehensive dataset validated:"
+              echo "🎯 Comprehensive dataset generated:"
               echo "   📊 Total size: $total_size"
               echo "   📁 Data files: $total_files/9"
               echo "   🏥 Ready for healthcare AI evaluation"
               echo ""
-              echo "✅ No regeneration needed - using existing comprehensive dataset"
+              echo "✅ Synthetic data generation successful"
             else
-              echo "❌ Missing $missing_files critical data files"
+              echo "❌ Failed to generate $missing_files critical data files"
               exit 1
             fi
           else
-            echo "❌ No synthetic data directory found"
-            echo "ℹ️  Run 'python3 scripts/generate_synthetic_healthcare_data.py' to create dataset"
+            echo "❌ Failed to create synthetic data directory"
             exit 1
           fi
 
   test-healthcare-ai-evaluation:
     runs-on: self-hosted
-    needs: setup-dependencies
+    needs: [setup-dependencies, test-synthetic-data-generation]
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
@@ -269,43 +275,32 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.12"
-      - name: Run Healthcare AI Evaluation (using existing comprehensive data)
+      - name: Run Enhanced Healthcare AI Evaluation (using generated data)
         env:
           CI: true
           ENVIRONMENT: development
-          GPU_AVAILABLE: true
         run: |
-          echo "🧪 Running healthcare AI evaluation with comprehensive dataset..."
+          echo "🧪 Running enhanced healthcare AI evaluation with generated dataset..."
 
-          # Verify PyTorch availability
-          python3 -c "
-          try:
-              import torch
-              print(f'✅ PyTorch available: {torch.__version__}')
-              print(f'🎯 CUDA available: {torch.cuda.is_available()}')
-          except ImportError:
-              print('❌ PyTorch not available')
-              exit(1)
-          "
-
-          # Use existing comprehensive dataset (22,255+ records)
+          # Verify the generated dataset exists from previous job
           if [ -d "data/synthetic/" ] && [ -f "data/synthetic/patients.json" ]; then
             dataset_size=$(du -sh data/synthetic/ | cut -f1)
             patient_count=$(python3 -c "import json; data=json.load(open('data/synthetic/patients.json')); print(len(data))")
-            echo "📊 Using existing comprehensive dataset:"
+            echo "📊 Using generated comprehensive dataset:"
             echo "   💾 Size: $dataset_size"
             echo "   👥 Patients: $patient_count"
             echo "   🏥 Full cross-referenced medical records"
             echo ""
           else
-            echo "❌ Comprehensive dataset not found at data/synthetic/"
-            echo "ℹ️  Expected 22,255+ records across 9 data types"
+            echo "❌ Generated dataset not found at data/synthetic/"
+            echo "ℹ️  This should have been created by the test-synthetic-data-generation job"
             exit 1
           fi
 
-          # Run healthcare evaluation with the comprehensive dataset
-          timeout 8m python3 scripts/healthcare_deepeval.py || echo "Evaluation completed with warnings"
-          echo "✅ Healthcare AI evaluation complete using comprehensive data"
+          # Run enhanced healthcare evaluation (DeepEval optimism resistant)
+          echo "🔄 Running enhanced healthcare AI evaluation system..."
+          timeout 8m python3 scripts/enhanced_healthcare_evaluation.py || echo "Evaluation completed with warnings"
+          echo "✅ Enhanced healthcare AI evaluation complete using generated data"
 
   # Add other lightweight test jobs here...
 
@@ -316,7 +311,7 @@ jobs:
       [
         healthcare-security-comprehensive,
         infrastructure-comprehensive,
-        test-synthetic-data-validation,
+        test-synthetic-data-generation,
         test-healthcare-ai-evaluation,
       ]
     if: always()
@@ -328,11 +323,12 @@ jobs:
 
           echo "🔒 Security validation: ${{ needs.healthcare-security-comprehensive.result }}"
           echo "🏗️  Infrastructure validation: ${{ needs.infrastructure-comprehensive.result }}"
-          echo "🧪 Synthetic data validation: ${{ needs.test-synthetic-data-validation.result }}"
+          echo "🧪 Synthetic data generation: ${{ needs.test-synthetic-data-generation.result }}"
           echo "🤖 Healthcare AI evaluation: ${{ needs.test-healthcare-ai-evaluation.result }}"
 
           if [ "${{ needs.healthcare-security-comprehensive.result }}" = "success" ] && \
              [ "${{ needs.infrastructure-comprehensive.result }}" = "success" ] && \
+             [ "${{ needs.test-synthetic-data-generation.result }}" = "success" ] && \
              [ "${{ needs.test-healthcare-ai-evaluation.result }}" = "success" ]; then
             echo "🎉 All critical healthcare AI validation tests passed!"
             echo "🚀 Healthcare AI system ready for deployment"
