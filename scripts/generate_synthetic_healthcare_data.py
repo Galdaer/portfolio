@@ -10,26 +10,28 @@ import os
 import random
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import psycopg2
+    from psycopg2.extensions import connection as PgConnection
+    import redis
 
 # Optional database dependencies with graceful fallback
 try:
     import psycopg2
     from psycopg2.extensions import connection as PgConnection
-
+    
     PSYCOPG2_AVAILABLE = True
 except ImportError:
-    psycopg2 = None
-    PgConnection = None
     PSYCOPG2_AVAILABLE = False
     print("⚠️  psycopg2 not available - database population will be skipped")
 
 try:
     import redis
-
+    
     REDIS_AVAILABLE = True
 except ImportError:
-    redis = None
     REDIS_AVAILABLE = False
     print("⚠️  redis not available - Redis caching will be skipped")
 
@@ -181,19 +183,20 @@ class SyntheticHealthcareDataGenerator:
         self.audit_logs: list[dict[str, Any]] = []
 
         # Database connections (optional)
-        self.db_conn = None
-        self.redis_client = None
+        self.db_conn: Optional[Any] = None
+        self.redis_client: Optional[Any] = None
 
         if self.use_database:
             self._connect_to_databases()
 
     def _connect_to_databases(self) -> None:
         """Connect to PostgreSQL and Redis if using database mode"""
-        if not PSYCOPG2_AVAILABLE or psycopg2 is None:
+        if not PSYCOPG2_AVAILABLE:
             print("⚠️  psycopg2 not available - skipping PostgreSQL connection")
             self.db_conn = None
         else:
             try:
+                import psycopg2
                 self.db_conn = psycopg2.connect(
                     "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
                 )
@@ -202,11 +205,12 @@ class SyntheticHealthcareDataGenerator:
                 print(f"⚠️  PostgreSQL connection failed: {e}")
                 self.db_conn = None
 
-        if not REDIS_AVAILABLE or redis is None:
+        if not REDIS_AVAILABLE:
             print("⚠️  redis not available - skipping Redis connection")
             self.redis_client = None
         else:
             try:
+                import redis
                 self.redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
                 if self.redis_client:
                     self.redis_client.ping()

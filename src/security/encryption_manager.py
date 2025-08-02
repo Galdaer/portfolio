@@ -784,10 +784,11 @@ class HealthcareEncryptionManager:
 
             # Try to parse as JSON, otherwise return as string
             try:
-                parsed_result: Any = json.loads(decrypted_data.decode())
+                parsed_result: dict[str, Any] = json.loads(decrypted_data.decode())
                 return parsed_result
             except json.JSONDecodeError:
-                return decrypted_data.decode()
+                decoded_data: str = decrypted_data.decode()
+                return decoded_data
 
         except Exception as e:
             self.logger.error(f"Decryption failed: {e}")

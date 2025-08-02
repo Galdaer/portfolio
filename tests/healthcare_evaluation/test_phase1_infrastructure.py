@@ -100,7 +100,7 @@ class MockMCPClient:
 
         return data
 
-    async def search_medical_literature(self, query: str, **kwargs) -> dict[str, Any]:
+    async def search_medical_literature(self, query: str, **kwargs: Any) -> dict[str, Any]:
         """Mock medical literature search using synthetic data context"""
         # Extract relevant information from synthetic data based on query
         query_lower = query.lower()
@@ -163,7 +163,7 @@ class RealDataLLMClient:
         self.lab_results = synthetic_data.get("lab_results", [])
         self.insurance_verifications = synthetic_data.get("insurance_verifications", [])
 
-    async def generate(self, prompt: str, **kwargs) -> str:
+    async def generate(self, prompt: str, **kwargs: Any) -> str:
         """Generate responses using real clinical data patterns"""
         prompt_lower = prompt.lower()
 
@@ -441,13 +441,13 @@ class Phase1HealthcareAgent:
 
             # Determine query type
             if "differential" in query_lower or "diagnosis" in query_lower:
-                query_type = QueryType.DIFFERENTIAL_DIAGNOSIS
+                query_type = QueryType.DIFFERENTIAL_DIAGNOSIS  # type: ignore[attr-defined]
             elif "drug" in query_lower and "interaction" in query_lower:
-                query_type = QueryType.DRUG_INTERACTION
+                query_type = QueryType.DRUG_INTERACTION  # type: ignore[attr-defined]
             elif "literature" in query_lower or "research" in query_lower:
-                query_type = QueryType.LITERATURE_RESEARCH
+                query_type = QueryType.LITERATURE_RESEARCH  # type: ignore[attr-defined]
             else:
-                query_type = QueryType.LITERATURE_RESEARCH
+                query_type = QueryType.LITERATURE_RESEARCH  # type: ignore[attr-defined]
 
             # Use enhanced query engine for medical literature search
             result = await self.query_engine.process_medical_query(
@@ -496,7 +496,7 @@ Medical Disclaimers:
         return response
 
 
-async def test_phase1_agent():
+async def test_phase1_agent() -> None:
     """Test the Phase 1 healthcare agent"""
     print("🚀 Testing Phase 1 Healthcare AI Agent")
     print("=" * 50)

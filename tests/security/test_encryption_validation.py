@@ -17,7 +17,7 @@ from src.security.encryption_manager import HealthcareEncryptionManager
 class TestEncryptionValidation:
     """Test encryption security validation functionality"""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Setup test environment"""
         connection_factory = PostgresConnectionFactory(
             host="localhost",
@@ -248,7 +248,7 @@ class TestConfigurationInjection:
 class TestSecurityScan:
     """Test security scanning functionality"""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Setup test environment"""
         connection_factory = PostgresConnectionFactory(
             host="localhost",

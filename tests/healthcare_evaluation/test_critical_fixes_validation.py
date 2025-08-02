@@ -5,6 +5,7 @@ Comprehensive validation of security fixes with real functionality testing
 
 import os
 import sys
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -22,7 +23,7 @@ except ImportError as e:
     pytest.skip(f"Required modules not available: {e}", allow_module_level=True)
 
 
-def test_imports_available():
+def test_imports_available() -> None:
     """Test that all required modules can be imported"""
     try:
         # Test basic instantiation with development database credentials
@@ -170,7 +171,7 @@ class TestRBACSecurityFixes:
 class TestAuditLoggingEnhancements:
     """Test Fix 4: Audit Logger Enhancement - Real logging testing"""
 
-    def test_security_violation_logging_with_phi_detection(self, caplog):
+    def test_security_violation_logging_with_phi_detection(self, caplog: Any) -> None:
         """Test that security violations are logged with PHI detection"""
         detector = BasicPHIDetector()
 
@@ -200,7 +201,7 @@ class TestAuditLoggingEnhancements:
         assert "John Smith" not in caplog.text  # PHI should not be in logs
 
 
-def test_integration_all_security_fixes():
+def test_integration_all_security_fixes() -> None:
     """Integration test ensuring all security fixes work together"""
     connection_factory = PostgresConnectionFactory(
         host="localhost",

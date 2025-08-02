@@ -8,7 +8,7 @@ import os
 from typing import Dict, Any, Tuple
 
 import spacy
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -33,7 +33,7 @@ def load_model() -> bool:
         return False
 
 
-@app.route("/health")
+@app.route("/health")  # type: ignore[misc]
 def health() -> Tuple[Dict[str, Any], int]:
     """Health check endpoint"""
     if nlp is None:
@@ -41,7 +41,7 @@ def health() -> Tuple[Dict[str, Any], int]:
     return {"status": "ok", "model": MODEL_NAME}, 200
 
 
-@app.route("/")
+@app.route("/")  # type: ignore[misc]
 def root() -> Dict[str, Any]:
     """Root endpoint with API info"""
     return {
@@ -55,7 +55,7 @@ def root() -> Dict[str, Any]:
     }
 
 
-@app.route("/info")
+@app.route("/info")  # type: ignore[misc]
 def info() -> Tuple[Dict[str, Any], int]:
     """Model information endpoint"""
     if nlp is None:
@@ -71,7 +71,7 @@ def info() -> Tuple[Dict[str, Any], int]:
     return {"model": MODEL_NAME, "pipeline": nlp.pipe_names, "entities": entities}, 200
 
 
-@app.route("/analyze", methods=["POST"])
+@app.route("/analyze", methods=["POST"])  # type: ignore[misc]
 def analyze() -> Tuple[Dict[str, Any], int]:
     """Analyze text for biomedical entities"""
     if nlp is None:

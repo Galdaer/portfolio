@@ -54,7 +54,8 @@ class BaseHealthcareAgent(ABC):
     async def get_available_models(self) -> list[dict[str, Any]]:
         """Get available models from registry"""
         result = await model_registry.get_available_models()
-        return result if result is not None else []
+        final_result: list[dict[str, Any]] = result if result is not None else []
+        return final_result
 
     async def get_available_tools(self) -> list[dict[str, Any]]:
         """Get available tools from registry"""

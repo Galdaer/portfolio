@@ -66,7 +66,7 @@ class HealthcareEvaluationConfig:
     hipaa_compliance_mode: bool = True
     audit_logging_enabled: bool = True
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.ollama_models is None:
             self.ollama_models = [
                 "llama3.1:8b-instruct-q4_K_M",
@@ -118,7 +118,7 @@ class HealthcareEvaluationFramework:
         self._init_database_connections()
         self._init_ollama_connection()
 
-    def _init_database_connections(self):
+    def _init_database_connections(self) -> None:
         """Initialize database connections"""
         try:
             # PostgreSQL connection
@@ -144,7 +144,7 @@ class HealthcareEvaluationFramework:
             self.logger.error(f"Failed to initialize database connections: {e}")
             raise
 
-    def _init_ollama_connection(self):
+    def _init_ollama_connection(self) -> None:
         """Initialize Ollama connection and verify models"""
         try:
             ollama_url = f"http://{self.config.ollama_host}:{self.config.ollama_port}"
@@ -210,7 +210,7 @@ class HealthcareEvaluationFramework:
 
         return results
 
-    def _log_evaluation_results(self, results: Any, model_name: str):
+    def _log_evaluation_results(self, results: Any, model_name: str) -> None:
         """Log evaluation results for healthcare audit trail"""
         audit_entry = {
             "timestamp": "now()",
@@ -238,7 +238,7 @@ class HealthcareEvaluationFramework:
         except Exception as e:
             self.logger.error(f"Failed to log evaluation results: {e}")
 
-    def close_connections(self):
+    def close_connections(self) -> None:
         """Close all database connections"""
         if hasattr(self, "postgres_conn"):
             self.postgres_conn.close()
