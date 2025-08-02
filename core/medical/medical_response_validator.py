@@ -2,7 +2,7 @@
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Dict
 
 
 @dataclass
@@ -19,7 +19,7 @@ class MedicalTrustScore:
 class MedicalResponseValidator:
     """Validate medical responses for accuracy and safety"""
 
-    def __init__(self, llm_client):
+    def __init__(self, llm_client: Any) -> None:
         self.llm_client = llm_client
 
     async def validate_medical_response(

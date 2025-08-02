@@ -5,7 +5,7 @@ Provides testable database connection management with dependency injection
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Protocol
+from typing import Protocol, Any, Optional, cast
 
 import psycopg2
 
@@ -18,7 +18,7 @@ class DatabaseConnection(Protocol):
     """Database connection protocol for type safety"""
 
     @abstractmethod
-    def cursor(self, cursor_factory=None) -> psycopg2.extensions.cursor:
+    def cursor(self, cursor_factory: Optional[Any] = None) -> psycopg2.extensions.cursor:
         """Return a database cursor"""
         ...
 
@@ -54,7 +54,7 @@ class ConnectionFactory(ABC):
 class PostgresConnectionFactory(ConnectionFactory):
     """PostgreSQL connection factory with environment-aware configuration"""
 
-    def __init__(self, connection_string: str | None = None, **kwargs):
+    def __init__(self, connection_string: str | None = None, **kwargs: Any) -> None:
         """
         Initialize PostgreSQL connection factory
 
@@ -69,7 +69,7 @@ class PostgresConnectionFactory(ConnectionFactory):
         # Validate configuration based on environment
         self._validate_configuration()
 
-    def _validate_configuration(self):
+    def _validate_configuration(self) -> None:
         """Validate connection configuration based on environment"""
         if EnvironmentDetector.is_production():
             # Production requires secure connection parameters
@@ -101,7 +101,7 @@ class PostgresConnectionFactory(ConnectionFactory):
             connection.autocommit = False
 
             self.logger.info("Database connection established successfully")
-            return connection  # type: ignore[return-value]
+            return cast(DatabaseConnection, connection)
 
         except psycopg2.Error as e:
             self.logger.error(f"Failed to create database connection: {e}")
@@ -160,14 +160,14 @@ class PostgresConnectionFactory(ConnectionFactory):
 class MockConnectionFactory(ConnectionFactory):
     """Mock connection factory for testing"""
 
-    def __init__(self, mock_connection=None):
+    def __init__(self, mock_connection: Optional[Any] = None) -> None:
         self.mock_connection = mock_connection
         self.logger = logging.getLogger(f"{__name__}.MockConnectionFactory")
 
     def create_connection(self) -> DatabaseConnection:
         """Return mock connection for testing"""
         if self.mock_connection:
-            return self.mock_connection
+            return cast(DatabaseConnection, self.mock_connection)
 
         # Create a simple mock connection
         from unittest.mock import Mock
@@ -176,7 +176,7 @@ class MockConnectionFactory(ConnectionFactory):
         mock_conn.cursor.return_value.__enter__.return_value = Mock()
         mock_conn.cursor.return_value.__exit__.return_value = None
         mock_conn.closed = 0
-        return mock_conn
+        return cast(DatabaseConnection, mock_conn)
 
     def get_connection_info(self) -> dict:
         """Get mock connection info"""
@@ -207,7 +207,7 @@ class ConnectionManager:
         except Exception:
             return True
 
-    def close(self):
+    def close(self) -> None:
         """Close database connection"""
         if self._connection and not self._is_connection_closed():
             try:
@@ -218,10 +218,10 @@ class ConnectionManager:
             finally:
                 self._connection = None
 
-    def __enter__(self):
+    def __enter__(self) -> 'ConnectionManager':
         """Context manager entry"""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit"""
         self.close()

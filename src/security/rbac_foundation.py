@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, Set, Optional, List, cast
 
 try:
     from psycopg2.extras import RealDictCursor
@@ -86,8 +86,8 @@ class Role:
     role_id: str
     name: str
     description: str
-    permissions: set[Permission]
-    resource_constraints: dict[ResourceType, dict[str, Any]]
+    permissions: Set[Permission]
+    resource_constraints: Dict[ResourceType, Dict[str, Any]]
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -126,7 +126,7 @@ class HealthcareRBACManager:
     VALID_BOOLEAN_VALUES = {"true", "false"}
     VALID_ENVIRONMENTS = {"development", "testing", "staging", "production"}
 
-    def __init__(self, postgres_conn=None, config=None):
+    def __init__(self, postgres_conn: Any = None, config: Any = None) -> None:
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.HealthcareRBACManager")
 
@@ -159,7 +159,7 @@ class HealthcareRBACManager:
         else:
             self.logger.info("Running in development mode without PostgreSQL backend")
 
-    def _init_rbac_tables(self):
+    def _init_rbac_tables(self) -> None:
         """Initialize RBAC database tables"""
         if not self.postgres_conn:
             self.logger.warning("No PostgreSQL connection available for table initialization")
@@ -260,7 +260,7 @@ class HealthcareRBACManager:
             self.logger.error(f"Failed to initialize RBAC tables: {e}")
             raise
 
-    def _init_default_roles(self):
+    def _init_default_roles(self) -> None:
         """Initialize default healthcare roles"""
         if not self.postgres_conn:
             self.logger.info("No PostgreSQL connection available for default role initialization")
@@ -362,13 +362,13 @@ class HealthcareRBACManager:
                     if cursor.fetchone():
                         continue  # Role already exists
 
-                # Create role
+                # Create role with explicit type casting
                 role = Role(
-                    role_id=role_data["role_id"],
-                    name=role_data["name"],
-                    description=role_data["description"],
-                    permissions=set(role_data["permissions"]),
-                    resource_constraints=role_data["resource_constraints"],
+                    role_id=str(role_data["role_id"]),
+                    name=str(role_data["name"]),
+                    description=str(role_data["description"]),
+                    permissions=set(cast(List[Permission], role_data["permissions"])),
+                    resource_constraints=cast(Dict[ResourceType, Dict[str, Any]], role_data["resource_constraints"]),
                     is_active=True,
                     created_at=datetime.now(),
                     updated_at=datetime.now(),
@@ -888,7 +888,7 @@ class HealthcareRBACManager:
         break_glass_enabled = os.getenv("RBAC_BREAK_GLASS_ENABLED", "false").lower() == "true"
         return break_glass_enabled
 
-    def _log_emergency_access(self, user_id: str, patient_id: str, access_type: str, reason: str):
+    def _log_emergency_access(self, user_id: str, patient_id: str, access_type: str, reason: str) -> None:
         """
         Log emergency access with comprehensive audit trail
 
@@ -1063,8 +1063,8 @@ class HealthcareRBACManager:
         resource_type: ResourceType,
         resource_id: str,
         granted: bool,
-        context: dict[str, Any] | None,
-    ):
+        context: Dict[str, Any] | None,
+    ) -> None:
         """Log access attempt for audit"""
         if not self.postgres_conn:
             # In development mode, log to file instead
@@ -1198,9 +1198,10 @@ class RBACMixin:
     in development environments without requiring PostgreSQL setup.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(f"{__name__}.RBACMixin")
         self.rbac_manager = None
+        self.patient_db: Optional[PatientAssignmentDB] = None
 
         # Initialize with SQLite-backed patient assignment for development
         try:
@@ -1240,7 +1241,7 @@ class RBACMixin:
         action: str,
         result: str,
         details: str | None = None,
-    ):
+    ) -> None:
         """
         Log access attempt for audit trail
 

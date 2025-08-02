@@ -15,7 +15,7 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, Optional, Dict
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
@@ -66,7 +66,7 @@ class KeyManager:
     MIN_ENTROPY_THRESHOLD = 4.0  # Minimum Shannon entropy for cryptographic keys
     MIN_KEY_LENGTH = 32  # Minimum key length in bytes (256 bits)
 
-    def __init__(self, postgres_conn, config=None):
+    def __init__(self, postgres_conn: Any, config: Optional[Any] = None) -> None:
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.KeyManager")
 
@@ -78,7 +78,7 @@ class KeyManager:
         # Master key for key encryption (would be stored in HSM in production)
         self.master_key = self._get_or_create_master_key()
 
-    def _init_key_tables(self):
+    def _init_key_tables(self) -> None:
         """Initialize key management tables"""
         try:
             with self.postgres_conn.cursor() as cursor:

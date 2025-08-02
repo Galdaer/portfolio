@@ -11,7 +11,7 @@ import secrets
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import Any
+from typing import Any, Dict, Optional, Callable
 
 import jwt
 import psycopg2
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 class SecurityConfig:
     """Security configuration for healthcare systems"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Encryption settings
         self.encryption_key = os.getenv("MCP_ENCRYPTION_KEY")
         self.master_encryption_key = os.getenv("MASTER_ENCRYPTION_KEY")
@@ -139,7 +139,7 @@ class SessionManager:
         self.logger.info(f"Session created for user {user_id}")
         return session_id
 
-    def validate_session(self, session_id: str) -> dict[str, Any] | None:
+    def validate_session(self, session_id: str) -> Dict[str, Any] | None:
         """Validate and refresh session"""
         session_key = f"session:{session_id}"
 
@@ -159,6 +159,9 @@ class SessionManager:
                 session_data_str = str(session_data_raw)
 
             session = json.loads(session_data_str)
+            if not isinstance(session, dict):
+                self.logger.error("Session data is not a valid dictionary")
+                return None
 
             # Update last activity
             session["last_activity"] = datetime.now().isoformat()
@@ -176,7 +179,7 @@ class SessionManager:
             self.logger.error(f"Session validation failed: {e}")
             return None
 
-    def invalidate_session(self, session_id: str):
+    def invalidate_session(self, session_id: str) -> None:
         """Invalidate user session"""
         session_key = f"session:{session_id}"
         self.redis_conn.delete(session_key)
@@ -237,7 +240,7 @@ class HealthcareSecurityMiddleware:
         config: SecurityConfig,
         postgres_conn: psycopg2.extensions.connection,
         redis_conn: redis.Redis,
-    ):
+    ) -> None:
         self.config = config
         self.postgres_conn = postgres_conn
         self.redis_conn = redis_conn
@@ -245,10 +248,7 @@ class HealthcareSecurityMiddleware:
         # Convert string encryption key to bytes if needed
         encryption_key = None
         if config.master_encryption_key:
-            if isinstance(config.master_encryption_key, str):
-                encryption_key = config.master_encryption_key.encode("utf-8")
-            else:
-                encryption_key = config.master_encryption_key
+            encryption_key = config.master_encryption_key.encode("utf-8")
 
         self.encryption_manager = EncryptionManager(encryption_key)
         self.phi_detector = PHIDetector()
@@ -256,22 +256,14 @@ class HealthcareSecurityMiddleware:
         self._current_request_ip: str | None = None
         self.logger = logging.getLogger(f"{__name__}.HealthcareSecurityMiddleware")
 
-        # Initialize security components with proper parameters
-        encryption_key = None
-        if hasattr(config, "encryption_key") and config.encryption_key:
-            if isinstance(config.encryption_key, str):
-                encryption_key = config.encryption_key.encode("utf-8")
-            else:
-                encryption_key = config.encryption_key
-
-        self.encryption_manager = EncryptionManager(encryption_key)
+        # Initialize session manager and rate limiter
         self.session_manager = SessionManager(config, redis_conn)
         self.rate_limiter = RateLimiter(config, redis_conn)
 
         # Initialize security tables
         self._init_security_tables()
 
-    def _init_security_tables(self):
+    def _init_security_tables(self) -> None:
         """Initialize security-related database tables"""
         try:
             with self.postgres_conn.cursor() as cursor:
@@ -398,7 +390,7 @@ class HealthcareSecurityMiddleware:
 
         return has_access
 
-    async def _log_access_attempt(self, user_id: str, resource: str, action: str, granted: bool):
+    async def _log_access_attempt(self, user_id: str, resource: str, action: str, granted: bool) -> None:
         """Log access attempt for audit"""
         try:
             with self.postgres_conn.cursor() as cursor:
@@ -419,8 +411,8 @@ class HealthcareSecurityMiddleware:
         event_type: str,
         severity: str,
         user_id: str | None,
-        details: dict[str, Any],
-    ):
+        details: Dict[str, Any],
+    ) -> None:
         """Log security event"""
         try:
             with self.postgres_conn.cursor() as cursor:
@@ -437,12 +429,12 @@ class HealthcareSecurityMiddleware:
             self.logger.error(f"Failed to log security event: {e}")
 
 
-def require_authentication(security_middleware: HealthcareSecurityMiddleware):
+def require_authentication(security_middleware: HealthcareSecurityMiddleware) -> Callable:
     """Decorator to require authentication"""
 
-    def decorator(func: Callable):
+    def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(request: Request, *args, **kwargs):
+        async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
             user_data = await security_middleware.authenticate_request(request)
             if not user_data:
                 raise HTTPException(status_code=401, detail="Authentication required")
@@ -456,12 +448,12 @@ def require_authentication(security_middleware: HealthcareSecurityMiddleware):
     return decorator
 
 
-def require_authorization(resource: str, action: str):
+def require_authorization(resource: str, action: str) -> Callable:
     """Decorator to require authorization"""
 
-    def decorator(func: Callable):
+    def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(request: Request, *args, **kwargs):
+        async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
             user_data = getattr(request.state, "user_data", None)
             if not user_data:
                 raise HTTPException(status_code=401, detail="Authentication required")

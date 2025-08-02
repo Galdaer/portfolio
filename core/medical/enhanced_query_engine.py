@@ -8,7 +8,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, List
 
 from cachetools import TTLCache
 
@@ -44,15 +44,15 @@ class EnhancedMedicalQueryEngine:
     Implements NVIDIA's agentic RAG concepts for healthcare
     """
 
-    def __init__(self, mcp_client, llm_client):
+    def __init__(self, mcp_client: Any, llm_client: Any) -> None:
         self.mcp_client = mcp_client
         self.llm_client = llm_client
 
         # Dynamic knowledge cache with TTL
-        self.knowledge_cache = TTLCache(maxsize=1000, ttl=1800)  # 30 min cache
+        self.knowledge_cache: TTLCache[str, Any] = TTLCache(maxsize=1000, ttl=1800)  # 30 min cache
 
         # Query refinement tracking
-        self.query_history = {}
+        self.query_history: Dict[str, Any] = {}
 
         # Medical disclaimers
         self.disclaimers = {
