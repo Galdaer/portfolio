@@ -53,7 +53,8 @@ class BaseHealthcareAgent(ABC):
 
     async def get_available_models(self) -> list[dict[str, Any]]:
         """Get available models from registry"""
-        return await model_registry.get_available_models()
+        result = await model_registry.get_available_models()
+        return result if result is not None else []
 
     async def get_available_tools(self) -> list[dict[str, Any]]:
         """Get available tools from registry"""
@@ -228,7 +229,7 @@ class BaseHealthcareAgent(ABC):
 class DocumentProcessingAgent(BaseHealthcareAgent):
     """Template for document processing agent"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("document_processor", "document_processing")
 
     async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
@@ -249,7 +250,7 @@ class DocumentProcessingAgent(BaseHealthcareAgent):
 class ResearchAssistantAgent(BaseHealthcareAgent):
     """Template for research assistant agent"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("research_assistant", "research")
 
     async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:

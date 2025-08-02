@@ -33,6 +33,7 @@ import shutil
 import subprocess
 import time
 import warnings
+from typing import Dict, List, Union, Any, Optional
 
 from flask import (
     Flask,
@@ -41,6 +42,7 @@ from flask import (
     request,
     send_from_directory,
     url_for,
+    Response,
 )
 
 
@@ -267,7 +269,7 @@ if (addForm) {
 """
 
 
-def parse_value(val):
+def parse_value(val: str) -> Union[str, List[str]]:
     """Parse a configuration value, returning list for bash array syntax."""
     val = val.strip().strip('"')
     if val.startswith("(") and val.endswith(")"):
@@ -275,7 +277,7 @@ def parse_value(val):
     return val
 
 
-def get_all_containers():
+def get_all_containers() -> List[str]:
     """Extract ALL_CONTAINERS array from the bootstrap script."""
     pattern = re.compile(r"^ALL_CONTAINERS=\(([^)]*)\)")
     try:
@@ -291,7 +293,7 @@ def get_all_containers():
     return []
 
 
-def load_config():
+def load_config() -> Dict[str, Any]:
     data = {}
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE) as f:
@@ -306,7 +308,7 @@ def load_config():
     return data
 
 
-def get_grafana_default_port():
+def get_grafana_default_port() -> str:
     """Return default Grafana port from the service file."""
     conf = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -324,12 +326,12 @@ def get_grafana_default_port():
     return "3001"
 
 
-def get_grafana_port(config):
+def get_grafana_port(config: Dict[str, Any]) -> str:
     """Derive Grafana port from config or default service file."""
     return str(config.get("CONTAINER_PORTS[grafana]", get_grafana_default_port()))
 
 
-def save_config(new_data):
+def save_config(new_data: Dict[str, Any]) -> None:
     config = load_config()
     config.update(new_data)
     with open(CONFIG_FILE, "w") as f:
@@ -343,7 +345,7 @@ def save_config(new_data):
     os.chown(CONFIG_FILE, uid, gid)
 
 
-def key_to_service(key: str):
+def key_to_service(key: str) -> Optional[str]:
     """Return service name for a given configuration key.
 
     Supports ``CONTAINER_PORTS[service]`` style keys in addition to the
@@ -358,7 +360,7 @@ def key_to_service(key: str):
     return None
 
 
-def changed_services(old, new):
+def changed_services(old: Dict[str, Any], new: Dict[str, Any]) -> set[str]:
     """Return a set of services whose config values changed."""
     services = set()
     for k, val in new.items():
@@ -369,7 +371,7 @@ def changed_services(old, new):
     return services
 
 
-def run_bootstrap(args=None, env=None, suppress=True):
+def run_bootstrap(args: Optional[List[str]] = None, env: Optional[Dict[str, str]] = None, suppress: bool = True) -> subprocess.CompletedProcess[str]:
     """Run ``bootstrap.sh`` with optional arguments.
 
     Parameters
@@ -403,7 +405,7 @@ def run_bootstrap(args=None, env=None, suppress=True):
         return subprocess.Popen(cmd, env=env)
 
 
-def get_container_statuses():
+def get_container_statuses() -> Dict[str, str]:
     """Return mapping of container name to Docker status."""
     try:
         output = subprocess.check_output(
@@ -424,7 +426,7 @@ def get_container_statuses():
 
 
 @app.route("/", methods=["GET", "POST"])
-def index():
+def index() -> Union[str, Response]:
     config = load_config()
     # Ensure configurable web UI port is always available
     if "CONFIG_WEB_UI_PORT" not in config:
@@ -464,7 +466,7 @@ def index():
 
 
 @app.route("/bootstrap", methods=["POST"])
-def bootstrap():
+def bootstrap() -> Response:
     """Run full bootstrap without ACTION_FLAG."""
     env = os.environ.copy()
     run_bootstrap(env=env)
@@ -472,21 +474,21 @@ def bootstrap():
 
 
 @app.route("/reset-wg-keys", methods=["POST"])
-def reset_wg_keys():
+def reset_wg_keys() -> Response:
     env = os.environ.copy()
     run_bootstrap(["--reset-wg-keys"], env=env)
     return redirect(url_for("index"))
 
 
 @app.route("/self-update", methods=["POST"])
-def self_update():
+def self_update() -> Response:
     env = os.environ.copy()
     run_bootstrap(["--self-update"], env=env)
     return redirect(url_for("index"))
 
 
 @app.route("/diagnostics", methods=["POST"])
-def diagnostics():
+def diagnostics() -> Response:
     env = os.environ.copy()
     subprocess.Popen(
         ["/usr/local/bin/diagnostics.sh", "--non-interactive"],
@@ -498,7 +500,7 @@ def diagnostics():
 
 
 @app.route("/auto-repair", methods=["POST"])
-def auto_repair():
+def auto_repair() -> Response:
     env = os.environ.copy()
     subprocess.Popen(
         ["/usr/local/bin/auto-repair.sh", "--non-interactive"],

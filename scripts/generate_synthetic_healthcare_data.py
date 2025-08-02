@@ -208,7 +208,8 @@ class SyntheticHealthcareDataGenerator:
         else:
             try:
                 self.redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
-                self.redis_client.ping()
+                if self.redis_client:
+                    self.redis_client.ping()
                 print("✅ Connected to Redis")
             except Exception as e:
                 print(f"⚠️  Redis connection failed: {e}")
@@ -409,7 +410,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-30d", end_date="now").isoformat(),
         }
 
-    def generate_billing_claim(self, patient_id: str, doctor_id: str, encounter_id: str):
+    def generate_billing_claim(self, patient_id: str, doctor_id: str, encounter_id: str) -> Dict[str, Any]:
         """Generate synthetic billing claim for Phase 2 business automation"""
         return {
             "claim_id": f"CLM-{fake.random_number(digits=8)}",
@@ -446,7 +447,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-90d", end_date="now").isoformat(),
         }
 
-    def generate_doctor_preferences(self, doctor_id: str):
+    def generate_doctor_preferences(self, doctor_id: str) -> Dict[str, Any]:
         """Generate doctor workflow preferences for LoRA personalization (Phase 2)"""
         return {
             "doctor_id": doctor_id,
@@ -484,7 +485,7 @@ class SyntheticHealthcareDataGenerator:
             "updated_at": fake.date_time_between(start_date="-30d", end_date="now").isoformat(),
         }
 
-    def generate_audit_log(self, user_id: str, user_type: str = "doctor"):
+    def generate_audit_log(self, user_id: str, user_type: str = "doctor") -> Dict[str, Any]:
         """Generate audit log entries for HIPAA compliance (Phase 2)"""
         actions = {
             "doctor": [
@@ -535,7 +536,7 @@ class SyntheticHealthcareDataGenerator:
             "session_id": str(uuid.uuid4()),
         }
 
-    def generate_all_data(self):
+    def generate_all_data(self) -> None:
         """Generate all synthetic data types"""
         print("🏥 Generating comprehensive synthetic healthcare data...")
 
@@ -626,7 +627,7 @@ class SyntheticHealthcareDataGenerator:
         print(f"     - {len(self.audit_logs)} audit log entries")
         print(f"📁 Files saved to: {self.output_dir}/")
 
-    def _save_json_files(self):
+    def _save_json_files(self) -> None:
         """Save all generated data to JSON files"""
         datasets = {
             # Phase 1 Core Data
@@ -648,7 +649,7 @@ class SyntheticHealthcareDataGenerator:
                 json.dump(data, f, indent=2, default=str)
             print(f"💾 Saved {filepath} ({len(data)} records)")
 
-    def _populate_databases(self):
+    def _populate_databases(self) -> None:
         """Populate PostgreSQL and Redis with generated data"""
         if not self.db_conn:
             print("⚠️  Database connection not available, skipping database population")
@@ -670,7 +671,7 @@ class SyntheticHealthcareDataGenerator:
         print("ℹ️  PostgreSQL population requires schema setup - skipping for now")
 
 
-def main():
+def main() -> None:
     """Main execution function"""
     import argparse
 

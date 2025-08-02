@@ -10,9 +10,11 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import AsyncGenerator, Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
@@ -29,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifecycle management"""
     logger.info(f"Starting {config.project_name}")
 
@@ -85,7 +87,7 @@ app.add_middleware(
 
 
 @app.get("/", response_class=HTMLResponse)
-async def root():
+async def root() -> str:
     """Health check and system status"""
     return """
     <html>
@@ -102,10 +104,10 @@ async def root():
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict[str, Any]:
     """Detailed health check endpoint"""
     try:
-        health_status = {
+        health_status: dict[str, Any] = {
             "status": "healthy",
             "timestamp": asyncio.get_event_loop().time(),
             "services": {},
@@ -131,17 +133,17 @@ async def health_check():
 
 
 # Import and include agent routers
-try:
-    from agents.document_processor import router as document_router
-    from agents.intake import router as intake_router
-    from agents.research_assistant import router as research_router
-
-    app.include_router(intake_router, prefix="/agents/intake", tags=["intake"])
-    app.include_router(document_router, prefix="/agents/document", tags=["document"])
-    app.include_router(research_router, prefix="/agents/research", tags=["research"])
-
-except ImportError as e:
-    logger.warning(f"Some agent routers not available: {e}")
+# TODO: Implement agent routers when agent modules are ready
+# try:
+#     from agents.document_processor import router as document_router
+#     from agents.intake import router as intake_router
+#     from agents.research_assistant import router as research_router
+#
+#     app.include_router(intake_router, prefix="/agents/intake", tags=["intake"])
+#     app.include_router(document_router, prefix="/agents/document", tags=["document"])
+#     app.include_router(research_router, prefix="/agents/research", tags=["research"])
+# except ImportError as e:
+#     logger.warning(f"Agent routers not available: {e}")
 
 
 if __name__ == "__main__":

@@ -68,7 +68,7 @@ def info() -> Tuple[Dict[str, Any], int]:
         labels = getattr(ner_pipe, "labels", None)
         if labels is not None:
             entities = list(labels)
-    return {"model": MODEL_NAME, "pipeline": nlp.pipe_names, "entities": entities}
+    return {"model": MODEL_NAME, "pipeline": nlp.pipe_names, "entities": entities}, 200
 
 
 @app.route("/analyze", methods=["POST"])
@@ -131,7 +131,7 @@ def analyze() -> Tuple[Dict[str, Any], int]:
             "token_count": len(tokens),
         }
 
-        return jsonify(result)
+        return result, 200
 
     except Exception as e:
         logger.error(f"Error processing text: {e}")
