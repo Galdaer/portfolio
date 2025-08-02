@@ -151,28 +151,31 @@ python3 scripts/generate_synthetic_healthcare_data.py --use-database
 - **Medical Disclaimers**: All medical module implementations must include healthcare compliance disclaimers in method docstrings
 - **Context-First**: Always read 50+ lines of file context before making medical module edits
 
-### Medical Data Preservation Protocol
+### Healthcare Type Safety Requirements
 
-**NEVER remove medical variables without understanding their purpose:**
+**❌ CRITICAL: Never use `# type: ignore` in healthcare code** - suppresses medical safety validation
 
-1. **Investigate First**: Read the surrounding code to understand what the variable represents
-2. **Check Medical Context**: Variables like `reason`, `assessment`, `diagnosis` often contain different medical information
-3. **Implement Properly**: Use the variable in its intended medical context (SOAP notes, patient records, etc.)
-4. **Verify Medical Accuracy**: Ensure medical terminology is used correctly
+**✅ HEALTHCARE-FIRST MyPy Resolution:**
+1. **Optional import patterns** with TYPE_CHECKING for missing dependencies
+2. **Implement medical variables** rather than removing them (medical data is critical)  
+3. **Proper type annotations** with healthcare-appropriate patterns
+4. **Medical context preservation** - understand WHY variables exist before "fixing"
 
-**Example - Medical Variable Implementation:**
-
+**Example Healthcare-Safe MyPy Fix:**
 ```python
-# ❌ WRONG: Removing unused medical variable
-reason = context_data.get("reason", "routine care")  # Removed to fix linting
+# ❌ WRONG: Suppresses type safety for healthcare data
+patient_data = get_patient_info() # type: ignore[return-value]
 
-# ✅ CORRECT: Implementing medical variable properly
-reason = context_data.get("reason", "routine care")  # Reason for visit
-assessment = context_data.get("assessment", "stable")  # Clinical assessment
+# ✅ CORRECT: Healthcare-compliant type safety
+from typing import Optional, Dict, Any
 
-# Use both in appropriate medical contexts
-subjective = f"Patient presents with {chief_complaint} (reason: {reason})"
-soap_assessment = f"Assessment: {assessment}"
+def get_patient_info() -> Optional[Dict[str, Any]]:
+    # Proper return type with medical context
+    pass
+
+patient_data = get_patient_info()
+if patient_data is not None:
+    process_healthcare_data(patient_data)
 ```
 
 ## Development Workflow & Code Quality

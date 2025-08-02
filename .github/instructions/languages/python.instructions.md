@@ -9,15 +9,41 @@ Specialized Python development patterns for healthcare AI systems with focus on 
 
 ## Type Safety & Code Quality Requirements
 
-### MANDATORY Type Annotations
+### MANDATORY Type Safety Patterns for Healthcare
 
-- **MANDATORY Return Type Annotations**: All functions need `-> ReturnType`
-- **MANDATORY Variable Type Annotations**: All class attributes and complex variables need explicit typing
-- **Optional Type Handling**: Always check `if obj is not None:` before method calls
-- **Type-Safe Dictionary Operations**: Use `isinstance()` checks before operations
-- **Environment Variable Safety**: Handle `os.getenv()` returning None
-- **Mixed Dictionary Types**: Use `Dict[str, Any]` for mixed-type dictionaries
-- **CRITICAL: Implement Don't Remove**: When fixing "unused variable" warnings, ALWAYS implement the variable's intended functionality rather than removing it. Unused variables often represent important data (especially medical information) that should be used, not discarded.
+**❌ NEVER USE `# type: ignore` in healthcare code** - Suppresses critical type safety
+
+**✅ ALWAYS USE proper type annotations and optional imports:**
+
+```python
+# ❌ WRONG: Suppresses type checking (dangerous for healthcare)
+psycopg2 = None # type: ignore[assignment]
+PgConnection = None # type: ignore[misc]
+
+# ✅ CORRECT: Healthcare-safe optional import pattern
+from typing import Optional, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import psycopg2
+    from psycopg2 import extensions
+    PgConnection = extensions.connection
+else:
+    psycopg2: Optional[Any] = None
+    PgConnection: Optional[Any] = None
+    
+    try:
+        import psycopg2
+        from psycopg2 import extensions
+        PgConnection = extensions.connection
+    except ImportError:
+        pass
+```
+
+**✅ HEALTHCARE TYPE SAFETY HIERARCHY:**
+1. **Proper type annotations** with Optional patterns (preferred)
+2. **TYPE_CHECKING imports** for type-only dependencies  
+3. **Try/except ImportError blocks** for optional dependencies
+4. **`# type: ignore` ONLY as absolute last resort** with detailed justification
 
 ### Systematic Type Annotation Checklist
 
@@ -74,13 +100,58 @@ while [ $CURRENT_ERRORS -gt 0 ]; do
 done
 ```
 
-**Systematic approach to MyPy errors:**
+**Healthcare-First MyPy Error Resolution:**
 
-1. **Missing Type Annotations**: Add explicit types for ALL variables
-2. **Collection Issues**: Import specific types (`Set`, `List`, `Dict`) from typing
-3. **Attribute Errors**: Use type annotations on class attributes
-4. **Return Type Missing**: Add `-> ReturnType` to ALL function definitions
-5. **Optional Handling**: Check `if obj is not None:` before method calls
+1. **Import Errors**: Use TYPE_CHECKING and optional import patterns (NEVER `# type: ignore`)
+2. **Missing Type Annotations**: Add explicit types for ALL variables  
+3. **Collection Issues**: Import specific types (`Set`, `List`, `Dict`) from typing
+4. **Attribute Errors**: Use type annotations on class attributes
+5. **Return Type Missing**: Add `-> ReturnType` to ALL function definitions
+6. **Optional Handling**: Check `if obj is not None:` before method calls
+
+**❌ PROHIBITED Healthcare Anti-Patterns:**
+- `# type: ignore` without medical safety justification
+- Removing medical variables instead of implementing them
+- Suppressing type checking for convenience
+
+**✅ Healthcare-Compliant MyPy Fixes:**
+
+```python
+# ❌ WRONG: Import errors with type suppression
+psycopg2 = None # type: ignore[assignment]
+
+# ✅ CORRECT: Healthcare-safe optional import
+from typing import Optional, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import psycopg2
+    from psycopg2 import extensions
+    PgConnection = extensions.connection
+else:
+    psycopg2: Optional[Any] = None
+    PgConnection: Optional[Any] = None
+    try:
+        import psycopg2
+        from psycopg2 import extensions  
+        PgConnection = extensions.connection
+    except ImportError:
+        pass
+
+# ❌ WRONG: Removing medical variables
+# reason = context_data.get("reason")  # Commented out to "fix" unused variable
+
+# ✅ CORRECT: Implementing medical variables in healthcare context
+def process_encounter(encounter_data: Dict[str, Any]) -> Dict[str, Any]:
+    reason = encounter_data.get("reason", "routine care")  # Medical data
+    assessment = encounter_data.get("assessment", "stable")  # Clinical assessment
+    
+    # Use medical variables in proper healthcare workflow
+    return {
+        "visit_reason": reason,
+        "clinical_assessment": assessment,
+        "processed_at": datetime.now().isoformat()
+    }
+```
 
 **Autonomous Continuation Criteria:**
 - ✅ **Continue**: Missing return annotations, untyped variables, import issues

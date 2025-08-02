@@ -121,10 +121,67 @@ def validate_debugging_compliance():
 
 ## Autonomous MyPy Error Resolution
 
+### Autonomous MyPy Error Resolution
+
+**❌ PROHIBITED: Healthcare Anti-Patterns**
+- `# type: ignore` without medical safety justification  
+- Removing medical variables to fix "unused" warnings
+- Suppressing type checking for convenience
+
+**✅ HEALTHCARE-COMPLIANT: MyPy Resolution Hierarchy**
+
+```python
+# 1. Optional import pattern (preferred for healthcare)
+from typing import Optional, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import external_lib
+else:
+    external_lib: Optional[Any] = None
+    try:
+        import external_lib
+    except ImportError:
+        pass
+
+# 2. Implement medical variables (don't remove them)
+def process_patient_encounter(data: Dict[str, Any]) -> Dict[str, Any]:
+    # ✅ IMPLEMENT medical data, don't remove it
+    reason = data.get("reason", "routine care")  
+    assessment = data.get("assessment", "stable")
+    
+    # Use in healthcare workflow
+    return {
+        "visit_reason": reason,
+        "clinical_assessment": assessment
+    }
+```
+
 ### Self-Assessment for Continued Work
 
 ```python
 def assess_mypy_continuation_capability() -> bool:
+    """
+    Healthcare-focused self-assessment for autonomous MyPy fixing.
+    Returns True if agent should continue, False if architectural input needed.
+    """
+    remaining_patterns = analyze_remaining_errors()
+    
+    # ✅ Continue if patterns can be resolved with healthcare-safe methods
+    can_continue = (
+        has_missing_return_annotations(remaining_patterns) or
+        has_untyped_variables(remaining_patterns) or  
+        has_import_errors_resolvable_with_type_checking(remaining_patterns) or
+        has_medical_variables_needing_implementation(remaining_patterns)
+    )
+    
+    # ❌ Stop if requires architectural decisions
+    needs_architecture = (
+        has_complex_inheritance_issues(remaining_patterns) or
+        requires_external_library_integration_decisions(remaining_patterns) or
+        needs_medical_workflow_redesign(remaining_patterns)
+    )
+    
+    return can_continue and not needs_architecture
     """Determine if coding agent should continue MyPy error fixing."""
     
     # Run MyPy and analyze remaining errors
