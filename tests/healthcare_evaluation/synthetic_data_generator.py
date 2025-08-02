@@ -10,6 +10,7 @@ import random
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime
+from typing import Any, Dict, List
 from typing import Any
 
 from faker import Faker
@@ -75,20 +76,23 @@ class MedicalProvider(BaseProvider):
     }
 
     def medical_condition(self) -> str:
-        return self.random_element(self.conditions)
+        condition: str = self.random_element(self.conditions)
+        return condition
 
     def medication(self) -> str:
-        return self.random_element(self.medications)
+        med: str = self.random_element(self.medications)
+        return med
 
     def medical_specialty(self) -> str:
-        return self.random_element(self.specialties)
+        specialty: str = self.random_element(self.specialties)
+        return specialty
 
     def vital_sign(self, vital_type: str) -> float:
         if vital_type in self.vital_ranges:
             min_val, max_val = self.vital_ranges[vital_type]
             if vital_type == "temperature":
                 return round(random.uniform(min_val, max_val), 1)
-            return random.randint(min_val, max_val)
+            return random.randint(int(min_val), int(max_val))
         return 0
 
 
@@ -376,7 +380,7 @@ class SyntheticHealthcareDataGenerator:
 
     def generate_dataset(
         self, num_patients: int = 100, encounters_per_patient: int = 3
-    ) -> dict[str, list[dict]]:
+    ) -> dict[str, Any]:
         """Generate a complete synthetic healthcare dataset"""
 
         self.logger.info(
@@ -417,7 +421,7 @@ class SyntheticHealthcareDataGenerator:
         )
         return dataset
 
-    def save_dataset(self, dataset: dict[str, list[dict]], output_path: str):
+    def save_dataset(self, dataset: dict[str, list[dict]], output_path: str) -> None:
         """Save synthetic dataset to file"""
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
 

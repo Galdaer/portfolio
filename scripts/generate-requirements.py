@@ -153,7 +153,7 @@ CI_REQUIRED_PACKAGES = {
 }
 
 
-def run_command(cmd, cwd=None):
+def run_command(cmd: str, cwd: Optional[str] = None) -> Any:
     """Run a command and return the result"""
     try:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd)
@@ -269,7 +269,7 @@ def clean_requirements_content(content):
     return "\n".join(cleaned_lines)
 
 
-def generate_requirements_files():
+def generate_requirements_files() -> bool:
     """Generate requirements.txt, requirements-ci.txt, and requirements-self-hosted.txt"""
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
@@ -388,7 +388,7 @@ def generate_requirements_files():
     return True
 
 
-def main():
+def main() -> None:
     """Main entry point"""
     if len(sys.argv) > 1 and sys.argv[1] == "--help":
         print(__doc__)

@@ -5,6 +5,8 @@ Provides centralized configuration management with environment variable support,
 healthcare-specific settings, and compliance configurations.
 """
 
+from typing import Dict, Any
+
 from .app import IntelluxeConfig, config
 from .environment_detector import EnvironmentDetector
 from .healthcare_security import HealthcareSecurityMiddleware
@@ -96,7 +98,7 @@ def get_database_config() -> Dict[str, Any]:
     }
 
 
-def get_compliance_config():
+def get_compliance_config() -> Dict[str, Any]:
     """Get healthcare compliance configuration"""
     return {
         "data_retention_days": config.data_retention_days,

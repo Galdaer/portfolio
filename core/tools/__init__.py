@@ -148,7 +148,8 @@ class ToolRegistry:
             response = await self.mcp_client.post("/execute", json=payload)
             response.raise_for_status()
 
-            return response.json()
+            result: dict[str, Any] = response.json()
+            return result
 
         except Exception as e:
             logger.error(f"Failed to execute tool {tool_name}: {e}")
@@ -211,7 +212,8 @@ class ToolRegistry:
             response = await self.mcp_client.get(f"/tools/{tool_name}")
             response.raise_for_status()
 
-            return response.json()
+            capabilities: dict[str, Any] = response.json()
+            return capabilities
 
         except Exception as e:
             logger.error(f"Failed to get capabilities for tool {tool_name}: {e}")
