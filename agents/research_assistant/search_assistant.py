@@ -31,7 +31,7 @@ class MedicalLiteratureSearchAssistant:
     Acts like a sophisticated medical Google, not a diagnostic tool
     """
 
-    def __init__(self, mcp_client, llm_client):
+    def __init__(self, mcp_client: Any, llm_client: Any) -> None:
         self.mcp_client = mcp_client
         self.llm_client = llm_client
 
@@ -451,8 +451,9 @@ class MedicalLiteratureSearchAssistant:
         )
         quality_factor = min(high_quality_sources / 5.0, 1.0)  # Up to 5 high-quality = full score
 
-        # Relevance factor
-        avg_relevance = sum(s.get("relevance_score", 0) for s in sources) / len(sources)
+        # Relevance factor  
+        relevance_scores = [float(s.get("relevance_score", 0)) for s in sources]
+        avg_relevance = sum(relevance_scores) / len(sources) if sources else 0.0
 
         # Search confidence (not diagnostic confidence)
         search_confidence = (

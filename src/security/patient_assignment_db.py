@@ -101,7 +101,9 @@ class PatientAssignmentDB:
                     (user_id, patient_id),
                 )
 
-                result = cursor.fetchone()[0] > 0
+                fetch_result = cursor.fetchone()
+                count = fetch_result[0] if fetch_result else 0
+                result = bool(count > 0)
                 self.logger.debug(f"Patient assignment check: {user_id} -> {patient_id} = {result}")
                 return result
 
@@ -123,7 +125,9 @@ class PatientAssignmentDB:
                     (user_id, patient_id),
                 )
 
-                result = cursor.fetchone()[0] > 0
+                fetch_result = cursor.fetchone()
+                count = fetch_result[0] if fetch_result else 0
+                result = bool(count > 0)
                 self.logger.debug(f"Emergency access check: {user_id} -> {patient_id} = {result}")
                 return result
 
@@ -139,7 +143,7 @@ class PatientAssignmentDB:
         result: str,
         details: str | None = None,
         ip_address: str | None = None,
-    ):
+    ) -> None:
         """Log access attempt for audit trail"""
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -271,11 +275,11 @@ class SessionManager:
             self.logger.error(f"Failed to create session: {e}")
             return None
 
-    def validate_session(self, token: str) -> dict | None:
+    def validate_session(self, token: str) -> dict[str, Any] | None:
         """Validate session token"""
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=["HS256"])
-            return payload
+            return payload if isinstance(payload, dict) else None
         except jwt.ExpiredSignatureError:
             self.logger.warning("Session expired")
             return None

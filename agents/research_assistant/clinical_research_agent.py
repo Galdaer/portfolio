@@ -24,10 +24,10 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
 
     def __init__(
         self,
-        mcp_client,
-        llm_client,
+        mcp_client: Any,
+        llm_client: Any,
         max_steps: int | None = None,
-        config_override: dict | None = None,
+        config_override: dict[str, Any] | None = None,
     ) -> None:
         super().__init__("clinical_research", "research_assistant")
 
@@ -56,7 +56,8 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             if os.path.exists(config_path):
                 with open(config_path) as f:
                     full_config = yaml.safe_load(f)
-                return full_config.get("agent_limits", {}).get("clinical_research", {})
+                config_data = full_config.get("agent_limits", {}).get("clinical_research", {}) if full_config else {}
+                return config_data if isinstance(config_data, dict) else {}
         except Exception:
             pass
 
@@ -485,7 +486,8 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             options={"temperature": 0.3, "max_tokens": 1000},
         )
 
-        return response.get("response", "Unable to generate research summary.")
+        response_text = response.get("response", "Unable to generate research summary.")
+        return str(response_text)
 
     def _create_error_response(self, error_message: str, session_id: str) -> dict[str, Any]:
         """Create standardized error response"""
@@ -521,7 +523,8 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             prompt=prompt, model="llama3.1", options=llm_settings
         )
 
-        return response.get("response", "")
+        response_text = response.get("response", "")
+        return str(response_text)
 
     def _get_validation_config(self) -> dict[str, Any]:
         """Get response validation configuration"""
@@ -530,7 +533,8 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             if os.path.exists(config_path):
                 with open(config_path) as f:
                     full_config = yaml.safe_load(f)
-                return full_config.get("response_validation", {}).get("medical_trust_scoring", {})
+                config_data = full_config.get("response_validation", {}).get("medical_trust_scoring", {}) if full_config else {}
+                return config_data if isinstance(config_data, dict) else {}
         except Exception:
             pass
 

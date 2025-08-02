@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 
 class MedicalWorkflowStep(Enum):
@@ -33,7 +33,7 @@ class MedicalWorkflowState:
 class MedicalWorkflowOrchestrator:
     """Orchestrate complex medical information workflows with state management"""
 
-    def __init__(self, query_engine, validator, llm_client):
+    def __init__(self, query_engine: Any, validator: Any, llm_client: Any) -> None:
         self.query_engine = query_engine
         self.validator = validator
         self.llm_client = llm_client
@@ -402,7 +402,7 @@ class HealthcareMCPOrchestrator:
                 "extract_medical_entities",
             ]
 
-    async def create_agent_with_mcp(self, llm_client, max_steps: int = 50):
+    async def create_agent_with_mcp(self, llm_client: Any, max_steps: int = 50) -> Any:
         """Create healthcare agent with MCP integration like MCPAgent pattern"""
 
         # Import here to avoid circular imports

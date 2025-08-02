@@ -365,7 +365,8 @@ class EnhancedMedicalQueryEngine:
                 "extract_medical_entities", {"text": query}
             )
 
-            return entities_result.get("entities", [])
+            entities_data = entities_result.get("entities", [])
+            return entities_data if isinstance(entities_data, list) else []
 
         except Exception:
             return []
