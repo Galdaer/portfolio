@@ -8,14 +8,14 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any
+from typing import Any, AsyncGenerator, Callable, Dict, DefaultDict, Deque
 
 import jwt
 import psycopg2
 import redis
 import requests
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
@@ -54,7 +54,7 @@ class HealthcareConfig:
         hipaa_compliance_mode: HIPAA compliance enforcement level
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Security settings
         self.security_mode = os.getenv("MCP_SECURITY_MODE", "healthcare")
         self.phi_detection_enabled = os.getenv("PHI_DETECTION_ENABLED", "true").lower() == "true"
@@ -124,7 +124,7 @@ class HealthcareMCPServer:
         self._init_database_connections()
         self._init_app()
 
-    def _init_jwt_rate_limiting(self):
+    def _init_jwt_rate_limiting(self) -> None:
         """Initialize JWT rate limiting for authentication failures"""
         from collections import defaultdict, deque
 
@@ -134,14 +134,14 @@ class HealthcareMCPServer:
         self.jwt_lockout_duration = int(os.getenv("JWT_LOCKOUT_DURATION", "900"))  # 15 minutes
 
         # Track failed attempts by IP address
-        self.jwt_failed_attempts = defaultdict(deque)  # IP -> deque of failure timestamps
-        self.jwt_locked_ips = {}  # IP -> lockout expiry timestamp
+        self.jwt_failed_attempts: DefaultDict[str, Deque[float]] = defaultdict(deque)  # IP -> deque of failure timestamps
+        self.jwt_locked_ips: Dict[str, float] = {}  # IP -> lockout expiry timestamp
 
         self.logger.info(
             f"JWT rate limiting initialized: {self.jwt_max_failures} failures per {self.jwt_rate_limit_window}s window"
         )
 
-    def _validate_startup_configuration(self):
+    def _validate_startup_configuration(self) -> None:
         """Validate critical configuration at startup to prevent runtime failures"""
         from src.security.environment_detector import EnvironmentDetector
 
@@ -169,7 +169,7 @@ class HealthcareMCPServer:
         else:
             self.logger.info(f"{environment} environment - JWT_SECRET validation skipped")
 
-    def _validate_environment_config(self):
+    def _validate_environment_config(self) -> str:
         """
         Validate environment configuration at startup
 
@@ -211,7 +211,7 @@ class HealthcareMCPServer:
 
         return environment_lower
 
-    def _validate_production_environment_requirements(self):
+    def _validate_production_environment_requirements(self) -> None:
         """
         Validate additional requirements for production environment
 
@@ -286,7 +286,7 @@ class HealthcareMCPServer:
 
         return True
 
-    def _record_jwt_failure(self, client_ip: str):
+    def _record_jwt_failure(self, client_ip: str) -> None:
         """
         Record JWT authentication failure and apply rate limiting
 
@@ -325,7 +325,7 @@ class HealthcareMCPServer:
                 },
             )
 
-    def _init_database_connections(self):
+    def _init_database_connections(self) -> None:
         """Initialize database connections"""
         try:
             # PostgreSQL connection
@@ -350,11 +350,11 @@ class HealthcareMCPServer:
             self.logger.error(f"Failed to initialize database connections: {e}")
             raise
 
-    def _init_app(self):
+    def _init_app(self) -> None:
         """Initialize FastAPI application"""
 
         @asynccontextmanager
-        async def lifespan(app: FastAPI):
+        async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             # Startup
             self.logger.info("Healthcare MCP Server starting up")
             yield
@@ -380,7 +380,7 @@ class HealthcareMCPServer:
 
         # Add security middleware
         @self.app.middleware("http")
-        async def security_middleware(request: Request, call_next):
+        async def security_middleware(request: Request, call_next: Callable[[Request], Any]) -> Response:
             # Log all requests for audit trail
             start_time = datetime.now()
 
@@ -396,11 +396,11 @@ class HealthcareMCPServer:
         # Register routes
         self._register_routes()
 
-    def _register_routes(self):
+    def _register_routes(self) -> None:
         """Register API routes"""
 
         @self.app.get("/health")
-        async def health_check():
+        async def health_check() -> Dict[str, Any]:
             """Health check endpoint"""
             return {
                 "status": "healthy",
@@ -415,7 +415,7 @@ class HealthcareMCPServer:
             request: MCPRequest,
             credentials: HTTPAuthorizationCredentials = Depends(security),
             client_request: Request | None = None,
-        ):
+        ) -> MCPResponse:
             """Main MCP endpoint with security validation"""
 
             # Get client IP for rate limiting
@@ -443,7 +443,7 @@ class HealthcareMCPServer:
         async def list_tools(
             credentials: HTTPAuthorizationCredentials = Depends(security),
             client_request: Request | None = None,
-        ):
+        ) -> Dict[str, Any]:
             """List available healthcare tools"""
 
             # Get client IP for rate limiting
@@ -501,16 +501,16 @@ class HealthcareMCPServer:
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
             # X-Forwarded-For can contain multiple IPs, take the first one
-            return forwarded_for.split(",")[0].strip()
+            return str(forwarded_for.split(",")[0].strip())
 
         # Check for real IP header
         real_ip = request.headers.get("X-Real-IP")
         if real_ip:
-            return real_ip.strip()
+            return str(real_ip.strip())
 
         # Fall back to direct client IP
         if hasattr(request, "client") and request.client:
-            return request.client.host
+            return str(request.client.host)
 
         return "unknown"
 
@@ -619,7 +619,7 @@ class HealthcareMCPServer:
             )
             return False
 
-    def _record_auth_failure(self, client_ip: str, failure_type: str):
+    def _record_auth_failure(self, client_ip: str, failure_type: str) -> None:
         """Record authentication failure for rate limiting"""
         # Use existing JWT failure recording mechanism
         self._record_jwt_failure(client_ip)
@@ -805,14 +805,14 @@ class HealthcareMCPServer:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         """Cleanup resources"""
         if hasattr(self, "postgres_conn"):
             self.postgres_conn.close()
         if hasattr(self, "redis_conn"):
             self.redis_conn.close()
 
-    async def start_server(self):
+    async def start_server(self) -> None:
         """Start the MCP server"""
         config = uvicorn.Config(
             self.app,
@@ -827,7 +827,7 @@ class HealthcareMCPServer:
 
 
 # Main entry point
-async def main():
+async def main() -> None:
     """Main entry point for the healthcare MCP server"""
     config = HealthcareConfig()
     server = HealthcareMCPServer(config)

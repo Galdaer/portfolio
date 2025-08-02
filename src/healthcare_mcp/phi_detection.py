@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from io import StringIO
-from typing import Any, cast
+from typing import Any, cast, Dict, List, Tuple
 
 try:
     from presidio_analyzer import AnalyzerEngine
@@ -367,15 +367,15 @@ class BasicPHIDetector:
 
     def _process_and_mask_matches(
         self,
-        matches,
+        matches: Any,
         phi_type: str,
-        pattern_info: dict,
+        pattern_info: Dict[str, Any],
         phi_detected: bool,
-        phi_types: list,
-        confidence_scores: list,
-        detection_details: list,
+        phi_types: List[str],
+        confidence_scores: List[float],
+        detection_details: List[Dict[str, Any]],
         masked_text: str,
-    ) -> tuple:
+    ) -> Tuple[bool, List[str], List[float], List[Dict[str, Any]], str]:
         """Process matches and mask detected PHI"""
         # Process matches in reverse order to maintain valid positions during masking.
         # Masking modifies the string, which shifts the indices of subsequent matches.
@@ -638,13 +638,9 @@ class PHIDetector:
                     )
                 except (TypeError, ValueError) as e:
                     self.logger.error(
-                        "Failed to serialize value to JSON. Key: %s, Value: %s, Error: %s",
+                        "Failed to serialize list value to JSON. Key: %s, List length: %s, Error: %s",
                         key,
-                        (
-                            "[REDACTED]"
-                            if isinstance(value, str) and len(value) > REDACTION_LENGTH_THRESHOLD
-                            else value
-                        ),
+                        len(value) if isinstance(value, list) else "unknown",
                         str(e),
                     )
                     return PHIDetectionResult(
@@ -664,7 +660,7 @@ class PHIDetector:
                     detection_details=[],
                 )
 
-        def traverse_dict(obj: dict[str, Any], prefix: str = ""):
+        def traverse_dict(obj: Dict[str, Any], prefix: str = "") -> None:
             for key, value in obj.items():
                 full_key = f"{prefix}.{key}" if prefix else key
 
