@@ -4,6 +4,7 @@ Validates critical environment detection security features
 """
 
 import os
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -207,7 +208,7 @@ class TestEnvironmentDetectorIntegration:
         with patch.dict(os.environ, {"ENVIRONMENT": "development"}):
             EnvironmentDetector.require_non_production()  # Should not raise
 
-    def test_production_fallback_with_logging(self, caplog):
+    def test_production_fallback_with_logging(self, caplog: Any) -> None:
         """Test that production fallback logs appropriate warnings by testing actual behavior"""
         # Test actual behavior by setting up conditions that trigger fallback
         # Remove ENVIRONMENT variable to trigger fallback behavior
@@ -240,7 +241,7 @@ class TestEnvironmentDetectorIntegration:
                 for msg in warning_messages + error_messages
             ), f"Expected environment warning not found in logs: {warning_messages + error_messages}"
 
-    def test_production_fallback_with_logging_verification(self, caplog):
+    def test_production_fallback_with_logging_verification(self, caplog: Any) -> None:
         """Test that production fallback logs appropriate warnings with detailed verification"""
         # Test actual behavior without mocking internal methods
         with patch.dict(os.environ, {}, clear=True):

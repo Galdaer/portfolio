@@ -754,7 +754,7 @@ def run_evaluation_batch(
         List of evaluation results
     """
 
-    async def process_batch() -> List[Dict[str, Any]]:
+    async def process_batch() -> list[ComprehensiveEvaluationResult]:
         tasks = []
         for test_case in test_cases:
             task = evaluate_healthcare_query(

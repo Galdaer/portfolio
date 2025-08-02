@@ -6,6 +6,7 @@ Validates HIPAA compliance configuration files.
 
 import os
 import sys
+from typing import List
 
 import yaml
 

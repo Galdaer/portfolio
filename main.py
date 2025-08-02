@@ -86,7 +86,7 @@ app.add_middleware(
 )
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse)  # type: ignore[misc]
 async def root() -> str:
     """Health check and system status"""
     return """
@@ -103,7 +103,7 @@ async def root() -> str:
     """
 
 
-@app.get("/health")
+@app.get("/health")  # type: ignore[misc]
 async def health_check() -> dict[str, Any]:
     """Detailed health check endpoint"""
     try:

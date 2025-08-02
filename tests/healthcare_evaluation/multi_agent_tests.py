@@ -185,7 +185,8 @@ class HealthcareAgentSimulator:
             response.raise_for_status()
 
             result = response.json()
-            return result.get("response", "No response generated")
+            response_text: str = result.get("response", "No response generated")
+            return response_text
 
         except Exception as e:
             self.logger.error(f"Ollama API call failed: {e}")
@@ -195,7 +196,7 @@ class HealthcareAgentSimulator:
 class MultiAgentHealthcareTests:
     """Multi-agent healthcare workflow tests"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.evaluation_framework = HealthcareEvaluationFramework()
         self.agent_simulator = HealthcareAgentSimulator()
         self.data_generator = SyntheticHealthcareDataGenerator()
@@ -269,7 +270,7 @@ class MultiAgentHealthcareTests:
         """Run a multi-agent test scenario"""
         self.logger.info(f"Running scenario: {scenario.scenario_name}")
 
-        results = {
+        results: dict[str, Any] = {
             "scenario_id": scenario.scenario_id,
             "scenario_name": scenario.scenario_name,
             "start_time": datetime.now().isoformat(),
