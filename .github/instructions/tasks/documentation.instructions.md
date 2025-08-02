@@ -28,10 +28,10 @@ class HealthcareDocumentationStandard:
         """Generate medical disclaimer for healthcare AI documentation."""
 
         return textwrap.dedent("""
-        MEDICAL DISCLAIMER:
-        This system provides administrative and documentation support only.
-        It does NOT provide medical advice, diagnosis, or treatment recommendations.
-        All medical decisions must be made by qualified healthcare professionals.
+        HEALTHCARE PROVIDER SUPPORT SYSTEM:
+        This system supports clinical decision-making for healthcare providers.
+        It does not replace clinical judgment or professional medical expertise.
+        All medical decisions remain the responsibility of qualified healthcare professionals.
 
         HIPAA COMPLIANCE:
         This system is designed to protect patient health information (PHI).
@@ -503,7 +503,6 @@ This system maintains strict medical safety and HIPAA compliance:
 - ✅ Comprehensive audit logging
 - ✅ Synthetic data for testing
 
-[Continue reading...](medical_safety.md)
 """
 }
 

@@ -4,6 +4,9 @@
 
 Specialized Python development patterns for healthcare AI systems with focus on medical compliance, PHI protection, and modern Python tooling.
 
+**For initial Python environment setup**: See `docs/PHASE_1.md` for Ruff, MyPy, and pre-commit installation commands.
+**This file focuses on**: Ongoing development patterns and coding standards using those tools.
+
 ## Type Safety & Code Quality Requirements
 
 ### MANDATORY Type Annotations

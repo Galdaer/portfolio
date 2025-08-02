@@ -2,6 +2,24 @@
 
 This directory contains specialized AI instruction files for different development contexts, tasks, and tools. These files are **officially supported by GitHub Copilot coding agent** and enable enhanced AI assistance across the healthcare AI development workflow.
 
+## Relationship with Phase Documentation
+
+### 📋 **Phase Docs** (`docs/PHASE_*.md`) = **Roadmap & Setup**
+
+- **Project roadmap** with specific timelines and milestones
+- **Installation scripts** and concrete setup commands
+- **Infrastructure configuration** and service deployment
+- **Phase-specific implementation goals** and completion criteria
+
+### 🧠 **AI Instructions** (`.github/instructions/`) = **Development Patterns**
+
+- **Ongoing development practices** and coding standards
+- **Reusable patterns** for healthcare AI development
+- **Compliance frameworks** for continuous use
+- **Task-specific guidance** for daily development work
+
+**Key Principle**: Phase docs get you set up, instructions keep you coding correctly.
+
 ## When to Use Which Instructions
 
 ### 🔧 **Main Copilot Instructions** (`.github/copilot-instructions.md`)

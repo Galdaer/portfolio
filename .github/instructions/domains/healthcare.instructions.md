@@ -14,19 +14,24 @@ class HealthcareAISafetyFramework:
     """Framework ensuring AI safety in healthcare contexts."""
 
     PROHIBITED_ACTIONS = [
-        "medical_diagnosis",
-        "treatment_recommendations",
-        "medication_dosage_advice",
-        "clinical_decision_making",
-        "emergency_response_guidance"
+        "autonomous_medical_diagnosis",
+        "unsupervised_treatment_recommendations",
+        "medication_dosage_decisions",
+        "replacing_clinical_judgment",
+        "emergency_response_decisions"
     ]
 
     ALLOWED_ACTIONS = [
+        "clinical_decision_support",
+        "medical_research_assistance",
+        "documentation_analysis",
         "administrative_documentation",
         "data_organization",
         "workflow_optimization",
         "compliance_checking",
-        "scheduling_assistance"
+        "scheduling_assistance",
+        "literature_review_support",
+        "patient_data_analysis"
     ]
 
     @staticmethod
@@ -56,10 +61,10 @@ class HealthcareAISafetyFramework:
     def generate_medical_disclaimer() -> str:
         """Generate standard medical disclaimer for AI outputs."""
         return """
-        ⚠️ MEDICAL DISCLAIMER:
-        This AI system provides administrative and documentation support only.
-        It does not provide medical advice, diagnosis, or treatment recommendations.
-        Always consult qualified healthcare professionals for medical decisions.
+        ⚠️ HEALTHCARE PROVIDER SUPPORT SYSTEM:
+        This AI system supports clinical decision-making for healthcare providers.
+        It does not replace clinical judgment or professional medical expertise.
+        All medical decisions remain the responsibility of qualified healthcare professionals.
         """
 ```
 

@@ -32,6 +32,38 @@ See `.github/instructions/README.md` for complete usage guidance.
 - **Privacy-First**: All PHI/PII remains on-premise with no cloud dependencies
 - **Development Status**: Build robust, maintainable features for future clinical environments
 
+### Cloud AI Usage Guidelines
+
+**Hybrid Deployment Strategy** - Strict separation between sensitive and non-sensitive AI workloads:
+
+**✅ ALLOWED - Cloud AI for Non-Sensitive Work:**
+
+- General medical literature research and analysis
+- Public health data processing (no patient identifiers)
+- Development and testing with synthetic data
+- General healthcare workflow optimization research
+- Medical coding reference and documentation standards
+
+**❌ PROHIBITED - Cloud AI for Healthcare Data:**
+
+- Any patient health information (PHI) processing
+- Real patient data analysis or decision support
+- Multi-tenant architectures with healthcare data
+- Cloud storage of any patient-related information
+- External APIs receiving patient context or medical records
+
+**Implementation Pattern:**
+
+```python
+# ✅ Correct: Cloud AI for research, local AI for patient data
+if data_contains_phi(input_data):
+    result = local_ollama_model.process(input_data)  # On-premise only
+else:
+    result = cloud_research_api.analyze(input_data)  # OK for non-PHI research
+```
+
+This ensures we leverage the best available models for research while maintaining absolute patient privacy.
+
 ### Directory Structure
 
 ```
@@ -177,6 +209,38 @@ make install && make deps && make hooks && make validate
 - **Advanced Security Tools**: Integrated security scanning with healthcare-specific patterns
 
 _For detailed usage patterns, configurations, and implementation guides_, reference the specialized instruction files based on your current task (see "Using Specialized AI Instructions" section above).
+
+## Configuration Externalization Strategy
+
+### YAML Configuration Migration
+
+As development progresses, **consistently move hardcoded values to YAML configurations** to enable:
+
+- **Client Customization**: Different healthcare organizations can easily configure system behavior
+- **Fine-tuning Support**: Easier adjustment of AI model parameters and workflow settings
+- **Deployment Flexibility**: Environment-specific configurations without code changes
+- **Compliance Adaptation**: Adjustable security and audit settings for different regulatory requirements
+
+**Implementation Pattern:**
+
+```python
+# ❌ Avoid: Hardcoded healthcare settings
+SOAP_TEMPLATE = "Subjective: {chief_complaint}\nObjective: {vitals}"
+MAX_ENCOUNTER_DURATION = 120  # minutes
+
+# ✅ Prefer: YAML-based configuration
+from config.healthcare_settings import load_healthcare_config
+config = load_healthcare_config()
+SOAP_TEMPLATE = config.documentation.soap_template
+MAX_ENCOUNTER_DURATION = config.workflows.max_encounter_duration
+```
+
+**Priority Areas for Configuration:**
+
+- Healthcare workflow parameters and templates
+- AI model settings and prompt templates
+- Security and audit thresholds
+- Service integration endpoints and timeouts
 
 # Complex variables
 
