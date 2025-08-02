@@ -27,7 +27,7 @@ class TestEncryptionValidation:
         )
         self.test_connection = connection_factory.create_connection()
 
-    def test_valid_master_key_base64_format(self):
+    def test_valid_master_key_base64_format(self) -> None:
         """Test valid master key in base64 format"""
         # Generate a proper 32-byte key and encode it
         key_bytes = secrets.token_bytes(32)
@@ -59,7 +59,7 @@ class TestEncryptionValidation:
                             except (TypeError, AttributeError):
                                 continue
 
-    def test_invalid_master_key_too_short(self):
+    def test_invalid_master_key_too_short(self) -> None:
         """Test invalid master key - too short after decoding"""
         # Create a key that's too short (16 bytes instead of 32)
         short_key = base64.b64encode(b"a" * 16).decode("utf-8")
@@ -71,7 +71,7 @@ class TestEncryptionValidation:
             with pytest.raises(ValueError, match="MASTER_ENCRYPTION_KEY length error"):
                 HealthcareEncryptionManager(self.test_connection)
 
-    def test_invalid_master_key_not_base64(self):
+    def test_invalid_master_key_not_base64(self) -> None:
         """Test invalid master key - not valid base64"""
         with patch.dict(
             os.environ,
@@ -83,7 +83,7 @@ class TestEncryptionValidation:
             with pytest.raises(ValueError, match="Master encryption key must be valid base64"):
                 HealthcareEncryptionManager(self.test_connection)
 
-    def test_production_requires_master_key(self):
+    def test_production_requires_master_key(self) -> None:
         """Test that production environment requires MASTER_ENCRYPTION_KEY"""
         with patch.dict(os.environ, {"ENVIRONMENT": "production"}, clear=True):
             with pytest.raises(
@@ -92,7 +92,7 @@ class TestEncryptionValidation:
             ):
                 HealthcareEncryptionManager(self.test_connection)
 
-    def test_key_entropy_validation(self):
+    def test_key_entropy_validation(self) -> None:
         """Test that keys have sufficient entropy"""
         # Test weak key (all same bytes)
         weak_key = base64.b64encode(b"a" * 32).decode("utf-8")
@@ -105,7 +105,7 @@ class TestEncryptionValidation:
             manager = HealthcareEncryptionManager(self.test_connection)
             assert manager is not None
 
-    def test_key_rotation_capability(self):
+    def test_key_rotation_capability(self) -> None:
         """Test that encryption manager supports key rotation"""
         key1 = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")
         key2 = base64.b64encode(secrets.token_bytes(32)).decode("utf-8")
@@ -153,7 +153,7 @@ class TestEncryptionValidation:
 class TestRBACStrictModeValidation:
     """Test RBAC strict mode validation"""
 
-    def test_valid_rbac_strict_mode_true(self):
+    def test_valid_rbac_strict_mode_true(self) -> None:
         """Test valid RBAC strict mode - true"""
         with patch.dict(os.environ, {"RBAC_STRICT_MODE": "true", "ENVIRONMENT": "development"}):
             from src.security.rbac_foundation import HealthcareRBACManager
@@ -168,7 +168,7 @@ class TestRBACStrictModeValidation:
             manager = HealthcareRBACManager(test_connection)
             assert manager.STRICT_MODE is True
 
-    def test_valid_rbac_strict_mode_false(self):
+    def test_valid_rbac_strict_mode_false(self) -> None:
         """Test valid RBAC strict mode - false"""
         with patch.dict(os.environ, {"RBAC_STRICT_MODE": "false", "ENVIRONMENT": "development"}):
             from src.security.rbac_foundation import HealthcareRBACManager
@@ -183,7 +183,7 @@ class TestRBACStrictModeValidation:
             manager = HealthcareRBACManager(test_connection)
             assert manager.STRICT_MODE is False
 
-    def test_invalid_rbac_strict_mode(self):
+    def test_invalid_rbac_strict_mode(self) -> None:
         """Test invalid RBAC strict mode value"""
         with patch.dict(os.environ, {"RBAC_STRICT_MODE": "invalid", "ENVIRONMENT": "development"}):
             from src.security.rbac_foundation import HealthcareRBACManager
@@ -199,7 +199,7 @@ class TestRBACStrictModeValidation:
             with pytest.raises(ValueError, match="Invalid value for RBAC_STRICT_MODE"):
                 HealthcareRBACManager(test_connection)
 
-    def test_rbac_strict_mode_case_insensitive(self):
+    def test_rbac_strict_mode_case_insensitive(self) -> None:
         """Test RBAC strict mode is case insensitive"""
         test_cases = [
             ("TRUE", True),
@@ -225,7 +225,7 @@ class TestRBACStrictModeValidation:
                 manager = HealthcareRBACManager(test_connection)
                 assert manager.STRICT_MODE is expected
 
-    def test_rbac_strict_mode_whitespace_handling(self):
+    def test_rbac_strict_mode_whitespace_handling(self) -> None:
         """Test RBAC strict mode handles whitespace"""
         with patch.dict(os.environ, {"RBAC_STRICT_MODE": "  true  ", "ENVIRONMENT": "development"}):
             from src.security.rbac_foundation import HealthcareRBACManager
@@ -258,7 +258,7 @@ class TestSecurityScan:
         )
         self.test_connection = connection_factory.create_connection()
 
-    def test_configuration_injection_pattern(self):
+    def test_configuration_injection_pattern(self) -> None:
         """Test that configuration injection works without mocking private methods"""
         with patch.dict(os.environ, {"ENVIRONMENT": "development"}):
             # Create test configuration
@@ -275,7 +275,7 @@ class TestSecurityScan:
             assert manager.config == test_config
             assert manager.key_manager.config == test_config
 
-    def test_configuration_override_behavior(self):
+    def test_configuration_override_behavior(self) -> None:
         """Test that injected configuration overrides default loading"""
         with patch.dict(os.environ, {"ENVIRONMENT": "development"}):
             # Test configuration with specific values
@@ -293,7 +293,7 @@ class TestSecurityScan:
             assert manager.config.get("TEST_MODE") is True
             assert "MASTER_ENCRYPTION_KEY" in manager.config
 
-    def test_fallback_to_default_configuration(self):
+    def test_fallback_to_default_configuration(self) -> None:
         """Test that manager falls back to default configuration when none injected"""
         with patch.dict(os.environ, {"ENVIRONMENT": "development"}):
             # Create manager without injected config

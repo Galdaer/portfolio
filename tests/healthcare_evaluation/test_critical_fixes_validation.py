@@ -47,7 +47,7 @@ def test_imports_available():
 class TestPHIMaskingFixes:
     """Test Fix 1: PHI Masking - Real functionality testing"""
 
-    def test_phi_detection_with_real_patterns(self):
+    def test_phi_detection_with_real_patterns(self) -> None:
         """Test PHI detection with realistic healthcare data patterns"""
         detector = BasicPHIDetector()
 
@@ -76,7 +76,7 @@ class TestPHIMaskingFixes:
             else:
                 assert result.masked_text == text  # Should be unchanged
 
-    def test_phi_masking_preserves_medical_context(self):
+    def test_phi_masking_preserves_medical_context(self) -> None:
         """Test that PHI masking preserves medical context while removing PHI"""
         detector = BasicPHIDetector()
 
@@ -94,7 +94,7 @@ class TestPHIMaskingFixes:
 class TestRBACSecurityFixes:
     """Test Fix 3: RBAC Security - Real constraint testing"""
 
-    def test_rbac_patient_access_constraints(self):
+    def test_rbac_patient_access_constraints(self) -> None:
         """Test RBAC patient access constraints with real logic"""
         connection_factory = PostgresConnectionFactory(
             host="localhost",
@@ -147,7 +147,7 @@ class TestRBACSecurityFixes:
             if not method_found:
                 assert manager is not None
 
-    def test_rbac_role_hierarchy(self):
+    def test_rbac_role_hierarchy(self) -> None:
         """Test RBAC role hierarchy and permissions"""
         connection_factory = PostgresConnectionFactory(
             host="localhost",
