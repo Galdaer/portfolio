@@ -6,7 +6,7 @@ Comprehensive AI evaluation framework for Intelluxe AI healthcare system
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import psycopg2
 import redis
@@ -54,7 +54,7 @@ class HealthcareEvaluationConfig:
     # Ollama connection
     ollama_host: str = "localhost"
     ollama_port: int = 11434
-    ollama_models: Optional[List[str]] = None
+    ollama_models: list[str] | None = None
 
     # Evaluation settings
     evaluation_threshold: float = 0.7
@@ -68,7 +68,10 @@ class HealthcareEvaluationConfig:
 
     def __post_init__(self):
         if self.ollama_models is None:
-            self.ollama_models = ["llama3.1:8b-instruct-q4_K_M", "mistral:7b-instruct-q4_K_M"]
+            self.ollama_models = [
+                "llama3.1:8b-instruct-q4_K_M",
+                "mistral:7b-instruct-q4_K_M",
+            ]
 
 
 class HealthcareMetrics:
@@ -78,7 +81,7 @@ class HealthcareMetrics:
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.HealthcareMetrics")
 
-    def get_core_metrics(self) -> List[Any]:
+    def get_core_metrics(self) -> list[Any]:
         """Get core evaluation metrics for healthcare AI"""
         return [
             AnswerRelevancyMetric(threshold=self.config.evaluation_threshold),
@@ -90,7 +93,7 @@ class HealthcareMetrics:
             ToxicityMetric(threshold=0.1),  # Very strict for healthcare
         ]
 
-    def get_healthcare_specific_metrics(self) -> List[Any]:
+    def get_healthcare_specific_metrics(self) -> list[Any]:
         """Get healthcare-specific evaluation metrics"""
         # These would be custom metrics for healthcare scenarios
         return [
@@ -106,7 +109,7 @@ class HealthcareMetrics:
 class HealthcareEvaluationFramework:
     """Main evaluation framework for healthcare AI systems"""
 
-    def __init__(self, config: Optional[HealthcareEvaluationConfig] = None):
+    def __init__(self, config: HealthcareEvaluationConfig | None = None):
         self.config = config or HealthcareEvaluationConfig()
         self.logger = logging.getLogger(f"{__name__}.HealthcareEvaluationFramework")
         self.metrics = HealthcareMetrics(self.config)
@@ -171,8 +174,8 @@ class HealthcareEvaluationFramework:
         self,
         input_text: str,
         expected_output: str,
-        context: List[str],
-        retrieval_context: List[str],
+        context: list[str],
+        retrieval_context: list[str],
         actual_output: str = "",
     ) -> LLMTestCase:
         """Create a test case for evaluation"""
@@ -185,7 +188,9 @@ class HealthcareEvaluationFramework:
         )
 
     def evaluate_healthcare_ai(
-        self, test_cases: List[LLMTestCase], model_name: str = "llama3.1:8b-instruct-q4_K_M"
+        self,
+        test_cases: list[LLMTestCase],
+        model_name: str = "llama3.1:8b-instruct-q4_K_M",
     ) -> Any:
         """Evaluate healthcare AI system with comprehensive metrics"""
 

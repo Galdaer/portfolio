@@ -18,7 +18,7 @@ def validate_hipaa_config():
     hipaa_config_file = "config/security/hipaa_compliance.yml"
     if os.path.exists(hipaa_config_file):
         try:
-            with open(hipaa_config_file, "r") as f:
+            with open(hipaa_config_file) as f:
                 config = yaml.safe_load(f)
 
             # Check required sections

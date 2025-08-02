@@ -12,7 +12,7 @@ import sys
 def check_dockerfile_security(filename):
     """Check Dockerfile for security issues"""
     try:
-        with open(filename, "r") as f:
+        with open(filename) as f:
             content = f.read()
 
         issues = []
@@ -46,7 +46,7 @@ def main():
     """Main Docker security validation function"""
     # Check all Dockerfiles
     issues = []
-    for root, dirs, files in os.walk("."):
+    for root, _dirs, files in os.walk("."):
         if ".git" in root:
             continue
 

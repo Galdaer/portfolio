@@ -8,26 +8,21 @@ Focus: Administrative/documentation support, NOT medical advice.
 
 import asyncio
 import logging
-from pathlib import Path
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
-import uvicorn
 
 from config.app import config
-
 
 # Configure logging
 logging.basicConfig(
     level=getattr(logging, config.log_level.upper()),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('logs/intelluxe-ai.log')
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(), logging.FileHandler("logs/intelluxe-ai.log")],
 )
 
 logger = logging.getLogger(__name__)
@@ -42,16 +37,19 @@ async def lifespan(app: FastAPI):
     try:
         # Initialize memory manager
         from core.memory import MemoryManager
+
         app.state.memory_manager = MemoryManager()
         await app.state.memory_manager.initialize()
 
         # Initialize model registry
         from core.models import ModelRegistry
+
         app.state.model_registry = ModelRegistry()
         await app.state.model_registry.initialize()
 
         # Initialize tool registry
         from core.tools import ToolRegistry
+
         app.state.tool_registry = ToolRegistry()
         await app.state.tool_registry.initialize()
 
@@ -65,7 +63,7 @@ async def lifespan(app: FastAPI):
         logger.info(f"Shutting down {config.project_name}")
 
         # Cleanup resources
-        if hasattr(app.state, 'memory_manager'):
+        if hasattr(app.state, "memory_manager"):
             await app.state.memory_manager.close()
 
 
@@ -73,7 +71,7 @@ app = FastAPI(
     title="Intelluxe AI - Healthcare Administrative Assistant",
     description="Privacy-First Healthcare AI System for administrative support",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Configure CORS for development
@@ -110,19 +108,19 @@ async def health_check():
         health_status = {
             "status": "healthy",
             "timestamp": asyncio.get_event_loop().time(),
-            "services": {}
+            "services": {},
         }
 
         # Check memory manager
-        if hasattr(app.state, 'memory_manager'):
+        if hasattr(app.state, "memory_manager"):
             health_status["services"]["memory"] = await app.state.memory_manager.health_check()
 
         # Check model registry
-        if hasattr(app.state, 'model_registry'):
+        if hasattr(app.state, "model_registry"):
             health_status["services"]["models"] = await app.state.model_registry.health_check()
 
         # Check tool registry
-        if hasattr(app.state, 'tool_registry'):
+        if hasattr(app.state, "tool_registry"):
             health_status["services"]["tools"] = await app.state.tool_registry.health_check()
 
         return health_status
@@ -134,9 +132,10 @@ async def health_check():
 
 # Import and include agent routers
 try:
-    from agents.intake import router as intake_router
     from agents.document_processor import router as document_router
+    from agents.intake import router as intake_router
     from agents.research_assistant import router as research_router
+
     app.include_router(intake_router, prefix="/agents/intake", tags=["intake"])
     app.include_router(document_router, prefix="/agents/document", tags=["document"])
     app.include_router(research_router, prefix="/agents/research", tags=["research"])
@@ -155,5 +154,5 @@ if __name__ == "__main__":
         host=config.host,
         port=config.port,
         reload=config.development_mode,
-        log_level=config.log_level.lower()
+        log_level=config.log_level.lower(),
     )

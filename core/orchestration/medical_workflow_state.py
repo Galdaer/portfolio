@@ -1,9 +1,8 @@
 # core/orchestration/medical_workflow_state.py
 
-import asyncio
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class MedicalWorkflowStep(Enum):
@@ -25,10 +24,10 @@ class MedicalWorkflowState:
     current_query: str
     iteration: int
     max_iterations: int
-    results: List[Dict[str, Any]]
-    trust_scores: List[Dict[str, Any]]
-    errors: List[str]
-    context: Dict[str, Any]
+    results: list[dict[str, Any]]
+    trust_scores: list[dict[str, Any]]
+    errors: list[str]
+    context: dict[str, Any]
 
 
 class MedicalWorkflowOrchestrator:
@@ -206,8 +205,11 @@ class MedicalWorkflowOrchestrator:
         return state
 
     async def execute_medical_workflow(
-        self, query: str, context: Optional[Dict[str, Any]] = None, max_iterations: int = 3
-    ) -> Dict[str, Any]:
+        self,
+        query: str,
+        context: dict[str, Any] | None = None,
+        max_iterations: int = 3,
+    ) -> dict[str, Any]:
         """Execute complete medical information workflow with state tracking"""
 
         state = MedicalWorkflowState(
@@ -281,7 +283,7 @@ class MedicalWorkflowOrchestrator:
 
         return state
 
-    def _format_workflow_result(self, state: MedicalWorkflowState) -> Dict[str, Any]:
+    def _format_workflow_result(self, state: MedicalWorkflowState) -> dict[str, Any]:
         """Format the final workflow result"""
         return {
             "query_id": state.query_id,
@@ -293,7 +295,7 @@ class MedicalWorkflowOrchestrator:
             "errors": state.errors,
         }
 
-    def _format_error_result(self, state: MedicalWorkflowState) -> Dict[str, Any]:
+    def _format_error_result(self, state: MedicalWorkflowState) -> dict[str, Any]:
         """Format error result when workflow fails"""
         return {
             "query_id": state.query_id,
@@ -308,7 +310,11 @@ class HealthcareMCPOrchestrator:
     """MCP orchestrator for healthcare tools and services"""
 
     def __init__(
-        self, host: str = "localhost", port: int = 8000, timeout: int = 30, max_retries: int = 3
+        self,
+        host: str = "localhost",
+        port: int = 8000,
+        timeout: int = 30,
+        max_retries: int = 3,
     ):
         self.host = host
         self.port = port
@@ -316,7 +322,7 @@ class HealthcareMCPOrchestrator:
         self.max_retries = max_retries
 
     @classmethod
-    def from_config_dict(cls, config_dict: Dict[str, Any]) -> "HealthcareMCPOrchestrator":
+    def from_config_dict(cls, config_dict: dict[str, Any]) -> "HealthcareMCPOrchestrator":
         """Create orchestrator from configuration dictionary like mcp-use library"""
 
         # Extract healthcare MCP config
@@ -330,7 +336,7 @@ class HealthcareMCPOrchestrator:
             max_retries=healthcare_config.get("max_retries", 3),
         )
 
-    async def get_available_tools(self) -> List[str]:
+    async def get_available_tools(self) -> list[str]:
         """Get list of available healthcare tools from MCP server"""
         try:
             # In Phase 1, we'll actually call the MCP server
@@ -350,12 +356,15 @@ class HealthcareMCPOrchestrator:
 
             # Make actual MCP server call to list available tools
             try:
-                import json
-
                 import aiohttp
 
                 # Prepare MCP JSON-RPC request for tools/list
-                mcp_request = {"jsonrpc": "2.0", "method": "tools/list", "params": {}, "id": 1}
+                mcp_request = {
+                    "jsonrpc": "2.0",
+                    "method": "tools/list",
+                    "params": {},
+                    "id": 1,
+                }
 
                 # Call the MCP server endpoint
                 async with aiohttp.ClientSession(
@@ -397,7 +406,9 @@ class HealthcareMCPOrchestrator:
         """Create healthcare agent with MCP integration like MCPAgent pattern"""
 
         # Import here to avoid circular imports
-        from agents.research_assistant.clinical_research_agent import ClinicalResearchAgent
+        from agents.research_assistant.clinical_research_agent import (
+            ClinicalResearchAgent,
+        )
 
         # Similar to their MCPAgent(llm=llm, client=client, max_steps=100)
         return ClinicalResearchAgent(llm_client=llm_client, mcp_client=self)

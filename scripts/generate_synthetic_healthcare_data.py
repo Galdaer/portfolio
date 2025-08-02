@@ -10,20 +10,26 @@ import os
 import random
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Optional database dependencies with graceful fallback
 try:
     import psycopg2
+    from psycopg2.extensions import connection as PgConnection
+
     PSYCOPG2_AVAILABLE = True
 except ImportError:
+    psycopg2 = None
+    PgConnection = None
     PSYCOPG2_AVAILABLE = False
     print("⚠️  psycopg2 not available - database population will be skipped")
 
 try:
     import redis
+
     REDIS_AVAILABLE = True
 except ImportError:
+    redis = None
     REDIS_AVAILABLE = False
     print("⚠️  redis not available - Redis caching will be skipped")
 
@@ -162,17 +168,17 @@ class SyntheticHealthcareDataGenerator:
         os.makedirs(self.output_dir, exist_ok=True)
 
         # Storage for cross-referential data
-        self.doctors: List[Dict[str, Any]] = []
-        self.patients: List[Dict[str, Any]] = []
-        self.encounters: List[Dict[str, Any]] = []
-        self.lab_results: List[Dict[str, Any]] = []
-        self.insurance_verifications: List[Dict[str, Any]] = []
-        self.agent_sessions: List[Dict[str, Any]] = []
+        self.doctors: list[dict[str, Any]] = []
+        self.patients: list[dict[str, Any]] = []
+        self.encounters: list[dict[str, Any]] = []
+        self.lab_results: list[dict[str, Any]] = []
+        self.insurance_verifications: list[dict[str, Any]] = []
+        self.agent_sessions: list[dict[str, Any]] = []
 
         # Phase 2 business data for local deployment
-        self.billing_claims: List[Dict[str, Any]] = []
-        self.doctor_preferences: List[Dict[str, Any]] = []
-        self.audit_logs: List[Dict[str, Any]] = []
+        self.billing_claims: list[dict[str, Any]] = []
+        self.doctor_preferences: list[dict[str, Any]] = []
+        self.audit_logs: list[dict[str, Any]] = []
 
         # Database connections (optional)
         self.db_conn = None
@@ -183,7 +189,7 @@ class SyntheticHealthcareDataGenerator:
 
     def _connect_to_databases(self):
         """Connect to PostgreSQL and Redis if using database mode"""
-        if not PSYCOPG2_AVAILABLE:
+        if not PSYCOPG2_AVAILABLE or psycopg2 is None:
             print("⚠️  psycopg2 not available - skipping PostgreSQL connection")
             self.db_conn = None
         else:
@@ -196,7 +202,7 @@ class SyntheticHealthcareDataGenerator:
                 print(f"⚠️  PostgreSQL connection failed: {e}")
                 self.db_conn = None
 
-        if not REDIS_AVAILABLE:
+        if not REDIS_AVAILABLE or redis is None:
             print("⚠️  redis not available - skipping Redis connection")
             self.redis_client = None
         else:

@@ -24,7 +24,7 @@ def check_medical_terminology(filename):
     }
 
     try:
-        with open(filename, "r", encoding="utf-8") as f:
+        with open(filename, encoding="utf-8") as f:
             content = f.read()
 
         issues = []
@@ -47,7 +47,7 @@ def main():
     """Main terminology validation function"""
     # Check relevant files
     issues = []
-    for root, dirs, files in os.walk("."):
+    for root, _dirs, files in os.walk("."):
         if any(skip in root for skip in [".git", "node_modules", "__pycache__"]):
             continue
 

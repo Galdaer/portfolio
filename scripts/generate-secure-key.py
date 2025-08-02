@@ -4,17 +4,18 @@ Generate secure encryption key for Intelluxe AI
 Only works in development environment
 """
 
-import sys
 import os
+import sys
 
 # Add the src directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
 
 def main():
     try:
-        from security.encryption_manager import HealthcareEncryptionManager
-        from security.environment_detector import EnvironmentDetector, Environment
         from security.database_factory import MockConnectionFactory
+        from security.encryption_manager import HealthcareEncryptionManager
+        from security.environment_detector import Environment, EnvironmentDetector
 
         # Ensure we're in development
         EnvironmentDetector.require_environment(Environment.DEVELOPMENT)

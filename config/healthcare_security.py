@@ -6,7 +6,7 @@ Provides HIPAA-compliant security middleware for handling PHI/PII
 
 import logging
 import re
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class HealthcareSecurityMiddleware:
     - Audit logging
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         """
         Initialize healthcare security middleware
 
@@ -73,7 +73,7 @@ class HealthcareSecurityMiddleware:
             redacted = re.sub(pattern, "[REDACTED]", redacted, flags=re.IGNORECASE)
         return redacted
 
-    def get_security_headers(self) -> Dict[str, str]:
+    def get_security_headers(self) -> dict[str, str]:
         """
         Get HIPAA-appropriate security headers
 
@@ -90,7 +90,7 @@ class HealthcareSecurityMiddleware:
             "Cache-Control": "no-store, no-cache, must-revalidate, private",
         }
 
-    def validate_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_request(self, request_data: dict[str, Any]) -> dict[str, Any]:
         """
         Validate request for security compliance
 

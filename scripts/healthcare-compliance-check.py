@@ -12,38 +12,53 @@ import sys
 def is_synthetic_data(content, match):
     """Check if content contains synthetic data markers"""
     synthetic_markers = [
-        "synthetic", "_synthetic", "PAT001", "PAT002", "PAT003", "PROV001", 
-        "ENC001", "SYN-", "555-", "XXX-XX", "synthetic.test", "example.com",
-        "Meghan Anderson", "UnitedHealth", "fake", "test", "demo"
+        "synthetic",
+        "_synthetic",
+        "PAT001",
+        "PAT002",
+        "PAT003",
+        "PROV001",
+        "ENC001",
+        "SYN-",
+        "555-",
+        "XXX-XX",
+        "synthetic.test",
+        "example.com",
+        "Meghan Anderson",
+        "UnitedHealth",
+        "fake",
+        "test",
+        "demo",
     ]
-    
+
     # Check if the file is in synthetic data directory
     if "data/synthetic" in content or "test" in content.lower():
         return True
-    
+
     # Check for synthetic markers near the match
-    context_window = 200  # Check 200 characters around the match
     for marker in synthetic_markers:
         if marker.lower() in content.lower():
             return True
-    
+
     return False
 
 
 def check_healthcare_compliance(filename):
     """Check file for healthcare compliance issues"""
     try:
-        with open(filename, "r", encoding="utf-8") as f:
+        with open(filename, encoding="utf-8") as f:
             content = f.read()
 
         issues = []
 
         # Skip synthetic data files entirely
-        if ("data/synthetic" in filename or 
-            "test" in filename.lower() or
-            "mock" in filename.lower() or
-            "_test" in filename or
-            ".test." in filename):
+        if (
+            "data/synthetic" in filename
+            or "test" in filename.lower()
+            or "mock" in filename.lower()
+            or "_test" in filename
+            or ".test." in filename
+        ):
             return issues
 
         # Check for medical data handling without proper protection
@@ -68,7 +83,9 @@ def check_healthcare_compliance(filename):
         # Check for proper medical disclaimers in AI code
         if re.search(r"medical.*ai|ai.*medical|diagnosis|treatment", content, re.IGNORECASE):
             if not re.search(
-                r"disclaimer|educational.*purpose|consult.*healthcare", content, re.IGNORECASE
+                r"disclaimer|educational.*purpose|consult.*healthcare",
+                content,
+                re.IGNORECASE,
             ):
                 issues.append(f"{filename}: Medical AI code missing disclaimers")
 
@@ -81,7 +98,7 @@ def main():
     """Main compliance check function"""
     # Check all Python files
     issues = []
-    for root, dirs, files in os.walk("."):
+    for root, _dirs, files in os.walk("."):
         # Skip certain directories
         if any(skip in root for skip in [".git", "node_modules", "__pycache__", ".pytest_cache"]):
             continue

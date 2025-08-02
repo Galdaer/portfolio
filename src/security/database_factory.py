@@ -5,7 +5,7 @@ Provides testable database connection management with dependency injection
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Protocol
+from typing import Protocol
 
 import psycopg2
 
@@ -54,7 +54,7 @@ class ConnectionFactory(ABC):
 class PostgresConnectionFactory(ConnectionFactory):
     """PostgreSQL connection factory with environment-aware configuration"""
 
-    def __init__(self, connection_string: Optional[str] = None, **kwargs):
+    def __init__(self, connection_string: str | None = None, **kwargs):
         """
         Initialize PostgreSQL connection factory
 
@@ -145,7 +145,9 @@ class PostgresConnectionFactory(ConnectionFactory):
                 import re
 
                 safe_string = re.sub(
-                    r'(?i)(password\s*=\s*)(["\']?)(.*?)(\2)(?=;|&|\s|$)', r"\1\2***\2", safe_string
+                    r'(?i)(password\s*=\s*)(["\']?)(.*?)(\2)(?=;|&|\s|$)',
+                    r"\1\2***\2",
+                    safe_string,
                 )
             return {"connection_string": safe_string}
         else:
@@ -186,7 +188,7 @@ class ConnectionManager:
 
     def __init__(self, connection_factory: ConnectionFactory):
         self.connection_factory = connection_factory
-        self._connection: Optional[DatabaseConnection] = None
+        self._connection: DatabaseConnection | None = None
         self.logger = logging.getLogger(f"{__name__}.ConnectionManager")
 
     @property

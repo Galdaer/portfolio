@@ -142,7 +142,7 @@ class TestEncryptionValidation:
                             try:
                                 method = getattr(manager2, method_name)
                                 with pytest.raises(
-                                    Exception
+                                    (ValueError, RuntimeError, TypeError)
                                 ):  # Should fail to decrypt with wrong key
                                     method(encrypted_data)
                                 return  # Test passed

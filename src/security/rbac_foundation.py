@@ -6,11 +6,10 @@ Healthcare-specific RBAC implementation with HIPAA compliance
 import json
 import logging
 import os
-import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 try:
     from psycopg2.extras import RealDictCursor
@@ -22,7 +21,10 @@ except ImportError:
     PSYCOPG2_AVAILABLE = False
 
 from src.security.environment_detector import EnvironmentDetector
-from src.security.patient_assignment_db import PatientAssignmentDB, RBACConfig, SessionManager
+from src.security.patient_assignment_db import (
+    PatientAssignmentDB,
+    RBACConfig,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -84,8 +86,8 @@ class Role:
     role_id: str
     name: str
     description: str
-    permissions: Set[Permission]
-    resource_constraints: Dict[ResourceType, Dict[str, Any]]
+    permissions: set[Permission]
+    resource_constraints: dict[ResourceType, dict[str, Any]]
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -98,9 +100,9 @@ class User:
     user_id: str
     username: str
     email: str
-    roles: Set[str]  # Role IDs
+    roles: set[str]  # Role IDs
     is_active: bool
-    last_login: Optional[datetime]
+    last_login: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -113,7 +115,7 @@ class AccessRequest:
     resource_type: ResourceType
     resource_id: str
     permission: Permission
-    context: Dict[str, Any]
+    context: dict[str, Any]
     timestamp: datetime
 
 
@@ -498,7 +500,7 @@ class HealthcareRBACManager:
         permission: Permission,
         resource_type: ResourceType,
         resource_id: str,
-        context: Optional[Dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> bool:
         """Check if user has permission for resource"""
         try:
@@ -523,7 +525,12 @@ class HealthcareRBACManager:
                         role, resource_type, resource_id, context
                     ):
                         self._log_access_attempt(
-                            user_id, permission, resource_type, resource_id, True, context
+                            user_id,
+                            permission,
+                            resource_type,
+                            resource_id,
+                            True,
+                            context,
                         )
                         return True
 
@@ -745,7 +752,7 @@ class HealthcareRBACManager:
             self.logger.debug(f"DEV MODE: Denying patient access {user_id} -> {patient_id}")
             return False
 
-    def _get_user_roles(self, user_id: str) -> List[str]:
+    def _get_user_roles(self, user_id: str) -> list[str]:
         """
         Get user roles for basic role-based access control
 
@@ -806,7 +813,10 @@ class HealthcareRBACManager:
                 f"EMERGENCY ACCESS: User {user_id} accessing patient {patient_id} via emergency override"
             )
             self._log_emergency_access(
-                user_id, patient_id, "emergency_override", "Emergency override flag enabled"
+                user_id,
+                patient_id,
+                "emergency_override",
+                "Emergency override flag enabled",
             )
             return True
 
@@ -826,7 +836,10 @@ class HealthcareRBACManager:
                 f"EMERGENCY ACCESS: Break-glass access granted for user {user_id} to patient {patient_id}"
             )
             self._log_emergency_access(
-                user_id, patient_id, "break_glass", "Break-glass access with supervisor approval"
+                user_id,
+                patient_id,
+                "break_glass",
+                "Break-glass access with supervisor approval",
             )
             return True
 
@@ -908,7 +921,7 @@ class HealthcareRBACManager:
         # TODO: Store in audit database
 
     async def _check_patient_assignment_constraints(
-        self, user_id: str, constraints: Dict[str, Any]
+        self, user_id: str, constraints: dict[str, Any]
     ) -> bool:
         """Check patient assignment constraints with Phase 2 preparation"""
         if not constraints:
@@ -935,7 +948,7 @@ class HealthcareRBACManager:
         role: Role,
         resource_type: ResourceType,
         resource_id: str,
-        context: Optional[Dict[str, Any]],
+        context: dict[str, Any] | None,
     ) -> bool:
         """Check resource-specific constraints"""
         constraints = role.resource_constraints.get(resource_type, {})
@@ -975,7 +988,7 @@ class HealthcareRBACManager:
         # Default to allow for other constraint types not yet implemented
         return True
 
-    async def get_user(self, user_id: str) -> Optional[User]:
+    async def get_user(self, user_id: str) -> User | None:
         """Get user by ID"""
         if not self.postgres_conn:
             self.logger.warning("No PostgreSQL connection available for user lookup")
@@ -1009,7 +1022,7 @@ class HealthcareRBACManager:
             self.logger.error(f"Failed to get user {user_id}: {e}")
             return None
 
-    async def get_role(self, role_id: str) -> Optional[Role]:
+    async def get_role(self, role_id: str) -> Role | None:
         """Get role by ID"""
         if not self.postgres_conn:
             self.logger.warning("No PostgreSQL connection available for role lookup")
@@ -1032,7 +1045,7 @@ class HealthcareRBACManager:
                     role_id=row["role_id"],
                     name=row["name"],
                     description=row["description"],
-                    permissions=set(Permission(p) for p in row["permissions"]),
+                    permissions={Permission(p) for p in row["permissions"]},
                     resource_constraints=row["resource_constraints"] or {},
                     is_active=row["is_active"],
                     created_at=row["created_at"],
@@ -1050,7 +1063,7 @@ class HealthcareRBACManager:
         resource_type: ResourceType,
         resource_id: str,
         granted: bool,
-        context: Optional[Dict[str, Any]],
+        context: dict[str, Any] | None,
     ):
         """Log access attempt for audit"""
         if not self.postgres_conn:
@@ -1081,7 +1094,7 @@ class HealthcareRBACManager:
         except Exception as e:
             self.logger.error(f"Failed to log access attempt: {e}")
 
-    async def get_user_permissions(self, user_id: str) -> Set[Permission]:
+    async def get_user_permissions(self, user_id: str) -> set[Permission]:
         """Get all permissions for a user"""
         user = await self.get_user(user_id)
         if not user:
@@ -1095,7 +1108,7 @@ class HealthcareRBACManager:
 
         return permissions
 
-    def get_access_summary(self, user_id: str, days: int = 7) -> Dict[str, Any]:
+    def get_access_summary(self, user_id: str, days: int = 7) -> dict[str, Any]:
         """Get access summary for user"""
         if not self.postgres_conn:
             self.logger.info("No PostgreSQL connection available for access summary")
@@ -1221,7 +1234,12 @@ class RBACMixin:
             return False
 
     def log_access_attempt(
-        self, user_id: str, patient_id: str, action: str, result: str, details: Optional[str] = None
+        self,
+        user_id: str,
+        patient_id: str,
+        action: str,
+        result: str,
+        details: str | None = None,
     ):
         """
         Log access attempt for audit trail

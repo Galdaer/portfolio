@@ -5,7 +5,6 @@ Addresses DeepEval optimism with multi-layered healthcare-specific validation
 """
 
 import asyncio
-import json
 import logging
 import re
 import time
@@ -13,12 +12,15 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 try:
-    from deepeval import assert_test
-    from deepeval.metrics import AnswerRelevancyMetric, ContextualRecallMetric, FaithfulnessMetric
-    from deepeval.test_case import LLMTestCase
+    from deepeval.metrics.answer_relevancy.answer_relevancy import AnswerRelevancyMetric
+    from deepeval.metrics.contextual_recall.contextual_recall import (
+        ContextualRecallMetric,
+    )
+    from deepeval.metrics.faithfulness.faithfulness import FaithfulnessMetric
+    from deepeval.test_case.llm_test_case import LLMTestCase
 
     DEEPEVAL_AVAILABLE = True
 except ImportError:
@@ -61,8 +63,8 @@ class EvaluationFinding:
     score: float
     message: str
     recommendation: str
-    evidence: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    evidence: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -74,25 +76,25 @@ class ComprehensiveEvaluationResult:
     evaluation_id: str
     timestamp: datetime
 
-    deepeval_metrics: Dict[str, float]
-    healthcare_metrics: Dict[str, float]
-    compliance_metrics: Dict[str, float]
+    deepeval_metrics: dict[str, float]
+    healthcare_metrics: dict[str, float]
+    compliance_metrics: dict[str, float]
 
-    findings: List[EvaluationFinding]
-    recommendations: List[str]
+    findings: list[EvaluationFinding]
+    recommendations: list[str]
 
-    performance_metrics: Dict[str, float]
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    performance_metrics: dict[str, float]
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def is_passing(self, threshold: float = 0.85) -> bool:
         """Check if evaluation passes healthcare standards"""
         return self.weighted_score >= threshold
 
-    def get_critical_issues(self) -> List[EvaluationFinding]:
+    def get_critical_issues(self) -> list[EvaluationFinding]:
         """Get all critical severity findings"""
         return [f for f in self.findings if f.severity == EvaluationSeverity.CRITICAL]
 
-    def get_compliance_summary(self) -> Dict[str, float]:
+    def get_compliance_summary(self) -> dict[str, float]:
         """Get summary of compliance scores by category"""
         summary = {}
         for category in HealthcareCompliance:
@@ -149,9 +151,9 @@ class AdvancedPHIDetector:
             r"synthetic\.test",
         ]
 
-    def detect_phi_violations(self, text: str) -> List[EvaluationFinding]:
+    def detect_phi_violations(self, text: str) -> list[EvaluationFinding]:
         """Detect PHI violations with detailed findings"""
-        findings: List[EvaluationFinding] = []
+        findings: list[EvaluationFinding] = []
 
         if self._is_synthetic_data(text):
             return findings
@@ -219,7 +221,7 @@ class MedicalAccuracyValidator:
             "compliance",
         ]
 
-    def validate_medical_content(self, query: str, response: str) -> List[EvaluationFinding]:
+    def validate_medical_content(self, query: str, response: str) -> list[EvaluationFinding]:
         """Validate medical content appropriateness"""
         findings = []
         response_lower = response.lower()
@@ -289,11 +291,15 @@ class HIPAAComplianceValidator:
     def __init__(self):
         self.required_elements = {
             "administrative_focus": ["administrative", "documentation", "workflow"],
-            "medical_disclaimers": ["not medical advice", "healthcare provider", "consult"],
+            "medical_disclaimers": [
+                "not medical advice",
+                "healthcare provider",
+                "consult",
+            ],
             "privacy_awareness": ["privacy", "confidential", "secure", "protected"],
         }
 
-    def validate_hipaa_compliance(self, query: str, response: str) -> List[EvaluationFinding]:
+    def validate_hipaa_compliance(self, query: str, response: str) -> list[EvaluationFinding]:
         """Validate HIPAA compliance elements"""
         findings = []
         response_lower = response.lower()
@@ -346,8 +352,8 @@ class EnhancedDeepEvalWrapper:
         }
 
     def evaluate_with_deepeval(
-        self, query: str, response: str, context: Optional[str] = None
-    ) -> Dict[str, float]:
+        self, query: str, response: str, context: str | None = None
+    ) -> dict[str, float]:
         """Evaluate using DeepEval with healthcare-specific thresholds"""
         if not DEEPEVAL_AVAILABLE:
             logger.warning("DeepEval not available, using fallback evaluation")
@@ -366,7 +372,7 @@ class EnhancedDeepEvalWrapper:
                 retrieval_context=[context] if context else None,
             )
 
-            metrics: Dict[str, float] = {}
+            metrics: dict[str, float] = {}
 
             relevancy_metric = AnswerRelevancyMetric(
                 threshold=self.healthcare_thresholds["answer_relevancy"]
@@ -394,8 +400,8 @@ class EnhancedDeepEvalWrapper:
             return self._fallback_deepeval_evaluation(query, response, context)
 
     def _fallback_deepeval_evaluation(
-        self, query: str, response: str, context: Optional[str] = None
-    ) -> Dict[str, float]:
+        self, query: str, response: str, context: str | None = None
+    ) -> dict[str, float]:
         """Fallback evaluation when DeepEval is unavailable"""
         metrics = {}
 
@@ -441,7 +447,7 @@ class EnhancedDeepEvalWrapper:
         final_score = (keyword_overlap * 0.6) + (healthcare_relevance * 0.4)
         return min(1.0, final_score)
 
-    def _calculate_faithfulness(self, response: str, context: Optional[str] = None) -> float:
+    def _calculate_faithfulness(self, response: str, context: str | None = None) -> float:
         """Calculate faithfulness to context with healthcare validation"""
         if not context:
             return 0.8
@@ -482,7 +488,11 @@ class EnhancedDeepEvalWrapper:
         """Detect potential hallucinations in healthcare context"""
         penalty = 0.0
 
-        specific_patterns = [r"\$[\d,]+\.\d{2}", r"\b\d{5}\b", r"\b[A-Z]\d{2}\.\d{1,3}\b"]
+        specific_patterns = [
+            r"\$[\d,]+\.\d{2}",
+            r"\b\d{5}\b",
+            r"\b[A-Z]\d{2}\.\d{1,3}\b",
+        ]
 
         for pattern in specific_patterns:
             response_matches = set(re.findall(pattern, response))
@@ -494,7 +504,7 @@ class EnhancedDeepEvalWrapper:
 
         return min(0.8, penalty)
 
-    def _extract_important_elements(self, context: str) -> List[str]:
+    def _extract_important_elements(self, context: str) -> list[str]:
         """Extract important elements from context"""
         elements = []
 
@@ -534,15 +544,15 @@ class ComprehensiveHealthcareEvaluator:
         self,
         query: str,
         response: str,
-        context: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        context: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ComprehensiveEvaluationResult:
         """Perform comprehensive healthcare AI evaluation"""
         start_time = time.time()
         evaluation_id = str(uuid.uuid4())
 
-        all_findings: List[EvaluationFinding] = []
-        metrics: Dict[str, Any] = {
+        all_findings: list[EvaluationFinding] = []
+        metrics: dict[str, Any] = {
             "deepeval_metrics": {},
             "healthcare_metrics": {},
             "compliance_metrics": {},
@@ -596,7 +606,7 @@ class ComprehensiveHealthcareEvaluator:
 
         return result
 
-    def _calculate_category_scores(self, findings: List[EvaluationFinding]) -> Dict[str, float]:
+    def _calculate_category_scores(self, findings: list[EvaluationFinding]) -> dict[str, float]:
         """Calculate scores by healthcare compliance category"""
         category_scores = {}
 
@@ -618,9 +628,9 @@ class ComprehensiveHealthcareEvaluator:
 
         return category_scores
 
-    def _generate_compliance_summary(self, findings: List[EvaluationFinding]) -> Dict[str, Any]:
+    def _generate_compliance_summary(self, findings: list[EvaluationFinding]) -> dict[str, Any]:
         """Generate compliance summary with actionable insights"""
-        summary: Dict[str, Any] = {
+        summary: dict[str, Any] = {
             "total_findings": len(findings),
             "critical_findings": len(
                 [f for f in findings if f.severity == EvaluationSeverity.CRITICAL]
@@ -646,7 +656,7 @@ class ComprehensiveHealthcareEvaluator:
         return summary
 
     def _calculate_overall_score(
-        self, deepeval_metrics: Dict[str, float], category_scores: Dict[str, float]
+        self, deepeval_metrics: dict[str, float], category_scores: dict[str, float]
     ) -> float:
         """Calculate overall evaluation score"""
         deepeval_avg = (
@@ -659,7 +669,7 @@ class ComprehensiveHealthcareEvaluator:
         return (deepeval_avg + healthcare_avg) / 2
 
     def _calculate_weighted_score(
-        self, deepeval_metrics: Dict[str, float], category_scores: Dict[str, float]
+        self, deepeval_metrics: dict[str, float], category_scores: dict[str, float]
     ) -> float:
         """Calculate weighted score based on healthcare importance"""
         components = {
@@ -677,7 +687,7 @@ class ComprehensiveHealthcareEvaluator:
 
         return weighted_sum
 
-    def _generate_recommendations(self, findings: List[EvaluationFinding]) -> List[str]:
+    def _generate_recommendations(self, findings: list[EvaluationFinding]) -> list[str]:
         """Generate prioritized recommendations"""
         recommendations = []
 
@@ -712,8 +722,8 @@ class ComprehensiveHealthcareEvaluator:
 async def evaluate_healthcare_query(
     query: str,
     response: str,
-    context: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    context: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> ComprehensiveEvaluationResult:
     """
     Main function for evaluating healthcare AI responses
@@ -731,7 +741,9 @@ async def evaluate_healthcare_query(
     return await evaluator.evaluate_comprehensive(query, response, context, metadata)
 
 
-def run_evaluation_batch(test_cases: List[Dict[str, Any]]) -> List[ComprehensiveEvaluationResult]:
+def run_evaluation_batch(
+    test_cases: list[dict[str, Any]],
+) -> list[ComprehensiveEvaluationResult]:
     """
     Run evaluation on a batch of test cases
 
@@ -758,7 +770,7 @@ def run_evaluation_batch(test_cases: List[Dict[str, Any]]) -> List[Comprehensive
     return asyncio.run(process_batch())
 
 
-def generate_evaluation_report(results: List[ComprehensiveEvaluationResult]) -> str:
+def generate_evaluation_report(results: list[ComprehensiveEvaluationResult]) -> str:
     """
     Generate a comprehensive evaluation report
 
@@ -804,7 +816,7 @@ def generate_evaluation_report(results: List[ComprehensiveEvaluationResult]) -> 
             ]
         )
 
-    compliance_summary: Dict[str, List[float]] = {}
+    compliance_summary: dict[str, list[float]] = {}
     for result in results:
         for category, score in result.get_compliance_summary().items():
             if category not in compliance_summary:
@@ -851,7 +863,7 @@ def generate_evaluation_report(results: List[ComprehensiveEvaluationResult]) -> 
 
 
 if __name__ == "__main__":
-    sample_test_cases: List[Dict[str, Any]] = [
+    sample_test_cases: list[dict[str, Any]] = [
         {
             "query": "Help me check in a patient",
             "response": "I can help you check in the patient. I've verified their identity and insurance information. Please confirm the appointment type and update any demographic changes.",

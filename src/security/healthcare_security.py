@@ -8,9 +8,10 @@ import json
 import logging
 import os
 import secrets
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any
 
 import jwt
 import psycopg2
@@ -22,7 +23,6 @@ from fastapi import HTTPException, Request
 
 from src.healthcare_mcp.audit_logger import HealthcareAuditLogger
 from src.healthcare_mcp.phi_detection import PHIDetector
-from src.security.environment_detector import EnvironmentDetector
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class SecurityConfig:
 class EncryptionManager:
     """Handles encryption/decryption for healthcare data"""
 
-    def __init__(self, encryption_key: Optional[bytes] = None):
+    def __init__(self, encryption_key: bytes | None = None):
         if encryption_key:
             self.fernet = Fernet(base64.urlsafe_b64encode(encryption_key[:32].ljust(32, b"\0")))
         else:
@@ -77,7 +77,7 @@ class EncryptionManager:
         """Decrypt sensitive data"""
         return self.fernet.decrypt(encrypted_data.encode()).decode()
 
-    def hash_password(self, password: str, salt: Optional[str] = None) -> tuple[str, str]:
+    def hash_password(self, password: str, salt: str | None = None) -> tuple[str, str]:
         """
         Hash password with salt for secure storage
 
@@ -116,7 +116,7 @@ class SessionManager:
         self.redis_conn = redis_conn
         self.logger = logging.getLogger(f"{__name__}.SessionManager")
 
-    def create_session(self, user_id: str, user_data: Dict[str, Any]) -> str:
+    def create_session(self, user_id: str, user_data: dict[str, Any]) -> str:
         """Create secure user session"""
         session_id = secrets.token_urlsafe(32)
 
@@ -139,7 +139,7 @@ class SessionManager:
         self.logger.info(f"Session created for user {user_id}")
         return session_id
 
-    def validate_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def validate_session(self, session_id: str) -> dict[str, Any] | None:
         """Validate and refresh session"""
         session_key = f"session:{session_id}"
 
@@ -253,7 +253,7 @@ class HealthcareSecurityMiddleware:
         self.encryption_manager = EncryptionManager(encryption_key)
         self.phi_detector = PHIDetector()
         self.audit_logger = HealthcareAuditLogger(config, config.audit_log_level)
-        self._current_request_ip: Optional[str] = None
+        self._current_request_ip: str | None = None
         self.logger = logging.getLogger(f"{__name__}.HealthcareSecurityMiddleware")
 
         # Initialize security components with proper parameters
@@ -333,7 +333,7 @@ class HealthcareSecurityMiddleware:
             self.logger.error(f"Failed to initialize security tables: {e}")
             raise
 
-    async def authenticate_request(self, request: Request) -> Optional[Dict[str, Any]]:
+    async def authenticate_request(self, request: Request) -> dict[str, Any] | None:
         """Authenticate incoming request"""
         # Extract authentication token
         auth_header = request.headers.get("Authorization")
@@ -359,7 +359,11 @@ class HealthcareSecurityMiddleware:
                 if not session_data:
                     return None
 
-                return {"user_id": user_id, "session_data": session_data, "token_payload": payload}
+                return {
+                    "user_id": user_id,
+                    "session_data": session_data,
+                    "token_payload": payload,
+                }
 
             return {"user_id": user_id, "token_payload": payload}
 
@@ -370,7 +374,7 @@ class HealthcareSecurityMiddleware:
             self.logger.warning("Invalid JWT token")
             return None
 
-    async def authorize_access(self, user_data: Dict[str, Any], resource: str, action: str) -> bool:
+    async def authorize_access(self, user_data: dict[str, Any], resource: str, action: str) -> bool:
         """Authorize user access to resource"""
         user_id = user_data.get("user_id")
         user_role = user_data.get("token_payload", {}).get("role", "user")
@@ -411,7 +415,11 @@ class HealthcareSecurityMiddleware:
             self.logger.error(f"Failed to log access attempt: {e}")
 
     async def log_security_event(
-        self, event_type: str, severity: str, user_id: Optional[str], details: Dict[str, Any]
+        self,
+        event_type: str,
+        severity: str,
+        user_id: str | None,
+        details: dict[str, Any],
     ):
         """Log security event"""
         try:

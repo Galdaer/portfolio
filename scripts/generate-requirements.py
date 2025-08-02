@@ -169,7 +169,7 @@ def run_command(cmd, cwd=None):
 
 def create_ci_requirements_in(requirements_in_path):
     """Create a filtered requirements.in for CI by excluding heavy packages"""
-    with open(requirements_in_path, "r") as f:
+    with open(requirements_in_path) as f:
         lines = f.readlines()
 
     filtered_lines = []
@@ -207,7 +207,7 @@ def create_ci_requirements_in(requirements_in_path):
 
 def create_self_hosted_requirements_in(requirements_in_path):
     """Create a filtered requirements.in for self-hosted runners by excluding dev-only packages"""
-    with open(requirements_in_path, "r") as f:
+    with open(requirements_in_path) as f:
         lines = f.readlines()
 
     filtered_lines = []
@@ -316,7 +316,7 @@ def generate_requirements_files():
             return False
 
         # Prepend header to CI requirements and clean up via comments
-        with open(requirements_ci_txt, "r") as f:
+        with open(requirements_ci_txt) as f:
             ci_content = f.read()
 
         # Clean up the pip-compile generated content
@@ -355,7 +355,7 @@ def generate_requirements_files():
             return False
 
         # Prepend header to self-hosted requirements and clean up via comments
-        with open(requirements_self_hosted_txt, "r") as f:
+        with open(requirements_self_hosted_txt) as f:
             self_hosted_content = f.read()
 
         # Clean up the pip-compile generated content

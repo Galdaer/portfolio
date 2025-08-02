@@ -2,7 +2,7 @@
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -23,7 +23,11 @@ class MedicalResponseValidator:
         self.llm_client = llm_client
 
     async def validate_medical_response(
-        self, response: str, original_query: str, sources: List[Dict[str, Any]], query_type: str
+        self,
+        response: str,
+        original_query: str,
+        sources: list[dict[str, Any]],
+        query_type: str,
     ) -> MedicalTrustScore:
         """
         Validate medical response for accuracy, safety, and appropriateness
@@ -61,7 +65,7 @@ class MedicalResponseValidator:
             overall_trust=overall_trust,
         )
 
-    async def _check_medical_accuracy(self, response: str, sources: List[Dict]) -> float:
+    async def _check_medical_accuracy(self, response: str, sources: list[dict]) -> float:
         """Check if response aligns with provided medical sources"""
         if not sources:
             return 0.5  # Neutral if no sources
@@ -143,7 +147,7 @@ class MedicalResponseValidator:
         except Exception:
             return 0.5
 
-    async def _check_evidence_alignment(self, response: str, sources: List[Dict]) -> float:
+    async def _check_evidence_alignment(self, response: str, sources: list[dict]) -> float:
         """Check how well the response aligns with evidence from sources"""
         if not sources:
             return 0.5  # Neutral if no sources

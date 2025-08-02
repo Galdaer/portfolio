@@ -48,7 +48,9 @@ class EncryptionConfigLoader:
             key_file = config["dev_key_path"]
         else:
             key_file = os.path.join(
-                os.getenv("CFG_ROOT", "/opt/intelluxe/stack"), "security", "dev_master_key"
+                os.getenv("CFG_ROOT", "/opt/intelluxe/stack"),
+                "security",
+                "dev_master_key",
             )
 
         try:

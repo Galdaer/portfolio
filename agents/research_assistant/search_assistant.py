@@ -6,7 +6,7 @@ Provides information about medical concepts, not diagnoses
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -15,13 +15,13 @@ class MedicalSearchResult:
 
     search_id: str
     search_query: str
-    information_sources: List[Dict[str, Any]]
-    related_conditions: List[Dict[str, Any]]  # From literature, not diagnosed
-    drug_information: List[Dict[str, Any]]
-    clinical_references: List[Dict[str, Any]]
+    information_sources: list[dict[str, Any]]
+    related_conditions: list[dict[str, Any]]  # From literature, not diagnosed
+    drug_information: list[dict[str, Any]]
+    clinical_references: list[dict[str, Any]]
     search_confidence: float
-    disclaimers: List[str]
-    source_links: List[str]
+    disclaimers: list[str]
+    source_links: list[str]
     generated_at: datetime
 
 
@@ -45,7 +45,7 @@ class MedicalLiteratureSearchAssistant:
         ]
 
     async def search_medical_literature(
-        self, search_query: str, search_context: Optional[Dict[str, Any]] = None
+        self, search_query: str, search_context: dict[str, Any] | None = None
     ) -> MedicalSearchResult:
         """
         Search medical literature like a medical librarian would
@@ -81,7 +81,7 @@ class MedicalLiteratureSearchAssistant:
         clinical_refs = clinical_refs if isinstance(clinical_refs, list) else []
 
         # Combine all information sources
-        all_sources: List[Dict[str, Any]] = []
+        all_sources: list[dict[str, Any]] = []
         all_sources.extend(condition_info)
         all_sources.extend(symptom_literature)
         all_sources.extend(drug_info)
@@ -114,8 +114,8 @@ class MedicalLiteratureSearchAssistant:
         )
 
     async def _search_condition_information(
-        self, medical_concepts: List[str]
-    ) -> List[Dict[str, Any]]:
+        self, medical_concepts: list[str]
+    ) -> list[dict[str, Any]]:
         """
         Search for condition information in medical literature
         Returns: Information about conditions, not diagnostic recommendations
@@ -130,7 +130,11 @@ class MedicalLiteratureSearchAssistant:
                     {
                         "query": f"{concept} overview pathophysiology symptoms",
                         "max_results": 10,
-                        "publication_types": ["review", "meta_analysis", "systematic_review"],
+                        "publication_types": [
+                            "review",
+                            "meta_analysis",
+                            "systematic_review",
+                        ],
                     },
                 )
 
@@ -157,7 +161,7 @@ class MedicalLiteratureSearchAssistant:
 
         return sources
 
-    async def _search_symptom_literature(self, medical_concepts: List[str]) -> List[Dict[str, Any]]:
+    async def _search_symptom_literature(self, medical_concepts: list[str]) -> list[dict[str, Any]]:
         """
         Search literature about symptoms and their associations
         Returns: Literature about what symptoms are associated with, not diagnoses
@@ -170,7 +174,14 @@ class MedicalLiteratureSearchAssistant:
             for c in medical_concepts
             if any(
                 symptom_word in c.lower()
-                for symptom_word in ["pain", "fever", "cough", "headache", "nausea", "fatigue"]
+                for symptom_word in [
+                    "pain",
+                    "fever",
+                    "cough",
+                    "headache",
+                    "nausea",
+                    "fatigue",
+                ]
             )
         ]
 
@@ -207,7 +218,7 @@ class MedicalLiteratureSearchAssistant:
 
         return sources
 
-    async def _search_drug_information(self, medical_concepts: List[str]) -> List[Dict[str, Any]]:
+    async def _search_drug_information(self, medical_concepts: list[str]) -> list[dict[str, Any]]:
         """
         Search for drug information and interactions
         Returns: Official drug information, not prescribing advice
@@ -220,7 +231,13 @@ class MedicalLiteratureSearchAssistant:
             for c in medical_concepts
             if any(
                 drug_indicator in c.lower()
-                for drug_indicator in ["mg", "tablet", "capsule", "injection", "medication"]
+                for drug_indicator in [
+                    "mg",
+                    "tablet",
+                    "capsule",
+                    "injection",
+                    "medication",
+                ]
             )
         ]
 
@@ -258,8 +275,8 @@ class MedicalLiteratureSearchAssistant:
         return sources
 
     async def _search_clinical_references(
-        self, medical_concepts: List[str]
-    ) -> List[Dict[str, Any]]:
+        self, medical_concepts: list[str]
+    ) -> list[dict[str, Any]]:
         """
         Search clinical practice guidelines and reference materials
         Returns: Reference information for clinical context
@@ -299,17 +316,21 @@ class MedicalLiteratureSearchAssistant:
 
         return sources
 
-    def _extract_literature_conditions(self, sources: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _extract_literature_conditions(self, sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Extract conditions mentioned in literature (not diagnose them)
         Returns: List of conditions found in literature with context
         """
-        conditions: List[Dict[str, Any]] = []
+        conditions: list[dict[str, Any]] = []
 
         for source in sources:
             # Extract conditions mentioned in abstracts/summaries
             text_content = " ".join(
-                [source.get("title", ""), source.get("abstract", ""), source.get("summary", "")]
+                [
+                    source.get("title", ""),
+                    source.get("abstract", ""),
+                    source.get("summary", ""),
+                ]
             ).lower()
 
             # Common medical conditions to look for in literature
@@ -341,7 +362,7 @@ class MedicalLiteratureSearchAssistant:
                     )
 
         # Remove duplicates and limit results
-        unique_conditions: Dict[str, Dict[str, Any]] = {}
+        unique_conditions: dict[str, dict[str, Any]] = {}
         for condition_dict in conditions:
             key = condition_dict["condition_name"]
             if key not in unique_conditions:
@@ -350,8 +371,8 @@ class MedicalLiteratureSearchAssistant:
         return list(unique_conditions.values())[:10]  # Top 10 mentioned conditions
 
     def _rank_sources_by_evidence(
-        self, sources: List[Dict[str, Any]], query: str
-    ) -> List[Dict[str, Any]]:
+        self, sources: list[dict[str, Any]], query: str
+    ) -> list[dict[str, Any]]:
         """
         Rank sources by evidence quality and relevance, like a medical librarian would
         """
@@ -379,7 +400,11 @@ class MedicalLiteratureSearchAssistant:
 
             # Relevance score
             source_text = " ".join(
-                [source.get("title", ""), source.get("abstract", ""), source.get("summary", "")]
+                [
+                    source.get("title", ""),
+                    source.get("abstract", ""),
+                    source.get("summary", ""),
+                ]
             ).lower()
 
             relevance_count = sum(1 for term in query_terms if term in source_text)
@@ -402,7 +427,7 @@ class MedicalLiteratureSearchAssistant:
 
         return sorted(scored_sources, key=lambda x: x.get("search_score", 0), reverse=True)
 
-    def _calculate_search_confidence(self, sources: List[Dict[str, Any]], query: str) -> float:
+    def _calculate_search_confidence(self, sources: list[dict[str, Any]], query: str) -> float:
         """
         Calculate how confident we are that we found good information (not diagnostic confidence)
         """
@@ -417,7 +442,12 @@ class MedicalLiteratureSearchAssistant:
             1
             for s in sources
             if s.get("evidence_level")
-            in ["systematic_review", "meta_analysis", "clinical_guideline", "regulatory_approval"]
+            in [
+                "systematic_review",
+                "meta_analysis",
+                "clinical_guideline",
+                "regulatory_approval",
+            ]
         )
         quality_factor = min(high_quality_sources / 5.0, 1.0)  # Up to 5 high-quality = full score
 
@@ -431,7 +461,7 @@ class MedicalLiteratureSearchAssistant:
 
         return min(search_confidence, 1.0)
 
-    async def _extract_medical_concepts(self, search_query: str) -> List[str]:
+    async def _extract_medical_concepts(self, search_query: str) -> list[str]:
         """Extract medical concepts from search query using NLP"""
         try:
             entities_result = await self.mcp_client.call_healthcare_tool(
@@ -452,7 +482,7 @@ class MedicalLiteratureSearchAssistant:
             # Fallback to simple word extraction
             return search_query.split()
 
-    def _calculate_concept_relevance(self, concept: str, article: Dict[str, Any]) -> float:
+    def _calculate_concept_relevance(self, concept: str, article: dict[str, Any]) -> float:
         """Calculate how relevant an article is to a medical concept"""
         article_text = " ".join([article.get("title", ""), article.get("abstract", "")]).lower()
 
@@ -468,7 +498,7 @@ class MedicalLiteratureSearchAssistant:
 
         return matches / len(concept_words) if concept_words else 0.0
 
-    def _determine_evidence_level(self, article: Dict[str, Any]) -> str:
+    def _determine_evidence_level(self, article: dict[str, Any]) -> str:
         """Determine evidence level from article metadata"""
         pub_type = article.get("publication_type", "").lower()
         title = article.get("title", "").lower()
@@ -510,7 +540,7 @@ class MedicalLiteratureSearchAssistant:
         except (ValueError, TypeError):
             return 0.0
 
-    def _extract_source_links(self, sources: List[Dict[str, Any]]) -> List[str]:
+    def _extract_source_links(self, sources: list[dict[str, Any]]) -> list[str]:
         """Extract all source URLs for easy verification"""
         links = []
         for source in sources:

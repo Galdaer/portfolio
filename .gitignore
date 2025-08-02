@@ -214,7 +214,7 @@ yarn-error.log*
 **/test-results/
 **/playwright-report/
 **/.coverage/
-**/.mypy_cache/
+**/.ruff_cache/
 **/.tox/
 **/.vagrant/
 **/site-packages/

@@ -3,13 +3,13 @@ Patient Assignment Database Implementation
 Handles database-backed patient assignment validation for healthcare RBAC
 """
 
-import sqlite3
-import secrets
-import jwt
-import os
 import logging
+import os
+import secrets
+import sqlite3
 from datetime import datetime, timedelta
-from typing import Optional, Dict, List
+
+import jwt
 
 logger = logging.getLogger(__name__)
 
@@ -17,13 +17,15 @@ logger = logging.getLogger(__name__)
 class PatientAssignmentDB:
     """Database handler for patient assignment validation"""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         # Default to data directory in project root for development/testing
         if db_path is None:
             # Create data directory if it doesn't exist
-            data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
+            data_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data"
+            )
             os.makedirs(data_dir, exist_ok=True)
-            db_path = os.path.join(data_dir, 'healthcare.db')
+            db_path = os.path.join(data_dir, "healthcare.db")
 
         self.db_path = db_path
         self.logger = logging.getLogger(f"{__name__}.PatientAssignmentDB")
@@ -33,7 +35,8 @@ class PatientAssignmentDB:
         """Initialize patient assignment tables"""
         try:
             with sqlite3.connect(self.db_path) as conn:
-                conn.execute('''
+                conn.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS patient_assignments (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         user_id TEXT NOT NULL,
@@ -44,9 +47,11 @@ class PatientAssignmentDB:
                         is_active BOOLEAN DEFAULT 1,
                         UNIQUE(user_id, patient_id)
                     )
-                ''')
+                """
+                )
 
-                conn.execute('''
+                conn.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS emergency_access (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         user_id TEXT NOT NULL,
@@ -57,9 +62,11 @@ class PatientAssignmentDB:
                         expires_at TIMESTAMP NOT NULL,
                         is_active BOOLEAN DEFAULT 1
                     )
-                ''')
+                """
+                )
 
-                conn.execute('''
+                conn.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS audit_log (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         user_id TEXT NOT NULL,
@@ -71,7 +78,8 @@ class PatientAssignmentDB:
                         user_agent TEXT,
                         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
-                ''')
+                """
+                )
 
                 self.logger.info("Patient assignment database initialized successfully")
 
@@ -83,12 +91,15 @@ class PatientAssignmentDB:
         """Check if user is assigned to patient"""
         try:
             with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute('''
+                cursor = conn.execute(
+                    """
                     SELECT COUNT(*) FROM patient_assignments
                     WHERE user_id = ? AND patient_id = ?
                     AND is_active = 1
                     AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-                ''', (user_id, patient_id))
+                """,
+                    (user_id, patient_id),
+                )
 
                 result = cursor.fetchone()[0] > 0
                 self.logger.debug(f"Patient assignment check: {user_id} -> {patient_id} = {result}")
@@ -102,12 +113,15 @@ class PatientAssignmentDB:
         """Check for valid emergency access"""
         try:
             with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute('''
+                cursor = conn.execute(
+                    """
                     SELECT COUNT(*) FROM emergency_access
                     WHERE user_id = ? AND patient_id = ?
                     AND is_active = 1
                     AND expires_at > CURRENT_TIMESTAMP
-                ''', (user_id, patient_id))
+                """,
+                    (user_id, patient_id),
+                )
 
                 result = cursor.fetchone()[0] > 0
                 self.logger.debug(f"Emergency access check: {user_id} -> {patient_id} = {result}")
@@ -118,36 +132,54 @@ class PatientAssignmentDB:
             return False
 
     def log_access_attempt(
-            self, user_id: str, patient_id: Optional[str], action: str,
-            result: str, details: Optional[str] = None, ip_address: Optional[str] = None
+        self,
+        user_id: str,
+        patient_id: str | None,
+        action: str,
+        result: str,
+        details: str | None = None,
+        ip_address: str | None = None,
     ):
         """Log access attempt for audit trail"""
         try:
             with sqlite3.connect(self.db_path) as conn:
-                conn.execute('''
+                conn.execute(
+                    """
                     INSERT INTO audit_log (user_id, patient_id, action, result, details, ip_address)
                     VALUES (?, ?, ?, ?, ?, ?)
-                ''', (user_id, patient_id, action, result, details, ip_address))
+                """,
+                    (user_id, patient_id, action, result, details, ip_address),
+                )
 
-                self.logger.debug(f"Logged access attempt: {user_id} -> {patient_id} [{action}] = {result}")
+                self.logger.debug(
+                    f"Logged access attempt: {user_id} -> {patient_id} [{action}] = {result}"
+                )
 
         except Exception as e:
             self.logger.error(f"Failed to log access attempt: {e}")
 
     def add_patient_assignment(
-            self, user_id: str, patient_id: str,
-            assignment_type: str = 'primary', expires_at: Optional[str] = None
+        self,
+        user_id: str,
+        patient_id: str,
+        assignment_type: str = "primary",
+        expires_at: str | None = None,
     ) -> bool:
         """Add a new patient assignment"""
         try:
             with sqlite3.connect(self.db_path) as conn:
-                conn.execute('''
+                conn.execute(
+                    """
                     INSERT OR REPLACE INTO patient_assignments
                     (user_id, patient_id, assignment_type, expires_at, is_active)
                     VALUES (?, ?, ?, ?, 1)
-                ''', (user_id, patient_id, assignment_type, expires_at))
+                """,
+                    (user_id, patient_id, assignment_type, expires_at),
+                )
 
-                self.logger.info(f"Added patient assignment: {user_id} -> {patient_id} ({assignment_type})")
+                self.logger.info(
+                    f"Added patient assignment: {user_id} -> {patient_id} ({assignment_type})"
+                )
                 return True
 
         except Exception as e:
@@ -155,19 +187,32 @@ class PatientAssignmentDB:
             return False
 
     def grant_emergency_access(
-            self, user_id: str, patient_id: str, reason: str,
-            supervisor_id: Optional[str] = None, hours: int = 24
+        self,
+        user_id: str,
+        patient_id: str,
+        reason: str,
+        supervisor_id: str | None = None,
+        hours: int = 24,
     ) -> bool:
         """Grant emergency access for specified duration"""
         try:
             expires_at = datetime.now() + timedelta(hours=hours)
 
             with sqlite3.connect(self.db_path) as conn:
-                conn.execute('''
+                conn.execute(
+                    """
                     INSERT INTO emergency_access
                     (user_id, patient_id, supervisor_id, reason, expires_at, is_active)
                     VALUES (?, ?, ?, ?, ?, 1)
-                ''', (user_id, patient_id, supervisor_id, reason, expires_at.isoformat()))
+                """,
+                    (
+                        user_id,
+                        patient_id,
+                        supervisor_id,
+                        reason,
+                        expires_at.isoformat(),
+                    ),
+                )
 
                 self.logger.warning(
                     f"Emergency access granted: {user_id} -> {patient_id} "
@@ -183,31 +228,40 @@ class PatientAssignmentDB:
 class SessionManager:
     """Session management for authenticated healthcare users"""
 
-    def __init__(self, secret_key: Optional[str] = None):
+    def __init__(self, secret_key: str | None = None):
         # Ensure we always have a valid secret key
         default_key = secrets.token_hex(32)
-        env_key = os.getenv('JWT_SECRET_KEY')
+        env_key = os.getenv("JWT_SECRET_KEY")
         self.secret_key: str = secret_key or env_key or default_key
         self.db = PatientAssignmentDB()
         self.logger = logging.getLogger(f"{__name__}.SessionManager")
 
-    def create_session(self, user_id: str, ip_address: Optional[str] = None, user_agent: Optional[str] = None) -> Optional[str]:
+    def create_session(
+        self,
+        user_id: str,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> str | None:
         """Create authenticated session"""
         try:
             payload = {
-                'user_id': user_id,
-                'session_id': secrets.token_hex(16),
-                'created_at': datetime.utcnow().isoformat(),
-                'ip_address': ip_address,
-                'exp': datetime.utcnow() + timedelta(hours=8)
+                "user_id": user_id,
+                "session_id": secrets.token_hex(16),
+                "created_at": datetime.utcnow().isoformat(),
+                "ip_address": ip_address,
+                "exp": datetime.utcnow() + timedelta(hours=8),
             }
 
-            token = jwt.encode(payload, self.secret_key, algorithm='HS256')
+            token = jwt.encode(payload, self.secret_key, algorithm="HS256")
 
             # Log session creation
             self.db.log_access_attempt(
-                user_id, None, "session_created", "success",
-                f"IP: {ip_address}", ip_address
+                user_id,
+                None,
+                "session_created",
+                "success",
+                f"IP: {ip_address}",
+                ip_address,
             )
 
             self.logger.info(f"Session created for user {user_id}")
@@ -217,10 +271,10 @@ class SessionManager:
             self.logger.error(f"Failed to create session: {e}")
             return None
 
-    def validate_session(self, token: str) -> Optional[Dict]:
+    def validate_session(self, token: str) -> dict | None:
         """Validate session token"""
         try:
-            payload = jwt.decode(token, self.secret_key, algorithms=['HS256'])
+            payload = jwt.decode(token, self.secret_key, algorithms=["HS256"])
             return payload
         except jwt.ExpiredSignatureError:
             self.logger.warning("Session expired")
@@ -229,27 +283,35 @@ class SessionManager:
             self.logger.warning("Invalid session token")
             return None
 
-    def get_session_user_id(self, token: str) -> Optional[str]:
+    def get_session_user_id(self, token: str) -> str | None:
         """Extract user ID from session token"""
         session = self.validate_session(token)
-        return session.get('user_id') if session else None
+        return session.get("user_id") if session else None
 
 
 class RBACConfig:
     """Configuration management for RBAC system"""
 
     def __init__(self):
-        self.patient_assignment_enabled = os.getenv('RBAC_ENABLE_PATIENT_ASSIGNMENT', 'false').lower() == 'true'
-        self.emergency_roles = [role.strip() for role in os.getenv('RBAC_EMERGENCY_ROLES', '').split(',') if role.strip()]
-        self.audit_external_endpoint = os.getenv('RBAC_AUDIT_ENDPOINT')
-        self.session_timeout_hours = int(os.getenv('RBAC_SESSION_TIMEOUT_HOURS', '8'))
+        self.patient_assignment_enabled = (
+            os.getenv("RBAC_ENABLE_PATIENT_ASSIGNMENT", "false").lower() == "true"
+        )
+        self.emergency_roles = [
+            role.strip()
+            for role in os.getenv("RBAC_EMERGENCY_ROLES", "").split(",")
+            if role.strip()
+        ]
+        self.audit_external_endpoint = os.getenv("RBAC_AUDIT_ENDPOINT")
+        self.session_timeout_hours = int(os.getenv("RBAC_SESSION_TIMEOUT_HOURS", "8"))
 
         # Default to data directory for healthcare database
-        default_db_path = os.getenv('RBAC_DATABASE_PATH')
+        default_db_path = os.getenv("RBAC_DATABASE_PATH")
         if default_db_path is None:
-            data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
+            data_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data"
+            )
             os.makedirs(data_dir, exist_ok=True)
-            default_db_path = os.path.join(data_dir, 'healthcare.db')
+            default_db_path = os.path.join(data_dir, "healthcare.db")
 
         self.database_path = default_db_path
         self.logger = logging.getLogger(f"{__name__}.RBACConfig")
@@ -265,7 +327,9 @@ class RBACConfig:
             db = PatientAssignmentDB(self.database_path)
             # Test database connectivity
             with sqlite3.connect(db.db_path) as conn:
-                cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='patient_assignments'")
+                cursor = conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='patient_assignments'"
+                )
                 has_tables = cursor.fetchone() is not None
 
             if has_tables:

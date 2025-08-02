@@ -4,12 +4,11 @@ FastMCP-based server with security hardening, PHI detection, and audit logging
 """
 
 import asyncio
-import json
 import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 import jwt
 import psycopg2
@@ -88,16 +87,16 @@ class MCPRequest(BaseModel):
     """MCP request model"""
 
     method: str = Field(..., description="MCP method name")
-    params: Dict[str, Any] = Field(default_factory=dict, description="Method parameters")
-    id: Optional[str] = Field(None, description="Request ID")
+    params: dict[str, Any] = Field(default_factory=dict, description="Method parameters")
+    id: str | None = Field(None, description="Request ID")
 
 
 class MCPResponse(BaseModel):
     """MCP response model"""
 
-    result: Optional[Dict[str, Any]] = Field(None, description="Method result")
-    error: Optional[Dict[str, Any]] = Field(None, description="Error information")
-    id: Optional[str] = Field(None, description="Request ID")
+    result: dict[str, Any] | None = Field(None, description="Method result")
+    error: dict[str, Any] | None = Field(None, description="Error information")
+    id: str | None = Field(None, description="Request ID")
 
 
 class HealthcareMCPServer:
@@ -106,7 +105,7 @@ class HealthcareMCPServer:
     def __init__(self, config: HealthcareConfig):
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.HealthcareMCPServer")
-        self._current_request_ip: Optional[str] = None
+        self._current_request_ip: str | None = None
 
         # Rate limiting for development warnings
         self._dev_auth_warning_logged = False
@@ -340,7 +339,9 @@ class HealthcareMCPServer:
 
             # Redis connection
             self.redis_conn = redis.Redis(
-                host=self.config.redis_host, port=self.config.redis_port, decode_responses=True
+                host=self.config.redis_host,
+                port=self.config.redis_port,
+                decode_responses=True,
             )
 
             self.logger.info("Database connections initialized successfully")
@@ -413,7 +414,7 @@ class HealthcareMCPServer:
         async def mcp_endpoint(
             request: MCPRequest,
             credentials: HTTPAuthorizationCredentials = Depends(security),
-            client_request: Optional[Request] = None,
+            client_request: Request | None = None,
         ):
             """Main MCP endpoint with security validation"""
 
@@ -441,7 +442,7 @@ class HealthcareMCPServer:
         @self.app.get("/tools")
         async def list_tools(
             credentials: HTTPAuthorizationCredentials = Depends(security),
-            client_request: Optional[Request] = None,
+            client_request: Request | None = None,
         ):
             """List available healthcare tools"""
 
@@ -457,21 +458,30 @@ class HealthcareMCPServer:
                         "name": "patient_lookup",
                         "description": "Look up patient information (synthetic data only)",
                         "parameters": {
-                            "patient_id": {"type": "string", "description": "Patient identifier"}
+                            "patient_id": {
+                                "type": "string",
+                                "description": "Patient identifier",
+                            }
                         },
                     },
                     {
                         "name": "medical_research",
                         "description": "Research medical information",
                         "parameters": {
-                            "query": {"type": "string", "description": "Medical research query"}
+                            "query": {
+                                "type": "string",
+                                "description": "Medical research query",
+                            }
                         },
                     },
                     {
                         "name": "drug_interaction_check",
                         "description": "Check for drug interactions",
                         "parameters": {
-                            "medications": {"type": "array", "description": "List of medications"}
+                            "medications": {
+                                "type": "array",
+                                "description": "List of medications",
+                            }
                         },
                     },
                 ]
@@ -656,11 +666,11 @@ class HealthcareMCPServer:
             )
             raise
 
-    async def _process_request(self, request: Request) -> Dict[str, Any]:
+    async def _process_request(self, request: Request) -> dict[str, Any]:
         """Process the actual request - placeholder for your logic"""
         return {"status": "success", "data": "processed"}
 
-    async def _process_mcp_request(self, request: MCPRequest) -> Dict[str, Any]:
+    async def _process_mcp_request(self, request: MCPRequest) -> dict[str, Any]:
         """Process MCP request with PHI detection and security"""
 
         # Detect PHI in request parameters
@@ -670,21 +680,21 @@ class HealthcareMCPServer:
             if any(res.phi_detected for res in phi_detected.values()):
                 # Prepare PHI details for audit logging
                 # Extract PHI details for audit logging in a readable way
-                def extract_phi_entities(phi_results: Dict[str, Any]) -> list:
+                def extract_phi_entities(phi_results: dict[str, Any]) -> list:
                     entities = set()
                     for res in phi_results.values():
                         if hasattr(res, "phi_types"):
                             entities.update(res.phi_types)
                     return list(entities)
 
-                def extract_confidence(phi_results: Dict[str, Any]) -> float:
+                def extract_confidence(phi_results: dict[str, Any]) -> float:
                     scores = []
                     for res in phi_results.values():
                         if hasattr(res, "confidence_scores"):
                             scores.append(res.confidence_scores)
                     return max(scores) if scores else 0.0
 
-                def extract_detection_details(phi_results: Dict[str, Any]) -> list:
+                def extract_detection_details(phi_results: dict[str, Any]) -> list:
                     details = set()
                     for res in phi_results.values():
                         if hasattr(res, "detection_details"):
@@ -718,7 +728,7 @@ class HealthcareMCPServer:
         else:
             raise ValueError(f"Unknown method: {method}")
 
-    async def _handle_patient_lookup(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_patient_lookup(self, params: dict[str, Any]) -> dict[str, Any]:
         """Handle patient lookup (synthetic data only)"""
         patient_id = params.get("patient_id")
 
@@ -733,7 +743,7 @@ class HealthcareMCPServer:
             "timestamp": datetime.now().isoformat(),
         }
 
-    async def _handle_medical_research(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_medical_research(self, params: dict[str, Any]) -> dict[str, Any]:
         """Handle medical research query"""
         query = params.get("query")
 
@@ -780,7 +790,7 @@ class HealthcareMCPServer:
             self.logger.error(f"Medical research failed: {e}")
             raise ValueError(f"Research query failed: {str(e)}")
 
-    async def _handle_drug_interaction_check(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_drug_interaction_check(self, params: dict[str, Any]) -> dict[str, Any]:
         """Handle drug interaction check"""
         medications = params.get("medications", [])
 

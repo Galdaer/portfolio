@@ -7,7 +7,6 @@ Provides healthcare-appropriate RBAC with HIPAA compliance considerations
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +43,7 @@ class Role:
 
     name: str
     description: str
-    permissions: Dict[ResourceType, Set[Permission]]
+    permissions: dict[ResourceType, set[Permission]]
     is_active: bool = True
 
     def has_permission(self, resource: ResourceType, permission: Permission) -> bool:
@@ -62,8 +61,8 @@ class RBACFoundation:
 
     def __init__(self) -> None:
         """Initialize RBAC foundation with default healthcare roles"""
-        self.roles: Dict[str, Role] = {}
-        self.user_roles: Dict[str, Set[str]] = {}
+        self.roles: dict[str, Role] = {}
+        self.user_roles: dict[str, set[str]] = {}
         self._setup_default_roles()
 
     def _setup_default_roles(self) -> None:
@@ -168,7 +167,7 @@ class RBACFoundation:
 
         return False
 
-    def get_user_permissions(self, user_id: str) -> Dict[ResourceType, Set[Permission]]:
+    def get_user_permissions(self, user_id: str) -> dict[ResourceType, set[Permission]]:
         """
         Get all permissions for user across all their roles
 
@@ -178,7 +177,7 @@ class RBACFoundation:
         Returns:
             Dictionary of resource types to sets of permissions
         """
-        all_permissions: Dict[ResourceType, Set[Permission]] = {}
+        all_permissions: dict[ResourceType, set[Permission]] = {}
         user_role_names = self.user_roles.get(user_id, set())
 
         for role_name in user_role_names:

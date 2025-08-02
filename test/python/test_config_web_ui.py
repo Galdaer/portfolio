@@ -1,11 +1,11 @@
 import importlib.util
 import os
 import shutil
-from pathlib import Path
 import subprocess
-import warnings
 import sys
 import types
+import warnings
+from pathlib import Path
 
 import pytest
 
@@ -16,15 +16,22 @@ config_web_ui = importlib.util.module_from_spec(spec)
 
 # Stub minimal flask module to satisfy imports
 flask_stub = types.ModuleType("flask")
+
+
 class _Flask:
     def __init__(self, *args, **kwargs):
         pass
+
     def route(self, *args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
+
     def run(self, *args, **kwargs):
         pass
+
+
 flask_stub.Flask = _Flask
 flask_stub.request = object
 flask_stub.redirect = lambda *a, **k: None
@@ -57,8 +64,8 @@ def test_changed_services_detection():
     }
     new = {
         "CONTAINER_PORTS[grafana]": "4000",  # changed -> grafana
-        "PLEX_PORT": "32400",     # unchanged
-        "OTHER_VAR": "bar",       # not mapped
+        "PLEX_PORT": "32400",  # unchanged
+        "OTHER_VAR": "bar",  # not mapped
     }
     result = changed_services(old, new)
     assert result == {"grafana"}
@@ -129,68 +136,76 @@ def test_bootstrap_route_invokes_subprocess(monkeypatch):
     calls = {}
 
     def fake_popen(cmd, stdout=None, stderr=None, env=None):
-        calls['cmd'] = cmd
-        calls['stdout'] = stdout
-        calls['stderr'] = stderr
-        calls['env'] = env
+        calls["cmd"] = cmd
+        calls["stdout"] = stdout
+        calls["stderr"] = stderr
+        calls["env"] = env
+
         class Dummy:  # noqa: D401
             pass
+
         return Dummy()
 
-    monkeypatch.setattr(config_web_ui.subprocess, 'Popen', fake_popen)
+    monkeypatch.setattr(config_web_ui.subprocess, "Popen", fake_popen)
 
     redirect_args = {}
 
     def fake_redirect(url):
-        redirect_args['url'] = url
+        redirect_args["url"] = url
         return f"redirect to {url}"
 
-    monkeypatch.setattr(config_web_ui, 'url_for', lambda endpoint: f"/{endpoint}")
-    monkeypatch.setattr(config_web_ui, 'redirect', fake_redirect)
+    monkeypatch.setattr(config_web_ui, "url_for", lambda endpoint: f"/{endpoint}")
+    monkeypatch.setattr(config_web_ui, "redirect", fake_redirect)
 
     expected_env = os.environ.copy()
     result = config_web_ui.bootstrap()
 
-    assert calls['cmd'] == [config_web_ui.BOOTSTRAP_PATH, "--non-interactive"]
-    assert calls['stdout'] is subprocess.DEVNULL
-    assert calls['stderr'] is subprocess.DEVNULL
-    assert calls['env'] == expected_env
-    assert redirect_args['url'] == '/index'
-    assert result == 'redirect to /index'
+    assert calls["cmd"] == [config_web_ui.BOOTSTRAP_PATH, "--non-interactive"]
+    assert calls["stdout"] is subprocess.DEVNULL
+    assert calls["stderr"] is subprocess.DEVNULL
+    assert calls["env"] == expected_env
+    assert redirect_args["url"] == "/index"
+    assert result == "redirect to /index"
 
 
 def test_reset_wg_keys_route(monkeypatch):
     calls = {}
 
     def fake_popen(cmd, stdout=None, stderr=None, env=None):
-        calls['cmd'] = cmd
-        calls['stdout'] = stdout
-        calls['stderr'] = stderr
-        calls['env'] = env
+        calls["cmd"] = cmd
+        calls["stdout"] = stdout
+        calls["stderr"] = stderr
+        calls["env"] = env
+
         class Dummy:
             pass
+
         return Dummy()
 
-    monkeypatch.setattr(config_web_ui.subprocess, 'Popen', fake_popen)
+    monkeypatch.setattr(config_web_ui.subprocess, "Popen", fake_popen)
 
     redirect_args = {}
 
     def fake_redirect(url):
-        redirect_args['url'] = url
+        redirect_args["url"] = url
         return f"redirect to {url}"
 
-    monkeypatch.setattr(config_web_ui, 'url_for', lambda endpoint: f"/{endpoint}")
-    monkeypatch.setattr(config_web_ui, 'redirect', fake_redirect)
+    monkeypatch.setattr(config_web_ui, "url_for", lambda endpoint: f"/{endpoint}")
+    monkeypatch.setattr(config_web_ui, "redirect", fake_redirect)
 
     expected_env = os.environ.copy()
     result = config_web_ui.reset_wg_keys()
 
-    assert calls['cmd'] == [config_web_ui.BOOTSTRAP_PATH, "--non-interactive", "--reset-wg-keys"]
-    assert calls['stdout'] is subprocess.DEVNULL
-    assert calls['stderr'] is subprocess.DEVNULL
-    assert calls['env'] == expected_env
-    assert redirect_args['url'] == '/index'
-    assert result == 'redirect to /index'
+    assert calls["cmd"] == [
+        config_web_ui.BOOTSTRAP_PATH,
+        "--non-interactive",
+        "--reset-wg-keys",
+    ]
+    assert calls["stdout"] is subprocess.DEVNULL
+    assert calls["stderr"] is subprocess.DEVNULL
+    assert calls["env"] == expected_env
+    assert redirect_args["url"] == "/index"
+    assert result == "redirect to /index"
 
 
 def _route_test(
@@ -204,27 +219,29 @@ def _route_test(
     calls = {}
 
     def fake_popen(cmd, stdout=None, stderr=None, env=None):
-        calls['cmd'] = cmd
-        calls['stdout'] = stdout
-        calls['stderr'] = stderr
-        calls['env'] = env
+        calls["cmd"] = cmd
+        calls["stdout"] = stdout
+        calls["stderr"] = stderr
+        calls["env"] = env
+
         class Dummy:
             pass
+
         return Dummy()
 
-    monkeypatch.setattr(config_web_ui.subprocess, 'Popen', fake_popen)
+    monkeypatch.setattr(config_web_ui.subprocess, "Popen", fake_popen)
     redirect_args = {}
 
     def fake_redirect(url):
-        redirect_args['url'] = url
+        redirect_args["url"] = url
         return f"redirect to {url}"
 
-    monkeypatch.setattr(config_web_ui, 'url_for', lambda endpoint, **kw: f"/{endpoint}")
-    monkeypatch.setattr(config_web_ui, 'redirect', fake_redirect)
+    monkeypatch.setattr(config_web_ui, "url_for", lambda endpoint, **kw: f"/{endpoint}")
+    monkeypatch.setattr(config_web_ui, "redirect", fake_redirect)
 
     if form_service is not None:
         req = types.SimpleNamespace(form=types.SimpleNamespace(get=lambda k: form_service))
-        monkeypatch.setattr(config_web_ui, 'request', req)
+        monkeypatch.setattr(config_web_ui, "request", req)
 
     expected_env = os.environ.copy()
     if env_updates:
@@ -232,16 +249,16 @@ def _route_test(
 
     result = func()
 
-    assert calls['cmd'] == expected_cmd
+    assert calls["cmd"] == expected_cmd
     if expect_suppress:
-        assert calls['stdout'] is subprocess.DEVNULL
-        assert calls['stderr'] is subprocess.DEVNULL
+        assert calls["stdout"] is subprocess.DEVNULL
+        assert calls["stderr"] is subprocess.DEVNULL
     else:
-        assert calls['stdout'] is None
-        assert calls['stderr'] is None
-    assert calls.get('env') == expected_env
-    assert redirect_args['url'] == '/index'
-    assert result == 'redirect to /index'
+        assert calls["stdout"] is None
+        assert calls["stderr"] is None
+    assert calls.get("env") == expected_env
+    assert redirect_args["url"] == "/index"
+    assert result == "redirect to /index"
 
 
 def test_self_update_route(monkeypatch):
@@ -288,20 +305,20 @@ def test_systemd_summary_route(monkeypatch):
     calls = {}
 
     def fake_check_output(cmd, env=None, text=False, stderr=None):
-        calls['cmd'] = cmd
-        calls['env'] = env
-        calls['text'] = text
-        calls['stderr'] = stderr
+        calls["cmd"] = cmd
+        calls["env"] = env
+        calls["text"] = text
+        calls["stderr"] = stderr
         return "summary output"
 
-    monkeypatch.setattr(config_web_ui.subprocess, 'check_output', fake_check_output)
-    monkeypatch.setattr(config_web_ui, 'url_for', lambda endpoint: '/index')
+    monkeypatch.setattr(config_web_ui.subprocess, "check_output", fake_check_output)
+    monkeypatch.setattr(config_web_ui, "url_for", lambda endpoint: "/index")
     result = config_web_ui.systemd_summary_route()
 
-    assert calls['cmd'] == ["/usr/local/bin/systemd-summary.sh"]
-    assert calls['env'] == os.environ.copy()
-    assert calls['text'] is True
-    assert calls['stderr'] == subprocess.STDOUT
+    assert calls["cmd"] == ["/usr/local/bin/systemd-summary.sh"]
+    assert calls["env"] == os.environ.copy()
+    assert calls["text"] is True
+    assert calls["stderr"] == subprocess.STDOUT
     assert result == "<pre>summary output</pre><p><a href='/index'>Back</a></p>"
 
 
@@ -309,8 +326,8 @@ def test_systemd_summary_route_error(monkeypatch):
     def raise_error(*_args, **_kwargs):
         raise subprocess.CalledProcessError(1, "cmd", output="fail")
 
-    monkeypatch.setattr(config_web_ui.subprocess, 'check_output', raise_error)
-    monkeypatch.setattr(config_web_ui, 'url_for', lambda endpoint: '/index')
+    monkeypatch.setattr(config_web_ui.subprocess, "check_output", raise_error)
+    monkeypatch.setattr(config_web_ui, "url_for", lambda endpoint: "/index")
     result = config_web_ui.systemd_summary_route()
     assert result == "<pre>fail</pre><p><a href='/index'>Back</a></p>"
 
@@ -334,50 +351,63 @@ def test_stop_service_route_no_service(monkeypatch):
 def test_index_contains_reset_form(monkeypatch):
     monkeypatch.setattr(
         config_web_ui,
-        'load_config',
-        lambda: {'SELECTED_CONTAINERS': [], 'CONTAINER_PORTS[grafana]': '1234'},
+        "load_config",
+        lambda: {"SELECTED_CONTAINERS": [], "CONTAINER_PORTS[grafana]": "1234"},
     )
-    monkeypatch.setattr(config_web_ui, 'get_all_containers', lambda: [])
-    monkeypatch.setattr(config_web_ui, 'render_template_string',
-                        lambda tpl, **kw: tpl.replace("{{ grafana_port }}", kw.get('grafana_port', '')))
-    req = types.SimpleNamespace(method='GET', form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []))
-    monkeypatch.setattr(config_web_ui, 'request', req)
-    def fake_url_for(endpoint):
-        if endpoint == 'teardown_route':
-            return '/teardown'
-        return '/' + endpoint.replace('_', '-')
+    monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
+    monkeypatch.setattr(
+        config_web_ui,
+        "render_template_string",
+        lambda tpl, **kw: tpl.replace("{{ grafana_port }}", kw.get("grafana_port", "")),
+    )
+    req = types.SimpleNamespace(
+        method="GET",
+        form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []),
+    )
+    monkeypatch.setattr(config_web_ui, "request", req)
 
-    monkeypatch.setattr(config_web_ui, 'url_for', fake_url_for)
+    def fake_url_for(endpoint):
+        if endpoint == "teardown_route":
+            return "/teardown"
+        return "/" + endpoint.replace("_", "-")
+
+    monkeypatch.setattr(config_web_ui, "url_for", fake_url_for)
     html = config_web_ui.index()
-    assert 'Reset WireGuard Keys' in html
-    assert 'reset_wg_keys' in html
-    assert 'Grafana Dashboard' in html
-    assert 'http://localhost:1234' in html
+    assert "Reset WireGuard Keys" in html
+    assert "reset_wg_keys" in html
+    assert "Grafana Dashboard" in html
+    assert "http://localhost:1234" in html
 
 
 def test_index_contains_teardown_form(monkeypatch):
     pytest.importorskip("jinja2")
     monkeypatch.setattr(
         config_web_ui,
-        'load_config',
-        lambda: {'SELECTED_CONTAINERS': [], 'CONTAINER_PORTS[grafana]': '3001'},
+        "load_config",
+        lambda: {"SELECTED_CONTAINERS": [], "CONTAINER_PORTS[grafana]": "3001"},
     )
-    monkeypatch.setattr(config_web_ui, 'get_all_containers', lambda: [])
+    monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
+
     def render(tpl, **kw):
         import jinja2
+
         return jinja2.Template(tpl).render(url_for=config_web_ui.url_for, **kw)
 
-    monkeypatch.setattr(config_web_ui, 'render_template_string', render)
-    req = types.SimpleNamespace(method='GET', form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []))
-    monkeypatch.setattr(config_web_ui, 'request', req)
-    def fake_url_for(endpoint):
-        if endpoint == 'teardown_route':
-            return '/teardown'
-        return '/' + endpoint.replace('_', '-')
+    monkeypatch.setattr(config_web_ui, "render_template_string", render)
+    req = types.SimpleNamespace(
+        method="GET",
+        form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []),
+    )
+    monkeypatch.setattr(config_web_ui, "request", req)
 
-    monkeypatch.setattr(config_web_ui, 'url_for', fake_url_for)
+    def fake_url_for(endpoint):
+        if endpoint == "teardown_route":
+            return "/teardown"
+        return "/" + endpoint.replace("_", "-")
+
+    monkeypatch.setattr(config_web_ui, "url_for", fake_url_for)
     html = config_web_ui.index()
-    assert 'Run Teardown' in html
+    assert "Run Teardown" in html
     assert 'action="/teardown"' in html
     assert "confirm('Teardown entire Intelluxe stack?')" in html
 
@@ -385,18 +415,24 @@ def test_index_contains_teardown_form(monkeypatch):
 def test_index_default_grafana_port(monkeypatch):
     monkeypatch.setattr(
         config_web_ui,
-        'load_config',
-        lambda: {'SELECTED_CONTAINERS': []},
+        "load_config",
+        lambda: {"SELECTED_CONTAINERS": []},
     )
-    monkeypatch.setattr(config_web_ui, 'get_all_containers', lambda: [])
-    monkeypatch.setattr(config_web_ui, 'render_template_string',
-                        lambda tpl, **kw: tpl.replace("{{ grafana_port }}", kw.get('grafana_port', '')))
-    req = types.SimpleNamespace(method='GET', form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []))
-    monkeypatch.setattr(config_web_ui, 'request', req)
-    monkeypatch.setattr(config_web_ui, 'url_for', lambda e: '/' + e.replace('_', '-'))
+    monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
+    monkeypatch.setattr(
+        config_web_ui,
+        "render_template_string",
+        lambda tpl, **kw: tpl.replace("{{ grafana_port }}", kw.get("grafana_port", "")),
+    )
+    req = types.SimpleNamespace(
+        method="GET",
+        form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []),
+    )
+    monkeypatch.setattr(config_web_ui, "request", req)
+    monkeypatch.setattr(config_web_ui, "url_for", lambda e: "/" + e.replace("_", "-"))
     html = config_web_ui.index()
-    assert 'Grafana Dashboard' in html
-    assert 'http://localhost:3001' in html
+    assert "Grafana Dashboard" in html
+    assert "http://localhost:3001" in html
 
 
 def test_get_grafana_default_port_file(monkeypatch, tmp_path):
@@ -478,14 +514,19 @@ def test_save_config_chown_default_uid_gid(tmp_path, monkeypatch):
 
 
 def test_index_includes_extra_fields(monkeypatch):
-    cfg = {field: "x" for field in config_web_ui.EXTRA_FIELDS}
+    cfg = dict.fromkeys(config_web_ui.EXTRA_FIELDS, "x")
     cfg["SELECTED_CONTAINERS"] = []
     monkeypatch.setattr(config_web_ui, "load_config", lambda: cfg)
     monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
+
     def fake_render_template_string(tpl, **kw):
         return "\n".join(f'<input name="{k}">' for k in kw["config"].keys())
+
     monkeypatch.setattr(config_web_ui, "render_template_string", fake_render_template_string)
-    req = types.SimpleNamespace(method="GET", form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []))
+    req = types.SimpleNamespace(
+        method="GET",
+        form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []),
+    )
     monkeypatch.setattr(config_web_ui, "request", req)
     html = config_web_ui.index()
     for field in config_web_ui.EXTRA_FIELDS:
@@ -493,7 +534,7 @@ def test_index_includes_extra_fields(monkeypatch):
 
 
 def test_index_post_updates_extra_fields(monkeypatch):
-    start = {field: "old" for field in config_web_ui.EXTRA_FIELDS}
+    start = dict.fromkeys(config_web_ui.EXTRA_FIELDS, "old")
     start["SELECTED_CONTAINERS"] = []
     monkeypatch.setattr(config_web_ui, "load_config", lambda: start)
     monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
@@ -507,7 +548,7 @@ def test_index_post_updates_extra_fields(monkeypatch):
     monkeypatch.setattr(config_web_ui, "save_config", fake_save)
     monkeypatch.setattr(config_web_ui, "url_for", lambda e: "/index")
     monkeypatch.setattr(config_web_ui, "redirect", lambda u: f"redirect to {u}")
-    form_data = {field: "new" for field in config_web_ui.EXTRA_FIELDS}
+    form_data = dict.fromkeys(config_web_ui.EXTRA_FIELDS, "new")
     form_data["SELECTED_CONTAINERS"] = []
     req = types.SimpleNamespace(
         method="POST",
@@ -659,14 +700,14 @@ def test_add_service_route(monkeypatch, tmp_path):
         else:
             return original_join(str(tmp_path), *[str(arg) for arg in args[1:]])
 
-    monkeypatch.setattr(config_web_ui.os.path, 'join', safe_path_join)
-    monkeypatch.setattr(config_web_ui.os, 'makedirs', lambda path, exist_ok=False: None)
+    monkeypatch.setattr(config_web_ui.os.path, "join", safe_path_join)
+    monkeypatch.setattr(config_web_ui.os, "makedirs", lambda path, exist_ok=False: None)
 
     files_created = {}
     file_contents = {}
 
-    def fake_open(filename, mode='r'):
-        if 'w' in mode:
+    def fake_open(filename, mode="r"):
+        if "w" in mode:
             files_created[filename] = True
             return MockFileWrite(filename, file_contents)
         return MockFileRead(filename, file_contents)
@@ -737,12 +778,15 @@ class MockFileRead:
         pass
 
 
-@pytest.mark.parametrize("missing_field", [
-    "service",
-    "image",
-    "port",
-    "description",
-])
+@pytest.mark.parametrize(
+    "missing_field",
+    [
+        "service",
+        "image",
+        "port",
+        "description",
+    ],
+)
 def test_add_service_route_missing_field(monkeypatch, missing_field):
     form_data = {
         "service": "newsvc",
@@ -772,9 +816,7 @@ def test_add_service_route_missing_field(monkeypatch, missing_field):
             return None
         return form_data.get(key, default)
 
-    req = types.SimpleNamespace(
-        form=types.SimpleNamespace(get=get_missing_field)
-    )
+    req = types.SimpleNamespace(form=types.SimpleNamespace(get=get_missing_field))
     monkeypatch.setattr(config_web_ui, "request", req)
 
     result = config_web_ui.add_service_route()
@@ -788,7 +830,10 @@ def test_index_includes_add_service_form(monkeypatch):
     monkeypatch.setattr(config_web_ui, "load_config", lambda: {"SELECTED_CONTAINERS": []})
     monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
     monkeypatch.setattr(config_web_ui, "render_template_string", lambda tpl, **kw: tpl)
-    req = types.SimpleNamespace(method="GET", form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []))
+    req = types.SimpleNamespace(
+        method="GET",
+        form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []),
+    )
     monkeypatch.setattr(config_web_ui, "request", req)
     monkeypatch.setattr(config_web_ui, "url_for", lambda e: f"/{e}")
     html = config_web_ui.index()
@@ -799,7 +844,10 @@ def test_index_includes_remove_service_form(monkeypatch):
     monkeypatch.setattr(config_web_ui, "load_config", lambda: {"SELECTED_CONTAINERS": []})
     monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
     monkeypatch.setattr(config_web_ui, "render_template_string", lambda tpl, **kw: tpl)
-    req = types.SimpleNamespace(method="GET", form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []))
+    req = types.SimpleNamespace(
+        method="GET",
+        form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []),
+    )
     monkeypatch.setattr(config_web_ui, "request", req)
     monkeypatch.setattr(config_web_ui, "url_for", lambda e: f"/{e}")
     html = config_web_ui.index()
@@ -809,7 +857,9 @@ def test_index_includes_remove_service_form(monkeypatch):
 def test_add_service_form_confirm_js(tmp_path):
     if shutil.which("node") is None:
         pytest.skip("node binary not available")
-    js_path = Path(__file__).resolve().parents[2] / "test" / "javascript" / "test_add_service_confirm.js"
+    js_path = (
+        Path(__file__).resolve().parents[2] / "test" / "javascript" / "test_add_service_confirm.js"
+    )
     result = subprocess.run(["node", str(js_path)], capture_output=True, text=True)
     assert result.stdout.strip() == "PASS"
 
@@ -841,7 +891,10 @@ def test_index_passes_container_status(monkeypatch):
     monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: ["svc1"])
     statuses = {"svc1": "Up"}
     monkeypatch.setattr(config_web_ui, "get_container_statuses", lambda: statuses)
-    req = types.SimpleNamespace(method="GET", form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []))
+    req = types.SimpleNamespace(
+        method="GET",
+        form=types.SimpleNamespace(get=lambda *a, **k: None, getlist=lambda *a, **k: []),
+    )
     monkeypatch.setattr(config_web_ui, "request", req)
     monkeypatch.setattr(config_web_ui, "url_for", lambda e: f"/{e}")
     captured = {}
@@ -854,4 +907,3 @@ def test_index_passes_container_status(monkeypatch):
     result = config_web_ui.index()
     assert captured["container_status"] == statuses
     assert result == "OK"
-

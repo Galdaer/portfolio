@@ -302,46 +302,52 @@ lint:
 	$(MAKE) lint-python
 
 lint-python:
-	@echo "🔍  Running Python lint (flake8 and pyright) for healthcare AI components"
-	@# Try multiple ways to find flake8 (system package, command, python module)
-	@if command -v flake8 >/dev/null 2>&1; then \
-		flake8 scripts/*.py test/python/*.py; \
-	elif python3 -m flake8 --version >/dev/null 2>&1; then \
-		python3 -m flake8 scripts/*.py test/python/*.py; \
+	@echo "🔍  Running Python lint (ruff and pyright) for healthcare AI components"
+	@# Run Ruff for linting (pyproject.toml has exclusions for submodules)
+	@if command -v ruff >/dev/null 2>&1; then \
+		echo "🧹 Running Ruff linting..."; \
+		ruff check .; \
+	elif python3 -m ruff --version >/dev/null 2>&1; then \
+		echo "🧹 Running Ruff linting..."; \
+		python3 -m ruff check .; \
 	else \
-		echo "⚠️  flake8 not found - trying to install..."; \
-		if command -v apt >/dev/null 2>&1; then \
-			echo "Trying system package installation..."; \
-			sudo apt install -y python3-flake8 2>/dev/null || true; \
-		fi; \
-		if ! command -v flake8 >/dev/null 2>&1 && ! python3 -m flake8 --version >/dev/null 2>&1; then \
-			python3 -m pip install --user --break-system-packages flake8 || echo "Failed to install flake8"; \
-		fi; \
-		if command -v flake8 >/dev/null 2>&1; then \
-			flake8 scripts/*.py test/python/*.py; \
-		elif python3 -m flake8 --version >/dev/null 2>&1; then \
-			python3 -m flake8 scripts/*.py test/python/*.py; \
-		else \
-			echo "❌ flake8 still not available after installation"; \
-			exit 1; \
-		fi; \
+		echo "⚠️  ruff not found - installing via make deps"; \
+		$(MAKE) deps; \
+		python3 -m ruff check .; \
 	fi
-	@# Try multiple ways to find pyright
-	@if command -v pyright >/dev/null 2>&1; then \
-		pyright scripts/; \
-	elif python3 -m pyright --version >/dev/null 2>&1; then \
-		python3 -m pyright scripts/; \
+	@# Run Ruff formatting check
+	@if command -v ruff >/dev/null 2>&1; then \
+		echo "🎨 Running Ruff formatting check..."; \
+		ruff format --check .; \
+	elif python3 -m ruff --version >/dev/null 2>&1; then \
+		echo "🎨 Running Ruff formatting check..."; \
+		python3 -m ruff format --check .; \
 	else \
-		echo "⚠️  pyright not found - trying to install..."; \
-		python3 -m pip install --user --break-system-packages pyright || echo "Failed to install pyright"; \
-		if command -v pyright >/dev/null 2>&1; then \
-			pyright scripts/; \
-		elif python3 -m pyright --version >/dev/null 2>&1; then \
-			python3 -m pyright scripts/; \
-		else \
-			echo "❌ pyright still not available after installation"; \
-			exit 1; \
-		fi; \
+		python3 -m ruff format --check .; \
+	fi
+	@# Run Pyright for type checking (pyproject.toml has exclusions)
+	@if command -v pyright >/dev/null 2>&1; then \
+		echo "🔍 Running Pyright type checking..."; \
+		pyright; \
+	elif python3 -m pyright --version >/dev/null 2>&1; then \
+		echo "🔍 Running Pyright type checking..."; \
+		python3 -m pyright; \
+	else \
+		echo "⚠️  pyright not found - installing via make deps"; \
+		$(MAKE) deps; \
+		python3 -m pyright; \
+	fi
+
+format:
+	@echo "🎨  Running Ruff formatting on healthcare AI codebase"
+	@if command -v ruff >/dev/null 2>&1; then \
+		ruff format .; \
+	elif python3 -m ruff --version >/dev/null 2>&1; then \
+		python3 -m ruff format .; \
+	else \
+		echo "⚠️  ruff not found - installing via make deps"; \
+		$(MAKE) deps; \
+		python3 -m ruff format .; \
 	fi
 
 validate:
@@ -507,7 +513,8 @@ help:
 	@echo "  make venv            Create or activate a virtual environment"
 	@echo "  make hooks           Install git hooks for pre-push validation"
 	@echo "  make lint            Run shell and Python linters for healthcare AI code"
-	@echo "  make lint-python     Run Python-specific linting (flake8, pyright)"
+	@echo "  make lint-python     Run Python-specific linting (ruff, pyright)"
+	@echo "  make format          Auto-format Python code with ruff"
 	@echo "  make validate        Validate healthcare AI configuration and dependencies"
 	@echo "  make test            Run healthcare AI unit tests with Bats"
 	@echo "  make test-quiet      Run healthcare AI tests (quiet mode)"

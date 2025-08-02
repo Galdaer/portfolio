@@ -25,22 +25,23 @@
 # _______________________________________________________________________________
 """Simple Flask UI for editing Intelluxe AI healthcare configuration."""
 
-import os
-import shutil
 import glob
-import warnings
+import html
+import os
+import re
+import shutil
+import subprocess
 import time
+import warnings
+
 from flask import (
     Flask,
-    request,
     redirect,
-    url_for,
     render_template_string,
+    request,
     send_from_directory,
+    url_for,
 )
-import subprocess
-import html
-import re
 
 
 def build_service_prefix_map() -> dict[str, str]:
@@ -63,15 +64,13 @@ def build_service_prefix_map() -> dict[str, str]:
                 warnings.warn(
                     f"Duplicate service config '{name}' found in '{service_dir}' directory; "
                     f"already saw '{prev_name}' in '{prev_dir}' directory; ignoring",
-                    RuntimeWarning,
+                    stacklevel=2,
                 )
                 continue
             prefix_mapping[key] = (name, service_dir)
     # Ensure longer prefixes appear first to avoid substring collisions
     service_map = {k: v[0] for k, v in prefix_mapping.items()}
-    return dict(
-        sorted(service_map.items(), key=lambda kv: len(kv[0]), reverse=True)
-    )
+    return dict(sorted(service_map.items(), key=lambda kv: len(kv[0]), reverse=True))
 
 
 SERVICE_PREFIX_MAP = build_service_prefix_map()
@@ -280,6 +279,8 @@ def get_all_containers():
     """Extract ALL_CONTAINERS array from the bootstrap script."""
     pattern = re.compile(r"^ALL_CONTAINERS=\(([^)]*)\)")
     try:
+        if BOOTSTRAP_PATH is None:
+            return []
         with open(BOOTSTRAP_PATH) as f:
             for line in f:
                 m = pattern.search(line.strip())
@@ -307,8 +308,12 @@ def load_config():
 
 def get_grafana_default_port():
     """Return default Grafana port from the service file."""
-    conf = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "services", "core", "grafana.conf")
+    conf = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "services",
+        "core",
+        "grafana.conf",
+    )
     try:
         with open(conf) as f:
             for line in f:
@@ -330,7 +335,7 @@ def save_config(new_data):
     with open(CONFIG_FILE, "w") as f:
         for k, v in config.items():
             if isinstance(v, list):
-                f.write(f'{k}=(' + ' '.join(v) + ')\n')
+                f.write(f"{k}=(" + " ".join(v) + ")\n")
             else:
                 f.write(f'{k}="{v}"\n')
     uid = int(os.environ.get("CFG_UID", 1000))
@@ -383,15 +388,19 @@ def run_bootstrap(args=None, env=None, suppress=True):
     subprocess.Popen
         The ``Popen`` object for the launched process.
     """
+    if BOOTSTRAP_PATH is None:
+        raise RuntimeError("BOOTSTRAP_PATH is not set")
+
     if env is None:
         env = os.environ.copy()
     cmd = [BOOTSTRAP_PATH, "--non-interactive"]
     if args:
         cmd.extend(args)
-    kwargs = {"env": env}
+
     if suppress:
-        kwargs.update(stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return subprocess.Popen(cmd, **kwargs)
+        return subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        return subprocess.Popen(cmd, env=env)
 
 
 def get_container_statuses():
@@ -424,19 +433,17 @@ def index():
     editable = {
         k: v
         for k, v in config.items()
-        if k.endswith(('_PORT', '_ROOT', '_DIR'))
-        or k == 'SELECTED_CONTAINERS'
-        or k in EXTRA_FIELDS
+        if k.endswith(("_PORT", "_ROOT", "_DIR")) or k == "SELECTED_CONTAINERS" or k in EXTRA_FIELDS
     }
     all_containers = get_all_containers()
     if request.method == "POST":
         updates = {}
         for k, v in editable.items():
-            if k == 'SELECTED_CONTAINERS':
+            if k == "SELECTED_CONTAINERS":
                 updates[k] = request.form.getlist(k) or []
             else:
                 updates[k] = request.form.get(k, v)
-        selected_changed = editable.get('SELECTED_CONTAINERS') != updates.get('SELECTED_CONTAINERS')
+        selected_changed = editable.get("SELECTED_CONTAINERS") != updates.get("SELECTED_CONTAINERS")
         services = changed_services(editable, updates)
         save_config(updates)
         for svc in services:
@@ -445,7 +452,7 @@ def index():
             run_bootstrap(env=env)
         if selected_changed:
             run_bootstrap()
-        return redirect(url_for('index'))
+        return redirect(url_for("index"))
     return render_template_string(
         FORM_TEMPLATE,
         config=editable,
@@ -526,13 +533,14 @@ def systemd_summary_route():
         )
     except subprocess.CalledProcessError as exc:
         output = exc.output
-    return (
-        f"<pre>{output}</pre><p><a href='{url_for('index')}'>Back</a></p>"
-    )
+    return f"<pre>{output}</pre><p><a href='{url_for('index')}'>Back</a></p>"
 
 
 @app.route("/teardown", methods=["POST"])
 def teardown_route():
+    if TEARDOWN_PATH is None:
+        return "Error: TEARDOWN_PATH is not set", 500
+
     env = os.environ.copy()
     subprocess.Popen(
         [TEARDOWN_PATH, "--force", "--all"],
@@ -602,7 +610,7 @@ def add_service_route():
             shutil.copy2(config_file, backup_file)
 
         # Write new configuration
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             f.write(f"image={image}\n")
             f.write(f"port={port}\n")
             f.write(f"description={desc}\n")
@@ -614,7 +622,7 @@ def add_service_route():
 
         readme_file = os.path.join(config_dir, "README.md")
         if not os.path.exists(readme_file):
-            with open(readme_file, 'w') as f:
+            with open(readme_file, "w") as f:
                 f.write(f"# {svc} configuration\n")
 
     return redirect(url_for("index"))
@@ -640,18 +648,15 @@ def logs_index(target=None):
         except subprocess.CalledProcessError as exc:
             output = exc.output
         escaped_output = html.escape(output)
-        return (
-            f"<pre>{escaped_output}</pre>"
-            f"<p><a href='{url_for('index')}'>Back</a></p>"
-        )
+        return f"<pre>{escaped_output}</pre><p><a href='{url_for('index')}'>Back</a></p>"
 
     files = sorted(os.listdir(LOGS_DIR)) if os.path.isdir(LOGS_DIR) else []
     links = "<br>".join(
-        f'<a href="{url_for("logs_index", target=html.escape(f))}">{html.escape(f)}</a>' for f in files
+        f'<a href="{url_for("logs_index", target=html.escape(f))}">{html.escape(f)}</a>'
+        for f in files
     )
     return f"<h1>Logs</h1>{links}"
 
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT)
-

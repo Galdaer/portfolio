@@ -5,11 +5,10 @@ Agentic RAG system for medical literature with dynamic knowledge retrieval
 
 import asyncio
 import hashlib
-import json
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from cachetools import TTLCache
 
@@ -29,13 +28,13 @@ class MedicalQueryResult:
     query_id: str
     query_type: QueryType
     original_query: str
-    refined_queries: List[str]
-    sources: List[Dict[str, Any]]
+    refined_queries: list[str]
+    sources: list[dict[str, Any]]
     confidence_score: float
-    reasoning_chain: List[Dict[str, Any]]
-    medical_entities: List[Dict[str, Any]]
-    disclaimers: List[str]
-    source_links: List[str]
+    reasoning_chain: list[dict[str, Any]]
+    medical_entities: list[dict[str, Any]]
+    disclaimers: list[str]
+    source_links: list[str]
     generated_at: datetime
 
 
@@ -67,7 +66,7 @@ class EnhancedMedicalQueryEngine:
         self,
         query: str,
         query_type: QueryType,
-        context: Optional[Dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
         max_iterations: int = 3,
     ) -> MedicalQueryResult:
         """
@@ -76,7 +75,7 @@ class EnhancedMedicalQueryEngine:
         query_id = self._generate_query_id(query)
 
         # Initialize query session
-        query_session: Dict[str, Any] = {
+        query_session: dict[str, Any] = {
             "query_id": query_id,
             "original_query": query,
             "query_type": query_type,
@@ -159,13 +158,13 @@ class EnhancedMedicalQueryEngine:
         self,
         query: str,
         query_type: QueryType,
-        medical_entities: List[Dict[str, Any]],
-        context: Optional[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        medical_entities: list[dict[str, Any]],
+        context: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         """
         Dynamic knowledge retrieval from multiple medical sources
         """
-        sources: List[Dict[str, Any]] = []
+        sources: list[dict[str, Any]] = []
         reasoning = ""
 
         try:
@@ -180,7 +179,10 @@ class EnhancedMedicalQueryEngine:
                 search_tasks.append(self._search_fda_drugs(query, medical_entities))
 
             # Clinical trials (if relevant)
-            if query_type in [QueryType.CLINICAL_GUIDELINES, QueryType.LITERATURE_RESEARCH]:
+            if query_type in [
+                QueryType.CLINICAL_GUIDELINES,
+                QueryType.LITERATURE_RESEARCH,
+            ]:
                 search_tasks.append(self._search_clinical_trials(query, medical_entities))
 
             # Clinical guidelines
@@ -210,8 +212,11 @@ class EnhancedMedicalQueryEngine:
         }
 
     async def _search_pubmed_with_context(
-        self, query: str, medical_entities: List[Dict[str, Any]], context: Optional[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self,
+        query: str,
+        medical_entities: list[dict[str, Any]],
+        context: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         """
         Enhanced PubMed search with medical context
         """
@@ -226,7 +231,11 @@ class EnhancedMedicalQueryEngine:
                     "query": enhanced_query,
                     "max_results": 20,
                     "sort": "relevance",
-                    "publication_types": ["clinical_trial", "systematic_review", "meta_analysis"],
+                    "publication_types": [
+                        "clinical_trial",
+                        "systematic_review",
+                        "meta_analysis",
+                    ],
                 },
             )
 
@@ -255,8 +264,8 @@ class EnhancedMedicalQueryEngine:
             return {"sources": []}
 
     async def _search_fda_drugs(
-        self, query: str, medical_entities: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, query: str, medical_entities: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """
         Search FDA drug database for medication information
         """
@@ -310,9 +319,9 @@ class EnhancedMedicalQueryEngine:
     async def _refine_query_with_reasoning(
         self,
         original_query: str,
-        previous_results: List[Dict[str, Any]],
+        previous_results: list[dict[str, Any]],
         query_type: QueryType,
-        context: Optional[Dict[str, Any]],
+        context: dict[str, Any] | None,
     ) -> str:
         """
         Use reasoning to refine query based on previous results
@@ -346,7 +355,7 @@ class EnhancedMedicalQueryEngine:
         except Exception:
             return original_query
 
-    async def _extract_medical_entities(self, query: str) -> List[Dict[str, Any]]:
+    async def _extract_medical_entities(self, query: str) -> list[dict[str, Any]]:
         """
         Extract medical entities from query using NLP
         """
@@ -362,7 +371,7 @@ class EnhancedMedicalQueryEngine:
             return []
 
     async def _evaluate_result_quality(
-        self, query: str, results: Dict[str, Any], query_type: QueryType
+        self, query: str, results: dict[str, Any], query_type: QueryType
     ) -> float:
         """
         Evaluate quality and relevance of search results
@@ -381,7 +390,12 @@ class EnhancedMedicalQueryEngine:
         }
 
         # Weighted average
-        weights = {"source_count": 0.2, "evidence_level": 0.3, "recency": 0.2, "relevance": 0.3}
+        weights = {
+            "source_count": 0.2,
+            "evidence_level": 0.3,
+            "recency": 0.2,
+            "relevance": 0.3,
+        }
 
         quality_score = sum(quality_factors[factor] * weights[factor] for factor in quality_factors)
 
@@ -391,7 +405,7 @@ class EnhancedMedicalQueryEngine:
         """Generate unique query ID"""
         return hashlib.md5(f"{query}{datetime.utcnow()}".encode()).hexdigest()[:12]
 
-    def _get_relevant_disclaimers(self, query_type: QueryType) -> List[str]:
+    def _get_relevant_disclaimers(self, query_type: QueryType) -> list[str]:
         """Get relevant disclaimers based on query type"""
         base_disclaimers = [
             self.disclaimers["information_only"],
@@ -404,7 +418,7 @@ class EnhancedMedicalQueryEngine:
 
         return base_disclaimers
 
-    def _extract_source_links(self, sources: List[Dict[str, Any]]) -> List[str]:
+    def _extract_source_links(self, sources: list[dict[str, Any]]) -> list[str]:
         """Extract all source URLs for easy access"""
         links = []
         for source in sources:
@@ -442,7 +456,7 @@ class EnhancedMedicalQueryEngine:
         refinement_prompt = f"""
         Original Query: {original_query}
         Previous Response Trust Score: {trust_score.overall_trust:.2f}
-        Issues Found: {', '.join(refinement_needed)}
+        Issues Found: {", ".join(refinement_needed)}
 
         Refine the query to address these issues while maintaining the original intent.
         Make the query more specific and likely to return high-quality medical information.
@@ -461,7 +475,7 @@ class EnhancedMedicalQueryEngine:
         except Exception:
             return original_query
 
-    async def _calculate_final_confidence(self, query_session: Dict[str, Any]) -> float:
+    async def _calculate_final_confidence(self, query_session: dict[str, Any]) -> float:
         """Calculate final confidence score based on query session results"""
         sources = query_session.get("sources", [])
         reasoning_chain = query_session.get("reasoning_chain", [])
@@ -481,8 +495,8 @@ class EnhancedMedicalQueryEngine:
         return min(confidence, 1.0)
 
     async def _search_clinical_trials(
-        self, query: str, medical_entities: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, query: str, medical_entities: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """Search clinical trials database"""
         try:
             # Use ClinicalTrials.gov API via MCP
@@ -520,8 +534,8 @@ class EnhancedMedicalQueryEngine:
             return {"sources": []}
 
     async def _search_clinical_guidelines(
-        self, query: str, medical_entities: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, query: str, medical_entities: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """Search clinical practice guidelines"""
         try:
             # Search medical society guidelines
@@ -556,13 +570,17 @@ class EnhancedMedicalQueryEngine:
             return {"sources": []}
 
     async def _generate_source_reasoning(
-        self, query: str, sources: List[Dict[str, Any]], query_type: QueryType
+        self, query: str, sources: list[dict[str, Any]], query_type: QueryType
     ) -> str:
         """Generate reasoning for source selection and quality"""
         if not sources:
             return "No relevant sources found for the query."
 
-        source_summary: Dict[str, Any] = {"total": len(sources), "by_type": {}, "high_evidence": 0}
+        source_summary: dict[str, Any] = {
+            "total": len(sources),
+            "by_type": {},
+            "high_evidence": 0,
+        }
 
         # Analyze source composition
         for source in sources:
@@ -585,9 +603,9 @@ class EnhancedMedicalQueryEngine:
         Query Type: {query_type.value}
 
         Sources Found:
-        - Total: {source_summary['total']}
-        - High Evidence Sources: {source_summary['high_evidence']}
-        - By Type: {source_summary['by_type']}
+        - Total: {source_summary["total"]}
+        - High Evidence Sources: {source_summary["high_evidence"]}
+        - By Type: {source_summary["by_type"]}
 
         Provide a brief reasoning for source selection quality and relevance (2-3 sentences):
         """
@@ -607,7 +625,7 @@ class EnhancedMedicalQueryEngine:
             return f"Found {len(sources)} sources including {source_summary['high_evidence']} high-evidence sources."
 
     async def _enhance_query_with_entities(
-        self, query: str, medical_entities: List[Dict[str, Any]]
+        self, query: str, medical_entities: list[dict[str, Any]]
     ) -> str:
         """Enhance query with extracted medical entities"""
         if not medical_entities:
@@ -631,7 +649,7 @@ class EnhancedMedicalQueryEngine:
 
         return query
 
-    def _determine_evidence_level(self, article: Dict[str, Any]) -> str:
+    def _determine_evidence_level(self, article: dict[str, Any]) -> str:
         """Determine evidence level from article metadata"""
         pub_type = article.get("publication_type", "").lower()
         title = article.get("title", "").lower()
@@ -654,13 +672,13 @@ class EnhancedMedicalQueryEngine:
             return "unknown"
 
     async def _analyze_result_gaps(
-        self, previous_results: List[Dict[str, Any]], query_type: QueryType
+        self, previous_results: list[dict[str, Any]], query_type: QueryType
     ) -> str:
         """Analyze gaps in previous search results"""
         if not previous_results:
             return "No previous results to analyze"
 
-        analysis: Dict[str, Any] = {
+        analysis: dict[str, Any] = {
             "total_sources": len(previous_results),
             "source_types": {},
             "evidence_levels": {},
@@ -706,7 +724,7 @@ class EnhancedMedicalQueryEngine:
         else:
             return "Good coverage of source types and evidence levels."
 
-    def _calculate_evidence_level_score(self, sources: List[Dict[str, Any]]) -> float:
+    def _calculate_evidence_level_score(self, sources: list[dict[str, Any]]) -> float:
         """Calculate score based on evidence level quality"""
         if not sources:
             return 0.0
@@ -731,7 +749,7 @@ class EnhancedMedicalQueryEngine:
 
         return min(total_weight / len(sources), 1.0)
 
-    def _calculate_recency_score(self, sources: List[Dict[str, Any]]) -> float:
+    def _calculate_recency_score(self, sources: list[dict[str, Any]]) -> float:
         """Calculate score based on publication recency"""
         if not sources:
             return 0.0
@@ -770,7 +788,7 @@ class EnhancedMedicalQueryEngine:
 
         return sum(recency_scores) / len(recency_scores) if recency_scores else 0.0
 
-    async def _calculate_relevance_score(self, query: str, sources: List[Dict[str, Any]]) -> float:
+    async def _calculate_relevance_score(self, query: str, sources: list[dict[str, Any]]) -> float:
         """Calculate relevance score of sources to query"""
         if not sources:
             return 0.0

@@ -6,10 +6,9 @@ Tests the enhanced healthcare infrastructure with synthetic data
 
 import asyncio
 import json
-import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -20,7 +19,7 @@ PHASE1_AVAILABLE = False
 medical_modules = {}
 
 try:
-    from config.app import config
+    pass
 
     # Import and store Phase 1 modules
     from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType
@@ -50,7 +49,11 @@ except ImportError as e:
             self.llm_client = llm_client
 
         async def process_medical_query(
-            self, query: str, query_type: str, context: Dict[str, Any], max_iterations: int = 2
+            self,
+            query: str,
+            query_type: str,
+            context: dict[str, Any],
+            max_iterations: int = 2,
         ) -> Any:
             return await self.mcp_client.search_medical_literature(query)
 
@@ -73,7 +76,7 @@ class MockMCPClient:
         self.synthetic_data_dir = Path(synthetic_data_dir)
         self.synthetic_data = self._load_synthetic_data()
 
-    def _load_synthetic_data(self) -> Dict[str, List[Dict]]:
+    def _load_synthetic_data(self) -> dict[str, list[dict]]:
         """Load synthetic healthcare data"""
         data = {}
         data_files = [
@@ -90,14 +93,14 @@ class MockMCPClient:
         for file_name in data_files:
             file_path = self.synthetic_data_dir / file_name
             if file_path.exists():
-                with open(file_path, "r") as f:
+                with open(file_path) as f:
                     data[file_name.replace(".json", "")] = json.load(f)
             else:
                 data[file_name.replace(".json", "")] = []
 
         return data
 
-    async def search_medical_literature(self, query: str, **kwargs) -> Dict[str, Any]:
+    async def search_medical_literature(self, query: str, **kwargs) -> dict[str, Any]:
         """Mock medical literature search using synthetic data context"""
         # Extract relevant information from synthetic data based on query
         query_lower = query.lower()
@@ -150,7 +153,7 @@ class MockMCPClient:
 class RealDataLLMClient:
     """LLM client using real synthetic healthcare data for realistic responses"""
 
-    def __init__(self, synthetic_data: Dict[str, List[Dict]]):
+    def __init__(self, synthetic_data: dict[str, list[dict]]):
         self.synthetic_data = synthetic_data
         self.encounters = synthetic_data.get("encounters", [])
         self.patients = synthetic_data.get("patients", [])
@@ -190,7 +193,7 @@ class RealDataLLMClient:
         else:
             return self._generate_general_healthcare_response(prompt, relevant_encounters)
 
-    def _extract_patient_context(self, prompt: str) -> Optional[Dict[str, Any]]:
+    def _extract_patient_context(self, prompt: str) -> dict[str, Any] | None:
         """Extract patient information from prompt context"""
         # Look for patient name patterns in prompt
         for patient in self.patients[:50]:  # Check first 50 patients
@@ -199,7 +202,7 @@ class RealDataLLMClient:
                 return patient
         return None
 
-    def _find_relevant_encounters(self, query: str) -> List[Dict[str, Any]]:
+    def _find_relevant_encounters(self, query: str) -> list[dict[str, Any]]:
         """Find encounters relevant to the query"""
         relevant = []
         query_terms = query.split()
@@ -219,7 +222,7 @@ class RealDataLLMClient:
 
         return relevant[:3]  # Return top 3 matches
 
-    def _generate_differential_diagnosis(self, prompt: str, encounters: List[Dict]) -> str:
+    def _generate_differential_diagnosis(self, prompt: str, encounters: list[dict]) -> str:
         """Generate differential diagnosis using real clinical data"""
         if encounters:
             # Use real encounter data to inform differential
@@ -229,7 +232,7 @@ class RealDataLLMClient:
 
             return f"""Based on the clinical presentation of {chief_complaint}, consider these differential diagnoses:
 
-1. Primary diagnosis consideration (ICD-10: {diagnosis_codes[0] if diagnosis_codes else 'Z00.00'})
+1. Primary diagnosis consideration (ICD-10: {diagnosis_codes[0] if diagnosis_codes else "Z00.00"})
 2. Secondary conditions to rule out based on symptoms
 3. Additional considerations based on patient demographics and history
 
@@ -240,8 +243,8 @@ Recommended diagnostic approach:
 
 Clinical Context from Similar Cases:
 - Patient presented with {chief_complaint}
-- Typical duration: {sample_encounter.get('duration_minutes', 30)} minutes
-- Visit type: {sample_encounter.get('visit_type', 'office visit')}
+- Typical duration: {sample_encounter.get("duration_minutes", 30)} minutes
+- Visit type: {sample_encounter.get("visit_type", "office visit")}
 
 Medical Disclaimer: This information is for educational purposes only. All clinical decisions require professional medical judgment and should be made by qualified healthcare providers."""
 
@@ -253,9 +256,7 @@ Medical Disclaimer: This information is for educational purposes only. All clini
 
 Note: This is educational information only. Clinical decisions require professional medical judgment."""
 
-    def _generate_soap_note(
-        self, prompt: str, encounters: List[Dict], patient: Optional[Dict]
-    ) -> str:
+    def _generate_soap_note(self, prompt: str, encounters: list[dict], patient: dict | None) -> str:
         """Generate SOAP note using real encounter data"""
         if encounters:
             encounter = encounters[0]
@@ -265,7 +266,7 @@ Note: This is educational information only. Clinical decisions require professio
             return f"""SOAP Note:
 
 Subjective: Patient presents with {chief_complaint}.
-{f"Duration: {encounter.get('duration_minutes', 'Not specified')} minutes consultation" if encounter.get('duration_minutes') else ""}
+{f"Duration: {encounter.get('duration_minutes', 'Not specified')} minutes consultation" if encounter.get("duration_minutes") else ""}
 
 Objective:
 {f"Vital Signs: {vital_signs}" if vital_signs else "Vital signs documented and stable"}
@@ -292,7 +293,7 @@ Plan: Diagnostic workup, treatment plan, follow-up recommendations
 
 Always ensure documentation meets clinical and regulatory standards."""
 
-    def _generate_insurance_verification(self, prompt: str, patient: Optional[Dict]) -> str:
+    def _generate_insurance_verification(self, prompt: str, patient: dict | None) -> str:
         """Generate insurance verification using real patient data"""
         if patient:
             insurance_provider = patient.get("insurance_provider", "standard insurance")
@@ -323,7 +324,7 @@ Estimated patient responsibility calculated based on plan details.
 Pre-authorization requirements vary by procedure type.
 Recommend verification of specific benefits for proposed services."""
 
-    def _generate_checkin_response(self, prompt: str, patient: Optional[Dict]) -> str:
+    def _generate_checkin_response(self, prompt: str, patient: dict | None) -> str:
         """Generate patient check-in response using real patient data"""
         if patient:
             name = f"{patient.get('first_name', 'Patient')} {patient.get('last_name', '')}"
@@ -348,7 +349,7 @@ HIPAA Compliance: All patient information handled according to privacy regulatio
         return """I can help you check in the patient. I've verified their identity and insurance information.
 Please confirm the appointment type and update any demographic changes."""
 
-    def _generate_drug_interaction_analysis(self, prompt: str, encounters: List[Dict]) -> str:
+    def _generate_drug_interaction_analysis(self, prompt: str, encounters: list[dict]) -> str:
         """Generate drug interaction analysis"""
         return """Drug interaction analysis requires comprehensive review:
 
@@ -396,7 +397,7 @@ Clinical Decision Support:
 
 Medical Disclaimer: AI systems do not replace clinical judgment. All prescribing decisions require licensed healthcare providers."""
 
-    def _generate_general_healthcare_response(self, prompt: str, encounters: List[Dict]) -> str:
+    def _generate_general_healthcare_response(self, prompt: str, encounters: list[dict]) -> str:
         """Generate general healthcare response with clinical context"""
         context_info = ""
         if encounters:
@@ -430,7 +431,7 @@ class Phase1HealthcareAgent:
         self.query_engine = QueryEngine(self.mcp_client, self.llm_client)
         self.medical_reasoning = Reasoning(self.query_engine, self.llm_client)
 
-    async def process_healthcare_query(self, query: str, context: List[str]) -> str:
+    async def process_healthcare_query(self, query: str, context: list[str]) -> str:
         """Process healthcare query using Phase 1 infrastructure"""
         try:
             query_lower = query.lower()
@@ -464,7 +465,7 @@ class Phase1HealthcareAgent:
             # Fallback to simpler response
             return await self.llm_client.generate(f"Query: {query}\nContext: {context}")
 
-    async def _generate_enhanced_response(self, query: str, result: Any, context: List[str]) -> str:
+    async def _generate_enhanced_response(self, query: str, result: Any, context: list[str]) -> str:
         """Generate enhanced response using query results"""
         # Build response based on query type and results
         if hasattr(result, "sources") and result.sources:
@@ -579,7 +580,12 @@ def _check_basic_compliance(response: str, query: str) -> float:
         score -= 0.3
 
     # Check for appropriate disclaimers
-    disclaimer_terms = ["educational", "not medical advice", "consult", "healthcare professional"]
+    disclaimer_terms = [
+        "educational",
+        "not medical advice",
+        "consult",
+        "healthcare professional",
+    ]
     if any(term in response_lower for term in disclaimer_terms):
         score += 0.2
 

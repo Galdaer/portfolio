@@ -8,7 +8,7 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
 import requests
@@ -28,7 +28,7 @@ class AgentResponse:
     response_text: str
     confidence_score: float
     processing_time: float
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 @dataclass
@@ -38,10 +38,10 @@ class MultiAgentScenario:
     scenario_id: str
     scenario_name: str
     description: str
-    agents_involved: List[str]
-    patient_data: Dict[str, Any]
-    expected_workflow: List[str]
-    success_criteria: Dict[str, Any]
+    agents_involved: list[str]
+    patient_data: dict[str, Any]
+    expected_workflow: list[str]
+    success_criteria: dict[str, Any]
 
 
 class HealthcareAgentSimulator:
@@ -51,7 +51,7 @@ class HealthcareAgentSimulator:
         self.ollama_base_url = f"http://{ollama_host}:{ollama_port}"
         self.logger = logging.getLogger(f"{__name__}.HealthcareAgentSimulator")
 
-    async def simulate_intake_agent(self, patient_data: Dict[str, Any]) -> AgentResponse:
+    async def simulate_intake_agent(self, patient_data: dict[str, Any]) -> AgentResponse:
         """Simulate patient intake agent"""
         start_time = datetime.now()
 
@@ -59,10 +59,10 @@ class HealthcareAgentSimulator:
         prompt = f"""
         You are a healthcare intake agent. Process this patient information and provide a summary:
 
-        Patient: {patient_data.get('first_name', 'Unknown')} {patient_data.get('last_name', 'Unknown')}
-        Chief Complaint: {patient_data.get('chief_complaint', 'Routine visit')}
-        Medical History: {json.dumps(patient_data.get('medical_history', []))}
-        Current Medications: {json.dumps(patient_data.get('current_medications', []))}
+        Patient: {patient_data.get("first_name", "Unknown")} {patient_data.get("last_name", "Unknown")}
+        Chief Complaint: {patient_data.get("chief_complaint", "Routine visit")}
+        Medical History: {json.dumps(patient_data.get("medical_history", []))}
+        Current Medications: {json.dumps(patient_data.get("current_medications", []))}
 
         Provide a concise intake summary focusing on key medical information.
         """
@@ -109,7 +109,7 @@ class HealthcareAgentSimulator:
         )
 
     async def simulate_scheduling_agent(
-        self, patient_data: Dict[str, Any], appointment_type: str
+        self, patient_data: dict[str, Any], appointment_type: str
     ) -> AgentResponse:
         """Simulate appointment scheduling agent"""
         start_time = datetime.now()
@@ -117,9 +117,9 @@ class HealthcareAgentSimulator:
         prompt = f"""
         You are a healthcare scheduling agent. Help schedule an appointment:
 
-        Patient: {patient_data.get('first_name')} {patient_data.get('last_name')}
+        Patient: {patient_data.get("first_name")} {patient_data.get("last_name")}
         Appointment Type: {appointment_type}
-        Insurance: {patient_data.get('insurance', {}).get('provider', 'Unknown')}
+        Insurance: {patient_data.get("insurance", {}).get("provider", "Unknown")}
 
         Provide scheduling recommendations including:
         1. Appropriate time slots
@@ -139,17 +139,17 @@ class HealthcareAgentSimulator:
             metadata={"appointment_type": appointment_type},
         )
 
-    async def simulate_billing_agent(self, encounter_data: Dict[str, Any]) -> AgentResponse:
+    async def simulate_billing_agent(self, encounter_data: dict[str, Any]) -> AgentResponse:
         """Simulate medical billing agent"""
         start_time = datetime.now()
 
         prompt = f"""
         You are a medical billing agent. Process this encounter for billing:
 
-        Encounter Type: {encounter_data.get('encounter_type')}
-        Provider: {encounter_data.get('provider_name')}
-        Services: {encounter_data.get('assessment')}
-        Insurance: {encounter_data.get('insurance_info', 'Unknown')}
+        Encounter Type: {encounter_data.get("encounter_type")}
+        Provider: {encounter_data.get("provider_name")}
+        Services: {encounter_data.get("assessment")}
+        Insurance: {encounter_data.get("insurance_info", "Unknown")}
 
         Provide billing summary including:
         1. Appropriate CPT codes (general categories)
@@ -201,7 +201,7 @@ class MultiAgentHealthcareTests:
         self.data_generator = SyntheticHealthcareDataGenerator()
         self.logger = logging.getLogger(f"{__name__}.MultiAgentHealthcareTests")
 
-    def create_test_scenarios(self) -> List[MultiAgentScenario]:
+    def create_test_scenarios(self) -> list[MultiAgentScenario]:
         """Create multi-agent test scenarios"""
         scenarios = []
 
@@ -265,7 +265,7 @@ class MultiAgentHealthcareTests:
 
         return scenarios
 
-    async def run_multi_agent_scenario(self, scenario: MultiAgentScenario) -> Dict[str, Any]:
+    async def run_multi_agent_scenario(self, scenario: MultiAgentScenario) -> dict[str, Any]:
         """Run a multi-agent test scenario"""
         self.logger.info(f"Running scenario: {scenario.scenario_name}")
 
@@ -294,7 +294,10 @@ class MultiAgentHealthcareTests:
                         scenario.patient_data, "follow-up"
                     )
                 elif agent_name == "billing_agent":
-                    encounter_data = {"encounter_type": "office_visit", "provider_name": "Dr. Test"}
+                    encounter_data = {
+                        "encounter_type": "office_visit",
+                        "provider_name": "Dr. Test",
+                    }
                     response = await self.agent_simulator.simulate_billing_agent(encounter_data)
                 else:
                     continue
@@ -326,7 +329,7 @@ class MultiAgentHealthcareTests:
         return results
 
     def _evaluate_workflow_success(
-        self, scenario: MultiAgentScenario, results: Dict[str, Any]
+        self, scenario: MultiAgentScenario, results: dict[str, Any]
     ) -> bool:
         """Evaluate if workflow met success criteria"""
         criteria = scenario.success_criteria
@@ -351,7 +354,7 @@ class MultiAgentHealthcareTests:
 
         return True
 
-    def _calculate_performance_metrics(self, results: Dict[str, Any]) -> Dict[str, float]:
+    def _calculate_performance_metrics(self, results: dict[str, Any]) -> dict[str, float]:
         """Calculate performance metrics"""
         responses = results["agent_responses"]
 
@@ -365,7 +368,7 @@ class MultiAgentHealthcareTests:
             "agents_count": len(responses),
         }
 
-    def _check_compliance(self, results: Dict[str, Any]) -> Dict[str, bool]:
+    def _check_compliance(self, results: dict[str, Any]) -> dict[str, bool]:
         """Check HIPAA and healthcare compliance"""
         responses = results["agent_responses"]
 
