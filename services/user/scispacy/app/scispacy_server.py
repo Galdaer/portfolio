@@ -5,6 +5,7 @@ SciSpacy Server - REST API for biomedical text analysis
 
 import logging
 import os
+from typing import Dict, Any, Tuple
 
 import spacy
 from flask import Flask, jsonify, request
@@ -20,7 +21,7 @@ MODEL_NAME = os.environ.get("SPACY_MODEL", "en_core_sci_sm")
 nlp = None
 
 
-def load_model():
+def load_model() -> bool:
     global nlp
     try:
         logger.info(f"Loading SciSpacy model: {MODEL_NAME}")
@@ -33,7 +34,7 @@ def load_model():
 
 
 @app.route("/health")
-def health():
+def health() -> Tuple[Dict[str, Any], int]:
     """Health check endpoint"""
     if nlp is None:
         return {"status": "error", "message": "Model not loaded"}, 500
@@ -41,7 +42,7 @@ def health():
 
 
 @app.route("/")
-def root():
+def root() -> Dict[str, Any]:
     """Root endpoint with API info"""
     return {
         "service": "SciSpacy NLP Server",
@@ -55,7 +56,7 @@ def root():
 
 
 @app.route("/info")
-def info():
+def info() -> Tuple[Dict[str, Any], int]:
     """Model information endpoint"""
     if nlp is None:
         return {"error": "Model not loaded"}, 500
@@ -71,7 +72,7 @@ def info():
 
 
 @app.route("/analyze", methods=["POST"])
-def analyze():
+def analyze() -> Tuple[Dict[str, Any], int]:
     """Analyze text for biomedical entities"""
     if nlp is None:
         return {"error": "Model not loaded"}, 500

@@ -305,7 +305,7 @@ class HealthcareAIAssistant:
         # Initialize AI client (would be actual API client in production)
         self._init_ai_client()
 
-    def _init_ai_client(self):
+    def _init_ai_client(self) -> None:
         """Initialize AI client"""
         # Would initialize actual Claude API client
         self.logger.info("AI assistant initialized for healthcare development")

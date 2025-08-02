@@ -104,7 +104,7 @@ class SecurityAnalyzer:
 
         return self._format_results()
 
-    def _check_dangerous_functions(self, tree: ast.AST):
+    def _check_dangerous_functions(self, tree: ast.AST) -> None:
         """Check for dangerous function usage"""
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
@@ -120,7 +120,7 @@ class SecurityAnalyzer:
                         )
                     )
 
-    def _check_sql_injection_patterns(self, tree: ast.AST):
+    def _check_sql_injection_patterns(self, tree: ast.AST) -> None:
         """Check for potential SQL injection vulnerabilities"""
         for node in ast.walk(tree):
             # Check for string concatenation with SQL keywords
@@ -149,7 +149,7 @@ class SecurityAnalyzer:
                         )
                     )
 
-    def _check_hardcoded_secrets(self, tree: ast.AST):
+    def _check_hardcoded_secrets(self, tree: ast.AST) -> None:
         """Check for hardcoded secrets and credentials"""
         for node in ast.walk(tree):
             # Check string literals
@@ -179,7 +179,7 @@ class SecurityAnalyzer:
                                 )
                             )
 
-    def _check_weak_cryptography(self, tree: ast.AST):
+    def _check_weak_cryptography(self, tree: ast.AST) -> None:
         """Check for weak cryptographic algorithms"""
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -210,7 +210,7 @@ class SecurityAnalyzer:
                             )
                         )
 
-    def _check_authentication_issues(self, tree: ast.AST):
+    def _check_authentication_issues(self, tree: ast.AST) -> None:
         """Check for authentication-related security issues"""
         for node in ast.walk(tree):
             # Check for password comparisons without hashing
@@ -226,7 +226,7 @@ class SecurityAnalyzer:
                         )
                     )
 
-    def _check_input_validation(self, tree: ast.AST):
+    def _check_input_validation(self, tree: ast.AST) -> None:
         """Check for input validation issues"""
         for node in ast.walk(tree):
             # Check for direct user input usage without validation
@@ -243,7 +243,7 @@ class SecurityAnalyzer:
                         )
                     )
 
-    def _check_file_operations(self, tree: ast.AST):
+    def _check_file_operations(self, tree: ast.AST) -> None:
         """Check for unsafe file operations"""
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):

@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any, Optional
 
 # Packages that should be excluded from CI (GPU, heavy ML packages)
 CI_EXCLUDED_PACKAGES = {
@@ -167,7 +168,7 @@ def run_command(cmd: str, cwd: Optional[str] = None) -> Any:
         return None
 
 
-def create_ci_requirements_in(requirements_in_path):
+def create_ci_requirements_in(requirements_in_path: str) -> str:
     """Create a filtered requirements.in for CI by excluding heavy packages"""
     with open(requirements_in_path) as f:
         lines = f.readlines()
@@ -205,7 +206,7 @@ def create_ci_requirements_in(requirements_in_path):
     return "".join(filtered_lines)
 
 
-def create_self_hosted_requirements_in(requirements_in_path):
+def create_self_hosted_requirements_in(requirements_in_path: str) -> str:
     """Create a filtered requirements.in for self-hosted runners by excluding dev-only packages"""
     with open(requirements_in_path) as f:
         lines = f.readlines()
@@ -243,7 +244,7 @@ def create_self_hosted_requirements_in(requirements_in_path):
     return "".join(filtered_lines)
 
 
-def clean_requirements_content(content):
+def clean_requirements_content(content: str) -> str:
     """Clean up pip-compile generated content by removing via comments and temp paths"""
     lines = content.splitlines()
     cleaned_lines = []
@@ -287,7 +288,7 @@ def generate_requirements_files() -> bool:
     # Generate full requirements.txt
     print("📦 Generating requirements.txt (full dependencies)...")
     cmd = f"uv pip compile {requirements_in} -o {requirements_txt}"
-    if run_command(cmd, cwd=project_root) is None:
+    if run_command(cmd, cwd=str(project_root)) is None:
         print("❌ Failed to generate requirements.txt")
         return False
     print(f"✅ Generated {requirements_txt}")
@@ -297,7 +298,7 @@ def generate_requirements_files() -> bool:
 
     # Create temporary filtered requirements.in for CI
     with tempfile.NamedTemporaryFile(mode="w", suffix=".in", delete=False) as temp_file:
-        filtered_content = create_ci_requirements_in(requirements_in)
+        filtered_content = create_ci_requirements_in(str(requirements_in))
         temp_file.write(filtered_content)
         temp_ci_requirements_in = temp_file.name
 
@@ -311,7 +312,7 @@ def generate_requirements_files() -> bool:
 """
 
         cmd = f"uv pip compile {temp_ci_requirements_in} -o {requirements_ci_txt}"
-        if run_command(cmd, cwd=project_root) is None:
+        if run_command(cmd, cwd=str(project_root)) is None:
             print("❌ Failed to generate requirements-ci.txt")
             return False
 
@@ -336,7 +337,7 @@ def generate_requirements_files() -> bool:
 
     # Create temporary filtered requirements.in for self-hosted
     with tempfile.NamedTemporaryFile(mode="w", suffix=".in", delete=False) as temp_file:
-        filtered_content = create_self_hosted_requirements_in(requirements_in)
+        filtered_content = create_self_hosted_requirements_in(str(requirements_in))
         temp_file.write(filtered_content)
         temp_self_hosted_requirements_in = temp_file.name
 
@@ -350,7 +351,7 @@ def generate_requirements_files() -> bool:
 """
 
         cmd = f"uv pip compile {temp_self_hosted_requirements_in} -o {requirements_self_hosted_txt}"
-        if run_command(cmd, cwd=project_root) is None:
+        if run_command(cmd, cwd=str(project_root)) is None:
             print("❌ Failed to generate requirements-self-hosted.txt")
             return False
 

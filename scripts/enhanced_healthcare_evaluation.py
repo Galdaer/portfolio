@@ -108,7 +108,7 @@ class ComprehensiveEvaluationResult:
 class AdvancedPHIDetector:
     """Advanced PHI detection with healthcare-specific patterns"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.phi_patterns = {
             "ssn": {
                 "pattern": r"\b\d{3}-\d{2}-\d{4}\b|\b\d{9}\b",
@@ -159,13 +159,13 @@ class AdvancedPHIDetector:
             return findings
 
         for phi_type, config in self.phi_patterns.items():
-            matches = list(re.finditer(config["pattern"], text, re.IGNORECASE))
+            matches = list(re.finditer(str(config["pattern"]), text, re.IGNORECASE))
 
             for match in matches:
                 if not self._is_synthetic_match(match.group()):
                     finding = EvaluationFinding(
                         category=HealthcareCompliance.PHI_SAFETY,
-                        severity=config["severity"],
+                        severity=EvaluationSeverity(config["severity"]),
                         score=0.0,
                         message=f"{config['description']}: {match.group()}",
                         recommendation=f"Remove or mask {phi_type} information",
@@ -193,7 +193,7 @@ class AdvancedPHIDetector:
 class MedicalAccuracyValidator:
     """Validates medical accuracy and appropriate disclaimers"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.medical_advice_patterns = [
             r"\b(diagnose|diagnosis|prescribe|prescription)\b",
             r"\b(medication|treatment plan|cure|disease)\b",
@@ -288,7 +288,7 @@ class MedicalAccuracyValidator:
 class HIPAAComplianceValidator:
     """Validates HIPAA compliance requirements"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.required_elements = {
             "administrative_focus": ["administrative", "documentation", "workflow"],
             "medical_disclaimers": [
@@ -343,7 +343,7 @@ class HIPAAComplianceValidator:
 class EnhancedDeepEvalWrapper:
     """Enhanced wrapper for DeepEval with healthcare-specific thresholds"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.healthcare_thresholds = {
             "answer_relevancy": 0.85,
             "faithfulness": 0.95,
@@ -527,7 +527,7 @@ class EnhancedDeepEvalWrapper:
 class ComprehensiveHealthcareEvaluator:
     """Main evaluator orchestrating all validation layers"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.phi_detector = AdvancedPHIDetector()
         self.medical_validator = MedicalAccuracyValidator()
         self.hipaa_validator = HIPAAComplianceValidator()
@@ -754,7 +754,7 @@ def run_evaluation_batch(
         List of evaluation results
     """
 
-    async def process_batch():
+    async def process_batch() -> List[Dict[str, Any]]:
         tasks = []
         for test_case in test_cases:
             task = evaluate_healthcare_query(

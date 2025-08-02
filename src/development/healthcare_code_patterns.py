@@ -39,7 +39,7 @@ class CodePattern:
 class HealthcareCodePatterns:
     """Repository of healthcare-specific code patterns"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.patterns = self._initialize_patterns()
 

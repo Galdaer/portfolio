@@ -9,7 +9,7 @@ import os
 import random
 
 
-def generate_simple_synthetic_data(output_dir: str = "data/synthetic"):
+def generate_simple_synthetic_data(output_dir: str = "data/synthetic") -> None:
     """Generate simple synthetic healthcare data for testing"""
 
     os.makedirs(output_dir, exist_ok=True)

@@ -10,7 +10,7 @@ import os
 import random
 import uuid
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 # Optional database dependencies with graceful fallback
 try:
@@ -40,7 +40,7 @@ from faker.providers import BaseProvider
 fake = Faker()
 
 
-def random_date(start, end):
+def random_date(start: datetime, end: datetime) -> datetime:
     """Generate random date between two dates"""
     return start + timedelta(days=random.randint(0, int((end - start).days)))
 
@@ -119,26 +119,26 @@ class HealthcareProvider(BaseProvider):
         "Urgent Care",
     ]
 
-    def medical_specialty(self):
-        return self.random_element(self.medical_specialties)
+    def medical_specialty(self) -> str:
+        return str(self.random_element(self.medical_specialties))
 
-    def insurance_provider(self):
-        return self.random_element(self.insurance_providers)
+    def insurance_provider(self) -> str:
+        return str(self.random_element(self.insurance_providers))
 
-    def medical_condition(self):
-        return self.random_element(self.medical_conditions)
+    def medical_condition(self) -> str:
+        return str(self.random_element(self.medical_conditions))
 
-    def lab_test(self):
-        return self.random_element(self.lab_tests)
+    def lab_test(self) -> str:
+        return str(self.random_element(self.lab_tests))
 
-    def visit_reason(self):
-        return self.random_element(self.visit_reasons)
+    def visit_reason(self) -> str:
+        return str(self.random_element(self.visit_reasons))
 
-    def member_id(self):
+    def member_id(self) -> str:
         """Generate realistic member ID"""
         return f"{fake.random_element(['A', 'B', 'C', 'H', 'U'])}{fake.random_number(digits=9)}"
 
-    def npi_number(self):
+    def npi_number(self) -> str:
         """Generate National Provider Identifier"""
         return f"{fake.random_number(digits=10)}"
 
@@ -187,7 +187,7 @@ class SyntheticHealthcareDataGenerator:
         if self.use_database:
             self._connect_to_databases()
 
-    def _connect_to_databases(self):
+    def _connect_to_databases(self) -> None:
         """Connect to PostgreSQL and Redis if using database mode"""
         if not PSYCOPG2_AVAILABLE or psycopg2 is None:
             print("⚠️  psycopg2 not available - skipping PostgreSQL connection")
@@ -214,7 +214,7 @@ class SyntheticHealthcareDataGenerator:
                 print(f"⚠️  Redis connection failed: {e}")
                 self.redis_client = None
 
-    def generate_patient(self):
+    def generate_patient(self) -> Dict[str, Any]:
         """Generate synthetic patient data"""
         return {
             "id": str(uuid.uuid4()),
@@ -236,7 +236,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-2y", end_date="now").isoformat(),
         }
 
-    def generate_doctor(self):
+    def generate_doctor(self) -> Dict[str, Any]:
         """Generate synthetic doctor data"""
         return {
             "id": str(uuid.uuid4()),
@@ -269,7 +269,7 @@ class SyntheticHealthcareDataGenerator:
             },
         }
 
-    def generate_encounter(self, patient_id: str, doctor_id: str):
+    def generate_encounter(self, patient_id: str, doctor_id: str) -> Dict[str, Any]:
         """Generate synthetic encounter/visit data"""
         return {
             "encounter_id": str(uuid.uuid4()),
@@ -312,7 +312,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-1y", end_date="now").isoformat(),
         }
 
-    def generate_lab_result(self, patient_id: str):
+    def generate_lab_result(self, patient_id: str) -> Dict[str, Any]:
         """Generate synthetic lab result data"""
         lab_test = fake.lab_test()
 
@@ -350,7 +350,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-1y", end_date="now").isoformat(),
         }
 
-    def generate_insurance_verification(self, patient_id: str):
+    def generate_insurance_verification(self, patient_id: str) -> Dict[str, Any]:
         """Generate synthetic insurance verification data"""
         return {
             "verification_id": str(uuid.uuid4()),
@@ -383,7 +383,7 @@ class SyntheticHealthcareDataGenerator:
             ),
         }
 
-    def generate_agent_session(self, doctor_id: str):
+    def generate_agent_session(self, doctor_id: str) -> Dict[str, Any]:
         """Generate synthetic AI agent session data for Phase 1"""
         return {
             "session_id": str(uuid.uuid4()),
