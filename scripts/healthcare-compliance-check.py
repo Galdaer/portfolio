@@ -21,7 +21,7 @@ def is_synthetic_data(content: str, match: str) -> bool:
         "PROV001",
         "ENC001",
         "SYN-",
-        "555-",
+        "000-000-0000",  # Clearly fake test phone number
         "XXX-XX",
         "synthetic.test",
         "example.com",
