@@ -93,6 +93,9 @@
 # Exclude large synthetic datasets (generated locally, not committed)
 /data/synthetic/*
 !/data/synthetic/.gitkeep
+# Allow evaluation directory structure
+!/data/evaluation/
+!/data/evaluation/.gitkeep
 
 # === FILE TYPE INCLUDES ===
 !*.py
@@ -112,7 +115,9 @@ adapters/
 # === SENSITIVE AND RUNTIME DATA ===
 # Environment files with real credentials
 duckdns.env
-*.env
+# Allow the main .env file for development (contains only placeholder values)
+!.env
+# But still exclude files with actual credentials
 !*-template.env
 !*-example.env
 
