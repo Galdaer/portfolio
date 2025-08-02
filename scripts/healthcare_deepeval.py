@@ -13,21 +13,76 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 import requests
-from deepeval import assert_test
-from deepeval.metrics import (
-    AnswerRelevancyMetric,
-    BiasMetric,
-    ContextualPrecisionMetric,
-    ContextualRecallMetric,
-    FaithfulnessMetric,
-    HallucinationMetric,
-    ToxicityMetric,
-)
-from deepeval.models import OllamaModel
-from deepeval.test_case import LLMTestCase
-from faker import Faker
 
-fake = Faker()
+# Optional Faker import with graceful fallback
+try:
+    from faker import Faker
+    fake = Faker()
+    FAKER_AVAILABLE = True
+except ImportError:
+    FAKER_AVAILABLE = False
+    fake = None
+    print("⚠️  Faker not available - using simple test data generation")
+
+# Optional DeepEval imports with graceful fallback
+try:
+    from deepeval import assert_test
+    from deepeval.metrics import (
+        AnswerRelevancyMetric,
+        BiasMetric,
+        ContextualPrecisionMetric,
+        ContextualRecallMetric,
+        FaithfulnessMetric,
+        HallucinationMetric,
+        ToxicityMetric,
+    )
+    from deepeval.models import OllamaModel
+    from deepeval.test_case import LLMTestCase
+    DEEPEVAL_AVAILABLE = True
+except ImportError:
+    # Graceful fallback - define minimal classes for testing
+    DEEPEVAL_AVAILABLE = False
+    
+    class LLMTestCase:
+        def __init__(self, input, actual_output, expected_output, retrieval_context):
+            self.input = input
+            self.actual_output = actual_output
+            self.expected_output = expected_output
+            self.retrieval_context = retrieval_context
+    
+    class OllamaModel:
+        def __init__(self, model, base_url):
+            self.model_name = model
+            self.base_url = base_url
+        
+        def generate(self, prompt):
+            return "Fallback response"
+    
+    # Mock metric classes
+    class MockMetric:
+        def __init__(self, threshold=0.7, model=None):
+            self.threshold = threshold
+            self.model = model
+            self.score = 0.8
+            self.success = True
+            self.reason = "Using offline evaluation"
+        
+        def measure(self, test_case):
+            self.score = 0.8
+            self.success = True
+            self.reason = "Offline healthcare evaluation"
+    
+    AnswerRelevancyMetric = MockMetric
+    FaithfulnessMetric = MockMetric
+    BiasMetric = MockMetric
+    ContextualPrecisionMetric = MockMetric
+    ContextualRecallMetric = MockMetric
+    HallucinationMetric = MockMetric
+    ToxicityMetric = MockMetric
+    
+    # Also set fake if not available
+    if not FAKER_AVAILABLE:
+        fake = None
 
 
 class HealthcareTestCase:
@@ -77,13 +132,18 @@ class HealthcareAITester:
         self.ollama_model = None
         self.metrics: Dict[str, Any] = {}
 
-        # Verify connection first before initializing metrics
-        if not self._verify_ollama_connection():
-            print("⚠️  Ollama connection failed - using healthcare compliance testing only")
+        # Check if DeepEval is available
+        if not DEEPEVAL_AVAILABLE:
+            print("⚠️  DeepEval not available - using healthcare-specific offline evaluation")
             self.use_deepeval_metrics = False
         else:
-            self.use_deepeval_metrics = True
-            self._initialize_metrics()
+            # Verify connection first before initializing metrics
+            if not self._verify_ollama_connection():
+                print("⚠️  Ollama connection failed - using healthcare compliance testing only")
+                self.use_deepeval_metrics = False
+            else:
+                self.use_deepeval_metrics = True
+                self._initialize_metrics()
 
     def _get_available_model(self) -> Optional[str]:
         """Get the first available text model from Ollama"""
@@ -109,6 +169,13 @@ class HealthcareAITester:
     def _initialize_metrics(self):
         """Initialize DeepEval metrics with proper model configuration and CPU-only safety"""
         try:
+            # Skip if DeepEval is not available
+            if not DEEPEVAL_AVAILABLE:
+                print("⚠️  DeepEval not available - using offline evaluation only")
+                self.use_deepeval_metrics = False
+                self.metrics = {}
+                return
+
             # CRITICAL SAFETY: Check for CPU-only mode to prevent GPU crashes
             cpu_only = os.getenv("TORCH_DEVICE") == "cpu" or os.getenv("CUDA_VISIBLE_DEVICES") == ""
             ci_mode = os.getenv("CI") == "true"
