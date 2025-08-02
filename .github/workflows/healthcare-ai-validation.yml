@@ -36,8 +36,8 @@ jobs:
             python3 -m pip install --upgrade -r requirements.txt
           fi
 
-          # Install/update essential tools
-          python3 -m pip install --upgrade pip flake8 mypy pytest pytest-asyncio
+          # Only upgrade pip itself (all other tools are in requirements files)
+          python3 -m pip install --upgrade pip
 
           echo "✅ Dependencies updated - ready for parallel tests"
 
@@ -309,6 +309,7 @@ jobs:
     runs-on: self-hosted
     needs:
       [
+        static-analysis-consolidated,
         healthcare-security-comprehensive,
         infrastructure-comprehensive,
         test-synthetic-data-generation,
@@ -321,12 +322,14 @@ jobs:
           echo "🏥 Healthcare AI Validation Summary"
           echo "=================================="
 
-          echo "🔒 Security validation: ${{ needs.healthcare-security-comprehensive.result }}"
+          echo "� Static analysis: ${{ needs.static-analysis-consolidated.result }}"
+          echo "�🔒 Security validation: ${{ needs.healthcare-security-comprehensive.result }}"
           echo "🏗️  Infrastructure validation: ${{ needs.infrastructure-comprehensive.result }}"
           echo "🧪 Synthetic data generation: ${{ needs.test-synthetic-data-generation.result }}"
           echo "🤖 Healthcare AI evaluation: ${{ needs.test-healthcare-ai-evaluation.result }}"
 
-          if [ "${{ needs.healthcare-security-comprehensive.result }}" = "success" ] && \
+          if [ "${{ needs.static-analysis-consolidated.result }}" = "success" ] && \
+             [ "${{ needs.healthcare-security-comprehensive.result }}" = "success" ] && \
              [ "${{ needs.infrastructure-comprehensive.result }}" = "success" ] && \
              [ "${{ needs.test-synthetic-data-generation.result }}" = "success" ] && \
              [ "${{ needs.test-healthcare-ai-evaluation.result }}" = "success" ]; then
