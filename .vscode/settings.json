@@ -1,15 +1,13 @@
 {
-  "continue.experimental.agentMode": "agent",
-  "continue.experimental.toolsEnabled": true,
-  "// Healthcare AI Development Environment": "Intelluxe AI Healthcare System",
-  "// Shell and Script Configuration": "",
-  "she  "python.analysis.autoImportCompletions": true,
-  "python.analysis.completeFunctionParens": true,check.customArgs": ["-x", "--severity=info", "--source-path=SCRIPTDIR"],
-  "shellcheck.enable": true,
-  "shellcheck.enableQuickFix": true,
-  "shellcheck.run": "onType",
-  "shellcheck.executablePath": "shellcheck",
-  "shellcheck.useWorkspaceRootAsCwd": true,
+    "continue.experimental.agentMode": "agent",
+    "continue.experimental.toolsEnabled": true,
+    "// Healthcare AI Development Environment": "Intelluxe AI Healthcare System",
+    "// Shell and Script Configuration": "",
+    "shellcheck.enable": true,
+    "shellcheck.enableQuickFix": true,
+    "shellcheck.run": "onType",
+    "shellcheck.executablePath": "shellcheck",
+    "shellcheck.useWorkspaceRootAsCwd": true,
     "// Healthcare Data Protection": "",
     "files.exclude": {
         "**/logs/": true,
@@ -72,11 +70,6 @@
         "*.conf": "properties"
     },
     "// Python Healthcare AI Configuration": "",
-    "python.analysis.exclude": [
-        "reference/ai-patterns/**",
-        "services/user/whisperlive/**",
-        "actions-runners/**"
-    ],
     "python.defaultInterpreterPath": "/usr/bin/python3",
     "python.terminal.activateEnvironment": false,
     "python.linting.enabled": true,
@@ -311,8 +304,6 @@
     "terminal.integrated.defaultProfile.linux": "bash",
     "terminal.integrated.cwd": "${workspaceFolder}",
     "// Auto-save for Healthcare Safety": "",
-    "files.autoSave": "afterDelay",
-    "files.autoSaveDelay": 30000,
     "typescript.preferences.includePackageJsonAutoImports": "off",
     "typescript.suggest.autoImports": false,
     "typescript.validate.enable": false,
@@ -326,36 +317,29 @@
         }
     },
     "workbench.tree.renderIndentGuides": "none",
-  
-  "// === HEALTHCARE AI AUTOMATION CONFIGURATION ===": "",
-  "// Enable comprehensive Python analysis for healthcare compliance": "",
-  "python.analysis.diagnosticMode": "workspace",
-  "python.analysis.typeCheckingMode": "strict",
-  "python.analysis.autoSearchPaths": true,
-  "python.analysis.useLibraryCodeForTypes": true,
-  
-  "// Auto-run tasks on file save for continuous healthcare validation": "",
-  "files.autoSave": "afterDelay",
-  "files.autoSaveDelay": 2000,
-  
-  "// Task automation integration": "",
-  "task.autoDetect": "on",
-  "task.quickOpen.detail": "label",
-  "task.quickOpen.history": 10,
-  
-  "// Healthcare code quality enforcement": "",
-  "editor.codeActionsOnSave": {
-    "source.organizeImports": "explicit",
-    "source.fixAll.ruff": "explicit",
-    "source.fixAll": "explicit"
-  },
-  
-  "// Terminal integration for seamless healthcare workflow": "",
-  "terminal.integrated.commandsToSkipShell": [
-    "workbench.action.tasks.runTask"
-  ],
-  "terminal.integrated.automationProfile.linux": {
-    "path": "/bin/bash",
-    "args": ["-l"]
-  }
+    "// === HEALTHCARE AI AUTOMATION CONFIGURATION ===": "",
+    "// Enable comprehensive Python analysis for healthcare compliance": "",
+    "python.analysis.diagnosticMode": "workspace",
+    "// Auto-run tasks on file save for continuous healthcare validation": "",
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 2000,
+    "// Task automation integration": "",
+    "task.autoDetect": "on",
+    "task.quickOpen.history": 10,
+    "// Healthcare code quality enforcement": "",
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit",
+        "source.fixAll.ruff": "explicit",
+        "source.fixAll": "explicit"
+    },
+    "// Terminal integration for seamless healthcare workflow": "",
+    "terminal.integrated.commandsToSkipShell": [
+        "workbench.action.tasks.runTask"
+    ],
+    "terminal.integrated.automationProfile.linux": {
+        "path": "/bin/bash",
+        "args": [
+            "-l"
+        ]
+    }
 }

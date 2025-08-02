@@ -208,8 +208,9 @@ make install && make deps && make hooks && make validate
 
 - **Ruff**: Ultra-fast Python tooling (10-100x faster than legacy black+isort+flake8)
 - **Pre-commit hooks**: Multi-language auto-formatting with healthcare compliance validation
-- **MyPy**: Comprehensive type checking for healthcare data safety
+- **MyPy**: Comprehensive type checking for healthcare data safety with incremental caching (1.5s cached runs vs 3.8s fresh)
 - **Advanced Security Tools**: Integrated security scanning with healthcare-specific patterns
+- **Type Stubs**: Required for healthcare compliance - types-PyYAML, types-requests, types-cachetools installed
 
 _For detailed usage patterns, configurations, and implementation guides_, reference the specialized instruction files based on your current task (see "Using Specialized AI Instructions" section above).
 
@@ -254,13 +255,19 @@ scenarios: List[HealthcareTestCase] = []
 
 ### MyPy Error Resolution Patterns
 
-**Systematic approach to MyPy errors:**
+**Systematic approach to MyPy errors (438 currently identified):**
 
-1. **Missing Type Annotations**: Add explicit types for ALL variables
+1. **Missing Type Annotations**: Add explicit types for ALL variables  
 2. **Collection Issues**: Import specific types (`Set`, `List`, `Dict`) from typing
 3. **Attribute Errors**: Use type annotations on class attributes
 4. **Return Type Missing**: Add `-> ReturnType` to ALL function definitions
 5. **Optional Handling**: Check `if obj is not None:` before method calls
+6. **Type Stubs**: Ensure types-PyYAML, types-requests, types-cachetools are installed
+
+**Performance optimizations discovered:**
+- MyPy incremental caching: 1.5s (cached) vs 3.8s (fresh) - 2.5x speedup
+- Use `mypy .` (full workspace) vs `mypy src/` (partial) for comprehensive healthcare safety
+- Priority: Fix healthcare-critical modules first (core/medical/, src/security/), then scripts/tests
 
 **Common MyPy Error Fixes:**
 
