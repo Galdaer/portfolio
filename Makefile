@@ -326,7 +326,10 @@ lint-python:
 		python3 -m ruff format --check .; \
 	fi
 	@# Run Mypy for type checking (mypy.ini has healthcare-specific configuration)
-	@if command -v mypy >/dev/null 2>&1; then \
+	@if command -v dmypy >/dev/null 2>&1; then \
+		echo "🚀 Running Mypy daemon for fast type checking..."; \
+		dmypy run -- . || (echo "⚠️  Daemon failed, falling back to regular mypy"; mypy .); \
+	elif command -v mypy >/dev/null 2>&1; then \
 		echo "🔍 Running Mypy type checking..."; \
 		mypy .; \
 	elif python3 -m mypy --version >/dev/null 2>&1; then \
@@ -336,6 +339,24 @@ lint-python:
 		echo "⚠️  mypy not found - installing via make deps"; \
 		$(MAKE) deps; \
 		python3 -m mypy .; \
+	fi
+
+# Fast development linting - only core healthcare modules
+lint-dev:
+	@echo "🚀  Running fast development lint (core modules only)"
+	@# Run Ruff for linting
+	@if command -v ruff >/dev/null 2>&1; then \
+		echo "🧹 Running Ruff linting..."; \
+		ruff check core/ agents/ src/; \
+	else \
+		python3 -m ruff check core/ agents/ src/; \
+	fi
+	@# Run Mypy on core modules only
+	@if command -v mypy >/dev/null 2>&1; then \
+		echo "🔍 Running Mypy type checking (core modules)..."; \
+		mypy core/ agents/ src/; \
+	else \
+		python3 -m mypy core/ agents/ src/; \
 	fi
 
 format:
