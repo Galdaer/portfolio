@@ -90,9 +90,10 @@
 !/data/training/user_samples/.gitkeep
 /data/vector_stores/*
 !/data/vector_stores/.gitkeep
-# Exclude large synthetic datasets (generated locally, not committed)
+
+
 /data/synthetic/*
-!/data/synthetic/.gitkeep
+/data/synthetic/.gitkeep
 # Allow evaluation directory structure
 !/data/evaluation/
 !/data/evaluation/.gitkeep
