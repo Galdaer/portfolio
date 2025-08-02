@@ -249,7 +249,7 @@ class KeyManager:
         # Check if config has master_key_override (for testing)
         if isinstance(self.config, dict) and self.config.get("master_key_override"):
             self.logger.info("Using configuration-provided master key")
-            return self.config["master_key_override"]
+            return bytes(self.config["master_key_override"])
 
         # Delegate to centralized loader with configuration context
         return EncryptionConfigLoader.get_or_create_master_key(self.logger, config=self.config)
@@ -592,7 +592,7 @@ class KeyManager:
         operation: str,
         data_type: str | None = None,
         user_id: str | None = None,
-    ):
+    ) -> None:
         """Log key usage for audit"""
         try:
             with self.postgres_conn.cursor() as cursor:
@@ -616,7 +616,7 @@ class HealthcareEncryptionManager:
     MIN_ENTROPY_THRESHOLD = 4.0  # Minimum Shannon entropy for cryptographic keys
     MIN_KEY_LENGTH = 32  # Minimum key length in bytes (256 bits)
 
-    def __init__(self, postgres_conn, config=None):
+    def __init__(self, postgres_conn: Any, config: Any = None) -> None:
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.HealthcareEncryptionManager")
 
@@ -657,7 +657,7 @@ class HealthcareEncryptionManager:
 
         return base_config
 
-    def _init_default_keys(self):
+    def _init_default_keys(self) -> None:
         """Initialize default encryption keys"""
         try:
             # Check if default keys exist
@@ -784,7 +784,8 @@ class HealthcareEncryptionManager:
 
             # Try to parse as JSON, otherwise return as string
             try:
-                return json.loads(decrypted_data.decode())
+                parsed_result: Any = json.loads(decrypted_data.decode())
+                return parsed_result
             except json.JSONDecodeError:
                 return decrypted_data.decode()
 

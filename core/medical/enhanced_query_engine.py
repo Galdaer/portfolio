@@ -491,7 +491,7 @@ class EnhancedMedicalQueryEngine:
         )
 
         # Weighted average
-        confidence = source_quality * 0.4 + source_quantity * 0.3 + reasoning_quality * 0.3
+        confidence: float = source_quality * 0.4 + source_quantity * 0.3 + reasoning_quality * 0.3
         return min(confidence, 1.0)
 
     async def _search_clinical_trials(
@@ -617,9 +617,10 @@ class EnhancedMedicalQueryEngine:
                 options={"temperature": 0.3, "max_tokens": 150},
             )
 
-            return result.get(
+            result_text: str = result.get(
                 "response", "Sources selected based on relevance and evidence quality."
             )
+            return result_text
 
         except Exception:
             return f"Found {len(sources)} sources including {source_summary['high_evidence']} high-evidence sources."

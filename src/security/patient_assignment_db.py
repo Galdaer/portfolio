@@ -31,7 +31,7 @@ class PatientAssignmentDB:
         self.logger = logging.getLogger(f"{__name__}.PatientAssignmentDB")
         self.init_database()
 
-    def init_database(self):
+    def init_database(self) -> None:
         """Initialize patient assignment tables"""
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -292,7 +292,7 @@ class SessionManager:
 class RBACConfig:
     """Configuration management for RBAC system"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.patient_assignment_enabled = (
             os.getenv("RBAC_ENABLE_PATIENT_ASSIGNMENT", "false").lower() == "true"
         )

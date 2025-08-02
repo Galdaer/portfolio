@@ -26,7 +26,7 @@ __version__ = "1.0.0"
 
 
 # Configuration validation
-def validate_config():
+def validate_config() -> bool:
     """Validate that all required configuration is present"""
     required_fields = ["project_name", "database_name", "ollama_url", "mcp_server_url"]
 
@@ -38,7 +38,7 @@ def validate_config():
 
 
 # Healthcare compliance check
-def check_compliance_config():
+def check_compliance_config() -> bool:
     """Check that healthcare compliance settings are properly configured"""
     compliance_fields = [
         "data_retention_days",
@@ -65,18 +65,18 @@ def check_compliance_config():
 
 
 # Development vs Production configuration helpers
-def is_development():
+def is_development() -> bool:
     """Check if running in development mode"""
     return getattr(config, "development_mode", True)
 
 
-def is_production():
+def is_production() -> bool:
     """Check if running in production mode"""
     return not is_development()
 
 
 # Healthcare AI specific configuration helpers
-def get_ai_config():
+def get_ai_config() -> Dict[str, Any]:
     """Get AI-specific configuration settings"""
     return {
         "ollama_url": config.ollama_url,
@@ -87,7 +87,7 @@ def get_ai_config():
     }
 
 
-def get_database_config():
+def get_database_config() -> Dict[str, Any]:
     """Get database configuration for healthcare data storage"""
     return {
         "database_name": config.database_name,

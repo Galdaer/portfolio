@@ -7,9 +7,10 @@ Validates code for HIPAA compliance and medical data handling.
 import os
 import re
 import sys
+from typing import List
 
 
-def is_synthetic_data(content, match):
+def is_synthetic_data(content: str, match: str) -> bool:
     """Check if content contains synthetic data markers"""
     synthetic_markers = [
         "synthetic",
@@ -43,13 +44,13 @@ def is_synthetic_data(content, match):
     return False
 
 
-def check_healthcare_compliance(filename):
+def check_healthcare_compliance(filename: str) -> List[str]:
     """Check file for healthcare compliance issues"""
     try:
         with open(filename, encoding="utf-8") as f:
             content = f.read()
 
-        issues = []
+        issues: List[str] = []
 
         # Skip synthetic data files entirely
         if (
@@ -94,7 +95,7 @@ def check_healthcare_compliance(filename):
         return [f"{filename}: Error checking compliance - {str(e)}"]
 
 
-def main():
+def main() -> None:
     """Main compliance check function"""
     # Check all Python files
     issues = []

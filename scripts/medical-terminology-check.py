@@ -7,9 +7,10 @@ Ensures proper capitalization of medical terms.
 import os
 import re
 import sys
+from typing import List
 
 
-def check_medical_terminology(filename):
+def check_medical_terminology(filename: str) -> List[str]:
     """Check for proper medical terminology"""
     # Common medical terminology that should be spelled correctly
     medical_terms = {
@@ -43,7 +44,7 @@ def check_medical_terminology(filename):
         return []
 
 
-def main():
+def main() -> None:
     """Main terminology validation function"""
     # Check relevant files
     issues = []

@@ -56,7 +56,7 @@ def validate_hipaa_config():
     return issues
 
 
-def main():
+def main() -> None:
     """Main HIPAA validation function"""
     issues = validate_hipaa_config()
 

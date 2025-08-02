@@ -8,7 +8,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, AsyncGenerator, Callable, Dict, DefaultDict, Deque
+from typing import Any, AsyncGenerator, Callable, Dict, DefaultDict, Deque, Awaitable
 
 import jwt
 import psycopg2
@@ -380,7 +380,7 @@ class HealthcareMCPServer:
 
         # Add security middleware
         @self.app.middleware("http")
-        async def security_middleware(request: Request, call_next: Callable[[Request], Any]) -> Response:
+        async def security_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
             # Log all requests for audit trail
             start_time = datetime.now()
 
