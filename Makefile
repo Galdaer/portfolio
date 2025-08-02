@@ -302,7 +302,7 @@ lint:
 	$(MAKE) lint-python
 
 lint-python:
-	@echo "🔍  Running Python lint (ruff and pyright) for healthcare AI components"
+	@echo "🔍  Running Python lint (ruff and mypy) for healthcare AI components"
 	@# Run Ruff for linting (pyproject.toml has exclusions for submodules)
 	@if command -v ruff >/dev/null 2>&1; then \
 		echo "🧹 Running Ruff linting..."; \
@@ -325,17 +325,17 @@ lint-python:
 	else \
 		python3 -m ruff format --check .; \
 	fi
-	@# Run Pyright for type checking (pyproject.toml has exclusions)
-	@if command -v pyright >/dev/null 2>&1; then \
-		echo "🔍 Running Pyright type checking..."; \
-		pyright; \
-	elif python3 -m pyright --version >/dev/null 2>&1; then \
-		echo "🔍 Running Pyright type checking..."; \
-		python3 -m pyright; \
+	@# Run Mypy for type checking (mypy.ini has healthcare-specific configuration)
+	@if command -v mypy >/dev/null 2>&1; then \
+		echo "🔍 Running Mypy type checking..."; \
+		mypy .; \
+	elif python3 -m mypy --version >/dev/null 2>&1; then \
+		echo "🔍 Running Mypy type checking..."; \
+		python3 -m mypy .; \
 	else \
-		echo "⚠️  pyright not found - installing via make deps"; \
+		echo "⚠️  mypy not found - installing via make deps"; \
 		$(MAKE) deps; \
-		python3 -m pyright; \
+		python3 -m mypy .; \
 	fi
 
 format:
