@@ -9,21 +9,29 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from io import StringIO
-from typing import Any, cast, Dict, List, Tuple
+from typing import Any, cast, Dict, List, Tuple, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from presidio_analyzer import AnalyzerEngine
+    from presidio_anonymizer import AnonymizerEngine
+    AnalyzerEngineType = type[AnalyzerEngine]
+    AnonymizerEngineType = type[AnonymizerEngine]
+else:
+    AnalyzerEngine: Optional[Any] = None
+    AnonymizerEngine: Optional[Any] = None
+    AnalyzerEngineType: Optional[Any] = None
+    AnonymizerEngineType: Optional[Any] = None
 
 try:
     from presidio_analyzer import AnalyzerEngine
     from presidio_anonymizer import AnonymizerEngine
 
     PRESIDIO_AVAILABLE = True
-    AnalyzerEngineType = type[AnalyzerEngine]
-    AnonymizerEngineType = type[AnonymizerEngine]
+    if TYPE_CHECKING:
+        AnalyzerEngineType = type[AnalyzerEngine]
+        AnonymizerEngineType = type[AnonymizerEngine]
 except ImportError:
-    AnalyzerEngine = None  # type: ignore
-    AnonymizerEngine = None  # type: ignore
     PRESIDIO_AVAILABLE = False
-    AnalyzerEngineType = None  # type: ignore
-    AnonymizerEngineType = None  # type: ignore
     logging.warning("Presidio not available, using basic PHI detection")
 
 # Configure logging

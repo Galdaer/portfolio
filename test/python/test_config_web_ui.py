@@ -6,29 +6,33 @@ import sys
 import types
 import warnings
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 import pytest
 
 # Load config_web_ui.py as a module
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "config_web_ui.py"
 spec = importlib.util.spec_from_file_location("config_web_ui", SCRIPT_PATH)
-config_web_ui = importlib.util.module_from_spec(spec)
+if spec is not None:
+    config_web_ui = importlib.util.module_from_spec(spec)
+else:
+    config_web_ui = None
 
 # Stub minimal flask module to satisfy imports
 flask_stub = types.ModuleType("flask")
 
 
 class _Flask:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         pass
 
-    def route(self, *args, **kwargs):
-        def decorator(func):
+    def route(self, *args: Any, **kwargs: Any) -> Any:
+        def decorator(func: Any) -> Any:
             return func
 
         return decorator
 
-    def run(self, *args, **kwargs):
+    def run(self, *args: Any, **kwargs: Any) -> None:
         pass
 
 
@@ -40,14 +44,19 @@ flask_stub.render_template_string = lambda *a, **k: ""
 flask_stub.send_from_directory = lambda *a, **k: None
 sys.modules.setdefault("flask", flask_stub)
 
-spec.loader.exec_module(config_web_ui)
+if spec is not None and spec.loader is not None:
+    spec.loader.exec_module(config_web_ui)
 
-key_to_service = config_web_ui.key_to_service
-changed_services = config_web_ui.changed_services
+if config_web_ui is not None:
+    key_to_service = config_web_ui.key_to_service
+    changed_services = config_web_ui.changed_services
+else:
+    key_to_service = {}
+    changed_services = set()
 SERVICE_PREFIX_MAP = config_web_ui.SERVICE_PREFIX_MAP
 
 
-def test_key_to_service_basic():
+def test_key_to_service_basic() -> None:
     for prefix, service in SERVICE_PREFIX_MAP.items():
         assert key_to_service(f"{prefix}_PORT") == service
 
@@ -56,7 +65,7 @@ def test_key_to_service_basic():
     assert key_to_service("UNKNOWN_PORT") is None
 
 
-def test_changed_services_detection():
+def test_changed_services_detection() -> None:
     old = {
         "CONTAINER_PORTS[grafana]": "3000",
         "PLEX_PORT": "32400",
@@ -71,7 +80,7 @@ def test_changed_services_detection():
     assert result == {"grafana"}
 
 
-def test_build_service_prefix_map_basic(tmp_path, monkeypatch):
+def test_build_service_prefix_map_basic(tmp_path, monkeypatch) -> None:
     root = tmp_path
     (root / "services" / "core").mkdir(parents=True)
     (root / "services" / "user").mkdir(parents=True)
@@ -84,7 +93,7 @@ def test_build_service_prefix_map_basic(tmp_path, monkeypatch):
     assert prefix_map == {"FOOBAR": "foobar", "FOO": "foo", "BAR": "bar"}
 
 
-def test_build_service_prefix_map_duplicate_warning(tmp_path, monkeypatch):
+def test_build_service_prefix_map_duplicate_warning(tmp_path, monkeypatch) -> None:
     root = tmp_path
     (root / "services" / "core").mkdir(parents=True)
     (root / "services" / "user").mkdir(parents=True)
@@ -98,7 +107,7 @@ def test_build_service_prefix_map_duplicate_warning(tmp_path, monkeypatch):
     assert any("Duplicate service config" in str(w.message) for w in rec)
 
 
-def test_port_loaded_from_env(monkeypatch):
+def test_port_loaded_from_env(monkeypatch) -> None:
     monkeypatch.setenv("CONFIG_WEB_UI_PORT", "12345")
     spec_local = importlib.util.spec_from_file_location("config_web_ui_reload", SCRIPT_PATH)
     mod = importlib.util.module_from_spec(spec_local)
@@ -106,7 +115,7 @@ def test_port_loaded_from_env(monkeypatch):
     assert mod.PORT == 12345
 
 
-def test_teardown_path_from_env(monkeypatch):
+def test_teardown_path_from_env(monkeypatch) -> None:
     monkeypatch.setenv("TEARDOWN_PATH", "/tmp/custom-teardown.sh")
     spec_local = importlib.util.spec_from_file_location("config_web_ui_reload", SCRIPT_PATH)
     mod = importlib.util.module_from_spec(spec_local)
@@ -114,7 +123,7 @@ def test_teardown_path_from_env(monkeypatch):
     assert mod.TEARDOWN_PATH == "/tmp/custom-teardown.sh"
 
 
-def test_teardown_path_fallback_to_which(monkeypatch):
+def test_teardown_path_fallback_to_which(monkeypatch) -> None:
     monkeypatch.delenv("TEARDOWN_PATH", raising=False)
     monkeypatch.setattr(shutil, "which", lambda _name: "/opt/intelluxe/scripts/teardown.sh")
     spec_local = importlib.util.spec_from_file_location("config_web_ui_reload", SCRIPT_PATH)
@@ -123,7 +132,7 @@ def test_teardown_path_fallback_to_which(monkeypatch):
     assert mod.TEARDOWN_PATH == "/opt/intelluxe/scripts/teardown.sh"
 
 
-def test_teardown_path_default(monkeypatch):
+def test_teardown_path_default(monkeypatch) -> None:
     monkeypatch.delenv("TEARDOWN_PATH", raising=False)
     monkeypatch.setattr(shutil, "which", lambda _name: None)
     spec_local = importlib.util.spec_from_file_location("config_web_ui_reload", SCRIPT_PATH)
@@ -132,7 +141,7 @@ def test_teardown_path_default(monkeypatch):
     assert mod.TEARDOWN_PATH == "/usr/local/bin/teardown.sh"
 
 
-def test_bootstrap_route_invokes_subprocess(monkeypatch):
+def test_bootstrap_route_invokes_subprocess(monkeypatch) -> None:
     calls = {}
 
     def fake_popen(cmd, stdout=None, stderr=None, env=None):
@@ -168,7 +177,7 @@ def test_bootstrap_route_invokes_subprocess(monkeypatch):
     assert result == "redirect to /index"
 
 
-def test_reset_wg_keys_route(monkeypatch):
+def test_reset_wg_keys_route(monkeypatch) -> None:
     calls = {}
 
     def fake_popen(cmd, stdout=None, stderr=None, env=None):
@@ -261,7 +270,7 @@ def _route_test(
     assert result == "redirect to /index"
 
 
-def test_self_update_route(monkeypatch):
+def test_self_update_route(monkeypatch) -> None:
     _route_test(
         monkeypatch,
         config_web_ui.self_update,
@@ -269,7 +278,7 @@ def test_self_update_route(monkeypatch):
     )
 
 
-def test_diagnostics_route(monkeypatch):
+def test_diagnostics_route(monkeypatch) -> None:
     _route_test(
         monkeypatch,
         config_web_ui.diagnostics,
@@ -277,7 +286,7 @@ def test_diagnostics_route(monkeypatch):
     )
 
 
-def test_auto_repair_route(monkeypatch):
+def test_auto_repair_route(monkeypatch) -> None:
     _route_test(
         monkeypatch,
         config_web_ui.auto_repair,
@@ -285,7 +294,7 @@ def test_auto_repair_route(monkeypatch):
     )
 
 
-def test_reset_system_route(monkeypatch):
+def test_reset_system_route(monkeypatch) -> None:
     _route_test(
         monkeypatch,
         config_web_ui.reset_system_route,
@@ -293,7 +302,7 @@ def test_reset_system_route(monkeypatch):
     )
 
 
-def test_teardown_route(monkeypatch):
+def test_teardown_route(monkeypatch) -> None:
     _route_test(
         monkeypatch,
         config_web_ui.teardown_route,
@@ -301,7 +310,7 @@ def test_teardown_route(monkeypatch):
     )
 
 
-def test_systemd_summary_route(monkeypatch):
+def test_systemd_summary_route(monkeypatch) -> None:
     calls = {}
 
     def fake_check_output(cmd, env=None, text=False, stderr=None):
@@ -322,7 +331,7 @@ def test_systemd_summary_route(monkeypatch):
     assert result == "<pre>summary output</pre><p><a href='/index'>Back</a></p>"
 
 
-def test_systemd_summary_route_error(monkeypatch):
+def test_systemd_summary_route_error(monkeypatch) -> None:
     def raise_error(*_args, **_kwargs):
         raise subprocess.CalledProcessError(1, "cmd", output="fail")
 
@@ -332,7 +341,7 @@ def test_systemd_summary_route_error(monkeypatch):
     assert result == "<pre>fail</pre><p><a href='/index'>Back</a></p>"
 
 
-def test_stop_service_route_no_service(monkeypatch):
+def test_stop_service_route_no_service(monkeypatch) -> None:
     calls = {"called": False}
 
     def fake_run_bootstrap(*_args, **_kwargs):
@@ -348,7 +357,7 @@ def test_stop_service_route_no_service(monkeypatch):
     assert result == "redirect to /index"
 
 
-def test_index_contains_reset_form(monkeypatch):
+def test_index_contains_reset_form(monkeypatch) -> None:
     monkeypatch.setattr(
         config_web_ui,
         "load_config",
@@ -379,7 +388,7 @@ def test_index_contains_reset_form(monkeypatch):
     assert "http://localhost:1234" in html
 
 
-def test_index_contains_teardown_form(monkeypatch):
+def test_index_contains_teardown_form(monkeypatch) -> None:
     pytest.importorskip("jinja2")
     monkeypatch.setattr(
         config_web_ui,
@@ -412,7 +421,7 @@ def test_index_contains_teardown_form(monkeypatch):
     assert "confirm('Teardown entire Intelluxe stack?')" in html
 
 
-def test_index_default_grafana_port(monkeypatch):
+def test_index_default_grafana_port(monkeypatch) -> None:
     monkeypatch.setattr(
         config_web_ui,
         "load_config",
@@ -435,7 +444,7 @@ def test_index_default_grafana_port(monkeypatch):
     assert "http://localhost:3001" in html
 
 
-def test_get_grafana_default_port_file(monkeypatch, tmp_path):
+def test_get_grafana_default_port_file(monkeypatch, tmp_path) -> None:
     root = tmp_path / "repo"
     script_dir = root / "scripts"
     script_dir.mkdir(parents=True)
@@ -447,7 +456,7 @@ def test_get_grafana_default_port_file(monkeypatch, tmp_path):
     assert port == "5678"
 
 
-def test_get_grafana_default_port_missing(monkeypatch, tmp_path):
+def test_get_grafana_default_port_missing(monkeypatch, tmp_path) -> None:
     root = tmp_path / "repo"
     script_dir = root / "scripts"
     script_dir.mkdir(parents=True)
@@ -456,14 +465,14 @@ def test_get_grafana_default_port_missing(monkeypatch, tmp_path):
     assert port == "3001"
 
 
-def test_parse_all_containers(tmp_path, monkeypatch):
+def test_parse_all_containers(tmp_path, monkeypatch) -> None:
     script = tmp_path / "bootstrap.sh"
     script.write_text("ALL_CONTAINERS=(a b c)\n")
     monkeypatch.setattr(config_web_ui, "BOOTSTRAP_PATH", str(script))
     assert config_web_ui.get_all_containers() == ["a", "b", "c"]
 
 
-def test_load_and_save_selected_containers(tmp_path, monkeypatch):
+def test_load_and_save_selected_containers(tmp_path, monkeypatch) -> None:
     cfg = tmp_path / "conf"
     cfg.write_text("SELECTED_CONTAINERS=(traefik wireguard)\nOTHER=1\n")
     monkeypatch.setattr(config_web_ui, "CONFIG_FILE", str(cfg))
@@ -490,7 +499,7 @@ def test_load_and_save_selected_containers(tmp_path, monkeypatch):
     }
 
 
-def test_save_config_chown_default_uid_gid(tmp_path, monkeypatch):
+def test_save_config_chown_default_uid_gid(tmp_path, monkeypatch) -> None:
     cfg = tmp_path / "conf"
     cfg.write_text("SELECTED_CONTAINERS=()\n")
     monkeypatch.setattr(config_web_ui, "CONFIG_FILE", str(cfg))
@@ -513,7 +522,7 @@ def test_save_config_chown_default_uid_gid(tmp_path, monkeypatch):
     }
 
 
-def test_index_includes_extra_fields(monkeypatch):
+def test_index_includes_extra_fields(monkeypatch) -> None:
     cfg = dict.fromkeys(config_web_ui.EXTRA_FIELDS, "x")
     cfg["SELECTED_CONTAINERS"] = []
     monkeypatch.setattr(config_web_ui, "load_config", lambda: cfg)
@@ -533,7 +542,7 @@ def test_index_includes_extra_fields(monkeypatch):
         assert f'name="{field}"' in html
 
 
-def test_index_post_updates_extra_fields(monkeypatch):
+def test_index_post_updates_extra_fields(monkeypatch) -> None:
     start = dict.fromkeys(config_web_ui.EXTRA_FIELDS, "old")
     start["SELECTED_CONTAINERS"] = []
     monkeypatch.setattr(config_web_ui, "load_config", lambda: start)
@@ -563,7 +572,7 @@ def test_index_post_updates_extra_fields(monkeypatch):
     assert result == "redirect to /index"
 
 
-def test_logs_index_lists_files(monkeypatch):
+def test_logs_index_lists_files(monkeypatch) -> None:
     monkeypatch.setattr(config_web_ui.os.path, "isdir", lambda p: True)
     monkeypatch.setattr(config_web_ui.os, "listdir", lambda p: ["a.log", "b.log"])
 
@@ -586,7 +595,7 @@ def test_logs_index_lists_files(monkeypatch):
     assert 'href="/logs/b.log"' in html
 
 
-def test_logs_index_serves_file(monkeypatch):
+def test_logs_index_serves_file(monkeypatch) -> None:
     result_obj = object()
     called = {}
 
@@ -602,7 +611,7 @@ def test_logs_index_serves_file(monkeypatch):
     assert returned is result_obj
 
 
-def test_logs_index_missing_dir(monkeypatch):
+def test_logs_index_missing_dir(monkeypatch) -> None:
     monkeypatch.setattr(config_web_ui.os.path, "isdir", lambda p: False)
 
     called = {}
@@ -622,7 +631,7 @@ def test_logs_index_missing_dir(monkeypatch):
     assert called == {}
 
 
-def test_logs_index_container_logs(monkeypatch):
+def test_logs_index_container_logs(monkeypatch) -> None:
     monkeypatch.setattr(config_web_ui.os.path, "isfile", lambda p: False)
     req = types.SimpleNamespace(args={"lines": "5"})
     monkeypatch.setattr(config_web_ui, "request", req)
@@ -641,7 +650,7 @@ def test_logs_index_container_logs(monkeypatch):
     assert "<pre>log output</pre>" in html
 
 
-def test_logs_index_container_logs_error(monkeypatch):
+def test_logs_index_container_logs_error(monkeypatch) -> None:
     monkeypatch.setattr(config_web_ui.os.path, "isfile", lambda p: False)
     req = types.SimpleNamespace(args={"lines": "7"})
     monkeypatch.setattr(config_web_ui, "request", req)
@@ -656,7 +665,7 @@ def test_logs_index_container_logs_error(monkeypatch):
     assert "<pre>err output</pre>" in html
 
 
-def test_logs_index_container_logs_html_escaped(monkeypatch):
+def test_logs_index_container_logs_html_escaped(monkeypatch) -> None:
     monkeypatch.setattr(config_web_ui.os.path, "isfile", lambda p: False)
     req = types.SimpleNamespace(args={"lines": "1"})
     monkeypatch.setattr(config_web_ui, "request", req)
@@ -670,7 +679,7 @@ def test_logs_index_container_logs_html_escaped(monkeypatch):
     assert "<pre>&lt;tag&gt;</pre>" in html
 
 
-def test_add_service_route(monkeypatch, tmp_path):
+def test_add_service_route(monkeypatch, tmp_path) -> None:
     form_data = {
         "service": "newsvc",
         "image": "my/image",
@@ -787,7 +796,7 @@ class MockFileRead:
         "description",
     ],
 )
-def test_add_service_route_missing_field(monkeypatch, missing_field):
+def test_add_service_route_missing_field(monkeypatch, missing_field) -> None:
     form_data = {
         "service": "newsvc",
         "image": "my/image",
@@ -826,7 +835,7 @@ def test_add_service_route_missing_field(monkeypatch, missing_field):
     assert result == "redirect to /index"
 
 
-def test_index_includes_add_service_form(monkeypatch):
+def test_index_includes_add_service_form(monkeypatch) -> None:
     monkeypatch.setattr(config_web_ui, "load_config", lambda: {"SELECTED_CONTAINERS": []})
     monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
     monkeypatch.setattr(config_web_ui, "render_template_string", lambda tpl, **kw: tpl)
@@ -840,7 +849,7 @@ def test_index_includes_add_service_form(monkeypatch):
     assert "addServiceForm" in html
 
 
-def test_index_includes_remove_service_form(monkeypatch):
+def test_index_includes_remove_service_form(monkeypatch) -> None:
     monkeypatch.setattr(config_web_ui, "load_config", lambda: {"SELECTED_CONTAINERS": []})
     monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
     monkeypatch.setattr(config_web_ui, "render_template_string", lambda tpl, **kw: tpl)
@@ -854,7 +863,7 @@ def test_index_includes_remove_service_form(monkeypatch):
     assert "removeForm" in html
 
 
-def test_add_service_form_confirm_js(tmp_path):
+def test_add_service_form_confirm_js(tmp_path) -> None:
     if shutil.which("node") is None:
         pytest.skip("node binary not available")
     js_path = (
@@ -864,7 +873,7 @@ def test_add_service_form_confirm_js(tmp_path):
     assert result.stdout.strip() == "PASS"
 
 
-def test_get_container_statuses_parses(monkeypatch):
+def test_get_container_statuses_parses(monkeypatch) -> None:
     output = "svc1 Up 10 seconds\nsvc2 Exited (0) 1 minute ago\n"
     monkeypatch.setattr(
         config_web_ui.subprocess,
@@ -878,7 +887,7 @@ def test_get_container_statuses_parses(monkeypatch):
     }
 
 
-def test_get_container_statuses_error(monkeypatch):
+def test_get_container_statuses_error(monkeypatch) -> None:
     def _raise(*_a, **_k):
         raise subprocess.CalledProcessError(1, ["docker"])
 
@@ -886,7 +895,7 @@ def test_get_container_statuses_error(monkeypatch):
     assert config_web_ui.get_container_statuses() == {}
 
 
-def test_index_passes_container_status(monkeypatch):
+def test_index_passes_container_status(monkeypatch) -> None:
     monkeypatch.setattr(config_web_ui, "load_config", lambda: {"SELECTED_CONTAINERS": []})
     monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: ["svc1"])
     statuses = {"svc1": "Up"}

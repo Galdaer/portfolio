@@ -9,6 +9,7 @@ Based on patterns from reference/ai-patterns/ adapted for healthcare AI.
 
 import sys
 from pathlib import Path
+from typing import Any, Dict
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -19,7 +20,7 @@ sys.path.insert(0, str(project_root))
 
 
 # Test configuration loading
-def test_config_loading():
+def test_config_loading() -> None:
     """Test that configuration loads properly"""
     from config import check_compliance_config, validate_config
     from config.app import config
@@ -32,7 +33,7 @@ def test_config_loading():
     check_compliance_config()  # Should not raise
 
 
-def test_config_helpers():
+def test_config_helpers() -> None:
     """Test configuration helper functions"""
     from config import get_ai_config, get_compliance_config, get_database_config
 
@@ -48,7 +49,7 @@ def test_config_helpers():
     assert "pii_redaction_enabled" in compliance_config
 
 
-def test_environment_variables():
+def test_environment_variables() -> None:
     """Test that required environment variables are available"""
     env_file = project_root / ".env"
     assert env_file.exists(), ".env file should exist"
@@ -64,7 +65,7 @@ def test_environment_variables():
 
 # Test core component initialization (mocked)
 @pytest.mark.asyncio
-async def test_memory_manager_initialization():
+async def test_memory_manager_initialization() -> None:
     """Test memory manager can be initialized (mocked)"""
     try:
         from core.memory import MemoryManager
@@ -90,7 +91,7 @@ async def test_memory_manager_initialization():
 
 
 @pytest.mark.asyncio
-async def test_model_registry_initialization():
+async def test_model_registry_initialization() -> None:
     """Test model registry initialization"""
     try:
         from core.models import ModelRegistry
@@ -105,7 +106,7 @@ async def test_model_registry_initialization():
 
 
 @pytest.mark.asyncio
-async def test_tool_registry_initialization():
+async def test_tool_registry_initialization() -> None:
     """Test tool registry for MCP integration"""
     try:
         from core.tools import ToolRegistry
@@ -121,13 +122,18 @@ async def test_tool_registry_initialization():
 
 # Test agent base class functionality
 @pytest.mark.asyncio
-async def test_base_agent_safety_boundaries():
+async def test_base_agent_safety_boundaries() -> None:
     """Test that safety boundaries are enforced"""
     try:
         from agents import BaseHealthcareAgent
 
+        # Create a concrete implementation for testing
+        class TestHealthcareAgent(BaseHealthcareAgent):
+            async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
+                return {"status": "test", "response": "Test response"}
+
         # Create test agent instance
-        agent = BaseHealthcareAgent("test_agent", "test")
+        agent = TestHealthcareAgent("test_agent", "test")
 
         # Test that safety methods exist
         assert hasattr(agent, "_check_safety_boundaries")
@@ -139,7 +145,7 @@ async def test_base_agent_safety_boundaries():
         assert agents_init.exists(), "agents/__init__.py should exist"
 
 
-def test_agent_templates_exist():
+def test_agent_templates_exist() -> None:
     """Test that agent base classes are available"""
     try:
         from agents import BaseHealthcareAgent
@@ -164,7 +170,7 @@ def test_agent_templates_exist():
             assert agent_path.exists(), f"agents/{agent_dir} should exist"
 
 
-def test_phase0_directory_structure():
+def test_phase0_directory_structure() -> None:
     """Test that Phase 0 directories exist"""
     base_dirs = [
         "agents",
@@ -181,7 +187,7 @@ def test_phase0_directory_structure():
         assert dir_path.exists(), f"Directory {directory} should exist"
 
 
-def test_data_directories():
+def test_data_directories() -> None:
     """Test healthcare-specific data directories"""
     data_dirs = [
         "data/training",
@@ -198,7 +204,7 @@ def test_data_directories():
         assert dir_path.exists(), f"Data directory {data_dir} should exist"
 
 
-def test_infrastructure_directories():
+def test_infrastructure_directories() -> None:
     """Test infrastructure directories for healthcare deployment"""
     infra_dirs = [
         "infrastructure/docker",
@@ -212,7 +218,7 @@ def test_infrastructure_directories():
         assert dir_path.exists(), f"Infrastructure directory {infra_dir} should exist"
 
 
-def test_gitignore_includes_ai_directories():
+def test_gitignore_includes_ai_directories() -> None:
     """Test that .gitignore properly includes AI application directories"""
     with open(project_root / ".gitignore") as f:
         gitignore_content = f.read()
@@ -232,13 +238,13 @@ def test_gitignore_includes_ai_directories():
         assert entry in gitignore_content, f"GitIgnore should include {entry}"
 
 
-def test_main_application_entry():
+def test_main_application_entry() -> None:
     """Test that main application entry point exists"""
     main_py = project_root / "main.py"
     assert main_py.exists(), "main.py should exist"
 
 
-def test_requirements_structure():
+def test_requirements_structure() -> None:
     """Test that requirements are properly structured"""
     req_files = ["requirements.in", "requirements.txt"]
 
@@ -247,7 +253,7 @@ def test_requirements_structure():
         assert req_path.exists(), f"{req_file} should exist"
 
 
-def test_healthcare_compliance_ready():
+def test_healthcare_compliance_ready() -> None:
     """Test that healthcare compliance structures are in place"""
     # Check for compliance-related environment variables
     env_file = project_root / ".env"

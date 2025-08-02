@@ -394,7 +394,7 @@ class MultiAgentHealthcareTests:
 
 # Test functions for pytest
 @pytest.mark.asyncio
-async def test_complete_patient_workflow():
+async def test_complete_patient_workflow() -> None:
     """Test complete patient workflow with multiple agents"""
     test_framework = MultiAgentHealthcareTests()
     scenarios = test_framework.create_test_scenarios()
@@ -413,7 +413,7 @@ async def test_complete_patient_workflow():
 
 
 @pytest.mark.asyncio
-async def test_medical_research_accuracy():
+async def test_medical_research_accuracy() -> None:
     """Test medical research agent accuracy"""
     test_framework = MultiAgentHealthcareTests()
     scenarios = test_framework.create_test_scenarios()

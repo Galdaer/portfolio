@@ -549,14 +549,14 @@ async def test_phase1_agent() -> None:
 
         try:
             response = await agent.process_healthcare_query(
-                test_case["query"], test_case["context"]
+                str(test_case["query"]), list(test_case["context"])
             )
 
             print("✅ Response generated:")
             print(f"   {response[:150]}...")
 
             # Quick compliance check
-            compliance_score = _check_basic_compliance(response, test_case["query"])
+            compliance_score = _check_basic_compliance(response, str(test_case["query"]))
             print(f"   Compliance Score: {compliance_score:.2f}")
 
         except Exception as e:

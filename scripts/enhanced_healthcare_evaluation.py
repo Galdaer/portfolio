@@ -26,10 +26,10 @@ try:
 except ImportError:
     DEEPEVAL_AVAILABLE = False
     # For type checking when DeepEval is not available
-    LLMTestCase = None  # type: ignore
-    AnswerRelevancyMetric = None  # type: ignore
-    ContextualRecallMetric = None  # type: ignore
-    FaithfulnessMetric = None  # type: ignore
+    LLMTestCase = None
+    AnswerRelevancyMetric = None
+    ContextualRecallMetric = None
+    FaithfulnessMetric = None
 
 logger = logging.getLogger(__name__)
 
