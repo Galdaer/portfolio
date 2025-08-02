@@ -165,7 +165,7 @@ class EnhancedMedicalQueryEngine:
         """
         Dynamic knowledge retrieval from multiple medical sources
         """
-        sources = []
+        sources: List[Dict[str, Any]] = []
         reasoning = ""
 
         try:
@@ -562,7 +562,7 @@ class EnhancedMedicalQueryEngine:
         if not sources:
             return "No relevant sources found for the query."
 
-        source_summary = {"total": len(sources), "by_type": {}, "high_evidence": 0}
+        source_summary: Dict[str, Any] = {"total": len(sources), "by_type": {}, "high_evidence": 0}
 
         # Analyze source composition
         for source in sources:
@@ -660,7 +660,7 @@ class EnhancedMedicalQueryEngine:
         if not previous_results:
             return "No previous results to analyze"
 
-        analysis = {
+        analysis: Dict[str, Any] = {
             "total_sources": len(previous_results),
             "source_types": {},
             "evidence_levels": {},

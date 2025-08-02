@@ -67,12 +67,30 @@ jobs:
       - name: Python quality checks (flake8 + mypy)
         run: |
           echo "🔍 Running Python quality checks..."
+          mypy_errors=0
           for dir in src agents mcps; do
             if [ -d "$dir/" ]; then
-              python3 -m mypy $dir/ --config-file mypy.ini --ignore-missing-imports || echo "MyPy warnings in $dir/"
+              echo "🔍 Running MyPy on $dir/..."
+              # Check if directory has any Python files
+              if find "$dir/" -name "*.py" | head -1 | grep -q .; then
+                if ! python3 -m mypy $dir/ --config-file mypy.ini --ignore-missing-imports; then
+                  echo "❌ MyPy errors found in $dir/"
+                  ((mypy_errors++))
+                else
+                  echo "✅ MyPy passed for $dir/"
+                fi
+              else
+                echo "ℹ️  No Python files found in $dir/ - skipping MyPy"
+              fi
             fi
           done
-          echo "✅ Quality checks completed"
+
+          if [ $mypy_errors -gt 0 ]; then
+            echo "❌ MyPy found errors in $mypy_errors directories - failing build"
+            exit 1
+          else
+            echo "✅ All MyPy quality checks passed"
+          fi
 
       - name: Healthcare configuration validation
         run: |

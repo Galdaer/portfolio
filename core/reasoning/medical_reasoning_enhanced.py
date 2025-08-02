@@ -56,11 +56,6 @@ class ReasoningResult:
     clinical_recommendations: List[str]
     evidence_sources: List[Dict[str, Any]]
     disclaimers: List[str]
-    final_assessment: Dict[str, Any]
-    confidence_score: float
-    clinical_recommendations: List[str]
-    evidence_sources: List[Dict[str, Any]]
-    disclaimers: List[str]
 
 
 class EnhancedMedicalReasoning:
@@ -199,13 +194,24 @@ class EnhancedMedicalReasoning:
             # Calculate confidence
             confidence = self._calculate_step_confidence(analysis_data, reasoning_type)
 
+            # Ensure sources is always a list of strings
+            raw_sources: Any = analysis_data.get("sources", [])
+            if isinstance(raw_sources, str):
+                sources = [raw_sources]
+            elif isinstance(raw_sources, list):
+                sources = [str(s) for s in raw_sources]
+            elif isinstance(raw_sources, dict):
+                sources = [str(raw_sources)]
+            else:
+                sources = []
+
             return ReasoningStep(
                 step_number=step_number,
                 reasoning_type=reasoning_type.value,
                 query=f"Clinical reasoning step {step_number}: {reasoning_type.value}",
                 analysis=analysis_data,
                 confidence=confidence,
-                sources=analysis_data.get("sources", []),
+                sources=sources,
                 disclaimers=self.medical_disclaimers,
                 timestamp=datetime.now(),
             )
@@ -256,8 +262,8 @@ class EnhancedMedicalReasoning:
         """Analyze potential drug interactions"""
         medications = scenario.get("medications", [])
 
-        interactions = []
-        warnings = []
+        interactions: List[Dict[str, Any]] = []
+        warnings: List[str] = []
 
         # Check for known interaction patterns
         for i, med1 in enumerate(medications):
@@ -368,7 +374,7 @@ class EnhancedMedicalReasoning:
     def _rank_diagnosis_candidates(self, candidates: List[Dict], scenario: Dict) -> List[Dict]:
         """Rank diagnosis candidates by likelihood"""
         # Remove duplicates and sort by likelihood
-        unique_candidates = {}
+        unique_candidates: Dict[str, Dict[str, Any]] = {}
         for candidate in candidates:
             diagnosis = candidate["diagnosis"]
             if (
@@ -448,7 +454,7 @@ class EnhancedMedicalReasoning:
 
     def _group_related_symptoms(self, symptoms: List[str]) -> Dict[str, List[str]]:
         """Group symptoms by body system or clinical relevance"""
-        groups = {
+        groups: Dict[str, List[str]] = {
             "cardiovascular": [],
             "respiratory": [],
             "neurological": [],

@@ -94,6 +94,7 @@ structlog>=24.4.0
 pylint>=3.3.3
 
 # === TYPE STUBS FOR MYPY ===
+types-cachetools>=5.5.0
 types-requests>=2.32.0
 types-PyYAML>=6.0.0
 

@@ -938,6 +938,8 @@ typer==0.16.0
     #   fastmcp
     #   spacy
     #   weasel
+types-cachetools==6.1.0.20250717
+    # via -r requirements.in
 types-pyyaml==6.0.12.20250516
     # via -r requirements.in
 types-requests==2.32.4.20250611
@@ -985,9 +987,9 @@ tzdata==2025.2
     # via
     #   faker
     #   pandas
-unsloth @ git+https://github.com/unslothai/unsloth.git@5266ead104938c4908c7f2d2a60526555faf7e85
+unsloth @ git+https://github.com/unslothai/unsloth.git@a78b86e5c9c08b90f53a4ef89e6b9c6860fe66dc
     # via -r requirements.in
-unsloth-zoo==2025.7.11
+unsloth-zoo==2025.8.1
     # via unsloth
 urllib3==2.5.0
     # via
