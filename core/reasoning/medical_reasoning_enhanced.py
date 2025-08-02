@@ -32,7 +32,7 @@ class ReasoningStep:
     disclaimers: list[str]
     timestamp: datetime
 
-    def get(self, key: str, default=None):
+    def get(self, key: str, default: Any = None) -> Any:
         """Dict-like access for backward compatibility"""
         return getattr(self, key, default)
 
@@ -66,7 +66,7 @@ class EnhancedMedicalReasoning:
     Always consult qualified healthcare professionals for medical decisions.
     """
 
-    def __init__(self, query_engine, llm_client):
+    def __init__(self, query_engine: Any, llm_client: Any) -> None:
         self.query_engine = query_engine
         self.llm_client = llm_client
 

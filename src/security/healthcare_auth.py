@@ -21,7 +21,7 @@ class HealthcareAuthManager:
     Flexible authentication that integrates with existing clinic systems
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.auth_mode = AuthenticationMode(os.getenv("AUTH_MODE", "standalone"))
         self.enable_user_env_files = os.getenv("USER_ENV_FILES", "true").lower() == "true"
 

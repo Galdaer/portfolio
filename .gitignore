@@ -26,6 +26,8 @@
 !/.githooks/*
 !/.devcontainer/
 !/.vscode/
+!/.vscode/tasks.json
+!/.vscode/keybindings.json
 !/.vscode/settings.json
 
 # === SOURCE CODE DIRECTORIES ===
