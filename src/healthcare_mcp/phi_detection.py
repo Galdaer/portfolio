@@ -25,11 +25,7 @@ else:
 try:
     from presidio_analyzer import AnalyzerEngine
     from presidio_anonymizer import AnonymizerEngine
-
     PRESIDIO_AVAILABLE = True
-    if TYPE_CHECKING:
-        AnalyzerEngineType = type[AnalyzerEngine]
-        AnonymizerEngineType = type[AnonymizerEngine]
 except ImportError:
     PRESIDIO_AVAILABLE = False
     logging.warning("Presidio not available, using basic PHI detection")

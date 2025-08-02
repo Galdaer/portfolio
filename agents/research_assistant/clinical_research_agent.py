@@ -313,7 +313,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         research_tasks = [
             self.query_engine.process_medical_query(
                 query=str(stage["query"]),
-                query_type=stage["query_type"],  # type: ignore
+                query_type=stage["query_type"],
                 context=clinical_context,
                 max_iterations=2,
             )
