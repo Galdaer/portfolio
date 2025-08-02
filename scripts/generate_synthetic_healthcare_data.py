@@ -12,8 +12,21 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-import psycopg2
-import redis
+# Optional database dependencies with graceful fallback
+try:
+    import psycopg2
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
+    print("⚠️  psycopg2 not available - database population will be skipped")
+
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    print("⚠️  redis not available - Redis caching will be skipped")
+
 from faker import Faker
 from faker.providers import BaseProvider
 
@@ -170,20 +183,30 @@ class SyntheticHealthcareDataGenerator:
 
     def _connect_to_databases(self):
         """Connect to PostgreSQL and Redis if using database mode"""
-        try:
-            self.db_conn = psycopg2.connect(
-                "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
-            )
-            print("✅ Connected to PostgreSQL")
-        except Exception as e:
-            print(f"⚠️  PostgreSQL connection failed: {e}")
+        if not PSYCOPG2_AVAILABLE:
+            print("⚠️  psycopg2 not available - skipping PostgreSQL connection")
+            self.db_conn = None
+        else:
+            try:
+                self.db_conn = psycopg2.connect(
+                    "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
+                )
+                print("✅ Connected to PostgreSQL")
+            except Exception as e:
+                print(f"⚠️  PostgreSQL connection failed: {e}")
+                self.db_conn = None
 
-        try:
-            self.redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
-            self.redis_client.ping()
-            print("✅ Connected to Redis")
-        except Exception as e:
-            print(f"⚠️  Redis connection failed: {e}")
+        if not REDIS_AVAILABLE:
+            print("⚠️  redis not available - skipping Redis connection")
+            self.redis_client = None
+        else:
+            try:
+                self.redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
+                self.redis_client.ping()
+                print("✅ Connected to Redis")
+            except Exception as e:
+                print(f"⚠️  Redis connection failed: {e}")
+                self.redis_client = None
 
     def generate_patient(self):
         """Generate synthetic patient data"""

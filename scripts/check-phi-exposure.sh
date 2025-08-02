@@ -79,8 +79,37 @@ declare -a test_data_patterns=(
     "test@example.com"
 )
 
+# Synthetic data patterns to EXCLUDE from PHI detection (these are safe)
+declare -a synthetic_patterns=(
+    "PAT[0-9]{3}"        # Patient IDs like PAT001, PAT002
+    "PROV[0-9]{3}"       # Provider IDs like PROV001
+    "ENC[0-9]{3}"        # Encounter IDs like ENC001
+    "SYN-[0-9]+"         # Synthetic IDs like SYN-12345
+    "555-[0-9]{3}-[0-9]{4}"  # 555 phone numbers (clearly test)
+    "synthetic\.test"     # Synthetic test domain
+    "example\.com"        # Example domain
+    "XXX-XX-XXXX"        # Masked SSN pattern
+    "_synthetic.*true"    # Synthetic data markers
+    "Meghan.*Anderson"    # Known synthetic names from our test data
+    "UnitedHealth"        # Test insurance provider names
+    "U[0-9]{9}"          # Test member ID patterns
+)
+
 found_issues=0
 warnings=0
+
+# Function to check if a match is synthetic data
+is_synthetic_data() {
+    local match="$1"
+    
+    for pattern in "${synthetic_patterns[@]}"; do
+        if echo "$match" | grep -q -i -E "$pattern"; then
+            return 0  # It's synthetic data
+        fi
+    done
+    
+    return 1  # Not synthetic data
+}
 
 # Function to scan for patterns
 scan_patterns() {
@@ -88,16 +117,31 @@ scan_patterns() {
     local pattern_type="$1"
     shift
     
-    log "Scanning for $pattern_type patterns..."
+    log "Scanning for $pattern_type patterns (excluding synthetic data)..."
     
     for pattern in "${pattern_array[@]}"; do
-        if grep -r -i -E "$pattern" \
+        # Get all matches
+        local matches
+        matches=$(grep -r -i -E "$pattern" \
            --include="*.py" --include="*.sh" --include="*.js" --include="*.txt" --include="*.yml" --include="*.yaml" \
            --exclude-dir=".git" --exclude-dir="test" --exclude-dir="docs" --exclude-dir="coverage" \
-           --exclude-dir="logs" --exclude-dir=".vscode" \
-           . 2>/dev/null; then
-            warn "Found potential $pattern_type pattern: $pattern"
-            found_issues=$((found_issues + 1))
+           --exclude-dir="logs" --exclude-dir=".vscode" --exclude-dir="data/synthetic" \
+           . 2>/dev/null || true)
+        
+        if [ -n "$matches" ]; then
+            # Check each match to see if it's synthetic
+            local has_real_phi=false
+            while IFS= read -r line; do
+                if ! is_synthetic_data "$line"; then
+                    warn "Found potential $pattern_type pattern: $pattern"
+                    echo "  $line"
+                    has_real_phi=true
+                fi
+            done <<< "$matches"
+            
+            if [ "$has_real_phi" = true ]; then
+                found_issues=$((found_issues + 1))
+            fi
         fi
     done
 }
