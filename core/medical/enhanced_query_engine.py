@@ -350,7 +350,8 @@ class EnhancedMedicalQueryEngine:
             )
 
             refined_query = response.get("response", "").strip()
-            return refined_query if refined_query else original_query
+            result: str = refined_query if refined_query else original_query
+            return result
 
         except Exception:
             return original_query
@@ -471,7 +472,8 @@ class EnhancedMedicalQueryEngine:
             )
 
             refined_query = result.get("response", original_query).strip()
-            return refined_query if refined_query else original_query
+            final_result: str = refined_query if refined_query else original_query
+            return final_result
 
         except Exception:
             return original_query

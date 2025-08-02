@@ -12,7 +12,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, List, Dict
 
 try:
     from deepeval.metrics.answer_relevancy.answer_relevancy import AnswerRelevancyMetric

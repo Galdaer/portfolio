@@ -9,15 +9,16 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Set, Optional, List, cast
+from typing import Any, Dict, Set, Optional, List, cast, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from psycopg2.extras import RealDictCursor
 
 try:
     from psycopg2.extras import RealDictCursor
-
     PSYCOPG2_AVAILABLE = True
 except ImportError:
-    # Use mock cursor for development environments without PostgreSQL
-    RealDictCursor = None
+    # Use mock cursor for development environments without PostgreSQL  
     PSYCOPG2_AVAILABLE = False
 
 from src.security.environment_detector import EnvironmentDetector

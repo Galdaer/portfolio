@@ -371,7 +371,7 @@ def changed_services(old: Dict[str, Any], new: Dict[str, Any]) -> set[str]:
     return services
 
 
-def run_bootstrap(args: Optional[List[str]] = None, env: Optional[Dict[str, str]] = None, suppress: bool = True) -> subprocess.CompletedProcess[str]:
+def run_bootstrap(args: Optional[List[str]] = None, env: Optional[Dict[str, str]] = None, suppress: bool = True) -> subprocess.Popen[bytes]:
     """Run ``bootstrap.sh`` with optional arguments.
 
     Parameters
@@ -425,7 +425,7 @@ def get_container_statuses() -> Dict[str, str]:
     return statuses
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["GET", "POST"])  # type: ignore[misc]
 def index() -> Union[str, Response]:
     config = load_config()
     # Ensure configurable web UI port is always available
@@ -465,7 +465,7 @@ def index() -> Union[str, Response]:
     )
 
 
-@app.route("/bootstrap", methods=["POST"])
+@app.route("/bootstrap", methods=["POST"])  # type: ignore[misc]
 def bootstrap() -> Response:
     """Run full bootstrap without ACTION_FLAG."""
     env = os.environ.copy()
@@ -473,21 +473,21 @@ def bootstrap() -> Response:
     return redirect(url_for("index"))
 
 
-@app.route("/reset-wg-keys", methods=["POST"])
+@app.route("/reset-wg-keys", methods=["POST"])  # type: ignore[misc]
 def reset_wg_keys() -> Response:
     env = os.environ.copy()
     run_bootstrap(["--reset-wg-keys"], env=env)
     return redirect(url_for("index"))
 
 
-@app.route("/self-update", methods=["POST"])
+@app.route("/self-update", methods=["POST"])  # type: ignore[misc]
 def self_update() -> Response:
     env = os.environ.copy()
     run_bootstrap(["--self-update"], env=env)
     return redirect(url_for("index"))
 
 
-@app.route("/diagnostics", methods=["POST"])
+@app.route("/diagnostics", methods=["POST"])  # type: ignore[misc]
 def diagnostics() -> Response:
     env = os.environ.copy()
     subprocess.Popen(
@@ -499,7 +499,7 @@ def diagnostics() -> Response:
     return redirect(url_for("index"))
 
 
-@app.route("/auto-repair", methods=["POST"])
+@app.route("/auto-repair", methods=["POST"])  # type: ignore[misc]
 def auto_repair() -> Response:
     env = os.environ.copy()
     subprocess.Popen(
@@ -511,8 +511,8 @@ def auto_repair() -> Response:
     return redirect(url_for("index"))
 
 
-@app.route("/reset-system", methods=["POST"])
-def reset_system_route():
+@app.route("/reset-system", methods=["POST"])  # type: ignore[misc]
+def reset_system_route() -> Response:
     env = os.environ.copy()
     subprocess.Popen(
         ["/usr/local/bin/reset.sh", "--non-interactive"],
@@ -523,8 +523,8 @@ def reset_system_route():
     return redirect(url_for("index"))
 
 
-@app.route("/systemd-summary", methods=["GET"])
-def systemd_summary_route():
+@app.route("/systemd-summary", methods=["GET"])  # type: ignore[misc]
+def systemd_summary_route() -> str:
     env = os.environ.copy()
     try:
         output = subprocess.check_output(
@@ -538,8 +538,8 @@ def systemd_summary_route():
     return f"<pre>{output}</pre><p><a href='{url_for('index')}'>Back</a></p>"
 
 
-@app.route("/teardown", methods=["POST"])
-def teardown_route():
+@app.route("/teardown", methods=["POST"])  # type: ignore[misc]
+def teardown_route() -> Union[Response, tuple[str, int]]:
     if TEARDOWN_PATH is None:
         return "Error: TEARDOWN_PATH is not set", 500
 
@@ -553,8 +553,8 @@ def teardown_route():
     return redirect(url_for("index"))
 
 
-@app.route("/stop-service", methods=["POST"])
-def stop_service_route():
+@app.route("/stop-service", methods=["POST"])  # type: ignore[misc]
+def stop_service_route() -> Response:
     env = os.environ.copy()
     service = request.form.get("service")
     if service:
@@ -562,8 +562,8 @@ def stop_service_route():
     return redirect(url_for("index"))
 
 
-@app.route("/start-service", methods=["POST"])
-def start_service_route():
+@app.route("/start-service", methods=["POST"])  # type: ignore[misc]
+def start_service_route() -> Response:
     env = os.environ.copy()
     svc = request.form.get("service")
     if svc:
@@ -572,8 +572,8 @@ def start_service_route():
     return redirect(url_for("index"))
 
 
-@app.route("/restart-service", methods=["POST"])
-def restart_service_route():
+@app.route("/restart-service", methods=["POST"])  # type: ignore[misc]
+def restart_service_route() -> Response:
     env = os.environ.copy()
     svc = request.form.get("service")
     if svc:
@@ -582,8 +582,8 @@ def restart_service_route():
     return redirect(url_for("index"))
 
 
-@app.route("/remove-service", methods=["POST"])
-def remove_service_route():
+@app.route("/remove-service", methods=["POST"])  # type: ignore[misc]
+def remove_service_route() -> Response:
     env = os.environ.copy()
     svc = request.form.get("service")
     if svc:
@@ -592,8 +592,8 @@ def remove_service_route():
     return redirect(url_for("index"))
 
 
-@app.route("/add-service", methods=["POST"])
-def add_service_route():
+@app.route("/add-service", methods=["POST"])  # type: ignore[misc]
+def add_service_route() -> Response:
     svc = request.form.get("service")
     image = request.form.get("image")
     port = request.form.get("port")
@@ -630,9 +630,9 @@ def add_service_route():
     return redirect(url_for("index"))
 
 
-@app.route("/logs/", defaults={"target": None})
-@app.route("/logs/<path:target>")
-def logs_index(target=None):
+@app.route("/logs/", defaults={"target": None})  # type: ignore[misc]
+@app.route("/logs/<path:target>")  # type: ignore[misc]
+def logs_index(target: Optional[str] = None) -> Union[Response, str]:
     """List log files or show logs for a specific container."""
     if target:
         log_path = os.path.join(LOGS_DIR, target)

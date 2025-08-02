@@ -19,8 +19,8 @@ try:
 
     PSYCOPG2_AVAILABLE = True
 except ImportError:
-    psycopg2 = None
-    PgConnection = None
+    psycopg2 = None  # type: ignore[assignment]
+    PgConnection = None  # type: ignore[misc]
     PSYCOPG2_AVAILABLE = False
     print("⚠️  psycopg2 not available - database population will be skipped")
 

@@ -10,7 +10,7 @@ import sys
 import yaml
 
 
-def validate_hipaa_config():
+def validate_hipaa_config() -> List[str]:
     """Validate HIPAA configuration files"""
     issues = []
 

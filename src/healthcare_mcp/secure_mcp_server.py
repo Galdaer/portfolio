@@ -379,7 +379,7 @@ class HealthcareMCPServer:
         )
 
         # Add security middleware
-        @self.app.middleware("http")
+        @self.app.middleware("http")  # type: ignore[misc]
         async def security_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
             # Log all requests for audit trail
             start_time = datetime.now()
@@ -399,7 +399,7 @@ class HealthcareMCPServer:
     def _register_routes(self) -> None:
         """Register API routes"""
 
-        @self.app.get("/health")
+        @self.app.get("/health")  # type: ignore[misc]
         async def health_check() -> Dict[str, Any]:
             """Health check endpoint"""
             return {
@@ -410,7 +410,7 @@ class HealthcareMCPServer:
                 "hipaa_compliance": self.config.hipaa_compliance_mode,
             }
 
-        @self.app.post("/mcp", response_model=MCPResponse)
+        @self.app.post("/mcp", response_model=MCPResponse)  # type: ignore[misc]
         async def mcp_endpoint(
             request: MCPRequest,
             credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -439,7 +439,7 @@ class HealthcareMCPServer:
                 }
                 return MCPResponse(result=None, error=error, id=request.id)
 
-        @self.app.get("/tools")
+        @self.app.get("/tools")  # type: ignore[misc]
         async def list_tools(
             credentials: HTTPAuthorizationCredentials = Depends(security),
             client_request: Request | None = None,
@@ -691,8 +691,10 @@ class HealthcareMCPServer:
                     scores = []
                     for res in phi_results.values():
                         if hasattr(res, "confidence_scores"):
-                            scores.append(res.confidence_scores)
-                    return max(scores) if scores else 0.0
+                            confidence_value: float = float(res.confidence_scores)
+                            scores.append(confidence_value)
+                    max_score: float = max(scores) if scores else 0.0
+                    return max_score
 
                 def extract_detection_details(phi_results: dict[str, Any]) -> list:
                     details = set()
