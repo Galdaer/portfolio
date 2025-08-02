@@ -46,6 +46,34 @@ scenarios: List[HealthcareTestCase] = []
 
 ### MyPy Error Resolution Patterns
 
+**Autonomous MyPy Fixing Workflow:**
+
+```bash
+# 1. Get baseline error count
+mypy . | tee mypy_baseline.txt
+INITIAL_ERRORS=$(mypy . 2>&1 | grep "error:" | wc -l)
+
+# 2. Work in iterations until completion
+while [ $CURRENT_ERRORS -gt 0 ]; do
+    echo "🔄 MyPy Iteration: $CURRENT_ERRORS errors remaining"
+    
+    # Fix batch of 20-30 errors systematically
+    # Focus on patterns: missing returns, type annotations, imports
+    
+    # Validate progress
+    CURRENT_ERRORS=$(mypy . 2>&1 | grep "error:" | wc -l)
+    
+    # Continue if making progress
+    if [ $CURRENT_ERRORS -lt $PREVIOUS_ERRORS ]; then
+        echo "✅ Progress made: $((PREVIOUS_ERRORS - CURRENT_ERRORS)) errors fixed"
+        PREVIOUS_ERRORS=$CURRENT_ERRORS
+    else
+        echo "🛑 No progress - investigating remaining errors"
+        break
+    fi
+done
+```
+
 **Systematic approach to MyPy errors:**
 
 1. **Missing Type Annotations**: Add explicit types for ALL variables
@@ -53,6 +81,13 @@ scenarios: List[HealthcareTestCase] = []
 3. **Attribute Errors**: Use type annotations on class attributes
 4. **Return Type Missing**: Add `-> ReturnType` to ALL function definitions
 5. **Optional Handling**: Check `if obj is not None:` before method calls
+
+**Autonomous Continuation Criteria:**
+- ✅ **Continue**: Missing return annotations, untyped variables, import issues
+- ✅ **Continue**: Systematic type annotation patterns across multiple files
+- ✅ **Continue**: Collection type issues, optional handling patterns
+- ❌ **Stop**: Architectural changes needed, complex inheritance issues
+- ❌ **Stop**: External library integration requiring design decisions
 
 **Common MyPy Error Fixes:**
 

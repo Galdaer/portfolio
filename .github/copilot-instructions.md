@@ -309,11 +309,32 @@ data: List[Dict[str, Any]] = []  # ✅ Correct
 - **Discover and fix related issues** beyond initial scope
 - **Only stop for unrecoverable errors** or 100% completion
 
+### Iterative MyPy Error Resolution Protocol
+When working on MyPy errors, follow this autonomous pattern:
+
+1. **Initial Assessment**: Run `mypy .` to get complete error count and categorize by type
+2. **Capability-Based Processing**: Fix as many errors as you can handle in one session, focusing on systematic patterns
+3. **Progress Validation**: After each batch, re-run `mypy .` to verify progress and get updated error count
+4. **Self-Assessment**: Continue if errors remain that follow patterns you've already solved
+5. **Automatic Continuation**: Create new work items if stopping before 100% completion
+
+**CRITICAL**: Never stop MyPy error fixing just because you've done "some work" - continue iterating until either:
+- All MyPy errors are resolved, OR
+- Remaining errors require architectural decisions beyond systematic type annotation
+
+**Self-Assessment Questions**:
+- Are there remaining errors that follow patterns I've already solved?
+- Can I add more type annotations without changing logic?
+- Are there import/typing issues I can systematically resolve?
+- Do I have capacity to continue with more fixes in this session?
+- Do remaining errors require human architectural input?
+
 ### When to Use Sequential Thinking
 - **Complex Implementation Decisions**: Mock vs implement, architecture choices, technical debt tradeoffs
 - **Large Codebase Analysis**: Understanding module relationships and dependencies before changes
 - **Multi-Step Problem Solving**: Breaking down complex fixes into manageable phases
 - **Phase 1 Priority Decisions**: Deciding what real implementations are complete vs what needs finishing for MCP integration
+- **MyPy Error Strategy**: Planning systematic approach for resolving remaining type errors
 
 ## Architectural Decision Principles
 

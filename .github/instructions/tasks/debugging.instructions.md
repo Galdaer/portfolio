@@ -119,12 +119,118 @@ def validate_debugging_compliance():
         raise ComplianceError(f"Debugging compliance failed: {failed_checks}")
 ```
 
-### Step 4: Modern Development Tools
+## Autonomous MyPy Error Resolution
 
-- Use **Ruff** for fast error detection: `ruff check --select E,W,F`
-- Use **MyPy** for type safety: `mypy --strict`
-- Use healthcare-specific linting rules
-- Integrate with VS Code debugging with PHI-safe breakpoints
+### Self-Assessment for Continued Work
+
+```python
+def assess_mypy_continuation_capability() -> bool:
+    """Determine if coding agent should continue MyPy error fixing."""
+    
+    # Run MyPy and analyze remaining errors
+    result = subprocess.run(['mypy', '.'], capture_output=True, text=True)
+    errors = result.stderr.split('\n')
+    
+    # Categorize remaining errors
+    systematic_errors = 0
+    complex_errors = 0
+    
+    for error in errors:
+        if any(pattern in error for pattern in [
+            'missing return type annotation',
+            'need type annotation for',
+            'has no attribute',
+            'import untyped',
+        ]):
+            systematic_errors += 1
+        elif any(pattern in error for pattern in [
+            'incompatible types in assignment',
+            'incompatible return value type', 
+            'type is not subscriptable',
+        ]):
+            complex_errors += 1
+    
+    # Decision logic
+    if systematic_errors > 10:
+        print(f"✅ Continue: {systematic_errors} systematic errors remain")
+        return True
+    elif systematic_errors > 0 and complex_errors < 5:
+        print(f"✅ Continue: {systematic_errors} systematic, {complex_errors} complex")
+        return True
+    else:
+        print(f"🛑 Stop: Only {complex_errors} complex errors remain")
+        return False
+
+# Autonomous workflow pattern
+def autonomous_mypy_fixing_session():
+    """Execute autonomous MyPy fixing until completion or stuck."""
+    
+    max_iterations = 10
+    iteration = 0
+    
+    while iteration < max_iterations:
+        iteration += 1
+        print(f"\n🔄 MyPy Fixing Iteration {iteration}")
+        
+        # Get current error count
+        before_count = get_mypy_error_count()
+        print(f"📊 Errors before iteration: {before_count}")
+        
+        # Fix batch of errors
+        fix_systematic_mypy_errors(batch_size=25)
+        
+        # Check progress
+        after_count = get_mypy_error_count()
+        print(f"📊 Errors after iteration: {after_count}")
+        
+        # Assess continuation
+        if after_count == 0:
+            print("🎉 All MyPy errors resolved!")
+            break
+        elif after_count >= before_count:
+            print("⚠️ No progress made - analyzing remaining errors")
+            if not assess_mypy_continuation_capability():
+                print("🛑 Stopping: Remaining errors require human input")
+                break
+        else:
+            progress = before_count - after_count
+            print(f"✅ Progress: {progress} errors fixed, continuing...")
+```
+
+### Progress Tracking and Continuation
+
+```python
+def create_continuation_issue_if_needed():
+    """Create GitHub issue for continuation if work remains."""
+    
+    remaining_errors = get_mypy_error_count()
+    
+    if remaining_errors > 0:
+        # Check if errors are systematic or complex
+        if assess_mypy_continuation_capability():
+            issue_body = f"""
+## Autonomous MyPy Error Fixing - Continuation Required
+
+**Remaining Errors**: {remaining_errors}
+
+The coding agent has made progress but stopped before completion. 
+Remaining errors appear to be systematic and can be resolved autonomously.
+
+**Next Steps**:
+1. Continue systematic type annotation fixes
+2. Focus on missing return types and variable annotations
+3. Address import/collection type issues
+
+@github-copilot Please continue MyPy error resolution from where previous session left off.
+"""
+            
+            # Create issue for automatic continuation
+            create_github_issue(
+                title="Continue MyPy Error Resolution - Autonomous Session",
+                body=issue_body,
+                labels=["mypy", "autonomous", "type-safety", "continue"]
+            )
+```
 
 ## Common Healthcare AI Debug Scenarios
 

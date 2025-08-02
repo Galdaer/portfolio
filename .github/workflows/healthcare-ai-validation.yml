@@ -2,9 +2,9 @@ name: Healthcare AI Validation (Self-Hosted Optimized)
 
 on:
   push:
-    branches: [main]
+    branches: [main, copilot/*]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, copilot/*]
 
 jobs:
   # Simplified dependency setup for self-hosted runners
