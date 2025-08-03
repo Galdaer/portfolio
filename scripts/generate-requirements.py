@@ -65,7 +65,7 @@ CI_EXCLUDED_PACKAGES = {
 
 # Packages to exclude from self-hosted requirements (development/non-core packages only)
 SELF_HOSTED_EXCLUDED_PACKAGES = {
-    # Heavy ML packages that cause cache bloat
+    # Heavy ML packages that cause cache bloat - development only
     "unsloth",  # LoRA training - development only
     "transformers",  # Large model library - use specific models instead
     "datasets",  # Large dataset library - use specific datasets instead
@@ -74,29 +74,27 @@ SELF_HOSTED_EXCLUDED_PACKAGES = {
     "accelerate",  # Multi-GPU training - development only
     "trl",  # Reinforcement learning - development only
     "wandb",  # Experiment tracking - development only
-    # Development-only packages that cause cache bloat
+    # Pure development environments (NOT validation tools)
     "jupyter",  # Development environment
     "ipython",  # Interactive development
     "notebook",  # Jupyter notebooks
     "jupyterlab",  # Development IDE
     "ipykernel",  # Notebook kernel
     "ipywidgets",  # Interactive widgets
-    # Development tools
+    # Git hooks (not needed in CI environments)
     "pre-commit",  # Git hooks
-    "ruff",  # Ultra-fast linting, formatting, and import sorting (replaces black, isort, flake8)
-    "pyright",  # Type checking
-    "pytest",  # Testing framework
-    "pytest-cov",  # Coverage testing
-    "pytest-asyncio",  # Async testing
-    # Documentation and visualization packages
+    # Documentation generation tools
     "sphinx",  # Documentation
     "mkdocs",  # Documentation
+    # Data visualization packages (not needed for AI inference)
     "matplotlib",  # Plotting - not needed for AI inference
     "seaborn",  # Statistical plotting
     "plotly",  # Interactive plotting
     # Optional data science packages that can be loaded on-demand
     "pandas",  # Data manipulation - use specific operations
     "scikit-learn",  # Classical ML - use specific implementations
+    # Coverage testing tools (basic pytest is enough for CI)
+    "pytest-cov",  # Coverage testing
 }
 
 # Core packages that CI validation DOES need
