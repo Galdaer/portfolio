@@ -56,7 +56,11 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             if os.path.exists(config_path):
                 with open(config_path) as f:
                     full_config = yaml.safe_load(f)
-                config_data = full_config.get("agent_limits", {}).get("clinical_research", {}) if full_config else {}
+                config_data = (
+                    full_config.get("agent_limits", {}).get("clinical_research", {})
+                    if full_config
+                    else {}
+                )
                 return config_data if isinstance(config_data, dict) else {}
         except Exception:
             pass
@@ -533,7 +537,11 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             if os.path.exists(config_path):
                 with open(config_path) as f:
                     full_config = yaml.safe_load(f)
-                config_data = full_config.get("response_validation", {}).get("medical_trust_scoring", {}) if full_config else {}
+                config_data = (
+                    full_config.get("response_validation", {}).get("medical_trust_scoring", {})
+                    if full_config
+                    else {}
+                )
                 return config_data if isinstance(config_data, dict) else {}
         except Exception:
             pass

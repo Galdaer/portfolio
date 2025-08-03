@@ -135,7 +135,9 @@ class HealthcareMCPServer:
         self.jwt_lockout_duration = int(os.getenv("JWT_LOCKOUT_DURATION", "900"))  # 15 minutes
 
         # Track failed attempts by IP address
-        self.jwt_failed_attempts: defaultdict[str, deque[float]] = defaultdict(deque)  # IP -> deque of failure timestamps
+        self.jwt_failed_attempts: defaultdict[str, deque[float]] = defaultdict(
+            deque
+        )  # IP -> deque of failure timestamps
         self.jwt_locked_ips: dict[str, float] = {}  # IP -> lockout expiry timestamp
 
         self.logger.info(
@@ -381,7 +383,9 @@ class HealthcareMCPServer:
 
         # Add security middleware
         @self.app.middleware("http")  # type: ignore[misc]
-        async def security_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        async def security_middleware(
+            request: Request, call_next: Callable[[Request], Awaitable[Response]]
+        ) -> Response:
             # Log all requests for audit trail
             start_time = datetime.now()
 

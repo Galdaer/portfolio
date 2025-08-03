@@ -390,7 +390,9 @@ class HealthcareSecurityMiddleware:
 
         return has_access
 
-    async def _log_access_attempt(self, user_id: str, resource: str, action: str, granted: bool) -> None:
+    async def _log_access_attempt(
+        self, user_id: str, resource: str, action: str, granted: bool
+    ) -> None:
         """Log access attempt for audit"""
         try:
             with self.postgres_conn.cursor() as cursor:

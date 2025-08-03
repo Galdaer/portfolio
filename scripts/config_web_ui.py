@@ -371,7 +371,9 @@ def changed_services(old: dict[str, Any], new: dict[str, Any]) -> set[str]:
     return services
 
 
-def run_bootstrap(args: list[str] | None = None, env: dict[str, str] | None = None, suppress: bool = True) -> subprocess.Popen[bytes]:
+def run_bootstrap(
+    args: list[str] | None = None, env: dict[str, str] | None = None, suppress: bool = True
+) -> subprocess.Popen[bytes]:
     """Run ``bootstrap.sh`` with optional arguments.
 
     Parameters

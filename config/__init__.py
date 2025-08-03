@@ -5,7 +5,7 @@ Provides centralized configuration management with environment variable support,
 healthcare-specific settings, and compliance configurations.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from .app import IntelluxeConfig, config
 from .environment_detector import EnvironmentDetector

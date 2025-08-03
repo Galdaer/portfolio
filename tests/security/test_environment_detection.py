@@ -239,7 +239,9 @@ class TestEnvironmentDetectorIntegration:
             assert any(
                 "Environment could not be determined" in msg
                 for msg in warning_messages + error_messages
-            ), f"Expected environment warning not found in logs: {warning_messages + error_messages}"
+            ), (
+                f"Expected environment warning not found in logs: {warning_messages + error_messages}"
+            )
 
     def test_production_fallback_with_logging_verification(self, caplog: Any) -> None:
         """Test that production fallback logs appropriate warnings with detailed verification"""

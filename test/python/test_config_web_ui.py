@@ -795,7 +795,9 @@ class MockFileRead:
         "description",
     ],
 )
-def test_add_service_route_missing_field(monkeypatch: Any, missing_field: pytest.MonkeyPatch) -> None:
+def test_add_service_route_missing_field(
+    monkeypatch: Any, missing_field: pytest.MonkeyPatch
+) -> None:
     form_data = {
         "service": "newsvc",
         "image": "my/image",

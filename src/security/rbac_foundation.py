@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 try:
     from psycopg2.extras import RealDictCursor
+
     PSYCOPG2_AVAILABLE = True
 except ImportError:
     # Use mock cursor for development environments without PostgreSQL
@@ -369,7 +370,9 @@ class HealthcareRBACManager:
                     name=str(role_data["name"]),
                     description=str(role_data["description"]),
                     permissions=set(cast(list[Permission], role_data["permissions"])),
-                    resource_constraints=cast(dict[ResourceType, dict[str, Any]], role_data["resource_constraints"]),
+                    resource_constraints=cast(
+                        dict[ResourceType, dict[str, Any]], role_data["resource_constraints"]
+                    ),
                     is_active=True,
                     created_at=datetime.now(),
                     updated_at=datetime.now(),
@@ -889,7 +892,9 @@ class HealthcareRBACManager:
         break_glass_enabled = os.getenv("RBAC_BREAK_GLASS_ENABLED", "false").lower() == "true"
         return break_glass_enabled
 
-    def _log_emergency_access(self, user_id: str, patient_id: str, access_type: str, reason: str) -> None:
+    def _log_emergency_access(
+        self, user_id: str, patient_id: str, access_type: str, reason: str
+    ) -> None:
         """
         Log emergency access with comprehensive audit trail
 

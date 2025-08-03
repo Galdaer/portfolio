@@ -218,7 +218,7 @@ class ConnectionManager:
             finally:
                 self._connection = None
 
-    def __enter__(self) -> 'ConnectionManager':
+    def __enter__(self) -> "ConnectionManager":
         """Context manager entry"""
         return self
 
