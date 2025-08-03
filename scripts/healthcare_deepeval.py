@@ -21,24 +21,24 @@ try:
     # Try to import and run DeepEval if available
     import deepeval
     from deepeval import evaluate
-    
+
     # Try multiple import paths for different DeepEval versions
     try:
         from deepeval.models.ollama_model import OllamaModel
     except ImportError:
         from deepeval.models import OllamaModel
-    
+
     try:
         from deepeval.test_case.llm_test_case import LLMTestCase
     except ImportError:
         from deepeval.test_case import LLMTestCase
-        
+
     try:
         from deepeval.metrics.answer_relevancy.answer_relevancy import AnswerRelevancyMetric
         from deepeval.metrics.faithfulness.faithfulness import FaithfulnessMetric
     except ImportError:
         from deepeval.metrics import AnswerRelevancyMetric, FaithfulnessMetric
-    
+
     print("🧪 Running DeepEval Healthcare AI Tests with Local Ollama Models")
     print("=" * 65)
     
@@ -48,11 +48,8 @@ try:
         base_url="http://localhost:11434"
     )
     
-    # Set the default model for DeepEval
-    deepeval.set_global_model(ollama_model)
-    
-    print(f"� Using Ollama model: qwen2.5:7b-instruct-q4_K_M")
-    print(f"🔗 Ollama endpoint: http://localhost:11434")
+    print("🤖 Using Ollama model: qwen2.5:7b-instruct-q4_K_M")
+    print("🔗 Ollama endpoint: http://localhost:11434")
     
     # Basic healthcare AI test cases
     test_cases = [
