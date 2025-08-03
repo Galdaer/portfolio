@@ -21,6 +21,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create user matching development environment
+# The DOCKER_GID default (984) matches the typical group ID for 'docker' on Ubuntu systems.
+# Override at build time for different host configurations:
+#   docker build --build-arg DOCKER_GID=$(getent group docker | cut -d: -f3) ...
+# This ensures the container user has the same docker group permissions as the host.
 ARG DOCKER_GID=984
 RUN groupadd -g ${DOCKER_GID} docker && \
     groupadd -g 1001 intelluxe && \

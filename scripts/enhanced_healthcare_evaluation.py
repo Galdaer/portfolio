@@ -137,6 +137,12 @@ class AdvancedPHIDetector:
             },
         }
 
+        # Compile PHI patterns for performance
+        self.compiled_phi_patterns = {
+            phi_type: re.compile(config["pattern"], re.IGNORECASE)
+            for phi_type, config in self.phi_patterns.items()
+        }
+
         self.synthetic_markers = [
             r"PAT\d{3}",
             r"PROV\d{3}",
@@ -151,6 +157,12 @@ class AdvancedPHIDetector:
             r"synthetic\.test",
         ]
 
+        # Compile synthetic marker patterns for performance
+        self.compiled_synthetic_pattern = re.compile(
+            "|".join(f"({marker})" for marker in self.synthetic_markers),
+            re.IGNORECASE
+        )
+
     def detect_phi_violations(self, text: str) -> list[EvaluationFinding]:
         """Detect PHI violations with detailed findings"""
         findings: list[EvaluationFinding] = []
@@ -159,7 +171,8 @@ class AdvancedPHIDetector:
             return findings
 
         for phi_type, config in self.phi_patterns.items():
-            matches = list(re.finditer(str(config["pattern"]), text, re.IGNORECASE))
+            compiled_pattern = self.compiled_phi_patterns[phi_type]
+            matches = list(compiled_pattern.finditer(text))
 
             for match in matches:
                 if not self._is_synthetic_match(match.group()):
@@ -182,8 +195,7 @@ class AdvancedPHIDetector:
 
     def _is_synthetic_data(self, text: str) -> bool:
         """Check if text contains synthetic data markers"""
-        text_lower = text.lower()
-        return any(re.search(marker, text_lower) for marker in self.synthetic_markers)
+        return bool(self.compiled_synthetic_pattern.search(text.lower()))
 
     def _is_synthetic_match(self, matched_text: str) -> bool:
         """Check if specific match is synthetic"""
@@ -209,6 +221,17 @@ class MedicalAccuracyValidator:
             r"seek professional medical",
         ]
 
+        # Compile patterns for performance
+        self.compiled_medical_advice_pattern = re.compile(
+            "|".join(f"({pattern})" for pattern in self.medical_advice_patterns),
+            re.IGNORECASE
+        )
+
+        self.compiled_disclaimer_pattern = re.compile(
+            "|".join(f"({pattern})" for pattern in self.appropriate_disclaimers),
+            re.IGNORECASE
+        )
+
         self.administrative_indicators = [
             "documentation",
             "administrative",
@@ -227,18 +250,8 @@ class MedicalAccuracyValidator:
         response_lower = response.lower()
 
         medical_content_score = 1.0
-        has_medical_advice = False
-        has_appropriate_disclaimers = False
-
-        for pattern in self.medical_advice_patterns:
-            if re.search(pattern, response_lower):
-                has_medical_advice = True
-                break
-
-        for disclaimer in self.appropriate_disclaimers:
-            if re.search(disclaimer, response_lower):
-                has_appropriate_disclaimers = True
-                break
+        has_medical_advice = bool(self.compiled_medical_advice_pattern.search(response_lower))
+        has_appropriate_disclaimers = bool(self.compiled_disclaimer_pattern.search(response_lower))
 
         if has_medical_advice and not has_appropriate_disclaimers:
             finding = EvaluationFinding(

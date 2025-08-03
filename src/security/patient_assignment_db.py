@@ -259,6 +259,12 @@ class SessionManager:
 
             token = jwt.encode(payload, self.secret_key, algorithm="HS256")
 
+            # Ensure token is a string (jwt.encode can return str or bytes depending on version)
+            if isinstance(token, bytes):
+                token_str: str = token.decode('utf-8')
+            else:
+                token_str = str(token)
+
             # Log session creation
             self.db.log_access_attempt(
                 user_id,
@@ -270,7 +276,7 @@ class SessionManager:
             )
 
             self.logger.info(f"Session created for user {user_id}")
-            return token
+            return token_str
 
         except Exception as e:
             self.logger.error(f"Failed to create session: {e}")

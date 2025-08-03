@@ -154,8 +154,8 @@ CI_REQUIRED_PACKAGES = {
 }
 
 
-def run_command(cmd: str, cwd: str | None = None) -> Any:
-    """Run a command and return the result"""
+def run_command(cmd: str, cwd: str | None = None) -> str | None:
+    """Run a command and return the result stdout as string, or None on failure"""
     try:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd)
         if result.returncode != 0:

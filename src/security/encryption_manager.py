@@ -531,7 +531,15 @@ class KeyManager:
                 # Decrypt key with master key
                 master_fernet = Fernet(self.master_key)
                 encrypted_key = base64.b64decode(encrypted_key_b64.encode())
-                raw_key = master_fernet.decrypt(encrypted_key)
+                raw_key_bytes = master_fernet.decrypt(encrypted_key)
+
+                # Ensure we return bytes
+                if isinstance(raw_key_bytes, bytes):
+                    raw_key: bytes = raw_key_bytes
+                else:
+                    # This shouldn't happen with proper Fernet usage, but handle it safely
+                    self.logger.error(f"Unexpected decrypt result type for key {key_id}")
+                    return None
 
                 # Log key usage
                 self._log_key_usage(key_id, "retrieve")
@@ -807,10 +815,14 @@ class HealthcareEncryptionManager:
         )
 
         encryptor = cipher.encryptor()
-        ciphertext = encryptor.update(data) + encryptor.finalize()
+        ciphertext_bytes = encryptor.update(data) + encryptor.finalize()
 
-        # Return IV + tag + ciphertext
-        return iv + encryptor.tag + ciphertext
+        # Ensure we return bytes
+        if isinstance(ciphertext_bytes, bytes) and isinstance(encryptor.tag, bytes):
+            # Return IV + tag + ciphertext
+            return iv + encryptor.tag + ciphertext_bytes
+        else:
+            raise ValueError("Encryption operation did not return expected bytes")
 
     def _decrypt_aes_gcm(self, encrypted_data: bytes, key: bytes) -> bytes:
         """Decrypt using AES-256-GCM"""
@@ -827,7 +839,13 @@ class HealthcareEncryptionManager:
         )
 
         decryptor = cipher.decryptor()
-        return decryptor.update(ciphertext) + decryptor.finalize()
+        decrypted_bytes = decryptor.update(ciphertext) + decryptor.finalize()
+
+        # Ensure we return bytes
+        if isinstance(decrypted_bytes, bytes):
+            return decrypted_bytes
+        else:
+            raise ValueError("Decryption operation did not return expected bytes")
 
     def get_encryption_status(self) -> dict[str, Any]:
         """Get encryption system status"""

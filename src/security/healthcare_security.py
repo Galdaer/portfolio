@@ -71,11 +71,15 @@ class EncryptionManager:
 
     def encrypt_data(self, data: str) -> str:
         """Encrypt sensitive data"""
-        return self.fernet.encrypt(data.encode()).decode()
+        encrypted_bytes: bytes = self.fernet.encrypt(data.encode())
+        # Ensure we return a string (Fernet.encrypt returns bytes)
+        return encrypted_bytes.decode('utf-8')
 
     def decrypt_data(self, encrypted_data: str) -> str:
         """Decrypt sensitive data"""
-        return self.fernet.decrypt(encrypted_data.encode()).decode()
+        decrypted_bytes: bytes = self.fernet.decrypt(encrypted_data.encode())
+        # Ensure we return a string (Fernet.decrypt returns bytes)
+        return decrypted_bytes.decode('utf-8')
 
     def hash_password(self, password: str, salt: str | None = None) -> tuple[str, str]:
         """

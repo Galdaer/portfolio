@@ -15,12 +15,13 @@ if TYPE_CHECKING:
     from psycopg2.extras import RealDictCursor
 
 try:
-    from psycopg2.extras import RealDictCursor
-
+    import psycopg2.extras
     PSYCOPG2_AVAILABLE = True
+    _RealDictCursor = psycopg2.extras.RealDictCursor
 except ImportError:
     # Use mock cursor for development environments without PostgreSQL
     PSYCOPG2_AVAILABLE = False
+    _RealDictCursor = None
 
 from src.security.environment_detector import EnvironmentDetector
 from src.security.patient_assignment_db import (
@@ -81,6 +82,22 @@ class ResourceType(Enum):
     AUDIT_LOG = "audit_log"
 
 
+class BooleanValue(Enum):
+    """Valid boolean values for healthcare configuration"""
+
+    TRUE = "true"
+    FALSE = "false"
+
+
+class Environment(Enum):
+    """Valid environment values for healthcare systems"""
+
+    DEVELOPMENT = "development"
+    TESTING = "testing"
+    STAGING = "staging"
+    PRODUCTION = "production"
+
+
 @dataclass
 class Role:
     """Role definition"""
@@ -124,10 +141,6 @@ class AccessRequest:
 class HealthcareRBACManager:
     """Healthcare Role-Based Access Control Manager with HIPAA compliance"""
 
-    # Class constants for validation
-    VALID_BOOLEAN_VALUES = {"true", "false"}
-    VALID_ENVIRONMENTS = {"development", "testing", "staging", "production"}
-
     def __init__(self, postgres_conn: Any = None, config: Any = None) -> None:
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.HealthcareRBACManager")
@@ -139,14 +152,15 @@ class HealthcareRBACManager:
         # Validate RBAC strict mode configuration
         rbac_strict_mode = os.getenv("RBAC_STRICT_MODE", "true").lower().strip()
 
-        if rbac_strict_mode not in self.VALID_BOOLEAN_VALUES:
+        valid_boolean_values = {e.value for e in BooleanValue}
+        if rbac_strict_mode not in valid_boolean_values:
             self.logger.error(f"Invalid RBAC_STRICT_MODE value: '{rbac_strict_mode}'")
             raise ValueError(
                 f"Invalid value for RBAC_STRICT_MODE: '{rbac_strict_mode}'. "
-                f"Expected one of {self.VALID_BOOLEAN_VALUES}."
+                f"Expected one of {valid_boolean_values}."
             )
 
-        self.STRICT_MODE = rbac_strict_mode == "true"
+        self.STRICT_MODE = rbac_strict_mode == BooleanValue.TRUE.value
         self.logger.info(f"RBAC strict mode: {'enabled' if self.STRICT_MODE else 'disabled'}")
 
         # Configure placeholder warnings
@@ -1001,7 +1015,7 @@ class HealthcareRBACManager:
             return None
 
         try:
-            with self.postgres_conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            with self.postgres_conn.cursor(cursor_factory=_RealDictCursor) as cursor:
                 cursor.execute(
                     """
                     SELECT * FROM rbac_users WHERE user_id = %s
@@ -1035,7 +1049,7 @@ class HealthcareRBACManager:
             return None
 
         try:
-            with self.postgres_conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            with self.postgres_conn.cursor(cursor_factory=_RealDictCursor) as cursor:
                 cursor.execute(
                     """
                     SELECT * FROM rbac_roles WHERE role_id = %s
@@ -1121,7 +1135,7 @@ class HealthcareRBACManager:
             return {"user_id": user_id, "access_stats": [], "total_accesses": 0}
 
         try:
-            with self.postgres_conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            with self.postgres_conn.cursor(cursor_factory=_RealDictCursor) as cursor:
                 cursor.execute(
                     """
                     SELECT

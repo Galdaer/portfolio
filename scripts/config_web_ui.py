@@ -45,6 +45,9 @@ from flask import (
     url_for,
 )
 
+# Compiled regex patterns for performance
+ALL_CONTAINERS_PATTERN = re.compile(r"^ALL_CONTAINERS=\(([^)]*)\)")
+
 
 def build_service_prefix_map() -> dict[str, str]:
     """Return mapping of config prefixes to service names.
@@ -279,13 +282,12 @@ def parse_value(val: str) -> str | list[str]:
 
 def get_all_containers() -> list[str]:
     """Extract ALL_CONTAINERS array from the bootstrap script."""
-    pattern = re.compile(r"^ALL_CONTAINERS=\(([^)]*)\)")
     try:
         if BOOTSTRAP_PATH is None:
             return []
         with open(BOOTSTRAP_PATH) as f:
             for line in f:
-                m = pattern.search(line.strip())
+                m = ALL_CONTAINERS_PATTERN.search(line.strip())
                 if m:
                     return m.group(1).split()
     except FileNotFoundError:
