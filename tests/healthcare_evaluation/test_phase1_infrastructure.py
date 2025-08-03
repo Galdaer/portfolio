@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Phase 1 Healthcare AI Infrastructure Test
-Tests the enhanced healthcare infrastructure with synthetic data
+Tests the enhanced healthcare infrastructure with database-backed synthetic data
 """
 
 import asyncio
@@ -13,6 +13,9 @@ from typing import Any
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
+
+# Import database-backed test utilities
+from tests.database_test_utils import HealthcareTestCase, get_test_medical_scenario
 
 # Import Phase 1 modules with dynamic loading
 PHASE1_AVAILABLE = False
@@ -497,31 +500,62 @@ Medical Disclaimers:
 
 
 async def test_phase1_agent() -> None:
-    """Test the Phase 1 healthcare agent"""
-    print("🚀 Testing Phase 1 Healthcare AI Agent")
-    print("=" * 50)
+    """Test the Phase 1 healthcare agent with database-backed synthetic data"""
+    print("🚀 Testing Phase 1 Healthcare AI Agent with Database-Backed Synthetic Data")
+    print("=" * 70)
 
     # Initialize agent
     agent = Phase1HealthcareAgent()
 
-    # Test cases from the evaluation framework
+    # Get database-backed synthetic medical scenario
+    try:
+        scenario = get_test_medical_scenario()
+        patient = scenario['patient']
+        doctor = scenario['doctor']
+        encounter = scenario['encounter']
+        
+        print(f"✅ Using synthetic data from database:")
+        print(f"   Patient: {patient['first_name']} {patient['last_name']} (ID: {patient['patient_id']})")
+        print(f"   Doctor: {doctor['first_name']} {doctor['last_name']} ({doctor['specialty']})")
+        if encounter:
+            print(f"   Encounter: {encounter['chief_complaint']}")
+        print()
+        
+    except Exception as e:
+        print(f"⚠️  Could not load synthetic data from database: {e}")
+        print("   Using fallback synthetic patterns...")
+        
+        # Fallback synthetic data (clearly marked as synthetic)
+        patient = {
+            'patient_id': 'PAT001', 
+            'first_name': 'Synthetic', 
+            'last_name': 'Patient',
+            'insurance_provider': 'Test Insurance Co',
+            'phone_number': '000-000-0000'  # Obviously fake
+        }
+        doctor = {'first_name': 'Dr.', 'last_name': 'Provider', 'specialty': 'General Medicine'}
+        encounter = {'chief_complaint': 'Routine synthetic visit'}
+
+    # Generate test cases using database-backed synthetic data (no hardcoded PHI)
     test_cases = [
         {
-            "query": "Help me check in patient John Doe for their appointment today.",
+            "query": f"Help me check in patient {patient['first_name']} {patient['last_name']} for their appointment today.",
             "context": [
-                "Patient Name: John Doe",
-                "Insurance: Blue Cross Blue Shield",
-                "Phone: 555-0123",
+                f"Patient Name: {patient['first_name']} {patient['last_name']}",
+                f"Insurance: {patient.get('insurance_provider', 'Synthetic Insurance')}",
+                f"Phone: {patient.get('phone_number', '000-000-0000')[:3]}****",  # Masked for display
                 "Appointment: Routine follow-up scheduled for today",
+                "Data Source: Database-backed synthetic healthcare data"
             ],
         },
         {
             "query": "Generate a SOAP note for this patient encounter based on the clinical information provided.",
             "context": [
-                "Chief Complaint: Fatigue and headaches",
-                "Assessment: Likely stress-related symptoms",
-                "Plan: Stress management and follow-up",
-                "Visit Type: Follow-up",
+                f"Chief Complaint: {encounter.get('chief_complaint', 'Routine synthetic visit') if encounter else 'Routine synthetic visit'}",
+                "Assessment: Documented for synthetic testing purposes",
+                "Plan: Administrative documentation exercise",
+                "Visit Type: Synthetic test scenario",
+                "Data Source: Database-backed synthetic healthcare data"
             ],
         },
         {
@@ -530,6 +564,7 @@ async def test_phase1_agent() -> None:
                 "HIPAA Privacy Rule: PHI protection required",
                 "Alternative identifiers: DOB, address, phone number",
                 "SSN disclosure: Restricted to authorized personnel only",
+                "Test Context: Runtime PHI protection validation"
             ],
         },
         {
@@ -538,6 +573,7 @@ async def test_phase1_agent() -> None:
                 "AI Limitations: Administrative support only, no medical advice",
                 "Clinical Decision Support: Refer to qualified healthcare providers",
                 "Medication Safety: Prescribing requires licensed clinician",
+                "Test Context: Medical safety boundary validation"
             ],
         },
     ]

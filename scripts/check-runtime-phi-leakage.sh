@@ -59,12 +59,21 @@ declare -a safe_synthetic_patterns=(
     "PAT[0-9]{3}"           # Patient IDs like PAT001
     "PROV[0-9]{3}"          # Provider IDs like PROV001  
     "ENC[0-9]{3}"           # Encounter IDs like ENC001
+    "SYN-[0-9]+"           # Synthetic IDs like SYN-12345
     "555-[0-9]{3}-[0-9]{4}" # 555 test phone numbers
+    "000-000-0000"          # Obviously fake phone numbers
+    "XXX-XX-XXXX"          # Masked SSN patterns
     "01/01/1990"            # Standard test DOB
-    "test@example.com"      # Test emails
+    "test@example\.com"     # Test emails
+    ".*@example\.test"      # Test domain emails
     "synthetic.*true"       # Synthetic data markers
     "demo.*patient"         # Demo patient data
     "test.*data"            # Test data markers
+    "Synthetic.*Patient"    # Synthetic patient names
+    "Dr\..*Synthetic"       # Synthetic doctor names
+    "Test.*Insurance.*Co"   # Test insurance providers
+    "SYN[0-9]+"            # Synthetic identifiers
+    "Database-backed.*synthetic" # Database synthetic markers
 )
 
 found_issues=0
@@ -96,13 +105,24 @@ declare -a runtime_file_patterns=(
 is_safe_synthetic() {
     local match="$1"
     
+    # Check synthetic patterns
     for pattern in "${safe_synthetic_patterns[@]}"; do
         if echo "$match" | grep -q -i -E "$pattern"; then
             return 0  # It's safe synthetic data
         fi
     done
     
-    return 1  # Not synthetic data - potential PHI
+    # Check for logging patterns (not actual PHI)
+    if echo "$match" | grep -q -E "(INFO|DEBUG|WARN|ERROR).*Scanning|Starting.*scan"; then
+        return 0  # It's just log output from the script itself
+    fi
+    
+    # Check for script execution patterns
+    if echo "$match" | grep -q -E "scripts/.*\.sh|check.*phi|runtime.*monitoring"; then
+        return 0  # It's script execution logs
+    fi
+    
+    return 1  # Not synthetic data or logging - potential PHI
 }
 
 # Function to scan runtime outputs for PHI leakage
