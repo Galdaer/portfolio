@@ -73,25 +73,33 @@
 
 set -uo pipefail # Removed -e to prevent systemd service failure blocking boot
 
-# Environment validation (CRITICAL SECURITY)
+# Environment detection and validation (CRITICAL SECURITY)
+# Extract environment auto-detection logic for better testability
+detect_environment() {
+    local detected_env=""
+    
+    # Check for CI environment
+    if [[ "${CI:-}" == "true" ]] || [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+        detected_env="testing"
+        echo "🤖 Detected CI environment → testing"
+    # Check for production indicators
+    elif [[ "${PRODUCTION:-}" == "true" ]] || [[ -f "/etc/intelluxe/production.flag" ]]; then
+        detected_env="production"
+        echo "🏭 Detected production environment → production"
+    # Default to development
+    else
+        detected_env="development"
+        echo "🔧 Defaulting to development environment"
+    fi
+    
+    echo "$detected_env"
+}
+
 validate_environment() {
     # Auto-detect environment if not explicitly set
     if [[ -z "${ENVIRONMENT:-}" ]]; then
         echo "🔍 Auto-detecting environment..."
-
-        # Check for CI environment
-        if [[ "${CI:-}" == "true" ]] || [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-            export ENVIRONMENT="testing"
-            echo "🤖 Detected CI environment → testing"
-        # Check for production indicators
-        elif [[ "${PRODUCTION:-}" == "true" ]] || [[ -f "/etc/intelluxe/production.flag" ]]; then
-            export ENVIRONMENT="production"
-            echo "🏭 Detected production environment → production"
-        # Default to development
-        else
-            export ENVIRONMENT="development"
-            echo "🔧 Defaulting to development environment"
-        fi
+        export ENVIRONMENT="$(detect_environment)"
     fi
 
     # Validate the environment value
