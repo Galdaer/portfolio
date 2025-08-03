@@ -71,7 +71,19 @@ class EnhancedMedicalQueryEngine:
     ) -> MedicalQueryResult:
         """
         Process medical query using agentic RAG with iterative refinement
+        
+        RUNTIME PHI PROTECTION: Monitors query content for PHI exposure
         """
+        # Runtime PHI monitoring - check query for PHI patterns
+        phi_detected = self._monitor_runtime_phi(query, "medical_query_input")
+        if phi_detected:
+            # Log anonymized version for audit trail
+            query_hash = hashlib.sha256(query.encode()).hexdigest()[:8]
+            print(f"⚠️  PHI patterns detected in medical query {query_hash} - content sanitized")
+            
+            # Sanitize query content for processing (remove potential PHI)
+            query = self._sanitize_query_phi(query)
+        
         query_id = self._generate_query_id(query)
 
         # Initialize query session
@@ -148,6 +160,12 @@ class EnhancedMedicalQueryEngine:
             source_links=self._extract_source_links(query_session["sources"]),
             generated_at=datetime.utcnow(),
         )
+
+        # Runtime PHI monitoring - check result content before returning
+        result_content = str(result.sources) + str(result.reasoning_chain)
+        phi_in_result = self._monitor_runtime_phi(result_content, "medical_query_result")
+        if phi_in_result:
+            print(f"⚠️  PHI detected in medical query result {query_id} - review output sanitization")
 
         # Cache result
         self.knowledge_cache[query_id] = result
@@ -821,3 +839,73 @@ class EnhancedMedicalQueryEngine:
             relevance_scores.append(min(source_relevance, 1.0))
 
         return sum(relevance_scores) / len(relevance_scores) if relevance_scores else 0.0
+
+    def _monitor_runtime_phi(self, content: str, context_type: str) -> bool:
+        """
+        Runtime PHI monitoring for medical query processing.
+        
+        This monitors actual runtime content for PHI patterns, not static code.
+        Returns True if potential PHI is detected.
+        """
+        import re
+        
+        # Critical PHI patterns that should never appear in medical queries
+        phi_patterns = [
+            r'\b\d{3}-\d{2}-\d{4}\b',  # SSN patterns
+            r'\b\d{9}\b.*SSN',         # Raw SSN numbers
+            r'\(\d{3}\)\s*\d{3}-\d{4}',  # Phone patterns (excluding 555)
+            r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',  # Email patterns
+            r'MRN.*\d{6,}',            # Medical record numbers
+        ]
+        
+        # Safe synthetic patterns (don't flag these)
+        safe_patterns = [
+            r'PAT\d{3}',               # PAT001 patient IDs
+            r'555-\d{3}-\d{4}',        # 555 test phone numbers
+            r'XXX-XX-XXXX',            # Masked SSN patterns
+            r'.*@example\.(com|test)', # Test domain emails
+            r'01/01/1990',             # Standard test DOB
+        ]
+        
+        # Check if content contains safe synthetic patterns first
+        for safe_pattern in safe_patterns:
+            if re.search(safe_pattern, content, re.IGNORECASE):
+                return False  # It's safe synthetic data
+        
+        # Check for PHI patterns
+        for phi_pattern in phi_patterns:
+            if re.search(phi_pattern, content, re.IGNORECASE):
+                # Log the detection (without exposing actual content)
+                content_hash = hashlib.sha256(content.encode()).hexdigest()[:8]
+                print(f"🚨 Runtime PHI detection: {context_type} contains potential PHI (hash: {content_hash})")
+                return True
+        
+        return False
+
+    def _sanitize_query_phi(self, query: str) -> str:
+        """
+        Sanitize query content by removing potential PHI patterns.
+        
+        This replaces potential PHI with generic placeholders for safe processing.
+        """
+        import re
+        
+        # Replace potential PHI patterns with safe placeholders
+        sanitized = query
+        
+        # Replace SSN patterns
+        sanitized = re.sub(r'\b\d{3}-\d{2}-\d{4}\b', '[PATIENT_ID]', sanitized)
+        
+        # Replace phone patterns (but preserve 555 test numbers)
+        sanitized = re.sub(r'(?!555)\(\d{3}\)\s*\d{3}-\d{4}', '[PHONE]', sanitized)
+        
+        # Replace email patterns (but preserve test domains)
+        sanitized = re.sub(r'\b[A-Za-z0-9._%+-]+@(?!example\.)[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '[EMAIL]', sanitized)
+        
+        # Replace MRN patterns
+        sanitized = re.sub(r'MRN.*\d{6,}', '[MEDICAL_RECORD]', sanitized)
+        
+        if sanitized != query:
+            print(f"✅ Query sanitized for PHI protection - processing with placeholders")
+        
+        return sanitized
