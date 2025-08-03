@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runtime PHI Leakage Detection Script for Intelluxe AI
 # Monitors logs, outputs, and data pipeline artifacts for PHI exposure
+# GitHub Actions compatible with structured output and exit codes
 
 set -euo pipefail
 
@@ -9,7 +10,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
-log "🔍 Starting runtime PHI leakage scan for data pipelines and outputs"
+# GitHub Actions output support
+GITHUB_ACTIONS=${GITHUB_ACTIONS:-false}
+if [[ "$GITHUB_ACTIONS" == "true" ]]; then
+    # Use GitHub Actions logging format
+    log() { echo "::notice::🔍 PHI Monitor: $1"; }
+    warn() { echo "::warning::⚠️ PHI Warning: $1"; }
+    error() { echo "::error::🚨 PHI VIOLATION: $1"; exit 1; }
+else
+    log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] 🔍 PHI Monitor: $1"; }
+    warn() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️ PHI Warning: $1"; }
+    error() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] 🚨 PHI VIOLATION: $1"; exit 1; }
+fi
+
+log "Starting runtime PHI leakage scan for healthcare data pipelines and outputs"
 
 # Critical PHI patterns that should NEVER appear in logs/outputs
 declare -a critical_phi_patterns=(
@@ -220,6 +234,77 @@ check_data_exports() {
     done < <(find . -name "*.csv" -o -name "*.json" -o -name "*.xlsx" -print0 2>/dev/null)
 }
 
+# Function to verify database-first architecture in logs
+verify_database_usage() {
+    log "🗄️ Verifying database-first architecture in application logs..."
+    
+    local db_connections=0
+    local hardcoded_data=0
+    
+    # Check for proper database usage patterns
+    if [[ -d "logs/" ]]; then
+        while IFS= read -r -d '' file; do
+            [[ -f "$file" ]] || continue
+            
+            # Count database connection patterns
+            db_count=$(grep -c "Database connection\|PostgreSQL\|asyncpg\|database initialized" "$file" 2>/dev/null || echo "0")
+            ((db_connections += db_count))
+            
+            # Check for hardcoded patient data (bad pattern)
+            hardcoded_count=$(grep -c "patient_data.*=.*{" "$file" 2>/dev/null || echo "0")
+            ((hardcoded_data += hardcoded_count))
+            
+        done < <(find "logs/" -name "*.log" -print0 2>/dev/null)
+    fi
+    
+    if [[ $db_connections -gt 0 ]]; then
+        log "✅ Database connections verified in logs ($db_connections entries)"
+    else
+        warn "No database connection logs found - verify database integration"
+    fi
+    
+    if [[ $hardcoded_data -gt 0 ]]; then
+        error "Hardcoded patient data found in logs - violates database-first architecture"
+    fi
+}
+
+# Function to verify structured logging for healthcare compliance
+verify_healthcare_logging() {
+    log "📋 Verifying healthcare compliance logging patterns..."
+    
+    local audit_logs=0
+    local auth_logs=0
+    local phi_detection_logs=0
+    
+    if [[ -d "logs/" ]]; then
+        while IFS= read -r -d '' file; do
+            [[ -f "$file" ]] || continue
+            
+            # Count healthcare audit logging
+            audit_count=$(grep -c "User authenticated\|Permission granted\|Rate limit\|Healthcare access" "$file" 2>/dev/null || echo "0")
+            ((audit_logs += audit_count))
+            
+            # Count authentication logs
+            auth_count=$(grep -c "JWT token\|Authentication\|Authorization\|Role.*access" "$file" 2>/dev/null || echo "0")
+            ((auth_logs += auth_count))
+            
+            # Count PHI detection logs
+            phi_count=$(grep -c "PHI detected\|PHI protection\|No PHI found" "$file" 2>/dev/null || echo "0")
+            ((phi_detection_logs += phi_count))
+            
+        done < <(find "logs/" -name "*.log" -print0 2>/dev/null)
+    fi
+    
+    log "📊 Healthcare Logging Summary:"
+    log "   Audit logs: $audit_logs entries"
+    log "   Authentication logs: $auth_logs entries" 
+    log "   PHI detection logs: $phi_detection_logs entries"
+    
+    if [[ $audit_logs -eq 0 && $auth_logs -eq 0 && $phi_detection_logs -eq 0 ]]; then
+        warn "Limited healthcare compliance logging found - verify logging configuration"
+    fi
+}
+
 # Main scanning logic
 main() {
     log "🏥 Intelluxe AI Runtime PHI Leakage Detection"
@@ -236,6 +321,12 @@ main() {
     
     # Check for unauthorized data exports
     check_data_exports
+    
+    # Verify database-first architecture
+    verify_database_usage
+    
+    # Verify healthcare compliance logging
+    verify_healthcare_logging
     
     # Report results
     echo ""

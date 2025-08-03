@@ -142,7 +142,7 @@ id_ed25519*
 
 # === LOGS AND TEMPORARY FILES ===
 # Logs
-/logs/
+!/logs/
 /scripts/logs/
 *.log
 

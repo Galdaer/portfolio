@@ -262,6 +262,68 @@ jobs:
             echo "⚠️  Bootstrap validation completed with warnings"
           fi
 
+          echo "🔧 Validating new healthcare infrastructure components..."
+
+          # Test infrastructure imports
+          python3 -c "
+          import sys
+          sys.path.append('.')
+          
+          # Test all new infrastructure components
+          try:
+              from core.infrastructure.background_tasks import healthcare_task_manager
+              print('✅ Background Task Processing: HealthcareTaskManager')
+              
+              from core.infrastructure.caching import healthcare_cache
+              print('✅ Caching Strategy: HealthcareCacheManager')
+              
+              from core.infrastructure.health_monitoring import healthcare_monitor
+              print('✅ Health Monitoring: HealthcareSystemMonitor')
+              
+              from core.infrastructure.authentication import get_healthcare_authenticator
+              print('✅ Authentication: HealthcareAuthenticator')
+              
+              from core.infrastructure.config_manager import get_healthcare_config
+              print('✅ Configuration: HealthcareConfigManager')
+              
+              from core.infrastructure.streaming import get_healthcare_streamer
+              print('✅ Response Streaming: HealthcareStreamer')
+              
+              from core.infrastructure.rate_limiting import get_healthcare_rate_limiter
+              print('✅ Rate Limiting: HealthcareRateLimiter')
+              
+              print('🎉 All infrastructure components successfully imported')
+              
+          except ImportError as e:
+              print(f'❌ Infrastructure import failed: {e}')
+              exit(1)
+          "
+
+          # Test main application with new endpoints
+          python3 -c "
+          import sys
+          sys.path.append('.')
+          
+          try:
+              from main import app
+              print('✅ Main application loads with new streaming endpoints')
+              
+              # Verify streaming endpoints exist
+              routes = [str(route.path) for route in app.routes]
+              streaming_routes = ['/stream/literature_search', '/stream/ai_reasoning', '/stream/document_processing']
+              
+              for route in streaming_routes:
+                  if route in routes:
+                      print(f'✅ Streaming endpoint: {route}')
+                  else:
+                      print(f'❌ Missing streaming endpoint: {route}')
+                      exit(1)
+                      
+          except Exception as e:
+              print(f'❌ Main application test failed: {e}')
+              exit(1)
+          "
+
           echo "✅ Infrastructure validation complete"
 
   # Generate synthetic data during CI (proper approach for large datasets)
