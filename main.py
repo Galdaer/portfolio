@@ -4,6 +4,10 @@ Intelluxe AI - Healthcare AI System Entry Point
 
 Privacy-First Healthcare AI System built for on-premise clinical deployment.
 Focus: Administrative/documentation support, NOT medical advice.
+
+MEDICAL DISCLAIMER: This system provides administrative and documentation support only.
+It does not provide medical advice, diagnosis, or treatment recommendations.
+All medical decisions should be made by qualified healthcare professionals.
 """
 
 import asyncio
@@ -17,6 +21,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.openapi.utils import get_openapi
 
 from config.app import config
 
@@ -79,9 +84,48 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(
     title="Intelluxe AI - Healthcare Administrative Assistant",
-    description="Privacy-First Healthcare AI System for administrative support",
+    description="""
+    ## Privacy-First Healthcare AI System
+    
+    **Administrative and documentation support for healthcare professionals**
+    
+    ### 🏥 MEDICAL DISCLAIMER
+    **This system provides administrative and documentation support only.**
+    - ❌ Does NOT provide medical advice, diagnosis, or treatment recommendations
+    - ❌ Does NOT replace qualified healthcare professional judgment
+    - ✅ Assists with documentation, scheduling, and administrative tasks
+    - ✅ All PHI/PII remains on-premise with no cloud dependencies
+    
+    ### 🔒 HIPAA Compliance
+    - **Privacy-First Architecture**: All patient data remains on-premise
+    - **Audit Logging**: Complete audit trail for all healthcare access
+    - **Role-Based Access**: Secure authentication with healthcare role permissions
+    - **PHI Protection**: Runtime PHI detection and data leakage monitoring
+    
+    ### 🤖 Available Healthcare Agents
+    - **Intake Agent**: Patient registration, appointment scheduling, insurance verification
+    - **Document Processor**: Medical document analysis and clinical note generation
+    - **Research Assistant**: Medical literature search and clinical research support
+    
+    ### 📋 Authentication Required
+    Most endpoints require JWT authentication with appropriate healthcare role permissions.
+    Contact your system administrator for access credentials.
+    
+    ### ⚕️ Healthcare Compliance
+    Built for on-premise deployment in clinical environments with comprehensive
+    HIPAA compliance, audit logging, and patient data protection.
+    """,
     version="1.0.0",
     lifespan=lifespan,
+    terms_of_service="For healthcare administrative use only. No medical advice provided.",
+    contact={
+        "name": "Intelluxe AI Healthcare Support",
+        "email": "support@intelluxe.ai",
+    },
+    license_info={
+        "name": "Healthcare Administrative License",
+        "identifier": "Healthcare-Admin-Only",
+    },
 )
 
 # Configure CORS for development
@@ -111,9 +155,21 @@ async def root() -> str:
     """
 
 
-@app.get("/health")  # type: ignore[misc]
+@app.get("/health", tags=["health"])  # type: ignore[misc]
 async def health_check() -> dict[str, Any]:
-    """Detailed health check endpoint"""
+    """
+    Comprehensive Healthcare System Health Check
+    
+    Returns detailed health status for all healthcare system components:
+    - Database connectivity (PostgreSQL)
+    - Cache system (Redis) 
+    - MCP server connectivity
+    - LLM availability
+    - Background task processing
+    - Memory usage and performance metrics
+    
+    **Use Case**: System monitoring, deployment validation, troubleshooting
+    """
     try:
         from core.infrastructure.health_monitoring import healthcare_monitor
         return await healthcare_monitor.comprehensive_health_check()
@@ -123,9 +179,19 @@ async def health_check() -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Health check failed")
 
 
-@app.get("/health/quick")  # type: ignore[misc]
+@app.get("/health/quick", tags=["health"])  # type: ignore[misc]
 async def quick_health_check() -> dict[str, Any]:
-    """Quick health check endpoint (cached results)"""
+    """
+    Quick Healthcare System Status Check
+    
+    Returns cached health status for rapid monitoring:
+    - Overall system status
+    - Critical component availability
+    - Cached performance metrics
+    
+    **Use Case**: Load balancer health checks, rapid status monitoring
+    **Response Time**: < 100ms (cached results)
+    """
     try:
         from core.infrastructure.health_monitoring import healthcare_monitor
         return await healthcare_monitor.quick_health_check()
@@ -134,6 +200,53 @@ async def quick_health_check() -> dict[str, Any]:
         logger.error(f"Quick health check failed: {e}")
         raise HTTPException(status_code=500, detail="Quick health check failed")
 
+
+# Custom OpenAPI schema with healthcare compliance information
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    
+    # Add healthcare-specific security schemes
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Healthcare JWT token with role-based permissions"
+        }
+    }
+    
+    # Add healthcare compliance tags
+    openapi_schema["tags"] = [
+        {
+            "name": "health",
+            "description": "System health monitoring and status endpoints"
+        },
+        {
+            "name": "intake",
+            "description": "Patient intake, registration, and appointment scheduling"
+        },
+        {
+            "name": "document",
+            "description": "Medical document processing and clinical note generation"
+        },
+        {
+            "name": "research",
+            "description": "Medical literature search and clinical research support"
+        }
+    ]
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
 
 # Import and include agent routers
 try:
