@@ -36,7 +36,15 @@ exclude = [
     "**/.mypy_cache",
     "**/node_modules",
     "**/.venv",
-    "**/venv"
+    "**/venv",
+    # Add these new exclusions:
+    "services/user/*/vendor/",     # Vendor code in services
+    "mcps/*/submodules/",          # MCP submodules
+    "**/.git/",                    # Git directories
+    "**/dist/",                    # Build artifacts
+    "**/build/",                   # Build directories
+    "**/.pytest_cache/",           # Pytest cache
+    "**/htmlcov/",                 # Coverage reports
 ]
 
 line-length = 100
