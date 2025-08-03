@@ -5,10 +5,10 @@ SciSpacy Server - REST API for biomedical text analysis
 
 import logging
 import os
-from typing import Dict, Any, Tuple
+from typing import Any
 
 import spacy
-from flask import Flask, jsonify, request, Response
+from flask import Flask, request
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,7 +34,7 @@ def load_model() -> bool:
 
 
 @app.route("/health")  # type: ignore[misc]
-def health() -> Tuple[Dict[str, Any], int]:
+def health() -> tuple[dict[str, Any], int]:
     """Health check endpoint"""
     if nlp is None:
         return {"status": "error", "message": "Model not loaded"}, 500
@@ -42,7 +42,7 @@ def health() -> Tuple[Dict[str, Any], int]:
 
 
 @app.route("/")  # type: ignore[misc]
-def root() -> Dict[str, Any]:
+def root() -> dict[str, Any]:
     """Root endpoint with API info"""
     return {
         "service": "SciSpacy NLP Server",
@@ -56,7 +56,7 @@ def root() -> Dict[str, Any]:
 
 
 @app.route("/info")  # type: ignore[misc]
-def info() -> Tuple[Dict[str, Any], int]:
+def info() -> tuple[dict[str, Any], int]:
     """Model information endpoint"""
     if nlp is None:
         return {"error": "Model not loaded"}, 500
@@ -72,7 +72,7 @@ def info() -> Tuple[Dict[str, Any], int]:
 
 
 @app.route("/analyze", methods=["POST"])  # type: ignore[misc]
-def analyze() -> Tuple[Dict[str, Any], int]:
+def analyze() -> tuple[dict[str, Any], int]:
     """Analyze text for biomedical entities"""
     if nlp is None:
         return {"error": "Model not loaded"}, 500

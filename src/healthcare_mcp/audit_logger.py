@@ -7,7 +7,7 @@ import json
 import logging
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict
+from typing import Any
 
 
 class AuditEventType(Enum):
@@ -52,11 +52,11 @@ class HealthcareAuditLogger:
             f"status={getattr(response, 'status_code', 'unknown')}"
         )
 
-    def log_security_event(self, event_type: str, details: Dict[str, Any]) -> None:
+    def log_security_event(self, event_type: str, details: dict[str, Any]) -> None:
         """Log security events for monitoring (synchronous)"""
         self.logger.warning(f"SECURITY_EVENT: {event_type}, details={details}")
 
-    async def log_phi_detection(self, request_data: Any, phi_details: Dict[str, Any]) -> None:
+    async def log_phi_detection(self, request_data: Any, phi_details: dict[str, Any]) -> None:
         """Log PHI detection events"""
         request_id = getattr(request_data, "id", "unknown")
         phi_types = phi_details.get("entities", [])

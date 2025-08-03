@@ -7,10 +7,9 @@ Validates Dockerfiles for security best practices.
 import os
 import re
 import sys
-from typing import List
 
 
-def check_dockerfile_security(filename: str) -> List[str]:
+def check_dockerfile_security(filename: str) -> list[str]:
     """Check Dockerfile for security issues"""
     try:
         with open(filename) as f:

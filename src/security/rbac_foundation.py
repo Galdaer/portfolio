@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Set, Optional, List, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from psycopg2.extras import RealDictCursor
@@ -18,7 +18,7 @@ try:
     from psycopg2.extras import RealDictCursor
     PSYCOPG2_AVAILABLE = True
 except ImportError:
-    # Use mock cursor for development environments without PostgreSQL  
+    # Use mock cursor for development environments without PostgreSQL
     PSYCOPG2_AVAILABLE = False
 
 from src.security.environment_detector import EnvironmentDetector
@@ -87,8 +87,8 @@ class Role:
     role_id: str
     name: str
     description: str
-    permissions: Set[Permission]
-    resource_constraints: Dict[ResourceType, Dict[str, Any]]
+    permissions: set[Permission]
+    resource_constraints: dict[ResourceType, dict[str, Any]]
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -368,8 +368,8 @@ class HealthcareRBACManager:
                     role_id=str(role_data["role_id"]),
                     name=str(role_data["name"]),
                     description=str(role_data["description"]),
-                    permissions=set(cast(List[Permission], role_data["permissions"])),
-                    resource_constraints=cast(Dict[ResourceType, Dict[str, Any]], role_data["resource_constraints"]),
+                    permissions=set(cast(list[Permission], role_data["permissions"])),
+                    resource_constraints=cast(dict[ResourceType, dict[str, Any]], role_data["resource_constraints"]),
                     is_active=True,
                     created_at=datetime.now(),
                     updated_at=datetime.now(),
@@ -1064,7 +1064,7 @@ class HealthcareRBACManager:
         resource_type: ResourceType,
         resource_id: str,
         granted: bool,
-        context: Dict[str, Any] | None,
+        context: dict[str, Any] | None,
     ) -> None:
         """Log access attempt for audit"""
         if not self.postgres_conn:
@@ -1202,7 +1202,7 @@ class RBACMixin:
     def __init__(self) -> None:
         self.logger = logging.getLogger(f"{__name__}.RBACMixin")
         self.rbac_manager = None
-        self.patient_db: Optional[PatientAssignmentDB] = None
+        self.patient_db: PatientAssignmentDB | None = None
 
         # Initialize with SQLite-backed patient assignment for development
         try:

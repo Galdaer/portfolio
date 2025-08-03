@@ -8,7 +8,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any
 
 from cachetools import TTLCache
 
@@ -52,7 +52,7 @@ class EnhancedMedicalQueryEngine:
         self.knowledge_cache: TTLCache[str, Any] = TTLCache(maxsize=1000, ttl=1800)  # 30 min cache
 
         # Query refinement tracking
-        self.query_history: Dict[str, Any] = {}
+        self.query_history: dict[str, Any] = {}
 
         # Medical disclaimers
         self.disclaimers = {

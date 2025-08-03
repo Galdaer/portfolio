@@ -5,7 +5,7 @@ Provides testable database connection management with dependency injection
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Protocol, Any, Optional, cast
+from typing import Any, Protocol, cast
 
 import psycopg2
 
@@ -18,7 +18,7 @@ class DatabaseConnection(Protocol):
     """Database connection protocol for type safety"""
 
     @abstractmethod
-    def cursor(self, cursor_factory: Optional[Any] = None) -> psycopg2.extensions.cursor:
+    def cursor(self, cursor_factory: Any | None = None) -> psycopg2.extensions.cursor:
         """Return a database cursor"""
         ...
 
@@ -160,7 +160,7 @@ class PostgresConnectionFactory(ConnectionFactory):
 class MockConnectionFactory(ConnectionFactory):
     """Mock connection factory for testing"""
 
-    def __init__(self, mock_connection: Optional[Any] = None) -> None:
+    def __init__(self, mock_connection: Any | None = None) -> None:
         self.mock_connection = mock_connection
         self.logger = logging.getLogger(f"{__name__}.MockConnectionFactory")
 

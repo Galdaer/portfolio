@@ -5,7 +5,7 @@ Provides centralized configuration management with environment variable support,
 healthcare-specific settings, and compliance configurations.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 from .app import IntelluxeConfig, config
 from .environment_detector import EnvironmentDetector
@@ -78,7 +78,7 @@ def is_production() -> bool:
 
 
 # Healthcare AI specific configuration helpers
-def get_ai_config() -> Dict[str, Any]:
+def get_ai_config() -> dict[str, Any]:
     """Get AI-specific configuration settings"""
     return {
         "ollama_url": config.ollama_url,
@@ -89,7 +89,7 @@ def get_ai_config() -> Dict[str, Any]:
     }
 
 
-def get_database_config() -> Dict[str, Any]:
+def get_database_config() -> dict[str, Any]:
     """Get database configuration for healthcare data storage"""
     return {
         "database_name": config.database_name,
@@ -98,7 +98,7 @@ def get_database_config() -> Dict[str, Any]:
     }
 
 
-def get_compliance_config() -> Dict[str, Any]:
+def get_compliance_config() -> dict[str, Any]:
     """Get healthcare compliance configuration"""
     return {
         "data_retention_days": config.data_retention_days,

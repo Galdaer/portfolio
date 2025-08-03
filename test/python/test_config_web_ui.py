@@ -6,14 +6,14 @@ import sys
 import types
 import warnings
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import pytest
 
 # Load config_web_ui.py as a module
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "config_web_ui.py"
 spec = importlib.util.spec_from_file_location("config_web_ui", SCRIPT_PATH)
-config_web_ui: Optional[Any] = None
+config_web_ui: Any | None = None
 if spec is not None:
     config_web_ui = importlib.util.module_from_spec(spec)
 

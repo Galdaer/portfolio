@@ -33,16 +33,16 @@ import shutil
 import subprocess
 import time
 import warnings
-from typing import Dict, List, Union, Any, Optional
+from typing import Any
 
 from flask import (
     Flask,
+    Response,
     redirect,
     render_template_string,
     request,
     send_from_directory,
     url_for,
-    Response,
 )
 
 
@@ -269,7 +269,7 @@ if (addForm) {
 """
 
 
-def parse_value(val: str) -> Union[str, List[str]]:
+def parse_value(val: str) -> str | list[str]:
     """Parse a configuration value, returning list for bash array syntax."""
     val = val.strip().strip('"')
     if val.startswith("(") and val.endswith(")"):
@@ -277,7 +277,7 @@ def parse_value(val: str) -> Union[str, List[str]]:
     return val
 
 
-def get_all_containers() -> List[str]:
+def get_all_containers() -> list[str]:
     """Extract ALL_CONTAINERS array from the bootstrap script."""
     pattern = re.compile(r"^ALL_CONTAINERS=\(([^)]*)\)")
     try:
@@ -293,7 +293,7 @@ def get_all_containers() -> List[str]:
     return []
 
 
-def load_config() -> Dict[str, Any]:
+def load_config() -> dict[str, Any]:
     data = {}
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE) as f:
@@ -326,12 +326,12 @@ def get_grafana_default_port() -> str:
     return "3001"
 
 
-def get_grafana_port(config: Dict[str, Any]) -> str:
+def get_grafana_port(config: dict[str, Any]) -> str:
     """Derive Grafana port from config or default service file."""
     return str(config.get("CONTAINER_PORTS[grafana]", get_grafana_default_port()))
 
 
-def save_config(new_data: Dict[str, Any]) -> None:
+def save_config(new_data: dict[str, Any]) -> None:
     config = load_config()
     config.update(new_data)
     with open(CONFIG_FILE, "w") as f:
@@ -345,7 +345,7 @@ def save_config(new_data: Dict[str, Any]) -> None:
     os.chown(CONFIG_FILE, uid, gid)
 
 
-def key_to_service(key: str) -> Optional[str]:
+def key_to_service(key: str) -> str | None:
     """Return service name for a given configuration key.
 
     Supports ``CONTAINER_PORTS[service]`` style keys in addition to the
@@ -360,7 +360,7 @@ def key_to_service(key: str) -> Optional[str]:
     return None
 
 
-def changed_services(old: Dict[str, Any], new: Dict[str, Any]) -> set[str]:
+def changed_services(old: dict[str, Any], new: dict[str, Any]) -> set[str]:
     """Return a set of services whose config values changed."""
     services = set()
     for k, val in new.items():
@@ -371,7 +371,7 @@ def changed_services(old: Dict[str, Any], new: Dict[str, Any]) -> set[str]:
     return services
 
 
-def run_bootstrap(args: Optional[List[str]] = None, env: Optional[Dict[str, str]] = None, suppress: bool = True) -> subprocess.Popen[bytes]:
+def run_bootstrap(args: list[str] | None = None, env: dict[str, str] | None = None, suppress: bool = True) -> subprocess.Popen[bytes]:
     """Run ``bootstrap.sh`` with optional arguments.
 
     Parameters
@@ -405,7 +405,7 @@ def run_bootstrap(args: Optional[List[str]] = None, env: Optional[Dict[str, str]
         return subprocess.Popen(cmd, env=env)
 
 
-def get_container_statuses() -> Dict[str, str]:
+def get_container_statuses() -> dict[str, str]:
     """Return mapping of container name to Docker status."""
     try:
         output = subprocess.check_output(
@@ -426,7 +426,7 @@ def get_container_statuses() -> Dict[str, str]:
 
 
 @app.route("/", methods=["GET", "POST"])  # type: ignore[misc]
-def index() -> Union[str, Response]:
+def index() -> str | Response:
     config = load_config()
     # Ensure configurable web UI port is always available
     if "CONFIG_WEB_UI_PORT" not in config:
@@ -539,7 +539,7 @@ def systemd_summary_route() -> str:
 
 
 @app.route("/teardown", methods=["POST"])  # type: ignore[misc]
-def teardown_route() -> Union[Response, tuple[str, int]]:
+def teardown_route() -> Response | tuple[str, int]:
     if TEARDOWN_PATH is None:
         return "Error: TEARDOWN_PATH is not set", 500
 
@@ -632,7 +632,7 @@ def add_service_route() -> Response:
 
 @app.route("/logs/", defaults={"target": None})  # type: ignore[misc]
 @app.route("/logs/<path:target>")  # type: ignore[misc]
-def logs_index(target: Optional[str] = None) -> Union[Response, str]:
+def logs_index(target: str | None = None) -> Response | str:
     """List log files or show logs for a specific container."""
     if target:
         log_path = os.path.join(LOGS_DIR, target)

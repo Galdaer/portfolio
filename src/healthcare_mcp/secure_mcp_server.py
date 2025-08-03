@@ -6,9 +6,10 @@ FastMCP-based server with security hardening, PHI detection, and audit logging
 import asyncio
 import logging
 import os
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, AsyncGenerator, Callable, Dict, DefaultDict, Deque, Awaitable
+from typing import Any
 
 import jwt
 import psycopg2
@@ -134,8 +135,8 @@ class HealthcareMCPServer:
         self.jwt_lockout_duration = int(os.getenv("JWT_LOCKOUT_DURATION", "900"))  # 15 minutes
 
         # Track failed attempts by IP address
-        self.jwt_failed_attempts: DefaultDict[str, Deque[float]] = defaultdict(deque)  # IP -> deque of failure timestamps
-        self.jwt_locked_ips: Dict[str, float] = {}  # IP -> lockout expiry timestamp
+        self.jwt_failed_attempts: defaultdict[str, deque[float]] = defaultdict(deque)  # IP -> deque of failure timestamps
+        self.jwt_locked_ips: dict[str, float] = {}  # IP -> lockout expiry timestamp
 
         self.logger.info(
             f"JWT rate limiting initialized: {self.jwt_max_failures} failures per {self.jwt_rate_limit_window}s window"
@@ -400,7 +401,7 @@ class HealthcareMCPServer:
         """Register API routes"""
 
         @self.app.get("/health")  # type: ignore[misc]
-        async def health_check() -> Dict[str, Any]:
+        async def health_check() -> dict[str, Any]:
             """Health check endpoint"""
             return {
                 "status": "healthy",
@@ -443,7 +444,7 @@ class HealthcareMCPServer:
         async def list_tools(
             credentials: HTTPAuthorizationCredentials = Depends(security),
             client_request: Request | None = None,
-        ) -> Dict[str, Any]:
+        ) -> dict[str, Any]:
             """List available healthcare tools"""
 
             # Get client IP for rate limiting

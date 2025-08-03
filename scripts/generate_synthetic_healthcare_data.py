@@ -10,18 +10,18 @@ import os
 import random
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import psycopg2
-    from psycopg2.extensions import connection as PgConnection
     import redis
+    from psycopg2.extensions import connection as PgConnection
 
 # Optional database dependencies with graceful fallback
 try:
     import psycopg2
     from psycopg2.extensions import connection as PgConnection
-    
+
     PSYCOPG2_AVAILABLE = True
 except ImportError:
     PSYCOPG2_AVAILABLE = False
@@ -29,7 +29,7 @@ except ImportError:
 
 try:
     import redis
-    
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
@@ -183,8 +183,8 @@ class SyntheticHealthcareDataGenerator:
         self.audit_logs: list[dict[str, Any]] = []
 
         # Database connections (optional)
-        self.db_conn: Optional[Any] = None
-        self.redis_client: Optional[Any] = None
+        self.db_conn: Any | None = None
+        self.redis_client: Any | None = None
 
         if self.use_database:
             self._connect_to_databases()
@@ -219,7 +219,7 @@ class SyntheticHealthcareDataGenerator:
                 print(f"⚠️  Redis connection failed: {e}")
                 self.redis_client = None
 
-    def generate_patient(self) -> Dict[str, Any]:
+    def generate_patient(self) -> dict[str, Any]:
         """Generate synthetic patient data"""
         return {
             "id": str(uuid.uuid4()),
@@ -241,7 +241,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-2y", end_date="now").isoformat(),
         }
 
-    def generate_doctor(self) -> Dict[str, Any]:
+    def generate_doctor(self) -> dict[str, Any]:
         """Generate synthetic doctor data"""
         return {
             "id": str(uuid.uuid4()),
@@ -274,7 +274,7 @@ class SyntheticHealthcareDataGenerator:
             },
         }
 
-    def generate_encounter(self, patient_id: str, doctor_id: str) -> Dict[str, Any]:
+    def generate_encounter(self, patient_id: str, doctor_id: str) -> dict[str, Any]:
         """Generate synthetic encounter/visit data"""
         return {
             "encounter_id": str(uuid.uuid4()),
@@ -317,7 +317,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-1y", end_date="now").isoformat(),
         }
 
-    def generate_lab_result(self, patient_id: str) -> Dict[str, Any]:
+    def generate_lab_result(self, patient_id: str) -> dict[str, Any]:
         """Generate synthetic lab result data"""
         lab_test = fake.lab_test()
 
@@ -355,7 +355,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-1y", end_date="now").isoformat(),
         }
 
-    def generate_insurance_verification(self, patient_id: str) -> Dict[str, Any]:
+    def generate_insurance_verification(self, patient_id: str) -> dict[str, Any]:
         """Generate synthetic insurance verification data"""
         return {
             "verification_id": str(uuid.uuid4()),
@@ -388,7 +388,7 @@ class SyntheticHealthcareDataGenerator:
             ),
         }
 
-    def generate_agent_session(self, doctor_id: str) -> Dict[str, Any]:
+    def generate_agent_session(self, doctor_id: str) -> dict[str, Any]:
         """Generate synthetic AI agent session data for Phase 1"""
         return {
             "session_id": str(uuid.uuid4()),
@@ -414,7 +414,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-30d", end_date="now").isoformat(),
         }
 
-    def generate_billing_claim(self, patient_id: str, doctor_id: str, encounter_id: str) -> Dict[str, Any]:
+    def generate_billing_claim(self, patient_id: str, doctor_id: str, encounter_id: str) -> dict[str, Any]:
         """Generate synthetic billing claim for Phase 2 business automation"""
         return {
             "claim_id": f"CLM-{fake.random_number(digits=8)}",
@@ -451,7 +451,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-90d", end_date="now").isoformat(),
         }
 
-    def generate_doctor_preferences(self, doctor_id: str) -> Dict[str, Any]:
+    def generate_doctor_preferences(self, doctor_id: str) -> dict[str, Any]:
         """Generate doctor workflow preferences for LoRA personalization (Phase 2)"""
         return {
             "doctor_id": doctor_id,
@@ -489,7 +489,7 @@ class SyntheticHealthcareDataGenerator:
             "updated_at": fake.date_time_between(start_date="-30d", end_date="now").isoformat(),
         }
 
-    def generate_audit_log(self, user_id: str, user_type: str = "doctor") -> Dict[str, Any]:
+    def generate_audit_log(self, user_id: str, user_type: str = "doctor") -> dict[str, Any]:
         """Generate audit log entries for HIPAA compliance (Phase 2)"""
         actions = {
             "doctor": [

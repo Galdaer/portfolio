@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from io import StringIO
-from typing import Any, cast, Dict, List, Tuple, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from presidio_analyzer import AnalyzerEngine
@@ -17,10 +17,10 @@ if TYPE_CHECKING:
     AnalyzerEngineType = type[AnalyzerEngine]
     AnonymizerEngineType = type[AnonymizerEngine]
 else:
-    AnalyzerEngine: Optional[Any] = None
-    AnonymizerEngine: Optional[Any] = None
-    AnalyzerEngineType: Optional[Any] = None
-    AnonymizerEngineType: Optional[Any] = None
+    AnalyzerEngine: Any | None = None
+    AnonymizerEngine: Any | None = None
+    AnalyzerEngineType: Any | None = None
+    AnonymizerEngineType: Any | None = None
 
 try:
     from presidio_analyzer import AnalyzerEngine
@@ -373,13 +373,13 @@ class BasicPHIDetector:
         self,
         matches: Any,
         phi_type: str,
-        pattern_info: Dict[str, Any],
+        pattern_info: dict[str, Any],
         phi_detected: bool,
-        phi_types: List[str],
-        confidence_scores: List[float],
-        detection_details: List[Dict[str, Any]],
+        phi_types: list[str],
+        confidence_scores: list[float],
+        detection_details: list[dict[str, Any]],
         masked_text: str,
-    ) -> Tuple[bool, List[str], List[float], List[Dict[str, Any]], str]:
+    ) -> tuple[bool, list[str], list[float], list[dict[str, Any]], str]:
         """Process matches and mask detected PHI"""
         # Process matches in reverse order to maintain valid positions during masking.
         # Masking modifies the string, which shifts the indices of subsequent matches.
@@ -664,7 +664,7 @@ class PHIDetector:
                     detection_details=[],
                 )
 
-        def traverse_dict(obj: Dict[str, Any], prefix: str = "") -> None:
+        def traverse_dict(obj: dict[str, Any], prefix: str = "") -> None:
             for key, value in obj.items():
                 full_key = f"{prefix}.{key}" if prefix else key
 

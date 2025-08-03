@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # Packages that should be excluded from CI (GPU, heavy ML packages)
 CI_EXCLUDED_PACKAGES = {
@@ -154,7 +154,7 @@ CI_REQUIRED_PACKAGES = {
 }
 
 
-def run_command(cmd: str, cwd: Optional[str] = None) -> Any:
+def run_command(cmd: str, cwd: str | None = None) -> Any:
     """Run a command and return the result"""
     try:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd)

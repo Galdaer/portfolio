@@ -6,12 +6,11 @@ Validates HIPAA compliance configuration files.
 
 import os
 import sys
-from typing import List
 
 import yaml
 
 
-def validate_hipaa_config() -> List[str]:
+def validate_hipaa_config() -> list[str]:
     """Validate HIPAA configuration files"""
     issues = []
 

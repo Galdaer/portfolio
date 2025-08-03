@@ -11,7 +11,7 @@ import secrets
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import Any, Dict, Optional, Callable
+from typing import Any
 
 import jwt
 import psycopg2
@@ -139,7 +139,7 @@ class SessionManager:
         self.logger.info(f"Session created for user {user_id}")
         return session_id
 
-    def validate_session(self, session_id: str) -> Dict[str, Any] | None:
+    def validate_session(self, session_id: str) -> dict[str, Any] | None:
         """Validate and refresh session"""
         session_key = f"session:{session_id}"
 
@@ -411,7 +411,7 @@ class HealthcareSecurityMiddleware:
         event_type: str,
         severity: str,
         user_id: str | None,
-        details: Dict[str, Any],
+        details: dict[str, Any],
     ) -> None:
         """Log security event"""
         try:

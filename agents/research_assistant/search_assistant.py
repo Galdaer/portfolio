@@ -451,7 +451,7 @@ class MedicalLiteratureSearchAssistant:
         )
         quality_factor = min(high_quality_sources / 5.0, 1.0)  # Up to 5 high-quality = full score
 
-        # Relevance factor  
+        # Relevance factor
         relevance_scores = [float(s.get("relevance_score", 0)) for s in sources]
         avg_relevance = sum(relevance_scores) / len(sources) if sources else 0.0
 

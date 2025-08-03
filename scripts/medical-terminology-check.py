@@ -7,10 +7,9 @@ Ensures proper capitalization of medical terms.
 import os
 import re
 import sys
-from typing import List
 
 
-def check_medical_terminology(filename: str) -> List[str]:
+def check_medical_terminology(filename: str) -> list[str]:
     """Check for proper medical terminology"""
     # Common medical terminology that should be spelled correctly
     medical_terms = {

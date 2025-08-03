@@ -9,7 +9,7 @@ Based on patterns from reference/ai-patterns/ adapted for healthcare AI.
 
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
