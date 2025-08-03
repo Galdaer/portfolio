@@ -209,7 +209,7 @@ check_db_connections() {
                 ((warnings++))
             fi
             
-        done < <(find "$dir" -name "*.log" -o -name "*.out" -o -name "*.err" -print0 2>/dev/null)
+        done < <(find "$dir" \( -name "*.log" -o -name "*.out" -o -name "*.err" \) -print0 2>/dev/null)
     done
 }
 
@@ -231,7 +231,7 @@ check_data_exports() {
             ((warnings++))
         fi
         
-    done < <(find . -name "*.csv" -o -name "*.json" -o -name "*.xlsx" -print0 2>/dev/null)
+    done < <(find . \( -name "*.csv" -o -name "*.json" -o -name "*.xlsx" \) -print0 2>/dev/null)
 }
 
 # Function to verify database-first architecture in logs

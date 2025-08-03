@@ -159,7 +159,8 @@ scan_patterns() {
             # Check each match to see if it's synthetic or development config
             local has_real_phi=false
             while IFS= read -r line; do
-                local file_path=$(echo "$line" | cut -d: -f1)
+                local file_path
+                file_path=$(echo "$line" | cut -d: -f1)
                 if ! is_synthetic_or_development "$line" "$file_path"; then
                     warn "Found potential $pattern_type pattern: $pattern"
                     echo "  $line"

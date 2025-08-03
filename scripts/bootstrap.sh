@@ -99,7 +99,9 @@ validate_environment() {
     # Auto-detect environment if not explicitly set
     if [[ -z "${ENVIRONMENT:-}" ]]; then
         echo "🔍 Auto-detecting environment..."
-        export ENVIRONMENT="$(detect_environment)"
+        local detected_env
+        detected_env="$(detect_environment)"
+        export ENVIRONMENT="$detected_env"
     fi
 
     # Validate the environment value
