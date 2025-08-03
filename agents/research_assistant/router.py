@@ -4,13 +4,14 @@ Provides medical literature search and clinical research capabilities
 """
 
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from agents.research_assistant.clinical_research_agent import ClinicalResearchAgent
 from agents.research_assistant.search_assistant import MedicalLiteratureSearchAssistant
+from core.dependencies import get_llm_client, get_mcp_client
 
 logger = logging.getLogger(__name__)
 
@@ -56,18 +57,6 @@ class LiteratureSearchRequest(BaseModel):
                 "search_context": {"focus": "type_2_diabetes", "patient_age": "adult"},
             }
         }
-
-
-async def get_mcp_client() -> Any:
-    """Get MCP client (placeholder for dependency injection)"""
-    # TODO: Replace with actual MCP client dependency
-    return None
-
-
-async def get_llm_client() -> Any:
-    """Get LLM client (placeholder for dependency injection)"""
-    # TODO: Replace with actual LLM client dependency
-    return None
 
 
 @router.post("/clinical-research")

@@ -64,103 +64,119 @@ class MonitoringConfig(BaseModel):
 class HealthcareConfig(BaseModel):
     """Comprehensive healthcare system configuration"""
     environment: EnvironmentType = Field(default=EnvironmentType.DEVELOPMENT)
-    
+
     # Core configurations
     model: ModelConfig = Field(default_factory=ModelConfig)
     compliance: HealthcareComplianceConfig = Field(default_factory=HealthcareComplianceConfig)
     cache: CacheConfig = Field(default_factory=CacheConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     monitoring: MonitoringConfig = Field(default_factory=MonitoringConfig)
-    
+
     # Environment-specific settings
     debug_mode: bool = Field(default=False, description="Enable debug mode")
     api_rate_limit_per_minute: int = Field(default=60, description="API rate limit per minute")
     jwt_secret_key: str = Field(default="change-in-production", description="JWT secret key")
-    
+
 class HealthcareConfigManager:
     """Configuration manager with environment-specific overrides"""
-    
+
     def __init__(self, config_path: Optional[str] = None):
         self.config_path = config_path or "config/healthcare_settings.yml"
         self.config: Optional[HealthcareConfig] = None
         self._load_config()
-    
+
     def _load_config(self) -> None:
         """Load configuration from YAML file with environment overrides"""
-        
+
         # Start with default configuration
-        config_data = {}
-        
+        config_data: dict[str, Any] = {}
+
         # Load from YAML file if it exists
         config_file = Path(self.config_path)
         if config_file.exists():
             with open(config_file, 'r') as f:
                 file_config = yaml.safe_load(f) or {}
                 config_data.update(file_config)
-        
+
         # Apply environment-specific overrides
         env = os.getenv("HEALTHCARE_ENV", "development")
         config_data["environment"] = env
-        
+
         # Environment-specific database URLs
         if env == "production":
-            config_data.setdefault("database", {})["postgres_url"] = os.getenv(
-                "DATABASE_URL", 
-                config_data.get("database", {}).get("postgres_url", "postgresql://localhost:5432/intelluxe")
-            )
-            config_data.setdefault("cache", {})["redis_url"] = os.getenv(
-                "REDIS_URL", 
-                config_data.get("cache", {}).get("redis_url", "redis://localhost:6379")
-            )
-        
+            database_config = config_data.setdefault("database", {})
+            if isinstance(database_config, dict):
+                database_config["postgres_url"] = os.getenv(
+                    "DATABASE_URL",
+                    config_data.get("database", {}).get("postgres_url", "postgresql://localhost:5432/intelluxe") if isinstance(config_data.get("database"), dict) else "postgresql://localhost:5432/intelluxe"
+                )
+            cache_config = config_data.setdefault("cache", {})
+            if isinstance(cache_config, dict):
+                cache_config["redis_url"] = os.getenv(
+                    "REDIS_URL",
+                    config_data.get("cache", {}).get("redis_url", "redis://localhost:6379") if isinstance(config_data.get("cache"), dict) else "redis://localhost:6379"
+                )
+
         # Security overrides from environment
         config_data["jwt_secret_key"] = os.getenv(
-            "JWT_SECRET_KEY", 
+            "JWT_SECRET_KEY",
             config_data.get("jwt_secret_key", "change-in-production")
         )
-        
+
         # Development-specific settings
         if env == "development":
             config_data["debug_mode"] = True
-            config_data.setdefault("compliance", {})["require_mfa"] = False
-            config_data.setdefault("monitoring", {})["log_level"] = "DEBUG"
-        
+            compliance_config = config_data.setdefault("compliance", {})
+            if isinstance(compliance_config, dict):
+                compliance_config["require_mfa"] = False
+            monitoring_config = config_data.setdefault("monitoring", {})
+            if isinstance(monitoring_config, dict):
+                monitoring_config["log_level"] = "DEBUG"
+
         # Production security hardening
         elif env == "production":
             config_data["debug_mode"] = False
-            config_data.setdefault("compliance", {})["require_mfa"] = True
-            config_data.setdefault("database", {})["enable_ssl"] = True
-            config_data.setdefault("monitoring", {})["log_level"] = "WARNING"
-        
+            compliance_config = config_data.setdefault("compliance", {})
+            if isinstance(compliance_config, dict):
+                compliance_config["require_mfa"] = True
+            database_config = config_data.setdefault("database", {})
+            if isinstance(database_config, dict):
+                database_config["enable_ssl"] = True
+            monitoring_config = config_data.setdefault("monitoring", {})
+            if isinstance(monitoring_config, dict):
+                monitoring_config["log_level"] = "WARNING"
+
         # Create configuration object
         self.config = HealthcareConfig(**config_data)
-    
+
     def get_config(self) -> HealthcareConfig:
         """Get current healthcare configuration"""
         if self.config is None:
             self._load_config()
+        if self.config is None:
+            raise RuntimeError("Failed to load healthcare configuration")
         return self.config
-    
+
     def reload_config(self) -> None:
         """Reload configuration from file"""
         self._load_config()
-    
+
     def get_model_config(self) -> ModelConfig:
         """Get AI model configuration"""
         return self.get_config().model
-    
+
     def get_compliance_config(self) -> HealthcareComplianceConfig:
         """Get healthcare compliance configuration"""
         return self.get_config().compliance
-    
+
     def get_cache_config(self) -> CacheConfig:
         """Get caching configuration"""
         return self.get_config().cache
-    
+
     def get_database_config(self) -> DatabaseConfig:
         """Get database configuration"""
         return self.get_config().database
-    
+
     def get_monitoring_config(self) -> MonitoringConfig:
         """Get monitoring configuration"""
         return self.get_config().monitoring

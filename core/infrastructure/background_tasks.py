@@ -110,7 +110,8 @@ class HealthcareTaskManager:
                 import json
                 result_data = await redis_client.get(f"task_result:{task_id}")
                 if result_data:
-                    result: dict[str, Any] = json.loads(result_data)
+                    from typing import cast
+                    result: dict[str, Any] = cast(dict[str, Any], json.loads(result_data))
                     return result
         except Exception as e:
             logger.warning(f"Failed to get task status {task_id}: {e}")

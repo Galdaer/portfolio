@@ -65,7 +65,8 @@ class HealthcareCacheManager:
 
             cached_data = await redis_client.get(cache_key)
             if cached_data:
-                result: dict[str, Any] = json.loads(cached_data)
+                from typing import cast
+                result: dict[str, Any] = cast(dict[str, Any], json.loads(cached_data))
                 logger.info(f"Cache HIT for medical literature: {query[:50]}...")
                 return result
 
@@ -140,7 +141,8 @@ class HealthcareCacheManager:
                 
             cached_data = await redis_client.get(cache_key)
             if cached_data:
-                result: dict[str, Any] = json.loads(cached_data)
+                from typing import cast
+                result: dict[str, Any] = cast(dict[str, Any], json.loads(cached_data))
                 logger.info(f"Cache HIT for drug interactions: {', '.join(drug_list[:3])}...")
                 return result
                 
@@ -221,7 +223,8 @@ class HealthcareCacheManager:
                 
             cached_data = await redis_client.get(cache_key)
             if cached_data:
-                result: dict[str, Any] = json.loads(cached_data)
+                from typing import cast
+                result: dict[str, Any] = cast(dict[str, Any], json.loads(cached_data))
                 logger.info(f"Cache HIT for patient session: {session_id}")
                 return result
                 

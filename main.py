@@ -86,31 +86,31 @@ app = FastAPI(
     title="Intelluxe AI - Healthcare Administrative Assistant",
     description="""
     ## Privacy-First Healthcare AI System
-    
+
     **Administrative and documentation support for healthcare professionals**
-    
+
     ### 🏥 MEDICAL DISCLAIMER
     **This system provides administrative and documentation support only.**
     - ❌ Does NOT provide medical advice, diagnosis, or treatment recommendations
     - ❌ Does NOT replace qualified healthcare professional judgment
     - ✅ Assists with documentation, scheduling, and administrative tasks
     - ✅ All PHI/PII remains on-premise with no cloud dependencies
-    
+
     ### 🔒 HIPAA Compliance
     - **Privacy-First Architecture**: All patient data remains on-premise
     - **Audit Logging**: Complete audit trail for all healthcare access
     - **Role-Based Access**: Secure authentication with healthcare role permissions
     - **PHI Protection**: Runtime PHI detection and data leakage monitoring
-    
+
     ### 🤖 Available Healthcare Agents
     - **Intake Agent**: Patient registration, appointment scheduling, insurance verification
     - **Document Processor**: Medical document analysis and clinical note generation
     - **Research Assistant**: Medical literature search and clinical research support
-    
+
     ### 📋 Authentication Required
     Most endpoints require JWT authentication with appropriate healthcare role permissions.
     Contact your system administrator for access credentials.
-    
+
     ### ⚕️ Healthcare Compliance
     Built for on-premise deployment in clinical environments with comprehensive
     HIPAA compliance, audit logging, and patient data protection.
@@ -159,15 +159,15 @@ async def root() -> str:
 async def health_check() -> dict[str, Any]:
     """
     Comprehensive Healthcare System Health Check
-    
+
     Returns detailed health status for all healthcare system components:
     - Database connectivity (PostgreSQL)
-    - Cache system (Redis) 
+    - Cache system (Redis)
     - MCP server connectivity
     - LLM availability
     - Background task processing
     - Memory usage and performance metrics
-    
+
     **Use Case**: System monitoring, deployment validation, troubleshooting
     """
     try:
@@ -183,12 +183,12 @@ async def health_check() -> dict[str, Any]:
 async def quick_health_check() -> dict[str, Any]:
     """
     Quick Healthcare System Status Check
-    
+
     Returns cached health status for rapid monitoring:
     - Overall system status
     - Critical component availability
     - Cached performance metrics
-    
+
     **Use Case**: Load balancer health checks, rapid status monitoring
     **Response Time**: < 100ms (cached results)
     """
@@ -202,17 +202,18 @@ async def quick_health_check() -> dict[str, Any]:
 
 
 # Custom OpenAPI schema with healthcare compliance information
-def custom_openapi():
+def custom_openapi() -> dict[str, Any]:
     if app.openapi_schema:
-        return app.openapi_schema
-    
+        from typing import cast
+        return cast(dict[str, Any], app.openapi_schema)
+
     openapi_schema = get_openapi(
         title=app.title,
         version=app.version,
         description=app.description,
         routes=app.routes,
     )
-    
+
     # Add healthcare-specific security schemes
     openapi_schema["components"]["securitySchemes"] = {
         "BearerAuth": {
@@ -222,7 +223,7 @@ def custom_openapi():
             "description": "Healthcare JWT token with role-based permissions"
         }
     }
-    
+
     # Add healthcare compliance tags
     openapi_schema["tags"] = [
         {
@@ -242,9 +243,10 @@ def custom_openapi():
             "description": "Medical literature search and clinical research support"
         }
     ]
-    
+
     app.openapi_schema = openapi_schema
-    return app.openapi_schema
+    from typing import cast
+    return cast(dict[str, Any], app.openapi_schema)
 
 app.openapi = custom_openapi
 

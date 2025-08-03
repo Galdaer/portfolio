@@ -61,7 +61,7 @@ class HealthcareSystemMonitor:
             results = await asyncio.gather(*health_tasks, return_exceptions=True)
             
             # Process results
-            health_status = {
+            health_status: dict[str, Any] = {
                 "overall_status": "healthy",
                 "timestamp": datetime.utcnow().isoformat(),
                 "check_duration_ms": round((time.time() - start_time) * 1000, 2),
@@ -77,7 +77,14 @@ class HealthcareSystemMonitor:
             }
             
             # Determine overall status
-            component_statuses = [comp.get("status", "unknown") for comp in health_status["components"].values()]
+            component_statuses = []
+            components_dict = health_status.get("components", {})
+            if isinstance(components_dict, dict):
+                for comp in components_dict.values():
+                    if isinstance(comp, dict):
+                        component_statuses.append(comp.get("status", "unknown"))
+                    else:
+                        component_statuses.append("unknown")
             if "critical" in component_statuses:
                 health_status["overall_status"] = "critical"
             elif "degraded" in component_statuses:
@@ -409,17 +416,19 @@ class HealthcareSystemMonitor:
             redis_status = results[1] if not isinstance(results[1], Exception) else {"status": "error"}
             
             overall = "healthy"
-            if db_status.get("status") == "critical" or redis_status.get("status") == "critical":
+            if (isinstance(db_status, dict) and db_status.get("status") == "critical") or \
+               (isinstance(redis_status, dict) and redis_status.get("status") == "critical"):
                 overall = "critical"
-            elif db_status.get("status") in ["degraded", "error"] or redis_status.get("status") in ["degraded", "error"]:
+            elif (isinstance(db_status, dict) and db_status.get("status") in ["degraded", "error"]) or \
+                 (isinstance(redis_status, dict) and redis_status.get("status") in ["degraded", "error"]):
                 overall = "degraded"
             
             return {
                 "overall_status": overall,
                 "timestamp": datetime.utcnow().isoformat(),
                 "quick_check": True,
-                "database": db_status.get("status"),
-                "cache": redis_status.get("status"),
+                "database": db_status.get("status") if isinstance(db_status, dict) else "error",
+                "cache": redis_status.get("status") if isinstance(redis_status, dict) else "error",
             }
             
         except asyncio.TimeoutError:

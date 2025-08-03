@@ -6,7 +6,7 @@ HIPAA-compliant authentication with role-based access control and audit logging.
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Annotated
+from typing import Any, Optional, Annotated, Callable
 from functools import wraps
 import jwt
 from fastapi import HTTPException, Depends, status
@@ -75,28 +75,28 @@ ROLE_PERMISSIONS = {
 
 class HealthcareAuthenticator:
     """HIPAA-compliant authentication manager"""
-    
+
     def __init__(self, secret_key: str, algorithm: str = "HS256"):
         self.secret_key = secret_key
         self.algorithm = algorithm
         self.security = HTTPBearer()
         logger.info("Healthcare authenticator initialized")
-    
+
     def create_access_token(
-        self, 
-        user_id: str, 
+        self,
+        user_id: str,
         role: HealthcareRole,
         facility_id: Optional[str] = None,
         department: Optional[str] = None,
         expires_delta: Optional[timedelta] = None
     ) -> str:
         """Create HIPAA-compliant JWT access token"""
-        
+
         if expires_delta:
             expire = datetime.now(timezone.utc) + expires_delta
         else:
             expire = datetime.now(timezone.utc) + timedelta(hours=8)  # Standard healthcare shift
-        
+
         token_data = TokenData(
             user_id=user_id,
             role=role,
@@ -105,25 +105,25 @@ class HealthcareAuthenticator:
             expires_at=expire,
             issued_at=datetime.now(timezone.utc)
         )
-        
+
         to_encode = token_data.model_dump()
         to_encode["exp"] = expire.timestamp()
-        
+
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
-        
+
         # HIPAA Audit Log
         logger.info(
             f"Access token created - User: {user_id}, Role: {role.value}, "
             f"Facility: {facility_id}, Expires: {expire.isoformat()}"
         )
-        
+
         return encoded_jwt
-    
+
     def verify_token(self, token: str) -> TokenData:
         """Verify and decode healthcare JWT token"""
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
-            
+
             # Check expiration
             exp_timestamp = payload.get("exp")
             if exp_timestamp and datetime.fromtimestamp(exp_timestamp, timezone.utc) < datetime.now(timezone.utc):
@@ -132,7 +132,7 @@ class HealthcareAuthenticator:
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Token has expired"
                 )
-            
+
             # Create TokenData object
             token_data = TokenData(
                 user_id=payload["user_id"],
@@ -142,27 +142,27 @@ class HealthcareAuthenticator:
                 expires_at=datetime.fromtimestamp(exp_timestamp, timezone.utc),
                 issued_at=datetime.fromisoformat(payload["issued_at"])
             )
-            
+
             return token_data
-            
+
         except jwt.InvalidTokenError as e:
             logger.warning(f"Invalid token attempt: {e}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Could not validate credentials"
             )
-    
+
     async def get_current_user(
-        self, 
+        self,
         credentials: Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())]
     ) -> AuthenticatedUser:
         """Extract authenticated user from request"""
-        
+
         token_data = self.verify_token(credentials.credentials)
-        
+
         # Get permissions for role
         permissions = ROLE_PERMISSIONS.get(token_data.role, [])
-        
+
         user = AuthenticatedUser(
             user_id=token_data.user_id,
             role=token_data.role,
@@ -170,34 +170,34 @@ class HealthcareAuthenticator:
             department=token_data.department,
             permissions=permissions
         )
-        
+
         # HIPAA Audit Log
         logger.info(
             f"User authenticated - ID: {user.user_id}, Role: {user.role.value}, "
             f"Facility: {user.facility_id}, Permissions: {len(permissions)}"
         )
-        
+
         return user
 
-def require_permission(required_permission: str):
+def require_permission(required_permission: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to require specific permission for endpoint access"""
-    def decorator(func):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Extract user from kwargs (assumes user is passed as dependency)
             user = None
             for arg in kwargs.values():
                 if isinstance(arg, AuthenticatedUser):
                     user = arg
                     break
-            
+
             if not user:
                 logger.error("No authenticated user found in request")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Authentication required"
                 )
-            
+
             if required_permission not in user.permissions:
                 logger.warning(
                     f"Permission denied - User: {user.user_id}, "
@@ -207,35 +207,35 @@ def require_permission(required_permission: str):
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=f"Permission '{required_permission}' required"
                 )
-            
+
             # HIPAA Audit Log
             logger.info(
                 f"Permission granted - User: {user.user_id}, "
                 f"Permission: {required_permission}"
             )
-            
+
             return await func(*args, **kwargs)
         return wrapper
     return decorator
 
-def require_role(required_role: HealthcareRole):
+def require_role(required_role: HealthcareRole) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to require specific healthcare role"""
-    def decorator(func):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Extract user from kwargs
             user = None
             for arg in kwargs.values():
                 if isinstance(arg, AuthenticatedUser):
                     user = arg
                     break
-            
+
             if not user:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Authentication required"
                 )
-            
+
             if user.role != required_role:
                 logger.warning(
                     f"Role access denied - User: {user.user_id}, "
@@ -245,7 +245,7 @@ def require_role(required_role: HealthcareRole):
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=f"Role '{required_role.value}' required"
                 )
-            
+
             return await func(*args, **kwargs)
         return wrapper
     return decorator
