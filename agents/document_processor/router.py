@@ -4,12 +4,13 @@ Handles medical document formatting, organization, and administrative processing
 """
 
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from agents.document_processor.document_processor import HealthcareDocumentProcessor
+from core.dependencies import get_llm_client, get_mcp_client
 
 logger = logging.getLogger(__name__)
 
@@ -100,18 +101,6 @@ class PatientSummaryRequest(BaseModel):
                 },
             }
         }
-
-
-async def get_mcp_client() -> Any:
-    """Get MCP client (placeholder for dependency injection)"""
-    # TODO: Replace with actual MCP client dependency
-    return None
-
-
-async def get_llm_client() -> Any:
-    """Get LLM client (placeholder for dependency injection)"""
-    # TODO: Replace with actual LLM client dependency
-    return None
 
 
 @router.post("/process")

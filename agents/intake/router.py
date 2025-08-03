@@ -4,13 +4,13 @@ Handles patient registration, scheduling, and administrative workflows
 """
 
 import logging
-from typing import Any
+from typing import Any, Callable
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from agents.intake.intake_agent import HealthcareIntakeAgent
-from core.dependencies import LLMClient, MCPClient
+from core.dependencies import LLMClient, MCPClient, get_llm_client, get_mcp_client
 
 logger = logging.getLogger(__name__)
 
