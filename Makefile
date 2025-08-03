@@ -380,7 +380,26 @@ hooks:
 lint:
 	@echo "🔍  Running shellcheck with warning level for healthcare AI scripts"
 	@shellcheck -S warning --format=gcc -x $$(find scripts -name "*.sh")
+	@echo "🔍  Checking shell function complexity patterns"
+	@$(MAKE) lint-shell-complexity
 	$(MAKE) lint-python
+
+lint-shell-complexity:
+	@echo "🔍  Analyzing shell functions for single responsibility violations..."
+	@# Find functions >20 lines or with complex patterns
+	@for script in $$(find scripts -name "*.sh"); do \
+		echo "Checking $$script for function complexity..."; \
+		awk '/^[a-zA-Z_][a-zA-Z0-9_]*\(\)/ { \
+			func_name = $$1; gsub(/\(\)/, "", func_name); \
+			func_start = NR; line_count = 0; in_function = 1; \
+		} \
+		in_function && /^}$$/ { \
+			if (line_count > 20) \
+				printf "%s:%d: Function \"%s\" has %d lines (>20) - consider refactoring for single responsibility\n", FILENAME, func_start, func_name, line_count; \
+			in_function = 0; \
+		} \
+		in_function { line_count++ }' "$$script"; \
+	done
 
 lint-python:
 	@echo "🔍  Running Python lint (ruff and mypy) for healthcare AI components"

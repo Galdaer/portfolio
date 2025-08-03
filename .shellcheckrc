@@ -7,6 +7,13 @@ external-sources=true
 # Set severity level  
 severity=warning
 
+# Function complexity and single responsibility patterns
+# SC2001: Consider using ${var//search/replace} instead of sed
+# SC2086: Double quote to prevent globbing and word splitting
+# SC2162: read without -r will mangle backslashes
+# Custom: Functions >20 lines or with multiple logical sections should be refactored
+# Custom: Look for functions with mixed concerns (detection + validation patterns)
+
 # Exclude specific directories from analysis
 exclude-dir=logs
 exclude-dir=.git
