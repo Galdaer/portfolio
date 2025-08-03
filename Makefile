@@ -1,6 +1,7 @@
 .PHONY: \
 	   auto-repair \
 	   backup \
+	   clean-cache \
 	   data-clean \
 	   data-generate \
 	   data-generate-large \
@@ -257,6 +258,31 @@ deps:
 		fi; \
 	fi
 	@echo "✅  All development dependencies installed successfully"
+
+clean-cache:
+	@echo "🧹  Cleaning package manager caches to free disk space"
+	@# Clean uv cache
+	@if command -v uv >/dev/null 2>&1; then \
+		echo "   🚀 Cleaning uv cache..."; \
+		uv cache clean || echo "   ⚠️  uv cache clean failed"; \
+		if command -v du >/dev/null 2>&1 && uv cache dir >/dev/null 2>&1; then \
+			cache_size=$$(du -sh $$(uv cache dir) 2>/dev/null | cut -f1 || echo "unknown"); \
+			echo "   📊 Remaining uv cache size: $$cache_size"; \
+		fi; \
+	else \
+		echo "   ⚠️  uv not found - skipping uv cache cleanup"; \
+	fi
+	@# Clean pip cache
+	@if command -v pip3 >/dev/null 2>&1; then \
+		echo "   🐍 Cleaning pip cache..."; \
+		pip3 cache purge 2>/dev/null || echo "   ⚠️  pip cache purge failed"; \
+		if command -v pip3 >/dev/null 2>&1; then \
+			pip3 cache info 2>/dev/null || echo "   📊 pip cache info not available"; \
+		fi; \
+	else \
+		echo "   ⚠️  pip3 not found - skipping pip cache cleanup"; \
+	fi
+	@echo "✅  Package manager cache cleanup complete"
 
 update:
 	@echo "🔄  Running healthcare AI system update and upgrade"
@@ -586,6 +612,7 @@ help:
 	@echo "🛠️  Development:"
 	@echo "  make deps            Install healthcare AI lint and test dependencies"
 	@echo "  make update-deps     Update and regenerate dependency lockfiles"
+	@echo "  make clean-cache     Clean uv and pip caches to free disk space"
 	@echo "  make venv            Create or activate a virtual environment"
 	@echo "  make hooks           Install git hooks for pre-push validation"
 	@echo "  make lint            Run shell and Python linters for healthcare AI code"
