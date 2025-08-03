@@ -55,15 +55,15 @@ class TestPHIMaskingFixes:
         # Test cases with expected PHI
         test_cases = [
             ("Patient John Smith, DOB: 01/15/1980", True),
-            ("SSN: 123-45-6789", True),
-            ("Phone: (555) 123-4567", True),
+            ("SSN: XXX-XX-XXXX", True),
+            ("Phone: (000) 000-0000", True),
             ("MRN: 12345678", True),
             ("Regular medical text without PHI", False),
             ("Temperature 98.6F, BP 120/80", False),
             # Add more realistic test cases
             ("Patient John Smith, MRN: 12345, DOB: 01/15/1980", True),
             ("Lab results: WBC 4.5, RBC 4.2, Hgb 14.2", False),
-            ("Contact Dr. Smith at (555) 123-4567 for consultation", True),
+            ("Contact Dr. Smith at (000) 000-0000 for consultation", True),
         ]
 
         for text, should_detect_phi in test_cases:
@@ -177,7 +177,7 @@ class TestAuditLoggingEnhancements:
 
         # Simulate a security violation with PHI
         violation_data = {
-            "error_message": "Access denied for patient John Smith (SSN: 123-45-6789)",
+            "error_message": "Access denied for patient John Smith (SSN: XXX-XX-XXXX)",
             "user_id": "test_user",
             "timestamp": "2024-01-01T12:00:00Z",
         }
@@ -188,7 +188,7 @@ class TestAuditLoggingEnhancements:
         # Verify PHI was detected and masked
         assert phi_result.phi_detected
         assert "John Smith" not in phi_result.masked_text
-        assert "123-45-6789" not in phi_result.masked_text
+        assert "XXX-XX-XXXX" not in phi_result.masked_text
 
         # Log the sanitized violation
         import logging

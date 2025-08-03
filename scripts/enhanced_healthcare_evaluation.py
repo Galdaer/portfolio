@@ -145,7 +145,7 @@ class AdvancedPHIDetector:
             r"synthetic",
             r"test",
             r"example",
-            r"555-",
+            r"000-000-0000",  # Clearly fake test phone number
             r"XXX-XX",
             r"_synthetic.*true",
             r"synthetic\.test",

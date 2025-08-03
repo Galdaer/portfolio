@@ -24,7 +24,7 @@ def generate_simple_synthetic_data(output_dir: str = "data/synthetic") -> None:
                 "first_name": f"TestPatient{i + 1}",
                 "last_name": f"Synthetic{i + 1}",
                 "date_of_birth": "1990-01-01",
-                "phone": f"555-{random.randint(100, 999):03d}-{random.randint(1000, 9999):04d}",
+                "phone": "000-000-0000",  # Clearly fake test phone number
                 "insurance_provider": "SyntheticInsurance",
                 "member_id": f"SYN{random.randint(100000, 999999)}",
                 "primary_condition": "Test Condition",
