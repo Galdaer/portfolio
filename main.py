@@ -248,6 +248,77 @@ def custom_openapi():
 
 app.openapi = custom_openapi
 
+# Streaming endpoints for enhanced user experience
+@app.get("/stream/literature_search", tags=["streaming"])
+async def stream_literature_search(
+    query: str,
+    max_results: int = 10,
+    user_id: str = "demo_user",
+    session_id: str = "demo_session"
+):
+    """
+    Stream Medical Literature Search Results
+    
+    **Real-time streaming** of medical literature search progress and results.
+    
+    **Stream Events:**
+    - Progress updates during database search
+    - Individual paper results as they arrive
+    - Citation formatting and relevance scoring
+    - Final completion with summary statistics
+    
+    **Use Case:** Improve user experience during long literature searches
+    **Response Format:** Server-Sent Events (SSE)
+    """
+    from core.infrastructure.streaming import stream_medical_literature_search
+    return await stream_medical_literature_search(query, user_id, session_id, max_results)
+
+@app.get("/stream/ai_reasoning", tags=["streaming"])
+async def stream_ai_reasoning(
+    medical_query: str,
+    user_id: str = "demo_user",
+    session_id: str = "demo_session"
+):
+    """
+    Stream AI Reasoning Process
+    
+    **Transparent AI decision-making** for healthcare queries with real-time reasoning steps.
+    
+    **Stream Events:**
+    - Query analysis and medical context identification
+    - PHI detection and safety verification
+    - Step-by-step reasoning with confidence scores
+    - Final analysis with safety disclaimers
+    
+    **Use Case:** Provide transparency in AI medical analysis
+    **Compliance:** Includes medical disclaimers and safety warnings
+    """
+    from core.infrastructure.streaming import stream_ai_reasoning
+    return await stream_ai_reasoning(medical_query, user_id, session_id)
+
+@app.get("/stream/document_processing", tags=["streaming"])
+async def stream_document_processing(
+    document_type: str = "clinical_note",
+    user_id: str = "demo_user", 
+    session_id: str = "demo_session"
+):
+    """
+    Stream Medical Document Processing
+    
+    **Real-time updates** during medical document analysis and processing.
+    
+    **Stream Events:**
+    - Document structure analysis
+    - Medical entity extraction progress
+    - PHI detection and compliance checking
+    - Structured output generation
+    
+    **Use Case:** Show progress during complex document processing
+    **Compliance:** PHI detection and HIPAA compliance verification
+    """
+    from core.infrastructure.streaming import stream_document_processing
+    return await stream_document_processing(document_type, user_id, session_id)
+
 # Import and include agent routers
 try:
     from agents.document_processor import router as document_router
