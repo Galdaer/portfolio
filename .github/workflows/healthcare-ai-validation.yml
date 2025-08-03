@@ -1,10 +1,12 @@
 name: Healthcare AI Validation (Self-Hosted Optimized)
 
 on:
+  # Only run on pushes to main (releases) and pull requests
   push:
-    branches: [main, copilot/*]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
+    types: [opened, synchronize, reopened]
 
 jobs:
   # CONSOLIDATED STATIC ANALYSIS (self-hosted with own dependencies)
