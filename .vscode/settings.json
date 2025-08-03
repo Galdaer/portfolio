@@ -27,7 +27,8 @@
         "**/coverage/": true,
         "**/*.tsbuildinfo": true,
         "reference/ai-patterns/**": false,
-        "actions-runners/**": true
+        "actions-runners/**": true,
+        ".*_cache": true
     },
     "files.watcherExclude": {
         "**/logs/": true,
@@ -106,10 +107,6 @@
         "--profile",
         "black"
     ],
-    "python.analysis.diagnosticSeverityOverrides": {
-        "reportMissingImports": "none",
-        "reportUnusedImport": "none"
-    },
     "pylint.args": [
         "--ignore-patterns=reference/ai-patterns/**,services/user/whisperlive/**,actions-runners/**"
     ],
