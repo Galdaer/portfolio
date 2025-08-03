@@ -12,7 +12,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
-    from psycopg2.extras import RealDictCursor
+    pass
 
 try:
     import psycopg2.extras

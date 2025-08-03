@@ -16,7 +16,6 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
 
 # Packages that should be excluded from CI (GPU, heavy ML packages)
 CI_EXCLUDED_PACKAGES = {

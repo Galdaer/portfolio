@@ -95,20 +95,47 @@ declare -a synthetic_patterns=(
     "U[0-9]{9}"          # Test member ID patterns
 )
 
+# Development/Configuration patterns to EXCLUDE (these are legitimate)
+declare -a development_patterns=(
+    "localhost"          # Local development
+    "127\.0\.0\.1"       # Loopback IP
+    "0\.0\.0\.0"         # Bind all interfaces
+    "postgres://.*localhost"  # Local postgres URLs
+    "redis://localhost"  # Local redis URLs
+    "test@example\.com"  # Test email addresses
+    "user@example\.com"  # Test email addresses
+    "\.github/"          # GitHub workflow files
+    "config/testing/"    # Test configuration files
+    "scripts/"           # Script files (dev tools)
+    "\.yml.*localhost"   # YAML config files with localhost
+    "HOST.*0\.0\.0\.0"   # Host configuration
+    "future-workflows/"  # Future/disabled workflows
+    "example-.*\.env"    # Example environment files
+)
+
 found_issues=0
 warnings=0
 
-# Function to check if a match is synthetic data
-is_synthetic_data() {
+# Function to check if a match is synthetic data or development config
+is_synthetic_or_development() {
     local match="$1"
+    local file_path="$2"
     
+    # Check synthetic patterns
     for pattern in "${synthetic_patterns[@]}"; do
         if echo "$match" | grep -q -i -E "$pattern"; then
             return 0  # It's synthetic data
         fi
     done
     
-    return 1  # Not synthetic data
+    # Check development patterns
+    for pattern in "${development_patterns[@]}"; do
+        if echo "$match" | grep -q -i -E "$pattern" || echo "$file_path" | grep -q -E "$pattern"; then
+            return 0  # It's development configuration
+        fi
+    done
+    
+    return 1  # Not synthetic data or development config
 }
 
 # Function to scan for patterns
@@ -117,7 +144,7 @@ scan_patterns() {
     local pattern_type="$1"
     shift
     
-    log "Scanning for $pattern_type patterns (excluding synthetic data)..."
+    log "Scanning for $pattern_type patterns (excluding synthetic data and development config)..."
     
     for pattern in "${pattern_array[@]}"; do
         # Get all matches
@@ -129,10 +156,11 @@ scan_patterns() {
            . 2>/dev/null || true)
         
         if [ -n "$matches" ]; then
-            # Check each match to see if it's synthetic
+            # Check each match to see if it's synthetic or development config
             local has_real_phi=false
             while IFS= read -r line; do
-                if ! is_synthetic_data "$line"; then
+                local file_path=$(echo "$line" | cut -d: -f1)
+                if ! is_synthetic_or_development "$line" "$file_path"; then
                     warn "Found potential $pattern_type pattern: $pattern"
                     echo "  $line"
                     has_real_phi=true

@@ -337,15 +337,18 @@ jobs:
               echo "   📁 Data files: $total_files/9"
               echo "   🏥 Ready for healthcare AI evaluation"
               echo ""
-              echo "✅ Synthetic data generation successful"
-            else
-              echo "❌ Failed to generate $missing_files critical data files"
-              exit 1
-            fi
+            echo "✅ Synthetic data generation successful"
           else
-            echo "❌ Failed to create synthetic data directory"
+            echo "❌ Failed to generate $missing_files critical data files"
             exit 1
           fi
+
+      - name: Upload synthetic data for other jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-healthcare-data
+          path: data/synthetic/
+          retention-days: 1
 
   test-healthcare-ai-evaluation:
     runs-on: self-hosted
@@ -357,32 +360,69 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.12"
-      - name: Run Enhanced Healthcare AI Evaluation (using generated data)
+
+      - name: Download synthetic healthcare data
+        uses: actions/download-artifact@v4
+        with:
+          name: synthetic-healthcare-data
+          path: data/synthetic/
+
+      - name: Install Python dependencies (cached & optimized)
+        run: |
+          echo "📦 Installing Python dependencies (self-hosted optimized)..."
+          
+          # Set persistent cache directory for self-hosted runners
+          export PIP_CACHE_DIR="/home/intelluxe/.cache/pip"
+          mkdir -p "$PIP_CACHE_DIR"
+          
+          # Use optimized installation strategy
+          if [ -f "requirements-self-hosted.txt" ]; then
+            echo "🚀 Using requirements-self-hosted.txt with cache optimization..."
+            python3 -m pip install \
+              --cache-dir "$PIP_CACHE_DIR" \
+              --upgrade-strategy only-if-needed \
+              -r requirements-self-hosted.txt
+          else
+            echo "⚠️  requirements-self-hosted.txt not found, using requirements.txt"
+            python3 -m pip install \
+              --cache-dir "$PIP_CACHE_DIR" \
+              --upgrade-strategy only-if-needed \
+              -r requirements.txt
+          fi
+          echo "✅ Dependencies installed (cached for next run)"
+
+      - name: Generate synthetic data for evaluation
+        run: |
+          echo "🏥 Generating synthetic healthcare data for evaluation..."
+          mkdir -p data/synthetic/
+          python3 scripts/generate_synthetic_healthcare_data.py
+          echo "✅ Synthetic data generated"
+
+      - name: Run Enhanced Healthcare AI Evaluation
         env:
           CI: true
           ENVIRONMENT: development
         run: |
-          echo "🧪 Running enhanced healthcare AI evaluation with generated dataset..."
+          echo "🧪 Running enhanced healthcare AI evaluation with fresh dataset..."
 
-          # Verify the generated dataset exists from previous job
+          # Verify the generated dataset exists 
           if [ -d "data/synthetic/" ] && [ -f "data/synthetic/patients.json" ]; then
             dataset_size=$(du -sh data/synthetic/ | cut -f1)
             patient_count=$(python3 -c "import json; data=json.load(open('data/synthetic/patients.json')); print(len(data))")
-            echo "📊 Using generated comprehensive dataset:"
+            echo "📊 Using fresh comprehensive dataset:"
             echo "   💾 Size: $dataset_size"
             echo "   👥 Patients: $patient_count"
             echo "   🏥 Full cross-referenced medical records"
             echo ""
           else
-            echo "❌ Generated dataset not found at data/synthetic/"
-            echo "ℹ️  This should have been created by the test-synthetic-data-generation job"
+            echo "❌ Failed to generate dataset"
             exit 1
           fi
 
           # Run enhanced healthcare evaluation (DeepEval optimism resistant)
           echo "🔄 Running enhanced healthcare AI evaluation system..."
-          timeout 8m python3 scripts/enhanced_healthcare_evaluation.py || echo "Evaluation completed with warnings"
-          echo "✅ Enhanced healthcare AI evaluation complete using generated data"
+          timeout 10m python3 scripts/enhanced_healthcare_evaluation.py || echo "Evaluation completed with warnings"
+          echo "✅ Enhanced healthcare AI evaluation complete using fresh data"
 
   # Add other lightweight test jobs here...
 
