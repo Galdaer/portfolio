@@ -37,13 +37,13 @@ from typing import Any
 
 from flask import (
     Flask,
-    Response,
     redirect,
     render_template_string,
     request,
     send_from_directory,
     url_for,
 )
+from werkzeug.wrappers import Response
 
 # Compiled regex patterns for performance
 ALL_CONTAINERS_PATTERN = re.compile(r"^ALL_CONTAINERS=\(([^)]*)\)")
