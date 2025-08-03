@@ -1,0 +1,51 @@
+{
+    "name": "Intelluxe Healthcare AI",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "features": {
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "18"
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.mypy-type-checker",
+                "charliermarsh.ruff",
+                "GitHub.copilot",
+                "GitHub.copilot-chat"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.linting.enabled": true,
+                "python.linting.mypyEnabled": true,
+                "ruff.enabled": true
+            }
+        }
+    },
+    "postCreateCommand": "make install && make deps && make hooks",
+    "forwardPorts": [
+        8000,
+        5432,
+        6379,
+        3000
+    ],
+    "portsAttributes": {
+        "8000": {
+            "label": "Healthcare AI API"
+        },
+        "5432": {
+            "label": "PostgreSQL"
+        },
+        "6379": {
+            "label": "Redis"
+        },
+        "3000": {
+            "label": "Web UI"
+        }
+    },
+    "mounts": [
+        "source=${localWorkspaceFolder}/.env,target=/workspaces/intelluxe-core/.env,type=bind"
+    ]
+}

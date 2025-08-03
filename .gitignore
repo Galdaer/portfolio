@@ -238,6 +238,9 @@ Thumbs.db
 .vscode/*.code-workspace
 #.vscode/settings.json
 
+!.devcontainer/devcontainer.json
+
+
 # Development server files
 .tern-port
 .vscode-test
