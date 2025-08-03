@@ -37,6 +37,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Initialize core services
     try:
+        # Initialize healthcare services (MCP, LLM, Database, Redis)
+        from core.dependencies import healthcare_services
+        await healthcare_services.initialize()
+
         # Initialize memory manager
         from core.memory import MemoryManager
 
@@ -67,6 +71,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Cleanup resources
         if hasattr(app.state, "memory_manager"):
             await app.state.memory_manager.close()
+
+        # Cleanup healthcare services
+        from core.dependencies import healthcare_services
+        await healthcare_services.close()
 
 
 app = FastAPI(
@@ -107,43 +115,39 @@ async def root() -> str:
 async def health_check() -> dict[str, Any]:
     """Detailed health check endpoint"""
     try:
-        health_status: dict[str, Any] = {
-            "status": "healthy",
-            "timestamp": asyncio.get_event_loop().time(),
-            "services": {},
-        }
-
-        # Check memory manager
-        if hasattr(app.state, "memory_manager"):
-            health_status["services"]["memory"] = await app.state.memory_manager.health_check()
-
-        # Check model registry
-        if hasattr(app.state, "model_registry"):
-            health_status["services"]["models"] = await app.state.model_registry.health_check()
-
-        # Check tool registry
-        if hasattr(app.state, "tool_registry"):
-            health_status["services"]["tools"] = await app.state.tool_registry.health_check()
-
-        return health_status
+        from core.infrastructure.health_monitoring import healthcare_monitor
+        return await healthcare_monitor.comprehensive_health_check()
 
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         raise HTTPException(status_code=500, detail="Health check failed")
 
 
+@app.get("/health/quick")  # type: ignore[misc]
+async def quick_health_check() -> dict[str, Any]:
+    """Quick health check endpoint (cached results)"""
+    try:
+        from core.infrastructure.health_monitoring import healthcare_monitor
+        return await healthcare_monitor.quick_health_check()
+
+    except Exception as e:
+        logger.error(f"Quick health check failed: {e}")
+        raise HTTPException(status_code=500, detail="Quick health check failed")
+
+
 # Import and include agent routers
-# TODO: Implement agent routers when agent modules are ready
-# try:
-#     from agents.document_processor import router as document_router
-#     from agents.intake import router as intake_router
-#     from agents.research_assistant import router as research_router
-#
-#     app.include_router(intake_router, prefix="/agents/intake", tags=["intake"])
-#     app.include_router(document_router, prefix="/agents/document", tags=["document"])
-#     app.include_router(research_router, prefix="/agents/research", tags=["research"])
-# except ImportError as e:
-#     logger.warning(f"Agent routers not available: {e}")
+try:
+    from agents.document_processor import router as document_router
+    from agents.intake import router as intake_router
+    from agents.research_assistant import router as research_router
+
+    app.include_router(intake_router, prefix="/agents/intake", tags=["intake"])
+    app.include_router(document_router, prefix="/agents/document", tags=["document"])
+    app.include_router(research_router, prefix="/agents/research", tags=["research"])
+
+    logger.info("Agent routers loaded successfully")
+except ImportError as e:
+    logger.warning(f"Agent routers not available: {e}")
 
 
 if __name__ == "__main__":

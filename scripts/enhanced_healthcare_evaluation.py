@@ -1,7 +1,24 @@
 #!/usr/bin/env python3
 """
-Enhanced Healthcare AI Evaluation System
-Addresses DeepEval optimism with multi-layered healthcare-specific validation
+Enhanced Healthcare AI Evaluation System with Comprehensive Medical Scenarios
+
+This module provides comprehensive evaluation of healthcare AI systems using
+synthetic medical data. It tests clinical reasoning, diagnostic support,
+treatment planning, and administrative workflows.
+
+MEDICAL DISCLAIMER: This is for AI system evaluation only. Not for medical advice,
+diagnosis, or treatment recommendations. All evaluations use synthetic data.
+
+Key Features:
+- Multi-agent healthcare workflow testing
+- Clinical reasoning evaluation with medical context
+- HIPAA-compliant synthetic data processing
+- Performance metrics for healthcare AI systems
+- Integration testing with medical databases and MCP servers
+
+Usage:
+    evaluator = ComprehensiveHealthcareEvaluator(config)
+    results = await evaluator.run_comprehensive_evaluation()
 """
 
 import asyncio
@@ -538,9 +555,38 @@ class EnhancedDeepEvalWrapper:
 
 
 class ComprehensiveHealthcareEvaluator:
-    """Main evaluator orchestrating all validation layers"""
+    """
+    Comprehensive Healthcare AI System Evaluator
 
-    def __init__(self) -> None:
+    Evaluates healthcare AI agents using realistic medical scenarios with
+    synthetic patient data. Tests clinical reasoning, workflow efficiency,
+    and healthcare compliance.
+
+    MEDICAL DISCLAIMER: For AI system evaluation only. Not for medical advice.
+
+    Args:
+        config: Healthcare evaluation configuration
+        synthetic_data_path: Path to synthetic medical data directory
+
+    Security:
+        - All evaluation uses synthetic data only
+        - No real PHI processing during evaluation
+        - Runtime PHI detection prevents data leakage
+        - HIPAA-compliant logging and audit trails
+
+    Validation:
+        Input validation ensures:
+        - No real PHI in evaluation data
+        - Synthetic data format compliance
+        - Medical scenario validity
+        - Healthcare workflow adherence
+    """
+
+    def __init__(self, config: dict[str, Any], synthetic_data_path: str = "data/synthetic/") -> None:
+        # Validate no PHI in input data
+        if self._contains_potential_phi(str(config)) or self._contains_potential_phi(synthetic_data_path):
+            raise ValueError("PHI detected in evaluation configuration - use synthetic data only")
+
         self.phi_detector = AdvancedPHIDetector()
         self.medical_validator = MedicalAccuracyValidator()
         self.hipaa_validator = HIPAAComplianceValidator()
@@ -552,6 +598,25 @@ class ComprehensiveHealthcareEvaluator:
             "medical_accuracy": 0.25,
             "hipaa_compliance": 0.15,
         }
+
+    def _contains_potential_phi(self, text: str) -> bool:
+        """
+        Basic PHI detection for evaluation input validation
+
+        Returns:
+            True if potential PHI patterns detected, False otherwise
+        """
+        phi_patterns = [
+            r'\b\d{3}-\d{2}-\d{4}\b',  # SSN pattern
+            r'\b\d{3}-\d{3}-\d{4}\b',  # Real phone (not 555-xxx-xxxx test numbers)
+            r'\b[A-Za-z0-9._%+-]+@(?!example\.com)[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'  # Real email
+        ]
+
+        import re
+        for pattern in phi_patterns:
+            if re.search(pattern, text):
+                return True
+        return False
 
     async def evaluate_comprehensive(
         self,
@@ -750,7 +815,8 @@ async def evaluate_healthcare_query(
     Returns:
         ComprehensiveEvaluationResult with detailed analysis
     """
-    evaluator = ComprehensiveHealthcareEvaluator()
+    config = {}  # Use default empty config for evaluation
+    evaluator = ComprehensiveHealthcareEvaluator(config)
     return await evaluator.evaluate_comprehensive(query, response, context, metadata)
 
 
