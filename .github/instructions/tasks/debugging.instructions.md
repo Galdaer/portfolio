@@ -6,25 +6,45 @@ Specialized debugging guidance for healthcare AI systems with PHI protection and
 
 ## Healthcare-Specific Debugging Patterns
 
-### PHI-Safe Debugging
+### Database-Backed Debugging (NEW APPROACH)
+
+**CRITICAL CHANGE**: Use database-backed synthetic data for debugging, not hardcoded PHI.
 
 ```python
-# ✅ CORRECT: Debug without exposing PHI
+# ✅ CORRECT: Debug with database-backed synthetic data
+from tests.database_test_utils import SyntheticHealthcareData
+import hashlib
+import traceback
+import logging
+from datetime import datetime
+from typing import Dict, List, Any
+
 def debug_patient_processing(patient_id: str, error: Exception):
-    """Debug patient processing errors without PHI exposure."""
-
-    # Log error with anonymized patient reference
-    logger.error(
-        f"Patient processing failed",
-        extra={
-            "patient_hash": hashlib.sha256(patient_id.encode()).hexdigest()[:8],
-            "error_type": type(error).__name__,
-            "error_message": str(error),
-            "stack_trace": traceback.format_exc()
-        }
-    )
-
-    # ❌ NEVER: logger.error(f"Patient {patient_name} failed: {error}")
+    """Debug patient processing with synthetic data only."""
+    
+    # Connect to synthetic database for debugging
+    synthetic_data = SyntheticHealthcareData()
+    try:
+        # Get synthetic patient data for debugging context
+        patients = synthetic_data.get_test_patients(limit=1)
+        if patients:
+            synthetic_patient = patients[0]
+            
+            # Log anonymized debug info (no PHI)
+            logger.debug(f"Debugging with synthetic patient: {synthetic_patient['patient_id']}")
+            logger.debug(f"Error type: {type(error).__name__}")
+            
+            return {
+                "synthetic_patient_id": synthetic_patient['patient_id'],
+                "error_type": str(type(error)),
+                "synthetic": True,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            logger.error("No synthetic patients available for debugging")
+            return None
+    finally:
+        synthetic_data.cleanup()
 
 # ✅ CORRECT: Safe data sampling for debugging
 def get_debug_sample(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

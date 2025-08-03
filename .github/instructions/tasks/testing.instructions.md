@@ -6,10 +6,13 @@ Comprehensive testing guidance for healthcare AI systems emphasizing PHI-safe te
 
 ## Healthcare Testing Framework
 
-### PHI-Safe Testing Patterns
+### Database-Backed Testing (NEW APPROACH)
+
+**CRITICAL CHANGE**: PHI lives in databases, not code. Tests should connect to synthetic database data.
 
 ```python
-# ✅ CORRECT: Healthcare-safe testing approach
+# ✅ CORRECT: Database-backed healthcare testing
+from tests.database_test_utils import HealthcareTestCase, get_test_medical_scenario
 from typing import Dict, List, Any, Optional, Protocol
 from dataclasses import dataclass
 import pytest
@@ -20,28 +23,45 @@ import json
 from datetime import datetime, timedelta
 
 class HealthcareTestFramework:
-    """Comprehensive testing framework for healthcare AI systems."""
-
-    def __init__(self) -> None:
-        self.synthetic_data_generator = SyntheticHealthcareDataGenerator()
-        self.phi_validator = PHIExposureValidator()
-        self.compliance_checker = HIPAAComplianceChecker()
-
+    """
+    Database-backed healthcare testing framework.
+    Replaces hardcoded PHI patterns with database connections.
+    """
+    
+    def __init__(self):
+        self.synthetic_data = SyntheticHealthcareData()
+        
     def setup_test_environment(self) -> Dict[str, Any]:
-        """Set up isolated healthcare testing environment."""
-
-        test_env = {
-            "database": self._setup_test_database(),
-            "redis_cache": self._setup_test_cache(),
-            "audit_logger": self._setup_test_audit_logger(),
-            "encryption_service": self._setup_test_encryption(),
-            "synthetic_data": self._load_synthetic_healthcare_data()
+        """Set up test environment with database-backed synthetic data."""
+        return {
+            "database_url": "postgresql://localhost:5432/intelluxe_healthcare",
+            "synthetic_data_provider": self.synthetic_data,
+            "phi_protection": "database_only",
+            "test_approach": "runtime_monitoring"
         }
 
-        # Validate test environment isolation
-        self._validate_test_isolation(test_env)
-
-        return test_env
+# ✅ CORRECT: Migration from hardcoded to database-backed testing
+class TestMigrationPattern:
+    """
+    Example of migrating from hardcoded PHI to database-backed testing.
+    """
+    
+    def OLD_APPROACH_hardcoded_phi(self):
+        # ❌ OLD WAY - Hardcoded PHI in code
+        # test_patient = {
+        #     'ssn': '123-45-6789',  # ❌ Fake PHI in code
+        #     'name': 'John Doe'
+        # }
+        pass
+    
+    def NEW_APPROACH_database_backed(self):
+        # ✅ NEW WAY - Database-backed synthetic data
+        from tests.database_test_utils import HealthcareTestCase
+        
+        class MyTest(HealthcareTestCase):
+            def test_patient_processing(self):
+                patient = self.get_sample_patient()  # From database
+                # Test logic here - no PHI in code!
 
     def _setup_test_database(self) -> Dict[str, Any]:
         """Set up isolated test database with synthetic data."""

@@ -132,6 +132,20 @@ python3 scripts/generate_synthetic_healthcare_data.py --use-database
 
 ## Healthcare Security & Compliance
 
+### Runtime PHI Security Model (Updated 2025-08-03)
+
+**NEW APPROACH**: Runtime data leakage monitoring instead of static code analysis.
+
+- **PHI lives in databases only** - never in source code
+- **Tests connect to synthetic database** - no hardcoded PHI in tests  
+- **Monitor runtime outputs** - logs, data pipelines, exports for PHI leakage
+- **Focus on data handling** - what auditors actually check in production
+
+**Key Files:**
+- `scripts/check-runtime-phi-leakage.sh` - Runtime PHI monitoring (replaces static analysis)
+- `tests/database_test_utils.py` - Database-backed test utilities
+- `docs/RUNTIME_PHI_SECURITY.md` - Complete documentation of new approach
+
 ### Critical Security Rules
 
 - **Generic Error Messages**: Never expose JWT_SECRET, MASTER_ENCRYPTION_KEY, or config details

@@ -6,10 +6,12 @@ Comprehensive security review guidance for healthcare AI systems emphasizing PHI
 
 ## Healthcare Security Review Framework
 
-### PHI Protection Security Review
+### Runtime PHI Leakage Monitoring (NEW APPROACH)
+
+**CRITICAL CHANGE**: Focus on runtime data leakage monitoring, not static code analysis.
 
 ```python
-# ✅ CORRECT: Healthcare security review patterns
+# ✅ CORRECT: Runtime PHI monitoring patterns
 from typing import Dict, List, Any, Optional, Set
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -19,327 +21,50 @@ import logging
 from enum import Enum
 
 class SecurityRiskLevel(Enum):
-    """Healthcare security risk classification."""
-    CRITICAL = "CRITICAL"  # PHI exposure, medical safety violation
-    HIGH = "HIGH"  # Security vulnerability affecting patient data
-    MEDIUM = "MEDIUM"  # General security improvement needed
-    LOW = "LOW"  # Best practice recommendation
-    INFORMATIONAL = "INFORMATIONAL"  # Security awareness item
+    CRITICAL = "CRITICAL"  # PHI exposed in logs/outputs
+    HIGH = "HIGH"         # Database credentials in logs
+    MEDIUM = "MEDIUM"     # Large data exports
+    LOW = "LOW"          # Development patterns detected
 
 @dataclass
 class HealthcareSecurityFinding:
-    """Structured healthcare security finding with compliance context."""
-
-    finding_id: str
-    title: str
-    description: str
     risk_level: SecurityRiskLevel
-    affected_component: str
-    phi_impact: bool
-    medical_safety_impact: bool
-    compliance_frameworks: List[str]
-    remediation_steps: List[str]
-    validation_criteria: List[str]
+    finding_type: str
+    file_path: str
+    line_number: Optional[int]
+    content: str
+    recommendation: str
+    phi_detected: bool = False
 
-    def generate_remediation_priority(self) -> int:
-        """Generate remediation priority based on healthcare impact."""
-
-        priority_score = 0
-
-        # PHI impact gets highest priority
-        if self.phi_impact:
-            priority_score += 100
-
-        # Medical safety impact gets second highest
-        if self.medical_safety_impact:
-            priority_score += 50
-
-        # Risk level scoring
-        risk_scores = {
-            SecurityRiskLevel.CRITICAL: 25,
-            SecurityRiskLevel.HIGH: 20,
-            SecurityRiskLevel.MEDIUM: 15,
-            SecurityRiskLevel.LOW: 10,
-            SecurityRiskLevel.INFORMATIONAL: 5
-        }
-
-        priority_score += risk_scores.get(self.risk_level, 0)
-
-        # Compliance framework impact
-        if "HIPAA" in self.compliance_frameworks:
-            priority_score += 15
-        if "HITECH" in self.compliance_frameworks:
-            priority_score += 10
-
-        return priority_score
+class RuntimePHIMonitor:
+    """
+    Runtime PHI leakage detection system.
+    Monitors logs, outputs, and data pipelines for PHI exposure.
+    """
+    
+    def scan_runtime_outputs(self) -> List[HealthcareSecurityFinding]:
+        """Scan logs and outputs for PHI leakage."""
+        findings = []
+        
+        # Monitor log files for PHI patterns
+        log_dirs = ["logs/", "coverage/", ".pytest_cache/"]
+        for log_dir in log_dirs:
+            findings.extend(self._scan_logs_for_phi(log_dir))
+        
+        # Monitor data exports for PHI
+        findings.extend(self._scan_data_exports())
+        
+        # Monitor database connection security
+        findings.extend(self._scan_db_connections())
+        
+        return findings
+    
+    def _scan_logs_for_phi(self, log_dir: str) -> List[HealthcareSecurityFinding]:
+        """Scan log files for actual PHI exposure."""
+        # Implementation focuses on runtime monitoring
+        pass
 
 class HealthcareSecurityReviewer:
-    """Comprehensive security reviewer for healthcare AI systems."""
-
-    def __init__(self) -> None:
-        self.phi_patterns = self._load_phi_detection_patterns()
-        self.medical_safety_patterns = self._load_medical_safety_patterns()
-        self.compliance_requirements = self._load_compliance_requirements()
-        self.security_findings: List[HealthcareSecurityFinding] = []
-
-    def conduct_comprehensive_security_review(
-        self,
-        codebase_path: str,
-        review_scope: List[str] = None
-    ) -> Dict[str, Any]:
-        """Conduct comprehensive security review for healthcare AI system."""
-
-        review_scope = review_scope or [
-            "phi_protection",
-            "medical_safety",
-            "authentication_authorization",
-            "data_encryption",
-            "audit_logging",
-            "input_validation",
-            "error_handling",
-            "dependency_security"
-        ]
-
-        review_results = {}
-
-        for scope_area in review_scope:
-            review_method = getattr(self, f"_review_{scope_area}", None)
-            if review_method:
-                review_results[scope_area] = review_method(codebase_path)
-
-        # Generate overall security assessment
-        overall_assessment = self._generate_overall_assessment(review_results)
-
-        return {
-            "review_timestamp": datetime.now().isoformat(),
-            "scope_areas": review_scope,
-            "detailed_findings": review_results,
-            "overall_assessment": overall_assessment,
-            "prioritized_findings": self._prioritize_findings(),
-            "compliance_status": self._assess_compliance_status(),
-            "remediation_roadmap": self._generate_remediation_roadmap()
-        }
-
-    def _review_phi_protection(self, codebase_path: str) -> Dict[str, Any]:
-        """Review PHI protection implementation and identify vulnerabilities."""
-
-        phi_findings = []
-
-        # Scan for potential PHI exposure in code
-        phi_exposure_findings = self._scan_phi_exposure_patterns(codebase_path)
-        phi_findings.extend(phi_exposure_findings)
-
-        # Review encryption implementation
-        encryption_findings = self._review_phi_encryption(codebase_path)
-        phi_findings.extend(encryption_findings)
-
-        # Review data storage patterns
-        storage_findings = self._review_phi_storage_patterns(codebase_path)
-        phi_findings.extend(storage_findings)
-
-        # Review data transmission security
-        transmission_findings = self._review_phi_transmission(codebase_path)
-        phi_findings.extend(transmission_findings)
-
-        return {
-            "phi_protection_status": self._assess_phi_protection_status(phi_findings),
-            "findings": phi_findings,
-            "encryption_compliance": self._assess_encryption_compliance(codebase_path),
-            "data_minimization_compliance": self._assess_data_minimization(codebase_path),
-            "access_control_assessment": self._assess_phi_access_controls(codebase_path)
-        }
-
-    def _scan_phi_exposure_patterns(self, codebase_path: str) -> List[HealthcareSecurityFinding]:
-        """Scan codebase for potential PHI exposure patterns."""
-
-        findings = []
-
-        # Define PHI exposure patterns
-        phi_exposure_patterns = {
-            "hardcoded_ssn": {
-                "pattern": r'\b\d{3}-\d{2}-\d{4}\b',
-                "description": "Potential hardcoded SSN detected",
-                "risk_level": SecurityRiskLevel.CRITICAL
-            },
-            "hardcoded_phone": {
-                "pattern": r'\(\d{3}\)\s*\d{3}-\d{4}',
-                "description": "Potential hardcoded phone number detected",
-                "risk_level": SecurityRiskLevel.HIGH
-            },
-            "hardcoded_email": {
-                "pattern": r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
-                "description": "Potential hardcoded email address detected",
-                "risk_level": SecurityRiskLevel.MEDIUM
-            },
-            "patient_data_logging": {
-                "pattern": r'log.*patient.*data|print.*patient.*info',
-                "description": "Potential patient data in logging statements",
-                "risk_level": SecurityRiskLevel.HIGH
-            }
-        }
-
-        # Scan files for PHI exposure patterns
-        for root, dirs, files in os.walk(codebase_path):
-            for file in files:
-                if file.endswith(('.py', '.js', '.ts', '.sql')):
-                    file_path = os.path.join(root, file)
-                    findings.extend(self._scan_file_for_phi_patterns(file_path, phi_exposure_patterns))
-
-        return findings
-
-    def _review_medical_safety(self, codebase_path: str) -> Dict[str, Any]:
-        """Review medical safety implementation and identify risks."""
-
-        medical_safety_findings = []
-
-        # Scan for medical advice generation patterns
-        medical_advice_findings = self._scan_medical_advice_patterns(codebase_path)
-        medical_safety_findings.extend(medical_advice_findings)
-
-        # Review diagnosis/treatment patterns
-        diagnosis_findings = self._scan_diagnosis_patterns(codebase_path)
-        medical_safety_findings.extend(diagnosis_findings)
-
-        # Review medication recommendation patterns
-        medication_findings = self._scan_medication_patterns(codebase_path)
-        medical_safety_findings.extend(medication_findings)
-
-        # Review clinical decision support boundaries
-        decision_support_findings = self._review_clinical_boundaries(codebase_path)
-        medical_safety_findings.extend(decision_support_findings)
-
-        return {
-            "medical_safety_status": self._assess_medical_safety_status(medical_safety_findings),
-            "findings": medical_safety_findings,
-            "administrative_boundaries": self._assess_administrative_boundaries(codebase_path),
-            "provider_referral_patterns": self._assess_provider_referrals(codebase_path),
-            "medical_disclaimer_compliance": self._assess_medical_disclaimers(codebase_path)
-        }
-
-    def _scan_medical_advice_patterns(self, codebase_path: str) -> List[HealthcareSecurityFinding]:
-        """Scan for potential medical advice generation patterns."""
-
-        findings = []
-
-        medical_advice_patterns = {
-            "diagnosis_language": {
-                "pattern": r'(patient has|diagnosis is|condition is|you have)',
-                "description": "Potential diagnosis language detected",
-                "risk_level": SecurityRiskLevel.CRITICAL
-            },
-            "treatment_recommendations": {
-                "pattern": r'(should take|recommend.*medication|prescribe|dosage)',
-                "description": "Potential treatment recommendation detected",
-                "risk_level": SecurityRiskLevel.CRITICAL
-            },
-            "medical_advice_verbs": {
-                "pattern": r'(treat with|cure|heal|therapy for)',
-                "description": "Potential medical advice language detected",
-                "risk_level": SecurityRiskLevel.HIGH
-            },
-            "symptom_interpretation": {
-                "pattern": r'(symptoms indicate|likely cause|probable diagnosis)',
-                "description": "Potential symptom interpretation detected",
-                "risk_level": SecurityRiskLevel.HIGH
-            }
-        }
-
-        # Scan for medical advice patterns
-        for root, dirs, files in os.walk(codebase_path):
-            for file in files:
-                if file.endswith(('.py', '.js', '.ts')):
-                    file_path = os.path.join(root, file)
-                    file_findings = self._scan_file_for_medical_patterns(file_path, medical_advice_patterns)
-                    findings.extend(file_findings)
-
-        return findings
-
-    def _review_authentication_authorization(self, codebase_path: str) -> Dict[str, Any]:
-        """Review authentication and authorization security."""
-
-        auth_findings = []
-
-        # Review authentication mechanisms
-        auth_mechanism_findings = self._review_auth_mechanisms(codebase_path)
-        auth_findings.extend(auth_mechanism_findings)
-
-        # Review session management
-        session_findings = self._review_session_management(codebase_path)
-        auth_findings.extend(session_findings)
-
-        # Review role-based access control
-        rbac_findings = self._review_rbac_implementation(codebase_path)
-        auth_findings.extend(rbac_findings)
-
-        # Review healthcare-specific access controls
-        healthcare_access_findings = self._review_healthcare_access_controls(codebase_path)
-        auth_findings.extend(healthcare_access_findings)
-
-        return {
-            "authentication_status": self._assess_authentication_status(auth_findings),
-            "findings": auth_findings,
-            "session_security": self._assess_session_security(codebase_path),
-            "access_control_matrix": self._generate_access_control_matrix(codebase_path),
-            "healthcare_rbac_compliance": self._assess_healthcare_rbac(codebase_path)
-        }
-
-    def _review_data_encryption(self, codebase_path: str) -> Dict[str, Any]:
-        """Review data encryption implementation for healthcare compliance."""
-
-        encryption_findings = []
-
-        # Review encryption at rest
-        encryption_at_rest_findings = self._review_encryption_at_rest(codebase_path)
-        encryption_findings.extend(encryption_at_rest_findings)
-
-        # Review encryption in transit
-        encryption_in_transit_findings = self._review_encryption_in_transit(codebase_path)
-        encryption_findings.extend(encryption_in_transit_findings)
-
-        # Review key management
-        key_management_findings = self._review_key_management(codebase_path)
-        encryption_findings.extend(key_management_findings)
-
-        # Review PHI-specific encryption
-        phi_encryption_findings = self._review_phi_encryption_specific(codebase_path)
-        encryption_findings.extend(phi_encryption_findings)
-
-        return {
-            "encryption_status": self._assess_encryption_status(encryption_findings),
-            "findings": encryption_findings,
-            "encryption_algorithms": self._assess_encryption_algorithms(codebase_path),
-            "key_management_assessment": self._assess_key_management(codebase_path),
-            "hipaa_encryption_compliance": self._assess_hipaa_encryption(codebase_path)
-        }
-
-    def _review_audit_logging(self, codebase_path: str) -> Dict[str, Any]:
-        """Review audit logging implementation for healthcare compliance."""
-
-        audit_findings = []
-
-        # Review audit log completeness
-        audit_completeness_findings = self._review_audit_completeness(codebase_path)
-        audit_findings.extend(audit_completeness_findings)
-
-        # Review audit log security
-        audit_security_findings = self._review_audit_security(codebase_path)
-        audit_findings.extend(audit_security_findings)
-
-        # Review PHI access logging
-        phi_access_findings = self._review_phi_access_logging(codebase_path)
-        audit_findings.extend(phi_access_findings)
-
-        # Review audit log retention
-        retention_findings = self._review_audit_retention(codebase_path)
-        audit_findings.extend(retention_findings)
-
-        return {
-            "audit_logging_status": self._assess_audit_logging_status(audit_findings),
-            "findings": audit_findings,
-            "audit_coverage": self._assess_audit_coverage(codebase_path),
-            "log_integrity": self._assess_log_integrity(codebase_path),
-            "hipaa_audit_compliance": self._assess_hipaa_audit_compliance(codebase_path)
-        }
 ```
 
 ### Security Review Automation

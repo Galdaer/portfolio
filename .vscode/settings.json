@@ -10,7 +10,7 @@
     "shellcheck.useWorkspaceRootAsCwd": true,
     "// Healthcare Data Protection": "",
     "files.exclude": {
-        "**/logs/": true,
+        "**/logs/": false,
         "**/bats-core/": true,
         "**/.env": false,
         "**/secrets/**": true,
@@ -31,7 +31,7 @@
         ".*_cache": true
     },
     "files.watcherExclude": {
-        "**/logs/": true,
+        "**/logs/": false,
         "**/bats-core/": true,
         "**/.env": true,
         "**/secrets/**": true,
