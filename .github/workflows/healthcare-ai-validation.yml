@@ -33,7 +33,7 @@ jobs:
           python3 -m pip install \
             --cache-dir "$PIP_CACHE_DIR" \
             --upgrade-strategy only-if-needed \
-            mypy pyright ruff pydantic fastapi[all] asyncpg psycopg2-binary redis faker
+            mypy pyright ruff pydantic fastapi[all] asyncpg psycopg2-binary redis faker cryptography PyJWT
           
           # Use optimized installation strategy for full requirements
           if [ -f "requirements-self-hosted.txt" ]; then
@@ -155,7 +155,7 @@ jobs:
           python3 -m pip install \
             --cache-dir "$PIP_CACHE_DIR" \
             --upgrade-strategy only-if-needed \
-            pydantic fastapi[all] asyncpg psycopg2-binary redis cryptography PyJWT
+            pydantic fastapi[all] asyncpg psycopg2-binary redis cryptography PyJWT faker
           
           # Use optimized installation strategy for full requirements
           if [ -f "requirements-self-hosted.txt" ]; then
@@ -369,6 +369,13 @@ jobs:
           export PIP_CACHE_DIR="/home/intelluxe/.cache/pip"
           mkdir -p "$PIP_CACHE_DIR"
           
+          # Install essential dependencies for CI testing (including faker)
+          echo "🔧 Installing essential CI dependencies..."
+          python3 -m pip install \
+            --cache-dir "$PIP_CACHE_DIR" \
+            --upgrade-strategy only-if-needed \
+            faker pydantic fastapi[all] asyncpg psycopg2-binary redis cryptography PyJWT structlog
+          
           # Use optimized installation strategy
           if [ -f "requirements-self-hosted.txt" ]; then
             echo "🚀 Using requirements-self-hosted.txt with cache optimization..."
@@ -424,9 +431,13 @@ jobs:
               echo "   📁 Data files: $total_files/9"
               echo "   🏥 Ready for healthcare AI evaluation"
               echo ""
-            echo "✅ Synthetic data generation successful"
+              echo "✅ Synthetic data generation successful"
+            else
+              echo "❌ Failed to generate $missing_files critical data files"
+              exit 1
+            fi
           else
-            echo "❌ Failed to generate $missing_files critical data files"
+            echo "❌ Failed to create synthetic data directory"
             exit 1
           fi
 
@@ -461,6 +472,13 @@ jobs:
           # Set persistent cache directory for self-hosted runners
           export PIP_CACHE_DIR="/home/intelluxe/.cache/pip"
           mkdir -p "$PIP_CACHE_DIR"
+          
+          # Install essential dependencies for CI testing (including faker)
+          echo "🔧 Installing essential CI dependencies..."
+          python3 -m pip install \
+            --cache-dir "$PIP_CACHE_DIR" \
+            --upgrade-strategy only-if-needed \
+            faker pydantic fastapi[all] asyncpg psycopg2-binary redis cryptography PyJWT structlog deepeval
           
           # Use optimized installation strategy
           if [ -f "requirements-self-hosted.txt" ]; then
