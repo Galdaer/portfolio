@@ -35,11 +35,12 @@ interface PubMedSummaryResponse {
 }
 
 export class PubMed {
-    private readonly baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils'
-    private readonly apiKey: string;
+    private readonly baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+    private readonly apiKey?: string;
 
-    constructor(apiKey: string) {
-        this.apiKey = apiKey || 'not_required'; // PubMed API key is optional
+    constructor(apiKey?: string) {
+        // Only set apiKey if it's a real key
+        this.apiKey = apiKey && apiKey !== 'optional_for_higher_rate_limits' ? apiKey : undefined;
     }
 
     async getArticles(args: any, cache: CacheManager) {
@@ -70,14 +71,12 @@ export class PubMed {
         }
     }
 
-    // Add search method for direct calls
     async search(query: string, maxResults: number = 10): Promise<PubMedArticle[]> {
         return this.searchArticles(query, maxResults);
     }
 
     async searchArticles(query: string, maxResults: number = 10): Promise<PubMedArticle[]> {
         try {
-            // Validate query
             if (!query || typeof query !== 'string' || query.trim().length === 0) {
                 throw new Error('PubMed search failed: Query string is empty or invalid.');
             }
@@ -88,13 +87,12 @@ export class PubMed {
             searchUrl.searchParams.append('term', query);
             searchUrl.searchParams.append('retmax', maxResults.toString());
             searchUrl.searchParams.append('retmode', 'json');
-
-            // Only add API key if it's provided and not the default placeholder
-            if (this.apiKey && this.apiKey !== 'not_required') {
+            if (this.apiKey) {
                 searchUrl.searchParams.append('api_key', this.apiKey);
             }
-
-            console.log('PubMed search URL:', searchUrl.toString());
+            const sanitizedSearchUrl = new URL(searchUrl.toString());
+            sanitizedSearchUrl.searchParams.delete('api_key');
+            console.log('PubMed search URL:', sanitizedSearchUrl.toString());
 
             const searchResponse = await fetch(searchUrl.toString());
             const rawSearchBody = await searchResponse.text();
@@ -112,19 +110,16 @@ export class PubMed {
                 throw new Error('Invalid JSON response from PubMed API');
             }
 
-            // Check if the response has the expected structure
             if (!searchData.esearchresult) {
                 console.error('Unexpected PubMed search response:', searchData);
                 throw new Error('Invalid response structure from PubMed API');
             }
 
             const pmids = searchData.esearchresult.idlist || [];
-
             if (!pmids.length) {
                 console.log('No articles found for query:', query);
                 return [];
             }
-
             console.log(`Found ${pmids.length} articles for query: ${query}`);
 
             // Step 2: Get article details
@@ -132,8 +127,7 @@ export class PubMed {
             summaryUrl.searchParams.append('db', 'pubmed');
             summaryUrl.searchParams.append('id', pmids.join(','));
             summaryUrl.searchParams.append('retmode', 'json');
-
-            if (this.apiKey && this.apiKey !== 'not_required') {
+            if (this.apiKey) {
                 summaryUrl.searchParams.append('api_key', this.apiKey);
             }
 
@@ -165,7 +159,6 @@ export class PubMed {
                     console.warn(`No data found for PMID: ${pmid}`);
                     return null;
                 }
-
                 return {
                     title: article.title || 'No title available',
                     authors: Array.isArray(article.authors)
@@ -178,7 +171,6 @@ export class PubMed {
                     pmid: pmid
                 };
             }).filter(Boolean) as PubMedArticle[];
-
         } catch (error) {
             console.error('PubMed search error:', error);
             throw new Error(`PubMed search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
