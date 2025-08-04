@@ -1,6 +1,11 @@
 """
 PHI Detection and Masking Module
 Detects and masks Protected Health Information (PHI) for HIPAA compliance
+
+MEDICAL DISCLAIMER: This system provides administrative PHI protection and HIPAA compliance
+support only. It assists healthcare organizations with data privacy and security requirements.
+It does not provide medical advice, diagnosis, or treatment recommendations. All medical
+decisions must be made by qualified healthcare professionals.
 """
 
 import json
