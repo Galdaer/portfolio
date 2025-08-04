@@ -137,7 +137,36 @@ app.post('/mcp', async (req, res) => {
                 // Route tool calls to the HealthcareServer
                 if (params?.name) {
                     try {
-                        const result = await healthcareServer.callTool(params.name, params.arguments || {});
+                        let result;
+                        switch (params.name) {
+                            case 'get_trial_details':
+                                result = await healthcareServer.getTrialDetails(params.arguments?.trialId);
+                                break;
+                            case 'match_patient_to_trials':
+                                result = await healthcareServer.matchPatientToTrials(params.arguments?.patientId);
+                                break;
+                            case 'find_trial_locations':
+                                result = await healthcareServer.findTrialLocations(params.arguments?.condition, params.arguments?.zipCode);
+                                break;
+                            case 'get_enrollment_status':
+                                result = await healthcareServer.getEnrollmentStatus(params.arguments?.trialId);
+                                break;
+                            case 'search_patients':
+                                result = await healthcareServer.searchPatients(params.arguments?.name, params.arguments?.dob, params.arguments?.insurance);
+                                break;
+                            case 'get_patient_encounter_summary':
+                                result = await healthcareServer.getPatientEncounterSummary(params.arguments?.patientId, params.arguments?.limit);
+                                break;
+                            case 'get_recent_lab_results':
+                                result = await healthcareServer.getRecentLabResults(params.arguments?.patientId, params.arguments?.abnormalOnly);
+                                break;
+                            case 'verify_patient_insurance':
+                                result = await healthcareServer.verifyPatientInsurance(params.arguments?.patientId);
+                                break;
+                            default:
+                                // Fallback to legacy tool handler
+                                result = await healthcareServer.callTool(params.name, params.arguments || {});
+                        }
                         res.json({
                             jsonrpc: '2.0',
                             result: result,
