@@ -6,6 +6,21 @@ Use The Sequential Thinking MCP Server to think through your tasks.
 
 **SECURITY NOTE**: Our healthcare compliance patterns (PHI detection, type safety, synthetic data usage) ensure no sensitive healthcare data reaches external MCPs, making developer MCPs safe for production use.
 
+## Coding Agent Environment Setup
+
+**First-time setup**: Run `CI=1 make deps` to install healthcare AI dependencies optimized for coding agents (excludes GPU packages). The `CI=1` environment variable automatically switches to `requirements-ci.txt` which includes all core healthcare components but excludes heavy ML packages that coding agents don't need.
+
+**Permission Handling**: The Makefile automatically handles permission issues with smart fallbacks (system → user installation, uv → pip → apt).
+
+**TypeScript Development**: For MCP server development in `mcps/healthcare/src/`, install TypeScript with `npm install -g typescript` or use `npx tsc` as fallback.
+
+**Dependencies**: 
+- `requirements.in` - Source dependency definitions
+- `requirements.txt` - Full dependencies (including GPU packages for local development)
+- `requirements-ci.txt` - Optimized for CI and coding agents (no GPU packages)
+
+**Dependency generation**: Run `python3 scripts/generate-requirements.py` to regenerate both requirement files from `requirements.in`.
+
 ## Using Specialized AI Instructions
 
 **When working on specific tasks**, reference these specialized instruction files in `.github/instructions/`:
