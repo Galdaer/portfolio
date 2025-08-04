@@ -186,7 +186,7 @@ app.post('/mcp', async (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Healthcare MCP Server running on port ${PORT}`);
     console.log(`Health check available at http://localhost:${PORT}/health`);
-    console.log(`Available tools: ${healthcareServer.getTools().map(t => t.name).join(', ')}`);
+    console.log(`Available tools: ${healthcareServer.getTools().map((t: any) => t.name).join(', ')}`);
 });
 
 // Keep the stdio version for development/testing

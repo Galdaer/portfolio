@@ -39,7 +39,7 @@ export class ToolHandler {
     });
 
     private handleCall = async (request: any) => {
-        if (request.params?.name != "find_patient" && request.params?.name != "get-drug"
+        if (request.params?.name != "find_patient" && request.params?.name != "get-drug-info"
             && request.params?.name != "search-trials" && request.params?.name != "search-pubmed") {
             if (!request.params?.arguments?.patientId) {
                 throw new McpError(ErrorCode.InvalidParams, "patientId is required");
@@ -99,7 +99,6 @@ export class ToolHandler {
         });
     }
 
-
     private async handleClinicalQuery(args: any) {
         if (!args.query) {
             throw new McpError(ErrorCode.InvalidParams, "Query is required");
@@ -112,123 +111,52 @@ export class ToolHandler {
             return this.fhirClient.handleError(error);
         }
     }
+
     getRegisteredTools() {
-        // Return the list of tools that you register with the MCP server
-        return [
-            {
-                name: 'health_check',
-                description: 'Check healthcare MCP server health',
-                inputSchema: { type: 'object', properties: {}, required: [] }
-            },
-            {
-                name: 'search_pubmed',
-                description: 'Search PubMed for medical literature and research papers',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        query: { type: 'string', description: 'Search query for medical literature' },
-                        max_results: { type: 'number', description: 'Maximum number of results', default: 10 }
-                    },
-                    required: ['query']
-                }
-            },
-            {
-                name: 'search_clinical_trials',
-                description: 'Search for clinical trials',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        condition: { type: 'string', description: 'Medical condition' },
-                        intervention: { type: 'string', description: 'Treatment intervention' },
-                        location: { type: 'string', description: 'Geographic location' },
-                        status: { type: 'string', description: 'Trial status' },
-                        max_results: { type: 'number', description: 'Maximum results', default: 10 }
-                    },
-                    required: []
-                }
-            },
-            {
-                name: 'search_fda_drugs',
-                description: 'Search FDA drug database',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        drug_name: { type: 'string', description: 'Drug name' },
-                        active_ingredient: { type: 'string', description: 'Active ingredient' },
-                        max_results: { type: 'number', description: 'Maximum results', default: 10 }
-                    },
-                    required: []
-                }
-            },
-            {
-                name: 'get_fhir_patient',
-                description: 'Retrieve patient data from FHIR server',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        patient_id: { type: 'string', description: 'FHIR patient ID' },
-                        identifier: { type: 'string', description: 'Patient identifier' }
-                    },
-                    required: []
-                }
-            },
-            {
-                name: 'search_fhir_resources',
-                description: 'Search FHIR resources',
-                inputSchema: {
-                    type: 'object',
-                    properties: {
-                        resource_type: { type: 'string', description: 'FHIR resource type' },
-                        patient_id: { type: 'string', description: 'Patient ID filter' },
-                        search_params: { type: 'object', description: 'FHIR search parameters' },
-                        max_results: { type: 'number', description: 'Maximum results', default: 10 }
-                    },
-                    required: ['resource_type']
-                }
-            }
-        ];
+        // Return the same tools that are defined in TOOL_DEFINITIONS to ensure consistency
+        return TOOL_DEFINITIONS;
     }
-    // Add this method to handle tool calls from HTTP mode
+
+    // Handle tool calls from HTTP mode - maps to the same tools as the MCP handlers
     async handleToolCall(toolName: string, params: any) {
         try {
+            // Map HTTP tool names to MCP tool names if needed
             switch (toolName) {
                 case 'health_check':
                     return this.handleHealthCheck();
+                case 'find_patient':
+                    return await this.fhirClient.findPatient(params);
+                case 'get_patient_observations':
+                    return await this.fhirClient.getPatientObservations(params);
+                case 'get_patient_conditions':
+                    return await this.fhirClient.getPatientConditions(params);
+                case 'get_patient_medications':
+                    return await this.fhirClient.getPatientMedications(params);
+                case 'get_patient_encounters':
+                    return await this.fhirClient.getPatientEncounters(params);
+                case 'get_patient_allergies':
+                    return await this.fhirClient.getPatientAllergies(params);
+                case 'get_patient_procedures':
+                    return await this.fhirClient.getPatientProcedures(params);
+                case 'get_patient_careplans':
+                    return await this.fhirClient.getPatientCarePlans(params);
+                case 'get_vital_signs':
+                    return await this.fhirClient.getPatientVitalSigns(params);
+                case 'get_lab_results':
+                    return await this.fhirClient.getPatientLabResults(params);
+                case 'get_medications_history':
+                    return await this.fhirClient.getMedicationHistory(params);
+                case 'get_appointments':
+                    return await this.fhirClient.getPatientAppointments(params);
+                case 'search-pubmed':
                 case 'search_pubmed':
-                    return await this.handlePubMedSearch(params);
+                    return await this.pubmedApi.getArticles(params, this.cache);
+                case 'search-trials':
                 case 'search_clinical_trials':
-                    return await this.handleClinicalTrialsSearch(params);
+                    return await this.trialsApi.getTrials(params, this.cache);
+                case 'get-drug-info':
                 case 'search_fda_drugs':
-                    return await this.handleFDADrugSearch(params);
-                case 'get_fhir_patient':
-                    return await this.handleFHIRPatientGet(params);
-                case 'search_fhir_resources':
-                    return await this.handleFHIRResourceSearch(params);
-                default:
-                    throw new Error(`Unknown tool: ${toolName}`);
-            }
-        } catch (error) {
-            return {
-                content: [{
-                    type: 'text',
-                    text: `Error executing ${toolName}: ${error instanceof Error ? error.message : 'Unknown error'}`
-                }],
-                isError: true
-            };
-        }
-    }
-    // Add this method to handle tool calls from HTTP mode
-    async handleToolCall(toolName: string, params: any) {
-        try {
-            switch (toolName) {
-                case 'health_check':
-                    return this.handleHealthCheck();
-                case 'search_pubmed':
-                    return await this.handlePubMedSearch(params);
-                case 'search_clinical_trials':
-                    return await this.handleClinicalTrialsSearch(params);
-                case 'search_fda_drugs':
-                    return await this.handleFDADrugSearch(params);
+                    return await this.fdaApi.getDrug(params, this.cache);
                 case 'get_fhir_patient':
                     return await this.handleFHIRPatientGet(params);
                 case 'search_fhir_resources':
@@ -247,10 +175,8 @@ export class ToolHandler {
         }
     }
 
-    // These are the actual implementation methods that you probably already have
-    // Just make sure they return the right format for MCP tool results
+    // Helper methods for HTTP mode
     private handleHealthCheck() {
-        // Your existing health check logic
         return {
             content: [{
                 type: 'text',
@@ -262,41 +188,7 @@ export class ToolHandler {
         };
     }
 
-    private async handlePubMedSearch(params: any) {
-        // Use your existing PubMed connector
-        const results = await this.pubmedApi.search(params.query, params.max_results || 10);
-        return {
-            content: [{
-                type: 'text',
-                text: JSON.stringify(results, null, 2)
-            }]
-        };
-    }
-
-    private async handleClinicalTrialsSearch(params: any) {
-        // Use your existing ClinicalTrials connector
-        const results = await this.trialsApi.search(params);
-        return {
-            content: [{
-                type: 'text',
-                text: JSON.stringify(results, null, 2)
-            }]
-        };
-    }
-
-    private async handleFDADrugSearch(params: any) {
-        // Use your existing FDA connector
-        const results = await this.fdaApi.searchDrugs(params);
-        return {
-            content: [{
-                type: 'text',
-                text: JSON.stringify(results, null, 2)
-            }]
-        };
-    }
-
     private async handleFHIRPatientGet(params: any) {
-        // Use your existing FHIR client
         const results = await this.fhirClient.getPatient(params.patient_id || params.identifier);
         return {
             content: [{
@@ -307,7 +199,6 @@ export class ToolHandler {
     }
 
     private async handleFHIRResourceSearch(params: any) {
-        // Use your existing FHIR client
         const results = await this.fhirClient.searchResources(params.resource_type, params.search_params, params.max_results);
         return {
             content: [{
@@ -316,4 +207,4 @@ export class ToolHandler {
             }]
         };
     }
-} 
+}

@@ -25,22 +25,19 @@ export class HealthcareServer {
         this.trialsApi = new ClinicalTrials(trialsAPIKey);
         this.fdaApi = new FDA(fdaAPIKey);
 
-
         this.toolHandler = new ToolHandler(authConfig, this.fhirClient, this.cache, this.pubmedApi, this.trialsApi, this.fdaApi);
 
         this.setupHandlers();
         this.setupErrorHandling();
     }
-    // This method exposes tools for HTTP mode
-    getAvailableTools() {
-        // This should return the same tools that your ToolHandler registers
-        // You'll need to coordinate with your ToolHandler class
-        return this.toolHandler.getRegisteredTools(); // Assuming ToolHandler has this method
+
+    // Method to get tools for HTTP mode
+    getTools() {
+        return this.toolHandler.getRegisteredTools();
     }
 
-    // This method handles tool calls in HTTP mode
-    async executeToolCall(toolName: string, params: any) {
-        // Delegate to your ToolHandler's implementation
+    // Method to handle tool calls in HTTP mode
+    async callTool(toolName: string, params: any) {
         return await this.toolHandler.handleToolCall(toolName, params);
     }
 
@@ -51,17 +48,18 @@ export class HealthcareServer {
             service: 'healthcare-mcp',
             timestamp: new Date().toISOString(),
             apis: {
-                fhir: this.fhirClient.isConnected(), // Assuming FhirClient has this method
+                fhir: this.fhirClient.isConnected(), // This method needs to be implemented
                 pubmed: !!this.pubmedApi,
                 trials: !!this.trialsApi,
                 fda: !!this.fdaApi
             },
             cache: {
-                size: this.cache.size(), // Assuming CacheManager has this method
-                hitRate: this.cache.getHitRate() // Assuming CacheManager tracks this
+                size: this.cache.size(), // This method needs to be implemented
+                hitRate: this.cache.getHitRate() // This method needs to be implemented
             }
         };
     }
+
     private setupHandlers() {
         this.toolHandler.register(this.mcpServer);
     }
@@ -83,4 +81,4 @@ export class HealthcareServer {
         await this.mcpServer.connect(transport);
         console.error("FHIR MCP server running on stdio");
     }
-} 
+}
