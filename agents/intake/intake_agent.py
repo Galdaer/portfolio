@@ -9,8 +9,15 @@ from datetime import datetime
 from typing import Any
 
 from agents import BaseHealthcareAgent
+from core.infrastructure.healthcare_logger import (
+    get_healthcare_logger, 
+    healthcare_log_method, 
+    healthcare_agent_log,
+    log_healthcare_event
+)
+from core.infrastructure.phi_monitor import phi_monitor, scan_for_phi, sanitize_healthcare_data
 
-logger = logging.getLogger(__name__)
+logger = get_healthcare_logger('agent.intake')
 
 
 @dataclass
@@ -50,6 +57,20 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         self.llm_client = llm_client
         self.config = config_override or {}
 
+        # Log agent initialization with healthcare context
+        log_healthcare_event(
+            logger,
+            logging.INFO,
+            "Healthcare Intake Agent initialized",
+            context={
+                'agent': 'intake',
+                'initialization': True,
+                'phi_monitoring': True,
+                'medical_advice_disabled': True
+            },
+            operation_type='agent_initialization'
+        )
+
         # Standard healthcare disclaimers
         self.disclaimers = [
             "This system provides administrative support only, not medical advice.",
@@ -58,6 +79,8 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
             "All patient data is handled in compliance with HIPAA regulations.",
         ]
 
+    @healthcare_log_method(operation_type="patient_intake", phi_risk_level="high")
+    @healthcare_agent_log("intake")
     async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Process intake request with administrative focus
@@ -66,9 +89,33 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         """
         session_id = request.get("session_id", "default")
 
+        # PHI detection before processing
+        if scan_for_phi(request):
+            log_healthcare_event(
+                logger,
+                25,  # PHI_ALERT level
+                "PHI detected in intake request - applying protection measures",
+                context={'session_id': session_id, 'request_type': 'intake'},
+                operation_type='phi_detection'
+            )
+
         try:
             intake_type = request.get("intake_type", "new_patient_registration")
             patient_data = request.get("patient_data", {})
+
+            # Sanitize patient data for logging
+            sanitized_data = sanitize_healthcare_data(patient_data)
+            log_healthcare_event(
+                logger,
+                logging.INFO,
+                f"Processing intake request: {intake_type}",
+                context={
+                    'intake_type': intake_type,
+                    'session_id': session_id,
+                    'data_fields': list(sanitized_data.keys())
+                },
+                operation_type='intake_processing'
+            )
 
             if intake_type == "new_patient_registration":
                 result = await self._process_new_patient_registration(patient_data, session_id)
@@ -84,9 +131,16 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
             return self._format_intake_response(result, session_id)
 
         except Exception as e:
-            logger.error(f"Intake processing error: {e}")
+            log_healthcare_event(
+                logger,
+                35,  # MEDICAL_ERROR level
+                f"Intake processing error: {e}",
+                context={'session_id': session_id, 'error': str(e)},
+                operation_type='intake_error'
+            )
             return self._create_error_response(f"Intake processing failed: {str(e)}", session_id)
 
+    @healthcare_log_method(operation_type="patient_registration", phi_risk_level="high")
     async def _process_new_patient_registration(
         self, patient_data: dict[str, Any], session_id: str
     ) -> IntakeResult:
@@ -96,6 +150,21 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         intake_id = self._generate_intake_id("registration")
         validation_errors = []
         administrative_notes = []
+
+        # PHI monitoring for patient registration
+        phi_result = phi_monitor.scan_for_phi(patient_data, "patient_registration")
+        if phi_result.phi_detected:
+            log_healthcare_event(
+                logger,
+                25,  # PHI_ALERT level
+                "PHI detected in patient registration data",
+                context={
+                    'intake_id': intake_id,
+                    'phi_risk_level': phi_result.risk_level.value,
+                    'phi_types': [t.value for t in phi_result.phi_types]
+                },
+                operation_type='phi_detection'
+            )
 
         # Validate required administrative fields
         required_fields = [

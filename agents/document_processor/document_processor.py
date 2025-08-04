@@ -9,8 +9,15 @@ from datetime import datetime
 from typing import Any
 
 from agents import BaseHealthcareAgent
+from core.infrastructure.healthcare_logger import (
+    get_healthcare_logger, 
+    healthcare_log_method, 
+    healthcare_agent_log,
+    log_healthcare_event
+)
+from core.infrastructure.phi_monitor import phi_monitor, scan_for_phi, sanitize_healthcare_data
 
-logger = logging.getLogger(__name__)
+logger = get_healthcare_logger('agent.document_processor')
 
 
 @dataclass
@@ -48,6 +55,20 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
         self.mcp_client = mcp_client
         self.llm_client = llm_client
         self.config = config_override or {}
+
+        # Log agent initialization with healthcare context
+        log_healthcare_event(
+            logger,
+            logging.INFO,
+            "Healthcare Document Processor Agent initialized",
+            context={
+                'agent': 'document_processor',
+                'initialization': True,
+                'phi_monitoring': True,
+                'medical_interpretation_disabled': True
+            },
+            operation_type='agent_initialization'
+        )
 
         # Standard healthcare disclaimers
         self.disclaimers = [

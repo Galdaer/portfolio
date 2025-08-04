@@ -14,8 +14,10 @@ from typing import Any
 from core.memory import memory_manager
 from core.models import model_registry
 from core.tools import tool_registry
+from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
+from core.infrastructure.phi_monitor import phi_monitor, sanitize_healthcare_data
 
-logger = logging.getLogger(__name__)
+logger = get_healthcare_logger('agents')
 
 
 class BaseHealthcareAgent(ABC):
@@ -31,11 +33,25 @@ class BaseHealthcareAgent(ABC):
     def __init__(self, agent_name: str, agent_type: str):
         self.agent_name = agent_name
         self.agent_type = agent_type
-        self.logger = logging.getLogger(f"agents.{agent_name}")
+        self.logger = get_healthcare_logger(f"agent.{agent_name}")
         self._session_id: str | None = None
 
         # Register agent with performance tracking
         self._performance_metrics: dict[str, Any] = {}
+
+        # Log agent creation with healthcare context
+        log_healthcare_event(
+            self.logger,
+            logging.INFO,
+            f"Healthcare agent created: {agent_name}",
+            context={
+                'agent_name': agent_name,
+                'agent_type': agent_type,
+                'healthcare_compliance': True,
+                'phi_protection': True
+            },
+            operation_type='agent_creation'
+        )
 
     async def initialize_agent(self) -> None:
         """Initialize agent with model and tool registries"""
@@ -180,8 +196,11 @@ class BaseHealthcareAgent(ABC):
     async def _log_interaction(
         self, interaction_type: str, request_id: str, data: dict[str, Any]
     ) -> None:
-        """Log agent interaction for audit purposes"""
+        """Log agent interaction for audit purposes with PHI protection"""
         try:
+            # Sanitize data for PHI protection
+            sanitized_data = sanitize_healthcare_data(data)
+
             log_entry = {
                 "interaction_type": interaction_type,
                 "request_id": request_id,
@@ -189,8 +208,17 @@ class BaseHealthcareAgent(ABC):
                 "agent_type": self.agent_type,
                 "session_id": self._session_id,
                 "timestamp": datetime.utcnow().isoformat(),
-                "data": self._sanitize_for_logging(data),
+                "data": sanitized_data,
             }
+
+            # Log with healthcare context
+            log_healthcare_event(
+                self.logger,
+                logging.INFO,
+                f"Agent interaction logged: {interaction_type}",
+                context=log_entry,
+                operation_type='agent_interaction'
+            )
 
             # Store in session cache for immediate access
             if self._session_id:
@@ -201,30 +229,18 @@ class BaseHealthcareAgent(ABC):
                 await memory_manager.store_session(self._session_id, session_data)
 
         except Exception as e:
-            self.logger.error(f"Failed to log interaction: {e}")
+            log_healthcare_event(
+                self.logger,
+                logging.ERROR,
+                f"Failed to log agent interaction: {e}",
+                context={'error': str(e), 'interaction_type': interaction_type},
+                operation_type='logging_error'
+            )
 
     def _sanitize_for_logging(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Remove or redact sensitive information for logging"""
-        # Basic PII redaction - this would be enhanced in production
-        import re
-
-        sanitized = {}
-        pii_patterns = [
-            r"\b\d{3}-\d{2}-\d{4}\b",  # SSN
-            r"\b\d{3}-\d{3}-\d{4}\b",  # Phone
-            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",  # Email
-            r"\b\d{1,2}/\d{1,2}/\d{4}\b",  # DOB
-            r"\bMRN\s*:?\s*\d+\b",  # Medical Record Number
-        ]
-        for key, value in data.items():
-            if isinstance(value, str):
-                redacted = value
-                for pattern in pii_patterns:
-                    redacted = re.sub(pattern, "[REDACTED]", redacted)
-                sanitized[key] = redacted
-            else:
-                sanitized[key] = value
-        return sanitized
+        """Remove or redact sensitive information for logging - DEPRECATED: Use phi_monitor instead"""
+        # Use the new PHI monitor for sanitization
+        return sanitize_healthcare_data(data)
 
 
 class DocumentProcessingAgent(BaseHealthcareAgent):

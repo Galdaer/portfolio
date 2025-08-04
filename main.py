@@ -23,21 +23,26 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from config.app import config
+from core.infrastructure.healthcare_logger import setup_healthcare_logging, get_healthcare_logger, log_healthcare_event
+from core.infrastructure.phi_monitor import phi_monitor
 
-# Configure logging
-logging.basicConfig(
-    level=getattr(logging, config.log_level.upper()),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(), logging.FileHandler("logs/intelluxe-ai.log")],
-)
+# Setup healthcare-compliant logging infrastructure
+setup_healthcare_logging(log_level=config.log_level.upper())
 
-logger = logging.getLogger(__name__)
+# Get healthcare logger for main application
+logger = get_healthcare_logger('main')
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifecycle management"""
-    logger.info(f"Starting {config.project_name}")
+    """Application lifecycle management with healthcare logging"""
+    log_healthcare_event(
+        logger,
+        logging.INFO,
+        f"Starting {config.project_name}",
+        context={'application_startup': True, 'project_name': config.project_name},
+        operation_type='application_lifecycle'
+    )
 
     # Initialize core services
     try:
@@ -45,31 +50,80 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from core.dependencies import healthcare_services
 
         await healthcare_services.initialize()
+        log_healthcare_event(
+            logger,
+            logging.INFO,
+            "Healthcare services initialized successfully",
+            context={'services_initialized': True},
+            operation_type='service_initialization'
+        )
 
         # Initialize memory manager
         from core.memory import MemoryManager
 
         app.state.memory_manager = MemoryManager()
         await app.state.memory_manager.initialize()
+        log_healthcare_event(
+            logger,
+            logging.INFO,
+            "Memory manager initialized",
+            context={'memory_system': 'initialized'},
+            operation_type='memory_initialization'
+        )
 
         # Initialize model registry
         from core.models import ModelRegistry
 
         app.state.model_registry = ModelRegistry()
         await app.state.model_registry.initialize()
+        log_healthcare_event(
+            logger,
+            logging.INFO,
+            "Model registry initialized",
+            context={'model_registry': 'initialized'},
+            operation_type='model_initialization'
+        )
 
         # Initialize tool registry
         from core.tools import ToolRegistry
 
         app.state.tool_registry = ToolRegistry()
         await app.state.tool_registry.initialize()
+        log_healthcare_event(
+            logger,
+            logging.INFO,
+            "Tool registry initialized",
+            context={'tool_registry': 'initialized'},
+            operation_type='tool_initialization'
+        )
 
-        logger.info("Core services initialized successfully")
+        log_healthcare_event(
+            logger,
+            logging.INFO,
+            "All core services initialized successfully",
+            context={'startup_complete': True},
+            operation_type='application_startup'
+        )
         yield
 
     except Exception as e:
-        logger.error(f"Failed to initialize services: {e}")
+        log_healthcare_event(
+            logger,
+            logging.ERROR,
+            f"Failed to initialize healthcare services: {e}",
+            context={'error': str(e), 'startup_failed': True},
+            operation_type='initialization_error'
+        )
         raise
+
+    # Cleanup on shutdown
+    log_healthcare_event(
+        logger,
+        logging.INFO,
+        f"Shutting down {config.project_name}",
+        context={'application_shutdown': True},
+        operation_type='application_lifecycle'
+    )
     finally:
         logger.info(f"Shutting down {config.project_name}")
 

@@ -5,6 +5,7 @@ Integrates dynamic knowledge retrieval with medical reasoning
 
 import asyncio
 import json
+import logging
 import os
 from datetime import datetime
 from typing import Any
@@ -14,6 +15,15 @@ import yaml
 from agents import BaseHealthcareAgent
 from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType
 from core.reasoning.medical_reasoning_enhanced import EnhancedMedicalReasoning
+from core.infrastructure.healthcare_logger import (
+    get_healthcare_logger, 
+    healthcare_log_method, 
+    healthcare_agent_log,
+    log_healthcare_event
+)
+from core.infrastructure.phi_monitor import phi_monitor, scan_for_phi, sanitize_healthcare_data
+
+logger = get_healthcare_logger('agent.research_assistant')
 
 
 class ClinicalResearchAgent(BaseHealthcareAgent):
@@ -45,6 +55,21 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         self.mcp_client = mcp_client
         self.llm_client = llm_client
         self.current_step = 0
+
+        # Log agent initialization with healthcare context
+        log_healthcare_event(
+            logger,
+            logging.INFO,
+            "Clinical Research Agent initialized",
+            context={
+                'agent': 'clinical_research',
+                'initialization': True,
+                'phi_monitoring': True,
+                'medical_research_support': True,
+                'no_medical_advice': True
+            },
+            operation_type='agent_initialization'
+        )
 
     def _load_agent_config(self, config_override: dict | None = None) -> dict[str, Any]:
         """Load agent-specific configuration from file"""
