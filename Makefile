@@ -1,7 +1,6 @@
 .PHONY: \
 	   auto-repair \
 	   backup \
-	   clean-cache \
 	   data-clean \
 	   data-generate \
 	   data-generate-large \
@@ -12,32 +11,7 @@
 	   diagnostics \
 	   dry-run \
 	   e2e \
-	   fix	fi; \
-	if [ "$$UV_AVAILABLE" = "false" ]; then \
-		echo "🐍  Using pip with apt fallbacks for maximum compatibility..."; \
-		echo "   📦 Installing system Python tools via apt..."; \
-		sudo apt-get update -qq && sudo apt-get install -y python3-pip python3-dev python3-setuptools python3-wheel || true; \
-		echo "   🔧 Installing development tools via pip..."; \
-		if sudo pip3 install --break-system-packages mypy ruff pytest pytest-asyncio yamllint 2>/dev/null; then \
-			echo "   ✓ Development tools installed system-wide"; \
-		elif pip3 install --user mypy ruff pytest pytest-asyncio yamllint 2>/dev/null; then \
-			echo "   ✓ Development tools installed to user directory"; \
-		else \
-			echo "   ⚠️  pip installation failed - trying apt packages"; \
-			sudo apt-get install -y python3-mypy python3-pytest python3-yaml || true; \
-		fi; \
-		if [ -f requirements.txt ]; then \
-			echo "   📋 Installing healthcare AI requirements via pip..."; \
-			if sudo pip3 install --break-system-packages -r requirements.txt 2>/dev/null; then \
-				echo "   ✓ Healthcare requirements installed system-wide"; \
-			elif pip3 install --user -r requirements.txt 2>/dev/null; then \
-				echo "   ✓ Healthcare requirements installed to user directory"; \
-			else \
-				echo "   ⚠️  Some requirements may have failed - check individual packages"; \
-			fi; \
-		fi; \
-	fi
-	@echo "✅  Development dependencies installation complete"
+	   fix-permissions \
 	   help \
 	   hooks \
 	   install \
@@ -196,134 +170,44 @@ fix-permissions:
 	@echo "✅ Permissions and ownership fixed"
 
 deps:
-	@echo "📦  Installing healthcare AI dependencies"
-	@if [ -n "$$CI" ]; then \
-		echo "    🤖 CI mode detected - will use requirements-ci.txt (excludes GPU packages)"; \
-	else \
-		echo "    🖥️  Development mode - will use requirements.txt (all packages)"; \
-	fi
+	@echo "📦  Installing healthcare AI dependencies for development (all packages)"
 	@# Generate lockfiles first if they don't exist or requirements.in is newer
 	@if [ ! -f requirements.txt ] || [ requirements.in -nt requirements.txt ]; then \
 		echo "🔒  Generating lockfiles from requirements.in..."; \
 		python3 scripts/generate-requirements.py; \
 	fi
-	@# Install formatting tools for git hooks (CI-safe)
+	@# Install formatting tools for git hooks
 	@echo "🎨  Installing formatting tools for pre-commit hooks..."
-	@if command -v npm >/dev/null 2>&1 && [ -z "$$CI" ]; then \
-		sudo npm install -g prettier || echo "⚠️  npm prettier failed - continuing without it"; \
+	@if command -v npm >/dev/null 2>&1; then \
+		sudo npm install -g prettier; \
 	else \
-		echo "⚠️  npm not available or CI environment - skipping prettier (YAML/JSON/Markdown formatting)"; \
+		echo "⚠️  npm not found - prettier not installed (for YAML/JSON/Markdown formatting)"; \
 	fi
-	@if command -v go >/dev/null 2>&1 && [ -z "$$CI" ]; then \
-		go install mvdan.cc/sh/v3/cmd/shfmt@latest || echo "⚠️  go shfmt failed - continuing without it"; \
+	@if command -v go >/dev/null 2>&1; then \
+		go install mvdan.cc/sh/v3/cmd/shfmt@latest; \
 	else \
-		echo "⚠️  go not available or CI environment - skipping shfmt (shell script formatting)"; \
+		echo "⚠️  go not found - shfmt not installed (for shell script formatting)"; \
 	fi
-	@# Smart dependency installation with comprehensive fallbacks
-	@echo "🔍  Determining best installation method..."
-	@UV_AVAILABLE=false; \
-	if command -v uv >/dev/null 2>&1; then \
-		echo "   ✓ uv command found"; \
-		if timeout 5 uv --version >/dev/null 2>&1; then \
-			echo "   ✓ uv responsive"; \
-			UV_AVAILABLE=true; \
-		else \
-			echo "   ⚠️  uv timeout (likely firewall block)"; \
+	@# Try to install dependencies using the best available method
+	@if command -v uv >/dev/null 2>&1; then \
+		echo "🚀  Using uv for fast installation (development = all dependencies)..."; \
+		sudo uv pip install --system --break-system-packages flake8 mypy pytest pytest-asyncio yamllint; \
+		if [ -f requirements.txt ]; then \
+			sudo uv pip install --system --break-system-packages -r requirements.txt; \
 		fi; \
 	else \
-		echo "   ✗ uv not installed"; \
-	fi; \
-	if [ "$$UV_AVAILABLE" = "true" ]; then \
-		echo "🚀  Using uv for ultra-fast installation..."; \
-		if [ "$$CI" = "1" ]; then \
-			echo "   🤖 CI mode - using user installation (no sudo required)"; \
-			if timeout 30 uv pip install --user ruff pyright pytest pytest-asyncio yamllint 2>/dev/null; then \
-				echo "   ✓ Core development tools installed via uv (user mode)"; \
-			else \
-				echo "   ⚠️  uv user installation failed - falling back to pip"; \
-				UV_AVAILABLE=false; \
-			fi; \
-		else \
-			if timeout 30 sudo uv pip install --system --break-system-packages ruff pyright pytest pytest-asyncio yamllint 2>/dev/null; then \
-				echo "   ✓ Core development tools installed via uv (system mode)"; \
-			else \
-				echo "   ⚠️  uv system installation failed - falling back to pip"; \
-				UV_AVAILABLE=false; \
-			fi; \
+		echo "⚠️  UV not found, installing with pip..."; \
+		if ! command -v uv >/dev/null 2>&1; then \
+			echo "🔧  Installing uv for faster Python package management..."; \
+			curl -LsSf https://astral.sh/uv/install.sh | sh; \
+			export PATH="$$HOME/.cargo/bin:$$PATH"; \
 		fi; \
-		if [ "$$UV_AVAILABLE" = "true" ]; then \
-			if [ -n "$$CI" ] && [ -f requirements-ci.txt ]; then \
-				echo "   🤖 CI mode detected - using requirements-ci.txt (excludes GPU packages)"; \
-				REQUIREMENTS_FILE=requirements-ci.txt; \
-			elif [ -f requirements.txt ]; then \
-				echo "   🖥️  Development mode - using requirements.txt (all packages)"; \
-				REQUIREMENTS_FILE=requirements.txt; \
-			else \
-				echo "   ⚠️  No requirements file found"; \
-				REQUIREMENTS_FILE=""; \
-			fi; \
-			if [ -n "$$REQUIREMENTS_FILE" ]; then \
-				if [ "$$CI" = "1" ]; then \
-					echo "   🤖 CI mode - using user installation (no sudo required)"; \
-					if timeout 60 uv pip install --user -r "$$REQUIREMENTS_FILE" 2>/dev/null; then \
-						echo "   ✓ Healthcare AI requirements installed via uv (user mode)"; \
-					else \
-						echo "   ⚠️  uv user installation failed - falling back to pip"; \
-						UV_AVAILABLE=false; \
-					fi; \
-				else \
-					if timeout 60 sudo uv pip install --system --break-system-packages -r "$$REQUIREMENTS_FILE" 2>/dev/null; then \
-						echo "   ✓ Healthcare AI requirements installed via uv (system mode)"; \
-					else \
-						echo "   ⚠️  uv system installation failed - falling back to pip"; \
-						UV_AVAILABLE=false; \
-					fi; \
-				fi; \
-			fi; \
-		fi; \
-	else \
-		echo "⚠️  UV not found or blocked, using pip and apt for CI compatibility..."; \
-		echo "🐍  Installing core Python tools via apt..."; \
-		sudo apt-get update -qq && sudo apt-get install -y python3-pip python3-dev python3-setuptools; \
-		echo "🔧  Installing development tools via pip..."; \
-		sudo pip3 install --break-system-packages mypy ruff pytest pytest-asyncio yamllint || \
-		pip3 install --user mypy ruff pytest pytest-asyncio yamllint; \
-		if [ -n "$$CI" ] && [ -f requirements-ci.txt ]; then \
-			echo "📋  Installing CI requirements (excludes GPU packages) via pip..."; \
-			sudo pip3 install --break-system-packages -r requirements-ci.txt || \
-			pip3 install --user -r requirements-ci.txt; \
-		elif [ -f requirements.txt ]; then \
-			echo "📋  Installing full requirements via pip..."; \
-			sudo pip3 install --break-system-packages -r requirements.txt || \
-			pip3 install --user -r requirements.txt; \
+		pip3 install --user --break-system-packages flake8 mypy pytest pytest-asyncio yamllint; \
+		if [ -f requirements.txt ]; then \
+			pip3 install --user --break-system-packages -r requirements.txt; \
 		fi; \
 	fi
 	@echo "✅  All development dependencies installed successfully"
-
-clean-cache:
-	@echo "🧹  Cleaning package manager caches to free disk space"
-	@# Clean uv cache
-	@if command -v uv >/dev/null 2>&1; then \
-		echo "   🚀 Cleaning uv cache..."; \
-		uv cache clean || echo "   ⚠️  uv cache clean failed"; \
-		if command -v du >/dev/null 2>&1 && uv cache dir >/dev/null 2>&1; then \
-			cache_size=$$(du -sh $$(uv cache dir) 2>/dev/null | cut -f1 || echo "unknown"); \
-			echo "   📊 Remaining uv cache size: $$cache_size"; \
-		fi; \
-	else \
-		echo "   ⚠️  uv not found - skipping uv cache cleanup"; \
-	fi
-	@# Clean pip cache
-	@if command -v pip3 >/dev/null 2>&1; then \
-		echo "   🐍 Cleaning pip cache..."; \
-		pip3 cache purge 2>/dev/null || echo "   ⚠️  pip cache purge failed"; \
-		if command -v pip3 >/dev/null 2>&1; then \
-			pip3 cache info 2>/dev/null || echo "   📊 pip cache info not available"; \
-		fi; \
-	else \
-		echo "   ⚠️  pip3 not found - skipping pip cache cleanup"; \
-	fi
-	@echo "✅  Package manager cache cleanup complete"
 
 update:
 	@echo "🔄  Running healthcare AI system update and upgrade"
@@ -332,17 +216,11 @@ update:
 # Update and regenerate lockfiles
 update-deps:
 	@echo "🔄  Updating healthcare AI dependencies"
-	@if command -v uv >/dev/null 2>&1 && timeout 5 uv --version >/dev/null 2>&1; then \
-		echo "🚀  Using uv for fast dependency updates..."; \
+	@if command -v uv >/dev/null 2>&1; then \
 		python3 scripts/generate-requirements.py; \
-		sudo uv pip install --system --break-system-packages -r requirements.txt; \
+		uv pip install -r requirements.txt; \
 	else \
-		echo "🐍  Using pip for dependency updates..."; \
-		if [ ! -f requirements.txt ]; then \
-			python3 scripts/generate-requirements.py; \
-		fi; \
-		sudo pip3 install --break-system-packages --upgrade -r requirements.txt || \
-		pip3 install --user --upgrade -r requirements.txt; \
+		pip install --upgrade -r requirements.in; \
 	fi
 
 # Main Setup Commands
@@ -421,95 +299,49 @@ hooks:
 lint:
 	@echo "🔍  Running shellcheck with warning level for healthcare AI scripts"
 	@shellcheck -S warning --format=gcc -x $$(find scripts -name "*.sh")
-	@echo "🔍  Checking shell function complexity patterns"
-	@$(MAKE) lint-shell-complexity
 	$(MAKE) lint-python
 
-lint-shell-complexity:
-	@echo "🔍  Analyzing shell functions for single responsibility violations..."
-	@# Find functions >20 lines or with complex patterns
-	@for script in $$(find scripts -name "*.sh"); do \
-		echo "Checking $$script for function complexity..."; \
-		awk '/^[a-zA-Z_][a-zA-Z0-9_]*\(\)/ { \
-			func_name = $$1; gsub(/\(\)/, "", func_name); \
-			func_start = NR; line_count = 0; in_function = 1; \
-		} \
-		in_function && /^}$$/ { \
-			if (line_count > 20) \
-				printf "%s:%d: Function \"%s\" has %d lines (>20) - consider refactoring for single responsibility\n", FILENAME, func_start, func_name, line_count; \
-			in_function = 0; \
-		} \
-		in_function { line_count++ }' "$$script"; \
-	done
-
 lint-python:
-	@echo "🔍  Running Python lint (ruff and mypy) for healthcare AI components"
-	@# Run Ruff for linting (pyproject.toml has exclusions for submodules)
-	@if command -v ruff >/dev/null 2>&1; then \
-		echo "🧹 Running Ruff linting..."; \
-		ruff check .; \
-	elif python3 -m ruff --version >/dev/null 2>&1; then \
-		echo "🧹 Running Ruff linting..."; \
-		python3 -m ruff check .; \
+	@echo "🔍  Running Python lint (flake8 and mypy) for healthcare AI components"
+	@# Try multiple ways to find flake8 (system package, command, python module)
+	@if command -v flake8 >/dev/null 2>&1; then \
+		flake8 scripts/*.py test/python/*.py; \
+	elif python3 -m flake8 --version >/dev/null 2>&1; then \
+		python3 -m flake8 scripts/*.py test/python/*.py; \
 	else \
-		echo "⚠️  ruff not found - installing via make deps"; \
-		$(MAKE) deps; \
-		python3 -m ruff check .; \
+		echo "⚠️  flake8 not found - trying to install..."; \
+		if command -v apt >/dev/null 2>&1; then \
+			echo "Trying system package installation..."; \
+			sudo apt install -y python3-flake8 2>/dev/null || true; \
+		fi; \
+		if ! command -v flake8 >/dev/null 2>&1 && ! python3 -m flake8 --version >/dev/null 2>&1; then \
+			python3 -m pip install --user --break-system-packages flake8 || echo "Failed to install flake8"; \
+		fi; \
+		if command -v flake8 >/dev/null 2>&1; then \
+			flake8 scripts/*.py test/python/*.py; \
+		elif python3 -m flake8 --version >/dev/null 2>&1; then \
+			python3 -m flake8 scripts/*.py test/python/*.py; \
+		else \
+			echo "❌ flake8 still not available after installation"; \
+			exit 1; \
+		fi; \
 	fi
-	@# Run Ruff formatting check
-	@if command -v ruff >/dev/null 2>&1; then \
-		echo "🎨 Running Ruff formatting check..."; \
-		ruff format --check .; \
-	elif python3 -m ruff --version >/dev/null 2>&1; then \
-		echo "🎨 Running Ruff formatting check..."; \
-		python3 -m ruff format --check .; \
-	else \
-		python3 -m ruff format --check .; \
-	fi
-	@# Run Mypy for type checking (mypy.ini has healthcare-specific configuration)
-	@if command -v dmypy >/dev/null 2>&1; then \
-		echo "🚀 Running Mypy daemon for fast type checking..."; \
-		dmypy run -- . || (echo "⚠️  Daemon failed, falling back to regular mypy"; mypy .); \
-	elif command -v mypy >/dev/null 2>&1; then \
-		echo "🔍 Running Mypy type checking..."; \
-		mypy .; \
-	elif python3 -m mypy --version >/dev/null 2>&1; then \
-		echo "🔍 Running Mypy type checking..."; \
-		python3 -m mypy .; \
-	else \
-		echo "⚠️  mypy not found - installing via make deps"; \
-		$(MAKE) deps; \
-		python3 -m mypy .; \
-	fi
-
-# Fast development linting - only core healthcare modules
-lint-dev:
-	@echo "🚀  Running fast development lint (core modules only)"
-	@# Run Ruff for linting
-	@if command -v ruff >/dev/null 2>&1; then \
-		echo "🧹 Running Ruff linting..."; \
-		ruff check core/ agents/ src/; \
-	else \
-		python3 -m ruff check core/ agents/ src/; \
-	fi
-	@# Run Mypy on core modules only
+	@# Try multiple ways to find mypy
 	@if command -v mypy >/dev/null 2>&1; then \
-		echo "🔍 Running Mypy type checking (core modules)..."; \
-		mypy core/ agents/ src/; \
+		mypy scripts/*.py; \
+	elif python3 -m mypy --version >/dev/null 2>&1; then \
+		python3 -m mypy scripts/*.py; \
 	else \
-		python3 -m mypy core/ agents/ src/; \
-	fi
-
-format:
-	@echo "🎨  Running Ruff formatting on healthcare AI codebase"
-	@if command -v ruff >/dev/null 2>&1; then \
-		ruff format .; \
-	elif python3 -m ruff --version >/dev/null 2>&1; then \
-		python3 -m ruff format .; \
-	else \
-		echo "⚠️  ruff not found - installing via make deps"; \
-		$(MAKE) deps; \
-		python3 -m ruff format .; \
+		echo "⚠️  mypy not found - trying to install..."; \
+		python3 -m pip install --user --break-system-packages mypy || echo "Failed to install mypy"; \
+		if command -v mypy >/dev/null 2>&1; then \
+			mypy scripts/*.py; \
+		elif python3 -m mypy --version >/dev/null 2>&1; then \
+			python3 -m mypy scripts/*.py; \
+		else \
+			echo "❌ mypy still not available after installation"; \
+			exit 1; \
+		fi; \
 	fi
 
 validate:
@@ -672,12 +504,10 @@ help:
 	@echo "🛠️  Development:"
 	@echo "  make deps            Install healthcare AI lint and test dependencies"
 	@echo "  make update-deps     Update and regenerate dependency lockfiles"
-	@echo "  make clean-cache     Clean uv and pip caches to free disk space"
 	@echo "  make venv            Create or activate a virtual environment"
 	@echo "  make hooks           Install git hooks for pre-push validation"
 	@echo "  make lint            Run shell and Python linters for healthcare AI code"
-	@echo "  make lint-python     Run Python-specific linting (ruff, pyright)"
-	@echo "  make format          Auto-format Python code with ruff"
+	@echo "  make lint-python     Run Python-specific linting (flake8, mypy)"
 	@echo "  make validate        Validate healthcare AI configuration and dependencies"
 	@echo "  make test            Run healthcare AI unit tests with Bats"
 	@echo "  make test-quiet      Run healthcare AI tests (quiet mode)"

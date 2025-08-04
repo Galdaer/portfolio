@@ -1,13 +1,13 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { ToolHandler } from "./handlers/ToolHandler.js"
-import { OllamaHandler } from "./handlers/OllamaHandler.js"
-import { FhirClient } from "./connectors/fhir/FhirClient.js"
-import { PubMed } from "./connectors/medical/PubMed.js"
-import { ClinicalTrials } from "./connectors/medical/ClinicalTrials.js"
-import { FDA } from "./connectors/medical/FDA.js"
-import { CacheManager } from "./utils/Cache.js"
-import { AuthConfig } from "./utils/AuthConfig.js"
+import { FhirClient } from "./connectors/fhir/FhirClient.js";
+import { ClinicalTrials } from "./connectors/medical/ClinicalTrials.js";
+import { FDA } from "./connectors/medical/FDA.js";
+import { PubMed } from "./connectors/medical/PubMed.js";
+import { OllamaHandler } from "./handlers/OllamaHandler.js";
+import { ToolHandler } from "./handlers/ToolHandler.js";
+import { AuthConfig } from "./utils/AuthConfig.js";
+import { CacheManager } from "./utils/Cache.js";
 
 export class HealthcareServer {
     private mcpServer: Server;
@@ -26,8 +26,8 @@ export class HealthcareServer {
         pubmedAPIKey: string,
         trialsAPIKey: string,
         fdaAPIKey: string,
-        ollamaApiUrl: string = "http://host.docker.internal:11434",
-        ollamaModel: string = "llama-3"
+        ollamaApiUrl: string = "http://172.20.0.10:11434",
+        ollamaModel: string = "llama3"
     ) {
         this.mcpServer = mcpServer;
         this.fhirClient = new FhirClient(fhirURL);

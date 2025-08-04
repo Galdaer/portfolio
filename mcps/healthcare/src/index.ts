@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import dotenv from "dotenv";
-import { HealthcareServer } from "./server/HealthcareServer.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { AuthConfig } from "./server/utils/AuthConfig.js";
+import dotenv from "dotenv";
 import express from "express";
+import { HealthcareServer } from "./server/HealthcareServer.js";
+import { AuthConfig } from "./server/utils/AuthConfig.js";
 
 dotenv.config();
 
@@ -48,13 +48,20 @@ let mcpServer = new Server({
         resources: {},
         tools: {},
         prompts: {},
-    process.env.OLLAMA_API_URL || "http://host.docker.internal:11434",
-    process.env.OLLAMA_MODEL || "llama-3"
         logging: {}
     }
 });
 
-const healthcareServer = new HealthcareServer(mcpServer, authConfig, FHIR_BASE_URL, PUBMED_API_KEY, TRIALS_API_KEY, FDA_API_KEY);
+const healthcareServer = new HealthcareServer(
+    mcpServer,
+    authConfig,
+    FHIR_BASE_URL,
+    PUBMED_API_KEY,
+    TRIALS_API_KEY,
+    FDA_API_KEY,
+    process.env.OLLAMA_API_URL || "http://host.docker.internal:11434",
+    process.env.OLLAMA_MODEL || "llama-3"
+);
 
 // Create Express app for HTTP server mode
 const app = express();
@@ -194,6 +201,27 @@ app.post('/mcp', async (req, res) => {
                 }
                 break;
 
+            case 'generate_documentation':
+                // Administrative documentation generation (Ollama LLM)
+                try {
+                    const result = await healthcareServer.generateDocumentation(params.prompt, params.model);
+                    res.json({
+                        jsonrpc: '2.0',
+                        result: { text: result },
+                        id
+                    });
+                } catch (error) {
+                    res.status(500).json({
+                        jsonrpc: '2.0',
+                        error: {
+                            code: -32603,
+                            message: `Ollama documentation generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+                        },
+                        id
+                    });
+                }
+                break;
+
             default:
                 console.log(`Unknown MCP method: ${method}`);
                 res.status(400).json({
@@ -202,12 +230,17 @@ app.post('/mcp', async (req, res) => {
                     id
                 });
         }
+
     } catch (error) {
         console.error('MCP endpoint error:', error);
         res.status(500).json({
             jsonrpc: '2.0',
             error: { code: -32603, message: 'Internal error' },
             id: req.body?.id || null
+        });
+    }
+});
+
 // Administrative documentation generation (Ollama LLM)
 app.post("/generate_documentation", async (req, res) => {
     try {
@@ -220,9 +253,6 @@ app.post("/generate_documentation", async (req, res) => {
     } catch (err) {
         // Generic error message for security compliance
         res.status(500).json({ error: "Failed to generate documentation" });
-    }
-});
-        });
     }
 });
 

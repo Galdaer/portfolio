@@ -43,7 +43,7 @@ export class OllamaHandler {
             throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
         }
 
-        const data = await response.json();
+        const data: any = await response.json();
         // Ollama returns { response: "...", ... }
         return data.response || "";
     }
