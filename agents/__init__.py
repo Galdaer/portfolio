@@ -11,13 +11,13 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any
 
+from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
+from core.infrastructure.phi_monitor import sanitize_healthcare_data
 from core.memory import memory_manager
 from core.models import model_registry
 from core.tools import tool_registry
-from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
-from core.infrastructure.phi_monitor import phi_monitor, sanitize_healthcare_data
 
-logger = get_healthcare_logger('agents')
+logger = get_healthcare_logger("agents")
 
 
 class BaseHealthcareAgent(ABC):
@@ -45,12 +45,12 @@ class BaseHealthcareAgent(ABC):
             logging.INFO,
             f"Healthcare agent created: {agent_name}",
             context={
-                'agent_name': agent_name,
-                'agent_type': agent_type,
-                'healthcare_compliance': True,
-                'phi_protection': True
+                "agent_name": agent_name,
+                "agent_type": agent_type,
+                "healthcare_compliance": True,
+                "phi_protection": True,
             },
-            operation_type='agent_creation'
+            operation_type="agent_creation",
         )
 
     async def initialize_agent(self) -> None:
@@ -217,7 +217,7 @@ class BaseHealthcareAgent(ABC):
                 logging.INFO,
                 f"Agent interaction logged: {interaction_type}",
                 context=log_entry,
-                operation_type='agent_interaction'
+                operation_type="agent_interaction",
             )
 
             # Store in session cache for immediate access
@@ -233,8 +233,8 @@ class BaseHealthcareAgent(ABC):
                 self.logger,
                 logging.ERROR,
                 f"Failed to log agent interaction: {e}",
-                context={'error': str(e), 'interaction_type': interaction_type},
-                operation_type='logging_error'
+                context={"error": str(e), "interaction_type": interaction_type},
+                operation_type="logging_error",
             )
 
     def _sanitize_for_logging(self, data: dict[str, Any]) -> dict[str, Any]:

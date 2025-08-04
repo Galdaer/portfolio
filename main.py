@@ -23,14 +23,17 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from config.app import config
-from core.infrastructure.healthcare_logger import setup_healthcare_logging, get_healthcare_logger, log_healthcare_event
-from core.infrastructure.phi_monitor import phi_monitor
+from core.infrastructure.healthcare_logger import (
+    get_healthcare_logger,
+    log_healthcare_event,
+    setup_healthcare_logging,
+)
 
 # Setup healthcare-compliant logging infrastructure
 setup_healthcare_logging(log_level=config.log_level.upper())
 
 # Get healthcare logger for main application
-logger = get_healthcare_logger('main')
+logger = get_healthcare_logger("main")
 
 
 @asynccontextmanager
@@ -40,8 +43,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger,
         logging.INFO,
         f"Starting {config.project_name}",
-        context={'application_startup': True, 'project_name': config.project_name},
-        operation_type='application_lifecycle'
+        context={"application_startup": True, "project_name": config.project_name},
+        operation_type="application_lifecycle",
     )
 
     # Initialize core services
@@ -54,8 +57,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger,
             logging.INFO,
             "Healthcare services initialized successfully",
-            context={'services_initialized': True},
-            operation_type='service_initialization'
+            context={"services_initialized": True},
+            operation_type="service_initialization",
         )
 
         # Initialize memory manager
@@ -67,8 +70,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger,
             logging.INFO,
             "Memory manager initialized",
-            context={'memory_system': 'initialized'},
-            operation_type='memory_initialization'
+            context={"memory_system": "initialized"},
+            operation_type="memory_initialization",
         )
 
         # Initialize model registry
@@ -80,8 +83,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger,
             logging.INFO,
             "Model registry initialized",
-            context={'model_registry': 'initialized'},
-            operation_type='model_initialization'
+            context={"model_registry": "initialized"},
+            operation_type="model_initialization",
         )
 
         # Initialize tool registry
@@ -93,16 +96,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger,
             logging.INFO,
             "Tool registry initialized",
-            context={'tool_registry': 'initialized'},
-            operation_type='tool_initialization'
+            context={"tool_registry": "initialized"},
+            operation_type="tool_initialization",
         )
 
         log_healthcare_event(
             logger,
             logging.INFO,
             "All core services initialized successfully",
-            context={'startup_complete': True},
-            operation_type='application_startup'
+            context={"startup_complete": True},
+            operation_type="application_startup",
         )
         yield
 
@@ -111,20 +114,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger,
             logging.ERROR,
             f"Failed to initialize healthcare services: {e}",
-            context={'error': str(e), 'startup_failed': True},
-            operation_type='initialization_error'
+            context={"error": str(e), "startup_failed": True},
+            operation_type="initialization_error",
         )
         raise
 
-    # Cleanup on shutdown
-    log_healthcare_event(
-        logger,
-        logging.INFO,
-        f"Shutting down {config.project_name}",
-        context={'application_shutdown': True},
-        operation_type='application_lifecycle'
-    )
     finally:
+        # Cleanup on shutdown
+        log_healthcare_event(
+            logger,
+            logging.INFO,
+            f"Shutting down {config.project_name}",
+            context={"application_shutdown": True},
+            operation_type="application_lifecycle",
+        )
         logger.info(f"Shutting down {config.project_name}")
 
         # Cleanup resources

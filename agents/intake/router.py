@@ -4,7 +4,7 @@ Handles patient registration, scheduling, and administrative workflows
 """
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -112,7 +112,7 @@ async def process_intake(
         # Process intake request
         result = await agent._process_implementation(request.model_dump())
 
-        return result
+        return cast(dict[str, Any], result)
 
     except Exception as e:
         logger.error(f"Intake processing error: {e}")
@@ -143,7 +143,7 @@ async def register_new_patient(
         agent = HealthcareIntakeAgent(mcp_client=mcp_client, llm_client=llm_client)
         result = await agent._process_implementation(request)
 
-        return result
+        return cast(dict[str, Any], result)
 
     except Exception as e:
         logger.error(f"Patient registration error: {e}")
@@ -179,7 +179,7 @@ async def schedule_appointment(
         agent = HealthcareIntakeAgent(mcp_client=mcp_client, llm_client=llm_client)
         result = await agent._process_implementation(intake_request)
 
-        return result
+        return cast(dict[str, Any], result)
 
     except Exception as e:
         logger.error(f"Appointment scheduling error: {e}")
@@ -213,7 +213,7 @@ async def verify_insurance(
         agent = HealthcareIntakeAgent(mcp_client=mcp_client, llm_client=llm_client)
         result = await agent._process_implementation(intake_request)
 
-        return result
+        return cast(dict[str, Any], result)
 
     except Exception as e:
         logger.error(f"Insurance verification error: {e}")
@@ -248,7 +248,7 @@ async def get_document_checklist(
         agent = HealthcareIntakeAgent(mcp_client=mcp_client, llm_client=llm_client)
         result = await agent._process_implementation(request)
 
-        return result
+        return cast(dict[str, Any], result)
 
     except Exception as e:
         logger.error(f"Document checklist error: {e}")

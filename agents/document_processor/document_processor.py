@@ -10,14 +10,11 @@ from typing import Any
 
 from agents import BaseHealthcareAgent
 from core.infrastructure.healthcare_logger import (
-    get_healthcare_logger, 
-    healthcare_log_method, 
-    healthcare_agent_log,
-    log_healthcare_event
+    get_healthcare_logger,
+    log_healthcare_event,
 )
-from core.infrastructure.phi_monitor import phi_monitor, scan_for_phi, sanitize_healthcare_data
 
-logger = get_healthcare_logger('agent.document_processor')
+logger = get_healthcare_logger("agent.document_processor")
 
 
 @dataclass
@@ -39,7 +36,7 @@ class DocumentProcessingResult:
 class HealthcareDocumentProcessor(BaseHealthcareAgent):
     """
     Healthcare Document Processor for administrative support
-    
+
     MEDICAL DISCLAIMER: This agent provides administrative document processing and formatting
     support only. It assists healthcare professionals with document organization, SOAP note
     structuring, and administrative completeness checks. It does not provide medical
@@ -65,12 +62,12 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
             logging.INFO,
             "Healthcare Document Processor Agent initialized",
             context={
-                'agent': 'document_processor',
-                'initialization': True,
-                'phi_monitoring': True,
-                'medical_interpretation_disabled': True
+                "agent": "document_processor",
+                "initialization": True,
+                "phi_monitoring": True,
+                "medical_interpretation_disabled": True,
             },
-            operation_type='agent_initialization'
+            operation_type="agent_initialization",
         )
 
         # Standard healthcare disclaimers

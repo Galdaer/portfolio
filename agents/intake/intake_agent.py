@@ -10,14 +10,14 @@ from typing import Any
 
 from agents import BaseHealthcareAgent
 from core.infrastructure.healthcare_logger import (
-    get_healthcare_logger, 
-    healthcare_log_method, 
+    get_healthcare_logger,
     healthcare_agent_log,
-    log_healthcare_event
+    healthcare_log_method,
+    log_healthcare_event,
 )
-from core.infrastructure.phi_monitor import phi_monitor, scan_for_phi, sanitize_healthcare_data
+from core.infrastructure.phi_monitor import phi_monitor, sanitize_healthcare_data, scan_for_phi
 
-logger = get_healthcare_logger('agent.intake')
+logger = get_healthcare_logger("agent.intake")
 
 
 @dataclass
@@ -63,12 +63,12 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
             logging.INFO,
             "Healthcare Intake Agent initialized",
             context={
-                'agent': 'intake',
-                'initialization': True,
-                'phi_monitoring': True,
-                'medical_advice_disabled': True
+                "agent": "intake",
+                "initialization": True,
+                "phi_monitoring": True,
+                "medical_advice_disabled": True,
             },
-            operation_type='agent_initialization'
+            operation_type="agent_initialization",
         )
 
         # Standard healthcare disclaimers
@@ -95,8 +95,8 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
                 logger,
                 25,  # PHI_ALERT level
                 "PHI detected in intake request - applying protection measures",
-                context={'session_id': session_id, 'request_type': 'intake'},
-                operation_type='phi_detection'
+                context={"session_id": session_id, "request_type": "intake"},
+                operation_type="phi_detection",
             )
 
         try:
@@ -110,11 +110,11 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
                 logging.INFO,
                 f"Processing intake request: {intake_type}",
                 context={
-                    'intake_type': intake_type,
-                    'session_id': session_id,
-                    'data_fields': list(sanitized_data.keys())
+                    "intake_type": intake_type,
+                    "session_id": session_id,
+                    "data_fields": list(sanitized_data.keys()),
                 },
-                operation_type='intake_processing'
+                operation_type="intake_processing",
             )
 
             if intake_type == "new_patient_registration":
@@ -135,8 +135,8 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
                 logger,
                 35,  # MEDICAL_ERROR level
                 f"Intake processing error: {e}",
-                context={'session_id': session_id, 'error': str(e)},
-                operation_type='intake_error'
+                context={"session_id": session_id, "error": str(e)},
+                operation_type="intake_error",
             )
             return self._create_error_response(f"Intake processing failed: {str(e)}", session_id)
 
@@ -159,11 +159,11 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
                 25,  # PHI_ALERT level
                 "PHI detected in patient registration data",
                 context={
-                    'intake_id': intake_id,
-                    'phi_risk_level': phi_result.risk_level.value,
-                    'phi_types': [t.value for t in phi_result.phi_types]
+                    "intake_id": intake_id,
+                    "phi_risk_level": phi_result.risk_level.value,
+                    "phi_types": [t.value for t in phi_result.phi_types],
                 },
-                operation_type='phi_detection'
+                operation_type="phi_detection",
             )
 
         # Validate required administrative fields

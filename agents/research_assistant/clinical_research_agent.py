@@ -13,24 +13,21 @@ from typing import Any
 import yaml
 
 from agents import BaseHealthcareAgent
+from core.infrastructure.healthcare_logger import (
+    get_healthcare_logger,
+    log_healthcare_event,
+)
 from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType
 from core.reasoning.medical_reasoning_enhanced import EnhancedMedicalReasoning
-from core.infrastructure.healthcare_logger import (
-    get_healthcare_logger, 
-    healthcare_log_method, 
-    healthcare_agent_log,
-    log_healthcare_event
-)
-from core.infrastructure.phi_monitor import phi_monitor, scan_for_phi, sanitize_healthcare_data
 
-logger = get_healthcare_logger('agent.research_assistant')
+logger = get_healthcare_logger("agent.research_assistant")
 
 
 class ClinicalResearchAgent(BaseHealthcareAgent):
     """
     Enhanced Clinical Research Agent with agentic RAG capabilities
     Integrates dynamic knowledge retrieval with medical reasoning
-    
+
     MEDICAL DISCLAIMER: This agent provides medical research assistance and clinical data
     analysis only. It searches medical literature, clinical trials, drug interactions, and
     evidence-based resources to support healthcare decision-making. It does not provide
@@ -69,13 +66,13 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             logging.INFO,
             "Clinical Research Agent initialized",
             context={
-                'agent': 'clinical_research',
-                'initialization': True,
-                'phi_monitoring': True,
-                'medical_research_support': True,
-                'no_medical_advice': True
+                "agent": "clinical_research",
+                "initialization": True,
+                "phi_monitoring": True,
+                "medical_research_support": True,
+                "no_medical_advice": True,
             },
-            operation_type='agent_initialization'
+            operation_type="agent_initialization",
         )
 
     def _load_agent_config(self, config_override: dict | None = None) -> dict[str, Any]:

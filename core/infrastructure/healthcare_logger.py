@@ -13,9 +13,10 @@ import hashlib
 import logging
 import logging.handlers
 import re
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class HealthcareLogFormatter(logging.Formatter):
@@ -23,14 +24,20 @@ class HealthcareLogFormatter(logging.Formatter):
 
     # PHI patterns that should be automatically scrubbed from logs
     PHI_PATTERNS = [
-        (r'\b\d{3}-\d{2}-\d{4}\b', '[SSN_REDACTED]'),        # SSN
-        (r'\b\d{3}-\d{3}-\d{4}\b', '[PHONE_REDACTED]'),      # Phone numbers
-        (r'\b[A-Z]{2}\d{6,10}\b', '[MRN_REDACTED]'),         # Medical Record Numbers
-        (r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '[EMAIL_REDACTED]'),  # Email
-        (r'patient_id["\']?\s*:\s*["\']?[^,}\]]+', 'patient_id: [PATIENT_ID_REDACTED]'),  # Patient IDs
-        (r'insurance_id["\']?\s*:\s*["\']?[^,}\]]+', 'insurance_id: [INSURANCE_ID_REDACTED]'),  # Insurance IDs
-        (r'\b\d{1,2}/\d{1,2}/\d{4}\b', '[DOB_REDACTED]'),    # Date of birth patterns
-        (r'DOB[:\s]+\d{1,2}/\d{1,2}/\d{4}', 'DOB: [DOB_REDACTED]'),  # DOB with label
+        (r"\b\d{3}-\d{2}-\d{4}\b", "[SSN_REDACTED]"),  # SSN
+        (r"\b\d{3}-\d{3}-\d{4}\b", "[PHONE_REDACTED]"),  # Phone numbers
+        (r"\b[A-Z]{2}\d{6,10}\b", "[MRN_REDACTED]"),  # Medical Record Numbers
+        (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL_REDACTED]"),  # Email
+        (
+            r'patient_id["\']?\s*:\s*["\']?[^,}\]]+',
+            "patient_id: [PATIENT_ID_REDACTED]",
+        ),  # Patient IDs
+        (
+            r'insurance_id["\']?\s*:\s*["\']?[^,}\]]+',
+            "insurance_id: [INSURANCE_ID_REDACTED]",
+        ),  # Insurance IDs
+        (r"\b\d{1,2}/\d{1,2}/\d{4}\b", "[DOB_REDACTED]"),  # Date of birth patterns
+        (r"DOB[:\s]+\d{1,2}/\d{1,2}/\d{4}", "DOB: [DOB_REDACTED]"),  # DOB with label
     ]
 
     def format(self, record: logging.LogRecord) -> str:
@@ -56,7 +63,7 @@ class PHISafeHandler(logging.Handler):
         """Emit log record after PHI safety validation."""
         try:
             # Additional PHI safety check before emitting
-            if hasattr(record, 'healthcare_context'):
+            if hasattr(record, "healthcare_context"):
                 # Verify healthcare context doesn't contain raw PHI
                 context = record.healthcare_context
                 if self._contains_phi_indicators(str(context)):
@@ -70,10 +77,10 @@ class PHISafeHandler(logging.Handler):
     def _contains_phi_indicators(self, text: str) -> bool:
         """Check if text contains potential PHI indicators."""
         phi_indicators = [
-            r'\b\d{3}-\d{2}-\d{4}\b',  # SSN
-            r'\b\d{3}-\d{3}-\d{4}\b',  # Phone
-            r'patient_id.*[A-Z0-9]{5,}',  # Patient ID patterns
-            r'insurance.*\d{6,}',  # Insurance number patterns
+            r"\b\d{3}-\d{2}-\d{4}\b",  # SSN
+            r"\b\d{3}-\d{3}-\d{4}\b",  # Phone
+            r"patient_id.*[A-Z0-9]{5,}",  # Patient ID patterns
+            r"insurance.*\d{6,}",  # Insurance number patterns
         ]
 
         for pattern in phi_indicators:
@@ -81,18 +88,18 @@ class PHISafeHandler(logging.Handler):
                 return True
         return False
 
-    def _sanitize_healthcare_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_healthcare_context(self, context: dict[str, Any]) -> dict[str, Any]:
         """Sanitize healthcare context for safe logging."""
         sanitized = {}
         for key, value in context.items():
-            if key in ['patient_id', 'insurance_id', 'medical_record_number']:
+            if key in ["patient_id", "insurance_id", "medical_record_number"]:
                 # Hash sensitive identifiers
                 if isinstance(value, str):
-                    sanitized[key + '_hash'] = hashlib.sha256(value.encode()).hexdigest()[:8]
+                    sanitized[key + "_hash"] = hashlib.sha256(value.encode()).hexdigest()[:8]
                 else:
-                    sanitized[key + '_hash'] = '[HASHED]'
+                    sanitized[key + "_hash"] = "[HASHED]"
             elif isinstance(value, str) and self._contains_phi_indicators(value):
-                sanitized[key] = '[PHI_SANITIZED]'
+                sanitized[key] = "[PHI_SANITIZED]"
             else:
                 sanitized[key] = value
         return sanitized
@@ -102,7 +109,7 @@ def setup_healthcare_logging(
     log_dir: Path = Path("logs"),
     log_level: str = "INFO",
     max_bytes: int = 50 * 1024 * 1024,  # 50MB
-    backup_count: int = 10
+    backup_count: int = 10,
 ) -> None:
     """
     Setup healthcare-compliant logging infrastructure.
@@ -117,28 +124,26 @@ def setup_healthcare_logging(
     log_dir.mkdir(exist_ok=True)
 
     # Add custom log levels for healthcare
-    logging.addLevelName(25, 'PHI_ALERT')
-    logging.addLevelName(35, 'MEDICAL_ERROR')
-    logging.addLevelName(33, 'COMPLIANCE_WARNING')
+    logging.addLevelName(25, "PHI_ALERT")
+    logging.addLevelName(35, "MEDICAL_ERROR")
+    logging.addLevelName(33, "COMPLIANCE_WARNING")
 
     # Configure root healthcare logger
-    healthcare_logger = logging.getLogger('healthcare')
+    healthcare_logger = logging.getLogger("healthcare")
     healthcare_logger.setLevel(getattr(logging, log_level.upper()))
 
     # Remove existing handlers to avoid duplicates
     healthcare_logger.handlers.clear()
 
     # Healthcare-specific formatter
-    formatter = HealthcareLogFormatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    formatter = HealthcareLogFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     # File handler with rotation for HIPAA retention compliance
     file_handler = logging.handlers.RotatingFileHandler(
-        log_dir / 'healthcare_system.log',
+        log_dir / "healthcare_system.log",
         maxBytes=max_bytes,
         backupCount=backup_count,
-        encoding='utf-8'
+        encoding="utf-8",
     )
     file_handler.setFormatter(formatter)
 
@@ -164,44 +169,47 @@ def setup_healthcare_logging(
     _setup_specialized_loggers(log_dir, formatter)
 
     # Log initialization
-    healthcare_logger.info("Healthcare logging system initialized", extra={
-        'healthcare_context': {
-            'initialization': True,
-            'phi_protection': True,
-            'audit_compliance': True,
-            'log_directory': str(log_dir),
-            'retention_policy': f"{backup_count} files, {max_bytes} bytes each"
-        }
-    })
+    healthcare_logger.info(
+        "Healthcare logging system initialized",
+        extra={
+            "healthcare_context": {
+                "initialization": True,
+                "phi_protection": True,
+                "audit_compliance": True,
+                "log_directory": str(log_dir),
+                "retention_policy": f"{backup_count} files, {max_bytes} bytes each",
+            }
+        },
+    )
 
 
 def _setup_specialized_loggers(log_dir: Path, formatter: HealthcareLogFormatter) -> None:
     """Setup specialized loggers for different healthcare components."""
 
     # Agent-specific loggers
-    agent_loggers = ['intake', 'document_processor', 'research_assistant']
+    agent_loggers = ["intake", "document_processor", "research_assistant"]
     for agent in agent_loggers:
-        logger = logging.getLogger(f'healthcare.agent.{agent}')
-        
+        logger = logging.getLogger(f"healthcare.agent.{agent}")
+
         # Dedicated file for each agent
         agent_handler = logging.handlers.RotatingFileHandler(
-            log_dir / f'agent_{agent}.log',
+            log_dir / f"agent_{agent}.log",
             maxBytes=10 * 1024 * 1024,  # 10MB per agent
-            backupCount=5
+            backupCount=5,
         )
         agent_handler.setFormatter(formatter)
-        
+
         # PHI-safe wrapper
         phi_safe_agent_handler = PHISafeHandler(agent_handler)
         logger.addHandler(phi_safe_agent_handler)
         logger.propagate = False
 
     # PHI monitoring logger
-    phi_logger = logging.getLogger('healthcare.phi_monitor')
+    phi_logger = logging.getLogger("healthcare.phi_monitor")
     phi_handler = logging.handlers.RotatingFileHandler(
-        log_dir / 'phi_monitoring.log',
+        log_dir / "phi_monitoring.log",
         maxBytes=25 * 1024 * 1024,  # 25MB for PHI monitoring
-        backupCount=10
+        backupCount=10,
     )
     phi_handler.setFormatter(formatter)
     phi_safe_phi_handler = PHISafeHandler(phi_handler)
@@ -209,11 +217,11 @@ def _setup_specialized_loggers(log_dir: Path, formatter: HealthcareLogFormatter)
     phi_logger.propagate = False
 
     # Audit logger for compliance
-    audit_logger = logging.getLogger('healthcare.audit')
+    audit_logger = logging.getLogger("healthcare.audit")
     audit_handler = logging.handlers.RotatingFileHandler(
-        log_dir / 'audit_trail.log',
+        log_dir / "audit_trail.log",
         maxBytes=100 * 1024 * 1024,  # 100MB for audit trail
-        backupCount=20  # Keep more audit files for compliance
+        backupCount=20,  # Keep more audit files for compliance
     )
     audit_handler.setFormatter(formatter)
     phi_safe_audit_handler = PHISafeHandler(audit_handler)
@@ -231,16 +239,16 @@ def get_healthcare_logger(module_name: str) -> logging.Logger:
     Returns:
         Logger configured for healthcare compliance
     """
-    return logging.getLogger(f'healthcare.{module_name}')
+    return logging.getLogger(f"healthcare.{module_name}")
 
 
 def log_healthcare_event(
     logger: logging.Logger,
     level: int,
     message: str,
-    context: Optional[Dict[str, Any]] = None,
-    patient_hash: Optional[str] = None,
-    operation_type: Optional[str] = None
+    context: dict[str, Any] | None = None,
+    patient_hash: str | None = None,
+    operation_type: str | None = None,
 ) -> None:
     """
     Log a healthcare event with standardized context.
@@ -254,22 +262,16 @@ def log_healthcare_event(
         operation_type: Type of healthcare operation
     """
     healthcare_context = {
-        'timestamp': datetime.now().isoformat(),
-        'operation_type': operation_type,
-        'patient_hash': patient_hash,
-        'context': context or {}
+        "timestamp": datetime.now().isoformat(),
+        "operation_type": operation_type,
+        "patient_hash": patient_hash,
+        "context": context or {},
     }
 
-    logger.log(level, message, extra={
-        'healthcare_context': healthcare_context
-    })
+    logger.log(level, message, extra={"healthcare_context": healthcare_context})
 
 
-def log_phi_alert(
-    message: str,
-    context: Dict[str, Any],
-    severity: str = "high"
-) -> None:
+def log_phi_alert(message: str, context: dict[str, Any], severity: str = "high") -> None:
     """
     Log a PHI exposure alert with high priority.
 
@@ -278,30 +280,32 @@ def log_phi_alert(
         context: Context information (will be sanitized)
         severity: Alert severity (low, medium, high, critical)
     """
-    phi_logger = logging.getLogger('healthcare.phi_monitor')
-    
+    phi_logger = logging.getLogger("healthcare.phi_monitor")
+
     # Create sanitized context
     sanitized_context = {
-        'severity': severity,
-        'alert_type': 'phi_exposure',
-        'detection_time': datetime.now().isoformat(),
-        'requires_review': True
+        "severity": severity,
+        "alert_type": "phi_exposure",
+        "detection_time": datetime.now().isoformat(),
+        "requires_review": True,
     }
 
     # Add non-sensitive context information
     for key, value in context.items():
-        if key not in ['patient_data', 'raw_input', 'sensitive_content']:
+        if key not in ["patient_data", "raw_input", "sensitive_content"]:
             sanitized_context[key] = value
 
-    phi_logger.log(25, f"PHI_ALERT: {message}", extra={  # PHI_ALERT level = 25
-        'healthcare_context': sanitized_context
-    })
+    phi_logger.log(
+        25,
+        f"PHI_ALERT: {message}",
+        extra={  # PHI_ALERT level = 25
+            "healthcare_context": sanitized_context
+        },
+    )
 
 
 def log_compliance_event(
-    event_type: str,
-    details: Dict[str, Any],
-    compliance_status: str = "compliant"
+    event_type: str, details: dict[str, Any], compliance_status: str = "compliant"
 ) -> None:
     """
     Log a compliance-related event for audit purposes.
@@ -311,25 +315,24 @@ def log_compliance_event(
         details: Event details (will be sanitized for PHI)
         compliance_status: Status (compliant, non_compliant, review_required)
     """
-    audit_logger = logging.getLogger('healthcare.audit')
-    
+    audit_logger = logging.getLogger("healthcare.audit")
+
     compliance_context = {
-        'event_type': event_type,
-        'compliance_status': compliance_status,
-        'audit_timestamp': datetime.now().isoformat(),
-        'details': details
+        "event_type": event_type,
+        "compliance_status": compliance_status,
+        "audit_timestamp": datetime.now().isoformat(),
+        "details": details,
     }
 
-    audit_logger.info(f"COMPLIANCE_EVENT: {event_type}", extra={
-        'healthcare_context': compliance_context
-    })
+    audit_logger.info(
+        f"COMPLIANCE_EVENT: {event_type}", extra={"healthcare_context": compliance_context}
+    )
 
 
 # Healthcare-specific logging decorators
 def healthcare_log_method(
-    operation_type: str = "healthcare_operation",
-    phi_risk_level: str = "medium"
-):
+    operation_type: str = "healthcare_operation", phi_risk_level: str = "medium"
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator for comprehensive healthcare method logging.
 
@@ -337,9 +340,10 @@ def healthcare_log_method(
         operation_type: Type of healthcare operation being logged
         phi_risk_level: Risk level for PHI exposure (low, medium, high)
     """
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            logger = get_healthcare_logger(f'{func.__module__}')
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            logger = get_healthcare_logger(f"{func.__module__}")
             method_name = f"{func.__qualname__}"
 
             # Entry logging
@@ -349,11 +353,11 @@ def healthcare_log_method(
                 logging.INFO,
                 f"Healthcare method entry: {method_name}",
                 context={
-                    'method': method_name,
-                    'operation_type': operation_type,
-                    'phi_risk_level': phi_risk_level,
-                    'entry_time': start_time.isoformat()
-                }
+                    "method": method_name,
+                    "operation_type": operation_type,
+                    "phi_risk_level": phi_risk_level,
+                    "entry_time": start_time.isoformat(),
+                },
             )
 
             try:
@@ -367,10 +371,10 @@ def healthcare_log_method(
                     logging.INFO,
                     f"Healthcare method success: {method_name}",
                     context={
-                        'method': method_name,
-                        'execution_time_ms': round(execution_time * 1000, 2),
-                        'success': True
-                    }
+                        "method": method_name,
+                        "execution_time_ms": round(execution_time * 1000, 2),
+                        "success": True,
+                    },
                 )
 
                 return result
@@ -383,42 +387,46 @@ def healthcare_log_method(
                     35,  # MEDICAL_ERROR level
                     f"Healthcare method error: {method_name}: {str(e)}",
                     context={
-                        'method': method_name,
-                        'error_type': type(e).__name__,
-                        'error_message': str(e)[:200],  # Truncated for safety
-                        'execution_time_ms': round(execution_time * 1000, 2),
-                        'success': False
-                    }
+                        "method": method_name,
+                        "error_type": type(e).__name__,
+                        "error_message": str(e)[:200],  # Truncated for safety
+                        "execution_time_ms": round(execution_time * 1000, 2),
+                        "success": False,
+                    },
                 )
                 raise
 
         return wrapper
+
     return decorator
 
 
-def healthcare_agent_log(agent_name: str):
+def healthcare_agent_log(agent_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Specialized logging decorator for healthcare agents.
 
     Args:
         agent_name: Name of the healthcare agent
     """
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            logger = get_healthcare_logger(f'agent.{agent_name}')
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            logger = get_healthcare_logger(f"agent.{agent_name}")
 
             log_healthcare_event(
                 logger,
                 logging.INFO,
                 f"Agent {agent_name} processing: {func.__name__}",
                 context={
-                    'agent': agent_name,
-                    'operation': func.__name__,
-                    'agent_version': '1.0',
-                    'processing_start': datetime.now().isoformat()
-                }
+                    "agent": agent_name,
+                    "operation": func.__name__,
+                    "agent_version": "1.0",
+                    "processing_start": datetime.now().isoformat(),
+                },
             )
 
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator

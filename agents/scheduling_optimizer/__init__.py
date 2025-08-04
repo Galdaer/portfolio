@@ -11,20 +11,20 @@ provide medical advice, diagnosis, or treatment recommendations. All medical dec
 must be made by qualified healthcare professionals.
 """
 
-from .scheduling_agent import (
-    SchedulingOptimizerAgent,
-    scheduling_optimizer_agent,
-    SchedulingResult,
-    AppointmentSlot,
-    OptimizationRecommendation
-)
 from .router import router
+from .scheduling_agent import (
+    AppointmentSlot,
+    OptimizationRecommendation,
+    SchedulingOptimizerAgent,
+    SchedulingResult,
+    scheduling_optimizer_agent,
+)
 
 __all__ = [
-    'SchedulingOptimizerAgent',
-    'scheduling_optimizer_agent',
-    'SchedulingResult',
-    'AppointmentSlot',
-    'OptimizationRecommendation',
-    'router'
+    "SchedulingOptimizerAgent",
+    "scheduling_optimizer_agent",
+    "SchedulingResult",
+    "AppointmentSlot",
+    "OptimizationRecommendation",
+    "router",
 ]
