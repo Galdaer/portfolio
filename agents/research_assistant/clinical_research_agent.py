@@ -5,29 +5,43 @@ Integrates dynamic knowledge retrieval with medical reasoning
 
 import asyncio
 import json
+import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
 from agents import BaseHealthcareAgent
+from core.infrastructure.healthcare_logger import (
+    get_healthcare_logger,
+    log_healthcare_event,
+)
 from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType
 from core.reasoning.medical_reasoning_enhanced import EnhancedMedicalReasoning
+
+logger = get_healthcare_logger("agent.research_assistant")
 
 
 class ClinicalResearchAgent(BaseHealthcareAgent):
     """
     Enhanced Clinical Research Agent with agentic RAG capabilities
     Integrates dynamic knowledge retrieval with medical reasoning
+
+    MEDICAL DISCLAIMER: This agent provides medical research assistance and clinical data
+    analysis only. It searches medical literature, clinical trials, drug interactions, and
+    evidence-based resources to support healthcare decision-making. It does not provide
+    medical diagnosis, treatment recommendations, or replace clinical judgment. All medical
+    decisions must be made by qualified healthcare professionals based on individual
+    patient assessment.
     """
 
     def __init__(
         self,
-        mcp_client,
-        llm_client,
-        max_steps: Optional[int] = None,
-        config_override: Optional[Dict] = None,
+        mcp_client: Any,
+        llm_client: Any,
+        max_steps: int | None = None,
+        config_override: dict[str, Any] | None = None,
     ) -> None:
         super().__init__("clinical_research", "research_assistant")
 
@@ -46,7 +60,22 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         self.llm_client = llm_client
         self.current_step = 0
 
-    def _load_agent_config(self, config_override: Optional[Dict] = None) -> Dict[str, Any]:
+        # Log agent initialization with healthcare context
+        log_healthcare_event(
+            logger,
+            logging.INFO,
+            "Clinical Research Agent initialized",
+            context={
+                "agent": "clinical_research",
+                "initialization": True,
+                "phi_monitoring": True,
+                "medical_research_support": True,
+                "no_medical_advice": True,
+            },
+            operation_type="agent_initialization",
+        )
+
+    def _load_agent_config(self, config_override: dict | None = None) -> dict[str, Any]:
         """Load agent-specific configuration from file"""
         if config_override:
             return config_override
@@ -54,9 +83,14 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         try:
             config_path = "config/agent_settings.yml"
             if os.path.exists(config_path):
-                with open(config_path, "r") as f:
+                with open(config_path) as f:
                     full_config = yaml.safe_load(f)
-                return full_config.get("agent_limits", {}).get("clinical_research", {})
+                config_data = (
+                    full_config.get("agent_limits", {}).get("clinical_research", {})
+                    if full_config
+                    else {}
+                )
+                return config_data if isinstance(config_data, dict) else {}
         except Exception:
             pass
 
@@ -68,7 +102,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             "llm_settings": {"temperature": 0.3, "max_tokens": 1000},
         }
 
-    async def _process_implementation(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Process clinical research request with enhanced agentic RAG
         """
@@ -98,8 +132,8 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             return self._create_error_response(f"Processing error: {str(e)}", session_id)
 
     async def _process_with_step_limit(
-        self, input_data: Dict[str, Any], session_id: str
-    ) -> Dict[str, Any]:
+        self, input_data: dict[str, Any], session_id: str
+    ) -> dict[str, Any]:
         """Process single step with completion checking"""
         # Extract query information
         query = input_data.get("query", "")
@@ -130,8 +164,8 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             return self._create_error_response(f"Step processing error: {str(e)}", session_id)
 
     async def _process_differential_diagnosis(
-        self, query: str, clinical_context: Dict[str, Any], session_id: str
-    ) -> Dict[str, Any]:
+        self, query: str, clinical_context: dict[str, Any], session_id: str
+    ) -> dict[str, Any]:
         """
         Process differential diagnosis with iterative reasoning
         """
@@ -208,8 +242,8 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         }
 
     async def _process_drug_interaction(
-        self, query: str, clinical_context: Dict[str, Any], session_id: str
-    ) -> Dict[str, Any]:
+        self, query: str, clinical_context: dict[str, Any], session_id: str
+    ) -> dict[str, Any]:
         """
         Process drug interaction analysis with FDA and literature integration
         """
@@ -235,7 +269,9 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         # Enhanced drug interaction reasoning
         clinical_context["medications"] = medications
         reasoning_result = await self.medical_reasoning.reason_with_dynamic_knowledge(
-            clinical_scenario=clinical_context, reasoning_type="drug_interaction", max_iterations=2
+            clinical_scenario=clinical_context,
+            reasoning_type="drug_interaction",
+            max_iterations=2,
         )
 
         # Direct FDA query for each medication
@@ -282,13 +318,13 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         }
 
     async def _process_literature_research(
-        self, query: str, clinical_context: Dict[str, Any], session_id: str
-    ) -> Dict[str, Any]:
+        self, query: str, clinical_context: dict[str, Any], session_id: str
+    ) -> dict[str, Any]:
         """
         Comprehensive literature research with source prioritization
         """
         # Multi-stage literature search
-        research_stages = [
+        research_stages: list[dict[str, Any]] = [
             {
                 "query": query,
                 "query_type": QueryType.LITERATURE_RESEARCH,
@@ -309,7 +345,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         # Execute research stages in parallel
         research_tasks = [
             self.query_engine.process_medical_query(
-                query=stage["query"],
+                query=str(stage["query"]),
                 query_type=stage["query_type"],
                 context=clinical_context,
                 max_iterations=2,
@@ -320,7 +356,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         research_results = await asyncio.gather(*research_tasks, return_exceptions=True)
 
         # Process and categorize results
-        categorized_results: Dict[str, List[Dict[str, Any]]] = {
+        categorized_results: dict[str, list[dict[str, Any]]] = {
             "primary_literature": [],
             "systematic_reviews": [],
             "clinical_guidelines": [],
@@ -336,7 +372,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
                 stage_info["description"] if isinstance(stage_info["description"], str) else ""
             )
             # Type-safe access to sources with proper typing
-            stage_sources: List[Dict[str, Any]] = []
+            stage_sources: list[dict[str, Any]] = []
             if hasattr(result, "sources") and hasattr(result, "__dict__"):
                 sources_attr = getattr(result, "sources", None)
                 if isinstance(sources_attr, list):
@@ -374,7 +410,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
                 categorized_results["all_sources"]
             ),
             "source_links": list(
-                set([source.get("url", "") for source in prioritized_sources if source.get("url")])
+                {source.get("url", "") for source in prioritized_sources if source.get("url")}
             ),
             "disclaimers": [
                 "This research summary is for informational purposes only.",
@@ -385,8 +421,8 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         }
 
     def _prioritize_sources_by_evidence(
-        self, sources: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, sources: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """
         Prioritize sources by evidence level and quality
         """
@@ -420,11 +456,11 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         # Sort by priority score
         return sorted(scored_sources, key=lambda x: x.get("priority_score", 0), reverse=True)
 
-    def _analyze_evidence_quality(self, sources: List[Dict[str, Any]]) -> Dict[str, int]:
+    def _analyze_evidence_quality(self, sources: list[dict[str, Any]]) -> dict[str, int]:
         """
         Analyze distribution of evidence quality levels
         """
-        quality_counts: Dict[str, int] = {}
+        quality_counts: dict[str, int] = {}
         for source in sources:
             evidence_level = source.get("evidence_level", "unknown")
             quality_counts[evidence_level] = quality_counts.get(evidence_level, 0) + 1
@@ -432,7 +468,10 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         return quality_counts
 
     async def _generate_research_summary(
-        self, query: str, sources: List[Dict[str, Any]], clinical_context: Dict[str, Any]
+        self,
+        query: str,
+        sources: list[dict[str, Any]],
+        clinical_context: dict[str, Any],
     ) -> str:
         """
         Generate AI-powered research summary
@@ -480,9 +519,10 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             options={"temperature": 0.3, "max_tokens": 1000},
         )
 
-        return response.get("response", "Unable to generate research summary.")
+        response_text = response.get("response", "Unable to generate research summary.")
+        return str(response_text)
 
-    def _create_error_response(self, error_message: str, session_id: str) -> Dict[str, Any]:
+    def _create_error_response(self, error_message: str, session_id: str) -> dict[str, Any]:
         """Create standardized error response"""
         return {
             "agent_type": "clinical_research",
@@ -516,24 +556,30 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             prompt=prompt, model="llama3.1", options=llm_settings
         )
 
-        return response.get("response", "")
+        response_text = response.get("response", "")
+        return str(response_text)
 
-    def _get_validation_config(self) -> Dict[str, Any]:
+    def _get_validation_config(self) -> dict[str, Any]:
         """Get response validation configuration"""
         try:
             config_path = "config/agent_settings.yml"
             if os.path.exists(config_path):
-                with open(config_path, "r") as f:
+                with open(config_path) as f:
                     full_config = yaml.safe_load(f)
-                return full_config.get("response_validation", {}).get("medical_trust_scoring", {})
+                config_data = (
+                    full_config.get("response_validation", {}).get("medical_trust_scoring", {})
+                    if full_config
+                    else {}
+                )
+                return config_data if isinstance(config_data, dict) else {}
         except Exception:
             pass
 
         return {"llm_settings": {"temperature": 0.1, "max_tokens": 10}}
 
     async def _process_general_inquiry(
-        self, query: str, clinical_context: Dict[str, Any], session_id: str
-    ) -> Dict[str, Any]:
+        self, query: str, clinical_context: dict[str, Any], session_id: str
+    ) -> dict[str, Any]:
         """
         Process general medical inquiry
 

@@ -1,45 +1,48 @@
-# Exclude files that may have permission issues or are not needed in containers
-logs/
-coverage/
+# .dockerignore for optimized e2e testing
+# Exclude large directories that slow down Docker builds
+
+# Version control (keep minimal git info)
 .git/
 .github/
-*.log
-.venv/
+
+# Python cache and virtual environments
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.pyright_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# Node.js (if any)
 node_modules/
-.cache/
-.local/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Healthcare AI data directories (potentially sensitive)
-data/training/user_samples/
-data/vector_stores/
-data/evaluation/
+# Large log files
+*.log
+logs/
+clinic-lib.log
+lib.log
 
-# User service configurations
-services/user/
+# Build artifacts and archives
+dist/
+build/
+*.tar.gz
+*.zip
+*.deb
+*.rpm
 
-# Test files (copied separately when needed)
-test/
-
-# Documentation and development files
-*.md
-docs/
-DEVELOPMENT_ROADMAP.md
-INFO.md
-LICENSE*
-
-# Build artifacts and temporary files
-*.build
-*.tmp
-Dockerfile*
-
-# Environment and configuration files (may contain secrets)
-.env*
-*.conf
-
-# IDE and system files
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
@@ -47,3 +50,48 @@ Dockerfile*
 *~
 .DS_Store
 Thumbs.db
+
+# Coverage reports
+coverage/
+*.lcov
+
+# Large data directories (training data not needed for bootstrap test)
+data/training/
+data/vector_stores/
+data/evaluation/
+*.sqlite
+*.db
+
+# Archive and reference materials
+archive/
+reference/ai-patterns/.git/
+
+# CI/CD artifacts
+actions-runners/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Exclude large test directories but keep e2e
+test/bats/
+test/python/
+# !test/e2e/ - keep for e2e testing
+
+# Documentation that's not needed for bootstrap
+docs/
+*.md
+DEVELOPMENT_ROADMAP.md
+INFO.md
+README.md
+
+# Keep essential files for bootstrap testing:
+# - scripts/ (bootstrap and lib)
+# - services/ (service configurations) - ESSENTIAL FOR BOOTSTRAP
+# - config/ (app configuration)
+# - infrastructure/ (Docker and systemd)
+# - systemd/ (service definitions)
+# - requirements*.txt (dependencies)
+# - Makefile (build commands)
+# - test/e2e/ (e2e test files)

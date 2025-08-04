@@ -1,0 +1,59 @@
+FROM ubuntu:22.04
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install essential dependencies in one layer for caching
+RUN apt-get update && apt-get install -y \
+    bash \
+    curl \
+    sudo \
+    git \
+    python3 \
+    python3-pip \
+    iproute2 \
+    iptables \
+    jq \
+    less \
+    lsof \
+    socat \
+    wireguard-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create user matching development environment
+# The DOCKER_GID default (984) matches the typical group ID for 'docker' on Ubuntu systems.
+# Override at build time for different host configurations:
+#   docker build --build-arg DOCKER_GID=$(getent group docker | cut -d: -f3) ...
+# This ensures the container user has the same docker group permissions as the host.
+ARG DOCKER_GID=984
+RUN groupadd -g ${DOCKER_GID} docker && \
+    groupadd -g 1001 intelluxe && \
+    useradd -m -s /bin/bash -u 1000 -g 1001 justin && \
+    usermod -aG docker justin && \
+    echo 'justin ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+WORKDIR /workspace
+
+# Copy only essential files for bootstrap testing
+# This should be ~50MB total instead of 42GB
+COPY --chown=justin:1001 scripts/ ./scripts/
+COPY --chown=justin:1001 services/ ./services/
+COPY --chown=justin:1001 config/ ./config/
+COPY --chown=justin:1001 infrastructure/ ./infrastructure/
+COPY --chown=justin:1001 systemd/ ./systemd/
+COPY --chown=justin:1001 requirements*.txt ./
+COPY --chown=justin:1001 Makefile ./
+COPY --chown=justin:1001 test/e2e/ ./test/e2e/
+
+# Set proper permissions
+RUN chmod +x scripts/*.sh && \
+    chmod +x scripts/*.py
+
+USER justin
+
+# Health check to ensure container is ready
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD test -f /workspace/scripts/bootstrap.sh || exit 1
+
+# Default command for testing
+CMD ["bash"]

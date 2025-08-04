@@ -8,6 +8,7 @@
 !/Makefile
 !/requirements.txt
 !/requirements-ci.txt
+!/requirements-self-hosted.txt
 !/requirements.in
 !/mypy.ini
 !/pyproject.toml
@@ -24,8 +25,10 @@
 !/.githooks/
 !/.githooks/*
 !/.devcontainer/
-#!/.vscode/
-#!/.vscode/settings.json
+!/.vscode/
+!/.vscode/tasks.json
+!/.vscode/keybindings.json
+!/.vscode/settings.json
 
 # === SOURCE CODE DIRECTORIES ===
 # Core application structure
@@ -89,9 +92,13 @@
 !/data/training/user_samples/.gitkeep
 /data/vector_stores/*
 !/data/vector_stores/.gitkeep
-# Exclude large synthetic datasets (generated locally, not committed)
+
+
 /data/synthetic/*
-!/data/synthetic/.gitkeep
+/data/synthetic/.gitkeep
+# Allow evaluation directory structure
+!/data/evaluation/
+!/data/evaluation/.gitkeep
 
 # === FILE TYPE INCLUDES ===
 !*.py
@@ -111,7 +118,9 @@ adapters/
 # === SENSITIVE AND RUNTIME DATA ===
 # Environment files with real credentials
 duckdns.env
-*.env
+# Allow the main .env file for development (contains only placeholder values)
+!.env
+# But still exclude files with actual credentials
 !*-template.env
 !*-example.env
 
@@ -133,9 +142,10 @@ id_ed25519*
 
 # === LOGS AND TEMPORARY FILES ===
 # Logs
-/logs/
 /scripts/logs/
 *.log
+!/logs/
+!/logs/*
 
 # Backups created by scripts
 /backups/
@@ -207,7 +217,7 @@ yarn-error.log*
 **/test-results/
 **/playwright-report/
 **/.coverage/
-**/.mypy_cache/
+**/.ruff_cache/
 **/.tox/
 **/.vagrant/
 **/site-packages/
@@ -227,7 +237,10 @@ Thumbs.db
 # VSCode (excluding settings)
 .vscode/storage.json
 .vscode/*.code-workspace
-.vscode/settings.json
+#.vscode/settings.json
+
+!.devcontainer/devcontainer.json
+
 
 # Development server files
 .tern-port

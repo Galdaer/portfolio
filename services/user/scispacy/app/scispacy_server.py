@@ -5,9 +5,10 @@ SciSpacy Server - REST API for biomedical text analysis
 
 import logging
 import os
+from typing import Any
 
 import spacy
-from flask import Flask, jsonify, request
+from flask import Flask, request
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +21,7 @@ MODEL_NAME = os.environ.get("SPACY_MODEL", "en_core_sci_sm")
 nlp = None
 
 
-def load_model():
+def load_model() -> bool:
     global nlp
     try:
         logger.info(f"Loading SciSpacy model: {MODEL_NAME}")
@@ -32,16 +33,16 @@ def load_model():
         return False
 
 
-@app.route("/health")
-def health():
+@app.route("/health")  # type: ignore[misc]
+def health() -> tuple[dict[str, Any], int]:
     """Health check endpoint"""
     if nlp is None:
         return {"status": "error", "message": "Model not loaded"}, 500
     return {"status": "ok", "model": MODEL_NAME}, 200
 
 
-@app.route("/")
-def root():
+@app.route("/")  # type: ignore[misc]
+def root() -> dict[str, Any]:
     """Root endpoint with API info"""
     return {
         "service": "SciSpacy NLP Server",
@@ -54,8 +55,8 @@ def root():
     }
 
 
-@app.route("/info")
-def info():
+@app.route("/info")  # type: ignore[misc]
+def info() -> tuple[dict[str, Any], int]:
     """Model information endpoint"""
     if nlp is None:
         return {"error": "Model not loaded"}, 500
@@ -67,11 +68,11 @@ def info():
         labels = getattr(ner_pipe, "labels", None)
         if labels is not None:
             entities = list(labels)
-    return {"model": MODEL_NAME, "pipeline": nlp.pipe_names, "entities": entities}
+    return {"model": MODEL_NAME, "pipeline": nlp.pipe_names, "entities": entities}, 200
 
 
-@app.route("/analyze", methods=["POST"])
-def analyze():
+@app.route("/analyze", methods=["POST"])  # type: ignore[misc]
+def analyze() -> tuple[dict[str, Any], int]:
     """Analyze text for biomedical entities"""
     if nlp is None:
         return {"error": "Model not loaded"}, 500
@@ -130,7 +131,7 @@ def analyze():
             "token_count": len(tokens),
         }
 
-        return jsonify(result)
+        return result, 200
 
     except Exception as e:
         logger.error(f"Error processing text: {e}")

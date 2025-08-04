@@ -1,0 +1,41 @@
+repos:
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.15.0
+    hooks:
+      - id: mypy
+        args: [--config-file=mypy.ini]
+        additional_dependencies:
+          [types-PyYAML, types-requests, types-cachetools]
+
+  - repo: https://github.com/pycqa/bandit
+    rev: 1.7.9
+    hooks:
+      - id: bandit
+        args: ["-ll", "-i", "-r", "."]
+        exclude: ^(tests/|data/synthetic/|archive/|\.venv/)
+
+  - repo: local
+    hooks:
+      - id: healthcare-compliance
+        name: Healthcare Compliance Check
+        entry: python scripts/healthcare-compliance-check.py
+        language: system
+        files: '\.py$'
+
+      - id: phi-exposure-check
+        name: PHI Exposure Detection
+        entry: bash scripts/check-phi-exposure.sh
+        language: system
+        pass_filenames: false
+
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        language_version: python3
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]

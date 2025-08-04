@@ -4,11 +4,12 @@ Claude Sonnet 4 integration with healthcare compliance and medical terminology
 """
 
 import logging
-from typing import Dict, List, Any
 from dataclasses import dataclass
+from typing import Any
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class AIAssistantConfig:
@@ -36,6 +37,7 @@ class AIAssistantConfig:
     medical_code_validation: bool = True
     drug_interaction_checks: bool = True
     clinical_guideline_compliance: bool = True
+
 
 class HealthcareCodePatterns:
     """Healthcare-specific code patterns and templates"""
@@ -291,6 +293,7 @@ class HIPAAAuditLogger:
         pass
 '''
 
+
 class HealthcareAIAssistant:
     """Main AI assistant for healthcare development"""
 
@@ -302,7 +305,7 @@ class HealthcareAIAssistant:
         # Initialize AI client (would be actual API client in production)
         self._init_ai_client()
 
-    def _init_ai_client(self):
+    def _init_ai_client(self) -> None:
         """Initialize AI client"""
         # Would initialize actual Claude API client
         self.logger.info("AI assistant initialized for healthcare development")
@@ -312,17 +315,28 @@ class HealthcareAIAssistant:
         templates = {
             "patient_data_handler": self.code_patterns.get_patient_data_handler_template(),
             "medical_ai_agent": self.code_patterns.get_medical_ai_agent_template(),
-            "hipaa_audit": self.code_patterns.get_hipaa_audit_template()
+            "hipaa_audit": self.code_patterns.get_hipaa_audit_template(),
         }
 
         return templates.get(template_type, "Template not found")
 
-    def validate_medical_terminology(self, code: str) -> Dict[str, Any]:
+    def validate_medical_terminology(self, code: str) -> dict[str, Any]:
         """Validate medical terminology in code"""
         medical_terms = [
-            "patient", "diagnosis", "treatment", "medication", "dosage",
-            "contraindication", "allergy", "symptom", "vital signs",
-            "medical record", "phi", "hipaa", "clinical", "therapeutic"
+            "patient",
+            "diagnosis",
+            "treatment",
+            "medication",
+            "dosage",
+            "contraindication",
+            "allergy",
+            "symptom",
+            "vital signs",
+            "medical record",
+            "phi",
+            "hipaa",
+            "clinical",
+            "therapeutic",
         ]
 
         found_terms = []
@@ -333,10 +347,10 @@ class HealthcareAIAssistant:
         return {
             "medical_terms_found": found_terms,
             "medical_context_detected": len(found_terms) > 0,
-            "recommendations": self._get_medical_code_recommendations(found_terms)
+            "recommendations": self._get_medical_code_recommendations(found_terms),
         }
 
-    def _get_medical_code_recommendations(self, terms: List[str]) -> List[str]:
+    def _get_medical_code_recommendations(self, terms: list[str]) -> list[str]:
         """Get recommendations for medical code"""
         recommendations = []
 
@@ -354,14 +368,14 @@ class HealthcareAIAssistant:
 
         return recommendations
 
-    def check_healthcare_compliance(self, code: str) -> Dict[str, Any]:
+    def check_healthcare_compliance(self, code: str) -> dict[str, Any]:
         """Check code for healthcare compliance"""
         compliance_checks = {
             "phi_protection": "PHIDetector" in code or "encrypt" in code,
             "audit_logging": "audit" in code.lower() or "log" in code.lower(),
             "access_control": "authorize" in code or "permission" in code,
             "error_handling": "try:" in code and "except:" in code,
-            "medical_disclaimers": "disclaimer" in code.lower()
+            "medical_disclaimers": "disclaimer" in code.lower(),
         }
 
         compliance_score = sum(compliance_checks.values()) / len(compliance_checks)
@@ -370,10 +384,10 @@ class HealthcareAIAssistant:
             "compliance_checks": compliance_checks,
             "compliance_score": compliance_score,
             "is_compliant": compliance_score >= 0.8,
-            "recommendations": self._get_compliance_recommendations(compliance_checks)
+            "recommendations": self._get_compliance_recommendations(compliance_checks),
         }
 
-    def _get_compliance_recommendations(self, checks: Dict[str, bool]) -> List[str]:
+    def _get_compliance_recommendations(self, checks: dict[str, bool]) -> list[str]:
         """Get compliance recommendations"""
         recommendations = []
 
@@ -393,6 +407,7 @@ class HealthcareAIAssistant:
             recommendations.append("Add appropriate medical disclaimers")
 
         return recommendations
+
 
 # Global AI assistant instance
 healthcare_ai_assistant = HealthcareAIAssistant(AIAssistantConfig())

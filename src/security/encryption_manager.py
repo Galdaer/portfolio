@@ -3,55 +3,61 @@ Healthcare Data Encryption Manager
 Advanced encryption and key management for healthcare data protection
 """
 
-import os
+import base64
 import json
 import logging
 import math
+import os
+import secrets
 import string
 import sys
-from typing import Dict, Optional, Any, Union
-from datetime import datetime, timedelta
-import secrets
-
-import base64
-from dataclasses import dataclass
-from enum import Enum
 from collections import Counter
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any
 
 from cryptography.fernet import Fernet
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
 
-from src.security.environment_detector import EnvironmentDetector, Environment
+from src.security.environment_detector import Environment, EnvironmentDetector
+
 from .encryption_config_loader import EncryptionConfigLoader
 from .exceptions import SecurityError
 
 
 class EncryptionLevel(Enum):
     """Encryption levels for different data types"""
-    BASIC = "basic"          # Standard encryption for non-PHI
+
+    BASIC = "basic"  # Standard encryption for non-PHI
     HEALTHCARE = "healthcare"  # Enhanced encryption for PHI
-    CRITICAL = "critical"    # Maximum encryption for highly sensitive data
+    CRITICAL = "critical"  # Maximum encryption for highly sensitive data
+
 
 class KeyType(Enum):
     """Types of encryption keys"""
+
     SYMMETRIC = "symmetric"
     ASYMMETRIC = "asymmetric"
     DERIVED = "derived"
 
+
 @dataclass
 class EncryptionKey:
     """Encryption key metadata"""
+
     key_id: str
     key_type: KeyType
     encryption_level: EncryptionLevel
     created_at: datetime
-    expires_at: Optional[datetime]
+    expires_at: datetime | None
     algorithm: str
     key_size: int
     is_active: bool
+
 
 class KeyManager:
     """Manages encryption keys with rotation and versioning"""
@@ -60,7 +66,7 @@ class KeyManager:
     MIN_ENTROPY_THRESHOLD = 4.0  # Minimum Shannon entropy for cryptographic keys
     MIN_KEY_LENGTH = 32  # Minimum key length in bytes (256 bits)
 
-    def __init__(self, postgres_conn, config=None):
+    def __init__(self, postgres_conn: Any, config: Any | None = None) -> None:
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.KeyManager")
 
@@ -72,11 +78,12 @@ class KeyManager:
         # Master key for key encryption (would be stored in HSM in production)
         self.master_key = self._get_or_create_master_key()
 
-    def _init_key_tables(self):
+    def _init_key_tables(self) -> None:
         """Initialize key management tables"""
         try:
             with self.postgres_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS encryption_keys (
                         id SERIAL PRIMARY KEY,
                         key_id VARCHAR(255) UNIQUE NOT NULL,
@@ -92,9 +99,11 @@ class KeyManager:
                         rotated_from VARCHAR(255),
                         metadata JSONB
                     )
-                """)
+                """
+                )
 
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS key_usage_log (
                         id SERIAL PRIMARY KEY,
                         key_id VARCHAR(255) NOT NULL,
@@ -104,17 +113,22 @@ class KeyManager:
                         timestamp TIMESTAMP DEFAULT NOW(),
                         success BOOLEAN DEFAULT TRUE
                     )
-                """)
+                """
+                )
 
                 # Create indexes
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE INDEX IF NOT EXISTS idx_encryption_keys_key_id
                     ON encryption_keys(key_id)
-                """)
-                cursor.execute("""
+                """
+                )
+                cursor.execute(
+                    """
                     CREATE INDEX IF NOT EXISTS idx_encryption_keys_active
                     ON encryption_keys(is_active)
-                """)
+                """
+                )
 
             self.postgres_conn.commit()
             self.logger.info("Key management tables initialized")
@@ -123,7 +137,7 @@ class KeyManager:
             self.logger.error(f"Failed to initialize key tables: {e}")
             raise
 
-    def _load_configuration(self) -> Dict[str, Any]:
+    def _load_configuration(self) -> dict[str, Any]:
         """Load configuration from secure source"""
         # Priority order: config file -> environment -> defaults
         config = {}
@@ -132,13 +146,13 @@ class KeyManager:
         config_paths = [
             "/etc/intelluxe/config.json",
             "/opt/intelluxe/config/security.json",
-            os.path.expanduser("~/.intelluxe/config.json")
+            os.path.expanduser("~/.intelluxe/config.json"),
         ]
 
         for config_path in config_paths:
             if os.path.exists(config_path):
                 try:
-                    with open(config_path, 'r') as f:
+                    with open(config_path) as f:
                         file_config = json.load(f)
                         config.update(file_config)
                         self.logger.info(f"Loaded configuration from {config_path}")
@@ -186,11 +200,15 @@ class KeyManager:
         # Step 1: Validate base64 format first
         try:
             # Check if the string contains valid base64 characters
-            valid_chars = string.ascii_letters + string.digits + '-_='
+            valid_chars = string.ascii_letters + string.digits + "-_="
             if not all(c in valid_chars for c in master_key):
                 invalid_chars = [c for c in master_key if c not in valid_chars]
-                self.logger.error(f"MASTER_ENCRYPTION_KEY contains invalid base64 characters: {invalid_chars}")
-                raise ValueError("MASTER_ENCRYPTION_KEY format error: Contains invalid base64 characters")
+                self.logger.error(
+                    f"MASTER_ENCRYPTION_KEY contains invalid base64 characters: {invalid_chars}"
+                )
+                raise ValueError(
+                    "MASTER_ENCRYPTION_KEY format error: Contains invalid base64 characters"
+                )
 
             # Attempt base64 decoding
             decoded_key = base64.urlsafe_b64decode(master_key.encode())
@@ -206,14 +224,22 @@ class KeyManager:
 
         # Step 2: Validate key length
         if len(decoded_key) < self.MIN_KEY_LENGTH:
-            self.logger.error(f"MASTER_ENCRYPTION_KEY validation failed: length {len(decoded_key)} bytes, required minimum {self.MIN_KEY_LENGTH} bytes")
-            raise ValueError(f"MASTER_ENCRYPTION_KEY length error: Key is {len(decoded_key)} bytes, minimum required is {self.MIN_KEY_LENGTH} bytes")
+            self.logger.error(
+                f"MASTER_ENCRYPTION_KEY validation failed: length {len(decoded_key)} bytes, required minimum {self.MIN_KEY_LENGTH} bytes"
+            )
+            raise ValueError(
+                f"MASTER_ENCRYPTION_KEY length error: Key is {len(decoded_key)} bytes, minimum required is {self.MIN_KEY_LENGTH} bytes"
+            )
 
         # Step 3: Validate key entropy
         entropy = self._calculate_entropy(decoded_key)
         if entropy < self.MIN_ENTROPY_THRESHOLD:
-            self.logger.error(f"MASTER_ENCRYPTION_KEY validation failed: entropy {entropy:.2f}, required minimum {self.MIN_ENTROPY_THRESHOLD}")
-            raise ValueError(f"MASTER_ENCRYPTION_KEY entropy error: Key entropy is {entropy:.2f}, minimum required is {self.MIN_ENTROPY_THRESHOLD}")
+            self.logger.error(
+                f"MASTER_ENCRYPTION_KEY validation failed: entropy {entropy:.2f}, required minimum {self.MIN_ENTROPY_THRESHOLD}"
+            )
+            raise ValueError(
+                f"MASTER_ENCRYPTION_KEY entropy error: Key entropy is {entropy:.2f}, minimum required is {self.MIN_ENTROPY_THRESHOLD}"
+            )
 
         self.logger.info(f"Master key validated: {len(decoded_key)} bytes, entropy: {entropy:.2f}")
         return decoded_key
@@ -221,15 +247,12 @@ class KeyManager:
     def _get_or_create_master_key(self) -> bytes:
         """Get master encryption key using centralized configuration"""
         # Check if config has master_key_override (for testing)
-        if isinstance(self.config, dict) and self.config.get('master_key_override'):
+        if isinstance(self.config, dict) and self.config.get("master_key_override"):
             self.logger.info("Using configuration-provided master key")
-            return self.config['master_key_override']
+            return bytes(self.config["master_key_override"])
 
         # Delegate to centralized loader with configuration context
-        return EncryptionConfigLoader.get_or_create_master_key(
-            self.logger,
-            config=self.config
-        )
+        return EncryptionConfigLoader.get_or_create_master_key(self.logger, config=self.config)
 
     def _get_or_create_development_key(self) -> bytes:
         """
@@ -256,16 +279,20 @@ class KeyManager:
         # Check if existing development key exists
         if os.path.exists(key_file):
             try:
-                with open(key_file, 'rb') as f:
+                with open(key_file, "rb") as f:
                     key = f.read()
 
                 # Validate key length
                 if len(key) >= self.MIN_KEY_LENGTH:
                     self.logger.info("Using existing persistent development master key")
-                    self.logger.warning("Development key persistence enabled - data will be consistent across restarts")
+                    self.logger.warning(
+                        "Development key persistence enabled - data will be consistent across restarts"
+                    )
                     return key
                 else:
-                    self.logger.warning(f"Existing development key too short ({len(key)} bytes), generating new key")
+                    self.logger.warning(
+                        f"Existing development key too short ({len(key)} bytes), generating new key"
+                    )
                     os.remove(key_file)
             except Exception as e:
                 self.logger.error(f"Failed to read existing development key: {e}")
@@ -280,19 +307,29 @@ class KeyManager:
             os.makedirs(os.path.dirname(key_file), exist_ok=True)
 
             # Write key with secure permissions
-            with open(key_file, 'wb') as f:
+            with open(key_file, "wb") as f:
                 f.write(key)
 
             # Set restrictive permissions (owner read/write only)
             os.chmod(key_file, 0o600)
 
             self.logger.warning(f"Generated new persistent development master key at {key_file}")
-            self.logger.warning("Development key persistence enabled - data will be consistent across restarts")
-            self.logger.warning("SECURITY: Development key persisted to disk - remove before production deployment")
+            self.logger.warning(
+                "Development key persistence enabled - data will be consistent across restarts"
+            )
+            self.logger.warning(
+                "SECURITY: Development key persisted to disk - remove before production deployment"
+            )
 
             # Also log to stderr for immediate visibility
-            print(f"DEVELOPMENT KEY PERSISTENCE: Key stored at {key_file}", file=sys.stderr)
-            print("WARNING: Remove development keys before production deployment", file=sys.stderr)
+            print(
+                f"DEVELOPMENT KEY PERSISTENCE: Key stored at {key_file}",
+                file=sys.stderr,
+            )
+            print(
+                "WARNING: Remove development keys before production deployment",
+                file=sys.stderr,
+            )
 
         except Exception as e:
             self.logger.error(f"Failed to persist development key: {e}")
@@ -301,7 +338,7 @@ class KeyManager:
 
         return key
 
-    def validate_master_key_config(self, config: Dict[str, Any]) -> bool:
+    def validate_master_key_config(self, config: dict[str, Any]) -> bool:
         """
         Public method to validate master key configuration
 
@@ -351,21 +388,19 @@ class KeyManager:
 
         # Generate RSA key pair
         private_key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=key_size,
-            backend=default_backend()
+            public_exponent=65537, key_size=key_size, backend=default_backend()
         )
 
         # Serialize keys
         private_pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
+            encryption_algorithm=serialization.NoEncryption(),
         )
 
         public_pem = private_key.public_key().public_bytes(
             encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
 
         # Encrypt with properly encoded master key
@@ -404,19 +439,21 @@ class KeyManager:
             private_key = rsa.generate_private_key(
                 public_exponent=65537,
                 key_size=2048 if encryption_level != EncryptionLevel.CRITICAL else 4096,
-                backend=default_backend()
+                backend=default_backend(),
             )
             raw_key = private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption()
+                encryption_algorithm=serialization.NoEncryption(),
             )
             algorithm = "RSA"
             key_size = 2048 if encryption_level != EncryptionLevel.CRITICAL else 4096
 
         # Validate that key was generated
         if raw_key is None:
-            raise ValueError(f"Failed to generate key for type {key_type} and level {encryption_level}")
+            raise ValueError(
+                f"Failed to generate key for type {key_type} and level {encryption_level}"
+            )
 
         # Encrypt the key with master key
         master_fernet = Fernet(self.master_key)
@@ -431,21 +468,29 @@ class KeyManager:
             expires_at=datetime.now() + timedelta(days=365),  # 1 year expiration
             algorithm=algorithm,
             key_size=key_size,
-            is_active=True
+            is_active=True,
         )
 
         try:
             with self.postgres_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO encryption_keys
                     (key_id, key_type, encryption_level, algorithm, key_size,
                      encrypted_key, is_active, expires_at)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    key_id, key_type.value, encryption_level.value,
-                    algorithm, key_size, base64.b64encode(encrypted_key).decode(),
-                    True, key_metadata.expires_at
-                ))
+                """,
+                    (
+                        key_id,
+                        key_type.value,
+                        encryption_level.value,
+                        algorithm,
+                        key_size,
+                        base64.b64encode(encrypted_key).decode(),
+                        True,
+                        key_metadata.expires_at,
+                    ),
+                )
             self.postgres_conn.commit()
 
             self.logger.info(f"Generated new {key_type.value} key: {key_id}")
@@ -455,15 +500,18 @@ class KeyManager:
             self.logger.error(f"Failed to store encryption key: {e}")
             raise
 
-    def get_key(self, key_id: str) -> Optional[bytes]:
+    def get_key(self, key_id: str) -> bytes | None:
         """Retrieve and decrypt encryption key"""
         try:
             with self.postgres_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT encrypted_key, is_active, expires_at
                     FROM encryption_keys
                     WHERE key_id = %s
-                """, (key_id,))
+                """,
+                    (key_id,),
+                )
 
                 result = cursor.fetchone()
                 if not result:
@@ -483,7 +531,10 @@ class KeyManager:
                 # Decrypt key with master key
                 master_fernet = Fernet(self.master_key)
                 encrypted_key = base64.b64decode(encrypted_key_b64.encode())
-                raw_key = master_fernet.decrypt(encrypted_key)
+                raw_key_bytes = master_fernet.decrypt(encrypted_key)
+
+                # Fernet.decrypt() always returns bytes, so we can safely cast
+                raw_key: bytes = raw_key_bytes
 
                 # Log key usage
                 self._log_key_usage(key_id, "retrieve")
@@ -499,11 +550,14 @@ class KeyManager:
         # Get old key metadata
         try:
             with self.postgres_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT key_type, encryption_level, algorithm
                     FROM encryption_keys
                     WHERE key_id = %s
-                """, (old_key_id,))
+                """,
+                    (old_key_id,),
+                )
 
                 result = cursor.fetchone()
                 if not result:
@@ -517,11 +571,14 @@ class KeyManager:
                 new_key = self.generate_key(encryption_level, key_type)
 
                 # Deactivate old key
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE encryption_keys
                     SET is_active = FALSE, rotated_from = %s
                     WHERE key_id = %s
-                """, (new_key.key_id, old_key_id))
+                """,
+                    (new_key.key_id, old_key_id),
+                )
 
             self.postgres_conn.commit()
 
@@ -536,20 +593,24 @@ class KeyManager:
         self,
         key_id: str,
         operation: str,
-        data_type: Optional[str] = None,
-        user_id: Optional[str] = None
-    ):
+        data_type: str | None = None,
+        user_id: str | None = None,
+    ) -> None:
         """Log key usage for audit"""
         try:
             with self.postgres_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO key_usage_log
                     (key_id, operation, data_type, user_id)
                     VALUES (%s, %s, %s, %s)
-                """, (key_id, operation, data_type, user_id))
+                """,
+                    (key_id, operation, data_type, user_id),
+                )
             self.postgres_conn.commit()
         except Exception as e:
             self.logger.error(f"Failed to log key usage: {e}")
+
 
 class HealthcareEncryptionManager:
     """Main encryption manager for healthcare data"""
@@ -558,7 +619,7 @@ class HealthcareEncryptionManager:
     MIN_ENTROPY_THRESHOLD = 4.0  # Minimum Shannon entropy for cryptographic keys
     MIN_KEY_LENGTH = 32  # Minimum key length in bytes (256 bits)
 
-    def __init__(self, postgres_conn, config=None):
+    def __init__(self, postgres_conn: Any, config: Any = None) -> None:
         self.postgres_conn = postgres_conn
         self.logger = logging.getLogger(f"{__name__}.HealthcareEncryptionManager")
 
@@ -567,7 +628,7 @@ class HealthcareEncryptionManager:
 
         # Environment-specific key storage path with production validation
         if EnvironmentDetector.is_production():
-            if isinstance(self.config, dict) and self.config.get('dev_key_path'):
+            if isinstance(self.config, dict) and self.config.get("dev_key_path"):
                 raise SecurityError("Development key configuration not allowed in production")
 
         self.key_manager = KeyManager(postgres_conn, self.config)
@@ -575,37 +636,42 @@ class HealthcareEncryptionManager:
         # Initialize default keys for different encryption levels
         self._init_default_keys()
 
-    def _load_configuration(self) -> Dict[str, Any]:
+    def _load_configuration(self) -> dict[str, Any]:
         """Load encryption configuration with environment-aware defaults"""
 
-        base_config: Dict[str, Any] = {
-            'key_rotation_days': 365,
-            'audit_logging': True,
-            'entropy_threshold': self.MIN_ENTROPY_THRESHOLD,
-            'min_key_length': self.MIN_KEY_LENGTH
+        base_config: dict[str, Any] = {
+            "key_rotation_days": 365,
+            "audit_logging": True,
+            "entropy_threshold": self.MIN_ENTROPY_THRESHOLD,
+            "min_key_length": self.MIN_KEY_LENGTH,
         }
 
         if EnvironmentDetector.is_development():
-            base_config.update({
-                'dev_key_path': os.path.join(
-                    os.getenv('CFG_ROOT', '/opt/intelluxe/stack'),
-                    'security', 'dev_master_key'
-                ),
-                'allow_weak_keys': True  # Only for development
-            })
+            base_config.update(
+                {
+                    "dev_key_path": os.path.join(
+                        os.getenv("CFG_ROOT", "/opt/intelluxe/stack"),
+                        "security",
+                        "dev_master_key",
+                    ),
+                    "allow_weak_keys": True,  # Only for development
+                }
+            )
 
         return base_config
 
-    def _init_default_keys(self):
+    def _init_default_keys(self) -> None:
         """Initialize default encryption keys"""
         try:
             # Check if default keys exist
             with self.postgres_conn.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT key_id, encryption_level
                     FROM encryption_keys
                     WHERE key_id LIKE 'default_%' AND is_active = TRUE
-                """)
+                """
+                )
                 existing_keys = {row[1]: row[0] for row in cursor.fetchall()}
 
             # Generate missing default keys
@@ -614,11 +680,14 @@ class HealthcareEncryptionManager:
                     key = self.key_manager.generate_key(level)
                     # Update key_id to be default
                     with self.postgres_conn.cursor() as cursor:
-                        cursor.execute("""
+                        cursor.execute(
+                            """
                             UPDATE encryption_keys
                             SET key_id = %s
                             WHERE key_id = %s
-                        """, (f"default_{level.value}", key.key_id))
+                        """,
+                            (f"default_{level.value}", key.key_id),
+                        )
                     self.postgres_conn.commit()
 
                     self.logger.info(f"Created default key for {level.value}")
@@ -628,32 +697,29 @@ class HealthcareEncryptionManager:
             raise
 
     def encrypt_phi_data(
-            self, data: Union[str, Dict[str, Any]],
-            user_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, data: str | dict[str, Any], user_id: str | None = None
+    ) -> dict[str, Any]:
         """Encrypt PHI data with healthcare-level encryption"""
         return self._encrypt_data(data, EncryptionLevel.HEALTHCARE, user_id)
 
     def encrypt_critical_data(
-            self, data: Union[str, Dict[str, Any]],
-            user_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, data: str | dict[str, Any], user_id: str | None = None
+    ) -> dict[str, Any]:
         """Encrypt critical data with maximum security"""
         return self._encrypt_data(data, EncryptionLevel.CRITICAL, user_id)
 
     def encrypt_basic_data(
-            self, data: Union[str, Dict[str, Any]],
-            user_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, data: str | dict[str, Any], user_id: str | None = None
+    ) -> dict[str, Any]:
         """Encrypt non-PHI data with basic encryption"""
         return self._encrypt_data(data, EncryptionLevel.BASIC, user_id)
 
     def _encrypt_data(
-            self,
-            data: Union[str, Dict[str, Any]],
-            level: EncryptionLevel,
-            user_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self,
+        data: str | dict[str, Any],
+        level: EncryptionLevel,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """Internal method to encrypt data"""
         try:
             # Convert data to string if needed
@@ -685,7 +751,7 @@ class HealthcareEncryptionManager:
                 "key_id": key_id,
                 "encryption_level": level.value,
                 "algorithm": "AES-256-GCM" if level == EncryptionLevel.CRITICAL else "Fernet",
-                "encrypted_at": datetime.now().isoformat()
+                "encrypted_at": datetime.now().isoformat(),
             }
 
         except Exception as e:
@@ -693,10 +759,8 @@ class HealthcareEncryptionManager:
             raise
 
     def decrypt_data(
-            self,
-            encrypted_package: Dict[str, Any],
-            user_id: Optional[str] = None
-    ) -> Union[str, Dict[str, Any]]:
+        self, encrypted_package: dict[str, Any], user_id: str | None = None
+    ) -> str | dict[str, Any]:
         """Decrypt data package"""
         try:
             key_id = encrypted_package["key_id"]
@@ -723,9 +787,11 @@ class HealthcareEncryptionManager:
 
             # Try to parse as JSON, otherwise return as string
             try:
-                return json.loads(decrypted_data.decode())
+                parsed_result: dict[str, Any] = json.loads(decrypted_data.decode())
+                return parsed_result
             except json.JSONDecodeError:
-                return decrypted_data.decode()
+                decoded_data: str = decrypted_data.decode()
+                return decoded_data
 
         except Exception as e:
             self.logger.error(f"Decryption failed: {e}")
@@ -740,14 +806,18 @@ class HealthcareEncryptionManager:
         cipher = Cipher(
             algorithms.AES(key[:32]),  # Use first 32 bytes for AES-256
             modes.GCM(iv),
-            backend=default_backend()
+            backend=default_backend(),
         )
 
         encryptor = cipher.encryptor()
-        ciphertext = encryptor.update(data) + encryptor.finalize()
+        ciphertext_bytes = encryptor.update(data) + encryptor.finalize()
 
-        # Return IV + tag + ciphertext
-        return iv + encryptor.tag + ciphertext
+        # Ensure we return bytes
+        if isinstance(ciphertext_bytes, bytes) and isinstance(encryptor.tag, bytes):
+            # Return IV + tag + ciphertext
+            return iv + encryptor.tag + ciphertext_bytes
+        else:
+            raise ValueError("Encryption operation did not return expected bytes")
 
     def _decrypt_aes_gcm(self, encrypted_data: bytes, key: bytes) -> bytes:
         """Decrypt using AES-256-GCM"""
@@ -760,44 +830,55 @@ class HealthcareEncryptionManager:
         cipher = Cipher(
             algorithms.AES(key[:32]),  # Use first 32 bytes for AES-256
             modes.GCM(iv, tag),
-            backend=default_backend()
+            backend=default_backend(),
         )
 
         decryptor = cipher.decryptor()
-        return decryptor.update(ciphertext) + decryptor.finalize()
+        decrypted_bytes = decryptor.update(ciphertext) + decryptor.finalize()
 
-    def get_encryption_status(self) -> Dict[str, Any]:
+        # Ensure we return bytes
+        if isinstance(decrypted_bytes, bytes):
+            return decrypted_bytes
+        else:
+            raise ValueError("Decryption operation did not return expected bytes")
+
+    def get_encryption_status(self) -> dict[str, Any]:
         """Get encryption system status"""
         try:
             with self.postgres_conn.cursor() as cursor:
                 # Count active keys by level
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT encryption_level, COUNT(*)
                     FROM encryption_keys
                     WHERE is_active = TRUE
                     GROUP BY encryption_level
-                """)
+                """
+                )
                 key_counts = dict(cursor.fetchall())
 
                 # Get key usage stats
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT operation, COUNT(*)
                     FROM key_usage_log
                     WHERE timestamp > NOW() - INTERVAL '24 hours'
                     GROUP BY operation
-                """)
+                """
+                )
                 usage_stats = dict(cursor.fetchall())
 
                 return {
                     "active_keys": key_counts,
                     "daily_usage": usage_stats,
                     "encryption_levels": [level.value for level in EncryptionLevel],
-                    "status": "operational"
+                    "status": "operational",
                 }
 
         except Exception as e:
             self.logger.error(f"Failed to get encryption status: {e}")
             return {"status": "error", "error": str(e)}
+
 
 # Example usage
 if __name__ == "__main__":

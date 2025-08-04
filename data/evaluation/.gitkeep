@@ -1,0 +1,2 @@
+# This file ensures the data/evaluation directory is tracked by Git
+# Tests expect this directory to exist for healthcare AI evaluation data

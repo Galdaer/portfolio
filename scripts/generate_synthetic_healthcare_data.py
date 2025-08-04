@@ -10,18 +10,40 @@ import os
 import random
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
-import psycopg2
-import redis
 from faker import Faker
 from faker.providers import BaseProvider
+
+if TYPE_CHECKING:
+    import psycopg2
+
+# Optional database dependencies with graceful fallback - healthcare-safe pattern
+psycopg2 = None
+redis_module = None
+
+try:
+    import psycopg2
+
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
+    print("⚠️  psycopg2 not available - database population will be skipped")
+
+try:
+    import redis
+
+    redis_module = redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    print("⚠️  redis not available - Redis caching will be skipped")
 
 # Initialize Faker with healthcare-specific providers
 fake = Faker()
 
 
-def random_date(start, end):
+def random_date(start: datetime, end: datetime) -> datetime:
     """Generate random date between two dates"""
     return start + timedelta(days=random.randint(0, int((end - start).days)))
 
@@ -100,26 +122,26 @@ class HealthcareProvider(BaseProvider):
         "Urgent Care",
     ]
 
-    def medical_specialty(self):
-        return self.random_element(self.medical_specialties)
+    def medical_specialty(self) -> str:
+        return str(self.random_element(self.medical_specialties))
 
-    def insurance_provider(self):
-        return self.random_element(self.insurance_providers)
+    def insurance_provider(self) -> str:
+        return str(self.random_element(self.insurance_providers))
 
-    def medical_condition(self):
-        return self.random_element(self.medical_conditions)
+    def medical_condition(self) -> str:
+        return str(self.random_element(self.medical_conditions))
 
-    def lab_test(self):
-        return self.random_element(self.lab_tests)
+    def lab_test(self) -> str:
+        return str(self.random_element(self.lab_tests))
 
-    def visit_reason(self):
-        return self.random_element(self.visit_reasons)
+    def visit_reason(self) -> str:
+        return str(self.random_element(self.visit_reasons))
 
-    def member_id(self):
+    def member_id(self) -> str:
         """Generate realistic member ID"""
         return f"{fake.random_element(['A', 'B', 'C', 'H', 'U'])}{fake.random_number(digits=9)}"
 
-    def npi_number(self):
+    def npi_number(self) -> str:
         """Generate National Provider Identifier"""
         return f"{fake.random_number(digits=10)}"
 
@@ -149,43 +171,56 @@ class SyntheticHealthcareDataGenerator:
         os.makedirs(self.output_dir, exist_ok=True)
 
         # Storage for cross-referential data
-        self.doctors = []
-        self.patients = []
-        self.encounters = []
-        self.lab_results = []
-        self.insurance_verifications = []
-        self.agent_sessions = []
+        self.doctors: list[dict[str, Any]] = []
+        self.patients: list[dict[str, Any]] = []
+        self.encounters: list[dict[str, Any]] = []
+        self.lab_results: list[dict[str, Any]] = []
+        self.insurance_verifications: list[dict[str, Any]] = []
+        self.agent_sessions: list[dict[str, Any]] = []
 
         # Phase 2 business data for local deployment
-        self.billing_claims = []
-        self.doctor_preferences = []
-        self.audit_logs = []
+        self.billing_claims: list[dict[str, Any]] = []
+        self.doctor_preferences: list[dict[str, Any]] = []
+        self.audit_logs: list[dict[str, Any]] = []
 
         # Database connections (optional)
-        self.db_conn = None
-        self.redis_client = None
+        self.db_conn: Any | None = None
+        self.redis_client: Any | None = None
 
         if self.use_database:
             self._connect_to_databases()
 
-    def _connect_to_databases(self):
+    def _connect_to_databases(self) -> None:
         """Connect to PostgreSQL and Redis if using database mode"""
-        try:
-            self.db_conn = psycopg2.connect(
-                "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
-            )
-            print("✅ Connected to PostgreSQL")
-        except Exception as e:
-            print(f"⚠️  PostgreSQL connection failed: {e}")
+        if not PSYCOPG2_AVAILABLE or psycopg2 is None:
+            print("⚠️  psycopg2 not available - skipping PostgreSQL connection")
+            self.db_conn = None
+        else:
+            try:
+                self.db_conn = psycopg2.connect(
+                    "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
+                )
+                print("✅ Connected to PostgreSQL")
+            except Exception as e:
+                print(f"⚠️  PostgreSQL connection failed: {e}")
+                self.db_conn = None
 
-        try:
-            self.redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
-            self.redis_client.ping()
-            print("✅ Connected to Redis")
-        except Exception as e:
-            print(f"⚠️  Redis connection failed: {e}")
+        if not REDIS_AVAILABLE or redis_module is None:
+            print("⚠️  redis not available - skipping Redis connection")
+            self.redis_client = None
+        else:
+            try:
+                self.redis_client = redis_module.Redis(
+                    host="localhost", port=6379, decode_responses=True
+                )
+                if self.redis_client:
+                    self.redis_client.ping()
+                print("✅ Connected to Redis")
+            except Exception as e:
+                print(f"⚠️  Redis connection failed: {e}")
+                self.redis_client = None
 
-    def generate_patient(self):
+    def generate_patient(self) -> dict[str, Any]:
         """Generate synthetic patient data"""
         return {
             "id": str(uuid.uuid4()),
@@ -207,7 +242,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-2y", end_date="now").isoformat(),
         }
 
-    def generate_doctor(self):
+    def generate_doctor(self) -> dict[str, Any]:
         """Generate synthetic doctor data"""
         return {
             "id": str(uuid.uuid4()),
@@ -240,7 +275,7 @@ class SyntheticHealthcareDataGenerator:
             },
         }
 
-    def generate_encounter(self, patient_id: str, doctor_id: str):
+    def generate_encounter(self, patient_id: str, doctor_id: str) -> dict[str, Any]:
         """Generate synthetic encounter/visit data"""
         return {
             "encounter_id": str(uuid.uuid4()),
@@ -283,7 +318,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-1y", end_date="now").isoformat(),
         }
 
-    def generate_lab_result(self, patient_id: str):
+    def generate_lab_result(self, patient_id: str) -> dict[str, Any]:
         """Generate synthetic lab result data"""
         lab_test = fake.lab_test()
 
@@ -321,7 +356,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-1y", end_date="now").isoformat(),
         }
 
-    def generate_insurance_verification(self, patient_id: str):
+    def generate_insurance_verification(self, patient_id: str) -> dict[str, Any]:
         """Generate synthetic insurance verification data"""
         return {
             "verification_id": str(uuid.uuid4()),
@@ -354,7 +389,7 @@ class SyntheticHealthcareDataGenerator:
             ),
         }
 
-    def generate_agent_session(self, doctor_id: str):
+    def generate_agent_session(self, doctor_id: str) -> dict[str, Any]:
         """Generate synthetic AI agent session data for Phase 1"""
         return {
             "session_id": str(uuid.uuid4()),
@@ -380,7 +415,9 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-30d", end_date="now").isoformat(),
         }
 
-    def generate_billing_claim(self, patient_id: str, doctor_id: str, encounter_id: str):
+    def generate_billing_claim(
+        self, patient_id: str, doctor_id: str, encounter_id: str
+    ) -> dict[str, Any]:
         """Generate synthetic billing claim for Phase 2 business automation"""
         return {
             "claim_id": f"CLM-{fake.random_number(digits=8)}",
@@ -417,7 +454,7 @@ class SyntheticHealthcareDataGenerator:
             "created_at": fake.date_time_between(start_date="-90d", end_date="now").isoformat(),
         }
 
-    def generate_doctor_preferences(self, doctor_id: str):
+    def generate_doctor_preferences(self, doctor_id: str) -> dict[str, Any]:
         """Generate doctor workflow preferences for LoRA personalization (Phase 2)"""
         return {
             "doctor_id": doctor_id,
@@ -455,7 +492,7 @@ class SyntheticHealthcareDataGenerator:
             "updated_at": fake.date_time_between(start_date="-30d", end_date="now").isoformat(),
         }
 
-    def generate_audit_log(self, user_id: str, user_type: str = "doctor"):
+    def generate_audit_log(self, user_id: str, user_type: str = "doctor") -> dict[str, Any]:
         """Generate audit log entries for HIPAA compliance (Phase 2)"""
         actions = {
             "doctor": [
@@ -506,7 +543,7 @@ class SyntheticHealthcareDataGenerator:
             "session_id": str(uuid.uuid4()),
         }
 
-    def generate_all_data(self):
+    def generate_all_data(self) -> None:
         """Generate all synthetic data types"""
         print("🏥 Generating comprehensive synthetic healthcare data...")
 
@@ -597,7 +634,7 @@ class SyntheticHealthcareDataGenerator:
         print(f"     - {len(self.audit_logs)} audit log entries")
         print(f"📁 Files saved to: {self.output_dir}/")
 
-    def _save_json_files(self):
+    def _save_json_files(self) -> None:
         """Save all generated data to JSON files"""
         datasets = {
             # Phase 1 Core Data
@@ -619,7 +656,7 @@ class SyntheticHealthcareDataGenerator:
                 json.dump(data, f, indent=2, default=str)
             print(f"💾 Saved {filepath} ({len(data)} records)")
 
-    def _populate_databases(self):
+    def _populate_databases(self) -> None:
         """Populate PostgreSQL and Redis with generated data"""
         if not self.db_conn:
             print("⚠️  Database connection not available, skipping database population")
@@ -641,7 +678,7 @@ class SyntheticHealthcareDataGenerator:
         print("ℹ️  PostgreSQL population requires schema setup - skipping for now")
 
 
-def main():
+def main() -> None:
     """Main execution function"""
     import argparse
 

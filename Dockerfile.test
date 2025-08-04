@@ -96,7 +96,7 @@ RUN echo "=== Verifying kcov installation ===" && \
 # Install Python linting and testing tools
 RUN pip3 install \
     flake8 \
-    mypy \
+    pyright \
     pytest \
     pytest-asyncio \
     yamllint \

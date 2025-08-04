@@ -7,8 +7,10 @@ Provides unified interface for tool discovery and execution.
 
 import asyncio
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Any
+
 import httpx
+
 from config.app import config
 
 logger = logging.getLogger(__name__)
@@ -23,12 +25,12 @@ class ToolRegistry:
     """
 
     def __init__(self) -> None:
-        self.mcp_client: Optional[httpx.AsyncClient] = None
-        self._available_tools: List[Dict[str, Any]] = []
-        self._tool_versions: Dict[str, str] = {}
-        self._tool_capabilities: Dict[str, Any] = {}
-        self._tool_performance: Dict[str, Dict[str, Any]] = {}
-        self._summary_plugins: Dict[str, Any] = {}
+        self.mcp_client: httpx.AsyncClient | None = None
+        self._available_tools: list[dict[str, Any]] = []
+        self._tool_versions: dict[str, str] = {}
+        self._tool_capabilities: dict[str, Any] = {}
+        self._tool_performance: dict[str, dict[str, Any]] = {}
+        self._summary_plugins: dict[str, Any] = {}
         self._initialized: bool = False
 
     def register_transcription_plugin(self, plugin_name: str, plugin_obj: Any) -> None:
@@ -42,10 +44,7 @@ class ToolRegistry:
     async def initialize(self) -> None:
         """Initialize MCP client and discover available tools"""
         try:
-            self.mcp_client = httpx.AsyncClient(
-                base_url=config.mcp_server_url,
-                timeout=30.0
-            )
+            self.mcp_client = httpx.AsyncClient(base_url=config.mcp_server_url, timeout=30.0)
 
             # Test connection and discover tools
             await self._discover_tools()
@@ -65,7 +64,7 @@ class ToolRegistry:
         self._initialized = False
         logger.info("Tool registry closed")
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """Check health of tool services"""
         if not self._initialized or self.mcp_client is None:
             return {"status": "not_initialized"}
@@ -79,13 +78,13 @@ class ToolRegistry:
                     "status": "healthy",
                     "mcp_connected": True,
                     "available_tools": len(self._available_tools),
-                    "tools": [tool.get("name") for tool in self._available_tools]
+                    "tools": [tool.get("name") for tool in self._available_tools],
                 }
             else:
                 return {
                     "status": "unhealthy",
                     "mcp_connected": False,
-                    "error": f"HTTP {response.status_code}"
+                    "error": f"HTTP {response.status_code}",
                 }
 
         except Exception as e:
@@ -116,7 +115,7 @@ class ToolRegistry:
             logger.warning(f"Failed to discover tools: {e}")
             self._available_tools = []
 
-    def log_tool_performance(self, tool_name: str, metrics: Dict[str, Any]) -> None:
+    def log_tool_performance(self, tool_name: str, metrics: dict[str, Any]) -> None:
         """Log performance metrics for a tool"""
         self._tool_performance[tool_name] = metrics
 
@@ -128,14 +127,14 @@ class ToolRegistry:
         """Get a registered summary/transcription plugin"""
         return self._summary_plugins.get(plugin_name)
 
-    async def get_available_tools(self) -> List[Dict[str, Any]]:
+    async def get_available_tools(self) -> list[dict[str, Any]]:
         """Get list of available tools"""
         if not self._initialized:
             raise RuntimeError("Tool registry not initialized")
 
         return self._available_tools.copy()
 
-    async def execute_tool(self, tool_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute_tool(self, tool_name: str, parameters: dict[str, Any]) -> dict[str, Any]:
         """Execute a tool with given parameters"""
         if not self._initialized:
             raise RuntimeError("Tool registry not initialized")
@@ -144,21 +143,64 @@ class ToolRegistry:
             if self.mcp_client is None:
                 raise RuntimeError("MCP client is not initialized")
 
-            payload = {
-                "tool": tool_name,
-                "parameters": parameters
-            }
+            payload = {"tool": tool_name, "parameters": parameters}
 
             response = await self.mcp_client.post("/execute", json=payload)
             response.raise_for_status()
 
-            return response.json()
+            result: dict[str, Any] = response.json()
+            return result
 
         except Exception as e:
             logger.error(f"Failed to execute tool {tool_name}: {e}")
             raise
 
-    async def get_tool_capabilities(self, tool_name: str) -> Dict[str, Any]:
+    async def execute_tools_concurrently(
+        self, tool_requests: list[dict[str, Any]], timeout: float = 30.0
+    ) -> list[dict[str, Any]]:
+        """Execute multiple tools concurrently using asyncio for healthcare workflows"""
+        if not self._initialized:
+            raise RuntimeError("Tool registry not initialized")
+
+        # Create tasks for concurrent execution
+        tasks = []
+        for req in tool_requests:
+            tool_name = req.get("tool_name")
+            parameters = req.get("parameters", {})
+            if tool_name:
+                task = asyncio.create_task(
+                    self.execute_tool(tool_name, parameters), name=f"tool_{tool_name}"
+                )
+                tasks.append((req.get("request_id", "unknown"), task))
+
+        # Execute with timeout for healthcare responsiveness
+        results = []
+        try:
+            completed_tasks = await asyncio.wait_for(
+                asyncio.gather(*[task for _, task in tasks], return_exceptions=True),
+                timeout=timeout,
+            )
+
+            for i, result in enumerate(completed_tasks):
+                request_id = tasks[i][0]
+                if isinstance(result, Exception):
+                    results.append(
+                        {"request_id": request_id, "success": False, "error": str(result)}
+                    )
+                else:
+                    results.append({"request_id": request_id, "success": True, "result": result})
+
+        except TimeoutError:
+            logger.error(f"Tool execution batch timed out after {timeout}s")
+            # Cancel remaining tasks
+            for _, task in tasks:
+                if not task.done():
+                    task.cancel()
+            raise
+
+        return results
+
+    async def get_tool_capabilities(self, tool_name: str) -> dict[str, Any]:
         """Get capabilities and schema for a specific tool"""
         if not self._initialized:
             raise RuntimeError("Tool registry not initialized")
@@ -170,7 +212,8 @@ class ToolRegistry:
             response = await self.mcp_client.get(f"/tools/{tool_name}")
             response.raise_for_status()
 
-            return response.json()
+            capabilities: dict[str, Any] = response.json()
+            return capabilities
 
         except Exception as e:
             logger.error(f"Failed to get capabilities for tool {tool_name}: {e}")

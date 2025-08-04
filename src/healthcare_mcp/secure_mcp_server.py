@@ -4,19 +4,19 @@ FastMCP-based server with security hardening, PHI detection, and audit logging
 """
 
 import asyncio
-import json
 import logging
 import os
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 import jwt
 import psycopg2
 import redis
 import requests
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
@@ -55,7 +55,7 @@ class HealthcareConfig:
         hipaa_compliance_mode: HIPAA compliance enforcement level
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Security settings
         self.security_mode = os.getenv("MCP_SECURITY_MODE", "healthcare")
         self.phi_detection_enabled = os.getenv("PHI_DETECTION_ENABLED", "true").lower() == "true"
@@ -88,16 +88,16 @@ class MCPRequest(BaseModel):
     """MCP request model"""
 
     method: str = Field(..., description="MCP method name")
-    params: Dict[str, Any] = Field(default_factory=dict, description="Method parameters")
-    id: Optional[str] = Field(None, description="Request ID")
+    params: dict[str, Any] = Field(default_factory=dict, description="Method parameters")
+    id: str | None = Field(None, description="Request ID")
 
 
 class MCPResponse(BaseModel):
     """MCP response model"""
 
-    result: Optional[Dict[str, Any]] = Field(None, description="Method result")
-    error: Optional[Dict[str, Any]] = Field(None, description="Error information")
-    id: Optional[str] = Field(None, description="Request ID")
+    result: dict[str, Any] | None = Field(None, description="Method result")
+    error: dict[str, Any] | None = Field(None, description="Error information")
+    id: str | None = Field(None, description="Request ID")
 
 
 class HealthcareMCPServer:
@@ -106,7 +106,7 @@ class HealthcareMCPServer:
     def __init__(self, config: HealthcareConfig):
         self.config = config
         self.logger = logging.getLogger(f"{__name__}.HealthcareMCPServer")
-        self._current_request_ip: Optional[str] = None
+        self._current_request_ip: str | None = None
 
         # Rate limiting for development warnings
         self._dev_auth_warning_logged = False
@@ -125,7 +125,7 @@ class HealthcareMCPServer:
         self._init_database_connections()
         self._init_app()
 
-    def _init_jwt_rate_limiting(self):
+    def _init_jwt_rate_limiting(self) -> None:
         """Initialize JWT rate limiting for authentication failures"""
         from collections import defaultdict, deque
 
@@ -135,14 +135,16 @@ class HealthcareMCPServer:
         self.jwt_lockout_duration = int(os.getenv("JWT_LOCKOUT_DURATION", "900"))  # 15 minutes
 
         # Track failed attempts by IP address
-        self.jwt_failed_attempts = defaultdict(deque)  # IP -> deque of failure timestamps
-        self.jwt_locked_ips = {}  # IP -> lockout expiry timestamp
+        self.jwt_failed_attempts: defaultdict[str, deque[float]] = defaultdict(
+            deque
+        )  # IP -> deque of failure timestamps
+        self.jwt_locked_ips: dict[str, float] = {}  # IP -> lockout expiry timestamp
 
         self.logger.info(
             f"JWT rate limiting initialized: {self.jwt_max_failures} failures per {self.jwt_rate_limit_window}s window"
         )
 
-    def _validate_startup_configuration(self):
+    def _validate_startup_configuration(self) -> None:
         """Validate critical configuration at startup to prevent runtime failures"""
         from src.security.environment_detector import EnvironmentDetector
 
@@ -170,7 +172,7 @@ class HealthcareMCPServer:
         else:
             self.logger.info(f"{environment} environment - JWT_SECRET validation skipped")
 
-    def _validate_environment_config(self):
+    def _validate_environment_config(self) -> str:
         """
         Validate environment configuration at startup
 
@@ -212,7 +214,7 @@ class HealthcareMCPServer:
 
         return environment_lower
 
-    def _validate_production_environment_requirements(self):
+    def _validate_production_environment_requirements(self) -> None:
         """
         Validate additional requirements for production environment
 
@@ -287,7 +289,7 @@ class HealthcareMCPServer:
 
         return True
 
-    def _record_jwt_failure(self, client_ip: str):
+    def _record_jwt_failure(self, client_ip: str) -> None:
         """
         Record JWT authentication failure and apply rate limiting
 
@@ -326,7 +328,7 @@ class HealthcareMCPServer:
                 },
             )
 
-    def _init_database_connections(self):
+    def _init_database_connections(self) -> None:
         """Initialize database connections"""
         try:
             # PostgreSQL connection
@@ -340,7 +342,9 @@ class HealthcareMCPServer:
 
             # Redis connection
             self.redis_conn = redis.Redis(
-                host=self.config.redis_host, port=self.config.redis_port, decode_responses=True
+                host=self.config.redis_host,
+                port=self.config.redis_port,
+                decode_responses=True,
             )
 
             self.logger.info("Database connections initialized successfully")
@@ -349,11 +353,11 @@ class HealthcareMCPServer:
             self.logger.error(f"Failed to initialize database connections: {e}")
             raise
 
-    def _init_app(self):
+    def _init_app(self) -> None:
         """Initialize FastAPI application"""
 
         @asynccontextmanager
-        async def lifespan(app: FastAPI):
+        async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             # Startup
             self.logger.info("Healthcare MCP Server starting up")
             yield
@@ -379,7 +383,9 @@ class HealthcareMCPServer:
 
         # Add security middleware
         @self.app.middleware("http")
-        async def security_middleware(request: Request, call_next):
+        async def security_middleware(
+            request: Request, call_next: Callable[[Request], Awaitable[Response]]
+        ) -> Response:
             # Log all requests for audit trail
             start_time = datetime.now()
 
@@ -395,11 +401,11 @@ class HealthcareMCPServer:
         # Register routes
         self._register_routes()
 
-    def _register_routes(self):
+    def _register_routes(self) -> None:
         """Register API routes"""
 
         @self.app.get("/health")
-        async def health_check():
+        async def health_check() -> dict[str, Any]:
             """Health check endpoint"""
             return {
                 "status": "healthy",
@@ -413,8 +419,8 @@ class HealthcareMCPServer:
         async def mcp_endpoint(
             request: MCPRequest,
             credentials: HTTPAuthorizationCredentials = Depends(security),
-            client_request: Optional[Request] = None,
-        ):
+            client_request: Request | None = None,
+        ) -> MCPResponse:
             """Main MCP endpoint with security validation"""
 
             # Get client IP for rate limiting
@@ -441,8 +447,8 @@ class HealthcareMCPServer:
         @self.app.get("/tools")
         async def list_tools(
             credentials: HTTPAuthorizationCredentials = Depends(security),
-            client_request: Optional[Request] = None,
-        ):
+            client_request: Request | None = None,
+        ) -> dict[str, Any]:
             """List available healthcare tools"""
 
             # Get client IP for rate limiting
@@ -457,21 +463,30 @@ class HealthcareMCPServer:
                         "name": "patient_lookup",
                         "description": "Look up patient information (synthetic data only)",
                         "parameters": {
-                            "patient_id": {"type": "string", "description": "Patient identifier"}
+                            "patient_id": {
+                                "type": "string",
+                                "description": "Patient identifier",
+                            }
                         },
                     },
                     {
                         "name": "medical_research",
                         "description": "Research medical information",
                         "parameters": {
-                            "query": {"type": "string", "description": "Medical research query"}
+                            "query": {
+                                "type": "string",
+                                "description": "Medical research query",
+                            }
                         },
                     },
                     {
                         "name": "drug_interaction_check",
                         "description": "Check for drug interactions",
                         "parameters": {
-                            "medications": {"type": "array", "description": "List of medications"}
+                            "medications": {
+                                "type": "array",
+                                "description": "List of medications",
+                            }
                         },
                     },
                 ]
@@ -491,16 +506,16 @@ class HealthcareMCPServer:
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
             # X-Forwarded-For can contain multiple IPs, take the first one
-            return forwarded_for.split(",")[0].strip()
+            return str(forwarded_for.split(",")[0].strip())
 
         # Check for real IP header
         real_ip = request.headers.get("X-Real-IP")
         if real_ip:
-            return real_ip.strip()
+            return str(real_ip.strip())
 
         # Fall back to direct client IP
         if hasattr(request, "client") and request.client:
-            return request.client.host
+            return str(request.client.host)
 
         return "unknown"
 
@@ -609,7 +624,7 @@ class HealthcareMCPServer:
             )
             return False
 
-    def _record_auth_failure(self, client_ip: str, failure_type: str):
+    def _record_auth_failure(self, client_ip: str, failure_type: str) -> None:
         """Record authentication failure for rate limiting"""
         # Use existing JWT failure recording mechanism
         self._record_jwt_failure(client_ip)
@@ -656,11 +671,11 @@ class HealthcareMCPServer:
             )
             raise
 
-    async def _process_request(self, request: Request) -> Dict[str, Any]:
+    async def _process_request(self, request: Request) -> dict[str, Any]:
         """Process the actual request - placeholder for your logic"""
         return {"status": "success", "data": "processed"}
 
-    async def _process_mcp_request(self, request: MCPRequest) -> Dict[str, Any]:
+    async def _process_mcp_request(self, request: MCPRequest) -> dict[str, Any]:
         """Process MCP request with PHI detection and security"""
 
         # Detect PHI in request parameters
@@ -670,21 +685,23 @@ class HealthcareMCPServer:
             if any(res.phi_detected for res in phi_detected.values()):
                 # Prepare PHI details for audit logging
                 # Extract PHI details for audit logging in a readable way
-                def extract_phi_entities(phi_results: Dict[str, Any]) -> list:
+                def extract_phi_entities(phi_results: dict[str, Any]) -> list:
                     entities = set()
                     for res in phi_results.values():
                         if hasattr(res, "phi_types"):
                             entities.update(res.phi_types)
                     return list(entities)
 
-                def extract_confidence(phi_results: Dict[str, Any]) -> float:
+                def extract_confidence(phi_results: dict[str, Any]) -> float:
                     scores = []
                     for res in phi_results.values():
                         if hasattr(res, "confidence_scores"):
-                            scores.append(res.confidence_scores)
-                    return max(scores) if scores else 0.0
+                            confidence_value: float = float(res.confidence_scores)
+                            scores.append(confidence_value)
+                    max_score: float = max(scores) if scores else 0.0
+                    return max_score
 
-                def extract_detection_details(phi_results: Dict[str, Any]) -> list:
+                def extract_detection_details(phi_results: dict[str, Any]) -> list:
                     details = set()
                     for res in phi_results.values():
                         if hasattr(res, "detection_details"):
@@ -718,7 +735,7 @@ class HealthcareMCPServer:
         else:
             raise ValueError(f"Unknown method: {method}")
 
-    async def _handle_patient_lookup(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_patient_lookup(self, params: dict[str, Any]) -> dict[str, Any]:
         """Handle patient lookup (synthetic data only)"""
         patient_id = params.get("patient_id")
 
@@ -733,7 +750,7 @@ class HealthcareMCPServer:
             "timestamp": datetime.now().isoformat(),
         }
 
-    async def _handle_medical_research(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_medical_research(self, params: dict[str, Any]) -> dict[str, Any]:
         """Handle medical research query"""
         query = params.get("query")
 
@@ -780,7 +797,7 @@ class HealthcareMCPServer:
             self.logger.error(f"Medical research failed: {e}")
             raise ValueError(f"Research query failed: {str(e)}")
 
-    async def _handle_drug_interaction_check(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def _handle_drug_interaction_check(self, params: dict[str, Any]) -> dict[str, Any]:
         """Handle drug interaction check"""
         medications = params.get("medications", [])
 
@@ -795,14 +812,14 @@ class HealthcareMCPServer:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         """Cleanup resources"""
         if hasattr(self, "postgres_conn"):
             self.postgres_conn.close()
         if hasattr(self, "redis_conn"):
             self.redis_conn.close()
 
-    async def start_server(self):
+    async def start_server(self) -> None:
         """Start the MCP server"""
         config = uvicorn.Config(
             self.app,
@@ -817,7 +834,7 @@ class HealthcareMCPServer:
 
 
 # Main entry point
-async def main():
+async def main() -> None:
     """Main entry point for the healthcare MCP server"""
     config = HealthcareConfig()
     server = HealthcareMCPServer(config)

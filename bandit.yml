@@ -1,0 +1,29 @@
+exclude_dirs:
+  - tests
+  - data/synthetic
+  - .venv
+  - archive
+  - actions-runners
+  - services/user/whisperlive
+
+skips:
+  - B101 # assert_used (legitimate in tests and validation)
+  - B603 # subprocess_without_shell_equals_true (controlled usage in healthcare scripts)
+
+tests:
+  - B201 # flask_debug_true
+  - B301 # pickle usage (potential security risk)
+  - B501 # request_with_no_cert_validation
+  - B506 # yaml_load_unsafe (use yaml.safe_load)
+  - B602 # subprocess_popen_with_shell_equals_true
+  - B608 # hardcoded_sql_expressions
+  - B703 # django_mark_safe (if Django used)
+
+# Healthcare-specific security patterns
+assert_used:
+  skips: [] # Keep assert checking for medical validation code
+
+# Enable additional healthcare security checks
+hardcoded_password_string:
+  word_list:
+    ["password", "pass", "passwd", "pwd", "secret", "token", "key", "auth"]

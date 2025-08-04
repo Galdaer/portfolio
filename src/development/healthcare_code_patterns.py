@@ -3,17 +3,18 @@ Healthcare Code Patterns and Best Practices
 Standardized patterns for healthcare AI development with HIPAA compliance
 """
 
-import re
 import logging
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
+
 class PatternType(Enum):
     """Types of healthcare code patterns"""
+
     SECURITY = "security"
     COMPLIANCE = "compliance"
     MEDICAL = "medical"
@@ -21,25 +22,28 @@ class PatternType(Enum):
     API = "api"
     TESTING = "testing"
 
+
 @dataclass
 class CodePattern:
     """Healthcare code pattern definition"""
+
     name: str
     pattern_type: PatternType
     description: str
     template: str
-    required_imports: List[str]
-    compliance_notes: List[str]
-    security_considerations: List[str]
+    required_imports: list[str]
+    compliance_notes: list[str]
+    security_considerations: list[str]
+
 
 class HealthcareCodePatterns:
     """Repository of healthcare-specific code patterns"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.patterns = self._initialize_patterns()
 
-    def _initialize_patterns(self) -> Dict[str, CodePattern]:
+    def _initialize_patterns(self) -> dict[str, CodePattern]:
         """Initialize healthcare code patterns"""
         patterns = {}
 
@@ -122,20 +126,20 @@ async def get_patient_data(
                 "from fastapi import HTTPException, Depends, Request",
                 "from src.security.healthcare_security import require_authentication, require_authorization",
                 "from src.healthcare_mcp.audit_logger import audit_logger",
-                "from src.healthcare_mcp.phi_detection import phi_detector"
+                "from src.healthcare_mcp.phi_detection import phi_detector",
             ],
             compliance_notes=[
                 "Implements HIPAA minimum necessary principle",
                 "Includes comprehensive audit logging",
                 "PHI detection and masking",
-                "Proper error handling without information disclosure"
+                "Proper error handling without information disclosure",
             ],
             security_considerations=[
                 "Authentication required for all access",
                 "Authorization based on user role and resource",
                 "All access attempts logged for audit",
-                "PHI automatically detected and protected"
-            ]
+                "PHI automatically detected and protected",
+            ],
         )
 
         patterns["encrypted_data_storage"] = CodePattern(
@@ -288,20 +292,20 @@ class SecureHealthcareDataStore:
             required_imports=[
                 "from src.security.encryption_manager import HealthcareEncryptionManager",
                 "from src.healthcare_mcp.phi_detection import phi_detector",
-                "from src.healthcare_mcp.audit_logger import audit_logger, AuditEvent, AuditEventType"
+                "from src.healthcare_mcp.audit_logger import audit_logger, AuditEvent, AuditEventType",
             ],
             compliance_notes=[
                 "Automatic PHI detection and appropriate encryption",
                 "Comprehensive audit trail for all operations",
                 "Data classification based on sensitivity",
-                "Secure error handling"
+                "Secure error handling",
             ],
             security_considerations=[
                 "Different encryption levels based on data sensitivity",
                 "All operations logged for compliance",
                 "Secure key management",
-                "Error handling without information disclosure"
-            ]
+                "Error handling without information disclosure",
+            ],
         )
 
         # Medical Patterns
@@ -489,60 +493,80 @@ class MedicalAIAgent:
                 "import re",
                 "import json",
                 "from typing import List, Dict, Any, Optional",
-                "from src.healthcare_mcp.audit_logger import audit_logger, AuditEvent, AuditEventType"
+                "from src.healthcare_mcp.audit_logger import audit_logger, AuditEvent, AuditEventType",
             ],
             compliance_notes=[
                 "Medical disclaimers automatically added",
                 "Emergency symptom detection",
                 "Educational information only",
-                "No specific diagnoses or treatments"
+                "No specific diagnoses or treatments",
             ],
             security_considerations=[
                 "Input validation for safety",
                 "Emergency detection and alerts",
                 "Medical safety filters applied",
-                "Comprehensive audit logging"
-            ]
+                "Comprehensive audit logging",
+            ],
         )
 
         return patterns
 
-    def get_pattern(self, pattern_name: str) -> Optional[CodePattern]:
+    def get_pattern(self, pattern_name: str) -> CodePattern | None:
         """Get a specific code pattern"""
         return self.patterns.get(pattern_name)
 
-    def list_patterns(self, pattern_type: Optional[PatternType] = None) -> List[str]:
+    def list_patterns(self, pattern_type: PatternType | None = None) -> list[str]:
         """List available patterns, optionally filtered by type"""
         if pattern_type:
             return [
-                name for name, pattern in self.patterns.items()
+                name
+                for name, pattern in self.patterns.items()
                 if pattern.pattern_type == pattern_type
             ]
         return list(self.patterns.keys())
 
-    def validate_code_against_patterns(self, code: str) -> Dict[str, Any]:
+    def validate_code_against_patterns(self, code: str) -> dict[str, Any]:
         """Validate code against healthcare patterns"""
-        validation_results: Dict[str, Any] = {
+        validation_results: dict[str, Any] = {
             "patterns_detected": [],
             "compliance_score": 0.0,
             "recommendations": [],
-            "security_issues": []
+            "security_issues": [],
         }
 
         # Check for security patterns
         security_checks = {
-            "authentication": any(keyword in code for keyword in ["@require_authentication", "authenticate", "login"]),
-            "authorization": any(keyword in code for keyword in ["@require_authorization", "authorize", "permission"]),
+            "authentication": any(
+                keyword in code for keyword in ["@require_authentication", "authenticate", "login"]
+            ),
+            "authorization": any(
+                keyword in code for keyword in ["@require_authorization", "authorize", "permission"]
+            ),
             "encryption": any(keyword in code for keyword in ["encrypt", "decrypt", "cipher"]),
-            "audit_logging": any(keyword in code for keyword in ["audit_logger", "log_audit", "audit_event"]),
-            "phi_detection": any(keyword in code for keyword in ["phi_detector", "detect_phi", "PHI"])
+            "audit_logging": any(
+                keyword in code for keyword in ["audit_logger", "log_audit", "audit_event"]
+            ),
+            "phi_detection": any(
+                keyword in code for keyword in ["phi_detector", "detect_phi", "PHI"]
+            ),
         }
 
         # Check for medical patterns
         medical_checks = {
-            "medical_disclaimers": any(keyword in code for keyword in ["disclaimer", "educational purposes", "consult healthcare"]),
-            "emergency_detection": any(keyword in code for keyword in ["emergency", "911", "immediate medical"]),
-            "safety_filters": any(keyword in code for keyword in ["safety_filter", "medical_safety", "validate_input"])
+            "medical_disclaimers": any(
+                keyword in code
+                for keyword in [
+                    "disclaimer",
+                    "educational purposes",
+                    "consult healthcare",
+                ]
+            ),
+            "emergency_detection": any(
+                keyword in code for keyword in ["emergency", "911", "immediate medical"]
+            ),
+            "safety_filters": any(
+                keyword in code for keyword in ["safety_filter", "medical_safety", "validate_input"]
+            ),
         }
 
         # Calculate compliance score
@@ -572,6 +596,7 @@ class MedicalAIAgent:
                 security_issues.append("Potential SQL injection vulnerability")
 
         return validation_results
+
 
 # Global instance
 healthcare_patterns = HealthcareCodePatterns()

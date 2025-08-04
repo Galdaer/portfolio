@@ -9,10 +9,10 @@ import re
 import sys
 
 
-def check_dockerfile_security(filename):
+def check_dockerfile_security(filename: str) -> list[str]:
     """Check Dockerfile for security issues"""
     try:
-        with open(filename, "r") as f:
+        with open(filename) as f:
             content = f.read()
 
         issues = []
@@ -42,11 +42,11 @@ def check_dockerfile_security(filename):
         return []
 
 
-def main():
+def main() -> None:
     """Main Docker security validation function"""
     # Check all Dockerfiles
     issues = []
-    for root, dirs, files in os.walk("."):
+    for root, _dirs, files in os.walk("."):
         if ".git" in root:
             continue
 

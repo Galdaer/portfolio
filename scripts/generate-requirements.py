@@ -4,9 +4,10 @@ Generate requirements.txt and requirements-ci.txt from requirements.in
 
 This script generates two requirements files:
 - requirements.txt: Full dependencies for local development and production
-- requirements-ci.txt: Minimal dependencies for CI/CD validation
+- requirements-ci.txt: Minimal dependencies for CI/CD validation (cloud runners)
 
 Heavy GPU/ML packages are excluded from CI to improve build times and efficiency.
+Coding agents use requirements-ci.txt since they don't have GPU access.
 """
 
 import os
@@ -16,6 +17,7 @@ import tempfile
 from pathlib import Path
 
 # Packages that should be excluded from CI (GPU, heavy ML packages)
+# These are excluded because coding agents and CI runners don't have GPU access
 CI_EXCLUDED_PACKAGES = {
     # GPU/CUDA packages
     "torch",
@@ -44,7 +46,7 @@ CI_EXCLUDED_PACKAGES = {
     "datasets",
     "transformers",
     "peft",
-    # Large data processing packages
+    # Large data processing packages that can be loaded on-demand
     "matplotlib",
     "seaborn",
     "pandas",
@@ -54,13 +56,13 @@ CI_EXCLUDED_PACKAGES = {
     # Audio/video processing (if any)
     "ffmpeg",
     "opencv-python",
-    # Development packages that aren't needed in CI
+    # Development packages that aren't needed in CI/coding agents
     "jupyter",
     "notebook",
     "ipython",
 }
 
-# Core packages that CI validation DOES need
+# Core packages that CI validation DOES need (coding agents also use this list)
 CI_REQUIRED_PACKAGES = {
     # Web framework and API
     "flask",
@@ -93,11 +95,9 @@ CI_REQUIRED_PACKAGES = {
     # Testing and validation
     "pytest",
     "pytest-asyncio",
-    "flake8",
-    "mypy",
+    "ruff",
+    "pyright",
     "yamllint",
-    "black",
-    "isort",
     "pylint",
     # Healthcare-specific
     "fastmcp",
@@ -117,8 +117,8 @@ CI_REQUIRED_PACKAGES = {
 }
 
 
-def run_command(cmd, cwd=None):
-    """Run a command and return the result"""
+def run_command(cmd: str, cwd: str | None = None) -> str | None:
+    """Run a command and return the result stdout as string, or None on failure"""
     try:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd)
         if result.returncode != 0:
@@ -131,9 +131,9 @@ def run_command(cmd, cwd=None):
         return None
 
 
-def create_ci_requirements_in(requirements_in_path):
+def create_ci_requirements_in(requirements_in_path: str) -> str:
     """Create a filtered requirements.in for CI by excluding heavy packages"""
-    with open(requirements_in_path, "r") as f:
+    with open(requirements_in_path) as f:
         lines = f.readlines()
 
     filtered_lines = []
@@ -147,8 +147,17 @@ def create_ci_requirements_in(requirements_in_path):
             continue
 
         # Check if this line contains a package we want to exclude
+        # Handle various package specification formats:
+        # - package==1.0.0
+        # - package[extras]>=1.0.0
+        # - package @ git+https://...
+        # - package[extras] @ git+https://...
         package_name = (
-            line_stripped.split(">=")[0].split("==")[0].split("[")[0].split("@")[0].strip()
+            line_stripped.split("@")[0]  # Remove git URLs first
+            .split(">=")[0]  # Remove version constraints
+            .split("==")[0]  # Remove exact versions
+            .split("[")[0]  # Remove extras specifications
+            .strip()  # Clean whitespace
         )
 
         if package_name in CI_EXCLUDED_PACKAGES:
@@ -160,7 +169,7 @@ def create_ci_requirements_in(requirements_in_path):
     return "".join(filtered_lines)
 
 
-def clean_requirements_content(content):
+def clean_requirements_content(content: str) -> str:
     """Clean up pip-compile generated content by removing via comments and temp paths"""
     lines = content.splitlines()
     cleaned_lines = []
@@ -186,8 +195,8 @@ def clean_requirements_content(content):
     return "\n".join(cleaned_lines)
 
 
-def generate_requirements_files():
-    """Generate both requirements.txt and requirements-ci.txt"""
+def generate_requirements_files() -> bool:
+    """Generate requirements.txt and requirements-ci.txt"""
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
     requirements_in = project_root / "requirements.in"
@@ -203,19 +212,19 @@ def generate_requirements_files():
     # Generate full requirements.txt
     print("📦 Generating requirements.txt (full dependencies)...")
     cmd = f"uv pip compile {requirements_in} -o {requirements_txt}"
-    if run_command(cmd, cwd=project_root) is None:
+    if run_command(cmd, cwd=str(project_root)) is None:
         print("❌ Failed to generate requirements.txt")
         return False
     print(f"✅ Generated {requirements_txt}")
 
     # Generate filtered requirements-ci.txt
-    print("🏗️ Generating requirements-ci.txt (CI-optimized dependencies)...")
+    print("🏗️ Generating requirements-ci.txt (CI-optimized, also used by coding agents)...")
 
-    # Create temporary filtered requirements.in
+    # Create temporary filtered requirements.in for CI
     with tempfile.NamedTemporaryFile(mode="w", suffix=".in", delete=False) as temp_file:
-        filtered_content = create_ci_requirements_in(requirements_in)
+        filtered_content = create_ci_requirements_in(str(requirements_in))
         temp_file.write(filtered_content)
-        temp_requirements_in = temp_file.name
+        temp_ci_requirements_in = temp_file.name
 
     try:
         # Add CI-specific header
@@ -226,13 +235,13 @@ def generate_requirements_files():
 
 """
 
-        cmd = f"uv pip compile {temp_requirements_in} -o {requirements_ci_txt}"
-        if run_command(cmd, cwd=project_root) is None:
+        cmd = f"uv pip compile {temp_ci_requirements_in} -o {requirements_ci_txt}"
+        if run_command(cmd, cwd=str(project_root)) is None:
             print("❌ Failed to generate requirements-ci.txt")
             return False
 
         # Prepend header to CI requirements and clean up via comments
-        with open(requirements_ci_txt, "r") as f:
+        with open(requirements_ci_txt) as f:
             ci_content = f.read()
 
         # Clean up the pip-compile generated content
@@ -243,24 +252,24 @@ def generate_requirements_files():
 
         print(f"✅ Generated {requirements_ci_txt}")
 
-        # Show size comparison
-        full_size = os.path.getsize(requirements_txt)
-        ci_size = os.path.getsize(requirements_ci_txt)
-        reduction = ((full_size - ci_size) / full_size) * 100
-
-        print("\n📊 Size comparison:")
-        print(f"   requirements.txt: {full_size:,} bytes")
-        print(f"   requirements-ci.txt: {ci_size:,} bytes")
-        print(f"   Reduction: {reduction:.1f}%")
-
-        return True
-
     finally:
         # Clean up temp file
-        os.unlink(temp_requirements_in)
+        os.unlink(temp_ci_requirements_in)
+
+    # Show size comparison
+    full_size = os.path.getsize(requirements_txt)
+    ci_size = os.path.getsize(requirements_ci_txt)
+
+    ci_reduction = ((full_size - ci_size) / full_size) * 100
+
+    print("\n📊 Size comparison:")
+    print(f"   requirements.txt: {full_size:,} bytes (full)")
+    print(f"   requirements-ci.txt: {ci_size:,} bytes ({ci_reduction:.1f}% reduction)")
+
+    return True
 
 
-def main():
+def main() -> None:
     """Main entry point"""
     if len(sys.argv) > 1 and sys.argv[1] == "--help":
         print(__doc__)

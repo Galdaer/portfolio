@@ -1,0 +1,284 @@
+name: Autonomous Copilot Feedback Loop
+
+on:
+  # Trigger on copilot branch pushes
+  push:
+    branches: ["copilot/*", "remote-agent/*"]
+  # Trigger on PR review comments from Copilot
+  pull_request_review_comment:
+    types: [created]
+  # Trigger on issue comments for feedback processing
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+jobs:
+  auto-create-pr-for-review:
+    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/heads/copilot/') || startsWith(github.ref, 'refs/heads/remote-agent/'))
+    runs-on: self-hosted
+    concurrency:
+      group: feedback-loop-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Auto-create PR for Copilot Review
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const branch = context.ref.replace('refs/heads/', '');
+            console.log(`Processing branch: ${branch}`);
+
+            // Check if PR already exists
+            const existingPRs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${branch}`,
+              state: 'open'
+            });
+
+            if (existingPRs.data.length > 0) {
+              console.log(`PR already exists: #${existingPRs.data[0].number}`);
+              core.setOutput('pr_number', existingPRs.data[0].number);
+              
+              // Add comment to trigger Copilot review
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingPRs.data[0].number,
+                body: `🔄 **Auto-refresh for Copilot Review**\n\n@github-copilot please review the latest changes for:\n- Code quality improvements\n- Healthcare compliance\n- Security issues\n- Pattern detection opportunities`
+              });
+              return;
+            }
+
+            // Create new PR with auto-review request
+            const pr = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[Auto-Review] ${branch.replace('copilot/', '').replace('remote-agent/', '')}`,
+              head: branch,
+              base: 'main',
+              body: `
+              🤖 **Autonomous Copilot Review Request**
+              
+              **Branch:** \`${branch}\`
+              **Auto-created:** ${new Date().toISOString()}
+              
+              @github-copilot please review this code for:
+              - [ ] Security vulnerabilities
+              - [ ] Healthcare compliance (HIPAA/PHI)
+              - [ ] Code quality improvements
+              - [ ] Type safety issues
+              - [ ] Testing gaps
+              - [ ] Performance optimizations
+              
+              **🔄 Autonomous feedback enabled** - Issues will auto-trigger coding agent updates
+              
+              ## Review Focus Areas:
+              - Healthcare data handling patterns
+              - MyPy error patterns for systematic fixing
+              - Security anti-patterns to detect
+              - Code quality rules to enforce
+              `,
+              draft: false
+            });
+
+            console.log(`Created PR: #${pr.data.number}`);
+            core.setOutput('pr_number', pr.data.number);
+
+  process-copilot-feedback-autonomous:
+    if: |
+      (github.event_name == 'pull_request_review_comment' || github.event_name == 'issue_comment') &&
+      (contains(github.event.comment.body, '@github-copilot') || contains(github.event.comment.user.login, 'copilot'))
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract and Process Copilot Feedback
+        id: process_feedback
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const comment = context.payload.comment.body;
+            const prNumber = context.payload.pull_request?.number || context.payload.issue?.number;
+            const commentId = context.payload.comment.id;
+            
+            console.log(`Processing comment ${commentId} on PR/Issue #${prNumber}`);
+            
+            // Enhanced pattern extraction
+            const patterns = {
+              security_issues: [],
+              mypy_errors: [],
+              code_quality: [],
+              healthcare_compliance: [],
+              testing_gaps: [],
+              performance_issues: []
+            };
+            
+            const lines = comment.split('\n');
+            let currentPattern = null;
+            let currentCategory = 'code_quality';
+            
+            for (const line of lines) {
+              const trimmed = line.trim();
+              
+              // Detect category
+              if (trimmed.includes('security') || trimmed.includes('Security')) {
+                currentCategory = 'security_issues';
+              } else if (trimmed.includes('type') || trimmed.includes('MyPy') || trimmed.includes('typing')) {
+                currentCategory = 'mypy_errors';
+              } else if (trimmed.includes('healthcare') || trimmed.includes('HIPAA') || trimmed.includes('PHI')) {
+                currentCategory = 'healthcare_compliance';
+              } else if (trimmed.includes('test') || trimmed.includes('Test')) {
+                currentCategory = 'testing_gaps';
+              } else if (trimmed.includes('performance') || trimmed.includes('Performance')) {
+                currentCategory = 'performance_issues';
+              }
+              
+              // Extract actionable items
+              if (trimmed.includes('Consider') || trimmed.includes('Suggest') || trimmed.includes('should') || trimmed.includes('could')) {
+                patterns[currentCategory].push({
+                  description: trimmed,
+                  line_context: line,
+                  category: currentCategory
+                });
+              }
+              
+              // Extract code blocks
+              if (trimmed.startsWith('```') && currentPattern) {
+                currentPattern.code_example = trimmed;
+              }
+            }
+            
+            // Create pattern detection rules for coding agent
+            const detectionRules = [];
+            
+            for (const [category, items] of Object.entries(patterns)) {
+              if (items.length > 0) {
+                detectionRules.push({
+                  category: category,
+                  pattern_count: items.length,
+                  examples: items.slice(0, 3), // First 3 examples
+                  automated_fix_possible: category === 'mypy_errors' || category === 'code_quality'
+                });
+              }
+            }
+            
+            const feedbackSummary = {
+              pr_number: prNumber,
+              comment_id: commentId,
+              total_patterns: detectionRules.length,
+              detection_rules: detectionRules,
+              priority: comment.includes('security') || comment.includes('HIPAA') ? 'critical' : 
+                       comment.includes('type') || comment.includes('error') ? 'high' : 'medium',
+              autonomous_fixes_available: detectionRules.filter(r => r.automated_fix_possible).length
+            };
+            
+            core.setOutput('feedback_json', JSON.stringify(feedbackSummary));
+            core.setOutput('has_patterns', detectionRules.length > 0);
+            core.setOutput('priority', feedbackSummary.priority);
+
+      - name: Update Pattern Detection Rules
+        if: steps.process_feedback.outputs.has_patterns == 'true'
+        run: |
+          echo "🔍 Updating pattern detection rules based on Copilot feedback..."
+          
+          # Create/update pattern detection configuration
+          mkdir -p .github/copilot-patterns/
+          
+          cat > .github/copilot-patterns/detected-issues.json << 'EOF'
+          ${{ steps.process_feedback.outputs.feedback_json }}
+          EOF
+          
+          echo "✅ Pattern detection rules updated"
+
+      - name: Trigger Coding Agent with Enhanced Patterns
+        if: steps.process_feedback.outputs.has_patterns == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const feedback = JSON.parse(process.env.feedback_json);
+            
+            // Create comprehensive coding agent task
+            const taskBody = `
+            🤖 **Autonomous Coding Agent Task - Enhanced Pattern Detection**
+            
+            **Triggered by:** Copilot Review Comment
+            **Priority:** ${feedback.priority}
+            **Automated Fixes Available:** ${feedback.autonomous_fixes_available}/${feedback.total_patterns}
+            
+            ## Pattern Detection Summary:
+            
+            ${feedback.detection_rules.map(rule => 
+              `### ${rule.category.replace('_', ' ').toUpperCase()}\n` +
+              `- **Count:** ${rule.pattern_count}\n` +
+              `- **Auto-fixable:** ${rule.automated_fix_possible ? '✅' : '❌'}\n` +
+              `- **Examples:** ${rule.examples.map(e => e.description).join('; ')}\n`
+            ).join('\n')}
+            
+            ## Coding Agent Instructions:
+            
+            ### Phase 1: Pattern-Based Systematic Fixes
+            1. **Implement detection rules** for each pattern category
+            2. **Scan entire codebase** using new detection patterns  
+            3. **Auto-fix** all instances of fixable patterns (MyPy errors, code quality)
+            4. **Report** security/healthcare compliance issues for manual review
+            
+            ### Phase 2: Comprehensive Validation
+            1. **Run full test suite** after systematic fixes
+            2. **Verify** make lint, validate, test, test-ai all pass
+            3. **Document** pattern improvements and detection rules created
+            
+            ### Phase 3: Enhancement
+            1. **Update linting configurations** to catch similar issues
+            2. **Add pre-commit hooks** for new pattern detection
+            3. **Create documentation** for pattern detection methodology
+            
+            **Expected Outcome:** Zero remaining issues of detected pattern types across entire codebase.
+            
+            ---
+            
+            **Original Copilot Feedback Context:**
+            \`\`\`json
+            ${JSON.stringify(feedback, null, 2)}
+            \`\`\`
+            `;
+            
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[Coding Agent] Systematic Pattern-Based Fixes - ${feedback.priority.toUpperCase()} Priority`,
+              body: taskBody,
+              labels: [
+                'coding-agent-task',
+                'pattern-based-fixes', 
+                feedback.priority + '-priority',
+                'autonomous'
+              ]
+            });
+            
+            // Add comment to original PR
+            if (feedback.pr_number) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: feedback.pr_number,
+                body: `🤖 **Autonomous Response Triggered**\n\nCoding agent task created: #${issue.data.number}\n\n**Pattern-based fixes:** ${feedback.autonomous_fixes_available} automated, ${feedback.total_patterns - feedback.autonomous_fixes_available} manual review\n\n**Priority:** ${feedback.priority}`
+              });
+            }
+            
+            console.log(`Created coding agent task: #${issue.data.number}`);
+        env:
+          feedback_json: ${{ steps.process_feedback.outputs.feedback_json }}

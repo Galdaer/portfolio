@@ -7,7 +7,7 @@ import json
 import logging
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class AuditEventType(Enum):
@@ -29,7 +29,7 @@ class HealthcareAuditLogger:
 
     VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 
-    def __init__(self, config, log_level: str = "INFO"):
+    def __init__(self, config: Any, log_level: str = "INFO") -> None:
         self.config = config
         self.logger = logging.getLogger("healthcare_audit")
 
@@ -43,7 +43,7 @@ class HealthcareAuditLogger:
 
         self.logger.setLevel(getattr(logging, log_level_upper))
 
-    async def log_request(self, request, response, processing_time: float):
+    async def log_request(self, request: Any, response: Any, processing_time: float) -> None:
         """Log HTTP request for audit trail"""
         self.logger.info(
             f"REQUEST: method={getattr(request, 'method', 'unknown')}, "
@@ -52,11 +52,11 @@ class HealthcareAuditLogger:
             f"status={getattr(response, 'status_code', 'unknown')}"
         )
 
-    def log_security_event(self, event_type: str, details: Dict[str, Any]):
+    def log_security_event(self, event_type: str, details: dict[str, Any]) -> None:
         """Log security events for monitoring (synchronous)"""
         self.logger.warning(f"SECURITY_EVENT: {event_type}, details={details}")
 
-    async def log_phi_detection(self, request_data, phi_details: Dict[str, Any]):
+    async def log_phi_detection(self, request_data: Any, phi_details: dict[str, Any]) -> None:
         """Log PHI detection events"""
         request_id = getattr(request_data, "id", "unknown")
         phi_types = phi_details.get("entities", [])
@@ -71,11 +71,11 @@ class HealthcareAuditLogger:
     def log_audit_event(
         self,
         event_type: AuditEventType,
-        user_id: Optional[str] = None,
-        resource: Optional[str] = None,
-        action: Optional[str] = None,
+        user_id: str | None = None,
+        resource: str | None = None,
+        action: str | None = None,
         result: str = "success",
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Log healthcare audit event with structured data"""
 

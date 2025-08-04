@@ -1,0 +1,73 @@
+# Healthcare System Configuration
+# Environment-specific settings for Intelluxe AI Healthcare Platform
+
+# AI Model Configuration
+model:
+  temperature: 0.1 # Conservative temperature for medical responses
+  max_tokens: 2048 # Standard response length
+  top_p: 0.9 # High-quality token selection
+  frequency_penalty: 0.0 # No repetition penalty for medical accuracy
+  presence_penalty: 0.0 # Allow medical terminology repetition
+  timeout_seconds: 30 # 30-second response timeout
+
+# Healthcare Compliance Settings
+compliance:
+  phi_detection_enabled: true # Always enabled for HIPAA compliance
+  audit_logging_enabled: true # Required for healthcare audits
+  session_timeout_minutes: 480 # 8-hour healthcare shift
+  max_failed_auth_attempts: 3 # Security best practice
+  require_mfa: false # Development default (true in production)
+  data_retention_days: 2555 # 7-year HIPAA requirement
+
+# Caching Configuration
+cache:
+  redis_url: "redis://localhost:6379"
+  medical_literature_ttl_hours: 24 # Daily refresh for medical literature
+  drug_interaction_ttl_hours: 12 # Twice daily for drug interactions
+  patient_context_ttl_minutes: 60 # 1-hour session context
+  max_cache_size_mb: 256 # 256MB cache limit
+
+# Database Configuration
+database:
+  postgres_url: "postgresql://localhost:5432/intelluxe"
+  max_connections: 20 # Connection pool size
+  connection_timeout_seconds: 30 # Connection timeout
+  query_timeout_seconds: 60 # Query timeout for complex medical queries
+  enable_ssl: true # Always use SSL in production
+
+# Health Monitoring Configuration
+monitoring:
+  health_check_interval_seconds: 30 # Regular health checks
+  alert_threshold_error_rate: 0.05 # 5% error rate alert
+  alert_threshold_response_time_ms: 5000 # 5-second response time alert
+  log_level: "INFO" # Standard logging level
+  enable_performance_metrics: true # Enable performance tracking
+
+# Environment-Specific Settings
+debug_mode: false # Disabled by default
+api_rate_limit_per_minute: 60 # 1 request per second baseline
+jwt_secret_key: "change-in-production" # Must be overridden in production
+
+# Healthcare-Specific Templates and Patterns
+templates:
+  soap_note_template: |
+    SUBJECTIVE: {chief_complaint}
+    OBJECTIVE: {vital_signs}
+    ASSESSMENT: {clinical_assessment}
+    PLAN: {treatment_plan}
+
+  discharge_summary_template: |
+    Patient: {patient_name}
+    Admission Date: {admission_date}
+    Discharge Date: {discharge_date}
+    Primary Diagnosis: {primary_diagnosis}
+    Procedures: {procedures}
+    Medications: {medications}
+    Follow-up: {followup_instructions}
+
+# Workflow Configuration
+workflows:
+  max_encounter_duration_minutes: 120 # 2-hour maximum encounter
+  appointment_buffer_minutes: 15 # 15-minute appointment buffer
+  insurance_verification_timeout: 300 # 5-minute insurance check
+  prescription_review_required: true # Always require prescription review

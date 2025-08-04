@@ -7,7 +7,7 @@ import ast
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,8 @@ class SecurityIssue:
     category: str  # 'authentication', 'encryption', 'injection', etc.
     message: str
     line_number: int
-    column: Optional[int] = None
-    code_snippet: Optional[str] = None
+    column: int | None = None
+    code_snippet: str | None = None
 
 
 class SecurityAnalyzer:
@@ -29,7 +29,7 @@ class SecurityAnalyzer:
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(f"{__name__}.SecurityAnalyzer")
-        self.issues: List[SecurityIssue] = []
+        self.issues: list[SecurityIssue] = []
 
         # Security configuration
         self.min_secret_length = 8  # Minimum length threshold for secret detection
@@ -72,7 +72,7 @@ class SecurityAnalyzer:
             r"secret[_-]?access",
         ]
 
-    def analyze_code_security(self, code: str, filename: str = "<string>") -> Dict[str, Any]:
+    def analyze_code_security(self, code: str, filename: str = "<string>") -> dict[str, Any]:
         """
         Analyze code for security issues using AST parsing
 
@@ -104,7 +104,7 @@ class SecurityAnalyzer:
 
         return self._format_results()
 
-    def _check_dangerous_functions(self, tree: ast.AST):
+    def _check_dangerous_functions(self, tree: ast.AST) -> None:
         """Check for dangerous function usage"""
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
@@ -120,7 +120,7 @@ class SecurityAnalyzer:
                         )
                     )
 
-    def _check_sql_injection_patterns(self, tree: ast.AST):
+    def _check_sql_injection_patterns(self, tree: ast.AST) -> None:
         """Check for potential SQL injection vulnerabilities"""
         for node in ast.walk(tree):
             # Check for string concatenation with SQL keywords
@@ -149,7 +149,7 @@ class SecurityAnalyzer:
                         )
                     )
 
-    def _check_hardcoded_secrets(self, tree: ast.AST):
+    def _check_hardcoded_secrets(self, tree: ast.AST) -> None:
         """Check for hardcoded secrets and credentials"""
         for node in ast.walk(tree):
             # Check string literals
@@ -179,7 +179,7 @@ class SecurityAnalyzer:
                                 )
                             )
 
-    def _check_weak_cryptography(self, tree: ast.AST):
+    def _check_weak_cryptography(self, tree: ast.AST) -> None:
         """Check for weak cryptographic algorithms"""
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -210,7 +210,7 @@ class SecurityAnalyzer:
                             )
                         )
 
-    def _check_authentication_issues(self, tree: ast.AST):
+    def _check_authentication_issues(self, tree: ast.AST) -> None:
         """Check for authentication-related security issues"""
         for node in ast.walk(tree):
             # Check for password comparisons without hashing
@@ -226,7 +226,7 @@ class SecurityAnalyzer:
                         )
                     )
 
-    def _check_input_validation(self, tree: ast.AST):
+    def _check_input_validation(self, tree: ast.AST) -> None:
         """Check for input validation issues"""
         for node in ast.walk(tree):
             # Check for direct user input usage without validation
@@ -243,7 +243,7 @@ class SecurityAnalyzer:
                         )
                     )
 
-    def _check_file_operations(self, tree: ast.AST):
+    def _check_file_operations(self, tree: ast.AST) -> None:
         """Check for unsafe file operations"""
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
@@ -319,7 +319,7 @@ class SecurityAnalyzer:
             return True
         return False
 
-    def _basic_security_analysis(self, code: str) -> Dict[str, Any]:
+    def _basic_security_analysis(self, code: str) -> dict[str, Any]:
         """Fallback basic security analysis using AST-based analysis"""
         issues = []
         tree = ast.parse(code)
@@ -386,12 +386,12 @@ class SecurityAnalyzer:
                             return True
         return False
 
-    def _format_results(self, issues: Optional[List[SecurityIssue]] = None) -> Dict[str, Any]:
+    def _format_results(self, issues: list[SecurityIssue] | None = None) -> dict[str, Any]:
         """Format analysis results"""
         if issues is None:
             issues = self.issues
 
-        results: Dict[str, Any] = {
+        results: dict[str, Any] = {
             "total_issues": len(issues),
             "issues_by_severity": {
                 "critical": [issue for issue in issues if issue.severity == "critical"],
@@ -404,7 +404,7 @@ class SecurityAnalyzer:
         }
 
         # Group by category
-        issues_by_category: Dict[str, List[SecurityIssue]] = {}
+        issues_by_category: dict[str, list[SecurityIssue]] = {}
         for issue in issues:
             if issue.category not in issues_by_category:
                 issues_by_category[issue.category] = []

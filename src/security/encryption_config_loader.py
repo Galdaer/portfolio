@@ -3,6 +3,7 @@
 import base64
 import os
 import secrets
+from typing import Any
 
 from src.security.environment_detector import EnvironmentDetector
 
@@ -11,7 +12,7 @@ class EncryptionConfigLoader:
     """Centralized encryption configuration management"""
 
     @staticmethod
-    def get_or_create_master_key(logger, config=None) -> bytes:
+    def get_or_create_master_key(logger: Any, config: Any = None) -> bytes:
         """Get or create master encryption key with proper base64 encoding"""
         master_key_str = os.getenv("MASTER_ENCRYPTION_KEY")
 
@@ -40,7 +41,7 @@ class EncryptionConfigLoader:
             return EncryptionConfigLoader._get_or_create_development_key(logger, config)
 
     @staticmethod
-    def _get_or_create_development_key(logger, config=None) -> bytes:
+    def _get_or_create_development_key(logger: Any, config: Any = None) -> bytes:
         """Generate or load development encryption key with persistence"""
 
         # Use config path if provided, otherwise default
@@ -48,7 +49,9 @@ class EncryptionConfigLoader:
             key_file = config["dev_key_path"]
         else:
             key_file = os.path.join(
-                os.getenv("CFG_ROOT", "/opt/intelluxe/stack"), "security", "dev_master_key"
+                os.getenv("CFG_ROOT", "/opt/intelluxe/stack"),
+                "security",
+                "dev_master_key",
             )
 
         try:

@@ -3,16 +3,16 @@ Secure Environment Detection
 Provides robust environment detection with security-first approach
 """
 
-import os
 import logging
+import os
 from enum import Enum
-
 
 logger = logging.getLogger(__name__)
 
 
 class Environment(Enum):
     """Supported environment types"""
+
     DEVELOPMENT = "development"
     TESTING = "testing"
     STAGING = "staging"
@@ -68,9 +68,10 @@ class EnvironmentDetector:
             )
             # Also log to stderr for immediate visibility
             import sys
+
             print(
                 "CRITICAL: Environment detection failed - assuming production mode for security",
-                file=sys.stderr
+                file=sys.stderr,
             )
             return True
 
@@ -130,9 +131,7 @@ class EnvironmentDetector:
             RuntimeError: If running in production
         """
         if EnvironmentDetector.is_production():
-            raise RuntimeError(
-                "This operation is not allowed in production environment"
-            )
+            raise RuntimeError("This operation is not allowed in production environment")
 
     @staticmethod
     def get_environment_config() -> dict:
@@ -150,29 +149,29 @@ class EnvironmentDetector:
                 "log_level": "DEBUG",
                 "allow_key_generation": True,
                 "strict_validation": False,
-                "enable_test_endpoints": True
+                "enable_test_endpoints": True,
             },
             Environment.TESTING: {
                 "debug": True,
                 "log_level": "INFO",
                 "allow_key_generation": False,
                 "strict_validation": True,
-                "enable_test_endpoints": True
+                "enable_test_endpoints": True,
             },
             Environment.STAGING: {
                 "debug": False,
                 "log_level": "INFO",
                 "allow_key_generation": False,
                 "strict_validation": True,
-                "enable_test_endpoints": False
+                "enable_test_endpoints": False,
             },
             Environment.PRODUCTION: {
                 "debug": False,
                 "log_level": "WARNING",
                 "allow_key_generation": False,
                 "strict_validation": True,
-                "enable_test_endpoints": False
-            }
+                "enable_test_endpoints": False,
+            },
         }
 
         return config[env]

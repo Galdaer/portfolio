@@ -4,8 +4,70 @@ exclude = [
     "services/user/whisperlive"
 ]
 
-[tool.mypy]
+[tool.pyright]
+include = ["src", "agents", "core", "scripts", "config", "mcps"]
 exclude = [
     "reference/ai-patterns",
-    "services/user/whisperlive"
+    "services/user/whisperlive",
+    "**/__pycache__",
+    "**/.mypy_cache",
+    "**/node_modules"
 ]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+reportMissingImports = false
+reportMissingTypeStubs = false
+reportImportCycles = false
+reportPrivateUsage = false
+reportUnknownParameterType = false
+reportUnknownArgumentType = false
+reportUnknownLambdaType = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+
+[tool.ruff]
+# Exclude submodules from formatting and linting
+exclude = [
+    "reference/ai-patterns",
+    "services/user/whisperlive",
+    "**/__pycache__",
+    "**/.mypy_cache",
+    "**/node_modules",
+    "**/.venv",
+    "**/venv",
+    # Add these new exclusions:
+    "services/user/*/vendor/",     # Vendor code in services
+    "mcps/*/submodules/",          # MCP submodules
+    "**/.git/",                    # Git directories
+    "**/dist/",                    # Build artifacts
+    "**/build/",                   # Build directories
+    "**/.pytest_cache/",           # Pytest cache
+    "**/htmlcov/",                 # Coverage reports
+]
+
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex (let's be reasonable)
+    "B904",  # raise from inside except without specifying exception cause
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

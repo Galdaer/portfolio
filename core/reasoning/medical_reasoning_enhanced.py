@@ -1,13 +1,18 @@
 """
 Enhanced Medical Reasoning Engine
 Provides medical reasoning capabilities with safety boundaries
+
+MEDICAL DISCLAIMER: This system provides medical research assistance and clinical data analysis
+only. It searches medical literature, analyzes clinical information, and provides evidence-based
+research to support healthcare decision-making. It does not provide medical diagnosis, treatment
+recommendations, or replace clinical judgment. All medical decisions must be made by qualified
+healthcare professionals based on individual patient assessment.
 """
 
-import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class ReasoningType(Enum):
@@ -27,13 +32,13 @@ class ReasoningStep:
     step_number: int
     reasoning_type: str
     query: str
-    analysis: Dict[str, Any]
+    analysis: dict[str, Any]
     confidence: float
-    sources: List[str]
-    disclaimers: List[str]
+    sources: list[str]
+    disclaimers: list[str]
     timestamp: datetime
 
-    def get(self, key: str, default=None):
+    def get(self, key: str, default: Any = None) -> Any:
         """Dict-like access for backward compatibility"""
         return getattr(self, key, default)
 
@@ -44,23 +49,18 @@ class ReasoningResult:
 
     reasoning_id: str
     reasoning_type: ReasoningType
-    steps: List[ReasoningStep]
-    final_analysis: Dict[str, Any]
+    steps: list[ReasoningStep]
+    final_analysis: dict[str, Any]
     overall_confidence: float
-    medical_disclaimers: List[str]
-    sources_consulted: List[str]
+    medical_disclaimers: list[str]
+    sources_consulted: list[str]
     generated_at: datetime
     # Additional attributes expected by clinical research agent
-    final_assessment: Dict[str, Any]
+    final_assessment: dict[str, Any]
     confidence_score: float
-    clinical_recommendations: List[str]
-    evidence_sources: List[Dict[str, Any]]
-    disclaimers: List[str]
-    final_assessment: Dict[str, Any]
-    confidence_score: float
-    clinical_recommendations: List[str]
-    evidence_sources: List[Dict[str, Any]]
-    disclaimers: List[str]
+    clinical_recommendations: list[str]
+    evidence_sources: list[dict[str, Any]]
+    disclaimers: list[str]
 
 
 class EnhancedMedicalReasoning:
@@ -72,7 +72,7 @@ class EnhancedMedicalReasoning:
     Always consult qualified healthcare professionals for medical decisions.
     """
 
-    def __init__(self, query_engine, llm_client):
+    def __init__(self, query_engine: Any, llm_client: Any) -> None:
         self.query_engine = query_engine
         self.llm_client = llm_client
 
@@ -87,7 +87,7 @@ class EnhancedMedicalReasoning:
 
     async def reason_with_dynamic_knowledge(
         self,
-        clinical_scenario: Dict[str, Any],
+        clinical_scenario: dict[str, Any],
         reasoning_type: str,
         max_iterations: int = 3,
     ) -> ReasoningResult:
@@ -166,7 +166,10 @@ class EnhancedMedicalReasoning:
             )
 
     async def _perform_reasoning_step(
-        self, clinical_scenario: Dict[str, Any], reasoning_type: ReasoningType, step_number: int
+        self,
+        clinical_scenario: dict[str, Any],
+        reasoning_type: ReasoningType,
+        step_number: int,
     ) -> ReasoningStep:
         """
         Perform a single reasoning step with real medical analysis
@@ -199,13 +202,24 @@ class EnhancedMedicalReasoning:
             # Calculate confidence
             confidence = self._calculate_step_confidence(analysis_data, reasoning_type)
 
+            # Ensure sources is always a list of strings
+            raw_sources: Any = analysis_data.get("sources", [])
+            if isinstance(raw_sources, str):
+                sources = [raw_sources]
+            elif isinstance(raw_sources, list):
+                sources = [str(s) for s in raw_sources]
+            elif isinstance(raw_sources, dict):
+                sources = [str(raw_sources)]
+            else:
+                sources = []
+
             return ReasoningStep(
                 step_number=step_number,
                 reasoning_type=reasoning_type.value,
                 query=f"Clinical reasoning step {step_number}: {reasoning_type.value}",
                 analysis=analysis_data,
                 confidence=confidence,
-                sources=analysis_data.get("sources", []),
+                sources=sources,
                 disclaimers=self.medical_disclaimers,
                 timestamp=datetime.now(),
             )
@@ -224,8 +238,8 @@ class EnhancedMedicalReasoning:
             )
 
     async def _analyze_differential_diagnosis_step(
-        self, scenario: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, scenario: dict[str, Any]
+    ) -> dict[str, Any]:
         """Analyze differential diagnosis possibilities"""
         symptoms = scenario.get("symptoms", [])
         patient_data = scenario.get("patient_data", {})
@@ -249,15 +263,18 @@ class EnhancedMedicalReasoning:
             "primary_symptoms": symptoms,
             "contributing_factors": self._identify_contributing_factors(scenario),
             "recommended_tests": self._suggest_diagnostic_tests(unique_candidates),
-            "sources": ["Clinical reasoning patterns", "Symptom-diagnosis correlations"],
+            "sources": [
+                "Clinical reasoning patterns",
+                "Symptom-diagnosis correlations",
+            ],
         }
 
-    async def _analyze_drug_interactions_step(self, scenario: Dict[str, Any]) -> Dict[str, Any]:
+    async def _analyze_drug_interactions_step(self, scenario: dict[str, Any]) -> dict[str, Any]:
         """Analyze potential drug interactions"""
         medications = scenario.get("medications", [])
 
-        interactions = []
-        warnings = []
+        interactions: list[dict[str, Any]] = []
+        warnings: list[str] = []
 
         # Check for known interaction patterns
         for i, med1 in enumerate(medications):
@@ -274,7 +291,7 @@ class EnhancedMedicalReasoning:
             "sources": ["Drug interaction databases", "Pharmacological guidelines"],
         }
 
-    async def _analyze_symptoms_step(self, scenario: Dict[str, Any]) -> Dict[str, Any]:
+    async def _analyze_symptoms_step(self, scenario: dict[str, Any]) -> dict[str, Any]:
         """Systematic symptom analysis"""
         symptoms = scenario.get("symptoms", [])
 
@@ -288,7 +305,7 @@ class EnhancedMedicalReasoning:
 
         return analysis
 
-    async def _analyze_treatment_options_step(self, scenario: Dict[str, Any]) -> Dict[str, Any]:
+    async def _analyze_treatment_options_step(self, scenario: dict[str, Any]) -> dict[str, Any]:
         """Analyze treatment options based on clinical scenario"""
         condition = scenario.get("condition", "")
         patient_factors = scenario.get("patient_data", {})
@@ -306,10 +323,13 @@ class EnhancedMedicalReasoning:
             "contraindications": self._check_contraindications(treatment_options, patient_factors),
             "monitoring_requirements": self._get_monitoring_requirements(treatment_options),
             "patient_considerations": self._assess_patient_specific_factors(patient_factors),
-            "sources": ["Clinical treatment guidelines", "Evidence-based medicine protocols"],
+            "sources": [
+                "Clinical treatment guidelines",
+                "Evidence-based medicine protocols",
+            ],
         }
 
-    async def _general_analysis_step(self, scenario: Dict[str, Any]) -> Dict[str, Any]:
+    async def _general_analysis_step(self, scenario: dict[str, Any]) -> dict[str, Any]:
         """General clinical analysis when specific reasoning type not applicable"""
         return {
             "clinical_summary": self._summarize_clinical_scenario(scenario),
@@ -324,7 +344,7 @@ class EnhancedMedicalReasoning:
         }
 
     def _calculate_step_confidence(
-        self, analysis_data: Dict[str, Any], reasoning_type: ReasoningType
+        self, analysis_data: dict[str, Any], reasoning_type: ReasoningType
     ) -> float:
         """Calculate confidence score for reasoning step"""
         base_confidence = 0.6
@@ -333,7 +353,10 @@ class EnhancedMedicalReasoning:
         if analysis_data.get("sources"):
             base_confidence += 0.1
 
-        if reasoning_type in [ReasoningType.SYMPTOM_ANALYSIS, ReasoningType.DIFFERENTIAL_DIAGNOSIS]:
+        if reasoning_type in [
+            ReasoningType.SYMPTOM_ANALYSIS,
+            ReasoningType.DIFFERENTIAL_DIAGNOSIS,
+        ]:
             symptoms_count = len(analysis_data.get("primary_symptoms", []))
             if symptoms_count >= 3:
                 base_confidence += 0.1
@@ -342,7 +365,7 @@ class EnhancedMedicalReasoning:
         return min(base_confidence, 0.8)
 
     # Helper methods for clinical reasoning
-    def _get_diagnosis_candidates_for_symptom(self, symptom: str, patient_data: Dict) -> List[Dict]:
+    def _get_diagnosis_candidates_for_symptom(self, symptom: str, patient_data: dict) -> list[dict]:
         """Get potential diagnoses for a symptom"""
         # In real implementation, this would query medical knowledge bases
         common_associations = {
@@ -365,10 +388,10 @@ class EnhancedMedicalReasoning:
 
         return common_associations.get(symptom.lower().replace(" ", "_"), [])
 
-    def _rank_diagnosis_candidates(self, candidates: List[Dict], scenario: Dict) -> List[Dict]:
+    def _rank_diagnosis_candidates(self, candidates: list[dict], scenario: dict) -> list[dict]:
         """Rank diagnosis candidates by likelihood"""
         # Remove duplicates and sort by likelihood
-        unique_candidates = {}
+        unique_candidates: dict[str, dict[str, Any]] = {}
         for candidate in candidates:
             diagnosis = candidate["diagnosis"]
             if (
@@ -379,7 +402,7 @@ class EnhancedMedicalReasoning:
 
         return sorted(unique_candidates.values(), key=lambda x: x["likelihood"], reverse=True)
 
-    def _identify_contributing_factors(self, scenario: Dict) -> List[str]:
+    def _identify_contributing_factors(self, scenario: dict) -> list[str]:
         """Identify factors that contribute to the clinical picture"""
         factors = []
 
@@ -395,7 +418,7 @@ class EnhancedMedicalReasoning:
 
         return factors
 
-    def _suggest_diagnostic_tests(self, candidates: List[Dict]) -> List[str]:
+    def _suggest_diagnostic_tests(self, candidates: list[dict]) -> list[str]:
         """Suggest appropriate diagnostic tests"""
         tests = []
 
@@ -410,7 +433,7 @@ class EnhancedMedicalReasoning:
 
         return list(set(tests))  # Remove duplicates
 
-    def _check_drug_interaction(self, drug1: str, drug2: str) -> Optional[Dict]:
+    def _check_drug_interaction(self, drug1: str, drug2: str) -> dict | None:
         """Check for drug interactions between two medications"""
         # Known interaction patterns - in real system would query drug databases
         interactions = {
@@ -431,7 +454,7 @@ class EnhancedMedicalReasoning:
 
         return interactions.get(key1) or interactions.get(key2)
 
-    def _generate_drug_safety_recommendations(self, interactions: List[Dict]) -> List[str]:
+    def _generate_drug_safety_recommendations(self, interactions: list[dict]) -> list[str]:
         """Generate safety recommendations based on interactions"""
         recommendations = []
 
@@ -446,9 +469,9 @@ class EnhancedMedicalReasoning:
 
         return recommendations
 
-    def _group_related_symptoms(self, symptoms: List[str]) -> Dict[str, List[str]]:
+    def _group_related_symptoms(self, symptoms: list[str]) -> dict[str, list[str]]:
         """Group symptoms by body system or clinical relevance"""
-        groups = {
+        groups: dict[str, list[str]] = {
             "cardiovascular": [],
             "respiratory": [],
             "neurological": [],
@@ -472,7 +495,7 @@ class EnhancedMedicalReasoning:
         # Remove empty groups
         return {k: v for k, v in groups.items() if v}
 
-    def _assess_symptom_severity(self, symptoms: List[str]) -> Dict[str, str]:
+    def _assess_symptom_severity(self, symptoms: list[str]) -> dict[str, str]:
         """Assess severity of symptoms"""
         severity_map = {}
 
@@ -486,7 +509,7 @@ class EnhancedMedicalReasoning:
 
         return severity_map
 
-    def _analyze_symptom_timeline(self, scenario: Dict) -> Dict[str, Any]:
+    def _analyze_symptom_timeline(self, scenario: dict) -> dict[str, Any]:
         """Analyze temporal patterns of symptoms"""
         timeline = scenario.get("timeline", {})
 
@@ -497,7 +520,7 @@ class EnhancedMedicalReasoning:
             "pattern": self._determine_symptom_pattern(timeline),
         }
 
-    def _determine_symptom_pattern(self, timeline: Dict) -> str:
+    def _determine_symptom_pattern(self, timeline: dict) -> str:
         """Determine if symptoms follow a pattern"""
         onset = timeline.get("onset", "").lower()
 
@@ -508,7 +531,7 @@ class EnhancedMedicalReasoning:
         else:
             return "indeterminate"
 
-    def _identify_red_flag_symptoms(self, symptoms: List[str]) -> List[str]:
+    def _identify_red_flag_symptoms(self, symptoms: list[str]) -> list[str]:
         """Identify symptoms that require immediate attention"""
         red_flags = []
         red_flag_terms = [
@@ -529,8 +552,8 @@ class EnhancedMedicalReasoning:
         return red_flags
 
     def _get_treatment_options_for_condition(
-        self, condition: str, patient_factors: Dict
-    ) -> List[Dict]:
+        self, condition: str, patient_factors: dict
+    ) -> list[dict]:
         """Get treatment options for a specific condition"""
         # Basic treatment guidelines - would be expanded with real medical databases
         treatments = {
@@ -581,7 +604,7 @@ class EnhancedMedicalReasoning:
             ],
         )
 
-    def _check_contraindications(self, treatments: List[Dict], patient_factors: Dict) -> List[str]:
+    def _check_contraindications(self, treatments: list[dict], patient_factors: dict) -> list[str]:
         """Check for contraindications to proposed treatments"""
         contraindications = []
 
@@ -597,7 +620,7 @@ class EnhancedMedicalReasoning:
 
         return contraindications
 
-    def _get_monitoring_requirements(self, treatments: List[Dict]) -> List[str]:
+    def _get_monitoring_requirements(self, treatments: list[dict]) -> list[str]:
         """Get monitoring requirements for treatments"""
         monitoring = []
 
@@ -612,7 +635,7 @@ class EnhancedMedicalReasoning:
 
         return monitoring or ["Regular clinical follow-up"]
 
-    def _assess_patient_specific_factors(self, patient_factors: Dict) -> List[str]:
+    def _assess_patient_specific_factors(self, patient_factors: dict) -> list[str]:
         """Assess patient-specific factors affecting treatment"""
         factors = []
 
@@ -630,7 +653,7 @@ class EnhancedMedicalReasoning:
 
         return factors or ["Standard adult dosing considerations"]
 
-    def _summarize_clinical_scenario(self, scenario: Dict) -> str:
+    def _summarize_clinical_scenario(self, scenario: dict) -> str:
         """Provide a summary of the clinical scenario"""
         summary_parts = []
 
@@ -648,7 +671,7 @@ class EnhancedMedicalReasoning:
 
         return " ".join(summary_parts) or "Clinical case requiring evaluation"
 
-    def _extract_key_clinical_observations(self, scenario: Dict) -> List[str]:
+    def _extract_key_clinical_observations(self, scenario: dict) -> list[str]:
         """Extract key clinical observations"""
         observations = []
 
@@ -664,8 +687,8 @@ class EnhancedMedicalReasoning:
         return observations or ["Limited clinical information available"]
 
     async def _generate_final_analysis(
-        self, steps: List[ReasoningStep], reasoning_type: ReasoningType
-    ) -> Dict[str, Any]:
+        self, steps: list[ReasoningStep], reasoning_type: ReasoningType
+    ) -> dict[str, Any]:
         """
         Generate comprehensive final analysis from reasoning steps
 
@@ -713,7 +736,7 @@ class EnhancedMedicalReasoning:
         }
 
     def _create_reasoning_summary(
-        self, steps: List[ReasoningStep], reasoning_type: ReasoningType
+        self, steps: list[ReasoningStep], reasoning_type: ReasoningType
     ) -> str:
         """Create a comprehensive reasoning summary"""
         summary_parts = [f"Completed {len(steps)} reasoning steps for {reasoning_type.value}."]
@@ -740,7 +763,7 @@ class EnhancedMedicalReasoning:
                 "Low confidence - insufficient evidence, requires comprehensive clinical assessment"
             )
 
-    def _generate_next_steps(self, reasoning_type: ReasoningType, confidence: float) -> List[str]:
+    def _generate_next_steps(self, reasoning_type: ReasoningType, confidence: float) -> list[str]:
         """Generate appropriate next steps based on reasoning type and confidence"""
         base_steps = ["Consult qualified healthcare professional for medical advice"]
 
@@ -774,7 +797,7 @@ class EnhancedMedicalReasoning:
 
         return base_steps
 
-    def _calculate_overall_confidence(self, steps: List[ReasoningStep]) -> float:
+    def _calculate_overall_confidence(self, steps: list[ReasoningStep]) -> float:
         """Calculate overall confidence from reasoning steps"""
         if not steps:
             return 0.0
@@ -782,7 +805,7 @@ class EnhancedMedicalReasoning:
         confidences = [step.confidence for step in steps]
         return sum(confidences) / len(confidences)
 
-    def _collect_sources(self, steps: List[ReasoningStep]) -> List[str]:
+    def _collect_sources(self, steps: list[ReasoningStep]) -> list[str]:
         """Collect all sources from reasoning steps"""
         all_sources = []
         for step in steps:
@@ -791,7 +814,7 @@ class EnhancedMedicalReasoning:
         # Remove duplicates while preserving order
         return list(dict.fromkeys(all_sources))
 
-    def _collect_evidence_sources(self, steps: List[ReasoningStep]) -> List[Dict[str, Any]]:
+    def _collect_evidence_sources(self, steps: list[ReasoningStep]) -> list[dict[str, Any]]:
         """Collect evidence sources in structured format for clinical research agent"""
         evidence_sources = []
         for step in steps:
@@ -806,7 +829,7 @@ class EnhancedMedicalReasoning:
                 )
         return evidence_sources
 
-    def _generate_clinical_recommendations(self, final_analysis: Dict[str, Any]) -> List[str]:
+    def _generate_clinical_recommendations(self, final_analysis: dict[str, Any]) -> list[str]:
         """Generate clinical recommendations from final analysis"""
         next_steps = final_analysis.get("next_steps", "")
         if isinstance(next_steps, str) and ";" in next_steps:

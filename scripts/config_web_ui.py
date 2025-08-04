@@ -25,22 +25,28 @@
 # _______________________________________________________________________________
 """Simple Flask UI for editing Intelluxe AI healthcare configuration."""
 
-import os
-import shutil
 import glob
-import warnings
+import html
+import os
+import re
+import shutil
+import subprocess
 import time
+import warnings
+from typing import Any
+
 from flask import (
     Flask,
-    request,
     redirect,
-    url_for,
     render_template_string,
+    request,
     send_from_directory,
+    url_for,
 )
-import subprocess
-import html
-import re
+from werkzeug.wrappers import Response
+
+# Compiled regex patterns for performance
+ALL_CONTAINERS_PATTERN = re.compile(r"^ALL_CONTAINERS=\(([^)]*)\)")
 
 
 def build_service_prefix_map() -> dict[str, str]:
@@ -63,15 +69,13 @@ def build_service_prefix_map() -> dict[str, str]:
                 warnings.warn(
                     f"Duplicate service config '{name}' found in '{service_dir}' directory; "
                     f"already saw '{prev_name}' in '{prev_dir}' directory; ignoring",
-                    RuntimeWarning,
+                    stacklevel=2,
                 )
                 continue
             prefix_mapping[key] = (name, service_dir)
     # Ensure longer prefixes appear first to avoid substring collisions
     service_map = {k: v[0] for k, v in prefix_mapping.items()}
-    return dict(
-        sorted(service_map.items(), key=lambda kv: len(kv[0]), reverse=True)
-    )
+    return dict(sorted(service_map.items(), key=lambda kv: len(kv[0]), reverse=True))
 
 
 SERVICE_PREFIX_MAP = build_service_prefix_map()
@@ -268,7 +272,7 @@ if (addForm) {
 """
 
 
-def parse_value(val):
+def parse_value(val: str) -> str | list[str]:
     """Parse a configuration value, returning list for bash array syntax."""
     val = val.strip().strip('"')
     if val.startswith("(") and val.endswith(")"):
@@ -276,13 +280,14 @@ def parse_value(val):
     return val
 
 
-def get_all_containers():
+def get_all_containers() -> list[str]:
     """Extract ALL_CONTAINERS array from the bootstrap script."""
-    pattern = re.compile(r"^ALL_CONTAINERS=\(([^)]*)\)")
     try:
+        if BOOTSTRAP_PATH is None:
+            return []
         with open(BOOTSTRAP_PATH) as f:
             for line in f:
-                m = pattern.search(line.strip())
+                m = ALL_CONTAINERS_PATTERN.search(line.strip())
                 if m:
                     return m.group(1).split()
     except FileNotFoundError:
@@ -290,7 +295,7 @@ def get_all_containers():
     return []
 
 
-def load_config():
+def load_config() -> dict[str, Any]:
     data = {}
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE) as f:
@@ -305,10 +310,14 @@ def load_config():
     return data
 
 
-def get_grafana_default_port():
+def get_grafana_default_port() -> str:
     """Return default Grafana port from the service file."""
-    conf = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "services", "core", "grafana.conf")
+    conf = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "services",
+        "core",
+        "grafana.conf",
+    )
     try:
         with open(conf) as f:
             for line in f:
@@ -319,18 +328,18 @@ def get_grafana_default_port():
     return "3001"
 
 
-def get_grafana_port(config):
+def get_grafana_port(config: dict[str, Any]) -> str:
     """Derive Grafana port from config or default service file."""
     return str(config.get("CONTAINER_PORTS[grafana]", get_grafana_default_port()))
 
 
-def save_config(new_data):
+def save_config(new_data: dict[str, Any]) -> None:
     config = load_config()
     config.update(new_data)
     with open(CONFIG_FILE, "w") as f:
         for k, v in config.items():
             if isinstance(v, list):
-                f.write(f'{k}=(' + ' '.join(v) + ')\n')
+                f.write(f"{k}=(" + " ".join(v) + ")\n")
             else:
                 f.write(f'{k}="{v}"\n')
     uid = int(os.environ.get("CFG_UID", 1000))
@@ -338,7 +347,7 @@ def save_config(new_data):
     os.chown(CONFIG_FILE, uid, gid)
 
 
-def key_to_service(key: str):
+def key_to_service(key: str) -> str | None:
     """Return service name for a given configuration key.
 
     Supports ``CONTAINER_PORTS[service]`` style keys in addition to the
@@ -353,7 +362,7 @@ def key_to_service(key: str):
     return None
 
 
-def changed_services(old, new):
+def changed_services(old: dict[str, Any], new: dict[str, Any]) -> set[str]:
     """Return a set of services whose config values changed."""
     services = set()
     for k, val in new.items():
@@ -364,7 +373,9 @@ def changed_services(old, new):
     return services
 
 
-def run_bootstrap(args=None, env=None, suppress=True):
+def run_bootstrap(
+    args: list[str] | None = None, env: dict[str, str] | None = None, suppress: bool = True
+) -> subprocess.Popen[bytes]:
     """Run ``bootstrap.sh`` with optional arguments.
 
     Parameters
@@ -383,18 +394,22 @@ def run_bootstrap(args=None, env=None, suppress=True):
     subprocess.Popen
         The ``Popen`` object for the launched process.
     """
+    if BOOTSTRAP_PATH is None:
+        raise RuntimeError("BOOTSTRAP_PATH is not set")
+
     if env is None:
         env = os.environ.copy()
     cmd = [BOOTSTRAP_PATH, "--non-interactive"]
     if args:
         cmd.extend(args)
-    kwargs = {"env": env}
+
     if suppress:
-        kwargs.update(stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return subprocess.Popen(cmd, **kwargs)
+        return subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        return subprocess.Popen(cmd, env=env)
 
 
-def get_container_statuses():
+def get_container_statuses() -> dict[str, str]:
     """Return mapping of container name to Docker status."""
     try:
         output = subprocess.check_output(
@@ -414,8 +429,8 @@ def get_container_statuses():
     return statuses
 
 
-@app.route("/", methods=["GET", "POST"])
-def index():
+@app.route("/", methods=["GET", "POST"])  # type: ignore[misc]
+def index() -> str | Response:
     config = load_config()
     # Ensure configurable web UI port is always available
     if "CONFIG_WEB_UI_PORT" not in config:
@@ -424,19 +439,17 @@ def index():
     editable = {
         k: v
         for k, v in config.items()
-        if k.endswith(('_PORT', '_ROOT', '_DIR'))
-        or k == 'SELECTED_CONTAINERS'
-        or k in EXTRA_FIELDS
+        if k.endswith(("_PORT", "_ROOT", "_DIR")) or k == "SELECTED_CONTAINERS" or k in EXTRA_FIELDS
     }
     all_containers = get_all_containers()
     if request.method == "POST":
         updates = {}
         for k, v in editable.items():
-            if k == 'SELECTED_CONTAINERS':
+            if k == "SELECTED_CONTAINERS":
                 updates[k] = request.form.getlist(k) or []
             else:
                 updates[k] = request.form.get(k, v)
-        selected_changed = editable.get('SELECTED_CONTAINERS') != updates.get('SELECTED_CONTAINERS')
+        selected_changed = editable.get("SELECTED_CONTAINERS") != updates.get("SELECTED_CONTAINERS")
         services = changed_services(editable, updates)
         save_config(updates)
         for svc in services:
@@ -445,7 +458,7 @@ def index():
             run_bootstrap(env=env)
         if selected_changed:
             run_bootstrap()
-        return redirect(url_for('index'))
+        return redirect(url_for("index"))
     return render_template_string(
         FORM_TEMPLATE,
         config=editable,
@@ -456,30 +469,30 @@ def index():
     )
 
 
-@app.route("/bootstrap", methods=["POST"])
-def bootstrap():
+@app.route("/bootstrap", methods=["POST"])  # type: ignore[misc]
+def bootstrap() -> Response:
     """Run full bootstrap without ACTION_FLAG."""
     env = os.environ.copy()
     run_bootstrap(env=env)
     return redirect(url_for("index"))
 
 
-@app.route("/reset-wg-keys", methods=["POST"])
-def reset_wg_keys():
+@app.route("/reset-wg-keys", methods=["POST"])  # type: ignore[misc]
+def reset_wg_keys() -> Response:
     env = os.environ.copy()
     run_bootstrap(["--reset-wg-keys"], env=env)
     return redirect(url_for("index"))
 
 
-@app.route("/self-update", methods=["POST"])
-def self_update():
+@app.route("/self-update", methods=["POST"])  # type: ignore[misc]
+def self_update() -> Response:
     env = os.environ.copy()
     run_bootstrap(["--self-update"], env=env)
     return redirect(url_for("index"))
 
 
-@app.route("/diagnostics", methods=["POST"])
-def diagnostics():
+@app.route("/diagnostics", methods=["POST"])  # type: ignore[misc]
+def diagnostics() -> Response:
     env = os.environ.copy()
     subprocess.Popen(
         ["/usr/local/bin/diagnostics.sh", "--non-interactive"],
@@ -490,8 +503,8 @@ def diagnostics():
     return redirect(url_for("index"))
 
 
-@app.route("/auto-repair", methods=["POST"])
-def auto_repair():
+@app.route("/auto-repair", methods=["POST"])  # type: ignore[misc]
+def auto_repair() -> Response:
     env = os.environ.copy()
     subprocess.Popen(
         ["/usr/local/bin/auto-repair.sh", "--non-interactive"],
@@ -502,8 +515,8 @@ def auto_repair():
     return redirect(url_for("index"))
 
 
-@app.route("/reset-system", methods=["POST"])
-def reset_system_route():
+@app.route("/reset-system", methods=["POST"])  # type: ignore[misc]
+def reset_system_route() -> Response:
     env = os.environ.copy()
     subprocess.Popen(
         ["/usr/local/bin/reset.sh", "--non-interactive"],
@@ -514,8 +527,8 @@ def reset_system_route():
     return redirect(url_for("index"))
 
 
-@app.route("/systemd-summary", methods=["GET"])
-def systemd_summary_route():
+@app.route("/systemd-summary", methods=["GET"])  # type: ignore[misc]
+def systemd_summary_route() -> str:
     env = os.environ.copy()
     try:
         output = subprocess.check_output(
@@ -526,13 +539,14 @@ def systemd_summary_route():
         )
     except subprocess.CalledProcessError as exc:
         output = exc.output
-    return (
-        f"<pre>{output}</pre><p><a href='{url_for('index')}'>Back</a></p>"
-    )
+    return f"<pre>{output}</pre><p><a href='{url_for('index')}'>Back</a></p>"
 
 
-@app.route("/teardown", methods=["POST"])
-def teardown_route():
+@app.route("/teardown", methods=["POST"])  # type: ignore[misc]
+def teardown_route() -> Response | tuple[str, int]:
+    if TEARDOWN_PATH is None:
+        return "Error: TEARDOWN_PATH is not set", 500
+
     env = os.environ.copy()
     subprocess.Popen(
         [TEARDOWN_PATH, "--force", "--all"],
@@ -543,8 +557,8 @@ def teardown_route():
     return redirect(url_for("index"))
 
 
-@app.route("/stop-service", methods=["POST"])
-def stop_service_route():
+@app.route("/stop-service", methods=["POST"])  # type: ignore[misc]
+def stop_service_route() -> Response:
     env = os.environ.copy()
     service = request.form.get("service")
     if service:
@@ -552,8 +566,8 @@ def stop_service_route():
     return redirect(url_for("index"))
 
 
-@app.route("/start-service", methods=["POST"])
-def start_service_route():
+@app.route("/start-service", methods=["POST"])  # type: ignore[misc]
+def start_service_route() -> Response:
     env = os.environ.copy()
     svc = request.form.get("service")
     if svc:
@@ -562,8 +576,8 @@ def start_service_route():
     return redirect(url_for("index"))
 
 
-@app.route("/restart-service", methods=["POST"])
-def restart_service_route():
+@app.route("/restart-service", methods=["POST"])  # type: ignore[misc]
+def restart_service_route() -> Response:
     env = os.environ.copy()
     svc = request.form.get("service")
     if svc:
@@ -572,8 +586,8 @@ def restart_service_route():
     return redirect(url_for("index"))
 
 
-@app.route("/remove-service", methods=["POST"])
-def remove_service_route():
+@app.route("/remove-service", methods=["POST"])  # type: ignore[misc]
+def remove_service_route() -> Response:
     env = os.environ.copy()
     svc = request.form.get("service")
     if svc:
@@ -582,8 +596,8 @@ def remove_service_route():
     return redirect(url_for("index"))
 
 
-@app.route("/add-service", methods=["POST"])
-def add_service_route():
+@app.route("/add-service", methods=["POST"])  # type: ignore[misc]
+def add_service_route() -> Response:
     svc = request.form.get("service")
     image = request.form.get("image")
     port = request.form.get("port")
@@ -602,7 +616,7 @@ def add_service_route():
             shutil.copy2(config_file, backup_file)
 
         # Write new configuration
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             f.write(f"image={image}\n")
             f.write(f"port={port}\n")
             f.write(f"description={desc}\n")
@@ -614,15 +628,15 @@ def add_service_route():
 
         readme_file = os.path.join(config_dir, "README.md")
         if not os.path.exists(readme_file):
-            with open(readme_file, 'w') as f:
+            with open(readme_file, "w") as f:
                 f.write(f"# {svc} configuration\n")
 
     return redirect(url_for("index"))
 
 
-@app.route("/logs/", defaults={"target": None})
-@app.route("/logs/<path:target>")
-def logs_index(target=None):
+@app.route("/logs/", defaults={"target": None})  # type: ignore[misc]
+@app.route("/logs/<path:target>")  # type: ignore[misc]
+def logs_index(target: str | None = None) -> Response | str:
     """List log files or show logs for a specific container."""
     if target:
         log_path = os.path.join(LOGS_DIR, target)
@@ -640,18 +654,15 @@ def logs_index(target=None):
         except subprocess.CalledProcessError as exc:
             output = exc.output
         escaped_output = html.escape(output)
-        return (
-            f"<pre>{escaped_output}</pre>"
-            f"<p><a href='{url_for('index')}'>Back</a></p>"
-        )
+        return f"<pre>{escaped_output}</pre><p><a href='{url_for('index')}'>Back</a></p>"
 
     files = sorted(os.listdir(LOGS_DIR)) if os.path.isdir(LOGS_DIR) else []
     links = "<br>".join(
-        f'<a href="{url_for("logs_index", target=html.escape(f))}">{html.escape(f)}</a>' for f in files
+        f'<a href="{url_for("logs_index", target=html.escape(f))}">{html.escape(f)}</a>'
+        for f in files
     )
     return f"<h1>Logs</h1>{links}"
 
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT)
-

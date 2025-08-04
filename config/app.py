@@ -4,9 +4,7 @@ Intelluxe AI Configuration Management
 Centralized configuration for the healthcare AI system.
 """
 
-import os
-from typing import Optional
-from pydantic import Field, ConfigDict
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -27,8 +25,10 @@ class IntelluxeConfig(BaseSettings):
 
     # Database configuration
     database_name: str = Field(default="intelluxe", json_schema_extra={"env": "DATABASE_NAME"})
-    postgres_password: str = Field(default="secure_password_here", json_schema_extra={"env": "POSTGRES_PASSWORD"})
-    redis_password: Optional[str] = Field(default=None, json_schema_extra={"env": "REDIS_PASSWORD"})
+    postgres_password: str = Field(
+        default="secure_password_here", json_schema_extra={"env": "POSTGRES_PASSWORD"}
+    )
+    redis_password: str | None = Field(default=None, json_schema_extra={"env": "REDIS_PASSWORD"})
 
     # Database URLs
     @property
@@ -43,30 +43,54 @@ class IntelluxeConfig(BaseSettings):
 
     # AI Model configuration
     ollama_url: str = Field(default="intelluxe-ai", json_schema_extra={"env": "OLLAMA_URL"})
-    ollama_max_loaded_models: int = Field(default=3, json_schema_extra={"env": "OLLAMA_MAX_LOADED_MODELS"})
+    ollama_max_loaded_models: int = Field(
+        default=3, json_schema_extra={"env": "OLLAMA_MAX_LOADED_MODELS"}
+    )
     ollama_keep_alive: str = Field(default="24h", json_schema_extra={"env": "OLLAMA_KEEP_ALIVE"})
 
     # MCP configuration
-    mcp_server_url: str = Field(default="http://healthcare-mcp:3000", json_schema_extra={"env": "MCP_SERVER_URL"})
+    mcp_server_url: str = Field(
+        default="http://healthcare-mcp:3000",
+        json_schema_extra={"env": "MCP_SERVER_URL"},
+    )
 
     # Training configuration (Phase 2+)
-    unsloth_training_enabled: bool = Field(default=False, json_schema_extra={"env": "UNSLOTH_TRAINING_ENABLED"})
-    training_data_path: str = Field(default="/app/data/training", json_schema_extra={"env": "TRAINING_DATA_PATH"})
-    adapter_registry_path: str = Field(default="/app/models/adapters", json_schema_extra={"env": "ADAPTER_REGISTRY_PATH"})
-    wandb_project: str = Field(default="intelluxe-training", json_schema_extra={"env": "WANDB_PROJECT"})
+    unsloth_training_enabled: bool = Field(
+        default=False, json_schema_extra={"env": "UNSLOTH_TRAINING_ENABLED"}
+    )
+    training_data_path: str = Field(
+        default="/app/data/training", json_schema_extra={"env": "TRAINING_DATA_PATH"}
+    )
+    adapter_registry_path: str = Field(
+        default="/app/models/adapters",
+        json_schema_extra={"env": "ADAPTER_REGISTRY_PATH"},
+    )
+    wandb_project: str = Field(
+        default="intelluxe-training", json_schema_extra={"env": "WANDB_PROJECT"}
+    )
 
     # Performance configuration
-    gpu_memory_fraction: float = Field(default=0.8, json_schema_extra={"env": "GPU_MEMORY_FRACTION"})
+    gpu_memory_fraction: float = Field(
+        default=0.8, json_schema_extra={"env": "GPU_MEMORY_FRACTION"}
+    )
 
     # Compliance and security
-    data_retention_days: int = Field(default=2555, json_schema_extra={"env": "DATA_RETENTION_DAYS"})  # 7 years
+    data_retention_days: int = Field(
+        default=2555, json_schema_extra={"env": "DATA_RETENTION_DAYS"}
+    )  # 7 years
     audit_log_level: str = Field(default="detailed", json_schema_extra={"env": "AUDIT_LOG_LEVEL"})
-    pii_redaction_enabled: bool = Field(default=True, json_schema_extra={"env": "PII_REDACTION_ENABLED"})
+    pii_redaction_enabled: bool = Field(
+        default=True, json_schema_extra={"env": "PII_REDACTION_ENABLED"}
+    )
     rbac_enabled: bool = Field(default=True, json_schema_extra={"env": "RBAC_ENABLED"})
 
     # Health monitoring
-    health_check_interval: str = Field(default="60s", json_schema_extra={"env": "HEALTH_CHECK_INTERVAL"})
-    health_alert_webhook: Optional[str] = Field(default=None, json_schema_extra={"env": "HEALTH_ALERT_WEBHOOK"})
+    health_check_interval: str = Field(
+        default="60s", json_schema_extra={"env": "HEALTH_CHECK_INTERVAL"}
+    )
+    health_alert_webhook: str | None = Field(
+        default=None, json_schema_extra={"env": "HEALTH_ALERT_WEBHOOK"}
+    )
     health_page_public: bool = Field(default=False, json_schema_extra={"env": "HEALTH_PAGE_PUBLIC"})
 
     model_config = {
@@ -78,7 +102,7 @@ class IntelluxeConfig(BaseSettings):
         "env_ignore_empty": False,
         "env_nested_delimiter": "__",
         "env_nested_max_split": 1,
-        "nested_model_default_partial_update": False
+        "nested_model_default_partial_update": False,
     }
 
 

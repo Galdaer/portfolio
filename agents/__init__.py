@@ -6,16 +6,18 @@ logging, memory management, and safety boundaries.
 """
 
 import logging
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
-from datetime import datetime
 import uuid
+from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import Any
 
+from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
+from core.infrastructure.phi_monitor import sanitize_healthcare_data
 from core.memory import memory_manager
 from core.models import model_registry
 from core.tools import tool_registry
 
-logger = logging.getLogger(__name__)
+logger = get_healthcare_logger("agents")
 
 
 class BaseHealthcareAgent(ABC):
@@ -31,10 +33,58 @@ class BaseHealthcareAgent(ABC):
     def __init__(self, agent_name: str, agent_type: str):
         self.agent_name = agent_name
         self.agent_type = agent_type
-        self.logger = logging.getLogger(f"agents.{agent_name}")
-        self._session_id: Optional[str] = None
+        self.logger = get_healthcare_logger(f"agent.{agent_name}")
+        self._session_id: str | None = None
 
-    async def initialize_session(self, user_id: str, session_data: Optional[Dict[str, Any]] = None) -> str:
+        # Register agent with performance tracking
+        self._performance_metrics: dict[str, Any] = {}
+
+        # Log agent creation with healthcare context
+        log_healthcare_event(
+            self.logger,
+            logging.INFO,
+            f"Healthcare agent created: {agent_name}",
+            context={
+                "agent_name": agent_name,
+                "agent_type": agent_type,
+                "healthcare_compliance": True,
+                "phi_protection": True,
+            },
+            operation_type="agent_creation",
+        )
+
+    async def initialize_agent(self) -> None:
+        """Initialize agent with model and tool registries"""
+        try:
+            # Initialize registries if needed
+            if not model_registry._initialized:
+                await model_registry.initialize()
+            if not tool_registry._initialized:
+                await tool_registry.initialize()
+
+            self.logger.info(f"Agent {self.agent_name} initialized with registries")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize agent registries: {e}")
+            raise
+
+    async def get_available_models(self) -> list[dict[str, Any]]:
+        """Get available models from registry"""
+        result = await model_registry.get_available_models()
+        final_result: list[dict[str, Any]] = result if result is not None else []
+        return final_result
+
+    async def get_available_tools(self) -> list[dict[str, Any]]:
+        """Get available tools from registry"""
+        return await tool_registry.get_available_tools()
+
+    def log_agent_performance(self, metrics: dict[str, Any]) -> None:
+        """Log performance metrics for this agent"""
+        self._performance_metrics.update(metrics)
+        model_registry.log_performance(f"agent_{self.agent_name}", metrics)
+
+    async def initialize_session(
+        self, user_id: str, session_data: dict[str, Any] | None = None
+    ) -> str:
         """Initialize a new session for the agent"""
         self._session_id = str(uuid.uuid4())
 
@@ -43,7 +93,7 @@ class BaseHealthcareAgent(ABC):
             "agent_type": self.agent_type,
             "user_id": user_id,
             "created_at": datetime.utcnow().isoformat(),
-            "session_data": session_data or {}
+            "session_data": session_data or {},
         }
 
         await memory_manager.store_session(self._session_id, session_info)
@@ -51,7 +101,7 @@ class BaseHealthcareAgent(ABC):
         self.logger.info(f"Session {self._session_id} initialized for user {user_id}")
         return self._session_id
 
-    async def process_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def process_request(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Process a request with safety checks and logging
 
@@ -73,7 +123,7 @@ class BaseHealthcareAgent(ABC):
                     "success": False,
                     "error": "Safety boundary violation",
                     "message": safety_check["message"],
-                    "request_id": request_id
+                    "request_id": request_id,
                 }
                 await self._log_interaction("safety_violation", request_id, response)
                 return response
@@ -93,7 +143,7 @@ class BaseHealthcareAgent(ABC):
                 "success": False,
                 "error": str(e),
                 "request_id": request_id,
-                "agent_name": self.agent_name
+                "agent_name": self.agent_name,
             }
 
             await self._log_interaction("error", request_id, error_response)
@@ -102,7 +152,7 @@ class BaseHealthcareAgent(ABC):
             return error_response
 
     @abstractmethod
-    async def _process_implementation(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Implement agent-specific processing logic
 
@@ -110,7 +160,7 @@ class BaseHealthcareAgent(ABC):
         """
         pass
 
-    async def _check_safety_boundaries(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def _check_safety_boundaries(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Check if request violates healthcare safety boundaries
 
@@ -121,23 +171,36 @@ class BaseHealthcareAgent(ABC):
 
         # Flag medical advice requests
         medical_advice_flags = [
-            "diagnose", "diagnosis", "treatment", "prescribe", "medication",
-            "surgery", "medical advice", "what should i do", "am i sick",
-            "is this cancer", "should i see a doctor"
+            "diagnose",
+            "diagnosis",
+            "treatment",
+            "prescribe",
+            "medication",
+            "surgery",
+            "medical advice",
+            "what should i do",
+            "am i sick",
+            "is this cancer",
+            "should i see a doctor",
         ]
 
         for flag in medical_advice_flags:
             if flag in request_text:
                 return {
                     "safe": False,
-                    "message": "I cannot provide medical advice, diagnosis, or treatment recommendations. Please consult a healthcare professional."
+                    "message": "I cannot provide medical advice, diagnosis, or treatment recommendations. Please consult a healthcare professional.",
                 }
 
         return {"safe": True}
 
-    async def _log_interaction(self, interaction_type: str, request_id: str, data: Dict[str, Any]) -> None:
-        """Log agent interaction for audit purposes"""
+    async def _log_interaction(
+        self, interaction_type: str, request_id: str, data: dict[str, Any]
+    ) -> None:
+        """Log agent interaction for audit purposes with PHI protection"""
         try:
+            # Sanitize data for PHI protection
+            sanitized_data = sanitize_healthcare_data(data)
+
             log_entry = {
                 "interaction_type": interaction_type,
                 "request_id": request_id,
@@ -145,8 +208,17 @@ class BaseHealthcareAgent(ABC):
                 "agent_type": self.agent_type,
                 "session_id": self._session_id,
                 "timestamp": datetime.utcnow().isoformat(),
-                "data": self._sanitize_for_logging(data)
+                "data": sanitized_data,
             }
+
+            # Log with healthcare context
+            log_healthcare_event(
+                self.logger,
+                logging.INFO,
+                f"Agent interaction logged: {interaction_type}",
+                context=log_entry,
+                operation_type="agent_interaction",
+            )
 
             # Store in session cache for immediate access
             if self._session_id:
@@ -157,38 +229,27 @@ class BaseHealthcareAgent(ABC):
                 await memory_manager.store_session(self._session_id, session_data)
 
         except Exception as e:
-            self.logger.error(f"Failed to log interaction: {e}")
+            log_healthcare_event(
+                self.logger,
+                logging.ERROR,
+                f"Failed to log agent interaction: {e}",
+                context={"error": str(e), "interaction_type": interaction_type},
+                operation_type="logging_error",
+            )
 
-    def _sanitize_for_logging(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Remove or redact sensitive information for logging"""
-        # Basic PII redaction - this would be enhanced in production
-        import re
-        sanitized = {}
-        pii_patterns = [
-            r"\b\d{3}-\d{2}-\d{4}\b",  # SSN
-            r"\b\d{3}-\d{3}-\d{4}\b",  # Phone
-            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",  # Email
-            r"\b\d{1,2}/\d{1,2}/\d{4}\b",  # DOB
-            r"\bMRN\s*:?\s*\d+\b"  # Medical Record Number
-        ]
-        for key, value in data.items():
-            if isinstance(value, str):
-                redacted = value
-                for pattern in pii_patterns:
-                    redacted = re.sub(pattern, "[REDACTED]", redacted)
-                sanitized[key] = redacted
-            else:
-                sanitized[key] = value
-        return sanitized
+    def _sanitize_for_logging(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Remove or redact sensitive information for logging - DEPRECATED: Use phi_monitor instead"""
+        # Use the new PHI monitor for sanitization
+        return sanitize_healthcare_data(data)
 
 
 class DocumentProcessingAgent(BaseHealthcareAgent):
     """Template for document processing agent"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("document_processor", "document_processing")
 
-    async def _process_implementation(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
         """Process document-related requests"""
         # Template implementation - will be enhanced in Phase 1
         return {
@@ -198,18 +259,18 @@ class DocumentProcessingAgent(BaseHealthcareAgent):
                 "form_extraction",
                 "document_classification",
                 "pii_redaction",
-                "content_organization"
-            ]
+                "content_organization",
+            ],
         }
 
 
 class ResearchAssistantAgent(BaseHealthcareAgent):
     """Template for research assistant agent"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("research_assistant", "research")
 
-    async def _process_implementation(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
         """Process research-related requests"""
         # Template implementation - will be enhanced in Phase 1
         return {
@@ -219,8 +280,8 @@ class ResearchAssistantAgent(BaseHealthcareAgent):
                 "pubmed_search",
                 "fda_lookup",
                 "clinical_trials_search",
-                "citation_management"
-            ]
+                "citation_management",
+            ],
         }
 
 
