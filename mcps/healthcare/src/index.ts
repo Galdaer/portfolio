@@ -48,6 +48,8 @@ let mcpServer = new Server({
         resources: {},
         tools: {},
         prompts: {},
+    process.env.OLLAMA_API_URL || "http://host.docker.internal:11434",
+    process.env.OLLAMA_MODEL || "llama-3"
         logging: {}
     }
 });
@@ -206,6 +208,20 @@ app.post('/mcp', async (req, res) => {
             jsonrpc: '2.0',
             error: { code: -32603, message: 'Internal error' },
             id: req.body?.id || null
+// Administrative documentation generation (Ollama LLM)
+app.post("/generate_documentation", async (req, res) => {
+    try {
+        const { prompt, model } = req.body;
+        if (!prompt || typeof prompt !== "string") {
+            return res.status(400).json({ error: "Missing or invalid prompt" });
+        }
+        const doc = await healthcareServer.generateDocumentation(prompt, model);
+        res.json({ documentation: doc });
+    } catch (err) {
+        // Generic error message for security compliance
+        res.status(500).json({ error: "Failed to generate documentation" });
+    }
+});
         });
     }
 });

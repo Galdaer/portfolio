@@ -100,4 +100,8 @@ test_endpoint "Verify Patient Insurance" "POST" "$BASE_URL/mcp" \
 test_endpoint "Error Handling (Invalid Tool)" "POST" "$BASE_URL/mcp" \
     '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"invalid_tool","arguments":{}},"id":1}'
 
+OLLAMA_PROMPT="Generate a SOAP note for a patient encounter: Chief Complaint: Fatigue and headaches; Assessment: Likely stress-related symptoms; Plan: Stress management and follow-up; Visit Type: Follow-up."
+test_endpoint "Ollama Documentation" "POST" "$BASE_URL/generate_documentation" \
+    "{\"prompt\": \"$OLLAMA_PROMPT\"}"
+
 echo -e "\n${YELLOW}Test Suite Complete!${NC}"

@@ -1,6 +1,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ToolHandler } from "./handlers/ToolHandler.js"
+import { OllamaHandler } from "./handlers/OllamaHandler.js"
 import { FhirClient } from "./connectors/fhir/FhirClient.js"
 import { PubMed } from "./connectors/medical/PubMed.js"
 import { ClinicalTrials } from "./connectors/medical/ClinicalTrials.js"
@@ -16,19 +17,37 @@ export class HealthcareServer {
     private pubmedApi: PubMed;
     private trialsApi: ClinicalTrials;
     private fdaApi: FDA;
+    private ollamaHandler: OllamaHandler;
 
-    constructor(mcpServer: Server, authConfig: AuthConfig, fhirURL: string, pubmedAPIKey: string, trialsAPIKey: string, fdaAPIKey: string) {
+    constructor(
+        mcpServer: Server,
+        authConfig: AuthConfig,
+        fhirURL: string,
+        pubmedAPIKey: string,
+        trialsAPIKey: string,
+        fdaAPIKey: string,
+        ollamaApiUrl: string = "http://host.docker.internal:11434",
+        ollamaModel: string = "llama-3"
+    ) {
         this.mcpServer = mcpServer;
         this.fhirClient = new FhirClient(fhirURL);
         this.cache = new CacheManager();
         this.pubmedApi = new PubMed(pubmedAPIKey);
         this.trialsApi = new ClinicalTrials(trialsAPIKey);
         this.fdaApi = new FDA(fdaAPIKey);
+        this.ollamaHandler = new OllamaHandler(ollamaApiUrl, ollamaModel);
 
         this.toolHandler = new ToolHandler(authConfig, this.fhirClient, this.cache, this.pubmedApi, this.trialsApi, this.fdaApi);
 
         this.setupHandlers();
         this.setupErrorHandling();
+    }
+    /**
+     * Generates administrative documentation using Ollama LLM.
+     * Healthcare compliance disclaimer: For documentation support only. No medical advice or diagnosis.
+     */
+    async generateDocumentation(prompt: string, model?: string): Promise<string> {
+        return await this.ollamaHandler.generateText(prompt, model);
     }
 
     // Method to get tools for HTTP mode
