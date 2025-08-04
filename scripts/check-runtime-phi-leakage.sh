@@ -221,6 +221,11 @@ check_data_exports() {
     while IFS= read -r -d '' file; do
         [[ -f "$file" ]] || continue
         
+        # Skip cache and build directories
+        if echo "$file" | grep -q -E "\\.mypy_cache|\\.pytest_cache|\\.ruff_cache|__pycache__|node_modules|\\.git"; then
+            continue
+        fi
+        
         file_size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null || echo "0")
         
         # Large data files might contain PHI exports
@@ -248,11 +253,15 @@ verify_database_usage() {
             
             # Count database connection patterns
             db_count=$(grep -c "Database connection\|PostgreSQL\|asyncpg\|database initialized" "$file" 2>/dev/null || echo "0")
-            ((db_connections += db_count))
+            if [[ "$db_count" =~ ^[0-9]+$ ]]; then
+                ((db_connections += db_count))
+            fi
             
             # Check for hardcoded patient data (bad pattern)
             hardcoded_count=$(grep -c "patient_data.*=.*{" "$file" 2>/dev/null || echo "0")
-            ((hardcoded_data += hardcoded_count))
+            if [[ "$hardcoded_count" =~ ^[0-9]+$ ]]; then
+                ((hardcoded_data += hardcoded_count))
+            fi
             
         done < <(find "logs/" -name "*.log" -print0 2>/dev/null)
     fi
@@ -282,15 +291,21 @@ verify_healthcare_logging() {
             
             # Count healthcare audit logging
             audit_count=$(grep -c "User authenticated\|Permission granted\|Rate limit\|Healthcare access" "$file" 2>/dev/null || echo "0")
-            ((audit_logs += audit_count))
+            if [[ "$audit_count" =~ ^[0-9]+$ ]]; then
+                ((audit_logs += audit_count))
+            fi
             
             # Count authentication logs
             auth_count=$(grep -c "JWT token\|Authentication\|Authorization\|Role.*access" "$file" 2>/dev/null || echo "0")
-            ((auth_logs += auth_count))
+            if [[ "$auth_count" =~ ^[0-9]+$ ]]; then
+                ((auth_logs += auth_count))
+            fi
             
             # Count PHI detection logs
             phi_count=$(grep -c "PHI detected\|PHI protection\|No PHI found" "$file" 2>/dev/null || echo "0")
-            ((phi_detection_logs += phi_count))
+            if [[ "$phi_count" =~ ^[0-9]+$ ]]; then
+                ((phi_detection_logs += phi_count))
+            fi
             
         done < <(find "logs/" -name "*.log" -print0 2>/dev/null)
     fi
