@@ -8,10 +8,7 @@ import os
 from typing import Any
 
 import asyncpg
-import redis
 from fastapi import Depends
-
-from config.app import config
 
 logger = logging.getLogger(__name__)
 

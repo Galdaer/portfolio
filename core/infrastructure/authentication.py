@@ -5,14 +5,16 @@ HIPAA-compliant authentication with role-based access control and audit logging.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Annotated, Callable
-from functools import wraps
-import jwt
-from fastapi import HTTPException, Depends, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from enum import Enum
+from functools import wraps
+from typing import Annotated, Any
+
+import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +33,8 @@ class TokenData(BaseModel):
     """Healthcare JWT token payload"""
     user_id: str = Field(..., description="Unique user identifier")
     role: HealthcareRole = Field(..., description="Healthcare role")
-    facility_id: Optional[str] = Field(None, description="Healthcare facility ID")
-    department: Optional[str] = Field(None, description="Department assignment")
+    facility_id: str | None = Field(None, description="Healthcare facility ID")
+    department: str | None = Field(None, description="Department assignment")
     expires_at: datetime = Field(..., description="Token expiration")
     issued_at: datetime = Field(..., description="Token issue time")
 
@@ -40,8 +42,8 @@ class AuthenticatedUser(BaseModel):
     """Authenticated healthcare user context"""
     user_id: str
     role: HealthcareRole
-    facility_id: Optional[str] = None
-    department: Optional[str] = None
+    facility_id: str | None = None
+    department: str | None = None
     permissions: list[str] = Field(default_factory=list)
 
 # Permission Definitions
@@ -86,16 +88,16 @@ class HealthcareAuthenticator:
         self,
         user_id: str,
         role: HealthcareRole,
-        facility_id: Optional[str] = None,
-        department: Optional[str] = None,
-        expires_delta: Optional[timedelta] = None
+        facility_id: str | None = None,
+        department: str | None = None,
+        expires_delta: timedelta | None = None
     ) -> str:
         """Create HIPAA-compliant JWT access token"""
 
         if expires_delta:
-            expire = datetime.now(timezone.utc) + expires_delta
+            expire = datetime.now(UTC) + expires_delta
         else:
-            expire = datetime.now(timezone.utc) + timedelta(hours=8)  # Standard healthcare shift
+            expire = datetime.now(UTC) + timedelta(hours=8)  # Standard healthcare shift
 
         token_data = TokenData(
             user_id=user_id,
@@ -103,7 +105,7 @@ class HealthcareAuthenticator:
             facility_id=facility_id,
             department=department,
             expires_at=expire,
-            issued_at=datetime.now(timezone.utc)
+            issued_at=datetime.now(UTC)
         )
 
         to_encode = token_data.model_dump()
@@ -126,7 +128,7 @@ class HealthcareAuthenticator:
 
             # Check expiration
             exp_timestamp = payload.get("exp")
-            if exp_timestamp and datetime.fromtimestamp(exp_timestamp, timezone.utc) < datetime.now(timezone.utc):
+            if exp_timestamp and datetime.fromtimestamp(exp_timestamp, UTC) < datetime.now(UTC):
                 logger.warning(f"Expired token attempt - User: {payload.get('user_id')}")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -139,7 +141,7 @@ class HealthcareAuthenticator:
                 role=HealthcareRole(payload["role"]),
                 facility_id=payload.get("facility_id"),
                 department=payload.get("department"),
-                expires_at=datetime.fromtimestamp(exp_timestamp, timezone.utc),
+                expires_at=datetime.fromtimestamp(exp_timestamp, UTC),
                 issued_at=datetime.fromisoformat(payload["issued_at"])
             )
 
@@ -251,7 +253,7 @@ def require_role(required_role: HealthcareRole) -> Callable[[Callable[..., Any]]
     return decorator
 
 # Global healthcare authenticator instance
-healthcare_authenticator: Optional[HealthcareAuthenticator] = None
+healthcare_authenticator: HealthcareAuthenticator | None = None
 
 def get_healthcare_authenticator() -> HealthcareAuthenticator:
     """Get global healthcare authenticator instance"""

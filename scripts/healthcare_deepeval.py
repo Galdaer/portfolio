@@ -19,8 +19,8 @@ sys.path.insert(0, str(project_root))
 
 try:
     # Try to import and run DeepEval if available
-    import deepeval
-    from deepeval import evaluate
+    import deepeval  # noqa: F401
+    from deepeval import evaluate  # noqa: F401
 
     # Try multiple import paths for different DeepEval versions
     try:
@@ -41,16 +41,16 @@ try:
 
     print("🧪 Running DeepEval Healthcare AI Tests with Local Ollama Models")
     print("=" * 65)
-    
+
     # Configure DeepEval to use local Ollama model
     ollama_model = OllamaModel(
         model_name="qwen2.5:7b-instruct-q4_K_M",
         base_url="http://localhost:11434"
     )
-    
+
     print("🤖 Using Ollama model: qwen2.5:7b-instruct-q4_K_M")
     print("🔗 Ollama endpoint: http://localhost:11434")
-    
+
     # Basic healthcare AI test cases
     test_cases = [
         LLMTestCase(
@@ -74,11 +74,11 @@ try:
             context=["Medical advice prohibition", "Administrative support only"]
         )
     ]
-    
+
     # Define metrics with Ollama model
     answer_relevancy_metric = AnswerRelevancyMetric(threshold=0.7, model=ollama_model)
     faithfulness_metric = FaithfulnessMetric(threshold=0.7, model=ollama_model)
-    
+
     # Run evaluation
     for i, test_case in enumerate(test_cases, 1):
         print(f"\n🧪 DeepEval Test {i}: {test_case.input[:50]}...")
@@ -86,20 +86,20 @@ try:
             # Run metrics individually since evaluate() might not be available in all DeepEval versions
             relevancy_score = answer_relevancy_metric.measure(test_case)
             faithfulness_score = faithfulness_metric.measure(test_case)
-            
+
             print(f"   ✅ Answer Relevancy: {relevancy_score:.2f}")
             print(f"   ✅ Faithfulness: {faithfulness_score:.2f}")
-            
+
         except Exception as e:
             print(f"   ⚠️  Metric evaluation error: {e}")
             print("   📝 Test case processed (manual review needed)")
-    
+
     print("\n🏥 DeepEval Healthcare AI Testing Complete!")
-    
+
 except ImportError:
     print("⚠️  DeepEval not available - running basic healthcare AI validation")
     print("=" * 60)
-    
+
     # Fallback: Basic validation without DeepEval
     test_scenarios = [
         {
@@ -123,13 +123,13 @@ except ImportError:
             "phi_risk": "low"
         }
     ]
-    
+
     for i, scenario in enumerate(test_scenarios, 1):
         print(f"\n🧪 Basic Test {i}: {scenario['input'][:50]}...")
         print(f"   📋 Expected Type: {scenario['expected_type']}")
         print(f"   🔒 PHI Risk Level: {scenario['phi_risk']}")
         print("   ✅ Test scenario validated")
-    
+
     print("\n🏥 Basic Healthcare AI Validation Complete!")
     print("💡 Install DeepEval for comprehensive metrics: pip install deepeval")
 

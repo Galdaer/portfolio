@@ -17,7 +17,7 @@ sys.path.insert(0, project_root)
 
 # Import database-backed test utilities
 try:
-    from tests.database_test_utils import HealthcareTestCase, get_test_medical_scenario
+    from tests.database_test_utils import HealthcareTestCase  # noqa: F401
 except ImportError:
     pytest.skip("Database test utilities not available", allow_module_level=True)
 
@@ -77,11 +77,11 @@ class TestPHIMaskingFixes(HealthcareTestCase):
 
         # Test PHI detection with actual synthetic data patterns
         patient_info = f"Patient {patient['first_name']} {patient['last_name']}, ID: {patient['patient_id']}"
-        
+
         # Verify detector works with synthetic data
         # Should detect patient names as potential PHI (name patterns)
         result = detector.detect_phi(patient_info)
-        
+
         # Synthetic data should be detected as PHI-like patterns but marked as safe
         assert result is not None
         print(f"✅ PHI detection tested with synthetic patient: {patient['first_name']} {patient['last_name']}")

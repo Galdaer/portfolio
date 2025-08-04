@@ -4,7 +4,7 @@ Provides medical literature search and clinical research capabilities
 """
 
 import logging
-from typing import Any, Callable
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field

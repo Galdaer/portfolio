@@ -2,11 +2,12 @@
 Healthcare Authentication Middleware
 Provides HIPAA-compliant authentication for healthcare APIs
 """
-from fastapi import HTTPException, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Optional
-import jwt
 import os
+
+import jwt
+from fastapi import HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 
 class HealthcareAuthMiddleware:
     """

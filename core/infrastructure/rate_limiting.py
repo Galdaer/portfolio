@@ -5,27 +5,23 @@ Provides intelligent rate limiting for healthcare APIs with role-based limits,
 medical emergency bypass, and healthcare-appropriate thresholds.
 """
 
-import asyncio
-import json
 import logging
 import time
-from typing import Any, Dict, Optional, Tuple
-from datetime import datetime, timedelta
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from enum import Enum
 
-from fastapi import HTTPException, Request, Response, status
-from fastapi.security import HTTPAuthorizationCredentials
 import redis.asyncio as redis
+from fastapi import HTTPException, Request, Response
 
-from core.infrastructure.authentication import HealthcareRole, AuthenticatedUser
+from core.infrastructure.authentication import AuthenticatedUser, HealthcareRole
 
 logger = logging.getLogger(__name__)
 
 class RateLimitType(str, Enum):
     """Types of rate limiting for healthcare operations"""
     API_GENERAL = "api_general"           # General API calls
-    MEDICAL_QUERY = "medical_query"       # Medical literature/research queries  
+    MEDICAL_QUERY = "medical_query"       # Medical literature/research queries
     PATIENT_ACCESS = "patient_access"     # Patient data access
     DOCUMENT_UPLOAD = "document_upload"   # Document processing
     EMERGENCY = "emergency"               # Emergency/urgent requests
@@ -41,7 +37,7 @@ class RateLimitConfig:
     description: str = ""
 
 # Healthcare role-based rate limits
-HEALTHCARE_RATE_LIMITS: Dict[HealthcareRole, Dict[RateLimitType, RateLimitConfig]] = {
+HEALTHCARE_RATE_LIMITS: dict[HealthcareRole, dict[RateLimitType, RateLimitConfig]] = {
     HealthcareRole.DOCTOR: {
         RateLimitType.API_GENERAL: RateLimitConfig(
             requests_per_minute=120,
@@ -69,7 +65,7 @@ HEALTHCARE_RATE_LIMITS: Dict[HealthcareRole, Dict[RateLimitType, RateLimitConfig
             description="Emergency medical situations"
         )
     },
-    
+
     HealthcareRole.NURSE: {
         RateLimitType.API_GENERAL: RateLimitConfig(
             requests_per_minute=90,
@@ -90,7 +86,7 @@ HEALTHCARE_RATE_LIMITS: Dict[HealthcareRole, Dict[RateLimitType, RateLimitConfig
             description="Patient care data access"
         )
     },
-    
+
     HealthcareRole.RECEPTIONIST: {
         RateLimitType.API_GENERAL: RateLimitConfig(
             requests_per_minute=60,
@@ -105,7 +101,7 @@ HEALTHCARE_RATE_LIMITS: Dict[HealthcareRole, Dict[RateLimitType, RateLimitConfig
             description="Patient scheduling and demographics"
         )
     },
-    
+
     HealthcareRole.BILLING: {
         RateLimitType.API_GENERAL: RateLimitConfig(
             requests_per_minute=45,
@@ -120,7 +116,7 @@ HEALTHCARE_RATE_LIMITS: Dict[HealthcareRole, Dict[RateLimitType, RateLimitConfig
             description="Bulk billing data processing"
         )
     },
-    
+
     HealthcareRole.RESEARCH: {
         RateLimitType.API_GENERAL: RateLimitConfig(
             requests_per_minute=30,
@@ -135,7 +131,7 @@ HEALTHCARE_RATE_LIMITS: Dict[HealthcareRole, Dict[RateLimitType, RateLimitConfig
             description="Research literature queries"
         )
     },
-    
+
     HealthcareRole.ADMIN: {
         RateLimitType.API_GENERAL: RateLimitConfig(
             requests_per_minute=200,
@@ -158,39 +154,39 @@ class RateLimitStatus:
     allowed: bool
     requests_remaining: int
     reset_time: datetime
-    retry_after_seconds: Optional[int] = None
-    limit_type: Optional[RateLimitType] = None
-    user_role: Optional[HealthcareRole] = None
+    retry_after_seconds: int | None = None
+    limit_type: RateLimitType | None = None
+    user_role: HealthcareRole | None = None
 
 class HealthcareRateLimiter:
     """Healthcare-focused rate limiter with role-based limits and emergency bypass"""
-    
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+
+    def __init__(self, redis_client: redis.Redis | None = None):
         self.redis_client = redis_client
-        self.emergency_bypass_active: Dict[str, datetime] = {}
+        self.emergency_bypass_active: dict[str, datetime] = {}
         logger.info("Healthcare rate limiter initialized")
-    
+
     async def check_rate_limit(
         self,
         user: AuthenticatedUser,
         limit_type: RateLimitType,
-        request_id: Optional[str] = None,
+        request_id: str | None = None,
         is_emergency: bool = False
     ) -> RateLimitStatus:
         """
         Check if request is within rate limits
-        
+
         Args:
             user: Authenticated healthcare user
             limit_type: Type of operation being rate limited
             request_id: Optional request identifier for tracking
             is_emergency: Whether this is an emergency medical request
         """
-        
+
         # Get rate limit configuration for user role and operation type
         role_limits = HEALTHCARE_RATE_LIMITS.get(user.role, {})
         limit_config = role_limits.get(limit_type)
-        
+
         if not limit_config:
             # Default limits for unknown combinations
             limit_config = RateLimitConfig(
@@ -199,7 +195,7 @@ class HealthcareRateLimiter:
                 burst_allowance=5,
                 description="Default healthcare rate limit"
             )
-        
+
         # Emergency bypass check
         if is_emergency and limit_config.emergency_bypass:
             logger.info(
@@ -207,7 +203,7 @@ class HealthcareRateLimiter:
                 f"Type: {limit_type.value}, Role: {user.role.value}"
             )
             self.emergency_bypass_active[user.user_id] = datetime.now()
-            
+
             return RateLimitStatus(
                 allowed=True,
                 requests_remaining=999,  # Effectively unlimited during emergency
@@ -215,12 +211,12 @@ class HealthcareRateLimiter:
                 limit_type=limit_type,
                 user_role=user.role
             )
-        
+
         # Check sliding window rate limits
         current_time = time.time()
         minute_key = f"rate_limit:{user.user_id}:{limit_type.value}:minute"
         hour_key = f"rate_limit:{user.user_id}:{limit_type.value}:hour"
-        
+
         try:
             if self.redis_client:
                 # Use Redis for distributed rate limiting
@@ -232,7 +228,7 @@ class HealthcareRateLimiter:
                 status = await self._check_memory_rate_limit(
                     user, limit_config, limit_type, current_time
                 )
-            
+
             # Log rate limit status for healthcare audit
             if not status.allowed:
                 logger.warning(
@@ -240,9 +236,9 @@ class HealthcareRateLimiter:
                     f"Role: {user.role.value}, Type: {limit_type.value}, "
                     f"Retry after: {status.retry_after_seconds}s"
                 )
-            
+
             return status
-            
+
         except Exception as e:
             logger.error(f"Rate limit check failed: {e}")
             # Fail open for healthcare safety - allow request
@@ -253,7 +249,7 @@ class HealthcareRateLimiter:
                 limit_type=limit_type,
                 user_role=user.role
             )
-    
+
     async def _check_redis_rate_limit(
         self,
         user: AuthenticatedUser,
@@ -264,24 +260,24 @@ class HealthcareRateLimiter:
         current_time: float
     ) -> RateLimitStatus:
         """Check rate limits using Redis sliding window"""
-        
+
         # Get current minute and hour windows
         minute_window = int(current_time // 60)
         hour_window = int(current_time // 3600)
-        
+
         minute_count = await self.redis_client.get(f"{minute_key}:{minute_window}") or 0
         hour_count = await self.redis_client.get(f"{hour_key}:{hour_window}") or 0
-        
+
         minute_count = int(minute_count)
         hour_count = int(hour_count)
-        
+
         # Check if limits exceeded
         minute_exceeded = minute_count >= config.requests_per_minute
         hour_exceeded = hour_count >= config.requests_per_hour
-        
+
         if minute_exceeded or hour_exceeded:
             retry_after = 60 if minute_exceeded else 3600 - (current_time % 3600)
-            
+
             return RateLimitStatus(
                 allowed=False,
                 requests_remaining=0,
@@ -290,14 +286,14 @@ class HealthcareRateLimiter:
                 limit_type=limit_type,
                 user_role=user.role
             )
-        
+
         # Increment counters
         await self.redis_client.incr(f"{minute_key}:{minute_window}")
         await self.redis_client.expire(f"{minute_key}:{minute_window}", 120)  # 2 minutes TTL
-        
+
         await self.redis_client.incr(f"{hour_key}:{hour_window}")
         await self.redis_client.expire(f"{hour_key}:{hour_window}", 7200)  # 2 hours TTL
-        
+
         return RateLimitStatus(
             allowed=True,
             requests_remaining=min(
@@ -308,7 +304,7 @@ class HealthcareRateLimiter:
             limit_type=limit_type,
             user_role=user.role
         )
-    
+
     async def _check_memory_rate_limit(
         self,
         user: AuthenticatedUser,
@@ -325,7 +321,7 @@ class HealthcareRateLimiter:
             limit_type=limit_type,
             user_role=user.role
         )
-    
+
     async def activate_emergency_bypass(
         self,
         user: AuthenticatedUser,
@@ -334,7 +330,7 @@ class HealthcareRateLimiter:
     ) -> bool:
         """
         Activate emergency bypass for healthcare user
-        
+
         Temporarily removes rate limits for emergency medical situations
         """
         if user.role not in [HealthcareRole.DOCTOR, HealthcareRole.NURSE, HealthcareRole.ADMIN]:
@@ -342,17 +338,17 @@ class HealthcareRateLimiter:
                 f"Emergency bypass denied - insufficient role: {user.role.value}"
             )
             return False
-        
+
         self.emergency_bypass_active[user.user_id] = datetime.now() + timedelta(minutes=duration_minutes)
-        
+
         logger.info(
             f"Emergency bypass activated - User: {user.user_id}, "
             f"Duration: {duration_minutes}min, Reason: {reason}"
         )
-        
+
         return True
-    
-    def get_rate_limit_headers(self, status: RateLimitStatus) -> Dict[str, str]:
+
+    def get_rate_limit_headers(self, status: RateLimitStatus) -> dict[str, str]:
         """Generate HTTP headers for rate limit status"""
         headers = {
             "X-RateLimit-Limit": str(status.requests_remaining + 1),
@@ -360,17 +356,17 @@ class HealthcareRateLimiter:
             "X-RateLimit-Reset": str(int(status.reset_time.timestamp())),
             "X-Healthcare-Role": status.user_role.value if status.user_role else "unknown"
         }
-        
+
         if status.retry_after_seconds:
             headers["Retry-After"] = str(status.retry_after_seconds)
-        
+
         if status.limit_type:
             headers["X-RateLimit-Type"] = status.limit_type.value
-        
+
         return headers
 
 # Global healthcare rate limiter instance
-healthcare_rate_limiter: Optional[HealthcareRateLimiter] = None
+healthcare_rate_limiter: HealthcareRateLimiter | None = None
 
 def get_healthcare_rate_limiter() -> HealthcareRateLimiter:
     """Get global healthcare rate limiter instance"""
@@ -385,24 +381,24 @@ async def apply_healthcare_rate_limit(
     user: AuthenticatedUser,
     limit_type: RateLimitType = RateLimitType.API_GENERAL,
     is_emergency: bool = False
-) -> Optional[Response]:
+) -> Response | None:
     """
     Apply healthcare rate limiting to request
-    
+
     Returns None if request is allowed, Response with 429 if rate limited
     """
     rate_limiter = get_healthcare_rate_limiter()
-    
+
     status = await rate_limiter.check_rate_limit(
         user=user,
         limit_type=limit_type,
         request_id=request.headers.get("X-Request-ID"),
         is_emergency=is_emergency
     )
-    
+
     if not status.allowed:
         headers = rate_limiter.get_rate_limit_headers(status)
-        
+
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={
@@ -416,5 +412,5 @@ async def apply_healthcare_rate_limit(
             },
             headers=headers
         )
-    
+
     return None  # Request allowed

@@ -18,12 +18,12 @@ sys.path.insert(0, str(project_root))
 
 # Import database-backed test utilities
 try:
-    from tests.database_test_utils import HealthcareTestCase, get_test_medical_scenario
+    from tests.database_test_utils import HealthcareTestCase  # noqa: F401
 except ImportError:
     pytest.skip("Database test utilities not available", allow_module_level=True)
 
-from src.security.database_factory import PostgresConnectionFactory
-from src.security.encryption_manager import HealthcareEncryptionManager
+from src.security.database_factory import PostgresConnectionFactory  # noqa: E402
+from src.security.encryption_manager import HealthcareEncryptionManager  # noqa: E402
 
 
 class TestEncryptionValidation(HealthcareTestCase):
@@ -36,7 +36,7 @@ class TestEncryptionValidation(HealthcareTestCase):
         except Exception:
             # If database isn't available, use direct connection for encryption tests
             pass
-            
+
         # Set up encryption test connection
         connection_factory = PostgresConnectionFactory(
             host=os.getenv("POSTGRES_HOST", "localhost"),
@@ -79,11 +79,11 @@ class TestEncryptionValidation(HealthcareTestCase):
                                 try:
                                     patient = self.get_sample_patient()
                                     test_data = f"Patient: {patient['first_name']} {patient['last_name']}"
-                                    print(f"✅ Testing encryption with synthetic patient data")
+                                    print("✅ Testing encryption with synthetic patient data")
                                 except Exception:
                                     # Fallback to clearly synthetic test data
                                     test_data = "Synthetic healthcare test data"
-                                
+
                                 encrypt_func = getattr(manager, encrypt_method)
                                 decrypt_func = getattr(manager, decrypt_method)
                                 encrypted = encrypt_func(test_data)

@@ -2,10 +2,10 @@
 Background Task Processing for Healthcare AI
 Handles long-running medical analysis tasks asynchronously
 """
-from fastapi import BackgroundTasks
-from typing import Any, Callable
 import asyncio
 import logging
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

@@ -14,7 +14,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from tests.database_test_utils import (
+from tests.database_test_utils import (  # noqa: E402
     HealthcareTestCase,
     get_test_medical_scenario,
     get_test_patient_data,

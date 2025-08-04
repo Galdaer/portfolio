@@ -8,14 +8,14 @@ and AI reasoning processes to improve user experience during complex healthcare 
 import asyncio
 import json
 import logging
-from typing import Any, AsyncGenerator, Dict, Optional, Union
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
-from fastapi import HTTPException
-from fastapi.responses import StreamingResponse
 import redis.asyncio as redis
+from fastapi.responses import StreamingResponse
 
 logger = logging.getLogger(__name__)
 
@@ -34,19 +34,19 @@ class StreamingEvent:
     """Healthcare streaming event data structure"""
     event_type: StreamingEventType
     timestamp: datetime
-    data: Dict[str, Any]
-    medical_context: Optional[str] = None
-    user_id: Optional[str] = None
-    session_id: Optional[str] = None
+    data: dict[str, Any]
+    medical_context: str | None = None
+    user_id: str | None = None
+    session_id: str | None = None
 
 class HealthcareStreamer:
     """Healthcare-focused streaming response manager"""
-    
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+
+    def __init__(self, redis_client: redis.Redis | None = None):
         self.redis_client = redis_client
-        self.active_streams: Dict[str, bool] = {}
+        self.active_streams: dict[str, bool] = {}
         logger.info("Healthcare streamer initialized")
-    
+
     async def create_medical_literature_stream(
         self,
         query: str,
@@ -56,7 +56,7 @@ class HealthcareStreamer:
     ) -> AsyncGenerator[str, None]:
         """
         Stream medical literature search results as they arrive
-        
+
         Provides real-time updates during literature search:
         1. Search progress
         2. Individual paper results
@@ -65,7 +65,7 @@ class HealthcareStreamer:
         """
         stream_id = f"literature_{session_id}_{datetime.now().timestamp()}"
         self.active_streams[stream_id] = True
-        
+
         try:
             # Initial progress event
             yield self._format_sse_event(StreamingEvent(
@@ -81,7 +81,7 @@ class HealthcareStreamer:
                 user_id=user_id,
                 session_id=session_id
             ))
-            
+
             # Simulate literature search progress
             search_steps = [
                 "Connecting to medical databases...",
@@ -90,11 +90,11 @@ class HealthcareStreamer:
                 "Ranking by evidence quality...",
                 "Formatting citations..."
             ]
-            
+
             for i, step in enumerate(search_steps):
                 if not self.active_streams.get(stream_id, False):
                     break
-                    
+
                 yield self._format_sse_event(StreamingEvent(
                     event_type=StreamingEventType.PROGRESS,
                     timestamp=datetime.now(),
@@ -106,9 +106,9 @@ class HealthcareStreamer:
                     user_id=user_id,
                     session_id=session_id
                 ))
-                
+
                 await asyncio.sleep(0.5)  # Simulate processing time
-            
+
             # Stream mock literature results
             mock_papers = [
                 {
@@ -130,11 +130,11 @@ class HealthcareStreamer:
                     "abstract": "An analysis of privacy requirements and compliance strategies for AI in healthcare settings..."
                 }
             ]
-            
+
             for i, paper in enumerate(mock_papers[:max_results]):
                 if not self.active_streams.get(stream_id, False):
                     break
-                    
+
                 yield self._format_sse_event(StreamingEvent(
                     event_type=StreamingEventType.PARTIAL_RESULT,
                     timestamp=datetime.now(),
@@ -147,9 +147,9 @@ class HealthcareStreamer:
                     user_id=user_id,
                     session_id=session_id
                 ))
-                
+
                 await asyncio.sleep(0.3)  # Simulate result processing
-            
+
             # Final completion event
             yield self._format_sse_event(StreamingEvent(
                 event_type=StreamingEventType.COMPLETE,
@@ -164,7 +164,7 @@ class HealthcareStreamer:
                 user_id=user_id,
                 session_id=session_id
             ))
-            
+
         except Exception as e:
             logger.error(f"Error in literature stream {stream_id}: {e}")
             yield self._format_sse_event(StreamingEvent(
@@ -180,7 +180,7 @@ class HealthcareStreamer:
             ))
         finally:
             self.active_streams.pop(stream_id, None)
-    
+
     async def create_ai_reasoning_stream(
         self,
         medical_query: str,
@@ -189,7 +189,7 @@ class HealthcareStreamer:
     ) -> AsyncGenerator[str, None]:
         """
         Stream AI reasoning steps for medical query processing
-        
+
         Provides transparency in AI decision-making:
         1. Query analysis
         2. Medical context identification
@@ -198,7 +198,7 @@ class HealthcareStreamer:
         """
         stream_id = f"reasoning_{session_id}_{datetime.now().timestamp()}"
         self.active_streams[stream_id] = True
-        
+
         try:
             # Medical disclaimer
             yield self._format_sse_event(StreamingEvent(
@@ -212,7 +212,7 @@ class HealthcareStreamer:
                 user_id=user_id,
                 session_id=session_id
             ))
-            
+
             # Reasoning steps
             reasoning_steps = [
                 {
@@ -236,11 +236,11 @@ class HealthcareStreamer:
                     "confidence": 0.89
                 }
             ]
-            
+
             for i, step in enumerate(reasoning_steps):
                 if not self.active_streams.get(stream_id, False):
                     break
-                    
+
                 yield self._format_sse_event(StreamingEvent(
                     event_type=StreamingEventType.REASONING,
                     timestamp=datetime.now(),
@@ -254,9 +254,9 @@ class HealthcareStreamer:
                     user_id=user_id,
                     session_id=session_id
                 ))
-                
+
                 await asyncio.sleep(0.8)  # Simulate reasoning time
-            
+
             # Final reasoning result
             yield self._format_sse_event(StreamingEvent(
                 event_type=StreamingEventType.COMPLETE,
@@ -271,7 +271,7 @@ class HealthcareStreamer:
                 user_id=user_id,
                 session_id=session_id
             ))
-            
+
         except Exception as e:
             logger.error(f"Error in reasoning stream {stream_id}: {e}")
             yield self._format_sse_event(StreamingEvent(
@@ -287,7 +287,7 @@ class HealthcareStreamer:
             ))
         finally:
             self.active_streams.pop(stream_id, None)
-    
+
     async def create_document_processing_stream(
         self,
         document_type: str,
@@ -296,7 +296,7 @@ class HealthcareStreamer:
     ) -> AsyncGenerator[str, None]:
         """
         Stream document processing progress for medical documents
-        
+
         Provides updates during:
         1. Document analysis
         2. Medical entity extraction
@@ -305,7 +305,7 @@ class HealthcareStreamer:
         """
         stream_id = f"document_{session_id}_{datetime.now().timestamp()}"
         self.active_streams[stream_id] = True
-        
+
         try:
             processing_steps = [
                 "Analyzing document structure and content...",
@@ -314,11 +314,11 @@ class HealthcareStreamer:
                 "Generating structured medical summary...",
                 "Formatting output and citations..."
             ]
-            
+
             for i, step in enumerate(processing_steps):
                 if not self.active_streams.get(stream_id, False):
                     break
-                    
+
                 yield self._format_sse_event(StreamingEvent(
                     event_type=StreamingEventType.PROGRESS,
                     timestamp=datetime.now(),
@@ -331,9 +331,9 @@ class HealthcareStreamer:
                     user_id=user_id,
                     session_id=session_id
                 ))
-                
+
                 await asyncio.sleep(1.0)  # Simulate processing time
-            
+
             # Processing complete
             yield self._format_sse_event(StreamingEvent(
                 event_type=StreamingEventType.COMPLETE,
@@ -349,7 +349,7 @@ class HealthcareStreamer:
                 user_id=user_id,
                 session_id=session_id
             ))
-            
+
         except Exception as e:
             logger.error(f"Error in document processing stream {stream_id}: {e}")
             yield self._format_sse_event(StreamingEvent(
@@ -365,7 +365,7 @@ class HealthcareStreamer:
             ))
         finally:
             self.active_streams.pop(stream_id, None)
-    
+
     def _format_sse_event(self, event: StreamingEvent) -> str:
         """Format streaming event as Server-Sent Event"""
         event_data = {
@@ -376,10 +376,10 @@ class HealthcareStreamer:
             "user_id": event.user_id,
             "session_id": event.session_id
         }
-        
+
         # Format as SSE
         return f"data: {json.dumps(event_data)}\n\n"
-    
+
     async def stop_stream(self, stream_id: str) -> bool:
         """Stop an active stream"""
         if stream_id in self.active_streams:
@@ -387,13 +387,13 @@ class HealthcareStreamer:
             logger.info(f"Stream {stream_id} stopped by user")
             return True
         return False
-    
-    def get_active_streams(self) -> Dict[str, bool]:
+
+    def get_active_streams(self) -> dict[str, bool]:
         """Get list of currently active streams"""
         return self.active_streams.copy()
 
 # Global healthcare streamer instance
-healthcare_streamer: Optional[HealthcareStreamer] = None
+healthcare_streamer: HealthcareStreamer | None = None
 
 def get_healthcare_streamer() -> HealthcareStreamer:
     """Get global healthcare streamer instance"""
@@ -411,7 +411,7 @@ async def stream_medical_literature_search(
 ) -> StreamingResponse:
     """Create streaming response for medical literature search"""
     streamer = get_healthcare_streamer()
-    
+
     return StreamingResponse(
         streamer.create_medical_literature_stream(query, user_id, session_id, max_results),
         media_type="text/event-stream",
@@ -429,7 +429,7 @@ async def stream_ai_reasoning(
 ) -> StreamingResponse:
     """Create streaming response for AI reasoning transparency"""
     streamer = get_healthcare_streamer()
-    
+
     return StreamingResponse(
         streamer.create_ai_reasoning_stream(medical_query, user_id, session_id),
         media_type="text/event-stream",
@@ -447,7 +447,7 @@ async def stream_document_processing(
 ) -> StreamingResponse:
     """Create streaming response for document processing"""
     streamer = get_healthcare_streamer()
-    
+
     return StreamingResponse(
         streamer.create_document_processing_stream(document_type, user_id, session_id),
         media_type="text/event-stream",

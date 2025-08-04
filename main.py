@@ -10,7 +10,6 @@ It does not provide medical advice, diagnosis, or treatment recommendations.
 All medical decisions should be made by qualified healthcare professionals.
 """
 
-import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -20,8 +19,8 @@ from typing import Any
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
 from fastapi.openapi.utils import get_openapi
+from fastapi.responses import HTMLResponse
 
 from config.app import config
 
@@ -260,15 +259,15 @@ async def stream_literature_search(
 ):
     """
     Stream Medical Literature Search Results
-    
+
     **Real-time streaming** of medical literature search progress and results.
-    
+
     **Stream Events:**
     - Progress updates during database search
     - Individual paper results as they arrive
     - Citation formatting and relevance scoring
     - Final completion with summary statistics
-    
+
     **Use Case:** Improve user experience during long literature searches
     **Response Format:** Server-Sent Events (SSE)
     """
@@ -283,15 +282,15 @@ async def stream_ai_reasoning(
 ):
     """
     Stream AI Reasoning Process
-    
+
     **Transparent AI decision-making** for healthcare queries with real-time reasoning steps.
-    
+
     **Stream Events:**
     - Query analysis and medical context identification
     - PHI detection and safety verification
     - Step-by-step reasoning with confidence scores
     - Final analysis with safety disclaimers
-    
+
     **Use Case:** Provide transparency in AI medical analysis
     **Compliance:** Includes medical disclaimers and safety warnings
     """
@@ -301,20 +300,20 @@ async def stream_ai_reasoning(
 @app.get("/stream/document_processing", tags=["streaming"])
 async def stream_document_processing(
     document_type: str = "clinical_note",
-    user_id: str = "demo_user", 
+    user_id: str = "demo_user",
     session_id: str = "demo_session"
 ):
     """
     Stream Medical Document Processing
-    
+
     **Real-time updates** during medical document analysis and processing.
-    
+
     **Stream Events:**
     - Document structure analysis
     - Medical entity extraction progress
     - PHI detection and compliance checking
     - Structured output generation
-    
+
     **Use Case:** Show progress during complex document processing
     **Compliance:** PHI detection and HIPAA compliance verification
     """

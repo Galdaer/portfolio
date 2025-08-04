@@ -15,7 +15,7 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 # Import database-backed test utilities
-from tests.database_test_utils import HealthcareTestCase, get_test_medical_scenario
+from tests.database_test_utils import get_test_medical_scenario  # noqa: E402
 
 # Import Phase 1 modules with dynamic loading
 PHASE1_AVAILABLE = False
@@ -513,22 +513,22 @@ async def test_phase1_agent() -> None:
         patient = scenario['patient']
         doctor = scenario['doctor']
         encounter = scenario['encounter']
-        
-        print(f"✅ Using synthetic data from database:")
+
+        print("✅ Using synthetic data from database:")
         print(f"   Patient: {patient['first_name']} {patient['last_name']} (ID: {patient['patient_id']})")
         print(f"   Doctor: {doctor['first_name']} {doctor['last_name']} ({doctor['specialty']})")
         if encounter:
             print(f"   Encounter: {encounter['chief_complaint']}")
         print()
-        
+
     except Exception as e:
         print(f"⚠️  Could not load synthetic data from database: {e}")
         print("   Using fallback synthetic patterns...")
-        
+
         # Fallback synthetic data (clearly marked as synthetic)
         patient = {
-            'patient_id': 'PAT001', 
-            'first_name': 'Synthetic', 
+            'patient_id': 'PAT001',
+            'first_name': 'Synthetic',
             'last_name': 'Patient',
             'insurance_provider': 'Test Insurance Co',
             'phone_number': '000-000-0000'  # Obviously fake

@@ -3,7 +3,6 @@ Healthcare Document Processor Agent - Administrative Document Support Only
 Handles medical document formatting, organization, and administrative processing
 """
 
-import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime

@@ -6,11 +6,13 @@ healthcare compliance parameters, and model configurations.
 """
 
 import os
-import yaml
-from typing import Any, Dict, Optional
-from pathlib import Path
-from pydantic import BaseModel, Field
 from enum import Enum
+from pathlib import Path
+from typing import Any
+
+import yaml
+from pydantic import BaseModel, Field
+
 
 class EnvironmentType(str, Enum):
     """Deployment environment types"""
@@ -80,9 +82,9 @@ class HealthcareConfig(BaseModel):
 class HealthcareConfigManager:
     """Configuration manager with environment-specific overrides"""
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: str | None = None):
         self.config_path = config_path or "config/healthcare_settings.yml"
-        self.config: Optional[HealthcareConfig] = None
+        self.config: HealthcareConfig | None = None
         self._load_config()
 
     def _load_config(self) -> None:
@@ -94,7 +96,7 @@ class HealthcareConfigManager:
         # Load from YAML file if it exists
         config_file = Path(self.config_path)
         if config_file.exists():
-            with open(config_file, 'r') as f:
+            with open(config_file) as f:
                 file_config = yaml.safe_load(f) or {}
                 config_data.update(file_config)
 
@@ -182,7 +184,7 @@ class HealthcareConfigManager:
         return self.get_config().monitoring
 
 # Global configuration manager instance
-_config_manager: Optional[HealthcareConfigManager] = None
+_config_manager: HealthcareConfigManager | None = None
 
 def get_healthcare_config() -> HealthcareConfig:
     """Get global healthcare configuration"""
