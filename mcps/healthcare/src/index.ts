@@ -29,16 +29,15 @@ if (!FHIR_BASE_URL) {
     throw new Error("FHIR_BASE_URL is missing");
 }
 
+// PubMed, Trials, and FDA API keys are optional for normal usage
 if (!PUBMED_API_KEY) {
-    throw new Error("PUBMED_API_KEY is missing");
+    console.warn("PUBMED_API_KEY is not set. Using public rate limits.");
 }
-
 if (!TRIALS_API_KEY) {
-    throw new Error("TRIALS_API_KEY is missing");
+    console.warn("TRIALS_API_KEY is not set. Using public rate limits.");
 }
-
 if (!FDA_API_KEY) {
-    throw new Error("FDA_API_KEY is missing");
+    console.warn("FDA_API_KEY is not set. Using public rate limits.");
 }
 
 let mcpServer = new Server({
