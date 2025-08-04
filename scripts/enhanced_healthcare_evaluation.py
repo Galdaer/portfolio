@@ -176,8 +176,7 @@ class AdvancedPHIDetector:
 
         # Compile synthetic marker patterns for performance
         self.compiled_synthetic_pattern = re.compile(
-            "|".join(f"({marker})" for marker in self.synthetic_markers),
-            re.IGNORECASE
+            "|".join(f"({marker})" for marker in self.synthetic_markers), re.IGNORECASE
         )
 
     def detect_phi_violations(self, text: str) -> list[EvaluationFinding]:
@@ -240,13 +239,11 @@ class MedicalAccuracyValidator:
 
         # Compile patterns for performance
         self.compiled_medical_advice_pattern = re.compile(
-            "|".join(f"({pattern})" for pattern in self.medical_advice_patterns),
-            re.IGNORECASE
+            "|".join(f"({pattern})" for pattern in self.medical_advice_patterns), re.IGNORECASE
         )
 
         self.compiled_disclaimer_pattern = re.compile(
-            "|".join(f"({pattern})" for pattern in self.appropriate_disclaimers),
-            re.IGNORECASE
+            "|".join(f"({pattern})" for pattern in self.appropriate_disclaimers), re.IGNORECASE
         )
 
         self.administrative_indicators = [
@@ -582,9 +579,13 @@ class ComprehensiveHealthcareEvaluator:
         - Healthcare workflow adherence
     """
 
-    def __init__(self, config: dict[str, Any], synthetic_data_path: str = "data/synthetic/") -> None:
+    def __init__(
+        self, config: dict[str, Any], synthetic_data_path: str = "data/synthetic/"
+    ) -> None:
         # Validate no PHI in input data
-        if self._contains_potential_phi(str(config)) or self._contains_potential_phi(synthetic_data_path):
+        if self._contains_potential_phi(str(config)) or self._contains_potential_phi(
+            synthetic_data_path
+        ):
             raise ValueError("PHI detected in evaluation configuration - use synthetic data only")
 
         self.phi_detector = AdvancedPHIDetector()
@@ -607,12 +608,13 @@ class ComprehensiveHealthcareEvaluator:
             True if potential PHI patterns detected, False otherwise
         """
         phi_patterns = [
-            r'\b\d{3}-\d{2}-\d{4}\b',  # SSN pattern
-            r'\b\d{3}-\d{3}-\d{4}\b',  # Real phone (not 555-xxx-xxxx test numbers)
-            r'\b[A-Za-z0-9._%+-]+@(?!example\.com)[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'  # Real email
+            r"\b\d{3}-\d{2}-\d{4}\b",  # SSN pattern
+            r"\b\d{3}-\d{3}-\d{4}\b",  # Real phone (not 555-xxx-xxxx test numbers)
+            r"\b[A-Za-z0-9._%+-]+@(?!example\.com)[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",  # Real email
         ]
 
         import re
+
         for pattern in phi_patterns:
             if re.search(pattern, text):
                 return True

@@ -32,17 +32,15 @@ class HealthcareCacheManager:
     def __init__(self) -> None:
         self.cache_ttl_config = {
             "medical_literature": 86400,  # 24 hours - literature is relatively stable
-            "drug_interactions": 43200,   # 12 hours - drug data changes less frequently
+            "drug_interactions": 43200,  # 12 hours - drug data changes less frequently
             "clinical_guidelines": 604800,  # 7 days - guidelines are stable
-            "patient_session": 3600,      # 1 hour - patient context should expire quickly
-            "fda_data": 21600,            # 6 hours - regulatory data is fairly stable
-            "medical_entities": 7200,     # 2 hours - entity extraction can be cached short-term
+            "patient_session": 3600,  # 1 hour - patient context should expire quickly
+            "fda_data": 21600,  # 6 hours - regulatory data is fairly stable
+            "medical_entities": 7200,  # 2 hours - entity extraction can be cached short-term
         }
 
     async def get_medical_literature(
-        self,
-        query: str,
-        query_params: dict[str, Any]
+        self, query: str, query_params: dict[str, Any]
     ) -> dict[str, Any] | None:
         """
         Get cached medical literature search results
@@ -58,6 +56,7 @@ class HealthcareCacheManager:
 
         try:
             from core.dependencies import healthcare_services
+
             redis_client = healthcare_services.redis_client
 
             if not redis_client:
@@ -66,6 +65,7 @@ class HealthcareCacheManager:
             cached_data = await redis_client.get(cache_key)
             if cached_data:
                 from typing import cast
+
                 result: dict[str, Any] = cast(dict[str, Any], json.loads(cached_data))
                 logger.info(f"Cache HIT for medical literature: {query[:50]}...")
                 return result
@@ -76,10 +76,7 @@ class HealthcareCacheManager:
         return None
 
     async def cache_medical_literature(
-        self,
-        query: str,
-        query_params: dict[str, Any],
-        results: dict[str, Any]
+        self, query: str, query_params: dict[str, Any], results: dict[str, Any]
     ) -> None:
         """
         Cache medical literature search results
@@ -94,6 +91,7 @@ class HealthcareCacheManager:
 
         try:
             from core.dependencies import healthcare_services
+
             redis_client = healthcare_services.redis_client
 
             if not redis_client:
@@ -104,23 +102,16 @@ class HealthcareCacheManager:
                 "query": query,
                 "results": results,
                 "cached_at": datetime.utcnow().isoformat(),
-                "source": "medical_literature_cache"
+                "source": "medical_literature_cache",
             }
 
-            await redis_client.setex(
-                cache_key,
-                ttl,
-                json.dumps(cache_data)
-            )
+            await redis_client.setex(cache_key, ttl, json.dumps(cache_data))
             logger.info(f"Cached medical literature: {query[:50]}... (TTL: {ttl}s)")
 
         except Exception as e:
             logger.warning(f"Failed to cache literature: {e}")
 
-    async def get_drug_interactions(
-        self,
-        drug_list: list[str]
-    ) -> dict[str, Any] | None:
+    async def get_drug_interactions(self, drug_list: list[str]) -> dict[str, Any] | None:
         """
         Get cached drug interaction data
 
@@ -134,6 +125,7 @@ class HealthcareCacheManager:
 
         try:
             from core.dependencies import healthcare_services
+
             redis_client = healthcare_services.redis_client
 
             if not redis_client:
@@ -142,6 +134,7 @@ class HealthcareCacheManager:
             cached_data = await redis_client.get(cache_key)
             if cached_data:
                 from typing import cast
+
                 result: dict[str, Any] = cast(dict[str, Any], json.loads(cached_data))
                 logger.info(f"Cache HIT for drug interactions: {', '.join(drug_list[:3])}...")
                 return result
@@ -152,9 +145,7 @@ class HealthcareCacheManager:
         return None
 
     async def cache_drug_interactions(
-        self,
-        drug_list: list[str],
-        interaction_data: dict[str, Any]
+        self, drug_list: list[str], interaction_data: dict[str, Any]
     ) -> None:
         """
         Cache drug interaction data
@@ -168,6 +159,7 @@ class HealthcareCacheManager:
 
         try:
             from core.dependencies import healthcare_services
+
             redis_client = healthcare_services.redis_client
 
             if not redis_client:
@@ -177,23 +169,16 @@ class HealthcareCacheManager:
                 "drugs": sorted(drug_list),  # Normalize order
                 "interactions": interaction_data,
                 "cached_at": datetime.utcnow().isoformat(),
-                "source": "drug_interaction_cache"
+                "source": "drug_interaction_cache",
             }
 
-            await redis_client.setex(
-                cache_key,
-                ttl,
-                json.dumps(cache_data)
-            )
+            await redis_client.setex(cache_key, ttl, json.dumps(cache_data))
             logger.info(f"Cached drug interactions: {', '.join(drug_list)} (TTL: {ttl}s)")
 
         except Exception as e:
             logger.warning(f"Failed to cache drug interactions: {e}")
 
-    async def get_patient_session_context(
-        self,
-        session_id: str
-    ) -> dict[str, Any] | None:
+    async def get_patient_session_context(self, session_id: str) -> dict[str, Any] | None:
         """
         Get cached patient session context (HIPAA-compliant)
 
@@ -216,6 +201,7 @@ class HealthcareCacheManager:
 
         try:
             from core.dependencies import healthcare_services
+
             redis_client = healthcare_services.redis_client
 
             if not redis_client:
@@ -224,6 +210,7 @@ class HealthcareCacheManager:
             cached_data = await redis_client.get(cache_key)
             if cached_data:
                 from typing import cast
+
                 result: dict[str, Any] = cast(dict[str, Any], json.loads(cached_data))
                 logger.info(f"Cache HIT for patient session: {session_id}")
                 return result
@@ -234,9 +221,7 @@ class HealthcareCacheManager:
         return None
 
     async def cache_patient_session_context(
-        self,
-        session_id: str,
-        context_data: dict[str, Any]
+        self, session_id: str, context_data: dict[str, Any]
     ) -> None:
         """
         Cache patient session context securely
@@ -250,7 +235,9 @@ class HealthcareCacheManager:
             - Short TTL for security
             - Synthetic data only
         """
-        if self._contains_potential_phi(session_id) or self._contains_potential_phi(str(context_data)):
+        if self._contains_potential_phi(session_id) or self._contains_potential_phi(
+            str(context_data)
+        ):
             logger.error("PHI detected in session cache - operation blocked")
             return
 
@@ -259,6 +246,7 @@ class HealthcareCacheManager:
 
         try:
             from core.dependencies import healthcare_services
+
             redis_client = healthcare_services.redis_client
 
             if not redis_client:
@@ -269,14 +257,10 @@ class HealthcareCacheManager:
                 "context": context_data,
                 "cached_at": datetime.utcnow().isoformat(),
                 "expires_at": (datetime.utcnow() + timedelta(seconds=ttl)).isoformat(),
-                "source": "patient_session_cache"
+                "source": "patient_session_cache",
             }
 
-            await redis_client.setex(
-                cache_key,
-                ttl,
-                json.dumps(cache_data)
-            )
+            await redis_client.setex(cache_key, ttl, json.dumps(cache_data))
             logger.info(f"Cached patient session: {session_id} (TTL: {ttl}s)")
 
         except Exception as e:
@@ -291,6 +275,7 @@ class HealthcareCacheManager:
         """
         try:
             from core.dependencies import healthcare_services
+
             redis_client = healthcare_services.redis_client
 
             if not redis_client:
@@ -337,10 +322,11 @@ class HealthcareCacheManager:
             True if potential PHI patterns detected
         """
         import re
+
         phi_patterns = [
-            r'\b\d{3}-\d{2}-\d{4}\b',  # SSN
-            r'\b\d{3}-\d{3}-\d{4}\b',  # Phone (non-555 test numbers)
-            r'\b[A-Za-z0-9._%+-]+@(?!example\.com)[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'  # Real email
+            r"\b\d{3}-\d{2}-\d{4}\b",  # SSN
+            r"\b\d{3}-\d{3}-\d{4}\b",  # Phone (non-555 test numbers)
+            r"\b[A-Za-z0-9._%+-]+@(?!example\.com)[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",  # Real email
         ]
 
         for pattern in phi_patterns:
@@ -357,6 +343,7 @@ class HealthcareCacheManager:
         """
         try:
             from core.dependencies import healthcare_services
+
             redis_client = healthcare_services.redis_client
 
             if not redis_client:
@@ -376,12 +363,13 @@ class HealthcareCacheManager:
                 "redis_memory_used": info.get("used_memory_human", "unknown"),
                 "cache_entry_counts": cache_counts,
                 "total_keys": sum(cache_counts.values()),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
             logger.warning(f"Failed to get cache stats: {e}")
             return {"status": "error", "error": str(e)}
+
 
 # Global cache manager instance
 healthcare_cache = HealthcareCacheManager()

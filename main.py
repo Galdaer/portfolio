@@ -43,6 +43,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         # Initialize healthcare services (MCP, LLM, Database, Redis)
         from core.dependencies import healthcare_services
+
         await healthcare_services.initialize()
 
         # Initialize memory manager
@@ -78,6 +79,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         # Cleanup healthcare services
         from core.dependencies import healthcare_services
+
         await healthcare_services.close()
 
 
@@ -171,6 +173,7 @@ async def health_check() -> dict[str, Any]:
     """
     try:
         from core.infrastructure.health_monitoring import healthcare_monitor
+
         return await healthcare_monitor.comprehensive_health_check()
 
     except Exception as e:
@@ -193,6 +196,7 @@ async def quick_health_check() -> dict[str, Any]:
     """
     try:
         from core.infrastructure.health_monitoring import healthcare_monitor
+
         return await healthcare_monitor.quick_health_check()
 
     except Exception as e:
@@ -203,8 +207,7 @@ async def quick_health_check() -> dict[str, Any]:
 # Custom OpenAPI schema with healthcare compliance information
 def custom_openapi() -> dict[str, Any]:
     if app.openapi_schema:
-        from typing import cast
-        return cast(dict[str, Any], app.openapi_schema)
+        return app.openapi_schema
 
     openapi_schema = get_openapi(
         title=app.title,
@@ -219,43 +222,38 @@ def custom_openapi() -> dict[str, Any]:
             "type": "http",
             "scheme": "bearer",
             "bearerFormat": "JWT",
-            "description": "Healthcare JWT token with role-based permissions"
+            "description": "Healthcare JWT token with role-based permissions",
         }
     }
 
     # Add healthcare compliance tags
     openapi_schema["tags"] = [
-        {
-            "name": "health",
-            "description": "System health monitoring and status endpoints"
-        },
+        {"name": "health", "description": "System health monitoring and status endpoints"},
         {
             "name": "intake",
-            "description": "Patient intake, registration, and appointment scheduling"
+            "description": "Patient intake, registration, and appointment scheduling",
         },
         {
             "name": "document",
-            "description": "Medical document processing and clinical note generation"
+            "description": "Medical document processing and clinical note generation",
         },
         {
             "name": "research",
-            "description": "Medical literature search and clinical research support"
-        }
+            "description": "Medical literature search and clinical research support",
+        },
     ]
 
     app.openapi_schema = openapi_schema
-    from typing import cast
-    return cast(dict[str, Any], app.openapi_schema)
+    return app.openapi_schema
 
-app.openapi = custom_openapi
+
+app.openapi = custom_openapi  # type: ignore[method-assign]
+
 
 # Streaming endpoints for enhanced user experience
 @app.get("/stream/literature_search", tags=["streaming"])
 async def stream_literature_search(
-    query: str,
-    max_results: int = 10,
-    user_id: str = "demo_user",
-    session_id: str = "demo_session"
+    query: str, max_results: int = 10, user_id: str = "demo_user", session_id: str = "demo_session"
 ) -> StreamingResponse:
     """
     Stream Medical Literature Search Results
@@ -272,13 +270,13 @@ async def stream_literature_search(
     **Response Format:** Server-Sent Events (SSE)
     """
     from core.infrastructure.streaming import stream_medical_literature_search
+
     return await stream_medical_literature_search(query, user_id, session_id, max_results)
+
 
 @app.get("/stream/ai_reasoning", tags=["streaming"])
 async def stream_ai_reasoning(
-    medical_query: str,
-    user_id: str = "demo_user",
-    session_id: str = "demo_session"
+    medical_query: str, user_id: str = "demo_user", session_id: str = "demo_session"
 ) -> StreamingResponse:
     """
     Stream AI Reasoning Process
@@ -295,13 +293,15 @@ async def stream_ai_reasoning(
     **Compliance:** Includes medical disclaimers and safety warnings
     """
     from core.infrastructure.streaming import stream_ai_reasoning
+
     return await stream_ai_reasoning(medical_query, user_id, session_id)
+
 
 @app.get("/stream/document_processing", tags=["streaming"])
 async def stream_document_processing(
     document_type: str = "clinical_note",
     user_id: str = "demo_user",
-    session_id: str = "demo_session"
+    session_id: str = "demo_session",
 ) -> StreamingResponse:
     """
     Stream Medical Document Processing
@@ -318,7 +318,9 @@ async def stream_document_processing(
     **Compliance:** PHI detection and HIPAA compliance verification
     """
     from core.infrastructure.streaming import stream_document_processing
+
     return await stream_document_processing(document_type, user_id, session_id)
+
 
 # Import and include agent routers
 try:

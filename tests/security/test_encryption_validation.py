@@ -78,7 +78,9 @@ class TestEncryptionValidation(HealthcareTestCase):
                                 # Use database-backed synthetic data for encryption testing
                                 try:
                                     patient = self.get_sample_patient()
-                                    test_data = f"Patient: {patient['first_name']} {patient['last_name']}"
+                                    test_data = (
+                                        f"Patient: {patient['first_name']} {patient['last_name']}"
+                                    )
                                     print("✅ Testing encryption with synthetic patient data")
                                 except Exception:
                                     # Fallback to clearly synthetic test data

@@ -19,6 +19,7 @@ from core.infrastructure.authentication import AuthenticatedUser, HealthcareRole
 
 logger = logging.getLogger(__name__)
 
+
 class MockHealthcareMCP:
     """Mock Healthcare MCP server for testing"""
 
@@ -41,31 +42,27 @@ class MockHealthcareMCP:
                     "type": "CONDITION",
                     "confidence": 0.95,
                     "start": 0,
-                    "end": 12
+                    "end": 12,
                 },
                 {
                     "text": "120/80 mmHg",
                     "type": "VITAL_SIGN",
                     "confidence": 0.98,
                     "start": 15,
-                    "end": 26
-                }
+                    "end": 26,
+                },
             ],
             "medical_context": "cardiology",
-            "phi_detected": False
+            "phi_detected": False,
         }
 
-    async def search_medical_literature(
-        self,
-        query: str,
-        max_results: int = 10
-    ) -> dict[str, Any]:
+    async def search_medical_literature(self, query: str, max_results: int = 10) -> dict[str, Any]:
         """Mock medical literature search"""
         self.call_count += 1
         self.last_request = {
             "method": "search_medical_literature",
             "query": query,
-            "max_results": max_results
+            "max_results": max_results,
         }
 
         return {
@@ -77,11 +74,11 @@ class MockHealthcareMCP:
                     "year": 2024,
                     "doi": "10.1001/jmr.2024.001",
                     "relevance_score": 0.92,
-                    "abstract": f"This study examines {query} in clinical settings..."
+                    "abstract": f"This study examines {query} in clinical settings...",
                 }
             ],
             "total_results": 1,
-            "search_time_ms": 150
+            "search_time_ms": 150,
         }
 
     async def analyze_medical_document(self, document_content: str) -> dict[str, Any]:
@@ -89,7 +86,7 @@ class MockHealthcareMCP:
         self.call_count += 1
         self.last_request = {
             "method": "analyze_medical_document",
-            "content_length": len(document_content)
+            "content_length": len(document_content),
         }
 
         return {
@@ -99,10 +96,10 @@ class MockHealthcareMCP:
                 "subjective": "Patient reports chest pain",
                 "objective": "BP 140/90, HR 85",
                 "assessment": "Possible hypertension",
-                "plan": "Follow-up in 1 week"
+                "plan": "Follow-up in 1 week",
             },
             "phi_detected": False,
-            "compliance_verified": True
+            "compliance_verified": True,
         }
 
     async def health_check(self) -> dict[str, Any]:
@@ -110,8 +107,9 @@ class MockHealthcareMCP:
         return {
             "status": self.health_status,
             "timestamp": datetime.now().isoformat(),
-            "call_count": self.call_count
+            "call_count": self.call_count,
         }
+
 
 class MockHealthcareLLM:
     """Mock Healthcare LLM for testing"""
@@ -124,9 +122,7 @@ class MockHealthcareLLM:
         self.max_tokens = 2048
 
     async def generate_response(
-        self,
-        prompt: str,
-        context: dict[str, Any] | None = None
+        self, prompt: str, context: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Mock LLM response generation"""
         self.call_count += 1
@@ -138,17 +134,15 @@ class MockHealthcareLLM:
             "reasoning_steps": [
                 "Analyzed medical context",
                 "Checked for safety concerns",
-                "Generated appropriate response"
+                "Generated appropriate response",
             ],
             "medical_disclaimer": "This is administrative support only, not medical advice",
             "tokens_used": 145,
-            "response_time_ms": 1200
+            "response_time_ms": 1200,
         }
 
     async def stream_response(
-        self,
-        prompt: str,
-        context: dict[str, Any] | None = None
+        self, prompt: str, context: dict[str, Any] | None = None
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Mock streaming LLM response"""
         self.call_count += 1
@@ -158,7 +152,7 @@ class MockHealthcareLLM:
             {"chunk": " a mock", "done": False},
             {"chunk": " streaming", "done": False},
             {"chunk": " response", "done": False},
-            {"chunk": "", "done": True, "total_tokens": 45}
+            {"chunk": "", "done": True, "total_tokens": 45},
         ]
 
         for chunk in chunks:
@@ -172,8 +166,9 @@ class MockHealthcareLLM:
             "model": "mock-healthcare-llm",
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
-            "call_count": self.call_count
+            "call_count": self.call_count,
         }
+
 
 class HealthcareTestFixtures:
     """Healthcare-specific test fixtures and utilities"""
@@ -182,7 +177,7 @@ class HealthcareTestFixtures:
     def create_test_user(
         role: HealthcareRole = HealthcareRole.DOCTOR,
         user_id: str | None = None,
-        facility_id: str | None = None
+        facility_id: str | None = None,
     ) -> AuthenticatedUser:
         """Create test healthcare user"""
         return AuthenticatedUser(
@@ -190,7 +185,7 @@ class HealthcareTestFixtures:
             role=role,
             facility_id=facility_id or "test_facility_001",
             department="test_department",
-            permissions=[]  # Will be set based on role
+            permissions=[],  # Will be set based on role
         )
 
     @staticmethod
@@ -208,18 +203,18 @@ class HealthcareTestFixtures:
                 "street": "123 Test St",
                 "city": "Test City",
                 "state": "TS",
-                "zip_code": "12345"
+                "zip_code": "12345",
             },
             "insurance": {
                 "provider": "Test Insurance",
                 "policy_number": "TEST123456",
-                "group_number": "GRP001"
+                "group_number": "GRP001",
             },
             "emergency_contact": {
                 "name": "Jane Doe",
                 "relationship": "spouse",
-                "phone": "555-0124"
-            }
+                "phone": "555-0124",
+            },
         }
 
     @staticmethod
@@ -237,7 +232,7 @@ class HealthcareTestFixtures:
                 "heart_rate": 72,
                 "temperature": 98.6,
                 "weight": 170,
-                "height": 70
+                "height": 70,
             },
             "assessment": "Patient appears healthy",
             "plan": "Continue current medications, follow up in 6 months",
@@ -246,9 +241,9 @@ class HealthcareTestFixtures:
                     "medication": "Lisinopril",
                     "dosage": "10mg",
                     "frequency": "daily",
-                    "duration": "30 days"
+                    "duration": "30 days",
                 }
-            ]
+            ],
         }
 
     @staticmethod
@@ -277,6 +272,7 @@ class HealthcareTestFixtures:
         Patient counseled on diet and exercise.
         """
 
+
 class HealthcareIntegrationTestBase:
     """Base class for healthcare integration tests"""
 
@@ -302,18 +298,16 @@ class HealthcareIntegrationTestBase:
             self.test_client.close()
         logger.info("Healthcare test environment cleaned up")
 
-    def create_authenticated_request_headers(
-        self,
-        user: AuthenticatedUser
-    ) -> dict[str, str]:
+    def create_authenticated_request_headers(self, user: AuthenticatedUser) -> dict[str, str]:
         """Create headers for authenticated healthcare requests"""
         # In real implementation, this would create a valid JWT
         return {
             "Authorization": f"Bearer mock_jwt_{user.user_id}",
             "X-User-Role": user.role.value,
             "X-Facility-ID": user.facility_id or "test_facility",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
+
 
 class HealthcareWorkflowTester:
     """Test healthcare workflows end-to-end"""
@@ -333,7 +327,7 @@ class HealthcareWorkflowTester:
             "workflow": "patient_intake",
             "steps_completed": [],
             "errors": [],
-            "duration_ms": 0
+            "duration_ms": 0,
         }
 
         start_time = datetime.now()
@@ -342,9 +336,7 @@ class HealthcareWorkflowTester:
             # Step 1: Register new patient
             headers = self.base.create_authenticated_request_headers(user)
             response = self.base.test_client.post(
-                "/agents/intake/register_patient",
-                json=patient_data,
-                headers=headers
+                "/agents/intake/register_patient", json=patient_data, headers=headers
             )
 
             if response.status_code == 200:
@@ -357,34 +349,36 @@ class HealthcareWorkflowTester:
                 "/agents/intake/verify_insurance",
                 json={
                     "patient_id": patient_data["patient_id"],
-                    "insurance_info": patient_data["insurance"]
+                    "insurance_info": patient_data["insurance"],
                 },
-                headers=headers
+                headers=headers,
             )
 
             if insurance_response.status_code == 200:
                 results["steps_completed"].append("insurance_verification")
             else:
-                results["errors"].append(f"Insurance verification failed: {insurance_response.status_code}")
+                results["errors"].append(
+                    f"Insurance verification failed: {insurance_response.status_code}"
+                )
 
             # Step 3: Schedule appointment
             appointment_data = {
                 "patient_id": patient_data["patient_id"],
                 "provider_id": "DR_TEST_001",
                 "appointment_date": (datetime.now() + timedelta(days=7)).isoformat(),
-                "appointment_type": "routine_checkup"
+                "appointment_type": "routine_checkup",
             }
 
             appointment_response = self.base.test_client.post(
-                "/agents/intake/schedule_appointment",
-                json=appointment_data,
-                headers=headers
+                "/agents/intake/schedule_appointment", json=appointment_data, headers=headers
             )
 
             if appointment_response.status_code == 200:
                 results["steps_completed"].append("appointment_scheduling")
             else:
-                results["errors"].append(f"Appointment scheduling failed: {appointment_response.status_code}")
+                results["errors"].append(
+                    f"Appointment scheduling failed: {appointment_response.status_code}"
+                )
 
         except Exception as e:
             results["errors"].append(f"Workflow exception: {str(e)}")
@@ -392,7 +386,9 @@ class HealthcareWorkflowTester:
         end_time = datetime.now()
         results["duration_ms"] = int((end_time - start_time).total_seconds() * 1000)
 
-        logger.info(f"Patient intake workflow completed: {len(results['steps_completed'])} steps, {len(results['errors'])} errors")
+        logger.info(
+            f"Patient intake workflow completed: {len(results['steps_completed'])} steps, {len(results['errors'])} errors"
+        )
         return results
 
     async def test_document_processing_workflow(self) -> dict[str, Any]:
@@ -406,7 +402,7 @@ class HealthcareWorkflowTester:
             "workflow": "document_processing",
             "steps_completed": [],
             "errors": [],
-            "duration_ms": 0
+            "duration_ms": 0,
         }
 
         start_time = datetime.now()
@@ -420,9 +416,9 @@ class HealthcareWorkflowTester:
                 json={
                     "document_type": "clinical_note",
                     "content": document_content,
-                    "patient_id": "TEST_PATIENT_001"
+                    "patient_id": "TEST_PATIENT_001",
                 },
-                headers=headers
+                headers=headers,
             )
 
             if response.status_code == 200:
@@ -442,8 +438,11 @@ class HealthcareWorkflowTester:
         end_time = datetime.now()
         results["duration_ms"] = int((end_time - start_time).total_seconds() * 1000)
 
-        logger.info(f"Document processing workflow completed: {len(results['steps_completed'])} steps, {len(results['errors'])} errors")
+        logger.info(
+            f"Document processing workflow completed: {len(results['steps_completed'])} steps, {len(results['errors'])} errors"
+        )
         return results
+
 
 class HealthcareLoadTester:
     """Load testing for healthcare systems"""
@@ -455,7 +454,9 @@ class HealthcareLoadTester:
 
     async def simulate_clinical_load(self) -> dict[str, Any]:
         """Simulate realistic clinical environment load"""
-        logger.info(f"Starting clinical load test: {self.concurrent_users} users for {self.test_duration_seconds}s")
+        logger.info(
+            f"Starting clinical load test: {self.concurrent_users} users for {self.test_duration_seconds}s"
+        )
 
         results = {
             "test_type": "clinical_load",
@@ -466,17 +467,15 @@ class HealthcareLoadTester:
             "failed_requests": 0,
             "average_response_time_ms": 0,
             "peak_response_time_ms": 0,
-            "errors": []
+            "errors": [],
         }
 
         # Simulate concurrent healthcare users
         tasks = []
         for i in range(self.concurrent_users):
-            user_type = [
-                HealthcareRole.DOCTOR,
-                HealthcareRole.NURSE,
-                HealthcareRole.RECEPTIONIST
-            ][i % 3]
+            user_type = [HealthcareRole.DOCTOR, HealthcareRole.NURSE, HealthcareRole.RECEPTIONIST][
+                i % 3
+            ]
 
             task = asyncio.create_task(
                 self._simulate_user_activity(user_type, self.test_duration_seconds)
@@ -496,13 +495,13 @@ class HealthcareLoadTester:
         if results["total_requests"] > 0:
             results["success_rate"] = results["successful_requests"] / results["total_requests"]
 
-        logger.info(f"Clinical load test completed: {results['total_requests']} requests, {results['success_rate']:.2%} success rate")
+        logger.info(
+            f"Clinical load test completed: {results['total_requests']} requests, {results['success_rate']:.2%} success rate"
+        )
         return results
 
     async def _simulate_user_activity(
-        self,
-        role: HealthcareRole,
-        duration_seconds: int
+        self, role: HealthcareRole, duration_seconds: int
     ) -> dict[str, Any]:
         """Simulate individual user activity patterns"""
         user_results = {"requests": 0, "successful": 0, "failed": 0}
@@ -538,7 +537,7 @@ class HealthcareLoadTester:
             "patient_lookup",
             "medical_literature_search",
             "document_analysis",
-            "prescription_review"
+            "prescription_review",
         ]
 
         # Simulate the activity (in real test, would make HTTP requests)
@@ -548,11 +547,7 @@ class HealthcareLoadTester:
 
     async def _simulate_nurse_activities(self) -> None:
         """Simulate nurse workflow activities"""
-        activities = [
-            "patient_vitals_entry",
-            "medication_administration",
-            "care_plan_review"
-        ]
+        activities = ["patient_vitals_entry", "medication_administration", "care_plan_review"]
 
         activity = activities[hash(asyncio.current_task()) % len(activities)]
         logger.debug(f"Simulating nurse activity: {activity}")
@@ -560,11 +555,7 @@ class HealthcareLoadTester:
 
     async def _simulate_receptionist_activities(self) -> None:
         """Simulate receptionist workflow activities"""
-        activities = [
-            "appointment_scheduling",
-            "patient_registration",
-            "insurance_verification"
-        ]
+        activities = ["appointment_scheduling", "patient_registration", "insurance_verification"]
 
         activity = activities[hash(asyncio.current_task()) % len(activities)]
         logger.debug(f"Simulating receptionist activity: {activity}")

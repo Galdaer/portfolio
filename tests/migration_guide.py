@@ -55,6 +55,6 @@ class TestMigrationExample(unittest.TestCase):
         print("  5. Focus on runtime leakage, not static code patterns")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("📚 Healthcare Test Migration Documentation")
     unittest.main(verbosity=2)

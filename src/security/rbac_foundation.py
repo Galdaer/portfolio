@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 try:
     import psycopg2.extras
+
     PSYCOPG2_AVAILABLE = True
     _RealDictCursor = psycopg2.extras.RealDictCursor
 except ImportError:

@@ -66,14 +66,28 @@ class HealthcareSystemMonitor:
                 "timestamp": datetime.utcnow().isoformat(),
                 "check_duration_ms": round((time.time() - start_time) * 1000, 2),
                 "components": {
-                    "database": results[0] if not isinstance(results[0], Exception) else {"status": "error", "error": str(results[0])},
-                    "cache": results[1] if not isinstance(results[1], Exception) else {"status": "error", "error": str(results[1])},
-                    "mcp_server": results[2] if not isinstance(results[2], Exception) else {"status": "error", "error": str(results[2])},
-                    "llm": results[3] if not isinstance(results[3], Exception) else {"status": "error", "error": str(results[3])},
-                    "background_tasks": results[4] if not isinstance(results[4], Exception) else {"status": "error", "error": str(results[4])},
-                    "memory": results[5] if not isinstance(results[5], Exception) else {"status": "error", "error": str(results[5])},
-                    "cache_performance": results[6] if not isinstance(results[6], Exception) else {"status": "error", "error": str(results[6])},
-                }
+                    "database": results[0]
+                    if not isinstance(results[0], Exception)
+                    else {"status": "error", "error": str(results[0])},
+                    "cache": results[1]
+                    if not isinstance(results[1], Exception)
+                    else {"status": "error", "error": str(results[1])},
+                    "mcp_server": results[2]
+                    if not isinstance(results[2], Exception)
+                    else {"status": "error", "error": str(results[2])},
+                    "llm": results[3]
+                    if not isinstance(results[3], Exception)
+                    else {"status": "error", "error": str(results[3])},
+                    "background_tasks": results[4]
+                    if not isinstance(results[4], Exception)
+                    else {"status": "error", "error": str(results[4])},
+                    "memory": results[5]
+                    if not isinstance(results[5], Exception)
+                    else {"status": "error", "error": str(results[5])},
+                    "cache_performance": results[6]
+                    if not isinstance(results[6], Exception)
+                    else {"status": "error", "error": str(results[6])},
+                },
             }
 
             # Determine overall status
@@ -111,6 +125,7 @@ class HealthcareSystemMonitor:
         """Check PostgreSQL database health"""
         try:
             from core.dependencies import healthcare_services
+
             db_pool = healthcare_services.db_pool
 
             if not db_pool:
@@ -142,28 +157,22 @@ class HealthcareSystemMonitor:
                 "status": "healthy",
                 "query_time_ms": query_time,
                 "pool_stats": pool_stats,
-                "message": "Database connection successful"
+                "message": "Database connection successful",
             }
 
         except Exception as e:
             logger.warning(f"Database health check failed: {e}")
-            return {
-                "status": "critical",
-                "error": str(e),
-                "message": "Database connection failed"
-            }
+            return {"status": "critical", "error": str(e), "message": "Database connection failed"}
 
     async def _check_redis_health(self) -> dict[str, Any]:
         """Check Redis cache health"""
         try:
             from core.dependencies import healthcare_services
+
             redis_client = healthcare_services.redis_client
 
             if not redis_client:
-                return {
-                    "status": "degraded",
-                    "message": "Redis client not initialized"
-                }
+                return {"status": "degraded", "message": "Redis client not initialized"}
 
             start_time = time.time()
 
@@ -182,31 +191,25 @@ class HealthcareSystemMonitor:
                 "ping_time_ms": ping_time,
                 "memory_used": info.get("used_memory_human", "unknown"),
                 "connected_clients": info.get("connected_clients", 0),
-                "message": "Redis connection successful"
+                "message": "Redis connection successful",
             }
 
         except Exception as e:
             logger.warning(f"Redis health check failed: {e}")
-            return {
-                "status": "critical",
-                "error": str(e),
-                "message": "Redis connection failed"
-            }
+            return {"status": "critical", "error": str(e), "message": "Redis connection failed"}
 
     async def _check_mcp_health(self) -> dict[str, Any]:
         """Check MCP server health"""
         try:
             from core.dependencies import healthcare_services
+
             mcp_client = healthcare_services.mcp_client
 
             if not mcp_client:
-                return {
-                    "status": "degraded",
-                    "message": "MCP client not initialized"
-                }
+                return {"status": "degraded", "message": "MCP client not initialized"}
 
             # Check if it's our mock client
-            if hasattr(mcp_client, 'call_healthcare_tool'):
+            if hasattr(mcp_client, "call_healthcare_tool"):
                 start_time = time.time()
 
                 # Test with simple healthcare tool call
@@ -219,45 +222,40 @@ class HealthcareSystemMonitor:
                         "status": "degraded",
                         "message": "Using mock MCP client - real MCP server not connected",
                         "response_time_ms": response_time,
-                        "mock_client": True
+                        "mock_client": True,
                     }
                 else:
                     return {
                         "status": "healthy",
                         "message": "MCP server connection successful",
                         "response_time_ms": response_time,
-                        "mock_client": False
+                        "mock_client": False,
                     }
             else:
-                return {
-                    "status": "error",
-                    "message": "MCP client missing expected interface"
-                }
+                return {"status": "error", "message": "MCP client missing expected interface"}
 
         except Exception as e:
             logger.warning(f"MCP health check failed: {e}")
             return {
                 "status": "critical",
                 "error": str(e),
-                "message": "MCP server connection failed"
+                "message": "MCP server connection failed",
             }
 
     async def _check_llm_health(self) -> dict[str, Any]:
         """Check LLM (Ollama) health"""
         try:
             from core.dependencies import healthcare_services
+
             llm_client = healthcare_services.llm_client
 
             if not llm_client:
-                return {
-                    "status": "degraded",
-                    "message": "LLM client not initialized"
-                }
+                return {"status": "degraded", "message": "LLM client not initialized"}
 
             start_time = time.time()
 
             # Test with simple generation
-            if hasattr(llm_client, 'generate'):
+            if hasattr(llm_client, "generate"):
                 result = await llm_client.generate(
                     model="llama3.1",
                     prompt="Health check test",
@@ -270,28 +268,21 @@ class HealthcareSystemMonitor:
                         "status": "degraded",
                         "message": "Using mock LLM client - Ollama not connected",
                         "response_time_ms": response_time,
-                        "mock_client": True
+                        "mock_client": True,
                     }
                 else:
                     return {
                         "status": "healthy",
                         "message": "LLM connection successful",
                         "response_time_ms": response_time,
-                        "mock_client": False
+                        "mock_client": False,
                     }
             else:
-                return {
-                    "status": "error",
-                    "message": "LLM client missing expected interface"
-                }
+                return {"status": "error", "message": "LLM client missing expected interface"}
 
         except Exception as e:
             logger.warning(f"LLM health check failed: {e}")
-            return {
-                "status": "critical",
-                "error": str(e),
-                "message": "LLM connection failed"
-            }
+            return {"status": "critical", "error": str(e), "message": "LLM connection failed"}
 
     async def _check_background_tasks_health(self) -> dict[str, Any]:
         """Check background task system health"""
@@ -304,7 +295,7 @@ class HealthcareSystemMonitor:
             return {
                 "status": "healthy",
                 "active_tasks": active_tasks,
-                "message": f"Background task system operational with {active_tasks} active tasks"
+                "message": f"Background task system operational with {active_tasks} active tasks",
             }
 
         except Exception as e:
@@ -312,7 +303,7 @@ class HealthcareSystemMonitor:
             return {
                 "status": "error",
                 "error": str(e),
-                "message": "Background task system check failed"
+                "message": "Background task system check failed",
             }
 
     async def _check_memory_usage(self) -> dict[str, Any]:
@@ -333,21 +324,14 @@ class HealthcareSystemMonitor:
                 "memory_percent": memory.percent,
                 "memory_available_gb": round(memory.available / (1024**3), 2),
                 "memory_used_gb": round(memory.used / (1024**3), 2),
-                "message": f"Memory usage: {memory.percent:.1f}%"
+                "message": f"Memory usage: {memory.percent:.1f}%",
             }
 
         except ImportError:
-            return {
-                "status": "degraded",
-                "message": "psutil not available for memory monitoring"
-            }
+            return {"status": "degraded", "message": "psutil not available for memory monitoring"}
         except Exception as e:
             logger.warning(f"Memory health check failed: {e}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "message": "Memory check failed"
-            }
+            return {"status": "error", "error": str(e), "message": "Memory check failed"}
 
     async def _check_cache_performance(self) -> dict[str, Any]:
         """Check cache system performance"""
@@ -357,15 +341,12 @@ class HealthcareSystemMonitor:
             cache_stats = await healthcare_cache.get_cache_stats()
 
             if cache_stats.get("status") == "redis_unavailable":
-                return {
-                    "status": "degraded",
-                    "message": "Cache system unavailable"
-                }
+                return {"status": "degraded", "message": "Cache system unavailable"}
             elif cache_stats.get("status") == "error":
                 return {
                     "status": "error",
                     "error": cache_stats.get("error"),
-                    "message": "Cache performance check failed"
+                    "message": "Cache performance check failed",
                 }
             else:
                 total_keys = cache_stats.get("total_keys", 0)
@@ -374,16 +355,12 @@ class HealthcareSystemMonitor:
                     "total_cache_keys": total_keys,
                     "cache_entry_counts": cache_stats.get("cache_entry_counts", {}),
                     "redis_memory": cache_stats.get("redis_memory_used", "unknown"),
-                    "message": f"Cache system healthy with {total_keys} entries"
+                    "message": f"Cache system healthy with {total_keys} entries",
                 }
 
         except Exception as e:
             logger.warning(f"Cache performance check failed: {e}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "message": "Cache performance check failed"
-            }
+            return {"status": "error", "error": str(e), "message": "Cache performance check failed"}
 
     async def quick_health_check(self) -> dict[str, Any]:
         """
@@ -397,7 +374,7 @@ class HealthcareSystemMonitor:
             return {
                 **self.cached_status,
                 "cached": True,
-                "cache_age_seconds": round(time.time() - self.last_check_time, 1)
+                "cache_age_seconds": round(time.time() - self.last_check_time, 1),
             }
 
         # Perform quick checks only
@@ -409,18 +386,25 @@ class HealthcareSystemMonitor:
 
             results = await asyncio.wait_for(
                 asyncio.gather(*quick_tasks, return_exceptions=True),
-                timeout=self.health_check_timeout
+                timeout=self.health_check_timeout,
             )
 
             db_status = results[0] if not isinstance(results[0], Exception) else {"status": "error"}
-            redis_status = results[1] if not isinstance(results[1], Exception) else {"status": "error"}
+            redis_status = (
+                results[1] if not isinstance(results[1], Exception) else {"status": "error"}
+            )
 
             overall = "healthy"
-            if (isinstance(db_status, dict) and db_status.get("status") == "critical") or \
-               (isinstance(redis_status, dict) and redis_status.get("status") == "critical"):
+            if (isinstance(db_status, dict) and db_status.get("status") == "critical") or (
+                isinstance(redis_status, dict) and redis_status.get("status") == "critical"
+            ):
                 overall = "critical"
-            elif (isinstance(db_status, dict) and db_status.get("status") in ["degraded", "error"]) or \
-                 (isinstance(redis_status, dict) and redis_status.get("status") in ["degraded", "error"]):
+            elif (
+                isinstance(db_status, dict) and db_status.get("status") in ["degraded", "error"]
+            ) or (
+                isinstance(redis_status, dict)
+                and redis_status.get("status") in ["degraded", "error"]
+            ):
                 overall = "degraded"
 
             return {

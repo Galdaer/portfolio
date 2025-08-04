@@ -92,7 +92,7 @@ class HealthcareServices:
         try:
             database_url = os.getenv(
                 "DATABASE_URL",
-                "postgresql://intelluxe:dev_password@localhost:5432/intelluxe_healthcare"
+                "postgresql://intelluxe:dev_password@localhost:5432/intelluxe_healthcare",
             )
 
             self._db_pool = await asyncpg.create_pool(
@@ -130,8 +130,11 @@ class HealthcareServices:
 
     def _create_mock_mcp_client(self) -> Any:
         """Create mock MCP client for development"""
+
         class MockMCPClient:
-            async def call_healthcare_tool(self, tool_name: str, params: dict[str, Any]) -> dict[str, Any]:
+            async def call_healthcare_tool(
+                self, tool_name: str, params: dict[str, Any]
+            ) -> dict[str, Any]:
                 return {
                     "tool": tool_name,
                     "params": params,
@@ -143,8 +146,11 @@ class HealthcareServices:
 
     def _create_mock_llm_client(self) -> Any:
         """Create mock LLM client for development"""
+
         class MockLLMClient:
-            async def generate(self, model: str = "llama3.1", prompt: str = "", **kwargs: Any) -> dict[str, Any]:
+            async def generate(
+                self, model: str = "llama3.1", prompt: str = "", **kwargs: Any
+            ) -> dict[str, Any]:
                 return {
                     "response": f"Mock LLM response for: {prompt[:50]}...",
                     "model": model,

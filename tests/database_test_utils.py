@@ -21,6 +21,7 @@ try:
     import asyncpg
     import psycopg2
     from psycopg2.extras import RealDictCursor
+
     DATABASE_AVAILABLE = True
 except ImportError as e:
     print(f"⚠️  Database dependencies not installed: {e}")
@@ -29,17 +30,26 @@ except ImportError as e:
 
     # Mock the database modules for testing
     class MockCursor:
-        def fetchall(self): return []
-        def close(self): pass
+        def fetchall(self):
+            return []
+
+        def close(self):
+            pass
 
     class MockConnection:
-        def cursor(self): return MockCursor()
-        def close(self): pass
-        def commit(self): pass
+        def cursor(self):
+            return MockCursor()
+
+        def close(self):
+            pass
+
+        def commit(self):
+            pass
 
     class MockPsycopg2:
         @staticmethod
-        def connect(*args, **kwargs): return MockConnection()
+        def connect(*args, **kwargs):
+            return MockConnection()
 
     class MockRealDictCursor:
         pass
@@ -48,6 +58,7 @@ except ImportError as e:
     psycopg2 = MockPsycopg2()
     RealDictCursor = MockRealDictCursor
     asyncpg = None
+
 
 class SyntheticHealthcareData:
     """
@@ -58,8 +69,8 @@ class SyntheticHealthcareData:
     def __init__(self, db_url: str | None = None):
         """Initialize database connection to synthetic healthcare data."""
         self.db_url = db_url or os.getenv(
-            'HEALTHCARE_DB_URL',
-            'postgresql://intelluxe:secure_password@localhost:5432/intelluxe_healthcare'
+            "HEALTHCARE_DB_URL",
+            "postgresql://intelluxe:secure_password@localhost:5432/intelluxe_healthcare",
         )
         self.connection = None
         self.async_pool = None
@@ -72,10 +83,7 @@ class SyntheticHealthcareData:
             return
 
         try:
-            self.connection = psycopg2.connect(
-                self.db_url,
-                cursor_factory=RealDictCursor
-            )
+            self.connection = psycopg2.connect(self.db_url, cursor_factory=RealDictCursor)
             logging.info("✅ Connected to synthetic healthcare database")
         except Exception as e:
             logging.error(f"❌ Failed to connect to healthcare database: {e}")
@@ -104,27 +112,30 @@ class SyntheticHealthcareData:
             # Return mock synthetic patient data
             return [
                 {
-                    'patient_id': f'PAT{i:03d}',
-                    'first_name': f'TestPatient{i}',
-                    'last_name': f'Last{i}',
-                    'date_of_birth': '1990-01-01',
-                    'gender': 'M' if i % 2 == 0 else 'F',
-                    'phone_number': '000-000-0000',
-                    'email': f'patient{i}@example.test',
-                    'insurance_provider': 'Test Insurance'
+                    "patient_id": f"PAT{i:03d}",
+                    "first_name": f"TestPatient{i}",
+                    "last_name": f"Last{i}",
+                    "date_of_birth": "1990-01-01",
+                    "gender": "M" if i % 2 == 0 else "F",
+                    "phone_number": "000-000-0000",
+                    "email": f"patient{i}@example.test",
+                    "insurance_provider": "Test Insurance",
                 }
                 for i in range(1, min(limit + 1, 11))
             ]
 
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT patient_id, first_name, last_name, date_of_birth,
                            gender, phone_number, email, insurance_provider
                     FROM patients
                     WHERE synthetic = true
                     LIMIT %s
-                """, (limit,))
+                """,
+                    (limit,),
+                )
 
                 return [dict(row) for row in cursor.fetchall()]
         except Exception as e:
@@ -132,14 +143,14 @@ class SyntheticHealthcareData:
             # Fallback to mock data if database query fails
             return [
                 {
-                    'patient_id': f'PAT{i:03d}',
-                    'first_name': f'TestPatient{i}',
-                    'last_name': f'Last{i}',
-                    'date_of_birth': '1990-01-01',
-                    'gender': 'M' if i % 2 == 0 else 'F',
-                    'phone_number': '000-000-0000',
-                    'email': f'patient{i}@example.test',
-                    'insurance_provider': 'Test Insurance'
+                    "patient_id": f"PAT{i:03d}",
+                    "first_name": f"TestPatient{i}",
+                    "last_name": f"Last{i}",
+                    "date_of_birth": "1990-01-01",
+                    "gender": "M" if i % 2 == 0 else "F",
+                    "phone_number": "000-000-0000",
+                    "email": f"patient{i}@example.test",
+                    "insurance_provider": "Test Insurance",
                 }
                 for i in range(1, min(limit + 1, 11))
             ]
@@ -150,13 +161,16 @@ class SyntheticHealthcareData:
             await self.async_connect()
 
         async with self.async_pool.acquire() as conn:
-            rows = await conn.fetch("""
+            rows = await conn.fetch(
+                """
                 SELECT patient_id, first_name, last_name, date_of_birth,
                        gender, phone_number, email, insurance_provider
                 FROM patients
                 WHERE synthetic = true
                 LIMIT $1
-            """, limit)
+            """,
+                limit,
+            )
 
             return [dict(row) for row in rows]
 
@@ -169,44 +183,49 @@ class SyntheticHealthcareData:
             # Return mock synthetic doctor data
             return [
                 {
-                    'doctor_id': f'DOC{i:03d}',
-                    'first_name': f'Dr. Test{i}',
-                    'last_name': f'Doctor{i}',
-                    'specialty': 'Internal Medicine',
-                    'npi_number': f'123456789{i}',
-                    'license_number': f'LIC{i:06d}',
-                    'email': f'doctor{i}@example.test'
+                    "doctor_id": f"DOC{i:03d}",
+                    "first_name": f"Dr. Test{i}",
+                    "last_name": f"Doctor{i}",
+                    "specialty": "Internal Medicine",
+                    "npi_number": f"123456789{i}",
+                    "license_number": f"LIC{i:06d}",
+                    "email": f"doctor{i}@example.test",
                 }
                 for i in range(1, min(limit + 1, 6))
             ]
 
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT doctor_id, first_name, last_name, specialty,
                            npi_number, license_number, email
                     FROM doctors
                     WHERE synthetic = true
                     LIMIT %s
-                """, (limit,))
+                """,
+                    (limit,),
+                )
 
                 return [dict(row) for row in cursor.fetchall()]
         except Exception as e:
             logging.warning(f"Database query failed, using mock doctor data: {e}")
             return [
                 {
-                    'doctor_id': f'DOC{i:03d}',
-                    'first_name': f'Dr. Test{i}',
-                    'last_name': f'Doctor{i}',
-                    'specialty': 'Internal Medicine',
-                    'npi_number': f'123456789{i}',
-                    'license_number': f'LIC{i:06d}',
-                    'email': f'doctor{i}@example.test'
+                    "doctor_id": f"DOC{i:03d}",
+                    "first_name": f"Dr. Test{i}",
+                    "last_name": f"Doctor{i}",
+                    "specialty": "Internal Medicine",
+                    "npi_number": f"123456789{i}",
+                    "license_number": f"LIC{i:06d}",
+                    "email": f"doctor{i}@example.test",
                 }
                 for i in range(1, min(limit + 1, 6))
             ]
 
-    def get_test_encounters(self, patient_id: str | None = None, limit: int = 10) -> list[dict[str, Any]]:
+    def get_test_encounters(
+        self, patient_id: str | None = None, limit: int = 10
+    ) -> list[dict[str, Any]]:
         """Get synthetic encounter data for testing."""
         if not self.connection:
             self.connect()
@@ -215,13 +234,13 @@ class SyntheticHealthcareData:
             # Return mock synthetic encounter data
             return [
                 {
-                    'encounter_id': f'ENC{i:03d}',
-                    'patient_id': patient_id or f'PAT{i:03d}',
-                    'doctor_id': f'DOC{(i % 3) + 1:03d}',
-                    'visit_date': '2024-01-15',
-                    'chief_complaint': 'Routine checkup',
-                    'diagnosis': 'Healthy',
-                    'treatment_plan': 'Continue current lifestyle'
+                    "encounter_id": f"ENC{i:03d}",
+                    "patient_id": patient_id or f"PAT{i:03d}",
+                    "doctor_id": f"DOC{(i % 3) + 1:03d}",
+                    "visit_date": "2024-01-15",
+                    "chief_complaint": "Routine checkup",
+                    "diagnosis": "Healthy",
+                    "treatment_plan": "Continue current lifestyle",
                 }
                 for i in range(1, min(limit + 1, 11))
             ]
@@ -229,34 +248,40 @@ class SyntheticHealthcareData:
         try:
             with self.connection.cursor() as cursor:
                 if patient_id:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT encounter_id, patient_id, doctor_id, visit_date,
                                chief_complaint, diagnosis, treatment_plan
                         FROM encounters
                         WHERE synthetic = true AND patient_id = %s
                         LIMIT %s
-                    """, (patient_id, limit))
+                    """,
+                        (patient_id, limit),
+                    )
                 else:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT encounter_id, patient_id, doctor_id, visit_date,
                                chief_complaint, diagnosis, treatment_plan
                         FROM encounters
                         WHERE synthetic = true
                         LIMIT %s
-                    """, (limit,))
+                    """,
+                        (limit,),
+                    )
 
                 return [dict(row) for row in cursor.fetchall()]
         except Exception as e:
             logging.warning(f"Database query failed, using mock encounter data: {e}")
             return [
                 {
-                    'encounter_id': f'ENC{i:03d}',
-                    'patient_id': patient_id or f'PAT{i:03d}',
-                    'doctor_id': f'DOC{(i % 3) + 1:03d}',
-                    'visit_date': '2024-01-15',
-                    'chief_complaint': 'Routine checkup',
-                    'diagnosis': 'Healthy',
-                    'treatment_plan': 'Continue current lifestyle'
+                    "encounter_id": f"ENC{i:03d}",
+                    "patient_id": patient_id or f"PAT{i:03d}",
+                    "doctor_id": f"DOC{(i % 3) + 1:03d}",
+                    "visit_date": "2024-01-15",
+                    "chief_complaint": "Routine checkup",
+                    "diagnosis": "Healthy",
+                    "treatment_plan": "Continue current lifestyle",
                 }
                 for i in range(1, min(limit + 1, 11))
             ]
@@ -268,21 +293,27 @@ class SyntheticHealthcareData:
 
         with self.connection.cursor() as cursor:
             if patient_id:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT lab_id, patient_id, test_name, test_value,
                            reference_range, test_date, status
                     FROM lab_results
                     WHERE synthetic = true AND patient_id = %s
                     LIMIT %s
-                """, (patient_id, limit))
+                """,
+                    (patient_id, limit),
+                )
             else:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT lab_id, patient_id, test_name, test_value,
                            reference_range, test_date, status
                     FROM lab_results
                     WHERE synthetic = true
                     LIMIT %s
-                """, (limit,))
+                """,
+                    (limit,),
+                )
 
             return [dict(row) for row in cursor.fetchall()]
 
@@ -322,8 +353,7 @@ class HealthcareTestCase:
         if self.test_patients:
             # Get encounters for first test patient
             self.test_encounters = self.synthetic_data.get_test_encounters(
-                patient_id=self.test_patients[0]['patient_id'],
-                limit=3
+                patient_id=self.test_patients[0]["patient_id"], limit=3
             )
 
     def tearDown(self) -> None:
@@ -370,16 +400,13 @@ def get_test_medical_scenario() -> dict[str, Any]:
             raise ValueError("Insufficient synthetic data for test scenario")
 
         patient = patients[0]
-        encounters = data_provider.get_test_encounters(
-            patient_id=patient['patient_id'],
-            limit=1
-        )
+        encounters = data_provider.get_test_encounters(patient_id=patient["patient_id"], limit=1)
 
         return {
-            'patient': patient,
-            'doctor': doctors[0],
-            'encounter': encounters[0] if encounters else None,
-            'synthetic': True  # Mark as synthetic data
+            "patient": patient,
+            "doctor": doctors[0],
+            "encounter": encounters[0] if encounters else None,
+            "synthetic": True,  # Mark as synthetic data
         }
     finally:
         data_provider.cleanup()
@@ -407,7 +434,7 @@ if __name__ == "__main__":
         print("✅ Got synthetic test scenario:")
         print(f"   Patient: {scenario['patient']['first_name']} {scenario['patient']['last_name']}")
         print(f"   Doctor: {scenario['doctor']['first_name']} {scenario['doctor']['last_name']}")
-        if scenario['encounter']:
+        if scenario["encounter"]:
             print(f"   Encounter: {scenario['encounter']['chief_complaint']}")
         print(f"   Synthetic: {scenario['synthetic']}")
 

@@ -2,12 +2,14 @@
 Background Task Processing for Healthcare AI
 Handles long-running medical analysis tasks asynchronously
 """
+
 import asyncio
 import logging
 from collections.abc import Callable
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
 
 class HealthcareTaskManager:
     """
@@ -24,10 +26,7 @@ class HealthcareTaskManager:
         self.active_tasks: dict[str, asyncio.Task] = {}
 
     async def process_medical_analysis(
-        self,
-        task_id: str,
-        analysis_func: Callable,
-        patient_data: dict[str, Any]
+        self, task_id: str, analysis_func: Callable, patient_data: dict[str, Any]
     ) -> None:
         """
         Process medical analysis in background with progress tracking
@@ -55,15 +54,17 @@ class HealthcareTaskManager:
         """Store completed task result in Redis for retrieval"""
         try:
             from core.dependencies import healthcare_services
+
             redis_client = healthcare_services.redis_client
 
             if redis_client:
                 import json
+
                 # Store with 1 hour expiration
                 await redis_client.setex(
                     f"task_result:{task_id}",
                     3600,
-                    json.dumps({"status": "completed", "result": result})
+                    json.dumps({"status": "completed", "result": result}),
                 )
         except Exception as e:
             logger.warning(f"Failed to store task result {task_id}: {e}")
@@ -72,15 +73,15 @@ class HealthcareTaskManager:
         """Store task error in Redis for retrieval"""
         try:
             from core.dependencies import healthcare_services
+
             redis_client = healthcare_services.redis_client
 
             if redis_client:
                 import json
+
                 # Store with 1 hour expiration
                 await redis_client.setex(
-                    f"task_result:{task_id}",
-                    3600,
-                    json.dumps({"status": "error", "error": error})
+                    f"task_result:{task_id}", 3600, json.dumps({"status": "error", "error": error})
                 )
         except Exception as e:
             logger.warning(f"Failed to store task error {task_id}: {e}")
@@ -104,13 +105,16 @@ class HealthcareTaskManager:
         # Check Redis for completed/error results
         try:
             from core.dependencies import healthcare_services
+
             redis_client = healthcare_services.redis_client
 
             if redis_client:
                 import json
+
                 result_data = await redis_client.get(f"task_result:{task_id}")
                 if result_data:
                     from typing import cast
+
                     result: dict[str, Any] = cast(dict[str, Any], json.loads(result_data))
                     return result
         except Exception as e:

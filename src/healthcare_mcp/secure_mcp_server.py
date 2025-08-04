@@ -382,7 +382,7 @@ class HealthcareMCPServer:
         )
 
         # Add security middleware
-        @self.app.middleware("http")  # type: ignore[misc]
+        @self.app.middleware("http")
         async def security_middleware(
             request: Request, call_next: Callable[[Request], Awaitable[Response]]
         ) -> Response:
@@ -404,7 +404,7 @@ class HealthcareMCPServer:
     def _register_routes(self) -> None:
         """Register API routes"""
 
-        @self.app.get("/health")  # type: ignore[misc]
+        @self.app.get("/health")
         async def health_check() -> dict[str, Any]:
             """Health check endpoint"""
             return {
@@ -415,7 +415,7 @@ class HealthcareMCPServer:
                 "hipaa_compliance": self.config.hipaa_compliance_mode,
             }
 
-        @self.app.post("/mcp", response_model=MCPResponse)  # type: ignore[misc]
+        @self.app.post("/mcp", response_model=MCPResponse)
         async def mcp_endpoint(
             request: MCPRequest,
             credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -444,7 +444,7 @@ class HealthcareMCPServer:
                 }
                 return MCPResponse(result=None, error=error, id=request.id)
 
-        @self.app.get("/tools")  # type: ignore[misc]
+        @self.app.get("/tools")
         async def list_tools(
             credentials: HTTPAuthorizationCredentials = Depends(security),
             client_request: Request | None = None,

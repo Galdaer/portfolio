@@ -18,19 +18,23 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+
 # Healthcare Role Definitions
 class HealthcareRole(str, Enum):
     """HIPAA-compliant healthcare roles with specific access permissions"""
-    ADMIN = "admin"                    # Full system access
-    DOCTOR = "doctor"                  # Full patient data access
-    NURSE = "nurse"                    # Limited patient data access
-    RECEPTIONIST = "receptionist"      # Scheduling and basic demographics
-    BILLING = "billing"                # Billing and insurance data
-    RESEARCH = "research"              # De-identified data only
+
+    ADMIN = "admin"  # Full system access
+    DOCTOR = "doctor"  # Full patient data access
+    NURSE = "nurse"  # Limited patient data access
+    RECEPTIONIST = "receptionist"  # Scheduling and basic demographics
+    BILLING = "billing"  # Billing and insurance data
+    RESEARCH = "research"  # De-identified data only
+
 
 # JWT Token Models
 class TokenData(BaseModel):
     """Healthcare JWT token payload"""
+
     user_id: str = Field(..., description="Unique user identifier")
     role: HealthcareRole = Field(..., description="Healthcare role")
     facility_id: str | None = Field(None, description="Healthcare facility ID")
@@ -38,42 +42,58 @@ class TokenData(BaseModel):
     expires_at: datetime = Field(..., description="Token expiration")
     issued_at: datetime = Field(..., description="Token issue time")
 
+
 class AuthenticatedUser(BaseModel):
     """Authenticated healthcare user context"""
+
     user_id: str
     role: HealthcareRole
     facility_id: str | None = None
     department: str | None = None
     permissions: list[str] = Field(default_factory=list)
 
+
 # Permission Definitions
 ROLE_PERMISSIONS = {
     HealthcareRole.ADMIN: [
-        "read:all_patients", "write:all_patients", "delete:all_patients",
-        "read:system_config", "write:system_config",
-        "read:audit_logs", "write:audit_logs"
+        "read:all_patients",
+        "write:all_patients",
+        "delete:all_patients",
+        "read:system_config",
+        "write:system_config",
+        "read:audit_logs",
+        "write:audit_logs",
     ],
     HealthcareRole.DOCTOR: [
-        "read:patient_data", "write:patient_data",
-        "read:medical_records", "write:medical_records",
-        "read:prescriptions", "write:prescriptions"
+        "read:patient_data",
+        "write:patient_data",
+        "read:medical_records",
+        "write:medical_records",
+        "read:prescriptions",
+        "write:prescriptions",
     ],
     HealthcareRole.NURSE: [
-        "read:patient_data", "write:patient_vitals",
-        "read:medical_records", "write:nursing_notes"
+        "read:patient_data",
+        "write:patient_vitals",
+        "read:medical_records",
+        "write:nursing_notes",
     ],
     HealthcareRole.RECEPTIONIST: [
-        "read:patient_demographics", "write:patient_demographics",
-        "read:appointments", "write:appointments"
+        "read:patient_demographics",
+        "write:patient_demographics",
+        "read:appointments",
+        "write:appointments",
     ],
     HealthcareRole.BILLING: [
-        "read:patient_demographics", "read:billing_data", "write:billing_data",
-        "read:insurance_data", "write:insurance_data"
+        "read:patient_demographics",
+        "read:billing_data",
+        "write:billing_data",
+        "read:insurance_data",
+        "write:insurance_data",
     ],
-    HealthcareRole.RESEARCH: [
-        "read:deidentified_data", "read:aggregated_data"
-    ]
+    HealthcareRole.RESEARCH: ["read:deidentified_data", "read:aggregated_data"],
 }
+
 
 class HealthcareAuthenticator:
     """HIPAA-compliant authentication manager"""
@@ -90,7 +110,7 @@ class HealthcareAuthenticator:
         role: HealthcareRole,
         facility_id: str | None = None,
         department: str | None = None,
-        expires_delta: timedelta | None = None
+        expires_delta: timedelta | None = None,
     ) -> str:
         """Create HIPAA-compliant JWT access token"""
 
@@ -105,7 +125,7 @@ class HealthcareAuthenticator:
             facility_id=facility_id,
             department=department,
             expires_at=expire,
-            issued_at=datetime.now(UTC)
+            issued_at=datetime.now(UTC),
         )
 
         to_encode = token_data.model_dump()
@@ -131,8 +151,7 @@ class HealthcareAuthenticator:
             if exp_timestamp and datetime.fromtimestamp(exp_timestamp, UTC) < datetime.now(UTC):
                 logger.warning(f"Expired token attempt - User: {payload.get('user_id')}")
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token has expired"
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired"
                 )
 
             # Create TokenData object
@@ -142,7 +161,7 @@ class HealthcareAuthenticator:
                 facility_id=payload.get("facility_id"),
                 department=payload.get("department"),
                 expires_at=datetime.fromtimestamp(exp_timestamp, UTC),
-                issued_at=datetime.fromisoformat(payload["issued_at"])
+                issued_at=datetime.fromisoformat(payload["issued_at"]),
             )
 
             return token_data
@@ -150,13 +169,11 @@ class HealthcareAuthenticator:
         except jwt.InvalidTokenError as e:
             logger.warning(f"Invalid token attempt: {e}")
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials"
             )
 
     async def get_current_user(
-        self,
-        credentials: Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())]
+        self, credentials: Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())]
     ) -> AuthenticatedUser:
         """Extract authenticated user from request"""
 
@@ -170,7 +187,7 @@ class HealthcareAuthenticator:
             role=token_data.role,
             facility_id=token_data.facility_id,
             department=token_data.department,
-            permissions=permissions
+            permissions=permissions,
         )
 
         # HIPAA Audit Log
@@ -181,8 +198,12 @@ class HealthcareAuthenticator:
 
         return user
 
-def require_permission(required_permission: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+
+def require_permission(
+    required_permission: str,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to require specific permission for endpoint access"""
+
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -196,8 +217,7 @@ def require_permission(required_permission: str) -> Callable[[Callable[..., Any]
             if not user:
                 logger.error("No authenticated user found in request")
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Authentication required"
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
                 )
 
             if required_permission not in user.permissions:
@@ -207,21 +227,26 @@ def require_permission(required_permission: str) -> Callable[[Callable[..., Any]
                 )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Permission '{required_permission}' required"
+                    detail=f"Permission '{required_permission}' required",
                 )
 
             # HIPAA Audit Log
             logger.info(
-                f"Permission granted - User: {user.user_id}, "
-                f"Permission: {required_permission}"
+                f"Permission granted - User: {user.user_id}, Permission: {required_permission}"
             )
 
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
-def require_role(required_role: HealthcareRole) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+
+def require_role(
+    required_role: HealthcareRole,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to require specific healthcare role"""
+
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -234,8 +259,7 @@ def require_role(required_role: HealthcareRole) -> Callable[[Callable[..., Any]]
 
             if not user:
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Authentication required"
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
                 )
 
             if user.role != required_role:
@@ -245,15 +269,19 @@ def require_role(required_role: HealthcareRole) -> Callable[[Callable[..., Any]]
                 )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Role '{required_role.value}' required"
+                    detail=f"Role '{required_role.value}' required",
                 )
 
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
+
 
 # Global healthcare authenticator instance
 healthcare_authenticator: HealthcareAuthenticator | None = None
+
 
 def get_healthcare_authenticator() -> HealthcareAuthenticator:
     """Get global healthcare authenticator instance"""
@@ -264,29 +292,34 @@ def get_healthcare_authenticator() -> HealthcareAuthenticator:
         healthcare_authenticator = HealthcareAuthenticator(secret_key)
     return healthcare_authenticator
 
+
 # Dependency for FastAPI endpoints
 async def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())]
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())],
 ) -> AuthenticatedUser:
     """FastAPI dependency to get authenticated user"""
     authenticator = get_healthcare_authenticator()
     return await authenticator.get_current_user(credentials)
 
+
 # Common permission dependencies
-async def require_doctor_access(user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+async def require_doctor_access(
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
     """Require doctor-level access"""
     if "read:medical_records" not in user.permissions:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Doctor-level access required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Doctor-level access required"
         )
     return user
 
-async def require_patient_data_access(user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+
+async def require_patient_data_access(
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
     """Require patient data access"""
     if "read:patient_data" not in user.permissions:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Patient data access required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Patient data access required"
         )
     return user

@@ -76,7 +76,9 @@ class TestPHIMaskingFixes(HealthcareTestCase):
         patient = self.get_sample_patient()
 
         # Test PHI detection with actual synthetic data patterns
-        patient_info = f"Patient {patient['first_name']} {patient['last_name']}, ID: {patient['patient_id']}"
+        patient_info = (
+            f"Patient {patient['first_name']} {patient['last_name']}, ID: {patient['patient_id']}"
+        )
 
         # Verify detector works with synthetic data
         # Should detect patient names as potential PHI (name patterns)
@@ -84,7 +86,9 @@ class TestPHIMaskingFixes(HealthcareTestCase):
 
         # Synthetic data should be detected as PHI-like patterns but marked as safe
         assert result is not None
-        print(f"✅ PHI detection tested with synthetic patient: {patient['first_name']} {patient['last_name']}")
+        print(
+            f"✅ PHI detection tested with synthetic patient: {patient['first_name']} {patient['last_name']}"
+        )
 
     def test_phi_detection_with_real_patterns(self) -> None:
         """Test PHI detection with realistic healthcare data patterns"""

@@ -2,6 +2,7 @@
 Healthcare Authentication Middleware
 Provides HIPAA-compliant authentication for healthcare APIs
 """
+
 import os
 
 import jwt
@@ -40,19 +41,23 @@ class HealthcareAuthMiddleware:
             HTTPException: If token is invalid or expired
         """
         if not self.jwt_secret:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Authentication not configured")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Authentication not configured",
+            )
 
         try:
             payload = jwt.decode(credentials.credentials, self.jwt_secret, algorithms=["HS256"])
             return {
                 "user_id": payload.get("user_id"),
                 "role": payload.get("role", "staff"),
-                "permissions": payload.get("permissions", [])
+                "permissions": payload.get("permissions", []),
             }
         except jwt.ExpiredSignatureError:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
         except jwt.InvalidTokenError:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
 
 # Add to main.py
 auth_middleware = HealthcareAuthMiddleware()

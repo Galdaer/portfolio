@@ -11,7 +11,7 @@ import secrets
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 # Optional dependencies - healthcare-compliant import pattern
 if TYPE_CHECKING:
@@ -23,37 +23,37 @@ if TYPE_CHECKING:
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
     from fastapi import HTTPException, Request
 else:
-    jwt: Optional[Any] = None
-    psycopg2: Optional[Any] = None
-    redis: Optional[Any] = None
-    Fernet: Optional[Any] = None
-    hashes: Optional[Any] = None
-    PBKDF2HMAC: Optional[Any] = None
-    HTTPException: Optional[Any] = None
-    Request: Optional[Any] = None
-    
+    jwt: Any | None = None
+    psycopg2: Any | None = None
+    redis: Any | None = None
+    Fernet: Any | None = None
+    hashes: Any | None = None
+    PBKDF2HMAC: Any | None = None
+    HTTPException: Any | None = None
+    Request: Any | None = None
+
     try:
         import jwt
     except ImportError:
         pass
-        
+
     try:
         import psycopg2
     except ImportError:
         pass
-        
+
     try:
         import redis
     except ImportError:
         pass
-        
+
     try:
         from cryptography.fernet import Fernet
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
     except ImportError:
         pass
-        
+
     try:
         from fastapi import HTTPException, Request
     except ImportError:
@@ -100,26 +100,34 @@ class EncryptionManager:
     """Handles encryption/decryption for healthcare data"""
 
     def __init__(self, encryption_key: bytes | None = None):
-        if Fernet is None:
+        self.fernet: Any | None = None
+
+        # Runtime check for cryptography availability
+        try:
+            if Fernet is not None:
+                if encryption_key:
+                    self.fernet = Fernet(
+                        base64.urlsafe_b64encode(encryption_key[:32].ljust(32, b"\0"))
+                    )
+                else:
+                    # Generate a key for development
+                    key = Fernet.generate_key()
+                    self.fernet = Fernet(key)
+            else:
+                raise ImportError("Cryptography library not available")
+        except Exception:
             logger.warning("Cryptography library not available - encryption disabled")
-            self.fernet = None
-            return
-            
-        if encryption_key:
-            self.fernet = Fernet(base64.urlsafe_b64encode(encryption_key[:32].ljust(32, b"\0")))
-        else:
-            # Generate a key for development
-            key = Fernet.generate_key()
-            self.fernet = Fernet(key)
 
     def encrypt_data(self, data: str) -> str:
         """Encrypt sensitive data"""
         if self.fernet is None:
-            logger.warning("Encryption not available - returning data unencrypted (DEVELOPMENT ONLY)")
+            logger.warning(
+                "Encryption not available - returning data unencrypted (DEVELOPMENT ONLY)"
+            )
             return data
         encrypted_bytes: bytes = self.fernet.encrypt(data.encode())
         # Ensure we return a string (Fernet.encrypt returns bytes)
-        return encrypted_bytes.decode('utf-8')
+        return encrypted_bytes.decode("utf-8")
 
     def decrypt_data(self, encrypted_data: str) -> str:
         """Decrypt sensitive data"""
@@ -128,7 +136,7 @@ class EncryptionManager:
             return encrypted_data
         decrypted_bytes: bytes = self.fernet.decrypt(encrypted_data.encode())
         # Ensure we return a string (Fernet.decrypt returns bytes)
-        return decrypted_bytes.decode('utf-8')
+        return decrypted_bytes.decode("utf-8")
 
     def hash_password(self, password: str, salt: str | None = None) -> tuple[str, str]:
         """
@@ -137,29 +145,35 @@ class EncryptionManager:
         Returns:
             tuple[str, str]: (hashed_password, salt) - Python 3.9+ syntax
         """
-        if PBKDF2HMAC is None or hashes is None:
-            logger.warning("Cryptography library not available - using basic hash (DEVELOPMENT ONLY)")
+        # Runtime check for cryptography availability
+        try:
+            if PBKDF2HMAC is not None and hashes is not None:
+                if salt is None:
+                    salt = secrets.token_hex(16)
+
+                # Use PBKDF2 with SHA256
+                kdf = PBKDF2HMAC(
+                    algorithm=hashes.SHA256(),
+                    length=32,
+                    salt=salt.encode(),
+                    iterations=100000,
+                )
+                key = kdf.derive(password.encode())
+                hashed = base64.urlsafe_b64encode(key).decode()
+                return hashed, salt
+            else:
+                raise ImportError("Cryptography library not available")
+        except Exception:
+            logger.warning(
+                "Cryptography library not available - using basic hash (DEVELOPMENT ONLY)"
+            )
             if salt is None:
                 salt = secrets.token_hex(16)
             # Use simple hash for development
             import hashlib
+
             hashed = hashlib.sha256((password + salt).encode()).hexdigest()
             return hashed, salt
-            
-        if salt is None:
-            salt = secrets.token_hex(16)
-
-        # Use PBKDF2 with SHA256
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt.encode(),
-            iterations=100000,
-        )
-        key = kdf.derive(password.encode())
-        hashed = base64.urlsafe_b64encode(key).decode()
-
-        return hashed, salt
 
     def verify_password(self, password: str, hashed: str, salt: str) -> bool:
         """Verify password against hash"""
@@ -173,7 +187,7 @@ class EncryptionManager:
 class SessionManager:
     """Manages user sessions with Redis"""
 
-    def __init__(self, config: SecurityConfig, redis_conn: redis.Redis):
+    def __init__(self, config: SecurityConfig, redis_conn: Any):
         self.config = config
         self.redis_conn = redis_conn
         self.logger = logging.getLogger(f"{__name__}.SessionManager")
@@ -251,9 +265,9 @@ class SessionManager:
 class RateLimiter:
     """Rate limiting for API endpoints"""
 
-    def __init__(self, config: SecurityConfig, redis_conn: redis.Redis):
+    def __init__(self, config: SecurityConfig, redis_conn: Any):
         self.config = config
-        self.redis_conn: redis.Redis = redis_conn  # Explicit type annotation
+        self.redis_conn: Any = redis_conn  # Type annotation for redis connection
         self.logger = logging.getLogger(f"{__name__}.RateLimiter")
 
     def check_rate_limit(self, identifier: str, endpoint: str) -> bool:
@@ -310,7 +324,7 @@ class HealthcareSecurityMiddleware:
         # Check dependencies availability
         self.postgres_available = psycopg2 is not None and postgres_conn is not None
         self.redis_available = redis is not None and redis_conn is not None
-        
+
         if not self.postgres_available:
             logger.warning("PostgreSQL not available - some security features disabled")
         if not self.redis_available:

@@ -65,9 +65,9 @@ class ExampleMigratedTest(HealthcareTestCase, unittest.TestCase):
         patient = self.get_sample_patient()
 
         # Test validation logic (same business logic, different data source)
-        self.assertIsNotNone(patient['patient_id'])
-        self.assertIsNotNone(patient['first_name'])
-        self.assertIsNotNone(patient['last_name'])
+        self.assertIsNotNone(patient["patient_id"])
+        self.assertIsNotNone(patient["first_name"])
+        self.assertIsNotNone(patient["last_name"])
 
         # Verify it's marked as synthetic
         # The database ensures all test data is marked as synthetic=true
@@ -103,11 +103,11 @@ class ExampleMigratedTest(HealthcareTestCase, unittest.TestCase):
         encounter = self.get_sample_encounter()
 
         # Test the same business logic with real synthetic data
-        self.assertIsNotNone(patient['patient_id'])
-        self.assertIsNotNone(doctor['doctor_id'])
+        self.assertIsNotNone(patient["patient_id"])
+        self.assertIsNotNone(doctor["doctor_id"])
 
         if encounter:
-            self.assertIsNotNone(encounter['encounter_id'])
+            self.assertIsNotNone(encounter["encounter_id"])
             print(f"✅ Testing medical encounter: {encounter['chief_complaint']}")
 
         # Test processing logic (business logic unchanged)
@@ -121,17 +121,18 @@ class ExampleMigratedTest(HealthcareTestCase, unittest.TestCase):
         # Get synthetic lab results from database
         patient = self.get_sample_patient()
         lab_results = self.synthetic_data.get_test_lab_results(
-            patient_id=patient['patient_id'],
-            limit=3
+            patient_id=patient["patient_id"], limit=3
         )
 
         if lab_results:
             for lab_result in lab_results:
-                self.assertIsNotNone(lab_result['lab_id'])
-                self.assertIsNotNone(lab_result['test_name'])
-                self.assertIsNotNone(lab_result['test_value'])
+                self.assertIsNotNone(lab_result["lab_id"])
+                self.assertIsNotNone(lab_result["test_name"])
+                self.assertIsNotNone(lab_result["test_value"])
 
-                print(f"✅ Testing lab result: {lab_result['test_name']} = {lab_result['test_value']}")
+                print(
+                    f"✅ Testing lab result: {lab_result['test_name']} = {lab_result['test_value']}"
+                )
 
     def _process_medical_encounter(self, patient, doctor, encounter):
         """
@@ -139,10 +140,10 @@ class ExampleMigratedTest(HealthcareTestCase, unittest.TestCase):
         This stays the same - only the data source changes.
         """
         return {
-            'patient_id': patient['patient_id'],
-            'doctor_id': doctor['doctor_id'],
-            'encounter_id': encounter['encounter_id'] if encounter else None,
-            'processed': True
+            "patient_id": patient["patient_id"],
+            "doctor_id": doctor["doctor_id"],
+            "encounter_id": encounter["encounter_id"] if encounter else None,
+            "processed": True,
         }
 
 
@@ -159,7 +160,7 @@ class QuickTestDataExample(unittest.TestCase):
 
         self.assertGreater(len(patients), 0)
         for patient in patients:
-            self.assertIsNotNone(patient['patient_id'])
+            self.assertIsNotNone(patient["patient_id"])
             print(f"✅ Quick test with patient: {patient['first_name']}")
 
     def test_complete_medical_scenario(self):
@@ -168,17 +169,19 @@ class QuickTestDataExample(unittest.TestCase):
         # Get a complete test scenario (patient + doctor + encounter)
         scenario = get_test_medical_scenario()
 
-        self.assertIsNotNone(scenario['patient'])
-        self.assertIsNotNone(scenario['doctor'])
-        self.assertTrue(scenario['synthetic'])  # Always marked as synthetic
+        self.assertIsNotNone(scenario["patient"])
+        self.assertIsNotNone(scenario["doctor"])
+        self.assertTrue(scenario["synthetic"])  # Always marked as synthetic
 
         print("✅ Complete scenario test:")
         print(f"   Patient: {scenario['patient']['first_name']} {scenario['patient']['last_name']}")
         print(f"   Doctor: {scenario['doctor']['first_name']} {scenario['doctor']['last_name']}")
 
 
-if __name__ == '__main__':
-    print("🏥 Running example test migration from hardcoded PHI to database-backed synthetic data...")
+if __name__ == "__main__":
+    print(
+        "🏥 Running example test migration from hardcoded PHI to database-backed synthetic data..."
+    )
     print()
 
     # Run the tests

@@ -18,23 +18,28 @@ from core.infrastructure.authentication import AuthenticatedUser, HealthcareRole
 
 logger = logging.getLogger(__name__)
 
+
 class RateLimitType(str, Enum):
     """Types of rate limiting for healthcare operations"""
-    API_GENERAL = "api_general"           # General API calls
-    MEDICAL_QUERY = "medical_query"       # Medical literature/research queries
-    PATIENT_ACCESS = "patient_access"     # Patient data access
-    DOCUMENT_UPLOAD = "document_upload"   # Document processing
-    EMERGENCY = "emergency"               # Emergency/urgent requests
-    BULK_OPERATION = "bulk_operation"     # Bulk data operations
+
+    API_GENERAL = "api_general"  # General API calls
+    MEDICAL_QUERY = "medical_query"  # Medical literature/research queries
+    PATIENT_ACCESS = "patient_access"  # Patient data access
+    DOCUMENT_UPLOAD = "document_upload"  # Document processing
+    EMERGENCY = "emergency"  # Emergency/urgent requests
+    BULK_OPERATION = "bulk_operation"  # Bulk data operations
+
 
 @dataclass
 class RateLimitConfig:
     """Rate limit configuration for healthcare operations"""
+
     requests_per_minute: int
     requests_per_hour: int
     burst_allowance: int
     emergency_bypass: bool = False
     description: str = ""
+
 
 # Healthcare role-based rate limits
 HEALTHCARE_RATE_LIMITS: dict[HealthcareRole, dict[RateLimitType, RateLimitConfig]] = {
@@ -43,120 +48,118 @@ HEALTHCARE_RATE_LIMITS: dict[HealthcareRole, dict[RateLimitType, RateLimitConfig
             requests_per_minute=120,
             requests_per_hour=3600,
             burst_allowance=20,
-            description="High limits for doctors during patient care"
+            description="High limits for doctors during patient care",
         ),
         RateLimitType.MEDICAL_QUERY: RateLimitConfig(
             requests_per_minute=60,
             requests_per_hour=1800,
             burst_allowance=15,
-            description="Medical literature and research queries"
+            description="Medical literature and research queries",
         ),
         RateLimitType.PATIENT_ACCESS: RateLimitConfig(
             requests_per_minute=180,
             requests_per_hour=5400,
             burst_allowance=30,
-            description="Patient data access during clinical care"
+            description="Patient data access during clinical care",
         ),
         RateLimitType.EMERGENCY: RateLimitConfig(
             requests_per_minute=300,
             requests_per_hour=7200,
             burst_allowance=50,
             emergency_bypass=True,
-            description="Emergency medical situations"
-        )
+            description="Emergency medical situations",
+        ),
     },
-
     HealthcareRole.NURSE: {
         RateLimitType.API_GENERAL: RateLimitConfig(
             requests_per_minute=90,
             requests_per_hour=2700,
             burst_allowance=15,
-            description="Nurse workflow support"
+            description="Nurse workflow support",
         ),
         RateLimitType.MEDICAL_QUERY: RateLimitConfig(
             requests_per_minute=30,
             requests_per_hour=900,
             burst_allowance=10,
-            description="Medical reference lookups"
+            description="Medical reference lookups",
         ),
         RateLimitType.PATIENT_ACCESS: RateLimitConfig(
             requests_per_minute=120,
             requests_per_hour=3600,
             burst_allowance=20,
-            description="Patient care data access"
-        )
+            description="Patient care data access",
+        ),
     },
-
     HealthcareRole.RECEPTIONIST: {
         RateLimitType.API_GENERAL: RateLimitConfig(
             requests_per_minute=60,
             requests_per_hour=1800,
             burst_allowance=10,
-            description="Administrative operations"
+            description="Administrative operations",
         ),
         RateLimitType.PATIENT_ACCESS: RateLimitConfig(
             requests_per_minute=90,
             requests_per_hour=2700,
             burst_allowance=15,
-            description="Patient scheduling and demographics"
-        )
+            description="Patient scheduling and demographics",
+        ),
     },
-
     HealthcareRole.BILLING: {
         RateLimitType.API_GENERAL: RateLimitConfig(
             requests_per_minute=45,
             requests_per_hour=1350,
             burst_allowance=8,
-            description="Billing operations"
+            description="Billing operations",
         ),
         RateLimitType.BULK_OPERATION: RateLimitConfig(
             requests_per_minute=20,
             requests_per_hour=600,
             burst_allowance=5,
-            description="Bulk billing data processing"
-        )
+            description="Bulk billing data processing",
+        ),
     },
-
     HealthcareRole.RESEARCH: {
         RateLimitType.API_GENERAL: RateLimitConfig(
             requests_per_minute=30,
             requests_per_hour=900,
             burst_allowance=5,
-            description="Research data access"
+            description="Research data access",
         ),
         RateLimitType.MEDICAL_QUERY: RateLimitConfig(
             requests_per_minute=45,
             requests_per_hour=1350,
             burst_allowance=10,
-            description="Research literature queries"
-        )
+            description="Research literature queries",
+        ),
     },
-
     HealthcareRole.ADMIN: {
         RateLimitType.API_GENERAL: RateLimitConfig(
             requests_per_minute=200,
             requests_per_hour=6000,
             burst_allowance=40,
-            description="Administrative system access"
+            description="Administrative system access",
         ),
         RateLimitType.BULK_OPERATION: RateLimitConfig(
             requests_per_minute=100,
             requests_per_hour=3000,
             burst_allowance=20,
-            description="System administration operations"
-        )
-    }
+            description="System administration operations",
+        ),
+    },
 }
+
 
 @dataclass
 class RateLimitStatus:
     """Current rate limit status for a user"""
+
     allowed: bool
     requests_remaining: int
     reset_time: datetime
     retry_after_seconds: int | None = None
     limit_type: RateLimitType | None = None
     user_role: HealthcareRole | None = None
+
 
 class HealthcareRateLimiter:
     """Healthcare-focused rate limiter with role-based limits and emergency bypass"""
@@ -171,7 +174,7 @@ class HealthcareRateLimiter:
         user: AuthenticatedUser,
         limit_type: RateLimitType,
         request_id: str | None = None,
-        is_emergency: bool = False
+        is_emergency: bool = False,
     ) -> RateLimitStatus:
         """
         Check if request is within rate limits
@@ -193,7 +196,7 @@ class HealthcareRateLimiter:
                 requests_per_minute=30,
                 requests_per_hour=900,
                 burst_allowance=5,
-                description="Default healthcare rate limit"
+                description="Default healthcare rate limit",
             )
 
         # Emergency bypass check
@@ -209,7 +212,7 @@ class HealthcareRateLimiter:
                 requests_remaining=999,  # Effectively unlimited during emergency
                 reset_time=datetime.now() + timedelta(minutes=1),
                 limit_type=limit_type,
-                user_role=user.role
+                user_role=user.role,
             )
 
         # Check sliding window rate limits
@@ -247,7 +250,7 @@ class HealthcareRateLimiter:
                 requests_remaining=100,
                 reset_time=datetime.now() + timedelta(minutes=1),
                 limit_type=limit_type,
-                user_role=user.role
+                user_role=user.role,
             )
 
     async def _check_redis_rate_limit(
@@ -257,7 +260,7 @@ class HealthcareRateLimiter:
         limit_type: RateLimitType,
         minute_key: str,
         hour_key: str,
-        current_time: float
+        current_time: float,
     ) -> RateLimitStatus:
         """Check rate limits using Redis sliding window"""
 
@@ -289,7 +292,7 @@ class HealthcareRateLimiter:
                 reset_time=datetime.fromtimestamp(current_time + retry_after),
                 retry_after_seconds=int(retry_after),
                 limit_type=limit_type,
-                user_role=user.role
+                user_role=user.role,
             )
 
         # Increment counters
@@ -304,11 +307,11 @@ class HealthcareRateLimiter:
             allowed=True,
             requests_remaining=min(
                 config.requests_per_minute - minute_count - 1,
-                config.requests_per_hour - hour_count - 1
+                config.requests_per_hour - hour_count - 1,
             ),
             reset_time=datetime.fromtimestamp(current_time + 60),
             limit_type=limit_type,
-            user_role=user.role
+            user_role=user.role,
         )
 
     async def _check_memory_rate_limit(
@@ -316,7 +319,7 @@ class HealthcareRateLimiter:
         user: AuthenticatedUser,
         config: RateLimitConfig,
         limit_type: RateLimitType,
-        current_time: float
+        current_time: float,
     ) -> RateLimitStatus:
         """Fallback in-memory rate limiting"""
         # Simple implementation - in production, Redis should be preferred
@@ -325,14 +328,11 @@ class HealthcareRateLimiter:
             requests_remaining=config.requests_per_minute,
             reset_time=datetime.fromtimestamp(current_time + 60),
             limit_type=limit_type,
-            user_role=user.role
+            user_role=user.role,
         )
 
     async def activate_emergency_bypass(
-        self,
-        user: AuthenticatedUser,
-        duration_minutes: int = 30,
-        reason: str = "Medical emergency"
+        self, user: AuthenticatedUser, duration_minutes: int = 30, reason: str = "Medical emergency"
     ) -> bool:
         """
         Activate emergency bypass for healthcare user
@@ -340,12 +340,12 @@ class HealthcareRateLimiter:
         Temporarily removes rate limits for emergency medical situations
         """
         if user.role not in [HealthcareRole.DOCTOR, HealthcareRole.NURSE, HealthcareRole.ADMIN]:
-            logger.warning(
-                f"Emergency bypass denied - insufficient role: {user.role.value}"
-            )
+            logger.warning(f"Emergency bypass denied - insufficient role: {user.role.value}")
             return False
 
-        self.emergency_bypass_active[user.user_id] = datetime.now() + timedelta(minutes=duration_minutes)
+        self.emergency_bypass_active[user.user_id] = datetime.now() + timedelta(
+            minutes=duration_minutes
+        )
 
         logger.info(
             f"Emergency bypass activated - User: {user.user_id}, "
@@ -360,7 +360,7 @@ class HealthcareRateLimiter:
             "X-RateLimit-Limit": str(status.requests_remaining + 1),
             "X-RateLimit-Remaining": str(status.requests_remaining),
             "X-RateLimit-Reset": str(int(status.reset_time.timestamp())),
-            "X-Healthcare-Role": status.user_role.value if status.user_role else "unknown"
+            "X-Healthcare-Role": status.user_role.value if status.user_role else "unknown",
         }
 
         if status.retry_after_seconds:
@@ -371,8 +371,10 @@ class HealthcareRateLimiter:
 
         return headers
 
+
 # Global healthcare rate limiter instance
 healthcare_rate_limiter: HealthcareRateLimiter | None = None
+
 
 def get_healthcare_rate_limiter() -> HealthcareRateLimiter:
     """Get global healthcare rate limiter instance"""
@@ -381,12 +383,13 @@ def get_healthcare_rate_limiter() -> HealthcareRateLimiter:
         healthcare_rate_limiter = HealthcareRateLimiter()
     return healthcare_rate_limiter
 
+
 # Rate limiting middleware
 async def apply_healthcare_rate_limit(
     request: Request,
     user: AuthenticatedUser,
     limit_type: RateLimitType = RateLimitType.API_GENERAL,
-    is_emergency: bool = False
+    is_emergency: bool = False,
 ) -> Response | None:
     """
     Apply healthcare rate limiting to request
@@ -399,7 +402,7 @@ async def apply_healthcare_rate_limit(
         user=user,
         limit_type=limit_type,
         request_id=request.headers.get("X-Request-ID"),
-        is_emergency=is_emergency
+        is_emergency=is_emergency,
     )
 
     if not status.allowed:
@@ -412,11 +415,10 @@ async def apply_healthcare_rate_limit(
                 "message": f"Too many {limit_type.value} requests",
                 "retry_after_seconds": status.retry_after_seconds,
                 "healthcare_role": status.user_role.value if status.user_role else None,
-                "emergency_bypass_available": user.role in [
-                    HealthcareRole.DOCTOR, HealthcareRole.NURSE, HealthcareRole.ADMIN
-                ]
+                "emergency_bypass_available": user.role
+                in [HealthcareRole.DOCTOR, HealthcareRole.NURSE, HealthcareRole.ADMIN],
             },
-            headers=headers
+            headers=headers,
         )
 
     return None  # Request allowed

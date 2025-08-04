@@ -23,9 +23,9 @@ from tests.healthcare_integration_tests import (
 
 # Configure test logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
+
 
 @pytest.fixture(scope="session")
 def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
@@ -33,6 +33,7 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
 
 @pytest.fixture(scope="session")
 async def healthcare_app() -> FastAPI:
@@ -44,10 +45,12 @@ async def healthcare_app() -> FastAPI:
 
     return app
 
+
 @pytest.fixture(scope="session")
 async def test_client(healthcare_app: FastAPI) -> TestClient:
     """Create test client for healthcare app"""
     return TestClient(healthcare_app)
+
 
 @pytest.fixture(scope="function")
 async def integration_test_base(healthcare_app: FastAPI) -> HealthcareIntegrationTestBase:
@@ -59,20 +62,26 @@ async def integration_test_base(healthcare_app: FastAPI) -> HealthcareIntegratio
 
     await base.teardown_test_environment()
 
+
 @pytest.fixture(scope="function")
-async def workflow_tester(integration_test_base: HealthcareIntegrationTestBase) -> HealthcareWorkflowTester:
+async def workflow_tester(
+    integration_test_base: HealthcareIntegrationTestBase,
+) -> HealthcareWorkflowTester:
     """Create healthcare workflow tester"""
     return HealthcareWorkflowTester(integration_test_base)
+
 
 @pytest.fixture(scope="function")
 def mock_healthcare_mcp() -> MockHealthcareMCP:
     """Create mock healthcare MCP server"""
     return MockHealthcareMCP()
 
+
 @pytest.fixture(scope="function")
 def mock_healthcare_llm() -> MockHealthcareLLM:
     """Create mock healthcare LLM"""
     return MockHealthcareLLM()
+
 
 @pytest.fixture(scope="function")
 def test_doctor() -> AuthenticatedUser:
@@ -82,8 +91,9 @@ def test_doctor() -> AuthenticatedUser:
         role=HealthcareRole.DOCTOR,
         facility_id="test_facility_001",
         department="internal_medicine",
-        permissions=["read:patient_data", "write:patient_data", "read:medical_records"]
+        permissions=["read:patient_data", "write:patient_data", "read:medical_records"],
     )
+
 
 @pytest.fixture(scope="function")
 def test_nurse() -> AuthenticatedUser:
@@ -93,8 +103,9 @@ def test_nurse() -> AuthenticatedUser:
         role=HealthcareRole.NURSE,
         facility_id="test_facility_001",
         department="general_care",
-        permissions=["read:patient_data", "write:patient_vitals"]
+        permissions=["read:patient_data", "write:patient_vitals"],
     )
+
 
 @pytest.fixture(scope="function")
 def test_receptionist() -> AuthenticatedUser:
@@ -104,8 +115,9 @@ def test_receptionist() -> AuthenticatedUser:
         role=HealthcareRole.RECEPTIONIST,
         facility_id="test_facility_001",
         department="front_desk",
-        permissions=["read:patient_demographics", "write:appointments"]
+        permissions=["read:patient_demographics", "write:appointments"],
     )
+
 
 @pytest.fixture(scope="function")
 def synthetic_patient_data() -> dict[str, Any]:
@@ -122,26 +134,19 @@ def synthetic_patient_data() -> dict[str, Any]:
             "street": "456 Healthcare Ave",
             "city": "Medical City",
             "state": "MC",
-            "zip_code": "54321"
+            "zip_code": "54321",
         },
         "insurance": {
             "provider": "HealthFirst Insurance",
             "policy_number": "HF987654321",
-            "group_number": "GRP100"
+            "group_number": "GRP100",
         },
         "medical_history": [
-            {
-                "condition": "Hypertension",
-                "diagnosed_date": "2020-01-15",
-                "status": "active"
-            },
-            {
-                "condition": "Type 2 Diabetes",
-                "diagnosed_date": "2018-06-10",
-                "status": "managed"
-            }
-        ]
+            {"condition": "Hypertension", "diagnosed_date": "2020-01-15", "status": "active"},
+            {"condition": "Type 2 Diabetes", "diagnosed_date": "2018-06-10", "status": "managed"},
+        ],
     }
+
 
 @pytest.fixture(scope="function")
 def synthetic_encounter_data() -> dict[str, Any]:
@@ -161,27 +166,27 @@ def synthetic_encounter_data() -> dict[str, Any]:
             "temperature": 98.2,
             "weight": 165,
             "height": 66,
-            "bmi": 26.6
+            "bmi": 26.6,
         },
         "review_of_systems": {
             "constitutional": "No fever, chills, or night sweats",
             "cardiovascular": "No chest pain or palpitations",
-            "endocrine": "Reports compliance with diabetes medications"
+            "endocrine": "Reports compliance with diabetes medications",
         },
         "physical_exam": {
             "general": "Well-appearing adult in no acute distress",
             "cardiovascular": "Regular rate and rhythm, no murmurs",
-            "extremities": "No edema noted"
+            "extremities": "No edema noted",
         },
         "assessment_and_plan": {
             "diabetes_type_2": {
                 "assessment": "Well-controlled on current regimen",
-                "plan": "Continue metformin, recheck HbA1c in 3 months"
+                "plan": "Continue metformin, recheck HbA1c in 3 months",
             },
             "hypertension": {
                 "assessment": "Slightly elevated, may need adjustment",
-                "plan": "Increase lisinopril to 15mg daily"
-            }
+                "plan": "Increase lisinopril to 15mg daily",
+            },
         },
         "prescriptions": [
             {
@@ -189,17 +194,18 @@ def synthetic_encounter_data() -> dict[str, Any]:
                 "dosage": "1000mg",
                 "frequency": "twice daily",
                 "duration": "90 days",
-                "refills": 2
+                "refills": 2,
             },
             {
                 "medication": "Lisinopril",
                 "dosage": "15mg",
                 "frequency": "daily",
                 "duration": "90 days",
-                "refills": 2
-            }
-        ]
+                "refills": 2,
+            },
+        ],
     }
+
 
 @pytest.fixture(scope="function")
 def test_medical_document() -> str:
@@ -252,12 +258,14 @@ def test_medical_document() -> str:
     Emergency Medicine
     """
 
+
 # Test markers for different test categories
 pytest.mark.integration = pytest.mark.integration
 pytest.mark.unit = pytest.mark.unit
 pytest.mark.performance = pytest.mark.performance
 pytest.mark.security = pytest.mark.security
 pytest.mark.compliance = pytest.mark.compliance
+
 
 # Healthcare-specific test utilities
 class HealthcareTestUtilities:
@@ -270,11 +278,16 @@ class HealthcareTestUtilities:
 
         # Check for common PHI patterns
         phi_patterns = [
-            "ssn", "social security",
-            "date of birth", "dob",
-            "phone", "email",
-            "address", "street",
-            "mrn", "medical record number"
+            "ssn",
+            "social security",
+            "date of birth",
+            "dob",
+            "phone",
+            "email",
+            "address",
+            "street",
+            "mrn",
+            "medical record number",
         ]
 
         for pattern in phi_patterns:
@@ -288,7 +301,7 @@ class HealthcareTestUtilities:
         disclaimer_phrases = [
             "not medical advice",
             "administrative support only",
-            "consult healthcare professional"
+            "consult healthcare professional",
         ]
 
         has_disclaimer = any(phrase in response_str for phrase in disclaimer_phrases)

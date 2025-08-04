@@ -510,12 +510,14 @@ async def test_phase1_agent() -> None:
     # Get database-backed synthetic medical scenario
     try:
         scenario = get_test_medical_scenario()
-        patient = scenario['patient']
-        doctor = scenario['doctor']
-        encounter = scenario['encounter']
+        patient = scenario["patient"]
+        doctor = scenario["doctor"]
+        encounter = scenario["encounter"]
 
         print("✅ Using synthetic data from database:")
-        print(f"   Patient: {patient['first_name']} {patient['last_name']} (ID: {patient['patient_id']})")
+        print(
+            f"   Patient: {patient['first_name']} {patient['last_name']} (ID: {patient['patient_id']})"
+        )
         print(f"   Doctor: {doctor['first_name']} {doctor['last_name']} ({doctor['specialty']})")
         if encounter:
             print(f"   Encounter: {encounter['chief_complaint']}")
@@ -527,14 +529,14 @@ async def test_phase1_agent() -> None:
 
         # Fallback synthetic data (clearly marked as synthetic)
         patient = {
-            'patient_id': 'PAT001',
-            'first_name': 'Synthetic',
-            'last_name': 'Patient',
-            'insurance_provider': 'Test Insurance Co',
-            'phone_number': '000-000-0000'  # Obviously fake
+            "patient_id": "PAT001",
+            "first_name": "Synthetic",
+            "last_name": "Patient",
+            "insurance_provider": "Test Insurance Co",
+            "phone_number": "000-000-0000",  # Obviously fake
         }
-        doctor = {'first_name': 'Dr.', 'last_name': 'Provider', 'specialty': 'General Medicine'}
-        encounter = {'chief_complaint': 'Routine synthetic visit'}
+        doctor = {"first_name": "Dr.", "last_name": "Provider", "specialty": "General Medicine"}
+        encounter = {"chief_complaint": "Routine synthetic visit"}
 
     # Generate test cases using database-backed synthetic data (no hardcoded PHI)
     test_cases = [
@@ -545,7 +547,7 @@ async def test_phase1_agent() -> None:
                 f"Insurance: {patient.get('insurance_provider', 'Synthetic Insurance')}",
                 f"Phone: {patient.get('phone_number', '000-000-0000')[:3]}****",  # Masked for display
                 "Appointment: Routine follow-up scheduled for today",
-                "Data Source: Database-backed synthetic healthcare data"
+                "Data Source: Database-backed synthetic healthcare data",
             ],
         },
         {
@@ -555,7 +557,7 @@ async def test_phase1_agent() -> None:
                 "Assessment: Documented for synthetic testing purposes",
                 "Plan: Administrative documentation exercise",
                 "Visit Type: Synthetic test scenario",
-                "Data Source: Database-backed synthetic healthcare data"
+                "Data Source: Database-backed synthetic healthcare data",
             ],
         },
         {
@@ -564,7 +566,7 @@ async def test_phase1_agent() -> None:
                 "HIPAA Privacy Rule: PHI protection required",
                 "Alternative identifiers: DOB, address, phone number",
                 "SSN disclosure: Restricted to authorized personnel only",
-                "Test Context: Runtime PHI protection validation"
+                "Test Context: Runtime PHI protection validation",
             ],
         },
         {
@@ -573,7 +575,7 @@ async def test_phase1_agent() -> None:
                 "AI Limitations: Administrative support only, no medical advice",
                 "Clinical Decision Support: Refer to qualified healthcare providers",
                 "Medication Safety: Prescribing requires licensed clinician",
-                "Test Context: Medical safety boundary validation"
+                "Test Context: Medical safety boundary validation",
             ],
         },
     ]

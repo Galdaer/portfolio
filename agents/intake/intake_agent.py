@@ -190,7 +190,10 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         if not validation_errors:
             # Simulate appointment creation
             appointment_id = await self._create_appointment_request(
-                patient_id or "unknown", provider_preference, preferred_times, appointment_type or "general"
+                patient_id or "unknown",
+                provider_preference,
+                preferred_times,
+                appointment_type or "general",
             )
             next_steps = [
                 "Appointment request submitted to scheduling team",
@@ -265,7 +268,9 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
                     "Check policy status and active dates",
                     "Provide updated insurance information",
                 ]
-                administrative_notes.append("Insurance verification failed - please update information")
+                administrative_notes.append(
+                    "Insurance verification failed - please update information"
+                )
         else:
             next_steps = ["Complete missing insurance information", "Resubmit verification request"]
 
