@@ -80,6 +80,75 @@ def debug_soap_note_processing(soap_data: Dict[str, Any]):
 ### Healthcare Integration Debugging
 
 ```python
+# ✅ CORRECT: Healthcare system debugging with comprehensive logging
+from core.infrastructure.healthcare_logger import setup_healthcare_logging
+from core.infrastructure.phi_monitor import PHIMonitor
+import logging
+
+def debug_healthcare_agent_issue(agent_name: str, error_context: Dict[str, Any]):
+    """Debug healthcare agent issues with comprehensive logging integration."""
+    
+    # Ensure healthcare logging is initialized
+    setup_healthcare_logging()
+    logger = logging.getLogger(f'healthcare.debug.{agent_name}')
+    
+    # Log debug session start
+    logger.info(f"Starting debug session for {agent_name}", extra={
+        'healthcare_context': {
+            'debug_session': True,
+            'agent': agent_name,
+            'error_context_keys': list(error_context.keys())
+        }
+    })
+    
+    # PHI safety check on debug data
+    if PHIMonitor.scan_for_phi(error_context):
+        PHIMonitor.log_phi_detection(
+            context=f"debug_session_{agent_name}",
+            data_summary="Debug context contains potential PHI - scrubbing for safety"
+        )
+        # Scrub PHI before debugging
+        scrubbed_context = {k: "[PHI_REDACTED]" if PHIMonitor.scan_for_phi(v) else v 
+                          for k, v in error_context.items()}
+        logger.info(f"Debug data scrubbed for PHI safety: {agent_name}")
+        return scrubbed_context
+    
+    return error_context
+
+# ✅ CORRECT: Healthcare error debugging with logging integration
+def debug_medical_workflow_error(workflow_step: str, error: Exception, context: Dict[str, Any]):
+    """Debug medical workflow errors with healthcare compliance logging."""
+    
+    logger = logging.getLogger('healthcare.debug.workflow')
+    
+    # Log workflow error with healthcare context
+    logger.log(35, f"Medical workflow error in {workflow_step}", extra={
+        'healthcare_context': {
+            'workflow_step': workflow_step,
+            'error_type': type(error).__name__,
+            'error_message': str(error)[:200],  # Truncated for safety
+            'medical_workflow': True,
+            'requires_clinical_review': True
+        }
+    })
+    
+    # Additional debugging based on workflow step
+    if workflow_step == 'patient_intake':
+        logger.info("Debugging patient intake workflow", extra={
+            'healthcare_context': {
+                'intake_fields_present': list(context.keys()),
+                'phi_detected': PHIMonitor.scan_for_phi(context)
+            }
+        })
+    
+    return {
+        'error_logged': True,
+        'healthcare_compliant': True,
+        'debug_context': 'available_in_logs'
+    }
+```
+
+```python
 # ✅ CORRECT: Debug EHR integration safely
 def debug_ehr_integration(ehr_response: Dict[str, Any], transaction_id: str):
     """Debug EHR integration without exposing patient data."""

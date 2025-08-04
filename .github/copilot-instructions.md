@@ -20,7 +20,8 @@ Use The Sequential Thinking MCP Server to think through your tasks.
 - **🔒 Security reviews** → Use `tasks/security-review.instructions.md` for PHI protection and HIPAA compliance
 - **🐍 Python development** → Use `languages/python.instructions.md` for modern Python patterns with Ruff/MyPy
 - **🏥 Healthcare domain work** → Use `domains/healthcare.instructions.md` for medical data and compliance
-- **🔌 MCP development** → Use `mcp-development.instructions.md` for RAG-powered development with available MCP servers
+- **� Healthcare logging** → Use `tasks/healthcare-logging.instructions.md` for comprehensive PHI-safe logging and monitoring implementation
+- **�🔌 MCP development** → Use `mcp-development.instructions.md` for RAG-powered development with available MCP servers
 - **🐚 Shell script refactoring** → Use `tasks/shell-refactoring.instructions.md` for function complexity and single responsibility patterns
 
 **For general architecture, service deployment, and project strategy questions**, continue using these main instructions.

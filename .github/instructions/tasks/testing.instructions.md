@@ -6,7 +6,150 @@ Comprehensive testing guidance for healthcare AI systems emphasizing PHI-safe te
 
 ## Healthcare Testing Framework
 
-### Database-Backed Testing (NEW APPROACH)
+### Healthcare Logging Testing Integration
+
+**NEW REQUIREMENT**: All healthcare tests must verify logging behavior and PHI safety.
+
+```python
+# ✅ CORRECT: Healthcare testing with logging verification
+import pytest
+import logging
+from unittest.mock import patch, MagicMock
+from core.infrastructure.healthcare_logger import setup_healthcare_logging
+from core.infrastructure.phi_monitor import PHIMonitor
+
+class HealthcareLoggingTestCase:
+    """Base test case for healthcare components with logging verification."""
+    
+    @pytest.fixture(autouse=True)
+    def setup_healthcare_logging_test(self, caplog):
+        """Setup healthcare logging for testing with capture."""
+        setup_healthcare_logging()
+        self.caplog = caplog
+        self.healthcare_logger = logging.getLogger('healthcare')
+        
+        # Ensure we capture healthcare logs
+        caplog.set_level(logging.INFO, logger='healthcare')
+        
+    def assert_phi_not_in_logs(self):
+        """Verify no PHI appears in captured logs."""
+        for record in self.caplog.records:
+            if hasattr(record, 'healthcare_context'):
+                # PHI should never appear in healthcare logs
+                assert not PHIMonitor.scan_for_phi(record.getMessage()), \
+                    f"PHI detected in log: {record.getMessage()[:100]}"
+    
+    def assert_healthcare_context_logged(self, operation_type: str):
+        """Verify healthcare context is properly logged."""
+        healthcare_logs = [r for r in self.caplog.records if r.name.startswith('healthcare')]
+        
+        context_found = False
+        for record in healthcare_logs:
+            if hasattr(record, 'healthcare_context'):
+                if record.healthcare_context.get('operation_type') == operation_type:
+                    context_found = True
+                    break
+        
+        assert context_found, f"Healthcare context not found for operation: {operation_type}"
+
+# ✅ CORRECT: Example healthcare agent test with logging verification
+class TestIntakeAgentWithLogging(HealthcareLoggingTestCase):
+    """Test intake agent with comprehensive logging verification."""
+    
+    def test_patient_intake_logging(self, caplog):
+        """Test that patient intake generates proper healthcare logs."""
+        from agents.intake.intake_agent import IntakeAgent
+        
+        # Setup
+        agent = IntakeAgent()
+        test_patient_data = {
+            'patient_id': 'TEST_PATIENT_001',
+            'appointment_time': '2025-08-04T10:00:00',
+            'insurance_info': {'provider': 'Test Insurance'}
+        }
+        
+        # Execute
+        with caplog.at_level(logging.INFO, logger='healthcare'):
+            result = agent.process_patient_checkin(test_patient_data)
+        
+        # Verify logging behavior
+        self.assert_healthcare_context_logged('patient_intake')
+        self.assert_phi_not_in_logs()
+        
+        # Verify specific log entries
+        intake_logs = [r for r in caplog.records if 'patient_intake' in r.getMessage()]
+        assert len(intake_logs) >= 2, "Should have entry and exit logs"
+        
+        # Verify healthcare context structure
+        context_logs = [r for r in caplog.records if hasattr(r, 'healthcare_context')]
+        assert any(log.healthcare_context.get('agent') == 'intake' for log in context_logs)
+
+# ✅ CORRECT: PHI monitoring testing
+class TestPHIMonitoring(HealthcareLoggingTestCase):
+    """Test PHI detection and monitoring systems."""
+    
+    def test_phi_detection_accuracy(self):
+        """Test PHI detection with various data patterns."""
+        test_cases = [
+            # Should detect PHI
+            ("Patient SSN: 123-45-6789", True),
+            ("Call patient at 555-123-4567", True), 
+            ("patient_id: ABC123456", True),
+            ("Insurance ID: XY987654321", True),
+            
+            # Should NOT detect PHI (safe data)
+            ("Scheduled appointment for 10:00 AM", False),
+            ("SOAP note template ready", False),
+            ("System status: healthy", False),
+        ]
+        
+        for test_data, should_detect_phi in test_cases:
+            detected = PHIMonitor.scan_for_phi(test_data)
+            assert detected == should_detect_phi, \
+                f"PHI detection failed for: {test_data[:30]}..."
+                
+    def test_phi_detection_logging(self, caplog):
+        """Test that PHI detection generates appropriate log alerts."""
+        phi_data = "Patient SSN: 123-45-6789"
+        
+        with caplog.at_level(logging.INFO, logger='healthcare'):
+            PHIMonitor.log_phi_detection("test_context", phi_data)
+        
+        # Verify PHI alert was logged
+        phi_alerts = [r for r in caplog.records if r.levelname == 'PHI_ALERT']
+        assert len(phi_alerts) >= 1, "PHI detection should generate PHI_ALERT log"
+        
+        # Verify PHI was scrubbed from logs
+        self.assert_phi_not_in_logs()
+
+# ✅ CORRECT: Performance testing for healthcare logging
+def test_healthcare_logging_performance():
+    """Verify healthcare logging adds minimal performance overhead."""
+    import time
+    from agents.intake.intake_agent import IntakeAgent
+    
+    agent = IntakeAgent()
+    test_data = {'patient_id': 'PERF_TEST_001', 'test': True}
+    
+    # Test with logging
+    start_time = time.time()
+    for _ in range(100):
+        agent.process_patient_checkin(test_data)
+    logging_time = time.time() - start_time
+    
+    # Test without logging (mock the logger)
+    with patch('logging.getLogger'):
+        start_time = time.time()
+        for _ in range(100):
+            agent.process_patient_checkin(test_data)
+        no_logging_time = time.time() - start_time
+    
+    # Verify logging overhead is less than 10%
+    overhead_percentage = ((logging_time - no_logging_time) / no_logging_time) * 100
+    assert overhead_percentage < 10, f"Logging overhead too high: {overhead_percentage:.2f}%"
+```
+
+### Database-Backed Testing (CORE APPROACH)
 
 **CRITICAL CHANGE**: PHI lives in databases, not code. Tests should connect to synthetic database data.
 

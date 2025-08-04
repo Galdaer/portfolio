@@ -71,6 +71,99 @@ class HealthcareAISafetyFramework:
 ### Healthcare Compliance Framework
 
 ```python
+# ✅ CORRECT: Comprehensive healthcare logging and PHI monitoring
+class HealthcareLoggingFramework:
+    """Framework for healthcare-compliant logging and PHI monitoring."""
+
+    @staticmethod
+    def create_healthcare_logger(module_name: str) -> logging.Logger:
+        """Create healthcare-compliant logger with PHI protection."""
+        logger = logging.getLogger(f"healthcare.{module_name}")
+        
+        # Healthcare-specific log levels
+        logging.addLevelName(25, 'PHI_ALERT')
+        logging.addLevelName(35, 'MEDICAL_ERROR')
+        logging.addLevelName(33, 'COMPLIANCE_WARNING')
+        
+        return logger
+
+    @staticmethod
+    def healthcare_log_method(func):
+        """Decorator for automatic healthcare method logging."""
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            logger = logging.getLogger(f"healthcare.{func.__module__}")
+            
+            # Entry logging with PHI scrubbing
+            sanitized_args = PHIMonitor.scrub_phi(str(args)[:200])
+            logger.info(f"Healthcare method entry: {func.__name__}", extra={
+                'healthcare_context': {
+                    'method': func.__name__,
+                    'args_length': len(args),
+                    'phi_scrubbed': True
+                }
+            })
+            
+            try:
+                result = func(*args, **kwargs)
+                logger.info(f"Healthcare method success: {func.__name__}")
+                return result
+            except Exception as e:
+                logger.error(f"Healthcare method error: {func.__name__}: {str(e)}")
+                raise
+        return wrapper
+
+class PHIMonitor:
+    """Real-time PHI detection and monitoring."""
+    
+    PHI_PATTERNS = [
+        r'\b\d{3}-\d{2}-\d{4}\b',  # SSN
+        r'\b\d{3}-\d{3}-\d{4}\b',  # Phone
+        r'\b[A-Z]{2}\d{6,10}\b',   # Medical record numbers
+        r'patient_id|insurance_id|mrn'  # Common PHI fields
+    ]
+    
+    @staticmethod
+    def scan_for_phi(data: str) -> bool:
+        """Scan data for potential PHI indicators."""
+        import re
+        for pattern in PHIMonitor.PHI_PATTERNS:
+            if re.search(pattern, str(data), re.IGNORECASE):
+                return True
+        return False
+    
+    @staticmethod
+    def scrub_phi(data: str) -> str:
+        """Remove potential PHI from data for logging."""
+        import re
+        scrubbed = data
+        for pattern in PHIMonitor.PHI_PATTERNS:
+            scrubbed = re.sub(pattern, '[PHI_REDACTED]', scrubbed, flags=re.IGNORECASE)
+        return scrubbed
+
+# ✅ CORRECT: Healthcare agent logging pattern
+@healthcare_log_method
+def process_patient_intake(self, patient_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Example healthcare method with comprehensive logging."""
+    logger = logging.getLogger("healthcare.intake")
+    
+    # PHI detection before processing
+    if PHIMonitor.scan_for_phi(str(patient_data)):
+        logger.log(25, "PHI detected in intake data - reviewing for compliance")  # PHI_ALERT level
+    
+    # Process with healthcare context
+    logger.info("Processing patient intake", extra={
+        'healthcare_context': {
+            'operation_type': 'patient_intake',
+            'phi_risk_level': 'high',
+            'compliance_status': 'monitoring'
+        }
+    })
+    
+    return processed_data
+```
+
+```python
 # ✅ CORRECT: HIPAA compliance patterns
 class HIPAAComplianceFramework:
     """Framework for HIPAA-compliant AI development."""

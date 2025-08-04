@@ -46,6 +46,7 @@ This directory contains specialized AI instruction files for different developme
 - **`tasks/planning.instructions.md`** → When planning features, designing architecture, making decisions
 - **`tasks/performance.instructions.md`** → When optimizing performance, improving efficiency, scaling systems
 - **`tasks/security-review.instructions.md`** → When conducting security reviews, HIPAA compliance, PHI protection
+- **`tasks/healthcare-logging.instructions.md`** → When implementing healthcare logging, PHI monitoring, audit trails
 
 #### Language-Specific Instructions
 
