@@ -142,9 +142,10 @@ id_ed25519*
 
 # === LOGS AND TEMPORARY FILES ===
 # Logs
-!/logs/
 /scripts/logs/
 *.log
+!/logs/
+!/logs/*
 
 # Backups created by scripts
 /backups/
