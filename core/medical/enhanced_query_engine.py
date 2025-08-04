@@ -1,6 +1,12 @@
 """
 Enhanced Query Engine for Medical Literature
 Agentic RAG system for medical literature with dynamic knowledge retrieval
+
+MEDICAL DISCLAIMER: This system provides medical research assistance and literature analysis
+only. It searches medical databases, clinical trials, and evidence-based resources to support
+healthcare decision-making. It does not provide medical diagnosis, treatment recommendations,
+or replace clinical judgment. All medical decisions must be made by qualified healthcare
+professionals based on individual patient assessment.
 """
 
 import asyncio

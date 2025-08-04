@@ -1,5 +1,16 @@
 # core/medical/medical_response_validator.py
 
+"""
+Medical Response Validator
+Validates medical responses for accuracy and safety
+
+MEDICAL DISCLAIMER: This system provides medical research validation and safety analysis only.
+It assists healthcare professionals by validating medical information accuracy and identifying
+potential safety concerns. It does not provide medical diagnosis, treatment recommendations,
+or replace clinical judgment. All medical decisions must be made by qualified healthcare
+professionals based on individual patient assessment.
+"""
+
 import asyncio
 from dataclasses import dataclass
 from typing import Any

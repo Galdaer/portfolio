@@ -30,6 +30,13 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
     """
     Enhanced Clinical Research Agent with agentic RAG capabilities
     Integrates dynamic knowledge retrieval with medical reasoning
+    
+    MEDICAL DISCLAIMER: This agent provides medical research assistance and clinical data
+    analysis only. It searches medical literature, clinical trials, drug interactions, and
+    evidence-based resources to support healthcare decision-making. It does not provide
+    medical diagnosis, treatment recommendations, or replace clinical judgment. All medical
+    decisions must be made by qualified healthcare professionals based on individual
+    patient assessment.
     """
 
     def __init__(

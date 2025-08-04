@@ -39,9 +39,12 @@ class DocumentProcessingResult:
 class HealthcareDocumentProcessor(BaseHealthcareAgent):
     """
     Healthcare Document Processor for administrative support
-
-    CRITICAL: Provides document formatting and organization only, never medical interpretation.
-    Focus: SOAP notes, medical forms, document structure, administrative completeness.
+    
+    MEDICAL DISCLAIMER: This agent provides administrative document processing and formatting
+    support only. It assists healthcare professionals with document organization, SOAP note
+    structuring, and administrative completeness checks. It does not provide medical
+    interpretation, diagnosis, or treatment recommendations. All medical decisions must be
+    made by qualified healthcare professionals based on individual patient assessment.
     """
 
     def __init__(

@@ -1,6 +1,12 @@
 """
 Enhanced Medical Reasoning Engine
 Provides medical reasoning capabilities with safety boundaries
+
+MEDICAL DISCLAIMER: This system provides medical research assistance and clinical data analysis
+only. It searches medical literature, analyzes clinical information, and provides evidence-based
+research to support healthcare decision-making. It does not provide medical diagnosis, treatment
+recommendations, or replace clinical judgment. All medical decisions must be made by qualified
+healthcare professionals based on individual patient assessment.
 """
 
 from dataclasses import dataclass
