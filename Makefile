@@ -196,7 +196,12 @@ fix-permissions:
 	@echo "✅ Permissions and ownership fixed"
 
 deps:
-	@echo "📦  Installing healthcare AI dependencies for development (all packages)"
+	@echo "📦  Installing healthcare AI dependencies"
+	@if [ -n "$$CI" ]; then \
+		echo "    🤖 CI mode detected - will use requirements-ci.txt (excludes GPU packages)"; \
+	else \
+		echo "    🖥️  Development mode - will use requirements.txt (all packages)"; \
+	fi
 	@# Generate lockfiles first if they don't exist or requirements.in is newer
 	@if [ ! -f requirements.txt ] || [ requirements.in -nt requirements.txt ]; then \
 		echo "🔒  Generating lockfiles from requirements.in..."; \
@@ -230,29 +235,65 @@ deps:
 	fi; \
 	if [ "$$UV_AVAILABLE" = "true" ]; then \
 		echo "🚀  Using uv for ultra-fast installation..."; \
-		if timeout 30 sudo uv pip install --system --break-system-packages ruff pyright pytest pytest-asyncio yamllint 2>/dev/null; then \
-			echo "   ✓ Core development tools installed via uv"; \
-		else \
-			echo "   ⚠️  uv installation failed (firewall/network) - falling back to pip"; \
-			UV_AVAILABLE=false; \
-		fi; \
-		if [ "$$UV_AVAILABLE" = "true" ] && [ -f requirements.txt ]; then \
-			if timeout 60 sudo uv pip install --system --break-system-packages -r requirements.txt 2>/dev/null; then \
-				echo "   ✓ Healthcare AI requirements installed via uv"; \
+		if [ "$$CI" = "1" ]; then \
+			echo "   🤖 CI mode - using user installation (no sudo required)"; \
+			if timeout 30 uv pip install --user ruff pyright pytest pytest-asyncio yamllint 2>/dev/null; then \
+				echo "   ✓ Core development tools installed via uv (user mode)"; \
 			else \
-				echo "   ⚠️  uv requirements installation failed - falling back to pip"; \
+				echo "   ⚠️  uv user installation failed - falling back to pip"; \
 				UV_AVAILABLE=false; \
+			fi; \
+		else \
+			if timeout 30 sudo uv pip install --system --break-system-packages ruff pyright pytest pytest-asyncio yamllint 2>/dev/null; then \
+				echo "   ✓ Core development tools installed via uv (system mode)"; \
+			else \
+				echo "   ⚠️  uv system installation failed - falling back to pip"; \
+				UV_AVAILABLE=false; \
+			fi; \
+		fi; \
+		if [ "$$UV_AVAILABLE" = "true" ]; then \
+			if [ -n "$$CI" ] && [ -f requirements-ci.txt ]; then \
+				echo "   🤖 CI mode detected - using requirements-ci.txt (excludes GPU packages)"; \
+				REQUIREMENTS_FILE=requirements-ci.txt; \
+			elif [ -f requirements.txt ]; then \
+				echo "   🖥️  Development mode - using requirements.txt (all packages)"; \
+				REQUIREMENTS_FILE=requirements.txt; \
+			else \
+				echo "   ⚠️  No requirements file found"; \
+				REQUIREMENTS_FILE=""; \
+			fi; \
+			if [ -n "$$REQUIREMENTS_FILE" ]; then \
+				if [ "$$CI" = "1" ]; then \
+					echo "   🤖 CI mode - using user installation (no sudo required)"; \
+					if timeout 60 uv pip install --user -r "$$REQUIREMENTS_FILE" 2>/dev/null; then \
+						echo "   ✓ Healthcare AI requirements installed via uv (user mode)"; \
+					else \
+						echo "   ⚠️  uv user installation failed - falling back to pip"; \
+						UV_AVAILABLE=false; \
+					fi; \
+				else \
+					if timeout 60 sudo uv pip install --system --break-system-packages -r "$$REQUIREMENTS_FILE" 2>/dev/null; then \
+						echo "   ✓ Healthcare AI requirements installed via uv (system mode)"; \
+					else \
+						echo "   ⚠️  uv system installation failed - falling back to pip"; \
+						UV_AVAILABLE=false; \
+					fi; \
+				fi; \
 			fi; \
 		fi; \
 	else \
 		echo "⚠️  UV not found or blocked, using pip and apt for CI compatibility..."; \
-		echo "�  Installing core Python tools via apt..."; \
+		echo "🐍  Installing core Python tools via apt..."; \
 		sudo apt-get update -qq && sudo apt-get install -y python3-pip python3-dev python3-setuptools; \
 		echo "🔧  Installing development tools via pip..."; \
 		sudo pip3 install --break-system-packages mypy ruff pytest pytest-asyncio yamllint || \
 		pip3 install --user mypy ruff pytest pytest-asyncio yamllint; \
-		if [ -f requirements.txt ]; then \
-			echo "📋  Installing requirements via pip..."; \
+		if [ -n "$$CI" ] && [ -f requirements-ci.txt ]; then \
+			echo "📋  Installing CI requirements (excludes GPU packages) via pip..."; \
+			sudo pip3 install --break-system-packages -r requirements-ci.txt || \
+			pip3 install --user -r requirements-ci.txt; \
+		elif [ -f requirements.txt ]; then \
+			echo "📋  Installing full requirements via pip..."; \
 			sudo pip3 install --break-system-packages -r requirements.txt || \
 			pip3 install --user -r requirements.txt; \
 		fi; \
