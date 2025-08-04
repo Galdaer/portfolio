@@ -533,13 +533,8 @@ class KeyManager:
                 encrypted_key = base64.b64decode(encrypted_key_b64.encode())
                 raw_key_bytes = master_fernet.decrypt(encrypted_key)
 
-                # Ensure we return bytes
-                if isinstance(raw_key_bytes, bytes):
-                    raw_key: bytes = raw_key_bytes
-                else:
-                    # This shouldn't happen with proper Fernet usage, but handle it safely
-                    self.logger.error(f"Unexpected decrypt result type for key {key_id}")
-                    return None
+                # Fernet.decrypt() always returns bytes, so we can safely cast
+                raw_key: bytes = raw_key_bytes
 
                 # Log key usage
                 self._log_key_usage(key_id, "retrieve")

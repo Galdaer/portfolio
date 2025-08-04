@@ -815,7 +815,7 @@ async def evaluate_healthcare_query(
     Returns:
         ComprehensiveEvaluationResult with detailed analysis
     """
-    config = {}  # Use default empty config for evaluation
+    config: dict[str, Any] = {}  # Use default empty config for evaluation
     evaluator = ComprehensiveHealthcareEvaluator(config)
     return await evaluator.evaluate_comprehensive(query, response, context, metadata)
 

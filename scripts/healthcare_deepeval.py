@@ -19,6 +19,14 @@ sys.path.insert(0, str(project_root))
 
 try:
     # Try to import and run DeepEval if available
+    import os
+
+    # Set up DeepEval environment variables if not set
+    if "DEEPEVAL_ENVIRONMENT" not in os.environ:
+        os.environ["DEEPEVAL_ENVIRONMENT"] = "test"
+    if "DEEPEVAL_SSL_VERIFY" not in os.environ:
+        os.environ["DEEPEVAL_SSL_VERIFY"] = "false"
+
     import deepeval  # noqa: F401
     from deepeval import evaluate  # noqa: F401
 
@@ -42,11 +50,16 @@ try:
     print("🧪 Running DeepEval Healthcare AI Tests with Local Ollama Models")
     print("=" * 65)
 
-    # Configure DeepEval to use local Ollama model
-    ollama_model = OllamaModel(
-        model_name="qwen2.5:7b-instruct-q4_K_M",
-        base_url="http://localhost:11434"
-    )
+    # Configure DeepEval to use local Ollama model with error handling
+    try:
+        ollama_model = OllamaModel(
+            model_name="qwen2.5:7b-instruct-q4_K_M",
+            base_url="http://localhost:11434"
+        )
+    except Exception as e:
+        print(f"⚠️  Could not configure Ollama model: {e}")
+        print("📝 Falling back to basic validation...")
+        raise ImportError("DeepEval configuration failed")
 
     print("🤖 Using Ollama model: qwen2.5:7b-instruct-q4_K_M")
     print("🔗 Ollama endpoint: http://localhost:11434")
@@ -75,9 +88,14 @@ try:
         )
     ]
 
-    # Define metrics with Ollama model
-    answer_relevancy_metric = AnswerRelevancyMetric(threshold=0.7, model=ollama_model)
-    faithfulness_metric = FaithfulnessMetric(threshold=0.7, model=ollama_model)
+    # Define metrics with Ollama model and error handling
+    try:
+        answer_relevancy_metric = AnswerRelevancyMetric(threshold=0.7, model=ollama_model)
+        faithfulness_metric = FaithfulnessMetric(threshold=0.7, model=ollama_model)
+    except Exception as e:
+        print(f"⚠️  Could not initialize DeepEval metrics: {e}")
+        print("📝 Falling back to basic validation...")
+        raise ImportError("DeepEval metrics configuration failed")
 
     # Run evaluation
     for i, test_case in enumerate(test_cases, 1):

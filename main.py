@@ -20,7 +20,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from config.app import config
 
@@ -137,7 +137,7 @@ app.add_middleware(
 )
 
 
-@app.get("/", response_class=HTMLResponse)  # type: ignore[misc]
+@app.get("/", response_class=HTMLResponse)
 async def root() -> str:
     """Health check and system status"""
     return """
@@ -154,7 +154,7 @@ async def root() -> str:
     """
 
 
-@app.get("/health", tags=["health"])  # type: ignore[misc]
+@app.get("/health", tags=["health"])
 async def health_check() -> dict[str, Any]:
     """
     Comprehensive Healthcare System Health Check
@@ -178,7 +178,7 @@ async def health_check() -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Health check failed")
 
 
-@app.get("/health/quick", tags=["health"])  # type: ignore[misc]
+@app.get("/health/quick", tags=["health"])
 async def quick_health_check() -> dict[str, Any]:
     """
     Quick Healthcare System Status Check
@@ -256,7 +256,7 @@ async def stream_literature_search(
     max_results: int = 10,
     user_id: str = "demo_user",
     session_id: str = "demo_session"
-):
+) -> StreamingResponse:
     """
     Stream Medical Literature Search Results
 
@@ -279,7 +279,7 @@ async def stream_ai_reasoning(
     medical_query: str,
     user_id: str = "demo_user",
     session_id: str = "demo_session"
-):
+) -> StreamingResponse:
     """
     Stream AI Reasoning Process
 
@@ -302,7 +302,7 @@ async def stream_document_processing(
     document_type: str = "clinical_note",
     user_id: str = "demo_user",
     session_id: str = "demo_session"
-):
+) -> StreamingResponse:
     """
     Stream Medical Document Processing
 

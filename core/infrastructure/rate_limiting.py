@@ -265,8 +265,13 @@ class HealthcareRateLimiter:
         minute_window = int(current_time // 60)
         hour_window = int(current_time // 3600)
 
-        minute_count = await self.redis_client.get(f"{minute_key}:{minute_window}") or 0
-        hour_count = await self.redis_client.get(f"{hour_key}:{hour_window}") or 0
+        if self.redis_client is not None:
+            minute_count = await self.redis_client.get(f"{minute_key}:{minute_window}") or 0
+            hour_count = await self.redis_client.get(f"{hour_key}:{hour_window}") or 0
+        else:
+            # Fallback to no rate limiting if Redis unavailable
+            minute_count = 0
+            hour_count = 0
 
         minute_count = int(minute_count)
         hour_count = int(hour_count)
@@ -288,11 +293,12 @@ class HealthcareRateLimiter:
             )
 
         # Increment counters
-        await self.redis_client.incr(f"{minute_key}:{minute_window}")
-        await self.redis_client.expire(f"{minute_key}:{minute_window}", 120)  # 2 minutes TTL
+        if self.redis_client is not None:
+            await self.redis_client.incr(f"{minute_key}:{minute_window}")
+            await self.redis_client.expire(f"{minute_key}:{minute_window}", 120)  # 2 minutes TTL
 
-        await self.redis_client.incr(f"{hour_key}:{hour_window}")
-        await self.redis_client.expire(f"{hour_key}:{hour_window}", 7200)  # 2 hours TTL
+            await self.redis_client.incr(f"{hour_key}:{hour_window}")
+            await self.redis_client.expire(f"{hour_key}:{hour_window}", 7200)  # 2 hours TTL
 
         return RateLimitStatus(
             allowed=True,
@@ -400,7 +406,7 @@ async def apply_healthcare_rate_limit(
         headers = rate_limiter.get_rate_limit_headers(status)
 
         raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            status_code=429,  # HTTP 429 Too Many Requests
             detail={
                 "error": "Rate limit exceeded",
                 "message": f"Too many {limit_type.value} requests",

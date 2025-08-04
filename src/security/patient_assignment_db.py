@@ -259,11 +259,8 @@ class SessionManager:
 
             token = jwt.encode(payload, self.secret_key, algorithm="HS256")
 
-            # Ensure token is a string (jwt.encode can return str or bytes depending on version)
-            if isinstance(token, bytes):
-                token_str: str = token.decode('utf-8')
-            else:
-                token_str = str(token)
+            # Modern PyJWT always returns str, but ensure it's a string for safety
+            token_str = str(token)
 
             # Log session creation
             self.db.log_access_attempt(
