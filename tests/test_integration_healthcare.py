@@ -1,8 +1,11 @@
 """
-Healthcare AI Integration Tests with PHI Protection
-Tests the complete MCP → Agent bridge workflow using synthetic data only
+Healthcare Integration Tests - PHI-Safe Testing with Synthetic Data
+
+Tests the complete MCP-Agent bridge integration using only synthetic data.
+Validates end-to-end workflow: Open WebUI → Ollama → MCP → FastAPI agents.
 """
 
+import logging
 from typing import Any
 
 import httpx
@@ -14,8 +17,41 @@ from core.security.phi_safe_testing import (
     SyntheticDataGenerator,
 )
 
+# Configure logging for tests
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-class TestHealthcareIntegration:
+
+class HealthcareIntegrationTestBase:
+    """Base class for healthcare integration tests with PHI safety."""
+
+    MCP_SERVER_URL = "http://localhost:3000"
+    MAIN_API_URL = "http://localhost:8000"
+
+    @pytest.fixture
+    async def synthetic_patient(self) -> dict[str, Any]:
+        """Generate synthetic patient data for testing."""
+        patient = PHISafeTestingFramework.generate_synthetic_patient()
+
+        # Validate PHI safety
+        PHISafeTestingFramework.validate_test_data(patient)
+
+        logger.info(f"Generated synthetic patient: {patient['patient_id']}")
+        return patient
+
+    @pytest.fixture
+    async def test_session_context(self) -> dict[str, Any]:
+        """Create test session context."""
+        return PHISafeTestingFramework.create_test_session_context()
+
+    @pytest.fixture
+    async def http_client(self) -> httpx.AsyncClient:
+        """HTTP client for API calls."""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            yield client
+
+
+class TestHealthcareIntegration(HealthcareIntegrationTestBase):
     """Integration tests using synthetic data - NO PHI"""
 
     # Test configuration
