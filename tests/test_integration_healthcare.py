@@ -34,7 +34,7 @@ class TestHealthcareIntegration:
         return patient
 
     @pytest.fixture
-    async def synthetic_encounter(self, synthetic_patient) -> dict[str, Any]:
+    async def synthetic_encounter(self, synthetic_patient: dict[str, Any]) -> dict[str, Any]:
         """Generate synthetic encounter data"""
         framework = PHISafeTestingFramework()
         encounter = framework.generate_synthetic_encounter(synthetic_patient["patient_id"])
@@ -51,7 +51,7 @@ class TestHealthcareIntegration:
         return framework.create_test_session_context()
 
     @pytest.mark.asyncio
-    async def test_mcp_server_health(self):
+    async def test_mcp_server_health(self) -> None:
         """Test MCP server is running and responsive"""
         async with httpx.AsyncClient() as client:
             try:
@@ -66,7 +66,7 @@ class TestHealthcareIntegration:
                 pytest.skip("MCP server not running - start with: cd mcps/healthcare && npm start")
 
     @pytest.mark.asyncio
-    async def test_mcp_tools_list(self):
+    async def test_mcp_tools_list(self) -> None:
         """Test MCP server returns agent bridge tools"""
         mcp_request = {"jsonrpc": "2.0", "method": "tools/list", "id": 1}
 
@@ -101,10 +101,12 @@ class TestHealthcareIntegration:
                 pytest.skip("MCP server not running")
 
     @pytest.mark.asyncio
-    async def test_mcp_agent_bridge_intake(self, synthetic_patient, test_session_context):
+    async def test_mcp_agent_bridge_intake(
+        self, synthetic_patient: dict[str, Any], test_session_context: dict[str, Any]
+    ) -> None:
         """Test MCP → Agent bridge for intake processing"""
         # Test MCP tool call to intake agent
-        mcp_request = {
+        mcp_request: dict[str, Any] = {
             "jsonrpc": "2.0",
             "method": "tools/call",
             "params": {
@@ -152,9 +154,9 @@ class TestHealthcareIntegration:
                 pytest.skip("MCP server not running")
 
     @pytest.mark.asyncio
-    async def test_mcp_research_agent_bridge(self, test_session_context):
+    async def test_mcp_research_agent_bridge(self, test_session_context: dict[str, Any]) -> None:
         """Test MCP → Research Agent bridge"""
-        mcp_request = {
+        mcp_request: dict[str, Any] = {
             "jsonrpc": "2.0",
             "method": "tools/call",
             "params": {
@@ -200,12 +202,14 @@ class TestHealthcareIntegration:
                 pytest.skip("MCP server not running")
 
     @pytest.mark.asyncio
-    async def test_mcp_transcription_agent_bridge(self, test_session_context):
+    async def test_mcp_transcription_agent_bridge(
+        self, test_session_context: dict[str, Any]
+    ) -> None:
         """Test MCP → Transcription Agent bridge"""
         framework = PHISafeTestingFramework()
         synthetic_audio = framework.generate_synthetic_audio_data()
 
-        mcp_request = {
+        mcp_request: dict[str, Any] = {
             "jsonrpc": "2.0",
             "method": "tools/call",
             "params": {
@@ -251,7 +255,9 @@ class TestHealthcareIntegration:
                 pytest.skip("MCP server not running")
 
     @pytest.mark.asyncio
-    async def test_end_to_end_workflow(self, synthetic_patient, test_session_context):
+    async def test_end_to_end_workflow(
+        self, synthetic_patient: dict[str, Any], test_session_context: dict[str, Any]
+    ) -> None:
         """Test complete workflow: MCP → Agents → Response"""
         framework = PHISafeTestingFramework()
         validator = HealthcareTestValidator()
@@ -284,7 +290,7 @@ class TestHealthcareIntegration:
             ),
         ]
 
-        results = []
+        results: list[dict[str, Any]] = []
 
         for tool_name, args in workflow_steps:
             # Validate each request is PHI-safe
@@ -325,7 +331,7 @@ class TestHealthcareIntegration:
         print(f"✅ End-to-end workflow completed successfully with {len(results)} steps")
 
     @pytest.mark.asyncio
-    async def test_phi_detection_blocks_unsafe_data(self):
+    async def test_phi_detection_blocks_unsafe_data(self) -> None:
         """Test that PHI detection blocks unsafe data"""
         # Attempt to send data with PHI patterns
         unsafe_data = {
@@ -364,7 +370,7 @@ class TestHealthcareIntegration:
                 pytest.skip("MCP server not running")
 
     @pytest.mark.asyncio
-    async def test_direct_agent_endpoints(self, synthetic_patient):
+    async def test_direct_agent_endpoints(self, synthetic_patient: dict[str, Any]) -> None:
         """Test direct FastAPI agent endpoints"""
 
         endpoints_to_test = [
@@ -412,7 +418,7 @@ class TestHealthcareIntegration:
 class TestSyntheticDataGeneration:
     """Test synthetic data generation and validation"""
 
-    def test_synthetic_patient_generation(self):
+    def test_synthetic_patient_generation(self) -> None:
         """Test synthetic patient data generation"""
         framework = PHISafeTestingFramework()
 
@@ -427,7 +433,7 @@ class TestSyntheticDataGeneration:
             assert patient["synthetic_marker"] is True
             assert "medical_history" in patient
 
-    def test_comprehensive_dataset_generation(self):
+    def test_comprehensive_dataset_generation(self) -> None:
         """Test comprehensive synthetic dataset generation"""
         generator = SyntheticDataGenerator()
         dataset = generator.generate_test_dataset(num_patients=5)
@@ -450,7 +456,7 @@ class TestSyntheticDataGeneration:
         assert dataset["metadata"]["synthetic_data_only"] is True
         assert dataset["metadata"]["phi_safe"] is True
 
-    def test_phi_detection_accuracy(self):
+    def test_phi_detection_accuracy(self) -> None:
         """Test PHI detection accuracy"""
         framework = PHISafeTestingFramework()
 

@@ -177,12 +177,12 @@ class SyntheticDataGenerator:
     """Generate comprehensive synthetic healthcare data"""
 
     @staticmethod
-    def generate_test_dataset(num_patients: int = 10) -> dict[str, list[dict[str, Any]]]:
+    def generate_test_dataset(num_patients: int = 10) -> dict[str, Any]:
         """Generate a complete synthetic healthcare dataset"""
         framework = PHISafeTestingFramework()
 
-        patients = []
-        encounters = []
+        patients: list[dict[str, Any]] = []
+        encounters: list[dict[str, Any]] = []
 
         for _i in range(num_patients):
             patient = framework.generate_synthetic_patient()
