@@ -14,7 +14,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import yaml
 
@@ -673,7 +673,7 @@ class HealthcareComplianceChecker:
                 }
             )
 
-        return cast(str, yaml.dump(report_data, default_flow_style=False))
+        return yaml.dump(report_data, default_flow_style=False)
 
 
 def check_healthcare_compliance(filename: str) -> list[str]:

@@ -14,7 +14,7 @@ from core.infrastructure.healthcare_logger import (
     healthcare_log_method,
     log_healthcare_event,
 )
-from core.infrastructure.phi_monitor import phi_monitor, sanitize_healthcare_data, scan_for_phi
+from core.infrastructure.phi_monitor import phi_monitor_decorator, sanitize_healthcare_data, scan_for_phi
 
 logger = get_healthcare_logger("agent.billing_helper")
 
@@ -102,7 +102,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
         )
 
     @healthcare_log_method(operation_type="claim_processing", phi_risk_level="medium")
-    @phi_monitor(risk_level="medium", operation_type="billing_processing")
+    @phi_monitor_decorator(risk_level="medium", operation_type="billing_processing")
     async def process_claim(self, claim_data: dict[str, Any]) -> BillingResult:
         """
         Process medical billing claim with compliance validation
@@ -353,7 +353,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
         return total
 
     @healthcare_log_method(operation_type="insurance_verification", phi_risk_level="low")
-    @phi_monitor(risk_level="low", operation_type="insurance_verification")
+    @phi_monitor_decorator(risk_level="low", operation_type="insurance_verification")
     async def verify_insurance_benefits(self, insurance_info: dict[str, Any]) -> dict[str, Any]:
         """
         Verify insurance benefits and coverage
@@ -371,7 +371,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
         sanitize_healthcare_data(insurance_info)
 
         # Mock insurance verification (in production, integrate with payer APIs)
-        verification_result = {
+        verification_result: dict[str, Any] = {
             "verification_id": f"verify_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             "status": "verified",
             "benefits": {
@@ -412,7 +412,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
             Dictionary with billing report data
         """
         # Mock report generation (in production, query actual billing database)
-        report = {
+        report: dict[str, Any] = {
             "report_id": f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             "date_range": date_range,
             "summary": {
@@ -446,6 +446,62 @@ class BillingHelperAgent(BaseHealthcareAgent):
         )
 
         return report
+
+    async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
+        """
+        Implement billing agent-specific processing logic
+        
+        Routes requests to appropriate billing methods based on request type.
+        All responses include medical disclaimers.
+        """
+        request_type = request.get("type", "unknown")
+        
+        # Add medical disclaimer to all responses
+        base_response = {
+            "medical_disclaimer": (
+                "This system provides healthcare billing administrative support only. "
+                "It does not provide medical advice, diagnosis, or treatment recommendations. "
+                "All medical decisions must be made by qualified healthcare professionals."
+            ),
+            "success": True,
+            "timestamp": datetime.now().isoformat(),
+        }
+        
+        try:
+            if request_type == "billing_processing":
+                result = await self.process_claim(
+                    request.get("billing_data", {})
+                )
+                base_response.update({"billing_result": result})
+                
+            elif request_type == "insurance_verification":
+                result = await self.verify_insurance_benefits(
+                    request.get("insurance_info", {})
+                )
+                base_response.update({"verification_result": result})
+                
+            elif request_type == "report_generation":
+                result = await self.generate_billing_report(
+                    request.get("date_range", {}),
+                    request.get("report_type", "summary")
+                )
+                base_response.update({"report": result})
+                
+            else:
+                base_response.update({
+                    "success": False,
+                    "error": f"Unknown request type: {request_type}",
+                    "supported_types": ["billing_processing", "insurance_verification", "report_generation"]
+                })
+                
+        except Exception as e:
+            base_response.update({
+                "success": False,
+                "error": str(e),
+                "error_type": type(e).__name__
+            })
+            
+        return base_response
 
 
 # Initialize the billing helper agent

@@ -641,13 +641,13 @@ class TranscriptionAgent(BaseHealthcareAgent):
                 return {
                     "success": False,
                     "error": "No supported data type found in request",
-                    "supported_types": ["audio_data", "text_data"]
+                    "supported_types": ["audio_data", "text_data"],
                 }
         except Exception as e:
             return {
                 "success": False,
                 "error": f"Transcription processing failed: {str(e)}",
-                "request_id": request.get("request_id", "unknown")
+                "request_id": request.get("request_id", "unknown"),
             }
 
 

@@ -9,7 +9,6 @@ This package contains the fundamental components for:
 """
 
 from .memory import MemoryManager
-from .models import ModelRegistry
 from .tools import ToolRegistry
 
-__all__ = ["MemoryManager", "ModelRegistry", "ToolRegistry"]
+__all__ = ["MemoryManager", "ToolRegistry"]

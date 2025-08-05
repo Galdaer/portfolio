@@ -21,7 +21,7 @@ router = APIRouter(prefix="/insurance", tags=["insurance_verification"])
 
 @router.post("/verify-eligibility")
 @phi_monitor(risk_level="high", operation_type="api_insurance_verification")
-async def verify_insurance_eligibility(insurance_info: dict[str, Any]):
+async def verify_insurance_eligibility(insurance_info: dict[str, Any]) -> dict[str, Any]:
     """
     Verify patient insurance eligibility and benefits
 
@@ -85,7 +85,7 @@ async def verify_insurance_eligibility(insurance_info: dict[str, Any]):
 
 @router.post("/prior-authorization")
 @phi_monitor(risk_level="medium", operation_type="api_prior_authorization")
-async def request_prior_authorization(auth_request: dict[str, Any]):
+async def request_prior_authorization(auth_request: dict[str, Any]) -> dict[str, Any]:
     """
     Submit prior authorization request to insurance payer
 
@@ -146,7 +146,7 @@ async def request_prior_authorization(auth_request: dict[str, Any]):
 
 
 @router.post("/check-coverage")
-async def check_coverage_for_service(coverage_request: dict[str, Any]):
+async def check_coverage_for_service(coverage_request: dict[str, Any]) -> dict[str, Any]:
     """
     Check insurance coverage for specific healthcare service
 
@@ -190,7 +190,7 @@ async def check_coverage_for_service(coverage_request: dict[str, Any]):
 
 
 @router.get("/report")
-async def generate_insurance_report(start_date: str, end_date: str):
+async def generate_insurance_report(start_date: str, end_date: str) -> dict[str, Any]:
     """
     Generate insurance verification and authorization report
 
@@ -241,7 +241,7 @@ async def generate_insurance_report(start_date: str, end_date: str):
 
 
 @router.get("/health")
-async def health_check():
+async def health_check() -> dict[str, Any]:
     """Health check endpoint for insurance verification service"""
     return {
         "status": "healthy",
