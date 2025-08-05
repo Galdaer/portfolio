@@ -1,14 +1,14 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { ListToolsRequestSchema, CallToolRequestSchema, McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
-import { FhirClient } from "../connectors/fhir/FhirClient.js"
-import { TOOL_DEFINITIONS } from "../constants/tools.js"
+import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { parseClinicianQuery } from "../../query-parser.js";
-import { PubMed } from "../connectors/medical/PubMed.js"
-import { ClinicalTrials } from "../connectors/medical/ClinicalTrials.js"
-import { FDA } from "../connectors/medical/FDA.js"
-import { CacheManager } from "../utils/Cache.js"
-import { Auth } from "../utils/Auth.js"
-import { AuthConfig } from "../utils/AuthConfig.js"
+import { FhirClient } from "../connectors/fhir/FhirClient.js";
+import { ClinicalTrials } from "../connectors/medical/ClinicalTrials.js";
+import { FDA } from "../connectors/medical/FDA.js";
+import { PubMed } from "../connectors/medical/PubMed.js";
+import { TOOL_DEFINITIONS } from "../constants/tools.js";
+import { Auth } from "../utils/Auth.js";
+import { AuthConfig } from "../utils/AuthConfig.js";
+import { CacheManager } from "../utils/Cache.js";
 
 export class ToolHandler {
     private fhirClient: FhirClient;
@@ -39,8 +39,25 @@ export class ToolHandler {
     });
 
     private handleCall = async (request: any) => {
-        if (request.params?.name != "find_patient" && request.params?.name != "get-drug-info"
-            && request.params?.name != "search-trials" && request.params?.name != "search-pubmed") {
+        // Tools that don't require FHIR authentication
+        const noAuthTools = ["search-pubmed", "search-trials", "get-drug-info"];
+
+        if (noAuthTools.includes(request.params?.name)) {
+            // Handle non-auth tools directly
+            switch (request.params.name) {
+                case "search-pubmed":
+                    return await this.pubmedApi.getArticles(request.params.arguments, this.cache);
+                case "search-trials":
+                    return await this.trialsApi.getTrials(request.params.arguments, this.cache);
+                case "get-drug-info":
+                    return await this.fdaApi.getDrug(request.params.arguments, this.cache);
+                default:
+                    throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
+            }
+        }
+
+        // For patient-specific tools, require patientId
+        if (request.params?.name != "find_patient") {
             if (!request.params?.arguments?.patientId) {
                 throw new McpError(ErrorCode.InvalidParams, "patientId is required");
             }
@@ -87,12 +104,6 @@ export class ToolHandler {
                     return await this.fhirClient.getMedicationHistory(request.params.arguments);
                 case "get_appointments":
                     return await this.fhirClient.getPatientAppointments(request.params.arguments);
-                case "search-pubmed":
-                    return await this.pubmedApi.getArticles(request.params.arguments, this.cache);
-                case "search-trials":
-                    return await this.trialsApi.getTrials(request.params.arguments, this.cache);
-                case "get-drug-info":
-                    return await this.fdaApi.getDrug(request.params.arguments, this.cache);
                 default:
                     throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
             }
