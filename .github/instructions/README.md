@@ -1,3 +1,10 @@
+## Recent Lessons Learned (2025-08)
+
+- Docker networking is critical for multi-service healthcare AI setups.
+- JSON-RPC is the only supported protocol for MCP endpoints.
+- Always validate JSON payloads before sending to MCP server.
+- Use synthetic data and compliance disclaimers for all development and testing.
+- Troubleshoot endpoint issues by checking handler implementation and server logs.
 # AI Instructions Directory
 
 This directory contains specialized AI instruction files for different development contexts, tasks, and tools. These files are **officially supported by GitHub Copilot coding agent** and enable enhanced AI assistance across the healthcare AI development workflow.

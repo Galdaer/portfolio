@@ -1,3 +1,9 @@
+## PHI-Safe Development Patterns
+
+- Never expose real patient data in logs, tests, or API calls.
+- Use synthetic data generators for all healthcare scenarios.
+- Document all endpoints with compliance disclaimers.
+- Validate all external API calls for PHI safety before deployment.
 # Healthcare AI Domain Instructions
 
 ## Purpose

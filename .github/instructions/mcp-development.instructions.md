@@ -1,3 +1,48 @@
+## Real-World MCP & Ollama Integration Patterns
+
+### Docker Networking
+
+- Use a user-defined bridge network for multi-container setups:
+  ```sh
+  docker network create intelluxe-net
+  docker run --network intelluxe-net --name ollama-container ... ollama-image
+  docker run --network intelluxe-net --name mcp-container ... mcp-image
+  ```
+- Use container names as hostnames (e.g., `http://ollama-container:11434`) for internal API calls.
+
+### Ollama API Integration
+
+- Set `OLLAMA_API_URL` to the correct address for your environment:
+  - Host: `http://host.docker.internal:11434`
+  - Docker network: `http://ollama-container:11434`
+- Only use `/mcp` endpoint with JSON-RPC payloads for MCP server requests.
+
+### JSON-RPC Payload Example
+
+```sh
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -d "{\"jsonrpc\": \"2.0\", \"method\": \"generate_documentation\", \"params\": {\"prompt\": \"Test prompt\"}, \"id\": 1}"
+```
+
+### Troubleshooting Patterns
+
+- If you get "Unknown MCP method", ensure the handler is implemented in `index.ts`.
+- For network issues, verify both containers are on the same Docker network.
+- Install missing utilities in your dev container as needed:
+  ```sh
+  sudo apt update && sudo apt install iputils-ping
+  ```
+
+### Shell Script Robustness
+
+- Avoid strict flags (`set -euo pipefail`) during debugging.
+- Add `set -x` for verbose output.
+
+### PHI Safety
+
+- Always use synthetic data for development and testing.
+- Include compliance disclaimers in all documentation and endpoint responses.
 # MCP Development Instructions for Intelluxe AI Healthcare System
 
 ## MCP Server Integration Strategy

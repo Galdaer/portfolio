@@ -1,3 +1,15 @@
+## Healthcare MCP & Ollama Integration Testing
+
+- Use synthetic prompts and data for all tests.
+- Test endpoints using JSON-RPC payloads only.
+- Example test script for documentation endpoint:
+  ```sh
+  curl -X POST http://localhost:3000/mcp \
+    -H "Content-Type: application/json" \
+    -d "{\"jsonrpc\": \"2.0\", \"method\": \"generate_documentation\", \"params\": {\"prompt\": \"Test prompt\"}, \"id\": 1}"
+  ```
+- If no output, check server logs for JSON parsing errors or unknown method errors.
+- Always validate JSON before sending to MCP server.
 # Healthcare AI Testing Instructions
 
 ## Purpose
