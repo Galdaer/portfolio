@@ -128,7 +128,7 @@ try:
                 print(f"   ✅ {metric_name}: {score:.2f}")
             except Exception as e:
                 print(f"   ⚠️  {metric_name} error: {e}")
-                metrics_results[metric_name] = "error"
+                metrics_results[metric_name] = 0.0  # Use 0.0 instead of "error" for consistency
 
         # Healthcare-specific analysis
         if "Hallucination" in metrics_results and isinstance(

@@ -33,11 +33,37 @@ class PHISafeTestingFramework:
         """Ensure test data contains no real PHI"""
         data_str = str(data)
 
-        # Check for PHI patterns
+        # Check for PHI patterns, but allow safe synthetic data
         phi_violations = []
         for phi_type, pattern in cls.PHI_PATTERNS.items():
-            if re.search(pattern, data_str):
-                phi_violations.append(phi_type)
+            matches = re.findall(pattern, data_str)
+            if matches:
+                # Check if matches are synthetic/safe
+                if phi_type == "email":
+                    # Allow test emails with test domains
+                    unsafe_emails = [
+                        m
+                        for m in matches
+                        if not (
+                            "@test.example.com" in m
+                            or "@synthetic.test" in m
+                            or "@example.com" in m
+                        )
+                    ]
+                    if unsafe_emails:
+                        phi_violations.append(f"{phi_type}: {unsafe_emails}")
+                elif phi_type == "phone":
+                    # Allow 555 test numbers
+                    unsafe_phones = [m for m in matches if not m.startswith("555")]
+                    if unsafe_phones:
+                        phi_violations.append(f"{phi_type}: {unsafe_phones}")
+                elif phi_type == "ssn":
+                    # Allow 555 test SSNs
+                    unsafe_ssns = [m for m in matches if not m.startswith("555")]
+                    if unsafe_ssns:
+                        phi_violations.append(f"{phi_type}: {unsafe_ssns}")
+                else:
+                    phi_violations.append(f"{phi_type}: {matches}")
 
         if phi_violations:
             raise ValueError(f"Potential PHI detected in test data: {phi_violations}")

@@ -429,7 +429,7 @@ def get_container_statuses() -> dict[str, str]:
     return statuses
 
 
-@app.route("/", methods=["GET", "POST"])  # type: ignore[misc]
+@app.route("/", methods=["GET", "POST"])
 def index() -> str | Response:
     config = load_config()
     # Ensure configurable web UI port is always available
@@ -469,7 +469,7 @@ def index() -> str | Response:
     )
 
 
-@app.route("/bootstrap", methods=["POST"])  # type: ignore[misc]
+@app.route("/bootstrap", methods=["POST"])
 def bootstrap() -> Response:
     """Run full bootstrap without ACTION_FLAG."""
     env = os.environ.copy()
@@ -477,21 +477,21 @@ def bootstrap() -> Response:
     return redirect(url_for("index"))
 
 
-@app.route("/reset-wg-keys", methods=["POST"])  # type: ignore[misc]
+@app.route("/reset-wg-keys", methods=["POST"])
 def reset_wg_keys() -> Response:
     env = os.environ.copy()
     run_bootstrap(["--reset-wg-keys"], env=env)
     return redirect(url_for("index"))
 
 
-@app.route("/self-update", methods=["POST"])  # type: ignore[misc]
+@app.route("/self-update", methods=["POST"])
 def self_update() -> Response:
     env = os.environ.copy()
     run_bootstrap(["--self-update"], env=env)
     return redirect(url_for("index"))
 
 
-@app.route("/diagnostics", methods=["POST"])  # type: ignore[misc]
+@app.route("/diagnostics", methods=["POST"])
 def diagnostics() -> Response:
     env = os.environ.copy()
     subprocess.Popen(
@@ -503,7 +503,7 @@ def diagnostics() -> Response:
     return redirect(url_for("index"))
 
 
-@app.route("/auto-repair", methods=["POST"])  # type: ignore[misc]
+@app.route("/auto-repair", methods=["POST"])
 def auto_repair() -> Response:
     env = os.environ.copy()
     subprocess.Popen(
@@ -515,7 +515,7 @@ def auto_repair() -> Response:
     return redirect(url_for("index"))
 
 
-@app.route("/reset-system", methods=["POST"])  # type: ignore[misc]
+@app.route("/reset-system", methods=["POST"])
 def reset_system_route() -> Response:
     env = os.environ.copy()
     subprocess.Popen(
@@ -527,7 +527,7 @@ def reset_system_route() -> Response:
     return redirect(url_for("index"))
 
 
-@app.route("/systemd-summary", methods=["GET"])  # type: ignore[misc]
+@app.route("/systemd-summary", methods=["GET"])
 def systemd_summary_route() -> str:
     env = os.environ.copy()
     try:
@@ -542,7 +542,7 @@ def systemd_summary_route() -> str:
     return f"<pre>{output}</pre><p><a href='{url_for('index')}'>Back</a></p>"
 
 
-@app.route("/teardown", methods=["POST"])  # type: ignore[misc]
+@app.route("/teardown", methods=["POST"])
 def teardown_route() -> Response | tuple[str, int]:
     if TEARDOWN_PATH is None:
         return "Error: TEARDOWN_PATH is not set", 500
@@ -557,7 +557,7 @@ def teardown_route() -> Response | tuple[str, int]:
     return redirect(url_for("index"))
 
 
-@app.route("/stop-service", methods=["POST"])  # type: ignore[misc]
+@app.route("/stop-service", methods=["POST"])
 def stop_service_route() -> Response:
     env = os.environ.copy()
     service = request.form.get("service")
@@ -566,7 +566,7 @@ def stop_service_route() -> Response:
     return redirect(url_for("index"))
 
 
-@app.route("/start-service", methods=["POST"])  # type: ignore[misc]
+@app.route("/start-service", methods=["POST"])
 def start_service_route() -> Response:
     env = os.environ.copy()
     svc = request.form.get("service")
@@ -576,7 +576,7 @@ def start_service_route() -> Response:
     return redirect(url_for("index"))
 
 
-@app.route("/restart-service", methods=["POST"])  # type: ignore[misc]
+@app.route("/restart-service", methods=["POST"])
 def restart_service_route() -> Response:
     env = os.environ.copy()
     svc = request.form.get("service")
@@ -586,7 +586,7 @@ def restart_service_route() -> Response:
     return redirect(url_for("index"))
 
 
-@app.route("/remove-service", methods=["POST"])  # type: ignore[misc]
+@app.route("/remove-service", methods=["POST"])
 def remove_service_route() -> Response:
     env = os.environ.copy()
     svc = request.form.get("service")
@@ -596,7 +596,7 @@ def remove_service_route() -> Response:
     return redirect(url_for("index"))
 
 
-@app.route("/add-service", methods=["POST"])  # type: ignore[misc]
+@app.route("/add-service", methods=["POST"])
 def add_service_route() -> Response:
     svc = request.form.get("service")
     image = request.form.get("image")
@@ -634,8 +634,8 @@ def add_service_route() -> Response:
     return redirect(url_for("index"))
 
 
-@app.route("/logs/", defaults={"target": None})  # type: ignore[misc]
-@app.route("/logs/<path:target>")  # type: ignore[misc]
+@app.route("/logs/", defaults={"target": None})
+@app.route("/logs/<path:target>")
 def logs_index(target: str | None = None) -> Response | str:
     """List log files or show logs for a specific container."""
     if target:

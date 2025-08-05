@@ -33,7 +33,7 @@ def load_model() -> bool:
         return False
 
 
-@app.route("/health")  # type: ignore[misc]
+@app.route("/health")
 def health() -> tuple[dict[str, Any], int]:
     """Health check endpoint"""
     if nlp is None:
@@ -41,7 +41,7 @@ def health() -> tuple[dict[str, Any], int]:
     return {"status": "ok", "model": MODEL_NAME}, 200
 
 
-@app.route("/")  # type: ignore[misc]
+@app.route("/")
 def root() -> dict[str, Any]:
     """Root endpoint with API info"""
     return {
@@ -55,7 +55,7 @@ def root() -> dict[str, Any]:
     }
 
 
-@app.route("/info")  # type: ignore[misc]
+@app.route("/info")
 def info() -> tuple[dict[str, Any], int]:
     """Model information endpoint"""
     if nlp is None:
@@ -71,7 +71,7 @@ def info() -> tuple[dict[str, Any], int]:
     return {"model": MODEL_NAME, "pipeline": nlp.pipe_names, "entities": entities}, 200
 
 
-@app.route("/analyze", methods=["POST"])  # type: ignore[misc]
+@app.route("/analyze", methods=["POST"])
 def analyze() -> tuple[dict[str, Any], int]:
     """Analyze text for biomedical entities"""
     if nlp is None:

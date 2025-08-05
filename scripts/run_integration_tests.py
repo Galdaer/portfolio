@@ -27,7 +27,7 @@ except ImportError as e:
 class HealthcareIntegrationRunner:
     """Standalone integration test runner"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.framework = PHISafeTestingFramework()
         self.validator = HealthcareTestValidator()
         self.mcp_url = "http://localhost:3000/mcp"
@@ -45,7 +45,7 @@ class HealthcareIntegrationRunner:
         """Test basic connectivity to MCP and FastAPI servers"""
         print("🔌 Testing server connectivity...")
 
-        results = {
+        results: dict[str, Any] = {
             "test_name": "connectivity",
             "mcp_server": {"available": False, "error": None},
             "fastapi_server": {"available": False, "error": None},
@@ -423,18 +423,19 @@ class HealthcareIntegrationRunner:
         }
 
 
-async def main():
+async def main() -> None:
     """Main test runner"""
     try:
         runner = HealthcareIntegrationRunner()
         results = await runner.run_all_tests()
-        return results["return_code"]
+        exit_code = results["return_code"]
+        exit(exit_code)
     except KeyboardInterrupt:
         print("\n⚠️  Tests interrupted by user")
-        return 130
+        exit(130)
     except Exception as e:
         print(f"\n❌ Test runner failed: {e}")
-        return 1
+        exit(1)
 
 
 if __name__ == "__main__":

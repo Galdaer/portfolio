@@ -21,7 +21,7 @@ router = APIRouter(prefix="/billing", tags=["billing_helper"])
 
 @router.post("/process-claim")
 @phi_monitor(risk_level="medium", operation_type="api_claim_processing")
-async def process_claim(claim_data: dict[str, Any]):
+async def process_claim(claim_data: dict[str, Any]) -> dict[str, Any]:
     """
     Process a medical billing claim
 
@@ -79,7 +79,7 @@ async def process_claim(claim_data: dict[str, Any]):
 
 
 @router.post("/validate-cpt/{cpt_code}")
-async def validate_cpt_code(cpt_code: str):
+async def validate_cpt_code(cpt_code: str) -> dict[str, Any]:
     """
     Validate a CPT procedure code
 
@@ -124,7 +124,7 @@ async def validate_cpt_code(cpt_code: str):
 
 
 @router.post("/validate-icd/{icd_code}")
-async def validate_icd_code(icd_code: str):
+async def validate_icd_code(icd_code: str) -> dict[str, Any]:
     """
     Validate an ICD-10 diagnosis code
 
@@ -170,7 +170,7 @@ async def validate_icd_code(icd_code: str):
 
 @router.post("/verify-insurance")
 @phi_monitor(risk_level="medium", operation_type="api_insurance_verification")
-async def verify_insurance_benefits(insurance_info: dict[str, Any]):
+async def verify_insurance_benefits(insurance_info: dict[str, Any]) -> dict[str, Any]:
     """
     Verify insurance benefits and coverage
 
@@ -217,7 +217,7 @@ async def verify_insurance_benefits(insurance_info: dict[str, Any]):
 
 
 @router.get("/report")
-async def generate_billing_report(start_date: str, end_date: str):
+async def generate_billing_report(start_date: str, end_date: str) -> dict[str, Any]:
     """
     Generate billing summary report for date range
 
@@ -264,7 +264,7 @@ async def generate_billing_report(start_date: str, end_date: str):
 
 
 @router.get("/health")
-async def health_check():
+async def health_check() -> dict[str, Any]:
     """Health check endpoint for billing helper service"""
     return {
         "status": "healthy",

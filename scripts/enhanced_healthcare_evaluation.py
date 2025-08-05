@@ -29,24 +29,26 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-try:
+if TYPE_CHECKING:
     from deepeval.metrics.answer_relevancy.answer_relevancy import AnswerRelevancyMetric
-    from deepeval.metrics.contextual_recall.contextual_recall import (
-        ContextualRecallMetric,
-    )
+    from deepeval.metrics.contextual_recall.contextual_recall import ContextualRecallMetric
     from deepeval.metrics.faithfulness.faithfulness import FaithfulnessMetric
     from deepeval.test_case.llm_test_case import LLMTestCase
-
-    DEEPEVAL_AVAILABLE = True
-except ImportError:
-    DEEPEVAL_AVAILABLE = False
-    # For type checking when DeepEval is not available
-    LLMTestCase = None
-    AnswerRelevancyMetric = None
-    ContextualRecallMetric = None
-    FaithfulnessMetric = None
+else:
+    try:
+        from deepeval.metrics.answer_relevancy.answer_relevancy import AnswerRelevancyMetric
+        from deepeval.metrics.contextual_recall.contextual_recall import ContextualRecallMetric
+        from deepeval.metrics.faithfulness.faithfulness import FaithfulnessMetric
+        from deepeval.test_case.llm_test_case import LLMTestCase
+        DEEPEVAL_AVAILABLE = True
+    except ImportError:
+        DEEPEVAL_AVAILABLE = False
+        LLMTestCase = None
+        AnswerRelevancyMetric = None
+        ContextualRecallMetric = None
+        FaithfulnessMetric = None
 
 logger = logging.getLogger(__name__)
 
