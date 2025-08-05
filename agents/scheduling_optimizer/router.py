@@ -85,7 +85,10 @@ async def schedule_appointment(appointment_request: dict[str, Any]) -> dict[str,
 
 @router.get("/available-slots")
 async def find_available_slots(
-    provider_id: str, appointment_type: str, preferred_date: str, duration_minutes: int | None = None
+    provider_id: str,
+    appointment_type: str,
+    preferred_date: str,
+    duration_minutes: int | None = None,
 ) -> dict[str, Any]:
     """
     Find available appointment slots for specified criteria
@@ -164,7 +167,9 @@ async def find_available_slots(
 
 
 @router.get("/optimize-schedule/{provider_id}")
-async def optimize_provider_schedule(provider_id: str, start_date: str, end_date: str) -> dict[str, Any]:
+async def optimize_provider_schedule(
+    provider_id: str, start_date: str, end_date: str
+) -> dict[str, Any]:
     """
     Generate schedule optimization recommendations for provider
 

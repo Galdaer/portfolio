@@ -561,15 +561,11 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
                 return cast(dict[str, Any], result)
             elif request_type == "optimize_schedule":
                 result = await self.optimize_provider_schedule(
-                    request["provider_id"],
-                    request["date"]
+                    request["provider_id"], request["date"]
                 )
                 return cast(dict[str, Any], result)
             elif request_type == "wait_time_analysis":
-                result = await self.calculate_wait_times(
-                    request["provider_id"],
-                    request["date"]
-                )
+                result = await self.calculate_wait_times(request["provider_id"], request["date"])
                 return cast(dict[str, Any], result)
             elif request_type == "capacity_report":
                 result = await self.generate_capacity_report(request["date_range"])
@@ -578,13 +574,18 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
                 return {
                     "success": False,
                     "error": "Unsupported request type",
-                    "supported_types": ["schedule_appointment", "optimize_schedule", "wait_time_analysis", "capacity_report"]
+                    "supported_types": [
+                        "schedule_appointment",
+                        "optimize_schedule",
+                        "wait_time_analysis",
+                        "capacity_report",
+                    ],
                 }
         except Exception as e:
             return {
                 "success": False,
                 "error": f"Scheduling processing failed: {str(e)}",
-                "request_id": request.get("request_id", "unknown")
+                "request_id": request.get("request_id", "unknown"),
             }
 
 

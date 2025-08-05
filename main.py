@@ -384,10 +384,12 @@ try:
     from agents.document_processor import router as document_router
     from agents.intake import router as intake_router
     from agents.research_assistant import router as research_router
+    from agents.transcription import router as transcription_router
 
     app.include_router(intake_router, prefix="/agents/intake", tags=["intake"])
     app.include_router(document_router, prefix="/agents/document", tags=["document"])
     app.include_router(research_router, prefix="/agents/research", tags=["research"])
+    app.include_router(transcription_router, prefix="/agents/transcription", tags=["transcription"])
 
     logger.info("Agent routers loaded successfully")
 except ImportError as e:

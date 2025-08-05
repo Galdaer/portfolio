@@ -86,10 +86,7 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
     """
 
     def __init__(self) -> None:
-        super().__init__(
-            agent_name="insurance_verification",
-            agent_type="administrative_support"
-        )
+        super().__init__(agent_name="insurance_verification", agent_type="administrative_support")
         self.agent_type = "insurance_verification"
         self.capabilities = [
             "eligibility_verification",
