@@ -2,40 +2,93 @@
 
 ## Purpose
 
-**DATABASE-FIRST ARCHITECTURE**: All healthcare applications must use databases as primary data source. No synthetic file fallbacks allowed except for GitHub coding agents with database setup capability.
+**DATABASE-FIRST ARCHITECTURE**: Healthcare applications prioritize databases as primary data source with appropriate fallbacks for development and testing. Production systems require database connectivity for PHI security.
 
-## CRITICAL: Database-First Enforcement
+## CRITICAL: Database-First Pattern (NOT Database-Only)
 
-### Database Connection Requirements
+### Correct Database-First Implementation
 
-**❌ PROHIBITED PATTERNS:**
+**❌ WRONG PATTERN (Database-Only):**
 ```python
-# ❌ WRONG: File fallbacks compromise security
-def get_patient_data(patient_id):
-    try:
-        return database.fetch_patient(patient_id)
-    except DatabaseError:
-        return load_synthetic_file(patient_id)  # PROHIBITED
-```
-
-**✅ REQUIRED PATTERNS:**
-```python
-# ✅ CORRECT: Database-first with proper error handling
+# ❌ WRONG: No fallbacks breaks development workflow
 def get_patient_data(patient_id):
     try:
         return database.fetch_patient(patient_id)
     except DatabaseError as e:
-        logger.error(f"Database connection failed: {e}")
-        raise DatabaseConnectionError("Healthcare database unavailable. Please check connection.")
+        raise DatabaseConnectionError("Database required")  # Too rigid
+```
+
+**✅ CORRECT PATTERN (Database-First with Graceful Fallbacks):**
+```python
+# ✅ CORRECT: Database-first with appropriate fallbacks
+def get_patient_data(patient_id):
+    try:
+        return database.fetch_patient(patient_id)
+    except DatabaseConnectionError as e:
+        logger.warning(f"Database unavailable: {e}")
+        
+        # Appropriate fallbacks based on environment and data sensitivity
+        if is_development_environment():
+            logger.info("Using synthetic data for development")
+            return load_synthetic_data(patient_id)
+        elif is_testing_environment():
+            logger.info("Using test fixtures for automated testing") 
+            return load_test_fixtures(patient_id)
+        else:
+            # Production: Database required for PHI security
+            raise DatabaseConnectionError(
+                "Production database required for PHI security. "
+                "Please check database connectivity and configuration."
+            )
+```
+
+**✅ ENHANCED PATTERN (Smart Fallback Selection):**
+```python
+# ✅ ENHANCED: Smart fallback based on data type and environment
+def get_healthcare_data(data_type: str, identifier: str):
+    try:
+        return database.fetch_data(data_type, identifier)
+    except DatabaseConnectionError:
+        return handle_database_fallback(data_type, identifier)
+
+def handle_database_fallback(data_type: str, identifier: str):
+    """Handle database fallbacks based on data sensitivity and environment"""
+    if contains_phi(data_type):
+        # PHI data requires database in production
+        if is_production_environment():
+            raise DatabaseConnectionError("PHI data requires secure database connection")
+        else:
+            return generate_synthetic_phi_like_data(data_type, identifier)
+    else:
+        # Non-PHI data can use file fallbacks
+        return load_fallback_data(data_type, identifier)
 ```
 
 ### Agent Database Requirements
 
 **ALL AGENTS MUST:**
-- Verify database connectivity at startup
-- Fail gracefully with clear error messages when database unavailable
-- Provide database setup guidance in error messages
-- Log database connection attempts for audit compliance
+- **Primary**: Attempt database connectivity at startup
+- **Fallback**: Use appropriate fallbacks for development/testing environments
+- **Production**: Require database connectivity for PHI security
+- **Error Handling**: Provide clear error messages and setup guidance
+- **Logging**: Log database connection attempts and fallback usage for audit compliance
+
+### Environment-Based Database Patterns
+
+**Development Environment:**
+- Database preferred, synthetic data fallback acceptable
+- Clear logging when fallbacks are used
+- Synthetic data clearly marked as non-PHI
+
+**Testing Environment:**
+- Database preferred, test fixtures fallback acceptable
+- Isolated test database recommended
+- No real PHI data ever used in testing
+
+**Production Environment:**
+- Database connectivity required
+- No fallbacks for PHI data
+- Graceful degradation only for non-PHI operations
 
 ## Healthcare Database Architecture Principles
 

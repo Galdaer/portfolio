@@ -322,6 +322,30 @@ if patient_data is not None:
 
 ## Development Workflow & Code Quality
 
+### CRITICAL: Database-First vs Database-Only Clarification
+
+**DATABASE-FIRST ARCHITECTURE** means:
+- **Primary**: Always try database first when available
+- **Fallback**: Use appropriate fallbacks for development and testing
+- **Production**: Require database for PHI security, allow fallbacks for non-PHI operations
+- **Error Handling**: Graceful degradation with clear logging
+
+**NOT "Database-Only"** - that would break development workflows and testing capabilities.
+
+```python
+# ✅ CORRECT: Database-first pattern
+def get_data(identifier):
+    try:
+        return database.fetch(identifier)
+    except DatabaseConnectionError:
+        if is_development_environment():
+            return load_synthetic_data(identifier)  # OK for development
+        elif is_production_environment() and contains_phi(identifier):
+            raise  # PHI requires database in production
+        else:
+            return load_fallback_data(identifier)  # OK for non-PHI
+```
+
 ### Quick Developer Setup
 
 ```bash
