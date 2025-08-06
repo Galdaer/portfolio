@@ -5,6 +5,7 @@ accelerate==1.8.1
     #   -r requirements.in
     #   peft
     #   trl
+    #   unsloth
     #   unsloth-zoo
 aiofiles==24.1.0
     # via -r requirements.in
@@ -128,6 +129,8 @@ deprecated==1.2.18
     # via
     #   opentelemetry-api
     #   opentelemetry-exporter-otlp-proto-grpc
+diffusers==0.34.0
+    # via unsloth
 dill==0.3.8
     # via
     #   datasets
@@ -162,6 +165,7 @@ fastmcp==0.3.2
 filelock==3.18.0
     # via
     #   datasets
+    #   diffusers
     #   huggingface-hub
     #   tldextract
     #   torch
@@ -244,6 +248,7 @@ huggingface-hub==0.34.1
     # via
     #   accelerate
     #   datasets
+    #   diffusers
     #   peft
     #   tokenizers
     #   transformers
@@ -262,7 +267,9 @@ idna==3.10
     #   tldextract
     #   yarl
 importlib-metadata==7.0.0
-    # via opentelemetry-api
+    # via
+    #   diffusers
+    #   opentelemetry-api
 importlib-resources==6.5.2
     # via chromadb
 influxdb-client==1.49.0
@@ -397,6 +404,7 @@ numpy==2.3.2
     #   chromadb
     #   contourpy
     #   datasets
+    #   diffusers
     #   faiss-cpu
     #   langchain-community
     #   matplotlib
@@ -410,9 +418,11 @@ numpy==2.3.2
     #   seaborn
     #   spacy
     #   thinc
+    #   torchvision
     #   transformers
     #   unsloth
     #   unsloth-zoo
+    #   xformers
 nvidia-cublas-cu12==12.6.4.1
     # via
     #   nvidia-cudnn-cu12
@@ -458,8 +468,9 @@ ollama==0.5.1
     # via deepeval
 onnxruntime==1.22.1
     # via chromadb
-openai==1.96.0
+openai==1.99.1
     # via
+    #   -r requirements.in
     #   deepeval
     #   langchain-openai
     #   ragas
@@ -529,12 +540,15 @@ pathspec==0.12.1
 peft==0.16.0
     # via
     #   -r requirements.in
+    #   unsloth
     #   unsloth-zoo
 phonenumbers==8.13.55
     # via presidio-analyzer
 pillow==11.3.0
     # via
+    #   diffusers
     #   matplotlib
+    #   torchvision
     #   unsloth-zoo
 platformdirs==4.3.8
     # via wandb
@@ -713,6 +727,7 @@ referencing==0.36.2
     #   jsonschema-specifications
 regex==2024.11.6
     # via
+    #   diffusers
     #   presidio-analyzer
     #   tiktoken
     #   transformers
@@ -723,6 +738,7 @@ requests==2.32.4
     #   azure-core
     #   datasets
     #   deepeval
+    #   diffusers
     #   google-genai
     #   grafana-api
     #   huggingface-hub
@@ -765,6 +781,7 @@ ruff==0.12.7
 safetensors==0.5.3
     # via
     #   accelerate
+    #   diffusers
     #   peft
     #   transformers
 scikit-learn==1.7.0
@@ -870,7 +887,12 @@ torch==2.7.1
     #   bitsandbytes
     #   cut-cross-entropy
     #   peft
+    #   torchvision
+    #   unsloth
     #   unsloth-zoo
+    #   xformers
+torchvision==0.22.1
+    # via unsloth
 tqdm==4.67.1
     # via
     #   chromadb
@@ -894,10 +916,12 @@ triton==3.3.1
     # via
     #   cut-cross-entropy
     #   torch
+    #   unsloth
     #   unsloth-zoo
 trl==0.19.1
     # via
     #   -r requirements.in
+    #   unsloth
     #   unsloth-zoo
 typeguard==4.4.4
     # via tyro
@@ -957,7 +981,7 @@ tzdata==2025.2
     # via
     #   faker
     #   pandas
-unsloth @ git+https://github.com/unslothai/unsloth.git@a78b86e5c9c08b90f53a4ef89e6b9c6860fe66dc
+unsloth==2025.8.1
     # via -r requirements.in
 unsloth-zoo==2025.8.1
     # via unsloth
@@ -1005,6 +1029,8 @@ wrapt==1.17.2
     # via
     #   deprecated
     #   smart-open
+xformers==0.0.31.post1
+    # via unsloth
 xxhash==3.5.0
     # via
     #   datasets
