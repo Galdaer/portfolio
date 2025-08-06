@@ -256,7 +256,15 @@
         "CI environment detection and self-hosted runner optimization patterns",
         "Healthcare AI test isolation with synthetic data and Docker containers",
         "Universal service runner testing patterns for healthcare infrastructure",
-        "Real implementations over mocks for Phase 1 MCP integration requirements"
+        "Real implementations over mocks for Phase 1 MCP integration requirements",
+        "Multi-agent coordination patterns for clinical workflows",
+        "Real-time WebSocket patterns for clinical assistance",
+        "Evidence-based reasoning with transparent source attribution",
+        "Progressive clinical analysis with streaming updates",
+        "Agent routing based on clinical context and emergency detection",
+        "Healthcare MCP tool integration with PHI protection",
+        "Clinical reasoning with uncertainty quantification",
+        "Medical literature search with evidence grading"
     ],
     "github.copilot.chat.firewallConfiguration": {
         "enabled": true,
@@ -301,15 +309,60 @@
     "typescript.preferences.includePackageJsonAutoImports": "off",
     "typescript.suggest.autoImports": false,
     "typescript.validate.enable": false,
-    "mcpServers": {
-        "healthcare-mcp": {
-            "command": "npx",
-            "args": [
-                "@modelcontextprotocol/client-http",
-                "http://localhost:3000"
-            ]
+    "// === ENHANCED HEALTHCARE AI MCP INTEGRATION ===": "",
+    "chat.mcp.discovery.enabled": true,
+    "chat.mcp.maxConcurrentTools": 128,
+    "// Healthcare MCP Tool Sets Configuration": "",
+    "github.copilot.chat.toolSets": {
+        "clinical_analysis": {
+            "description": "Comprehensive clinical analysis and medical research tools",
+            "tools": [
+                "mcp_healthcare-mc_literature_search",
+                "mcp_healthcare-mc_clinical_entity_extraction",
+                "mcp_healthcare-mc_medical_terminology_validation",
+                "mcp_sequentialthi_sequentialthinking"
+            ],
+            "medical_disclaimers": true,
+            "phi_protection": true
+        },
+        "patient_workflow": {
+            "description": "Patient workflow management and clinical documentation",
+            "tools": [
+                "mcp_healthcare-mc_soap_note_generation",
+                "mcp_healthcare-mc_clinical_documentation_review",
+                "mcp_healthcare-mc_workflow_optimization",
+                "mcp_memory_store_memory"
+            ],
+            "compliance_mode": "strict",
+            "audit_logging": true
+        },
+        "clinical_reasoning": {
+            "description": "Advanced clinical reasoning and diagnostic support",
+            "tools": [
+                "mcp_sequentialthi_sequentialthinking",
+                "mcp_memory_search_memory",
+                "mcp_healthcare-mc_differential_diagnosis",
+                "mcp_healthcare-mc_evidence_based_reasoning"
+            ],
+            "evidence_based": true,
+            "uncertainty_quantification": true
+        },
+        "emergency_response": {
+            "description": "Emergency detection and rapid clinical response",
+            "tools": [
+                "mcp_healthcare-mc_emergency_detection",
+                "mcp_healthcare-mc_critical_care_protocols"
+            ],
+            "priority": "critical",
+            "response_time": "immediate"
         }
     },
+    "// Advanced Copilot Healthcare Configuration": "",
+    "github.copilot.chat.mode": "agent",
+    "github.copilot.chat.agent.defaultMode": "healthcare_ai",
+    "github.copilot.chat.healthcareCompliance": "strict",
+    "github.copilot.chat.medicalDisclaimers": "automatic",
+    "github.copilot.chat.phiProtection": "maximum",
     "workbench.tree.renderIndentGuides": "none",
     "// === HEALTHCARE AI AUTOMATION CONFIGURATION ===": "",
     "// Enable comprehensive Python analysis for healthcare compliance": "",

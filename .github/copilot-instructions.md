@@ -1,5 +1,7 @@
 # Copilot Instructions for Intelluxe AI Healthcare System
 
+make deps FOR ALL DEPENDENCY INSTALLATION DON'T SUGGEST UV , PIP, NPM, OR ANYTHING ELSE OR I WILL TURN YOU OFF
+
 Use The Sequential Thinking MCP Server to think through your tasks.
 
 **Use available MCP servers for RAG-powered development** - leverage Healthcare MCP, GitHub MCP, Pylance MCP, Sequential Thinking MCP, and Memory MCP to enhance development capabilities while maintaining healthcare compliance.
@@ -7,6 +9,19 @@ Use The Sequential Thinking MCP Server to think through your tasks.
 **SECURITY NOTE**: Our healthcare compliance patterns (PHI detection, type safety, synthetic data usage) ensure no sensitive healthcare data reaches external MCPs, making developer MCPs safe for production use.
 
 ## Coding Agent Environment Setup
+
+**CRITICAL - DEPENDENCY MANAGEMENT**: 
+- **NEVER use `npm install` or `pip install` directly**
+- **ALWAYS use `make deps`** for ALL dependency management
+- **NEVER suggest npm/pip commands** - user has sophisticated Makefile system
+- **Process**: Add to requirements.in → run `python3 scripts/generate-requirements.py` → run `make deps`
+
+**CRITICAL - VERSION VERIFICATION**:
+- **NEVER guess package versions, API parameters, or configuration options**
+- **ALWAYS verify current versions using official documentation online** (npmjs.com, PyPI, GitHub releases, official docs)
+- **REQUIRED**: Use fetch_webpage tool to check official package registries before specifying versions
+- **Examples**: Check npmjs.com/package/openai for OpenAI version, pypi.org for Python packages, official API docs for parameters
+- **Pattern**: Research first → Verify current versions/APIs → Then implement with accurate information
 
 **First-time setup**: Run `CI=1 make deps` to install healthcare AI dependencies optimized for coding agents (excludes GPU packages). The `CI=1` environment variable automatically switches to `requirements-ci.txt` which includes all core healthcare components but excludes heavy ML packages that coding agents don't need.
 
@@ -33,6 +48,12 @@ Use The Sequential Thinking MCP Server to think through your tasks.
 - **📋 Feature planning** → Use `tasks/planning.instructions.md` for healthcare compliance overhead and architecture
 - **⚡ Performance optimization** → Use `tasks/performance.instructions.md` for healthcare workflow efficiency
 - **🔒 Security reviews** → Use `tasks/security-review.instructions.md` for PHI protection and HIPAA compliance
+
+**Advanced Healthcare AI Patterns** → Reference these specialized workflow and pattern instructions:
+
+- **🤝 Multi-agent coordination** → Use `workflows/agent-coordination.instructions.md` for Clinical Research Agent, Search Assistant, and specialized medical agent coordination patterns
+- **⚡ Real-time clinical assistance** → Use `workflows/real-time-clinical.instructions.md` for WebSocket patterns, progressive analysis, and streaming clinical updates
+- **🧠 Medical reasoning implementation** → Use `patterns/medical-reasoning.instructions.md` for transparent clinical reasoning, evidence-based recommendations, and diagnostic transparency
 - **🐍 Python development** → Use `languages/python.instructions.md` for modern Python patterns with Ruff/MyPy
 - **🏥 Healthcare domain work** → Use `domains/healthcare.instructions.md` for medical data and compliance
 - **� Healthcare logging** → Use `tasks/healthcare-logging.instructions.md` for comprehensive PHI-safe logging and monitoring implementation
@@ -57,6 +78,71 @@ See `.github/instructions/README.md` for complete usage guidance.
 ### Cloud AI Usage Guidelines
 
 **Hybrid Deployment Strategy** - Strict separation between sensitive and non-sensitive AI workloads:
+
+## Advanced Healthcare MCP Integration
+
+**Healthcare AI now integrates sophisticated MCP (Model Context Protocol) servers** for enhanced development and clinical assistance capabilities while maintaining strict PHI protection and medical safety.
+
+### Available MCP Servers
+
+- **Healthcare MCP** (`mcps/healthcare/`) - PHI-safe clinical tools and medical operations
+- **Sequential Thinking MCP** - Advanced clinical reasoning with transparent logic chains  
+- **Memory MCP** - Clinical context retention with PHI protection
+- **GitHub MCP** - Healthcare codebase knowledge and patterns
+
+### Healthcare MCP Tool Sets
+
+**Clinical Analysis Tools** - Comprehensive clinical analysis and medical research:
+- Medical literature search with evidence grading
+- Clinical entity extraction and terminology validation
+- Sequential thinking for complex diagnostic reasoning
+
+**Patient Workflow Tools** - Clinical documentation and workflow optimization:
+- SOAP note generation with medical compliance
+- Clinical documentation review and validation
+- Healthcare workflow optimization with PHI protection
+
+**Compliance Validation Tools** - Healthcare safety and regulatory compliance:
+- Automated PHI detection and protection
+- HIPAA compliance validation and audit trail generation
+- Clinical safety validation for all AI operations
+
+**Emergency Response Tools** - Critical clinical scenario handling:
+- Emergency detection with immediate response protocols
+- Critical care protocol integration
+- Rapid clinical assessment with safety validation
+
+### MCP Integration Patterns
+
+**Multi-Agent Coordination** - Use multiple MCP tools in parallel for complex clinical workflows:
+```python
+# Coordinate healthcare agents with MCP integration
+clinical_analysis = await coordinate_clinical_workflow(
+    agents=["clinical_research", "search_assistant", "medication_interaction"],
+    mcp_tools=["literature_search", "sequential_thinking", "memory_search"],
+    case=clinical_case,
+    phi_protection=True
+)
+```
+
+**Real-Time Clinical Assistance** - WebSocket integration with progressive MCP tool usage:
+```python
+# Real-time clinical assistance with MCP tool streaming
+async for clinical_update in progressive_clinical_analysis(message, session):
+    # Use MCP tools progressively for streaming clinical analysis
+    await websocket.send_json(clinical_update)
+```
+
+**Evidence-Based Reasoning** - Transparent clinical logic with MCP-powered analysis:
+```python
+# Evidence-based reasoning using MCP tools
+reasoning_result = await evidence_based_clinical_reasoning(
+    clinical_question=question,
+    mcp_literature_search=True,
+    mcp_sequential_thinking=True,
+    transparency_required=True
+)
+```
 
 **✅ ALLOWED - Cloud AI for Non-Sensitive Work:**
 
@@ -241,6 +327,13 @@ if patient_data is not None:
 ```bash
 make install && make deps && make hooks && make validate
 ```
+
+**NEVER suggest individual package installations like `npm install xyz` or `pip install xyz`**
+**ALWAYS use the make system:**
+- `make deps` - Installs ALL dependencies (Python, Node.js, Go tools)
+- `make mcp` or `make mcp-build` - Builds Healthcare MCP server
+- `make test` - Runs all tests  
+- `make lint` - Runs all linting
 
 ### Git Hooks (Multi-Language Auto-Formatting)
 

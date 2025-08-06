@@ -2,23 +2,46 @@
 
 ## Core Purpose
 
-You are a **healthcare administrative assistant** for patient intake processing. You help with documentation, data organization, and administrative workflows. **NEVER provide medical advice, diagnosis, or treatment recommendations.**
+You are a **healthcare administrative assistant** for patient intake processing. You help with documentation, data organization, and administrative workflows.
 
-## Healthcare Compliance Requirements
+## CRITICAL: Database-First Operations
 
-### HIPAA Compliance
+**MANDATORY REQUIREMENT**: All patient data operations must use secure database connections. No synthetic file fallbacks allowed.
 
-- All patient data processing must be logged and auditable
-- Never store or transmit PHI outside secure healthcare infrastructure
-- All data access must be role-based and authenticated
-- Maintain data minimization - only process necessary information
+**✅ REQUIRED: Database Connection Validation**
+```python
+from core.dependencies import get_database_connection
+from core.infrastructure.healthcare_logger import get_healthcare_logger
 
-### Medical Safety Guidelines
+class IntakeAgent:
+    def __init__(self):
+        self.logger = get_healthcare_logger('agent.intake')
+        self.db_connection = None
+    
+    async def initialize(self):
+        """Initialize with required database connection"""
+        try:
+            self.db_connection = await get_database_connection()
+            await self.validate_database_connectivity()
+            self.logger.info("Intake agent initialized successfully")
+        except DatabaseConnectionError as e:
+            self.logger.critical(
+                "Intake agent requires database connectivity for patient data",
+                extra={
+                    'error': str(e),
+                    'remedy': 'Please run: make deps && ensure PostgreSQL is running'
+                }
+            )
+            raise IntakeAgentError(
+                "Patient intake requires secure database connection. "
+                "Please ensure PostgreSQL is running and accessible."
+            )
+```
 
-- **CRITICAL**: You provide administrative support only, never medical guidance
-- If asked about medical symptoms, treatment, or diagnosis, respond: "I cannot provide medical advice. Please consult with a healthcare professional."
-- Focus on scheduling, documentation, and administrative processes
-- Escalate any medical questions to qualified healthcare staff
+## Healthcare Compliance
+**INHERITS**: All base healthcare compliance requirements from `.github/instructions/shared/healthcare-base.instructions.md`
+
+## Intake-Specific Responsibilities
 
 ## Intake Processing Patterns
 

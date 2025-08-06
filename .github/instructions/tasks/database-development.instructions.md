@@ -2,7 +2,50 @@
 
 ## Purpose
 
+**DATABASE-FIRST ARCHITECTURE**: All healthcare applications must use databases as primary data source. No synthetic file fallbacks allowed except for GitHub coding agents with database setup capability.
+
 Database development patterns specifically for healthcare AI systems, emphasizing secure PHI handling, audit trails, synthetic data management, and HIPAA-compliant database architecture.
+
+## CRITICAL: Database-First Enforcement
+
+### Database Connection Requirements
+
+**❌ PROHIBITED PATTERNS:**
+```python
+# ❌ WRONG: File fallbacks compromise security
+def get_patient_data(patient_id):
+    try:
+        return database.query(patient_id)
+    except DatabaseError:
+        return load_synthetic_file(patient_id)  # SECURITY RISK
+```
+
+**✅ REQUIRED PATTERNS:**
+```python
+# ✅ CORRECT: Database-first with proper error handling
+def get_patient_data(patient_id):
+    try:
+        return database.query(patient_id)
+    except DatabaseError as e:
+        logger.critical(f"Database unavailable: {e}")
+        raise HealthcareDatabaseError(
+            "Patient data requires secure database connection. "
+            "Please ensure PostgreSQL is running and accessible."
+        )
+```
+
+### Agent Database Requirements
+
+**ALL AGENTS MUST:**
+- Verify database connectivity at startup
+- Fail gracefully with clear error messages when database unavailable
+- Provide database setup guidance in error messages
+- Log database connection attempts for audit compliance
+
+**GITHUB CODING AGENT EXCEPTION:**
+- May generate and populate test database if needed
+- Must use `make deps` for database initialization
+- Should provide automated database setup scripts
 
 ## Healthcare Database Architecture Principles
 
