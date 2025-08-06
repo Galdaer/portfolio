@@ -59,6 +59,12 @@ export class HealthcareServer {
         return this.toolHandler.getRegisteredTools();
     }
 
+    // Expose APIs for REST endpoints
+    get pubmedApiClient() { return this.pubmedApi; }
+    get trialsApiClient() { return this.trialsApi; }
+    get fdaApiClient() { return this.fdaApi; }
+    get cacheManager() { return this.cache; }
+
     /**
      * Returns detailed trial information for a given trial ID.
      * Healthcare compliance disclaimer: For administrative use only. No medical advice or patient matching.

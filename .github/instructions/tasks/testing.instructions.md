@@ -189,7 +189,7 @@ class HealthcareTestFramework:
     def setup_test_environment(self) -> Dict[str, Any]:
         """Set up test environment with database-backed synthetic data."""
         return {
-            "database_url": "postgresql://localhost:5432/intelluxe_healthcare",
+            "database_url": "postgresql://localhost:5432/intelluxe",
             "synthetic_data_provider": self.synthetic_data,
             "phi_protection": "database_only",
             "test_approach": "runtime_monitoring"

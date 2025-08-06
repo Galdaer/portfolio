@@ -92,7 +92,7 @@ class HealthcareServices:
         try:
             database_url = os.getenv(
                 "DATABASE_URL",
-                "postgresql://intelluxe:dev_password@localhost:5432/intelluxe_healthcare",
+                "postgresql://intelluxe:dev_password@localhost:5432/intelluxe",
             )
 
             self._db_pool = await asyncpg.create_pool(

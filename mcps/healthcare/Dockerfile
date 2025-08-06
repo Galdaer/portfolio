@@ -33,6 +33,7 @@ COPY --chown=node:intelluxe tsconfig.json ./
 # Install dependencies and build
 RUN npm install && \
     npm run build && \
+    cp src/openapi.json build/ && \
     npm cache clean --force && \
     rm -rf src/ tsconfig.json
 

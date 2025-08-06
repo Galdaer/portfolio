@@ -1,5 +1,5 @@
-import { CacheManager } from "../../utils/Cache.js"
 import fetch from 'node-fetch';
+import { CacheManager } from "../../utils/Cache.js";
 
 export interface PubMedArticle {
     title: string;
@@ -48,17 +48,24 @@ export class PubMed {
         const cacheKey = cache.createKey('pubmed', { query, maxResults });
 
         try {
+            console.log('PubMed getArticles called with:', { query, maxResults });
+
             const articles = await cache.getOrFetch(
                 cacheKey,
                 () => this.searchArticles(query, maxResults)
             );
 
-            return {
+            console.log('PubMed articles retrieved:', articles.length, 'articles');
+
+            const response = {
                 content: [{
                     type: 'text',
                     text: JSON.stringify(articles, null, 2)
                 }]
             };
+
+            console.log('PubMed response prepared, content length:', response.content[0].text.length);
+            return response;
         } catch (error) {
             console.error('PubMed API error:', error);
             return {
@@ -153,7 +160,7 @@ export class PubMed {
             }
 
             // Step 3: Format results
-            return pmids.map((pmid: string) => {
+            const results = pmids.map((pmid: string) => {
                 const article = summaryData.result[pmid];
                 if (!article) {
                     console.warn(`No data found for PMID: ${pmid}`);
@@ -171,6 +178,9 @@ export class PubMed {
                     pmid: pmid
                 };
             }).filter(Boolean) as PubMedArticle[];
+
+            console.log('Returning detailed results:', results.length, 'articles');
+            return results;
         } catch (error) {
             console.error('PubMed search error:', error);
             throw new Error(`PubMed search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

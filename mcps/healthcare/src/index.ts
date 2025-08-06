@@ -1,10 +1,18 @@
 #!/usr/bin/env node
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { HealthcareServer } from "./server/HealthcareServer.js";
 import { AuthConfig } from "./server/utils/AuthConfig.js";
 import { agentTools, callAgent, validateNoPHI } from "./tools/agent_bridge.js";
+
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
@@ -68,11 +76,275 @@ const healthcareServer = new HealthcareServer(
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
+// CORS configuration for Open WebUI
+app.use(cors({
+    origin: [
+        'http://localhost:1000',           // Open WebUI external
+        'http://172.20.0.11:8080',        // Open WebUI container internal  
+        'http://172.20.0.11:1000',        // Open WebUI container external
+        'http://127.0.0.1:1000',          // Open WebUI local
+        'http://host.docker.internal:1000' // Docker host access
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+}));
+
 app.use(express.json());
+
+// OpenAPI specification endpoint
+app.get('/openapi.json', (req, res) => {
+    try {
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+        const openApiPath = path.join(__dirname, 'openapi.json');
+        const openApiSpec = JSON.parse(fs.readFileSync(openApiPath, 'utf8'));
+        res.json(openApiSpec);
+    } catch (error) {
+        console.error('Error loading OpenAPI spec:', error);
+        res.status(500).json({ error: 'Failed to load OpenAPI specification' });
+    }
+});
+
+// REST API endpoints for Open WebUI integration
+app.post('/tools/search-pubmed', async (req, res) => {
+    try {
+        const { query, maxResults = 10 } = req.body;
+        if (!query) {
+            return res.status(400).json({ error: 'Query parameter is required' });
+        }
+
+        // Call PubMed API directly
+        const result = await healthcareServer.pubmedApiClient.getArticles(
+            { query, maxResults },
+            healthcareServer.cacheManager
+        );
+
+        if (result?.content?.[0]?.text) {
+            const articles = JSON.parse(result.content[0].text);
+            res.json({ articles });
+        } else {
+            res.json({ articles: [] });
+        }
+    } catch (error) {
+        console.error('PubMed search error:', error);
+        res.status(500).json({
+            error: 'Failed to search PubMed',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+
+app.post('/tools/search-trials', async (req, res) => {
+    try {
+        const { condition, location } = req.body;
+        if (!condition) {
+            return res.status(400).json({ error: 'Condition parameter is required' });
+        }
+
+        // Call Clinical Trials API directly
+        const result = await healthcareServer.trialsApiClient.getTrials(
+            { condition, location },
+            healthcareServer.cacheManager
+        );
+
+        if (result?.content?.[0]?.text) {
+            const trials = JSON.parse(result.content[0].text);
+            res.json({ trials });
+        } else {
+            res.json({ trials: [] });
+        }
+    } catch (error) {
+        console.error('Clinical trials search error:', error);
+        res.status(500).json({
+            error: 'Failed to search clinical trials',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+
+app.post('/tools/get-drug-info', async (req, res) => {
+    try {
+        const { genericName } = req.body;
+        if (!genericName) {
+            return res.status(400).json({ error: 'genericName parameter is required' });
+        }
+
+        // Call FDA API directly
+        const result = await healthcareServer.fdaApiClient.getDrug(
+            { genericName },
+            healthcareServer.cacheManager
+        );
+
+        if (result?.content?.[0]?.text) {
+            const drugInfo = JSON.parse(result.content[0].text);
+            res.json(drugInfo);
+        } else {
+            res.json({ error: 'Drug information not found' });
+        }
+    } catch (error) {
+        console.error('Drug info error:', error);
+        res.status(500).json({
+            error: 'Failed to get drug information',
+            message: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'healthy', service: 'healthcare-mcp', timestamp: new Date().toISOString() });
+});
+
+// OpenAI-compatible endpoints for Open WebUI
+app.get('/v1/models', (req, res) => {
+    res.json({
+        object: "list",
+        data: [
+            {
+                id: "healthcare-assistant",
+                object: "model",
+                created: Math.floor(Date.now() / 1000),
+                owned_by: "intelluxe-healthcare",
+                permission: [],
+                root: "healthcare-assistant",
+                parent: null
+            }
+        ]
+    });
+});
+
+app.post('/v1/chat/completions', async (req, res) => {
+    try {
+        const { messages, model = "healthcare-assistant", stream = false } = req.body;
+
+        if (!messages || !Array.isArray(messages)) {
+            return res.status(400).json({ error: { message: "Messages array is required" } });
+        }
+
+        // Get the last user message
+        const lastMessage = messages[messages.length - 1];
+        if (!lastMessage || lastMessage.role !== 'user') {
+            return res.status(400).json({ error: { message: "Last message must be from user" } });
+        }
+
+        const query = lastMessage.content;
+
+        // Determine which healthcare tool to use based on the query
+        let response = '';
+        try {
+            if (query.toLowerCase().includes('pubmed') || query.toLowerCase().includes('research') || query.toLowerCase().includes('study')) {
+                // Search PubMed
+                const result = await healthcareServer.pubmedApiClient.getArticles(
+                    { query: query, maxResults: 5 },
+                    healthcareServer.cacheManager
+                );
+
+                if (result?.content?.[0]?.text) {
+                    const articles = JSON.parse(result.content[0].text);
+                    response = `Found ${articles.length} PubMed articles:\n\n` +
+                        articles.map((article: any, i: number) =>
+                            `${i + 1}. **${article.title}**\n   Authors: ${article.authors}\n   PMID: ${article.pmid}\n   Summary: ${article.abstract?.substring(0, 200)}...\n`
+                        ).join('\n');
+                } else {
+                    response = "No PubMed articles found for your query.";
+                }
+            } else if (query.toLowerCase().includes('clinical trial') || query.toLowerCase().includes('trial')) {
+                // Search Clinical Trials
+                const condition = query.replace(/clinical trial|trial/gi, '').trim();
+                const result = await healthcareServer.trialsApiClient.getTrials(
+                    { condition: condition },
+                    healthcareServer.cacheManager
+                );
+
+                if (result?.content?.[0]?.text) {
+                    const trials = JSON.parse(result.content[0].text);
+                    response = `Found ${trials.length} clinical trials:\n\n` +
+                        trials.map((trial: any, i: number) =>
+                            `${i + 1}. **${trial.title}**\n   Phase: ${trial.phase || 'N/A'}\n   Status: ${trial.status}\n   Location: ${trial.location || 'Multiple'}\n   ID: ${trial.nctId}\n`
+                        ).join('\n');
+                } else {
+                    response = "No clinical trials found for your query.";
+                }
+            } else if (query.toLowerCase().includes('drug') || query.toLowerCase().includes('medication')) {
+                // Search FDA drug info
+                const drugName = query.replace(/drug|medication|info|information/gi, '').trim();
+                const result = await healthcareServer.fdaApiClient.getDrug(
+                    { genericName: drugName },
+                    healthcareServer.cacheManager
+                );
+
+                if (result?.content?.[0]?.text) {
+                    const drugInfo = JSON.parse(result.content[0].text);
+                    response = `**Drug Information for ${drugName}:**\n\n` +
+                        `Brand Name: ${drugInfo.brandName || 'N/A'}\n` +
+                        `Generic Name: ${drugInfo.genericName || drugName}\n` +
+                        `Route: ${drugInfo.route || 'N/A'}\n` +
+                        `Strength: ${drugInfo.strength || 'N/A'}\n` +
+                        `Manufacturer: ${drugInfo.manufacturer || 'N/A'}\n` +
+                        `Purpose: ${drugInfo.purpose || 'N/A'}`;
+                } else {
+                    response = `No FDA drug information found for "${drugName}".`;
+                }
+            } else {
+                // General healthcare assistant response
+                response = `I'm a healthcare research assistant. I can help you with:
+
+• **PubMed Research**: Search medical literature by including "research" or "pubmed" in your query
+• **Clinical Trials**: Find clinical trials by including "clinical trial" in your query  
+• **Drug Information**: Get FDA drug info by including "drug" or "medication" in your query
+
+Please specify what type of healthcare information you're looking for, and I'll search the appropriate medical databases for you.
+
+**Medical Disclaimer**: This tool provides administrative support only and does not provide medical advice, diagnosis, or treatment recommendations. Always consult with qualified healthcare professionals for medical decisions.`;
+            }
+        } catch (error) {
+            console.error('Healthcare tool error:', error);
+            response = "I encountered an error while searching the medical databases. Please try rephrasing your query or contact support if the issue persists.";
+        }
+
+        // Return OpenAI-compatible response
+        const completion = {
+            id: `chatcmpl-${Date.now()}`,
+            object: "chat.completion",
+            created: Math.floor(Date.now() / 1000),
+            model: model,
+            choices: [{
+                index: 0,
+                message: {
+                    role: "assistant",
+                    content: response
+                },
+                finish_reason: "stop"
+            }],
+            usage: {
+                prompt_tokens: messages.reduce((acc: number, msg: any) => acc + (msg.content?.length || 0), 0),
+                completion_tokens: response.length,
+                total_tokens: messages.reduce((acc: number, msg: any) => acc + (msg.content?.length || 0), 0) + response.length
+            }
+        };
+
+        if (stream) {
+            // Simple streaming response
+            res.setHeader('Content-Type', 'text/plain');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+
+            res.write(`data: ${JSON.stringify(completion)}\n\n`);
+            res.write('data: [DONE]\n\n');
+            res.end();
+        } else {
+            res.json(completion);
+        }
+    } catch (error) {
+        console.error('Chat completion error:', error);
+        res.status(500).json({
+            error: {
+                message: "Failed to generate completion",
+                type: "internal_error"
+            }
+        });
+    }
 });
 
 // MCP JSON-RPC endpoint
@@ -149,10 +421,10 @@ app.post('/mcp', async (req, res) => {
                 if (params?.name) {
                     try {
                         let result;
-                        
+
                         // Check if it's an agent bridge tool
                         const isAgentTool = agentTools.some(tool => tool.name === params.name);
-                        
+
                         if (isAgentTool) {
                             // Validate no PHI in arguments for agent calls
                             try {
@@ -168,7 +440,7 @@ app.post('/mcp', async (req, res) => {
                                 });
                                 return;
                             }
-                            
+
                             // Call agent through bridge
                             result = await callAgent(params.name, params.arguments || {});
                         } else {
@@ -203,7 +475,7 @@ app.post('/mcp', async (req, res) => {
                                     result = await healthcareServer.callTool(params.name, params.arguments || {});
                             }
                         }
-                        
+
                         res.json({
                             jsonrpc: '2.0',
                             result: result,

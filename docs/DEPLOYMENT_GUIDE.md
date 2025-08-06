@@ -66,7 +66,7 @@ AUDIT_LOGGING=enabled
 # Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=intelluxe_healthcare
+DB_NAME=intelluxe
 DB_USER=healthcare_user
 DB_PASSWORD=secure_password_here
 
@@ -121,7 +121,7 @@ MOCK_TRANSCRIPTION=false
 ```bash
 # Start PostgreSQL and Redis
 docker run -d --name healthcare-postgres \
-  -e POSTGRES_DB=intelluxe_healthcare \
+  -e POSTGRES_DB=intelluxe \
   -e POSTGRES_USER=healthcare_user \
   -e POSTGRES_PASSWORD=secure_password_here \
   -p 5432:5432 \
@@ -244,7 +244,7 @@ services:
   postgres:
     image: postgres:13
     environment:
-      - POSTGRES_DB=intelluxe_healthcare
+      - POSTGRES_DB=intelluxe
       - POSTGRES_USER=healthcare_user
       - POSTGRES_PASSWORD=secure_password_here
     volumes:
@@ -486,7 +486,7 @@ python scripts/verify_audit_trail.py --days 7
 
 ```bash
 # Database backup
-pg_dump -h localhost -U healthcare_user intelluxe_healthcare > backup_$(date +%Y%m%d).sql
+pg_dump -h localhost -U healthcare_user intelluxe > backup_$(date +%Y%m%d).sql
 
 # Cache maintenance
 redis-cli -h localhost -p 6379 INFO memory
