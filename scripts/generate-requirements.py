@@ -110,6 +110,7 @@ CI_REQUIRED_PACKAGES = {
     "chromadb",
     "qdrant-client",
     "faiss-cpu",
+    "openai",
     # Monitoring
     "prometheus-client",
     # Type stubs
@@ -117,15 +118,25 @@ CI_REQUIRED_PACKAGES = {
 }
 
 
-def run_command(cmd: str, cwd: str | None = None) -> str | None:
+def run_command(cmd: str, cwd: str | None = None, timeout: int = 300) -> str | None:
     """Run a command and return the result stdout as string, or None on failure"""
     try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=cwd)
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+            timeout=timeout
+        )
         if result.returncode != 0:
             print(f"Error running command: {cmd}")
             print(f"stderr: {result.stderr}")
             return None
         return result.stdout.strip()
+    except subprocess.TimeoutExpired:
+        print(f"Command timed out after {timeout}s: {cmd}")
+        return None
     except Exception as e:
         print(f"Exception running command: {cmd} - {e}")
         return None
@@ -209,9 +220,22 @@ def generate_requirements_files() -> bool:
 
     print("🔧 Generating requirements files from requirements.in...")
 
+    # Try uv first, fall back to pip-tools
+    use_uv = run_command("uv --version") is not None
+    compile_cmd = "uv pip compile" if use_uv else "pip-compile"
+
+    if not use_uv:
+        # Check if pip-tools is available
+        if run_command("pip-compile --version") is None:
+            print("❌ Neither uv nor pip-tools found. Installing pip-tools...")
+            install_result = run_command("pip install pip-tools")
+            if install_result is None:
+                print("❌ Failed to install pip-tools")
+                return False
+
     # Generate full requirements.txt
     print("📦 Generating requirements.txt (full dependencies)...")
-    cmd = f"uv pip compile {requirements_in} -o {requirements_txt}"
+    cmd = f"{compile_cmd} {requirements_in} -o {requirements_txt}"
     if run_command(cmd, cwd=str(project_root)) is None:
         print("❌ Failed to generate requirements.txt")
         return False
@@ -235,7 +259,7 @@ def generate_requirements_files() -> bool:
 
 """
 
-        cmd = f"uv pip compile {temp_ci_requirements_in} -o {requirements_ci_txt}"
+        cmd = f"{compile_cmd} {temp_ci_requirements_in} -o {requirements_ci_txt}"
         if run_command(cmd, cwd=str(project_root)) is None:
             print("❌ Failed to generate requirements-ci.txt")
             return False

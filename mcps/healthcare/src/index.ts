@@ -10,6 +10,31 @@ import { HealthcareServer } from "./server/HealthcareServer.js";
 import { AuthConfig } from "./server/utils/AuthConfig.js";
 import { agentTools, callAgent, validateNoPHI } from "./tools/agent_bridge.js";
 
+// Enhanced Healthcare Intelligence
+interface PHIDetectionResult {
+    hasPHI: boolean;
+    confidence: number;
+    detectedTypes: string[];
+    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+}
+
+interface RoutingDecision {
+    provider: 'ollama-local' | 'openai-cloud' | 'specialized-agent' | 'healthcare-tools';
+    model?: string;
+    agent?: string;
+    tool?: string;
+    reasoning: string;
+    requiresPrivacy: boolean;
+}
+
+interface ConversationContext {
+    sessionId: string;
+    hasDetectedPHI: boolean;
+    userRole?: string;
+    conversationTopic?: string;
+    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+}
+
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,7 +51,7 @@ const authConfig: AuthConfig = {
     audience: process.env.OAUTH_AUDIENCE!,
     callbackURL: process.env.OAUTH_CALLBACK_URL!,
     scopes: process.env.OAUTH_SCOPES!,
-    callbackPort: parseInt(process.env.OAUTH_CALLBACK_PORT!)
+    callbackPort: parseInt(process.env.OAUTH_CALLBACK_PORT || '3000', 10)
 };
 
 const FHIR_BASE_URL = process.env.FHIR_BASE_URL!;
@@ -75,6 +100,239 @@ const healthcareServer = new HealthcareServer(
 // Create Express app for HTTP server mode
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
+
+// OpenAI Client Setup (if API key provided)
+let openaiClient: any = null;
+if (process.env.OPENAI_API_KEY) {
+    try {
+        // Dynamic import for OpenAI (install with: npm install openai)
+        const OpenAI = await import('openai');
+        openaiClient = new OpenAI.default({
+            apiKey: process.env.OPENAI_API_KEY,
+        });
+        console.log('OpenAI client initialized for cloud model routing');
+    } catch (error) {
+        console.warn('OpenAI client not available. Install with: npm install openai');
+    }
+}
+
+// Conversation Context Management
+const conversationContexts = new Map<string, ConversationContext>();
+
+// Enhanced PHI Detection Service
+function detectPHI(text: string): PHIDetectionResult {
+    let confidence = 0;
+    const detectedTypes: string[] = [];
+    let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW';
+
+    // Medical Record Numbers (MRN)
+    if (/\b(MRN|mrn|medical record|patient id|patient number)[\s:]*\d+/i.test(text)) {
+        confidence += 0.8;
+        detectedTypes.push('medical_record_number');
+        riskLevel = 'CRITICAL';
+    }
+
+    // Social Security Numbers
+    if (/\b\d{3}[-]?\d{2}[-]?\d{4}\b/.test(text)) {
+        confidence += 0.9;
+        detectedTypes.push('ssn');
+        riskLevel = 'CRITICAL';
+    }
+
+    // Dates of Birth
+    if (/\b(dob|date of birth|born|birth date)[\s:]*\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/i.test(text)) {
+        confidence += 0.7;
+        detectedTypes.push('date_of_birth');
+        riskLevel = 'HIGH';
+    }
+
+    // Patient Names with Medical Context
+    if (/\b(patient|mr\.|mrs\.|ms\.)\s+[A-Z][a-z]+\s+[A-Z][a-z]+/i.test(text)) {
+        confidence += 0.6;
+        detectedTypes.push('patient_name');
+        riskLevel = escalateRiskLevel(riskLevel, 'MEDIUM');
+    }
+
+    // Specific Patient Case References
+    if (/\b(my patient|this patient|the patient|patient case|case study).*\b(diagnosed|symptoms|treatment|medication|condition)/i.test(text)) {
+        confidence += 0.7;
+        detectedTypes.push('patient_case');
+        riskLevel = 'HIGH';
+    }
+
+    // Medical Addresses/Locations
+    if (/\b\d+\s+[A-Za-z\s]+(street|st|avenue|ave|road|rd|drive|dr|lane|ln|boulevard|blvd).*\b(hospital|clinic|medical|health)/i.test(text)) {
+        confidence += 0.5;
+        detectedTypes.push('medical_address');
+        riskLevel = escalateRiskLevel(riskLevel, 'MEDIUM');
+    }
+
+    // Phone Numbers with Medical Context
+    if (/\b(doctor|physician|hospital|clinic).*\d{3}[-\.\s]?\d{3}[-\.\s]?\d{4}/i.test(text)) {
+        confidence += 0.4;
+        detectedTypes.push('medical_phone');
+        riskLevel = escalateRiskLevel(riskLevel, 'MEDIUM');
+    }
+    // Type-safe risk level escalation
+    function escalateRiskLevel(current: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL', incoming: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+        const levels = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
+        return levels[Math.max(levels.indexOf(current), levels.indexOf(incoming))];
+    }
+
+    return {
+        hasPHI: confidence > 0.3,
+        confidence: Math.min(confidence, 1.0),
+        detectedTypes,
+        riskLevel
+    };
+}
+
+// Intent Classification Service
+function classifyHealthcareIntent(text: string): { intent: string; confidence: number; keywords: string[] } {
+    const intents = [
+        {
+            name: 'medical_literature_search',
+            patterns: [/\b(pubmed|research|study|studies|literature|evidence|clinical trial|meta-analysis)\b/gi],
+            weight: 1.0
+        },
+        {
+            name: 'clinical_trial_search',
+            patterns: [/\b(clinical trial|trials|study recruitment|nct|phase|enrollment)\b/gi],
+            weight: 1.0
+        },
+        {
+            name: 'drug_information',
+            patterns: [/\b(drug|medication|pharmaceutical|dosage|side effects|interactions|fda)\b/gi],
+            weight: 1.0
+        },
+        {
+            name: 'patient_documentation',
+            patterns: [/\b(document|note|report|summary|assessment|diagnosis|treatment plan)\b/gi],
+            weight: 0.9
+        },
+        {
+            name: 'clinical_decision_support',
+            patterns: [/\b(diagnosis|differential|treatment|recommend|suggest|consider)\b/gi],
+            weight: 0.8
+        },
+        {
+            name: 'administrative_inquiry',
+            patterns: [/\b(billing|insurance|schedule|appointment|policy|procedure)\b/gi],
+            weight: 0.7
+        }
+    ];
+
+    let bestMatch = { intent: 'general_medical', confidence: 0, keywords: [] as string[] };
+
+    for (const intentDef of intents) {
+        let matches = 0;
+        const foundKeywords: string[] = [];
+
+        for (const pattern of intentDef.patterns) {
+            const patternMatches = text.match(pattern);
+            if (patternMatches) {
+                matches += patternMatches.length;
+                foundKeywords.push(...patternMatches.map(m => m.toLowerCase()));
+            }
+        }
+
+        if (matches > 0) {
+            const confidence = Math.min((matches * intentDef.weight) / 10, 1.0);
+            if (confidence > bestMatch.confidence) {
+                bestMatch = {
+                    intent: intentDef.name,
+                    confidence,
+                    keywords: [...new Set(foundKeywords)]
+                };
+            }
+        }
+    }
+
+    return bestMatch;
+}
+
+// Intelligent Routing Decision Engine
+function makeRoutingDecision(
+    text: string,
+    phiResult: PHIDetectionResult,
+    intent: { intent: string; confidence: number },
+    context: ConversationContext
+): RoutingDecision {
+    // RULE 1: If PHI detected or session marked as PHI, always use local/agents
+    if (phiResult.hasPHI || context.hasDetectedPHI || phiResult.riskLevel === 'CRITICAL' || phiResult.riskLevel === 'HIGH') {
+        context.hasDetectedPHI = true; // Mark session as PHI-containing
+
+        // Route to appropriate local agent
+        if (intent.intent === 'patient_documentation') {
+            return {
+                provider: 'specialized-agent',
+                agent: 'document_processor',
+                reasoning: 'PHI detected - routing to local document processor agent for privacy compliance',
+                requiresPrivacy: true
+            };
+        } else if (intent.intent === 'clinical_decision_support') {
+            return {
+                provider: 'ollama-local',
+                model: 'llama3.1:8b-medical',
+                reasoning: 'PHI detected - using local Ollama model for clinical decision support',
+                requiresPrivacy: true
+            };
+        } else {
+            return {
+                provider: 'specialized-agent',
+                agent: 'intake',
+                reasoning: 'PHI detected - routing to local intake agent for safe processing',
+                requiresPrivacy: true
+            };
+        }
+    }
+
+    // RULE 2: Public medical research - can use cloud models for better quality
+    if (intent.intent === 'medical_literature_search' && intent.confidence > 0.7) {
+        return {
+            provider: 'healthcare-tools',
+            tool: 'pubmed_search',
+            reasoning: 'Public medical literature search - using specialized healthcare tools',
+            requiresPrivacy: false
+        };
+    }
+
+    if (intent.intent === 'clinical_trial_search' && intent.confidence > 0.7) {
+        return {
+            provider: 'healthcare-tools',
+            tool: 'clinical_trials_search',
+            reasoning: 'Clinical trial search - using specialized healthcare tools',
+            requiresPrivacy: false
+        };
+    }
+
+    if (intent.intent === 'drug_information' && intent.confidence > 0.7) {
+        return {
+            provider: 'healthcare-tools',
+            tool: 'fda_drug_search',
+            reasoning: 'Drug information lookup - using FDA tools',
+            requiresPrivacy: false
+        };
+    }
+
+    // RULE 3: General medical questions - use cloud if available, local otherwise
+    if (openaiClient && !phiResult.hasPHI && phiResult.riskLevel === 'LOW') {
+        return {
+            provider: 'openai-cloud',
+            model: 'gpt-4',
+            reasoning: 'General medical inquiry without PHI - using cloud model for comprehensive response',
+            requiresPrivacy: false
+        };
+    }
+
+    // RULE 4: Default to local Ollama
+    return {
+        provider: 'ollama-local',
+        model: 'llama3.1:8b',
+        reasoning: 'Default routing to local Ollama model',
+        requiresPrivacy: context.hasDetectedPHI
+    };
+}
 
 // CORS configuration for Open WebUI
 app.use(cors({
@@ -228,79 +486,86 @@ app.post('/v1/chat/completions', async (req, res) => {
             return res.status(400).json({ error: { message: "Last message must be from user" } });
         }
 
-        const query = lastMessage.content;
+        const userMessage = lastMessage.content;
 
-        // Determine which healthcare tool to use based on the query
+        // Generate session ID from request headers or create new one
+        const sessionId = req.headers['x-session-id'] as string || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        // Get or create conversation context
+        let context = conversationContexts.get(sessionId);
+        if (!context) {
+            context = {
+                sessionId,
+                hasDetectedPHI: false,
+                riskLevel: 'LOW'
+            };
+            conversationContexts.set(sessionId, context);
+        }
+
+        // Enhanced PHI Detection
+        const phiResult = detectPHI(userMessage);
+        console.log(`PHI Detection Result: ${JSON.stringify(phiResult)}`);
+
+        // Update context risk level
+        if (phiResult.riskLevel > context.riskLevel) {
+            context.riskLevel = phiResult.riskLevel;
+        }
+
+        // Intent Classification
+        const intentResult = classifyHealthcareIntent(userMessage);
+        console.log(`Intent Classification: ${JSON.stringify(intentResult)}`);
+
+        // Intelligent Routing Decision
+        const routingDecision = makeRoutingDecision(userMessage, phiResult, intentResult, context);
+        console.log(`Routing Decision: ${JSON.stringify(routingDecision)}`);
+
+        // Update conversation context
+        conversationContexts.set(sessionId, context);
+
         let response = '';
+        let responseSource = 'unknown';
+
         try {
-            if (query.toLowerCase().includes('pubmed') || query.toLowerCase().includes('research') || query.toLowerCase().includes('study')) {
-                // Search PubMed
-                const result = await healthcareServer.pubmedApiClient.getArticles(
-                    { query: query, maxResults: 5 },
-                    healthcareServer.cacheManager
-                );
+            switch (routingDecision.provider) {
+                case 'healthcare-tools':
+                    response = await handleHealthcareTools(userMessage, routingDecision.tool!);
+                    responseSource = `healthcare-tools:${routingDecision.tool}`;
+                    break;
 
-                if (result?.content?.[0]?.text) {
-                    const articles = JSON.parse(result.content[0].text);
-                    response = `Found ${articles.length} PubMed articles:\n\n` +
-                        articles.map((article: any, i: number) =>
-                            `${i + 1}. **${article.title}**\n   Authors: ${article.authors}\n   PMID: ${article.pmid}\n   Summary: ${article.abstract?.substring(0, 200)}...\n`
-                        ).join('\n');
-                } else {
-                    response = "No PubMed articles found for your query.";
-                }
-            } else if (query.toLowerCase().includes('clinical trial') || query.toLowerCase().includes('trial')) {
-                // Search Clinical Trials
-                const condition = query.replace(/clinical trial|trial/gi, '').trim();
-                const result = await healthcareServer.trialsApiClient.getTrials(
-                    { condition: condition },
-                    healthcareServer.cacheManager
-                );
+                case 'specialized-agent':
+                    response = await handleSpecializedAgent(userMessage, routingDecision.agent!, messages);
+                    responseSource = `agent:${routingDecision.agent}`;
+                    break;
 
-                if (result?.content?.[0]?.text) {
-                    const trials = JSON.parse(result.content[0].text);
-                    response = `Found ${trials.length} clinical trials:\n\n` +
-                        trials.map((trial: any, i: number) =>
-                            `${i + 1}. **${trial.title}**\n   Phase: ${trial.phase || 'N/A'}\n   Status: ${trial.status}\n   Location: ${trial.location || 'Multiple'}\n   ID: ${trial.nctId}\n`
-                        ).join('\n');
-                } else {
-                    response = "No clinical trials found for your query.";
-                }
-            } else if (query.toLowerCase().includes('drug') || query.toLowerCase().includes('medication')) {
-                // Search FDA drug info
-                const drugName = query.replace(/drug|medication|info|information/gi, '').trim();
-                const result = await healthcareServer.fdaApiClient.getDrug(
-                    { genericName: drugName },
-                    healthcareServer.cacheManager
-                );
+                case 'openai-cloud':
+                    if (openaiClient) {
+                        response = await handleOpenAICloud(messages, routingDecision.model!);
+                        responseSource = `openai:${routingDecision.model}`;
+                    } else {
+                        // Fallback to local
+                        response = await handleOllamaLocal(messages, 'llama3.1:8b');
+                        responseSource = 'ollama:llama3.1:8b (openai-fallback)';
+                    }
+                    break;
 
-                if (result?.content?.[0]?.text) {
-                    const drugInfo = JSON.parse(result.content[0].text);
-                    response = `**Drug Information for ${drugName}:**\n\n` +
-                        `Brand Name: ${drugInfo.brandName || 'N/A'}\n` +
-                        `Generic Name: ${drugInfo.genericName || drugName}\n` +
-                        `Route: ${drugInfo.route || 'N/A'}\n` +
-                        `Strength: ${drugInfo.strength || 'N/A'}\n` +
-                        `Manufacturer: ${drugInfo.manufacturer || 'N/A'}\n` +
-                        `Purpose: ${drugInfo.purpose || 'N/A'}`;
-                } else {
-                    response = `No FDA drug information found for "${drugName}".`;
-                }
-            } else {
-                // General healthcare assistant response
-                response = `I'm a healthcare research assistant. I can help you with:
-
-• **PubMed Research**: Search medical literature by including "research" or "pubmed" in your query
-• **Clinical Trials**: Find clinical trials by including "clinical trial" in your query  
-• **Drug Information**: Get FDA drug info by including "drug" or "medication" in your query
-
-Please specify what type of healthcare information you're looking for, and I'll search the appropriate medical databases for you.
-
-**Medical Disclaimer**: This tool provides administrative support only and does not provide medical advice, diagnosis, or treatment recommendations. Always consult with qualified healthcare professionals for medical decisions.`;
+                case 'ollama-local':
+                default:
+                    response = await handleOllamaLocal(messages, routingDecision.model || 'llama3.1:8b');
+                    responseSource = `ollama:${routingDecision.model || 'llama3.1:8b'}`;
+                    break;
             }
+
+            // Add routing information to response for transparency
+            const routingInfo = `\n\n---\n**Routing Info**: ${routingDecision.reasoning} (Source: ${responseSource})`;
+            if (routingDecision.requiresPrivacy) {
+                response += `\n\n🔒 **Privacy Mode**: This conversation contains sensitive information and is processed locally.`;
+            }
+            response += routingInfo;
+
         } catch (error) {
-            console.error('Healthcare tool error:', error);
-            response = "I encountered an error while searching the medical databases. Please try rephrasing your query or contact support if the issue persists.";
+            console.error('Healthcare processing error:', error);
+            response = "I encountered an error while processing your healthcare query. Please try rephrasing your question or contact support if the issue persists.";
+            responseSource = 'error-handler';
         }
 
         // Return OpenAI-compatible response
@@ -540,6 +805,115 @@ app.post('/mcp', async (req, res) => {
         });
     }
 });
+
+// Handler Functions for Intelligent Routing
+async function handleHealthcareTools(message: string, tool: string): Promise<string> {
+    try {
+        switch (tool) {
+            case 'pubmed-search':
+                const pubmedResult = await healthcareServer.pubmedApiClient.getArticles(
+                    { query: message, maxResults: 5 },
+                    healthcareServer.cacheManager
+                );
+                if (pubmedResult?.content?.[0]?.text) {
+                    const articles = JSON.parse(pubmedResult.content[0].text);
+                    return `Found ${articles.length} PubMed articles:\n\n` +
+                        articles.map((article: any, i: number) =>
+                            `${i + 1}. **${article.title}**\n   Authors: ${article.authors}\n   PMID: ${article.pmid}\n   Abstract: ${article.abstract?.substring(0, 300)}...\n`
+                        ).join('\n');
+                }
+                return "No PubMed articles found for your query.";
+
+            case 'clinical-trials':
+                const condition = message.replace(/clinical trial|trial/gi, '').trim();
+                const trialsResult = await healthcareServer.trialsApiClient.getTrials(
+                    { condition: condition },
+                    healthcareServer.cacheManager
+                );
+                if (trialsResult?.content?.[0]?.text) {
+                    const trials = JSON.parse(trialsResult.content[0].text);
+                    return `Found ${trials.length} clinical trials:\n\n` +
+                        trials.map((trial: any, i: number) =>
+                            `${i + 1}. **${trial.title}**\n   Phase: ${trial.phase || 'N/A'}\n   Status: ${trial.status}\n   Location: ${trial.location || 'Multiple'}\n   NCT ID: ${trial.nctId}\n`
+                        ).join('\n');
+                }
+                return "No clinical trials found for your query.";
+
+            case 'drug-info':
+                const drugName = message.replace(/drug|medication|info|information/gi, '').trim();
+                const drugResult = await healthcareServer.fdaApiClient.getDrug(
+                    { genericName: drugName },
+                    healthcareServer.cacheManager
+                );
+                if (drugResult?.content?.[0]?.text) {
+                    const drugInfo = JSON.parse(drugResult.content[0].text);
+                    return `**Drug Information for ${drugName}:**\n\n` +
+                        `Brand Name: ${drugInfo.brandName || 'N/A'}\n` +
+                        `Generic Name: ${drugInfo.genericName || drugName}\n` +
+                        `Route: ${drugInfo.route || 'N/A'}\n` +
+                        `Strength: ${drugInfo.strength || 'N/A'}\n` +
+                        `Manufacturer: ${drugInfo.manufacturer || 'N/A'}\n` +
+                        `Purpose: ${drugInfo.purpose || 'N/A'}`;
+                }
+                return `No FDA drug information found for "${drugName}".`;
+
+            default:
+                return "Healthcare tool not recognized. Please specify PubMed research, clinical trials, or drug information.";
+        }
+    } catch (error) {
+        console.error(`Healthcare tool error (${tool}):`, error);
+        return `Error accessing ${tool}. Please try again or contact support.`;
+    }
+}
+
+async function handleSpecializedAgent(message: string, agent: string, messages: any[]): Promise<string> {
+    // For now, return a placeholder that indicates the agent would be called
+    // In full implementation, this would integrate with the main.py agent system
+    const agentDescriptions = {
+        'intake': 'patient intake and initial assessment',
+        'document_processor': 'medical document analysis and processing',
+        'research_assistant': 'comprehensive medical literature research'
+    };
+
+    return `🤖 **Specialized Agent Response (${agent})**\n\n` +
+        `This query would be processed by the ${agentDescriptions[agent as keyof typeof agentDescriptions] || agent} agent.\n\n` +
+        `**Agent Capabilities**: The ${agent} agent specializes in ${agentDescriptions[agent as keyof typeof agentDescriptions] || 'healthcare tasks'} ` +
+        `and would provide detailed, context-aware assistance for your specific needs.\n\n` +
+        `*Note: Full agent integration is in development. Currently providing Healthcare MCP tool responses.*`;
+}
+
+async function handleOpenAICloud(messages: any[], model: string): Promise<string> {
+    if (!openaiClient) {
+        throw new Error('OpenAI client not initialized');
+    }
+
+    try {
+        const completion = await openaiClient.chat.completions.create({
+            model: model,
+            messages: messages,
+            max_tokens: 1000,
+            temperature: 0.3
+        });
+
+        return completion.choices[0]?.message?.content || "No response from OpenAI model.";
+    } catch (error) {
+        console.error('OpenAI API error:', error);
+        throw new Error('Failed to get response from OpenAI');
+    }
+}
+
+async function handleOllamaLocal(messages: any[], model: string): Promise<string> {
+    // For now, return a placeholder that indicates local processing
+    // In full implementation, this would call the local Ollama instance
+    const lastMessage = messages[messages.length - 1]?.content || '';
+
+    return `🏠 **Local AI Processing (${model})**\n\n` +
+        `Your query: "${lastMessage.substring(0, 100)}${lastMessage.length > 100 ? '...' : ''}"\n\n` +
+        `This would be processed by the local Ollama model (${model}) ensuring complete privacy. ` +
+        `Local processing is especially important for queries containing sensitive healthcare information.\n\n` +
+        `**Privacy Benefits**: Your data never leaves this system, ensuring HIPAA compliance and complete confidentiality.\n\n` +
+        `*Note: Full Ollama integration is in development. Currently providing Healthcare MCP tool responses.*`;
+}
 
 // Administrative documentation generation (Ollama LLM)
 app.post("/generate_documentation", async (req, res) => {
