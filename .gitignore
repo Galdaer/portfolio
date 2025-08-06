@@ -40,6 +40,8 @@
 !/src/**/*
 !/config/
 !/config/**/*
+!/domains/
+!/domains/**/*
 
 # Healthcare MCP integration
 !/mcps/
