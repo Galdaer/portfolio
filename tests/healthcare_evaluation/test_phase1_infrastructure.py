@@ -16,6 +16,7 @@ sys.path.insert(0, str(project_root))
 
 # Import database-backed test utilities
 from tests.database_test_utils import get_test_medical_scenario  # noqa: E402
+from core.dependencies import DatabaseConnectionError  # noqa: E402
 
 # Import Phase 1 modules with dynamic loading
 PHASE1_AVAILABLE = False
@@ -507,7 +508,7 @@ async def test_phase1_agent() -> None:
     # Initialize agent
     agent = Phase1HealthcareAgent()
 
-    # Get database-backed synthetic medical scenario
+    # Get database-backed synthetic medical scenario - REQUIRED, no fallbacks
     try:
         scenario = get_test_medical_scenario()
         patient = scenario["patient"]
@@ -524,19 +525,13 @@ async def test_phase1_agent() -> None:
         print()
 
     except Exception as e:
-        print(f"⚠️  Could not load synthetic data from database: {e}")
-        print("   Using fallback synthetic patterns...")
-
-        # Fallback synthetic data (clearly marked as synthetic)
-        patient = {
-            "patient_id": "PAT001",
-            "first_name": "Synthetic",
-            "last_name": "Patient",
-            "insurance_provider": "Test Insurance Co",
-            "phone_number": "000-000-0000",  # Obviously fake
-        }
-        doctor = {"first_name": "Dr.", "last_name": "Provider", "specialty": "General Medicine"}
-        encounter = {"chief_complaint": "Routine synthetic visit"}
+        print(f"❌ Database connection required for healthcare testing: {e}")
+        print("   To fix: Run 'make setup' to initialize database or verify DATABASE_URL environment variable.")
+        print("   Database-first architecture: No synthetic file fallbacks allowed.")
+        raise DatabaseConnectionError(
+            "Healthcare testing requires database connectivity. "
+            "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+        ) from e
 
     # Generate test cases using database-backed synthetic data (no hardcoded PHI)
     test_cases = [

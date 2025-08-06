@@ -2,7 +2,7 @@
 Base classes for Intelluxe AI Healthcare Agents
 
 Provides common functionality for all healthcare AI agents including
-logging, memory management, and safety boundaries.
+logging, memory management, database connectivity, and safety boundaries.
 """
 
 import logging
@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any
 
+from core.dependencies import get_database_connection, DatabaseConnectionError
 from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
 from core.infrastructure.phi_monitor import sanitize_healthcare_data
 from core.memory import memory_manager
@@ -35,6 +36,7 @@ class BaseHealthcareAgent(ABC):
         self.agent_type = agent_type
         self.logger = get_healthcare_logger(f"agent.{agent_name}")
         self._session_id: str | None = None
+        self._db_connection: Any = None
 
         # Register agent with performance tracking
         self._performance_metrics: dict[str, Any] = {}
@@ -49,23 +51,54 @@ class BaseHealthcareAgent(ABC):
                 "agent_type": agent_type,
                 "healthcare_compliance": True,
                 "phi_protection": True,
+                "database_required": True,
             },
             operation_type="agent_creation",
         )
 
     async def initialize_agent(self) -> None:
-        """Initialize agent with model and tool registries"""
+        """Initialize agent with model and tool registries and database connectivity"""
         try:
+            # CRITICAL: Validate database connectivity first
+            await self._validate_database_connectivity()
+            
             # Initialize registries if needed
             if not model_registry._initialized:
                 await model_registry.initialize()
             if not tool_registry._initialized:
                 await tool_registry.initialize()
 
-            self.logger.info(f"Agent {self.agent_name} initialized with registries")
-        except Exception as e:
-            self.logger.error(f"Failed to initialize agent registries: {e}")
+            self.logger.info(f"Agent {self.agent_name} initialized with database and registries")
+        except DatabaseConnectionError:
+            # Re-raise database connection errors with agent context
+            self.logger.critical(
+                f"Agent {self.agent_name} requires database connectivity for healthcare operations",
+                extra={
+                    "agent": self.agent_name,
+                    "error_type": "database_required",
+                    "setup_guidance": "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+                }
+            )
             raise
+        except Exception as e:
+            self.logger.error(f"Failed to initialize agent {self.agent_name}: {e}")
+            raise
+
+    async def _validate_database_connectivity(self) -> None:
+        """Validate database connectivity - REQUIRED for all healthcare agents"""
+        try:
+            self._db_connection = await get_database_connection()
+            
+            # Test database connectivity
+            await self._db_connection.execute("SELECT 1")
+            
+            self.logger.info(f"Database connectivity validated for agent {self.agent_name}")
+        except Exception as e:
+            raise DatabaseConnectionError(
+                f"Agent {self.agent_name} requires database connectivity for healthcare operations. "
+                f"Error: {e}. "
+                "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+            ) from e
 
     async def get_available_models(self) -> list[dict[str, Any]]:
         """Get available models from registry"""

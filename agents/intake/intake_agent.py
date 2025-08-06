@@ -67,6 +67,7 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
                 "initialization": True,
                 "phi_monitoring": True,
                 "medical_advice_disabled": True,
+                "database_required": True,
             },
             operation_type="agent_initialization",
         )
@@ -77,7 +78,39 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
             "For medical questions, please consult with qualified healthcare professionals.",
             "In case of emergency, contact emergency services immediately.",
             "All patient data is handled in compliance with HIPAA regulations.",
+            "Database connectivity required for healthcare operations.",
         ]
+
+    async def initialize(self) -> None:
+        """Initialize intake agent with database connectivity validation"""
+        try:
+            # Call parent initialization which validates database connectivity
+            await self.initialize_agent()
+            
+            log_healthcare_event(
+                logger,
+                logging.INFO,
+                "Intake Agent fully initialized with database connectivity",
+                context={
+                    "agent": "intake",
+                    "database_validated": True,
+                    "ready_for_operations": True,
+                },
+                operation_type="agent_ready",
+            )
+        except Exception as e:
+            log_healthcare_event(
+                logger,
+                logging.CRITICAL,
+                f"Intake Agent initialization failed: {e}",
+                context={
+                    "agent": "intake",
+                    "initialization_failed": True,
+                    "error": str(e),
+                },
+                operation_type="agent_initialization_error",
+            )
+            raise
 
     @healthcare_log_method(operation_type="patient_intake", phi_risk_level="high")
     @healthcare_agent_log("intake")

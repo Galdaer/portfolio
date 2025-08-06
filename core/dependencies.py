@@ -13,6 +13,11 @@ from fastapi import Depends
 logger = logging.getLogger(__name__)
 
 
+class DatabaseConnectionError(Exception):
+    """Raised when database connection is unavailable for healthcare operations"""
+    pass
+
+
 class HealthcareServices:
     """Singleton service container for healthcare AI services"""
 
@@ -88,7 +93,7 @@ class HealthcareServices:
             self._llm_client = self._create_mock_llm_client()
 
     async def _initialize_database_pool(self) -> None:
-        """Initialize PostgreSQL connection pool"""
+        """Initialize PostgreSQL connection pool - REQUIRED for healthcare operations"""
         try:
             database_url = os.getenv(
                 "DATABASE_URL",
@@ -101,11 +106,19 @@ class HealthcareServices:
                 max_size=10,
                 command_timeout=30,
             )
-            logger.info("Database pool initialized")
+            
+            # Test connection to ensure database is available
+            async with self._db_pool.acquire() as connection:
+                await connection.execute("SELECT 1")
+            
+            logger.info("Database pool initialized and validated")
 
         except Exception as e:
-            logger.warning(f"Database pool initialization failed: {e}")
-            self._db_pool = None
+            logger.error(f"CRITICAL: Database pool initialization failed: {e}")
+            raise DatabaseConnectionError(
+                "Healthcare database unavailable. Please check connection. "
+                "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+            ) from e
 
     async def _initialize_redis_client(self) -> None:
         """Initialize Redis client for caching"""
@@ -205,7 +218,24 @@ async def get_llm_client() -> Any:
 
 async def get_db_pool() -> Any:
     """Get database connection pool"""
+    if healthcare_services.db_pool is None:
+        raise DatabaseConnectionError(
+            "Healthcare database unavailable. Please check connection. "
+            "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+        )
     return healthcare_services.db_pool
+
+
+async def get_database_connection() -> Any:
+    """Get database connection - required for healthcare operations"""
+    if healthcare_services.db_pool is None:
+        raise DatabaseConnectionError(
+            "Healthcare database unavailable. Please check connection. "
+            "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+        )
+    
+    # Return a connection from the pool
+    return await healthcare_services.db_pool.acquire()
 
 
 async def get_redis_client() -> Any:
@@ -217,4 +247,5 @@ async def get_redis_client() -> Any:
 MCPClient = Depends(get_mcp_client)
 LLMClient = Depends(get_llm_client)
 DatabasePool = Depends(get_db_pool)
+DatabaseConnection = Depends(get_database_connection)
 RedisClient = Depends(get_redis_client)
