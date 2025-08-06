@@ -66,6 +66,7 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
                 "initialization": True,
                 "phi_monitoring": True,
                 "medical_interpretation_disabled": True,
+                "database_required": True,
             },
             operation_type="agent_initialization",
         )
@@ -77,7 +78,39 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
             "All medical decisions must be made by licensed healthcare providers.",
             "In case of emergency, contact emergency services immediately.",
             "All document processing complies with HIPAA regulations.",
+            "Database connectivity required for healthcare operations.",
         ]
+
+    async def initialize(self) -> None:
+        """Initialize document processor agent with database connectivity validation"""
+        try:
+            # Call parent initialization which validates database connectivity
+            await self.initialize_agent()
+            
+            log_healthcare_event(
+                logger,
+                logging.INFO,
+                "Document Processor Agent fully initialized with database connectivity",
+                context={
+                    "agent": "document_processor",
+                    "database_validated": True,
+                    "ready_for_operations": True,
+                },
+                operation_type="agent_ready",
+            )
+        except Exception as e:
+            log_healthcare_event(
+                logger,
+                logging.CRITICAL,
+                f"Document Processor Agent initialization failed: {e}",
+                context={
+                    "agent": "document_processor",
+                    "initialization_failed": True,
+                    "error": str(e),
+                },
+                operation_type="agent_initialization_error",
+            )
+            raise
 
     async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
         """

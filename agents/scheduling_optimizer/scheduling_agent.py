@@ -113,10 +113,42 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
                 "initialization": True,
                 "phi_monitoring": True,
                 "medical_advice_disabled": True,
+                "database_required": True,
                 "capabilities": self.capabilities,
             },
             operation_type="agent_initialization",
         )
+
+    async def initialize(self) -> None:
+        """Initialize scheduling optimizer agent with database connectivity validation"""
+        try:
+            # Call parent initialization which validates database connectivity
+            await self.initialize_agent()
+            
+            log_healthcare_event(
+                logger,
+                logging.INFO,
+                "Scheduling Optimizer Agent fully initialized with database connectivity",
+                context={
+                    "agent": "scheduling_optimizer",
+                    "database_validated": True,
+                    "ready_for_operations": True,
+                },
+                operation_type="agent_ready",
+            )
+        except Exception as e:
+            log_healthcare_event(
+                logger,
+                logging.CRITICAL,
+                f"Scheduling Optimizer Agent initialization failed: {e}",
+                context={
+                    "agent": "scheduling_optimizer",
+                    "initialization_failed": True,
+                    "error": str(e),
+                },
+                operation_type="agent_initialization_error",
+            )
+            raise
 
     @healthcare_log_method(operation_type="scheduling_optimization", phi_risk_level="medium")
     @phi_monitor(risk_level="medium", operation_type="appointment_scheduling")

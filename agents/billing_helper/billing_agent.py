@@ -80,10 +80,13 @@ class BillingHelperAgent(BaseHealthcareAgent):
         self.agent_type = "billing_helper"
         self.capabilities = [
             "claims_processing",
-            "code_validation",
+            "code_validation", 
             "insurance_verification",
             "compliance_checking",
             "denial_management",
+            "advanced_insurance_calculations",  # NEW: Advanced insurance features
+            "deductible_tracking",  # NEW: Deductible proximity tracking
+            "cost_prediction",  # NEW: Exact visit cost prediction
         ]
 
         # Log agent initialization with healthcare context
@@ -96,10 +99,48 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 "initialization": True,
                 "phi_monitoring": True,
                 "medical_advice_disabled": True,
+                "database_required": True,
                 "capabilities": self.capabilities,
             },
             operation_type="agent_initialization",
         )
+
+    async def initialize(self) -> None:
+        """Initialize billing helper agent with database connectivity validation"""
+        try:
+            # Call parent initialization which validates database connectivity
+            await self.initialize_agent()
+            
+            # Initialize advanced insurance calculation components
+            from domains.insurance_calculations import InsuranceCoverageCalculator, DeductibleTracker
+            self.insurance_calculator = InsuranceCoverageCalculator()
+            self.deductible_tracker = DeductibleTracker()
+            
+            log_healthcare_event(
+                logger,
+                logging.INFO,
+                "Billing Helper Agent fully initialized with database connectivity and advanced insurance calculations",
+                context={
+                    "agent": "billing_helper",
+                    "database_validated": True,
+                    "advanced_insurance_enabled": True,
+                    "ready_for_operations": True,
+                },
+                operation_type="agent_ready",
+            )
+        except Exception as e:
+            log_healthcare_event(
+                logger,
+                logging.CRITICAL,
+                f"Billing Helper Agent initialization failed: {e}",
+                context={
+                    "agent": "billing_helper",
+                    "initialization_failed": True,
+                    "error": str(e),
+                },
+                operation_type="agent_initialization_error",
+            )
+            raise
 
     @healthcare_log_method(operation_type="claim_processing", phi_risk_level="medium")
     @phi_monitor_decorator(risk_level="medium", operation_type="billing_processing")
@@ -491,7 +532,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 base_response.update({
                     "success": False,
                     "error": f"Unknown request type: {request_type}",
-                    "supported_types": ["billing_processing", "insurance_verification", "report_generation"]
+                    "supported_types": ["billing_processing", "insurance_verification", "report_generation", "cost_prediction", "deductible_tracking"]
                 })
                 
         except Exception as e:
@@ -502,6 +543,182 @@ class BillingHelperAgent(BaseHealthcareAgent):
             })
             
         return base_response
+
+    # =================== ADVANCED INSURANCE CALCULATION METHODS ===================
+    
+    @healthcare_log_method(operation_type="cost_prediction", phi_risk_level="medium")
+    async def predict_visit_cost(self, visit_data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Predict exact cost for scheduled visit with advanced insurance calculations
+        
+        Supports:
+        - Percentage copays (not just fixed dollar amounts)
+        - Deductible proximity tracking
+        - Complex insurance structures (HSA, family vs individual)
+        
+        Args:
+            visit_data: Dictionary containing visit information, CPT codes, patient insurance
+            
+        Returns:
+            Detailed cost prediction with breakdown
+            
+        Medical Disclaimer: Administrative cost prediction only.
+        Does not provide medical advice or treatment authorization.
+        """
+        try:
+            patient_id = visit_data.get("patient_id")
+            cpt_codes = visit_data.get("cpt_codes", [])
+            insurance_type = visit_data.get("insurance_type", "standard")
+            
+            # Get current deductible status
+            deductible_status = await self.deductible_tracker.calculate_deductible_proximity(
+                patient_id, "current_year"
+            )
+            
+            # Calculate cost for each CPT code
+            total_cost_prediction = {
+                "total_estimated_cost": 0.0,
+                "patient_responsibility": 0.0,
+                "insurance_payment": 0.0,
+                "deductible_applied": 0.0,
+                "copay_amount": 0.0,
+                "coinsurance_amount": 0.0,
+                "breakdown_by_cpt": [],
+                "deductible_status": {
+                    "annual_deductible": deductible_status.annual_deductible,
+                    "amount_applied": deductible_status.amount_applied,
+                    "remaining_amount": deductible_status.remaining_amount,
+                    "percentage_met": deductible_status.percentage_met
+                },
+                "cost_explanation": []
+            }
+            
+            for cpt_code in cpt_codes:
+                # Get negotiated rate for CPT code (mock data)
+                negotiated_rate = self._get_negotiated_rate(cpt_code, insurance_type)
+                
+                # Calculate patient cost using advanced insurance calculator
+                cost_estimate = self.insurance_calculator.calculate_patient_cost(
+                    cpt_code=cpt_code,
+                    billed_amount=negotiated_rate,
+                    deductible_status=deductible_status,
+                    insurance_type=insurance_type
+                )
+                
+                total_cost_prediction["breakdown_by_cpt"].append({
+                    "cpt_code": cpt_code,
+                    "negotiated_rate": negotiated_rate,
+                    "patient_cost": cost_estimate.patient_responsibility,
+                    "insurance_payment": cost_estimate.insurance_payment
+                })
+                
+                total_cost_prediction["total_estimated_cost"] += negotiated_rate
+                total_cost_prediction["patient_responsibility"] += cost_estimate.patient_responsibility
+                total_cost_prediction["insurance_payment"] += cost_estimate.insurance_payment
+                
+            # Add patient-friendly explanations
+            if deductible_status.remaining_amount > 0:
+                total_cost_prediction["cost_explanation"].append(
+                    f"You have ${deductible_status.remaining_amount:.2f} remaining on your "
+                    f"${deductible_status.annual_deductible:.2f} annual deductible"
+                )
+                
+            if deductible_status.percentage_met > 0.8:
+                total_cost_prediction["cost_explanation"].append(
+                    f"You're {deductible_status.percentage_met:.0%} of the way to meeting your deductible"
+                )
+            
+            total_cost_prediction["cost_explanation"].append(
+                f"Total estimated cost: ${total_cost_prediction['patient_responsibility']:.2f}"
+            )
+            
+            log_healthcare_event(
+                logger,
+                logging.INFO,
+                "Visit cost prediction completed",
+                context={
+                    "patient_id": patient_id,
+                    "cpt_codes": cpt_codes,
+                    "total_patient_cost": total_cost_prediction["patient_responsibility"],
+                    "deductible_remaining": deductible_status.remaining_amount,
+                },
+                operation_type="cost_prediction",
+            )
+            
+            return {
+                "success": True,
+                "cost_prediction": total_cost_prediction,
+                "prediction_timestamp": datetime.now().isoformat(),
+                "disclaimer": "Cost estimates are for informational purposes only. Actual costs may vary based on services provided and insurance processing."
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Cost prediction failed: {str(e)}",
+                "disclaimer": "Unable to generate cost prediction. Please contact billing department for assistance."
+            }
+
+    def _get_negotiated_rate(self, cpt_code: str, insurance_type: str) -> float:
+        """Get negotiated rate for CPT code (mock implementation)"""
+        # Mock negotiated rates - in production, would query insurance contracts
+        base_rates = {
+            "99213": 150.00,  # Office visit, established patient
+            "99214": 200.00,  # Office visit, moderate complexity
+            "36415": 25.00,   # Blood draw
+            "85025": 35.00,   # CBC lab test
+        }
+        
+        base_rate = base_rates.get(cpt_code, 100.00)
+        
+        # Apply insurance-specific modifiers
+        if insurance_type == "medicare":
+            return base_rate * 0.85  # Medicare typically pays less
+        elif insurance_type == "medicaid":
+            return base_rate * 0.75  # Medicaid typically pays less
+        else:
+            return base_rate
+    
+    @healthcare_log_method(operation_type="deductible_tracking", phi_risk_level="medium")
+    async def track_deductible_progress(self, patient_id: str) -> dict[str, Any]:
+        """
+        Track patient's deductible progress with advanced insights
+        
+        Args:
+            patient_id: Patient identifier
+            
+        Returns:
+            Comprehensive deductible tracking information
+            
+        Medical Disclaimer: Administrative tracking only.
+        """
+        try:
+            deductible_status = await self.deductible_tracker.calculate_deductible_proximity(
+                patient_id, "current_year"
+            )
+            
+            insights = self.deductible_tracker.generate_deductible_insights(deductible_status)
+            
+            return {
+                "success": True,
+                "patient_id": patient_id,
+                "deductible_status": {
+                    "annual_deductible": deductible_status.annual_deductible,
+                    "amount_applied": deductible_status.amount_applied,
+                    "remaining_amount": deductible_status.remaining_amount,
+                    "percentage_met": deductible_status.percentage_met,
+                    "projected_meet_date": deductible_status.projected_meet_date.isoformat() if deductible_status.projected_meet_date else None,
+                    "likelihood_to_meet": deductible_status.likelihood_to_meet
+                },
+                "insights": insights,
+                "tracking_timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Deductible tracking failed: {str(e)}"
+            }
 
 
 # Initialize the billing helper agent

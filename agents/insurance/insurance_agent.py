@@ -95,6 +95,7 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
             "claims_tracking",
             "appeal_assistance",
             "coverage_analysis",
+            "advanced_insurance_calculations",  # NEW: Advanced insurance features
         ]
 
         # Initialize insurance provider configurations
@@ -116,11 +117,43 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
                 "initialization": True,
                 "phi_monitoring": True,
                 "medical_advice_disabled": True,
+                "database_required": True,
                 "capabilities": self.capabilities,
                 "supported_payers": list(self.supported_payers.keys()),
             },
             operation_type="agent_initialization",
         )
+
+    async def initialize(self) -> None:
+        """Initialize insurance agent with database connectivity validation"""
+        try:
+            # Call parent initialization which validates database connectivity
+            await self.initialize_agent()
+            
+            log_healthcare_event(
+                logger,
+                logging.INFO,
+                "Insurance Verification Agent fully initialized with database connectivity",
+                context={
+                    "agent": "insurance_verification",
+                    "database_validated": True,
+                    "ready_for_operations": True,
+                },
+                operation_type="agent_ready",
+            )
+        except Exception as e:
+            log_healthcare_event(
+                logger,
+                logging.CRITICAL,
+                f"Insurance Verification Agent initialization failed: {e}",
+                context={
+                    "agent": "insurance_verification",
+                    "initialization_failed": True,
+                    "error": str(e),
+                },
+                operation_type="agent_initialization_error",
+            )
+            raise
 
     @healthcare_log_method(operation_type="insurance_verification", phi_risk_level="high")
     @phi_monitor(risk_level="high", operation_type="insurance_verification")
