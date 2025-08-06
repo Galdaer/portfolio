@@ -54,3 +54,52 @@ networks:
 ports:
 environment:
 restart: unless-stopped
+
+# =============================================================================
+# FILE/DIRECTORY EXCLUSIONS FOR COPILOT WORKSPACE CONTEXT MANAGEMENT
+# =============================================================================
+# These patterns exclude files and directories from GitHub Copilot Workspace
+# context to reduce token usage and focus on relevant code
+
+# Large synthetic data and generated content (major token savings)
+data/synthetic/
+data/training/
+data/vector_stores/
+coverage/
+logs/
+archive/
+
+# Build artifacts and cache directories
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+node_modules/
+dist/
+build/
+*.egg-info/
+
+# Reference materials and documentation (if not immediately relevant)
+reference/
+docs/THIRD_PARTY_LICENSES.md
+THIRD_PARTY_LICENSES.md
+
+# Development/testing infrastructure (can be re-included as needed)
+systemd/
+actions-runners/
+
+# MCP server directory (if dad is working on it separately)
+# mcps/healthcare/
+
+# Large configuration and service files (can be re-included as needed)
+services/
+stack/
+test/
+
+# Very large log files and temporary files
+*.log
+*.tmp
+*.temp
+temp/
+tmp/
