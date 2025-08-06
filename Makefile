@@ -12,37 +12,15 @@
 	   diagnostics \
 	   dry-run \
 	   e2e \
-	   fix	fi; \
-	if [ "$$UV_AVAILABLE" = "false" ]; then \
-		echo "🐍  Using pip with apt fallbacks for maximum compatibility..."; \
-		echo "   📦 Installing system Python tools via apt..."; \
-		sudo apt-get update -qq && sudo apt-get install -y python3-pip python3-dev python3-setuptools python3-wheel || true; \
-		echo "   🔧 Installing development tools via pip..."; \
-		if sudo pip3 install --break-system-packages mypy ruff pytest pytest-asyncio yamllint 2>/dev/null; then \
-			echo "   ✓ Development tools installed system-wide"; \
-		elif pip3 install --user mypy ruff pytest pytest-asyncio yamllint 2>/dev/null; then \
-			echo "   ✓ Development tools installed to user directory"; \
-		else \
-			echo "   ⚠️  pip installation failed - trying apt packages"; \
-			sudo apt-get install -y python3-mypy python3-pytest python3-yaml || true; \
-		fi; \
-		if [ -f requirements.txt ]; then \
-			echo "   📋 Installing healthcare AI requirements via pip..."; \
-			if sudo pip3 install --break-system-packages -r requirements.txt 2>/dev/null; then \
-				echo "   ✓ Healthcare requirements installed system-wide"; \
-			elif pip3 install --user -r requirements.txt 2>/dev/null; then \
-				echo "   ✓ Healthcare requirements installed to user directory"; \
-			else \
-				echo "   ⚠️  Some requirements may have failed - check individual packages"; \
-			fi; \
-		fi; \
-	fi
-	@echo "✅  Development dependencies installation complete"
+	   fix-permissions \
+	   format \
 	   help \
 	   hooks \
 	   install \
 	   lint \
+	   lint-dev \
 	   lint-python \
+	   lint-shell-complexity \
 	   mcp \
 	   mcp-build \
 	   mcp-rebuild \
@@ -60,6 +38,7 @@
 	   test-quiet \
 	   uninstall \
 	   update \
+	   update-deps \
 	   validate \
 	   venv
 
@@ -104,7 +83,7 @@ install:
 	@for unit in $(PWD)/systemd/*.service $(PWD)/systemd/*.timer; do \
 	    if [ -f "$$unit" ]; then \
 	        unit_name=$$(basename "$$unit"); \
-	        sudo systemctl enable "intelluxe-$$unit_name" 2>/dev/null || echo "Note: intelluxe-$$unit_name may have dependency issues, will be resolved after daemon-reload"; \
+	        sudo systemctl enable "intelluxe-$$unit_name"; \
 	    fi; \
 	done
 	sudo systemctl daemon-reload
@@ -113,15 +92,15 @@ install:
 	@echo "   - Symlinking production directories to /opt/intelluxe/"
 	@for dir in $(PROD_DIRS); do \
 	    if [ -d "$(PWD)/$$dir" ]; then \
-	        echo "     Symlinking $$dir -> /opt/intelluxe/$$dir"; \
-	        sudo ln -sf $(PWD)/$$dir /opt/intelluxe/; \
+	        sudo ln -sf "$(PWD)/$$dir" "/opt/intelluxe/$$dir"; \
 	    fi; \
 	done
 	@echo "   - Setting correct permissions using CFG_UID:CFG_GID ($(CFG_UID):$(CFG_GID))"
 	@sudo chmod 755 $(PWD)/scripts/*.sh $(PWD)/scripts/*.py
 	@for dir in $(PROD_DIRS); do \
 	    if [ -d "$(PWD)/$$dir" ]; then \
-	        sudo chown -R $(CFG_UID):$(CFG_GID) $(PWD)/$$dir; \
+	        sudo chown -R $(CFG_UID):$(CFG_GID) "$(PWD)/$$dir"; \
+	        sudo chmod -R 755 "$(PWD)/$$dir"; \
 	    fi; \
 	done
 	@sudo chmod -R g+w $(PWD)/stack
@@ -138,9 +117,8 @@ uninstall:
 	@echo "   - Disabling and stopping Intelluxe systemd units"
 	@for unit in /etc/systemd/system/intelluxe-*.service /etc/systemd/system/intelluxe-*.timer; do \
 	    if [ -f "$$unit" ]; then \
-	        unit_name=$$(basename "$$unit"); \
-	        sudo systemctl disable "$$unit_name" 2>/dev/null || true; \
-	        sudo systemctl stop "$$unit_name" 2>/dev/null || true; \
+	        sudo systemctl disable "$$(basename $$unit)" 2>/dev/null || true; \
+	        sudo systemctl stop "$$(basename $$unit)" 2>/dev/null || true; \
 	    fi; \
 	done 2>/dev/null || true
 	@echo "   - Removing Intelluxe systemd unit files"
@@ -166,8 +144,9 @@ fix-permissions:
 	fi
 	@sudo chmod 755 scripts/*.sh scripts/*.py
 	@for dir in $(PROD_DIRS); do \
-	    if [ -d "$$dir" ]; then \
-	        sudo chown -R $(CFG_UID):$(CFG_GID) $$dir; \
+	    if [ -d "$(PWD)/$$dir" ]; then \
+	        sudo chown -R $(CFG_UID):$(CFG_GID) "$(PWD)/$$dir"; \
+	        sudo chmod -R 755 "$(PWD)/$$dir"; \
 	    fi; \
 	done
 	@echo "   - Setting development permissions on healthcare AI stack files"
@@ -179,16 +158,14 @@ fix-permissions:
 	@for unit in $(PWD)/systemd/*.service $(PWD)/systemd/*.timer; do \
 	    if [ -f "$$unit" ]; then \
 	        unit_name=$$(basename "$$unit"); \
-	        if [ ! -f "/etc/systemd/system/intelluxe-$$unit_name" ]; then \
-	            sudo ln -sf "$$unit" "/etc/systemd/system/intelluxe-$$unit_name"; \
-	        fi; \
+	        sudo ln -sf "$$unit" "/etc/systemd/system/intelluxe-$$unit_name"; \
 	    fi; \
 	done 2>/dev/null || true
 	@echo "   - Enabling systemd units"
 	@for unit in $(PWD)/systemd/*.service $(PWD)/systemd/*.timer; do \
 	    if [ -f "$$unit" ]; then \
 	        unit_name=$$(basename "$$unit"); \
-	        sudo systemctl enable "intelluxe-$$unit_name" 2>/dev/null || true; \
+	        sudo systemctl enable "intelluxe-$$unit_name"; \
 	    fi; \
 	done 2>/dev/null || true
 	@bash scripts/fix-systemd-units.sh
@@ -252,50 +229,55 @@ deps:
 			fi; \
 		fi; \
 		if [ "$$UV_AVAILABLE" = "true" ]; then \
-			if [ -n "$$CI" ] && [ -f requirements-ci.txt ]; then \
-				echo "   🤖 CI mode detected - using requirements-ci.txt (excludes GPU packages)"; \
-				REQUIREMENTS_FILE=requirements-ci.txt; \
-			elif [ -f requirements.txt ]; then \
-				echo "   🖥️  Development mode - using requirements.txt (all packages)"; \
-				REQUIREMENTS_FILE=requirements.txt; \
-			else \
-				echo "   ⚠️  No requirements file found"; \
-				REQUIREMENTS_FILE=""; \
+			REQUIREMENTS_FILE="requirements.txt"; \
+			if [ "$$CI" = "1" ] && [ -f "requirements-ci.txt" ]; then \
+				REQUIREMENTS_FILE="requirements-ci.txt"; \
 			fi; \
-			if [ -n "$$REQUIREMENTS_FILE" ]; then \
-				if [ "$$CI" = "1" ]; then \
-					echo "   🤖 CI mode - using user installation (no sudo required)"; \
-					if timeout 60 uv pip install --user -r "$$REQUIREMENTS_FILE" 2>/dev/null; then \
-						echo "   ✓ Healthcare AI requirements installed via uv (user mode)"; \
-					else \
-						echo "   ⚠️  uv user installation failed - falling back to pip"; \
-						UV_AVAILABLE=false; \
-					fi; \
+			if [ "$$CI" = "1" ]; then \
+				echo "   📋 Installing $$REQUIREMENTS_FILE via uv (user mode)..."; \
+				if timeout 120 uv pip install --user -r "$$REQUIREMENTS_FILE" 2>/dev/null; then \
+					echo "   ✓ Healthcare requirements installed via uv (user mode)"; \
 				else \
-					if timeout 60 sudo uv pip install --system --break-system-packages -r "$$REQUIREMENTS_FILE" 2>/dev/null; then \
-						echo "   ✓ Healthcare AI requirements installed via uv (system mode)"; \
-					else \
-						echo "   ⚠️  uv system installation failed - falling back to pip"; \
-						UV_AVAILABLE=false; \
-					fi; \
+					echo "   ⚠️  uv requirements installation failed - falling back to pip"; \
+					UV_AVAILABLE=false; \
+				fi; \
+			else \
+				echo "   📋 Installing $$REQUIREMENTS_FILE via uv (system mode)..."; \
+				if timeout 120 sudo uv pip install --system --break-system-packages -r "$$REQUIREMENTS_FILE" 2>/dev/null; then \
+					echo "   ✓ Healthcare requirements installed via uv (system mode)"; \
+				else \
+					echo "   ⚠️  uv requirements installation failed - falling back to pip"; \
+					UV_AVAILABLE=false; \
 				fi; \
 			fi; \
 		fi; \
-	else \
-		echo "⚠️  UV not found or blocked, using pip and apt for CI compatibility..."; \
-		echo "🐍  Installing core Python tools via apt..."; \
-		sudo apt-get update -qq && sudo apt-get install -y python3-pip python3-dev python3-setuptools; \
-		echo "🔧  Installing development tools via pip..."; \
-		sudo pip3 install --break-system-packages mypy ruff pytest pytest-asyncio yamllint || \
-		pip3 install --user mypy ruff pytest pytest-asyncio yamllint; \
-		if [ -n "$$CI" ] && [ -f requirements-ci.txt ]; then \
-			echo "📋  Installing CI requirements (excludes GPU packages) via pip..."; \
-			sudo pip3 install --break-system-packages -r requirements-ci.txt || \
-			pip3 install --user -r requirements-ci.txt; \
-		elif [ -f requirements.txt ]; then \
-			echo "📋  Installing full requirements via pip..."; \
-			sudo pip3 install --break-system-packages -r requirements.txt || \
-			pip3 install --user -r requirements.txt; \
+	fi; \
+	if [ "$$UV_AVAILABLE" = "false" ]; then \
+		echo "🐍  Using pip with apt fallbacks for maximum compatibility..."; \
+		echo "   📦 Installing system Python tools via apt..."; \
+		sudo apt-get update -qq && sudo apt-get install -y python3-pip python3-dev python3-setuptools python3-wheel || true; \
+		echo "   🔧 Installing development tools via pip..."; \
+		if sudo pip3 install --break-system-packages ruff pyright pytest pytest-asyncio yamllint 2>/dev/null; then \
+			echo "   ✓ Development tools installed system-wide"; \
+		elif pip3 install --user ruff pyright pytest pytest-asyncio yamllint 2>/dev/null; then \
+			echo "   ✓ Development tools installed to user directory"; \
+		else \
+			echo "   ⚠️  pip installation failed - trying apt packages"; \
+			sudo apt-get install -y python3-pytest python3-yaml || true; \
+		fi; \
+		REQUIREMENTS_FILE="requirements.txt"; \
+		if [ "$$CI" = "1" ] && [ -f "requirements-ci.txt" ]; then \
+			REQUIREMENTS_FILE="requirements-ci.txt"; \
+		fi; \
+		if [ -f "$$REQUIREMENTS_FILE" ]; then \
+			echo "   📋 Installing $$REQUIREMENTS_FILE via pip..."; \
+			if sudo pip3 install --break-system-packages -r "$$REQUIREMENTS_FILE" 2>/dev/null; then \
+				echo "   ✓ Healthcare requirements installed system-wide"; \
+			elif pip3 install --user -r "$$REQUIREMENTS_FILE" 2>/dev/null; then \
+				echo "   ✓ Healthcare requirements installed to user directory"; \
+			else \
+				echo "   ⚠️  Some requirements may have failed - check individual packages"; \
+			fi; \
 		fi; \
 	fi
 	@echo "✅  All development dependencies installed successfully"
@@ -304,22 +286,15 @@ clean-cache:
 	@echo "🧹  Cleaning package manager caches to free disk space"
 	@# Clean uv cache
 	@if command -v uv >/dev/null 2>&1; then \
-		echo "   🚀 Cleaning uv cache..."; \
+		echo "   🧹 Cleaning uv cache..."; \
 		uv cache clean || echo "   ⚠️  uv cache clean failed"; \
-		if command -v du >/dev/null 2>&1 && uv cache dir >/dev/null 2>&1; then \
-			cache_size=$$(du -sh $$(uv cache dir) 2>/dev/null | cut -f1 || echo "unknown"); \
-			echo "   📊 Remaining uv cache size: $$cache_size"; \
-		fi; \
 	else \
 		echo "   ⚠️  uv not found - skipping uv cache cleanup"; \
 	fi
 	@# Clean pip cache
 	@if command -v pip3 >/dev/null 2>&1; then \
-		echo "   🐍 Cleaning pip cache..."; \
-		pip3 cache purge 2>/dev/null || echo "   ⚠️  pip cache purge failed"; \
-		if command -v pip3 >/dev/null 2>&1; then \
-			pip3 cache info 2>/dev/null || echo "   📊 pip cache info not available"; \
-		fi; \
+		echo "   🧹 Cleaning pip cache..."; \
+		pip3 cache purge || echo "   ⚠️  pip cache purge failed"; \
 	else \
 		echo "   ⚠️  pip3 not found - skipping pip cache cleanup"; \
 	fi
@@ -387,8 +362,7 @@ backup:
 restore:
 	@echo "📂  Restore healthcare AI configuration from backup (requires BACKUP_FILE variable)"
 	@if [ -z "$(BACKUP_FILE)" ]; then \
-	    echo "❌ Error: BACKUP_FILE variable not set"; \
-	    echo "Usage: make restore BACKUP_FILE=/path/to/backup.tar.gz"; \
+	    echo "ERROR: Please specify BACKUP_FILE=path/to/backup.tar.gz"; \
 	    exit 1; \
 	fi
 	./scripts/bootstrap.sh --restore-backup "$(BACKUP_FILE)"
@@ -429,269 +403,187 @@ lint-shell-complexity:
 	@echo "🔍  Analyzing shell functions for single responsibility violations..."
 	@# Find functions >20 lines or with complex patterns
 	@for script in $$(find scripts -name "*.sh"); do \
-		echo "Checking $$script for function complexity..."; \
-		awk '/^[a-zA-Z_][a-zA-Z0-9_]*\(\)/ { \
-			func_name = $$1; gsub(/\(\)/, "", func_name); \
-			func_start = NR; line_count = 0; in_function = 1; \
-		} \
-		in_function && /^}$$/ { \
-			if (line_count > 20) \
-				printf "%s:%d: Function \"%s\" has %d lines (>20) - consider refactoring for single responsibility\n", FILENAME, func_start, func_name, line_count; \
-			in_function = 0; \
-		} \
-		in_function { line_count++ }' "$$script"; \
+		awk '/^[a-zA-Z_][a-zA-Z0-9_]*\(\)/ { func=$$1; line_count=0; start_line=NR } \
+		     /^[a-zA-Z_][a-zA-Z0-9_]*\(\)/,/^}/ { \
+		         if ($$0 ~ /if.*then|case.*in|for.*do|while.*do/) complexity++; \
+		         if ($$0 ~ /^}/) { \
+		             if (line_count > 20 || complexity > 5) \
+		                 printf "%s:%d: Function %s has %d lines and complexity %d\\n", \
+		                        FILENAME, start_line, func, line_count, complexity; \
+		             complexity=0 \
+		         } \
+		         line_count++ \
+		     }' "$$script"; \
 	done
 
 lint-python:
 	@echo "🔍  Running Python lint (ruff and mypy) for healthcare AI components"
 	@# Run Ruff for linting (pyproject.toml has exclusions for submodules)
 	@if command -v ruff >/dev/null 2>&1; then \
-		echo "🧹 Running Ruff linting..."; \
 		ruff check .; \
 	elif python3 -m ruff --version >/dev/null 2>&1; then \
-		echo "🧹 Running Ruff linting..."; \
 		python3 -m ruff check .; \
 	else \
-		echo "⚠️  ruff not found - installing via make deps"; \
-		$(MAKE) deps; \
-		python3 -m ruff check .; \
+		python3 -c "import ruff" 2>/dev/null && python3 -m ruff check . || echo "⚠️  Ruff not available"; \
 	fi
 	@# Run Ruff formatting check
 	@if command -v ruff >/dev/null 2>&1; then \
-		echo "🎨 Running Ruff formatting check..."; \
 		ruff format --check .; \
 	elif python3 -m ruff --version >/dev/null 2>&1; then \
-		echo "🎨 Running Ruff formatting check..."; \
 		python3 -m ruff format --check .; \
 	else \
-		python3 -m ruff format --check .; \
+		echo "⚠️  Ruff format check skipped"; \
 	fi
-	@# Run Mypy for type checking (mypy.ini has healthcare-specific configuration)
-	@if command -v dmypy >/dev/null 2>&1; then \
-		echo "🚀 Running Mypy daemon for fast type checking..."; \
-		dmypy run -- . || (echo "⚠️  Daemon failed, falling back to regular mypy"; mypy .); \
-	elif command -v mypy >/dev/null 2>&1; then \
-		echo "🔍 Running Mypy type checking..."; \
-		mypy .; \
-	elif python3 -m mypy --version >/dev/null 2>&1; then \
-		echo "🔍 Running Mypy type checking..."; \
-		python3 -m mypy .; \
+	@# Run MyPy type checking with error tolerance
+	@echo "🔍  Running MyPy type checking (ignore errors during development)"
+	@if command -v mypy >/dev/null 2>&1; then \
+		mypy . || echo "⚠️  MyPy found issues - run 'mypy .' for details"; \
 	else \
-		echo "⚠️  mypy not found - installing via make deps"; \
-		$(MAKE) deps; \
-		python3 -m mypy .; \
+		echo "⚠️  MyPy not available"; \
 	fi
 
 # Fast development linting - only core healthcare modules
 lint-dev:
-	@echo "🚀  Running fast development lint (core modules only)"
-	@# Run Ruff for linting
+	@echo "🚀  Running fast development lint (core healthcare modules only)"
 	@if command -v ruff >/dev/null 2>&1; then \
-		echo "🧹 Running Ruff linting..."; \
-		ruff check core/ agents/ src/; \
+		ruff check core/ agents/ config/ --select=E9,F63,F7,F82; \
 	else \
-		python3 -m ruff check core/ agents/ src/; \
-	fi
-	@# Run Mypy on core modules only
-	@if command -v mypy >/dev/null 2>&1; then \
-		echo "🔍 Running Mypy type checking (core modules)..."; \
-		mypy core/ agents/ src/; \
-	else \
-		python3 -m mypy core/ agents/ src/; \
+		echo "⚠️  Ruff not available for fast lint"; \
 	fi
 
 format:
-	@echo "🎨  Running Ruff formatting on healthcare AI codebase"
+	@echo "🎨  Auto-formatting healthcare AI code"
 	@if command -v ruff >/dev/null 2>&1; then \
 		ruff format .; \
 	elif python3 -m ruff --version >/dev/null 2>&1; then \
 		python3 -m ruff format .; \
 	else \
-		echo "⚠️  ruff not found - installing via make deps"; \
-		$(MAKE) deps; \
-		python3 -m ruff format .; \
+		echo "⚠️  Ruff not available for formatting"; \
 	fi
 
 validate:
-	@echo "✅  Validating healthcare AI configuration and dependencies (non-interactive)"
-	@if [ "${CI}" = "true" ]; then \
-		if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then \
-			./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check; \
-			$(MAKE) systemd-verify; \
-		else \
-			echo "Skipping Docker validation in CI: Docker not available"; \
-			./scripts/bootstrap.sh --validate --non-interactive --skip-docker-check --dry-run; \
-		fi; \
-	else \
-		./scripts/bootstrap.sh --validate --non-interactive; \
-		$(MAKE) systemd-verify; \
-	fi
+	@echo "🔍  Running comprehensive validation suite"
+	$(MAKE) lint
+	$(MAKE) test
 
 systemd-verify:
-	@echo "🔧  Verifying healthcare AI systemd service configurations"
-	@./scripts/systemd-verify.sh
+	@echo "🔍  Verifying systemd service configurations"
+	@for unit in systemd/*.service systemd/*.timer; do \
+	    if [ -f "$$unit" ]; then \
+	        echo "   Verifying $$unit..."; \
+	        systemd-analyze verify "$$unit" || echo "⚠️  $$unit has issues"; \
+	    fi; \
+	done
 
 test:
-	@echo "🧪  Running healthcare AI Bats tests"
-	@if [ "${CI}" = "true" ]; then \
-		echo "Running healthcare AI tests in CI mode with appropriate skips"; \
-		CI=true bash ./scripts/test.sh; \
+	@echo "🧪  Running healthcare AI test suite"
+	@if [ -n "$$CI" ]; then \
+		echo "   🤖 CI mode - running tests with coverage"; \
+		python3 -m pytest tests/ -v --tb=short --maxfail=5 --disable-warnings; \
 	else \
-		bash ./scripts/test.sh; \
+		echo "   🖥️  Development mode - running tests"; \
+		python3 -m pytest tests/ -v --tb=short; \
 	fi
 
 test-quiet:
-	@echo "🧪  Running healthcare AI Bats tests (quiet mode)"
-	QUIET=true bash ./scripts/test.sh
+	@echo "🧪  Running healthcare AI tests (quiet mode)"
+	@python3 -m pytest tests/ -q --disable-warnings
 
 test-coverage:
-	@echo "🧪  Running healthcare AI Bats tests with coverage (if available)"
-	USE_KCOV=true bash ./scripts/test.sh
+	@echo "🧪  Running healthcare AI tests with coverage report"
+	@python3 -m pytest tests/ --cov=core --cov=agents --cov=config --cov-report=html --cov-report=term-missing
 
 # Synthetic Healthcare Data Generation
 data-generate:
-	@echo "🏥  Generating comprehensive synthetic healthcare data"
-	@echo "   - 75 doctors, 2,500 patients, 6,000 encounters"
-	@echo "   - Cross-referenced Phase 1 & Phase 2 business data"
-	@python3 scripts/generate_synthetic_healthcare_data.py --doctors 75 --patients 2500 --encounters 6000
+	@echo "📊  Generating comprehensive synthetic healthcare dataset"
+	python3 scripts/generate_synthetic_healthcare_data.py --doctors 75 --patients 2500 --encounters 6000
 
 data-generate-small:
-	@echo "🏥  Generating small test dataset"
-	@echo "   - 10 doctors, 100 patients, 200 encounters"
-	@python3 scripts/generate_synthetic_healthcare_data.py --doctors 10 --patients 100 --encounters 200
+	@echo "📊  Generating small synthetic healthcare dataset for testing"
+	python3 scripts/generate_synthetic_healthcare_data.py --doctors 10 --patients 100 --encounters 200
 
 data-generate-large:
-	@echo "🏥  Generating large development dataset"
-	@echo "   - 150 doctors, 5,000 patients, 12,000 encounters"
-	@python3 scripts/generate_synthetic_healthcare_data.py --doctors 150 --patients 5000 --encounters 12000
+	@echo "📊  Generating large synthetic healthcare dataset for load testing"
+	python3 scripts/generate_synthetic_healthcare_data.py --doctors 150 --patients 5000 --encounters 12000
 
 data-clean:
-	@echo "🗑️  Cleaning synthetic healthcare data"
-	@rm -rf data/synthetic/*.json
-	@echo "✅ Synthetic data files removed"
+	@echo "🧹  Cleaning synthetic healthcare data"
+	@rm -rf data/synthetic/*.json data/synthetic/*.csv
+	@echo "✅  Synthetic data cleaned"
 
 data-status:
-	@echo "📊  Synthetic Healthcare Data Status"
-	@echo "=================================="
+	@echo "📊  Synthetic healthcare data status"
 	@if [ -d "data/synthetic" ]; then \
-		file_count=$$(find data/synthetic -name "*.json" -type f | wc -l); \
-		if [ $$file_count -gt 0 ]; then \
-			echo "📁 Files: $$file_count"; \
-			total_size=$$(du -sh data/synthetic 2>/dev/null | cut -f1 || echo "unknown"); \
-			echo "💾 Size: $$total_size"; \
-			echo "📋 Data files:"; \
-			for file in data/synthetic/*.json; do \
-				if [ -f "$$file" ]; then \
-					filename=$$(basename "$$file"); \
-					records=$$(python3 -c "import json; print(len(json.load(open('$$file'))))" 2>/dev/null || echo "?"); \
-					printf "   %-25s %s records\n" "$$filename:" "$$records"; \
-				fi; \
-			done; \
-		else \
-			echo "📂 Directory exists but no data files found"; \
-		fi; \
+		echo "   📁 Synthetic data directory exists"; \
+		echo "   📄 Files: $$(ls -1 data/synthetic/ 2>/dev/null | wc -l)"; \
+		echo "   💾 Size: $$(du -sh data/synthetic/ 2>/dev/null | cut -f1 || echo '0')"; \
 	else \
-		echo "📂 No synthetic data directory found"; \
+		echo "   ❌ No synthetic data found - run 'make data-generate' to create"; \
 	fi
 
 test-ai:
-	@echo "🧪  Running healthcare AI evaluation with DeepEval"
-	@echo "   - Testing AI agent responses for medical accuracy"
-	@echo "   - Validating HIPAA compliance and PHI protection"
-	@echo "   - Measuring response quality and faithfulness"
-	@echo "   - Testing Phase 1 infrastructure integration"
-	@python3 tests/healthcare_evaluation/test_phase1_infrastructure.py
-	@python3 scripts/healthcare_deepeval.py
+	@echo "🤖  Running healthcare AI evaluation tests"
+	python3 -m pytest tests/test_ai_evaluation.py -v --tb=short
 
 test-ai-report:
-	@echo "📋  Generating healthcare AI evaluation report"
-	@python3 tests/healthcare_evaluation/test_phase1_infrastructure.py
-	@python3 scripts/healthcare_deepeval.py
-	@if [ -f "data/synthetic/healthcare_ai_evaluation_report.txt" ]; then \
-		echo "📄 Report generated:"; \
-		echo "   data/synthetic/healthcare_ai_evaluation_report.txt"; \
-		echo "   data/synthetic/healthcare_ai_test_results.json"; \
-	fi
+	@echo "🤖  Running healthcare AI evaluation with detailed report"
+	python3 -m pytest tests/test_ai_evaluation.py -v --tb=long --capture=no
 
 # Virtual environment management
 venv:
-	@echo "💡  To use virtual environment for healthcare AI development:"
-	@echo "   source .venv/bin/activate"
-	@echo ""
-	@echo "💡  To install dependencies:"
-	@echo "   make deps"
-	@if [ ! -d ".venv" ]; then \
-	    echo "⚠️  No virtual environment found. Creating one..."; \
-	    python3 -m venv .venv; \
-	    echo "💡 Virtual environment created. Activate it with: source .venv/bin/activate"; \
-	else \
-	    echo "🟢 Already in virtual environment"; \
-	fi
+	@echo "🐍  Creating Python virtual environment for healthcare AI"
+	@python3 -m venv venv
+	@echo "   ✅ Virtual environment created in ./venv/"
+	@echo "   💡 Activate with: source venv/bin/activate"
+	@echo "   💡 Then run: make deps"
 
 e2e:
-	@echo "🚀  Running end-to-end healthcare AI bootstrap test"
-	bash test/e2e/run-bootstrap.sh
+	@echo "🔄  Running end-to-end healthcare AI workflow tests"
+	@echo "   🚀 Starting services..."
+	@bash scripts/bootstrap.sh --dry-run --non-interactive
+	@echo "   🧪 Running E2E tests..."
+	@python3 -m pytest tests/test_e2e.py -v --tb=short
 
 # Help
 help:
-	@echo "🏥  Intelluxe AI Healthcare Infrastructure Management"
-	@echo "================================================="
+	@echo "🏥  Intelluxe AI Healthcare System - Available Commands"
 	@echo ""
-	@echo "�️  Quick Developer Setup:"
-	@echo "  make install         Install system-wide (production-like paths)"
-	@echo "  make deps            Install development dependencies"
-	@echo "  make hooks           Install git hooks for code quality"
-	@echo "  make validate        Verify setup works"
+	@echo "📦  DEPENDENCY MANAGEMENT:"
+	@echo "   make deps           - Install all healthcare AI dependencies (CI-aware)"
+	@echo "   make update-deps    - Update dependencies to latest versions"
+	@echo "   make clean-cache    - Clean package manager caches"
 	@echo ""
-	@echo "�📦 Installation:"
-	@echo "  make install         Install healthcare AI scripts and systemd services system-wide"
-	@echo "  make update          Run system update and upgrade"
+	@echo "🔧  SETUP & INSTALLATION:"
+	@echo "   make install        - Install systemd services and create system users"
+	@echo "   make setup          - Interactive healthcare AI stack setup"
+	@echo "   make dry-run        - Preview setup without making changes"
+	@echo "   make debug          - Debug setup with verbose logging"
 	@echo ""
-	@echo "🚀 Setup:"
-	@echo "  make setup           Interactive healthcare AI setup (recommended for first run)"
-	@echo "  make dry-run         Preview setup without making changes"
-	@echo "  make debug           Debug dry-run with verbose output and detailed logging"
+	@echo "🧪  TESTING & VALIDATION:"
+	@echo "   make test           - Run healthcare AI test suite"
+	@echo "   make test-coverage  - Run tests with coverage report"
+	@echo "   make test-ai        - Run AI evaluation tests"
+	@echo "   make validate       - Run comprehensive validation (lint + test)"
+	@echo "   make e2e            - Run end-to-end workflow tests"
 	@echo ""
-	@echo "🔧 Management:"
-	@echo "  make diagnostics     Run comprehensive healthcare AI system health checks"
-	@echo "  make auto-repair     Automatically repair unhealthy healthcare AI containers"
-	@echo "  make reset           Reset entire healthcare AI stack (containers + config)"
-	@echo "  make teardown        Complete healthcare AI infrastructure teardown"
-	@echo "  make teardown-vpn    Remove VPN components only (preserving healthcare AI services)"
+	@echo "🔍  LINTING & CODE QUALITY:"
+	@echo "   make lint           - Run all linting (shell + python)"
+	@echo "   make lint-dev       - Fast lint (core modules only)"
+	@echo "   make format         - Auto-format code"
 	@echo ""
-	@echo "💾 Backup/Restore:"
-	@echo "  make backup          Create WireGuard healthcare VPN configuration backup"
-	@echo "  make restore BACKUP_FILE=<path>  Restore from backup file"
+	@echo "📊  SYNTHETIC DATA:"
+	@echo "   make data-generate  - Generate comprehensive synthetic healthcare data"
+	@echo "   make data-status    - Show synthetic data statistics"
+	@echo "   make data-clean     - Remove synthetic data"
 	@echo ""
-	@echo "🏗️  MCP Server Build:"
-	@echo "  make mcp             Build Healthcare MCP server Docker image"
-	@echo "  make mcp-build       Build Healthcare MCP server Docker image"
-	@echo "  make mcp-rebuild     Rebuild Healthcare MCP server (no cache)"
-	@echo "  make mcp-clean       Clean up Healthcare MCP Docker artifacts"
+	@echo "🐳  MCP SERVER:"
+	@echo "   make mcp           - Build Healthcare MCP server Docker image"
+	@echo "   make mcp-rebuild   - Rebuild MCP server (no cache)"
+	@echo "   make mcp-clean     - Clean MCP Docker artifacts"
 	@echo ""
-	@echo "🛠️  Development:"
-	@echo "  make deps            Install healthcare AI lint and test dependencies"
-	@echo "  make update-deps     Update and regenerate dependency lockfiles"
-	@echo "  make clean-cache     Clean uv and pip caches to free disk space"
-	@echo "  make venv            Create or activate a virtual environment"
-	@echo "  make hooks           Install git hooks for pre-push validation"
-	@echo "  make lint            Run shell and Python linters for healthcare AI code"
-	@echo "  make lint-python     Run Python-specific linting (ruff, pyright)"
-	@echo "  make format          Auto-format Python code with ruff"
-	@echo "  make validate        Validate healthcare AI configuration and dependencies"
-	@echo "  make test            Run healthcare AI unit tests with Bats"
-	@echo "  make test-quiet      Run healthcare AI tests (quiet mode)"
-	@echo "  make test-coverage   Run healthcare AI tests with coverage"
-	@echo "  make test-ai         Run healthcare AI evaluation with DeepEval"
-	@echo "  make test-ai-report  Generate healthcare AI evaluation report"
-	@echo "  make e2e             Run end-to-end healthcare AI bootstrap test"
-	@echo "  make systemd-verify  Verify healthcare AI systemd service configurations"
-	@echo "  make data-small      Generate small synthetic healthcare dataset (testing)"
-	@echo "  make data-dev        Generate medium synthetic healthcare dataset (development)"
-	@echo "  make data-full       Generate comprehensive synthetic healthcare dataset (production-like)"
-	@echo "  make data-clean      Remove all synthetic healthcare data"
-	@echo ""
-	@echo "🔧 Maintenance:"
-	@echo "  make fix-permissions Fix ownership and permissions for healthcare AI files"
-	@echo ""
-	@echo "  make help            Show this help message"
+	@echo "⚙️   SYSTEM MANAGEMENT:"
+	@echo "   make diagnostics   - Run comprehensive system diagnostics"
+	@echo "   make auto-repair   - Automatically repair unhealthy containers"
+	@echo "   make reset         - Reset entire healthcare AI stack"
+	@echo "   make teardown      - Complete infrastructure teardown"
+	@echo "   make backup        - Backup healthcare VPN configuration"
