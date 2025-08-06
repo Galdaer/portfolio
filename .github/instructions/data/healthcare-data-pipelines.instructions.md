@@ -30,17 +30,42 @@ class PatientFirstPipeline:
 
 ### Synthetic Data Generation Patterns
 
-**PHI-LIKE TESTING STRATEGY**: Generate realistic synthetic data that properly tests PHI detection while remaining completely synthetic.
+**PHI-LIKE TESTING STRATEGY**: Generate realistic synthetic data with proper constants and maintainable patterns.
 
 ```python
-# Pattern: Realistic synthetic generation with PHI-detection testing
+# Pattern: Maintainable synthetic data generation with constants
 class EnhancedSyntheticGenerator:
+    # Synthetic data constants for maintainability
+    SYNTHETIC_SSN_PREFIX = "555"
+    SSN_GROUP_MIN = 10
+    SSN_GROUP_MAX = 99
+    SSN_SERIAL_MIN = 1000
+    SSN_SERIAL_MAX = 9999
+    
+    SYNTHETIC_PHONE_AREA_CODES = ["555", "123", "456"]
+    PHONE_PREFIX_MIN = 100
+    PHONE_PREFIX_MAX = 999
+    PHONE_LINE_MIN = 1000
+    PHONE_LINE_MAX = 9999
+    
     def generate_phi_testing_data(self) -> Dict[str, Any]:
         """Generate data that tests PHI detectors without real PHI"""
+        synthetic_ssn = (
+            f"{self.SYNTHETIC_SSN_PREFIX}-"
+            f"{random.randint(self.SSN_GROUP_MIN, self.SSN_GROUP_MAX)}-"
+            f"{random.randint(self.SSN_SERIAL_MIN, self.SSN_SERIAL_MAX)}"
+        )
+        
+        realistic_phone = (
+            f"({random.choice(self.SYNTHETIC_PHONE_AREA_CODES)}) "
+            f"{random.randint(self.PHONE_PREFIX_MIN, self.PHONE_PREFIX_MAX)}-"
+            f"{random.randint(self.PHONE_LINE_MIN, self.PHONE_LINE_MAX)}"
+        )
+        
         return {
-            'synthetic_mrn': f"MRN{random.randint(100000, 999999)}",
-            'synthetic_ssn': f"{area}-{group}-{serial}",  # Valid format, fake data
-            'phi_test_patterns': [ssn, mrn, phone],  # For detector validation
+            'synthetic_ssn': synthetic_ssn,
+            'synthetic_phone': realistic_phone,
+            'phi_test_patterns': [synthetic_ssn, realistic_phone],
             'synthetic_marker': True,  # MANDATORY synthetic marking
         }
 ```

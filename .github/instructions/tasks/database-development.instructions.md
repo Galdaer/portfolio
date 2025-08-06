@@ -90,9 +90,37 @@ def handle_database_fallback(data_type: str, identifier: str):
 - No fallbacks for PHI data
 - Graceful degradation only for non-PHI operations
 
-## Healthcare Database Architecture Principles
+### Database Connection Management Patterns
 
-### 1. PHI Segregation Architecture
+**✅ CORRECT: Proper connection management with context managers:**
+```python
+# ✅ CORRECT: Context manager for automatic connection release
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def get_database_connection():
+    """Get database connection with automatic release"""
+    if healthcare_services.db_pool is None:
+        raise DatabaseConnectionError("Database connection required")
+    
+    conn = await healthcare_services.db_pool.acquire()
+    try:
+        yield conn
+    finally:
+        await healthcare_services.db_pool.release(conn)
+
+# Usage pattern
+async def fetch_patient_data(patient_id: str):
+    async with get_database_connection() as conn:
+        return await conn.fetch("SELECT * FROM patients WHERE id = $1", patient_id)
+```
+
+**❌ WRONG: Connection leaks without proper release:**
+```python
+# ❌ WRONG: Connection never released back to pool
+async def get_database_connection():
+    return await healthcare_services.db_pool.acquire()  # LEAK!
+```
 
 ```python
 # ✅ CORRECT: Separate PHI and non-PHI data models
@@ -161,11 +189,11 @@ class SyntheticHealthcareDataManager:
 
 ### Healthcare Database Best Practices
 
-- **Database-First**: Never use file fallbacks, always require database connectivity
+- **Database-First**: Prioritize database connectivity, use appropriate fallbacks for development/testing
 - **PHI Segregation**: Separate tables for PHI and non-PHI data
 - **Encryption**: Encrypt all PHI at rest using industry-standard encryption
 - **Audit Logging**: Log all database access for HIPAA compliance
 - **Minimum Necessary**: Only access data fields required for the specific operation
-- **Synthetic Data**: Use database-backed synthetic data for testing, not file-based
+- **Synthetic Data**: Use database-backed synthetic data for testing, with file fallbacks for development
 
 ---

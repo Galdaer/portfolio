@@ -6,6 +6,58 @@ Comprehensive insurance calculation patterns supporting percentage copays, deduc
 
 ## Enhanced Insurance Coverage Modeling
 
+### Type Safety and Method Signature Consistency
+
+**✅ CORRECT: Consistent method signatures with proper types:**
+```python
+from decimal import Decimal
+from typing import Optional, Dict, Any
+
+class InsuranceCoverageCalculator:
+    def calculate_patient_cost(
+        self, 
+        cpt_code: str, 
+        billed_amount: Decimal,  # Always use Decimal for money
+        patient_coverage: PatientCoverage
+    ) -> PatientCostResult:
+        """Calculate patient cost with proper type handling"""
+        pass
+    
+    def _ensure_decimal(self, value: Any) -> Decimal:
+        """Convert various number types to Decimal safely"""
+        if isinstance(value, Decimal):
+            return value
+        if isinstance(value, (int, float)):
+            return Decimal(str(value))  # Convert via string for precision
+        if isinstance(value, str):
+            return Decimal(value)
+        raise ValueError(f"Cannot convert {type(value)} to Decimal")
+```
+
+### Edge Case Handling Patterns
+
+**✅ CORRECT: Division by zero protection:**
+```python
+def _calculate_deductible_status(self, patient_coverage: PatientCoverage) -> DeductibleStatus:
+    """Calculate deductible status with edge case protection"""
+    if patient_coverage.annual_deductible <= 0:
+        # Handle zero or negative deductible (some plans have no deductible)
+        return DeductibleStatus(
+            remaining=Decimal('0'),
+            percentage_met=1.0,
+            status="no_deductible"
+        )
+    
+    remaining = patient_coverage.annual_deductible - patient_coverage.deductible_met
+    percentage_met = float(patient_coverage.deductible_met / patient_coverage.annual_deductible)
+    
+    return DeductibleStatus(
+        remaining=max(remaining, Decimal('0')),  # Never negative
+        percentage_met=min(percentage_met, 1.0),  # Never over 100%
+        status=self._determine_deductible_status(percentage_met)
+    )
+```
+
 ### Complex Copay Structures
 
 **✅ CORRECT: Multi-Type Copay Support**
