@@ -7,6 +7,7 @@ logging, memory management, database connectivity, and safety boundaries.
 
 import logging
 import uuid
+import os
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any
@@ -84,8 +85,23 @@ class BaseHealthcareAgent(ABC):
             self.logger.error(f"Failed to initialize agent {self.agent_name}: {e}")
             raise
 
+    def _is_development_environment(self) -> bool:
+        """Check if running in development environment"""
+        env = os.getenv("ENVIRONMENT", "").lower()
+        return env in ["development", "dev", "local"] or os.getenv("DEV_MODE", "").lower() == "true"
+    
+    def _is_production_environment(self) -> bool:
+        """Check if running in production environment"""
+        env = os.getenv("ENVIRONMENT", "").lower()
+        return env in ["production", "prod"] or os.getenv("PRODUCTION", "").lower() == "true"
+    
+    def _is_testing_environment(self) -> bool:
+        """Check if running in testing environment"""
+        env = os.getenv("ENVIRONMENT", "").lower()
+        return env in ["test", "testing"] or os.getenv("PYTEST_CURRENT_TEST") is not None
+
     async def _validate_database_connectivity(self) -> None:
-        """Validate database connectivity - REQUIRED for all healthcare agents"""
+        """Database-first validation with graceful fallbacks for development"""
         try:
             self._db_connection = await get_database_connection()
             
@@ -94,11 +110,29 @@ class BaseHealthcareAgent(ABC):
             
             self.logger.info(f"Database connectivity validated for agent {self.agent_name}")
         except Exception as e:
-            raise DatabaseConnectionError(
-                f"Agent {self.agent_name} requires database connectivity for healthcare operations. "
-                f"Error: {e}. "
-                "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
-            ) from e
+            # Database-first pattern: try database first, fallback based on environment
+            if self._is_production_environment():
+                # Production: database required, no fallbacks
+                raise DatabaseConnectionError(
+                    f"Agent {self.agent_name} requires database connectivity in production. "
+                    f"Error: {e}. "
+                    "Verify DATABASE_URL environment variable and database availability."
+                ) from e
+            elif self._is_development_environment():
+                # Development: log warning but allow operation with synthetic data
+                self.logger.warning(
+                    f"Database unavailable for agent {self.agent_name} in development. "
+                    f"Error: {e}. "
+                    "Using synthetic data fallbacks. Run 'make setup' for full database functionality."
+                )
+                self._db_connection = None  # Signal to use fallbacks
+            else:
+                # Testing or unknown environment: require database for consistency
+                raise DatabaseConnectionError(
+                    f"Agent {self.agent_name} requires database connectivity for healthcare operations. "
+                    f"Error: {e}. "
+                    "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+                ) from e
 
     async def get_available_models(self) -> list[dict[str, Any]]:
         """Get available models from registry"""

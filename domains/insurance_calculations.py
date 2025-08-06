@@ -121,6 +121,16 @@ class InsuranceCoverageCalculator:
             "99281": "emergency",
             "99282": "emergency",
         }
+    
+    def _ensure_decimal(self, value: Any) -> Decimal:
+        """Convert various number types to Decimal safely"""
+        if isinstance(value, Decimal):
+            return value
+        if isinstance(value, (int, float)):
+            return Decimal(str(value))  # Convert via string for precision
+        if isinstance(value, str):
+            return Decimal(value)
+        raise ValueError(f"Cannot convert {type(value)} to Decimal")
         
     def calculate_patient_cost(
         self, 
@@ -129,6 +139,9 @@ class InsuranceCoverageCalculator:
         patient_coverage: PatientCoverage
     ) -> CostEstimate:
         """Calculate exact patient cost for a procedure"""
+        
+        # Ensure billed_amount is Decimal
+        billed_amount = self._ensure_decimal(billed_amount)
         
         logger.info(f"Calculating patient cost for CPT {cpt_code}, amount ${billed_amount}")
         
@@ -184,15 +197,27 @@ class InsuranceCoverageCalculator:
         return self.service_categories.get(cpt_code, "general")
     
     def _calculate_deductible_status(self, patient_coverage: PatientCoverage) -> DeductibleStatus:
-        """Calculate current deductible status"""
+        """Calculate current deductible status with edge case protection"""
+        # Handle zero or negative deductible (some plans have no deductible)
+        if patient_coverage.annual_deductible <= 0:
+            return DeductibleStatus(
+                annual_deductible=patient_coverage.annual_deductible,
+                amount_applied=patient_coverage.deductible_met,
+                remaining_amount=Decimal('0'),
+                percentage_met=1.0,
+                projected_meet_date=None,
+                family_vs_individual="family" if patient_coverage.family_plan else "individual",
+                monthly_average_spending=Decimal("200.00")  # Mock value
+            )
+        
         remaining = patient_coverage.annual_deductible - patient_coverage.deductible_met
         percentage_met = float(patient_coverage.deductible_met / patient_coverage.annual_deductible)
         
         return DeductibleStatus(
             annual_deductible=patient_coverage.annual_deductible,
             amount_applied=patient_coverage.deductible_met,
-            remaining_amount=remaining,
-            percentage_met=percentage_met,
+            remaining_amount=max(remaining, Decimal('0')),  # Never negative
+            percentage_met=min(percentage_met, 1.0),  # Never over 100%
             projected_meet_date=None,  # Would calculate based on spending patterns
             family_vs_individual="family" if patient_coverage.family_plan else "individual",
             monthly_average_spending=Decimal("200.00")  # Mock value

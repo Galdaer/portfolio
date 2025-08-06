@@ -46,6 +46,34 @@ except ImportError as e:
 # Initialize Faker with healthcare-specific providers
 fake = Faker()
 
+# Synthetic data generation constants for maintainability
+class SyntheticDataConstants:
+    """Constants for synthetic healthcare data generation"""
+    
+    # SSN Constants
+    SYNTHETIC_SSN_PREFIX = "555"
+    SSN_GROUP_MIN = 10
+    SSN_GROUP_MAX = 99
+    SSN_SERIAL_MIN = 1000
+    SSN_SERIAL_MAX = 9999
+    
+    # Phone Number Constants
+    SYNTHETIC_PHONE_AREA_CODES = ["555", "123", "456"]
+    PHONE_PREFIX_MIN = 100
+    PHONE_PREFIX_MAX = 999
+    PHONE_LINE_MIN = 1000
+    PHONE_LINE_MAX = 9999
+    
+    # Medical Record Number Constants
+    MRN_PREFIXES = ["MRN", "HSP", "MED", "PAT"]
+    MRN_NUMBER_MIN = 100000
+    MRN_NUMBER_MAX = 999999
+    
+    # Email Constants
+    SYNTHETIC_EMAIL_DOMAIN = "synthetic-health.test"
+    EMAIL_NUMBER_MIN = 1
+    EMAIL_NUMBER_MAX = 999
+
 
 def random_date(start: datetime, end: datetime) -> datetime:
     """Generate random date between two dates"""
@@ -242,13 +270,13 @@ class SyntheticHealthcareDataGenerator:
         last_name = fake.last_name()
         
         # Enhanced PHI-like patterns for proper detection testing
-        synthetic_ssn = f"555-{random.randint(10,99)}-{random.randint(1000,9999)}"  # 555 area = clearly synthetic
-        realistic_phone = f"({random.choice(['555', '123', '456'])}) {random.randint(100,999)}-{random.randint(1000,9999)}"
-        synthetic_email = f"{first_name.lower()}.{last_name.lower()}{random.randint(1,999)}@synthetic-health.test"
+        synthetic_ssn = f"{SyntheticDataConstants.SYNTHETIC_SSN_PREFIX}-{random.randint(SyntheticDataConstants.SSN_GROUP_MIN, SyntheticDataConstants.SSN_GROUP_MAX)}-{random.randint(SyntheticDataConstants.SSN_SERIAL_MIN, SyntheticDataConstants.SSN_SERIAL_MAX)}"  # 555 area = clearly synthetic
+        realistic_phone = f"({random.choice(SyntheticDataConstants.SYNTHETIC_PHONE_AREA_CODES)}) {random.randint(SyntheticDataConstants.PHONE_PREFIX_MIN, SyntheticDataConstants.PHONE_PREFIX_MAX)}-{random.randint(SyntheticDataConstants.PHONE_LINE_MIN, SyntheticDataConstants.PHONE_LINE_MAX)}"
+        synthetic_email = f"{first_name.lower()}.{last_name.lower()}{random.randint(SyntheticDataConstants.EMAIL_NUMBER_MIN, SyntheticDataConstants.EMAIL_NUMBER_MAX)}@{SyntheticDataConstants.SYNTHETIC_EMAIL_DOMAIN}"
         
         # Realistic medical record number pattern 
-        mrn_prefix = random.choice(['MRN', 'HSP', 'MED', 'PAT'])
-        medical_record_number = f"{mrn_prefix}{random.randint(100000,999999)}"
+        mrn_prefix = random.choice(SyntheticDataConstants.MRN_PREFIXES)
+        medical_record_number = f"{mrn_prefix}{random.randint(SyntheticDataConstants.MRN_NUMBER_MIN, SyntheticDataConstants.MRN_NUMBER_MAX)}"
         
         return {
             "id": str(uuid.uuid4()),

@@ -6,6 +6,7 @@ Provides MCP clients, LLM clients, and other healthcare services
 import logging
 import os
 from typing import Any
+from contextlib import asynccontextmanager
 
 import asyncpg
 from fastapi import Depends
@@ -226,6 +227,8 @@ async def get_db_pool() -> Any:
     return healthcare_services.db_pool
 
 
+from contextlib import asynccontextmanager
+
 async def get_database_connection() -> Any:
     """Get database connection - required for healthcare operations"""
     if healthcare_services.db_pool is None:
@@ -236,6 +239,22 @@ async def get_database_connection() -> Any:
     
     # Return a connection from the pool
     return await healthcare_services.db_pool.acquire()
+
+
+@asynccontextmanager
+async def get_database_connection_context():
+    """Get database connection with automatic release"""
+    if healthcare_services.db_pool is None:
+        raise DatabaseConnectionError(
+            "Healthcare database unavailable. Please check connection. "
+            "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+        )
+    
+    conn = await healthcare_services.db_pool.acquire()
+    try:
+        yield conn
+    finally:
+        await healthcare_services.db_pool.release(conn)
 
 
 async def get_redis_client() -> Any:

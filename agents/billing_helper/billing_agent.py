@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+from decimal import Decimal
 
 from agents import BaseHealthcareAgent
 from core.infrastructure.healthcare_logger import (
@@ -597,12 +598,14 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 # Get negotiated rate for CPT code (mock data)
                 negotiated_rate = self._get_negotiated_rate(cpt_code, insurance_type)
                 
+                # Create patient coverage data for insurance calculator
+                patient_coverage = self._get_patient_coverage_data(patient_id, insurance_type)
+                
                 # Calculate patient cost using advanced insurance calculator
                 cost_estimate = self.insurance_calculator.calculate_patient_cost(
                     cpt_code=cpt_code,
-                    billed_amount=negotiated_rate,
-                    deductible_status=deductible_status,
-                    insurance_type=insurance_type
+                    billed_amount=self._ensure_decimal(negotiated_rate),
+                    patient_coverage=patient_coverage
                 )
                 
                 total_cost_prediction["breakdown_by_cpt"].append({
@@ -678,6 +681,49 @@ class BillingHelperAgent(BaseHealthcareAgent):
             return base_rate * 0.75  # Medicaid typically pays less
         else:
             return base_rate
+
+    def _ensure_decimal(self, value: Any) -> Decimal:
+        """Convert various number types to Decimal safely"""
+        if isinstance(value, Decimal):
+            return value
+        if isinstance(value, (int, float)):
+            return Decimal(str(value))  # Convert via string for precision
+        if isinstance(value, str):
+            return Decimal(value)
+        raise ValueError(f"Cannot convert {type(value)} to Decimal")
+
+    def _get_patient_coverage_data(self, patient_id: str, insurance_type: str) -> PatientCoverage:
+        """Get patient coverage data for insurance calculations"""
+        from domains.insurance_calculations import PatientCoverage, InsuranceType, CopayStructure, CopayType
+        
+        # Mock patient coverage data - in production, would query database
+        return PatientCoverage(
+            patient_id=patient_id,
+            insurance_type=InsuranceType.PPO if insurance_type == "ppo" else InsuranceType.HMO,
+            annual_deductible=Decimal("2000.00"),
+            deductible_met=Decimal("450.00"),
+            out_of_pocket_maximum=Decimal("8000.00"),
+            out_of_pocket_met=Decimal("800.00"),
+            copay_structures={
+                "office_visit": CopayStructure(
+                    copay_type=CopayType.FIXED_DOLLAR,
+                    primary_amount=Decimal("25.00")
+                ),
+                "specialist": CopayStructure(
+                    copay_type=CopayType.PERCENTAGE,
+                    primary_amount=Decimal("0.20")
+                ),
+                "laboratory": CopayStructure(
+                    copay_type=CopayType.FIXED_DOLLAR,
+                    primary_amount=Decimal("10.00")
+                ),
+                "general": CopayStructure(
+                    copay_type=CopayType.PERCENTAGE,
+                    primary_amount=Decimal("0.20")
+                )
+            },
+            coinsurance_rate=Decimal("0.20")
+        )
     
     @healthcare_log_method(operation_type="deductible_tracking", phi_risk_level="medium")
     async def track_deductible_progress(self, patient_id: str) -> dict[str, Any]:
