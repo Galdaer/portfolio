@@ -18,26 +18,30 @@ from faker.providers import BaseProvider
 if TYPE_CHECKING:
     import psycopg2
 
-# Optional database dependencies with graceful fallback - healthcare-safe pattern
-psycopg2 = None
-redis_module = None
-
+# Healthcare scripts require database connectivity - no fallbacks
 try:
     import psycopg2
-
     PSYCOPG2_AVAILABLE = True
-except ImportError:
-    PSYCOPG2_AVAILABLE = False
-    print("⚠️  psycopg2 not available - database population will be skipped")
+except ImportError as e:
+    print("❌ Database connection required for healthcare data generation")
+    print("   To fix: Run 'make setup' to initialize database dependencies")
+    print("   Database-first architecture: Healthcare scripts require database connectivity")
+    raise ImportError(
+        "Healthcare data generation requires psycopg2 database connectivity. "
+        "Run 'make setup' to initialize database or install with: pip install psycopg2-binary"
+    ) from e
 
 try:
     import redis
-
     redis_module = redis
     REDIS_AVAILABLE = True
-except ImportError:
-    REDIS_AVAILABLE = False
-    print("⚠️  redis not available - Redis caching will be skipped")
+except ImportError as e:
+    print("❌ Redis connection required for healthcare caching")
+    print("   To fix: Run 'make setup' to initialize Redis dependencies")
+    raise ImportError(
+        "Healthcare data generation requires Redis for caching. "
+        "Run 'make setup' to initialize Redis or install with: pip install redis"
+    ) from e
 
 # Initialize Faker with healthcare-specific providers
 fake = Faker()
@@ -191,47 +195,78 @@ class SyntheticHealthcareDataGenerator:
             self._connect_to_databases()
 
     def _connect_to_databases(self) -> None:
-        """Connect to PostgreSQL and Redis if using database mode"""
-        if not PSYCOPG2_AVAILABLE or psycopg2 is None:
-            print("⚠️  psycopg2 not available - skipping PostgreSQL connection")
-            self.db_conn = None
-        else:
-            try:
-                self.db_conn = psycopg2.connect(
-                    "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
-                )
-                print("✅ Connected to PostgreSQL")
-            except Exception as e:
-                print(f"⚠️  PostgreSQL connection failed: {e}")
-                self.db_conn = None
+        """Connect to PostgreSQL and Redis - REQUIRED for healthcare operations"""
+        # PostgreSQL connection - REQUIRED
+        try:
+            self.db_conn = psycopg2.connect(
+                "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
+            )
+            print("✅ Connected to PostgreSQL")
+        except Exception as e:
+            print(f"❌ PostgreSQL connection failed: {e}")
+            print("   To fix: Run 'make setup' to initialize database or verify DATABASE_URL")
+            print("   Database-first architecture: Healthcare scripts require database connectivity")
+            raise ConnectionError(
+                f"Healthcare data generation requires PostgreSQL database connectivity. Error: {e}. "
+                "Run 'make setup' to initialize database."
+            ) from e
 
-        if not REDIS_AVAILABLE or redis_module is None:
-            print("⚠️  redis not available - skipping Redis connection")
-            self.redis_client = None
-        else:
-            try:
-                self.redis_client = redis_module.Redis(
-                    host="localhost", port=6379, decode_responses=True
-                )
-                if self.redis_client:
-                    self.redis_client.ping()
+        # Redis connection - REQUIRED
+        try:
+            self.redis_client = redis_module.Redis(
+                host="localhost", port=6379, decode_responses=True
+            )
+            if self.redis_client:
+                self.redis_client.ping()
                 print("✅ Connected to Redis")
-            except Exception as e:
-                print(f"⚠️  Redis connection failed: {e}")
-                self.redis_client = None
+        except Exception as e:
+            print(f"❌ Redis connection failed: {e}")
+            print("   To fix: Run 'make setup' to initialize Redis dependencies")
+            raise ConnectionError(
+                f"Healthcare data generation requires Redis for caching. Error: {e}. "
+                "Run 'make setup' to initialize Redis."
+            ) from e
 
     def generate_patient(self) -> dict[str, Any]:
-        """Generate synthetic patient data"""
+        """
+        Generate synthetic patient data with PHI-like realistic patterns
+        
+        Creates realistic synthetic data that properly tests PHI detection systems:
+        - Realistic SSN patterns (555-xx-xxxx for synthetic safety)
+        - Phone numbers with realistic area codes
+        - Email patterns that look real but are clearly synthetic
+        - Medical record numbers with hospital-like prefixes
+        - Realistic names and addresses
+        """
+        first_name = fake.first_name()
+        last_name = fake.last_name()
+        
+        # Enhanced PHI-like patterns for proper detection testing
+        synthetic_ssn = f"555-{random.randint(10,99)}-{random.randint(1000,9999)}"  # 555 area = clearly synthetic
+        realistic_phone = f"({random.choice(['555', '123', '456'])}) {random.randint(100,999)}-{random.randint(1000,9999)}"
+        synthetic_email = f"{first_name.lower()}.{last_name.lower()}{random.randint(1,999)}@synthetic-health.test"
+        
+        # Realistic medical record number pattern 
+        mrn_prefix = random.choice(['MRN', 'HSP', 'MED', 'PAT'])
+        medical_record_number = f"{mrn_prefix}{random.randint(100000,999999)}"
+        
         return {
             "id": str(uuid.uuid4()),
             "patient_id": f"pt_{uuid.uuid4().hex[:8]}",
-            "first_name": fake.first_name(),
-            "last_name": fake.last_name(),
+            "first_name": first_name,
+            "last_name": last_name,
+            
+            # PHI-like patterns that should trigger detection systems
+            "ssn": synthetic_ssn,
+            "phone_number": realistic_phone, 
+            "email_address": synthetic_email,
+            "medical_record_number": medical_record_number,
+            
             "dob": random_date(datetime(1940, 1, 1), datetime(2020, 1, 1)).strftime("%Y-%m-%d"),
             "age": random.randint(18, 95),
             "gender": random.choice(["M", "F", "Other"]),
-            "phone": fake.phone_number(),
-            "email": fake.email(),
+            "phone": fake.phone_number(),  # Keep original faker phone too
+            "email": fake.email(),  # Keep original faker email too
             "address": fake.address().replace("\n", ", "),
             "insurance_provider": fake.insurance_provider(),
             "member_id": fake.member_id(),
@@ -240,6 +275,12 @@ class SyntheticHealthcareDataGenerator:
             "emergency_contact": fake.name(),
             "emergency_phone": fake.phone_number(),
             "created_at": fake.date_time_between(start_date="-2y", end_date="now").isoformat(),
+            
+            # MANDATORY: Clear synthetic markers for compliance
+            "synthetic_data": True,
+            "data_source": "synthetic_healthcare_generator",
+            "phi_testing_patterns": ["ssn", "phone_number", "email_address", "medical_record_number"],
+            "compliance_note": "Synthetic data for PHI detection testing - not real patient information"
         }
 
     def generate_doctor(self) -> dict[str, Any]:
