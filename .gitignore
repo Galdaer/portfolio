@@ -256,3 +256,7 @@ Thumbs.db
 !dmesg.txt
 !tests.txt
 services/user/wyoming-whisper/wyoming-whisper.conf
+
+!/core/models/
+!/core/models/*.py
+!/core/models/**/*.py
