@@ -12,6 +12,8 @@ Provide comprehensive patterns for healthcare MCP development with beyond-HIPAA 
 
 **CORE PRINCIPLE**: Every MCP operation validates patient safety impact before execution, with quantum-resistant security and offline-first healthcare deployment.
 
+**CRITICAL**: See `patterns/healthcare-mcp-auth-proxy.instructions.md` for detailed auth proxy development patterns, type safety requirements, and medical API integration.
+
 ```typescript
 // Pattern: Patient-first MCP with enhanced security
 interface PatientFirstMCPServer {…}
@@ -23,6 +25,8 @@ class EnhancedHealthcareMCP implements PatientFirstMCPServer {…}
 
 **DIRECT MCP INTEGRATION ARCHITECTURE** (PROVEN SOLUTION): Direct JSON-RPC communication without mcpo bridge provides superior tool discovery and reliability.
 
+**DEVELOPMENT PRIORITY**: Fix Healthcare MCP auth proxy type safety issues (25+ Pylance errors) before implementing new features.
+
 ```python
 # Pattern: Direct MCP authentication proxy for Open WebUI
 class DirectMCPAuthenticationProxy:
@@ -31,6 +35,8 @@ class DirectMCPAuthenticationProxy:
     
     PROVEN ARCHITECTURE: Open WebUI → Auth Proxy (port 3001) → MCP Server (stdio/JSON-RPC)
     RESULT: All 15 healthcare tools properly discovered and accessible
+    
+    CURRENT STATUS: Needs type safety fixes - see patterns/healthcare-mcp-auth-proxy.instructions.md
     """
     
     async def start_mcp_server(self) -> bool:
