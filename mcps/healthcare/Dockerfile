@@ -1,6 +1,6 @@
 # Intelluxe AI Healthcare MCP Server Dockerfile
 # Secure, HIPAA-compliant container for healthcare AI MCP server
-FROM node:20-alpine
+FROM node:20-slim
 
 # Healthcare AI metadata with security documentation
 LABEL maintainer="Intelluxe AI Healthcare Team"
@@ -9,20 +9,32 @@ LABEL version="1.0.1"
 LABEL security="hardened-healthcare"
 LABEL documentation="Security assessment: Network-isolated deployment mitigates container CVEs"
 
-# Security: Use existing node user (UID 1000) - matches Intelluxe pattern
-RUN addgroup -g 1001 intelluxe && adduser node intelluxe
+# Security: Create intelluxe group and add node user to it
+RUN groupadd -g 1001 intelluxe && usermod -a -G intelluxe node
 
-# Security hardening - update all packages for vulnerability mitigation
-RUN apk update && apk upgrade && apk add --no-cache \
+# Security hardening - update all packages and install Python
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     curl \
     ca-certificates \
-    && rm -rf /var/cache/apk/*
+    python3 \
+    python3-pip \
+    python3-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy authentication proxy requirements and install dependencies
+COPY --chown=node:intelluxe auth_proxy_requirements.txt ./
+RUN python3 -m pip install --break-system-packages --upgrade pip setuptools wheel && \
+    python3 -m pip install --break-system-packages -r auth_proxy_requirements.txt
 
 # Set working directory
 WORKDIR /app
 
 # Copy source files BEFORE building (inside container only)
 COPY --chown=node:intelluxe src/ ./src/
+
+# Copy authentication proxy files
+COPY --chown=node:intelluxe auth_proxy.py ./
+COPY --chown=node:intelluxe start_services.sh ./
 
 # Copy package files first for better caching
 COPY --chown=node:intelluxe package*.json ./
@@ -44,17 +56,18 @@ RUN npm install && \
 # Create necessary directories
 RUN mkdir -p /app/logs /app/data \
     && chown -R node:intelluxe /app \
-    && chmod 755 /app/build /app/logs /app/data
+    && chmod 755 /app/build /app/logs /app/data \
+    && chmod +x /app/start_services.sh
 
 # Switch to non-root user
 USER node
 
-# Health check for healthcare service monitoring with security validation
+# Health check for healthcare service monitoring with security validation  
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/health || exit 1
+    CMD curl -f http://localhost:3001/health || exit 1
 
-# Expose port
-EXPOSE 3000
+# Expose auth proxy port
+EXPOSE 3001
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -67,5 +80,5 @@ ENV HIPAA_COMPLIANCE_MODE=strict
 ENV NODE_OPTIONS="--max-old-space-size=512"
 ENV TMPDIR=/tmp
 
-# Start the healthcare MCP server
-CMD ["node", "/app/build/index.js"]
+# Start the healthcare MCP server with authentication proxy
+CMD ["/app/start_services.sh"]
