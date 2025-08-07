@@ -6,6 +6,7 @@ Handles medical billing, claims processing, and coding assistance for administra
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from agents import BaseHealthcareAgent
@@ -587,12 +588,12 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
             # Calculate cost for each CPT code
             total_cost_prediction = {
-                "total_estimated_cost": 0.0,
-                "patient_responsibility": 0.0,
-                "insurance_payment": 0.0,
-                "deductible_applied": 0.0,
-                "copay_amount": 0.0,
-                "coinsurance_amount": 0.0,
+                "total_estimated_cost": Decimal("0.00"),
+                "patient_responsibility": Decimal("0.00"),
+                "insurance_payment": Decimal("0.00"),
+                "deductible_applied": Decimal("0.00"),
+                "copay_amount": Decimal("0.00"),
+                "coinsurance_amount": Decimal("0.00"),
                 "breakdown_by_cpt": [],
                 "deductible_status": {
                     "annual_deductible": deductible_status.annual_deductible,

@@ -11,19 +11,18 @@ from datetime import datetime
 import httpx
 import pytest
 
-from core.security.chat_log_manager import ChatLogManager
-from core.security.phi_detector import PHIDetector
-from tests.healthcare_test_base import HealthcareTestBase
+from core.security.chat_log_manager import ChatLogManager, SimplePHIDetector
+from tests.database_test_utils import HealthcareTestCase
 
 
-class HealthcareE2ETestFramework(HealthcareTestBase):
+class HealthcareE2ETestFramework(HealthcareTestCase):
     """End-to-end testing framework for healthcare AI workflows"""
 
     def __init__(self):
         super().__init__()
         self.mcp_url = "http://localhost:3000"
         self.fastapi_url = "http://localhost:8000"
-        self.phi_detector = PHIDetector()
+        self.phi_detector = SimplePHIDetector()
         self.chat_log_manager = ChatLogManager()
 
     async def setup_test_environment(self):

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class ModelRegistry:
     """Placeholder model registry for healthcare AI models"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._initialized = False
         self._models = {}
 

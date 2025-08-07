@@ -5,6 +5,7 @@ Provides MCP clients, LLM clients, and other healthcare services
 
 import logging
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -241,7 +242,7 @@ async def get_database_connection() -> Any:
 
 
 @asynccontextmanager
-async def get_database_connection_context():
+async def get_database_connection_context() -> AsyncGenerator[asyncpg.Connection, None]:
     """Get database connection with automatic release"""
     if healthcare_services.db_pool is None:
         raise DatabaseConnectionError(

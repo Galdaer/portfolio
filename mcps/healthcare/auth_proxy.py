@@ -114,16 +114,16 @@ async def start_mcp_server():
                     initial_output = mcp_process.stdout.read()
                     if initial_output:
                         logger.info(f"MCP server initial stdout: {initial_output}")
-                except:
-                    pass
+                except (OSError, ValueError) as e:
+                    logger.debug(f"Error reading stdout: {e}")
 
             if ready_err:
                 try:
                     stderr_output = mcp_process.stderr.read()
                     if stderr_output:
                         logger.info(f"MCP server initial stderr: {stderr_output}")
-                except:
-                    pass
+                except (OSError, ValueError) as e:
+                    logger.debug(f"Error reading stderr: {e}")
 
         except Exception as e:
             logger.warning(f"Error reading initial MCP output: {e}")
@@ -165,8 +165,8 @@ async def start_mcp_server():
                 stderr_output = mcp_process.stderr.read()
                 if stderr_output:
                     logger.info(f"MCP server startup output: {stderr_output.strip()}")
-            except:
-                pass  # Non-blocking read failed, continue
+            except (OSError, BlockingIOError, ValueError) as e:
+                logger.debug(f"Non-blocking read failed: {e}")  # Non-blocking read failed, continue
 
         # Try to read initialization response with timeout
         try:
@@ -178,7 +178,7 @@ async def start_mcp_server():
             if ready:
                 response_line = mcp_process.stdout.readline().strip()
                 if response_line:
-                    init_response = json.loads(response_line)
+                    json.loads(response_line)
                     logger.info("MCP initialization successful")
                 else:
                     logger.warning("MCP server returned empty response to initialization")

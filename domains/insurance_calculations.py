@@ -118,7 +118,7 @@ class PatientCoverage:
 class InsuranceCoverageCalculator:
     """Advanced insurance coverage calculation engine"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.service_categories = {
             "99213": "office_visit",
             "99214": "office_visit",
@@ -319,7 +319,7 @@ class InsuranceCoverageCalculator:
 class DeductibleTracker:
     """Advanced deductible tracking and prediction"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.spending_patterns = {}  # Would connect to actual spending history
 
     def _safe_division(
@@ -431,7 +431,7 @@ class DeductibleTracker:
 class VisitCostPredictor:
     """Predict exact costs for scheduled visits"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.calculator = InsuranceCoverageCalculator()
         self.negotiated_rates = self._load_negotiated_rates()
 

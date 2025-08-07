@@ -7,7 +7,7 @@ and patient coverage data retrieval across multiple billing modules.
 
 import logging
 from decimal import Decimal
-from typing import Any, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.financial.healthcare_financial_utils import HealthcareFinancialUtils
 
@@ -80,11 +80,13 @@ class SharedBillingUtils:
             deductible_met=Decimal("450.00"),
             out_of_pocket_maximum=Decimal("8000.00"),
             out_of_pocket_met=Decimal("1200.00"),
-            copay_structure=CopayStructure(
-                copay_type=CopayType.FIXED_DOLLAR,
-                primary_amount=Decimal("25.00"),
-                service_type="office_visit",
-            ),
+            copay_structures={
+                "office_visit": CopayStructure(
+                    copay_type=CopayType.FIXED_DOLLAR,
+                    primary_amount=Decimal("25.00"),
+                    service_type="office_visit",
+                )
+            },
         )
 
     @staticmethod

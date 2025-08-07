@@ -31,7 +31,7 @@ class HealthcareFinancialUtils:
         """
         if isinstance(value, Decimal):
             return value
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             return Decimal(str(value))  # Convert via string for precision
         if isinstance(value, str):
             try:

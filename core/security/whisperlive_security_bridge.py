@@ -14,8 +14,7 @@ from datetime import datetime
 from typing import Any, BinaryIO
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
-from core.security.chat_log_manager import ChatLogManager
-from core.security.phi_detector import PHIDetector
+from core.security.chat_log_manager import ChatLogManager, SimplePHIDetector
 
 logger = get_healthcare_logger("whisperlive_security_bridge")
 
@@ -60,7 +59,7 @@ class WhisperLiveSecurityBridge:
 
     def __init__(self, whisperlive_config: dict[str, Any] | None = None):
         self.config = whisperlive_config or self._get_default_config()
-        self.phi_detector = PHIDetector()
+        self.phi_detector = SimplePHIDetector()
         self.chat_log_manager = ChatLogManager()
 
         # Security settings
@@ -252,18 +251,9 @@ class WhisperLiveSecurityBridge:
         try:
             # Prepare audio data for WhisperLive
             audio_buffer.seek(0)
-            audio_data = audio_buffer.read()
+            audio_buffer.read()
 
             # Create WhisperLive request (memory-only)
-            whisper_request = {
-                "audio_data": audio_data,
-                "format": security_metadata.audio_format,
-                "sample_rate": security_metadata.sample_rate,
-                "language": "en",  # Could be configurable
-                "task": "transcribe",
-                "memory_only": True,
-                "no_cache": True,  # Don't cache for security
-            }
 
             # Call WhisperLive service (implementation would be here)
             # For now, return mock data

@@ -12,7 +12,36 @@ from pathlib import Path
 from typing import Any
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
-from core.security.phi_detector import PHIDetector
+
+# Simple PHI detector for chat logging
+class SimplePHIDetector:
+    """Simple PHI detection for chat log management"""
+    
+    def __init__(self):
+        import re
+        self.phi_patterns = [
+            re.compile(r'\b\d{3}-\d{2}-\d{4}\b'),  # SSN
+            re.compile(r'\b\d{3}-\d{3}-\d{4}\b'),  # Phone
+            re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'),  # Email
+        ]
+    
+    def contains_phi(self, text: str) -> bool:
+        """Check if text contains potential PHI patterns"""
+        for pattern in self.phi_patterns:
+            if pattern.search(text):
+                return True
+        return False
+    
+    async def scan_text(self, text: str) -> bool:
+        """Async method to scan text for PHI"""
+        return self.contains_phi(text)
+    
+    async def sanitize_text(self, text: str) -> str:
+        """Async method to sanitize text by replacing PHI with placeholders"""
+        sanitized = text
+        for pattern in self.phi_patterns:
+            sanitized = pattern.sub('[REDACTED]', sanitized)
+        return sanitized
 
 logger = get_healthcare_logger("chat_log_manager")
 
@@ -71,7 +100,7 @@ class ChatLogManager:
         self.log_directory = Path(log_directory)
         self.log_directory.mkdir(parents=True, exist_ok=True)
 
-        self.phi_detector = PHIDetector()
+        self.phi_detector = SimplePHIDetector()
         self.active_sessions: dict[str, ChatSession] = {}
 
         # PHI quarantine directory
