@@ -87,16 +87,63 @@ async def health_check():
 ### 5. Healthcare Error Handling
 
 ```python
+### 5. Healthcare Error Handling
+
+```python
 # ✅ CORRECT: Healthcare-specific Error Responses
-@app.exception_handler(HTTPException)
-async def healthcare_exception_handler(request: Request, exc: HTTPException):
-    # No PHI in error responses, audit logging, generic error messages
+class HealthcareHTTPException(HTTPException):
+    """Healthcare-compliant HTTP exceptions with audit logging."""
     pass
 
-class HealthcareAPIError(HTTPException):
-    def __init__(self, detail: str, status_code: int = 400):
-        # Standard healthcare error format with medical disclaimers
-        super().__init__(status_code=status_code, detail=detail)
+@app.exception_handler(HealthcareHTTPException)
+async def healthcare_exception_handler(request: Request, exc: HealthcareHTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": exc.detail, "medical_disclaimer": "Administrative support only"}
+    )
+```
+
+### 6. MCP Authentication Proxy Patterns
+
+```python
+# ✅ CORRECT: MCP-Open WebUI Authentication Proxy
+class MCPAuthenticationProxy:
+    """FastAPI proxy for MCP servers requiring Bearer token authentication."""
+    
+    async def verify_api_key(self, credentials: HTTPAuthorizationCredentials) -> str:
+        # Validate against configured healthcare API key
+        pass
+    
+    async def create_tool_endpoints(self, backend_url: str) -> None:
+        # Dynamically register authenticated endpoints for each MCP tool
+        pass
+    
+    @app.post("/tools/{tool_name}")
+    async def proxy_tool_call(
+        self, tool_name: str, request: Request, 
+        api_key: str = Depends(verify_api_key)
+    ):
+        # Direct MCP tool execution with comprehensive audit logging
+        pass
+```
+
+### 7. Healthcare Tool Integration
+
+```python
+# ✅ CORRECT: Conditional Tool Registration Based on API Availability
+class ConditionalHealthcareTools:
+    """Register healthcare tools based on available API keys and environment."""
+    
+    def register_public_tools(self) -> List[str]:
+        # Always available: search-pubmed, search-trials, get-drug-info
+        return ["search-pubmed", "search-trials", "get-drug-info"]
+    
+    def register_protected_tools(self) -> List[str]:
+        # Require paid APIs: FHIR server, specialized medical databases
+        if self.has_fhir_access():
+            return ["find_patient", "get_patient_conditions", ...]
+        return []
+```
 ```
 
 ## Implementation Guidelines

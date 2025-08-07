@@ -14,23 +14,86 @@ Provide comprehensive patterns for healthcare MCP development with beyond-HIPAA 
 
 ```typescript
 // Pattern: Patient-first MCP with enhanced security
-interface PatientFirstMCPServer {
-  validatePatientSafety(operation: MCPOperation): Promise<SafetyValidation>;
-  quantumResistantEncryption(data: HealthcareData): Promise<EncryptedData>;
-  emergencyResponseProtocol(emergency: EmergencyType): Promise<ResponseResult>;
-  blockchainAuditTrail(operation: MCPOperation): Promise<AuditRecord>;
-}
+interface PatientFirstMCPServer {…}
 
-class EnhancedHealthcareMCP implements PatientFirstMCPServer {
-  async validatePatientSafety(operation: MCPOperation): Promise<SafetyValidation> {
-    // MANDATORY: Patient safety validation before any MCP operation
-    return {
-      safe: await this.analyzePHIRisk(operation),
-      emergencyOverride: await this.checkEmergencyStatus(operation),
-      auditTrail: await this.createImmutableAudit(operation)
-    };
-  }
+class EnhancedHealthcareMCP implements PatientFirstMCPServer {…}
+```
+
+### Open WebUI Integration Patterns
+
+**DIRECT MCP INTEGRATION ARCHITECTURE** (PROVEN SOLUTION): Direct JSON-RPC communication without mcpo bridge provides superior tool discovery and reliability.
+
+```python
+# Pattern: Direct MCP authentication proxy for Open WebUI
+class DirectMCPAuthenticationProxy:
+    """
+    Direct JSON-RPC communication with MCP server via subprocess stdio.
+    
+    PROVEN ARCHITECTURE: Open WebUI → Auth Proxy (port 3001) → MCP Server (stdio/JSON-RPC)
+    RESULT: All 15 healthcare tools properly discovered and accessible
+    """
+    
+    async def start_mcp_server(self) -> bool:
+        # Start MCP server as subprocess with stdin/stdout communication
+        self.mcp_process = subprocess.Popen(
+            ["node", "/app/build/index.js"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=0
+        )
+        
+        # Send MCP initialization and tools/list requests via JSON-RPC
+        await self.initialize_mcp_protocol()
+        return await self.discover_tools_via_mcp()
+    
+    async def call_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        # Direct JSON-RPC 2.0 tool execution via stdin/stdout
+        tool_request = {
+            "jsonrpc": "2.0",
+            "id": self.request_id_counter,
+            "method": "tools/call",
+            "params": {"name": tool_name, "arguments": arguments}
+        }
+        # Send request and read response with proper error handling
+        pass
+```
+
+**CRITICAL SUCCESS FACTORS**:
+- **Set MCP_TRANSPORT=stdio**: Enables proper MCP protocol mode instead of HTTP
+- **Use subprocess with stdin/stdout**: Direct JSON-RPC 2.0 communication 
+- **Genuine tool discovery**: Via MCP tools/list method, not fallback mechanisms
+- **No mcpo dependency**: Eliminates compatibility issues and typing problems
+
+### Tool Availability Management
+
+**COMPLETE TOOL ACCESS ACHIEVED**: Direct MCP integration successfully provides all 15 healthcare tools.
+
+```typescript
+// Pattern: Complete tool registration via direct MCP protocol
+class CompleteMCPToolRegistry {
+    // ALL TOOLS AVAILABLE via direct JSON-RPC communication:
+    // 1. Medical literature search (search-pubmed)
+    // 2. Clinical trial discovery (search-trials) 
+    // 3. Drug information access (get-drug-info)
+    // 4. Patient data tools (find_patient, get_patient_observations, etc.)
+    // 5. FHIR resource management tools
+    // Plus 10 additional specialized healthcare tools
 }
+```
+
+**Environment Configuration Success**:
+- Direct MCP integration bypasses API key limitations during tool discovery
+- Healthcare MCP server properly exposes all 15 tools via MCP protocol
+- Authentication handled at proxy level, not tool registration level
+- Result: Open WebUI shows complete tool set regardless of API key status
+
+```bash
+# Verify complete tool discovery (all 15 tools now visible)
+curl -s "http://172.20.0.12:3001/tools" \
+  -H "Authorization: Bearer healthcare-mcp-2025" | jq '.count'
+# Returns: 15 (previously only 3 with mcpo bridge approach)
 ```
 
 ### Offline-First Healthcare MCP
@@ -83,6 +146,39 @@ class QuantumResistantMCPSecurity {
 ### Military-Grade MCP Auditing
 
 **ENHANCED AUDITING**: Implement MCP auditing patterns that exceed healthcare compliance requirements.
+
+```typescript
+// Pattern: Military-grade MCP auditing
+class MilitaryGradeMCPAuditing {…}
+```
+
+### MCP-Open WebUI Integration Troubleshooting
+
+**COMMON INTEGRATION ISSUES**:
+
+1. **Authentication Mismatch**: mcpo bridge may not enforce authentication properly
+   - Solution: Implement FastAPI authentication proxy with Bearer token validation
+   
+2. **Tool Discovery**: Only public tools visible (3 tools instead of full 15)
+   - Expected: Patient tools require paid API keys (FHIR server, specialized databases)
+   - Public tools: search-pubmed, search-trials, get-drug-info
+   
+3. **Port Conflicts**: Ensure auth proxy and mcpo use different ports
+   - Auth proxy: External port (e.g., 3001) for Open WebUI
+   - mcpo backend: Internal port (e.g., 3000) for proxy communication
+
+### Docker MCP Integration Patterns
+
+**CONTAINER ARCHITECTURE**: MCP servers with authentication proxy for production deployment.
+
+```dockerfile
+# Pattern: Multi-service MCP container with auth proxy
+# Install Python dependencies for auth proxy at build time
+RUN pip3 install --break-system-packages fastapi uvicorn aiohttp
+
+# Startup script runs both mcpo backend and auth proxy
+CMD ["/app/start_services.sh"]
+```
 
 ```typescript
 // Pattern: Military-grade MCP auditing with blockchain

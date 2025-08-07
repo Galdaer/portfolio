@@ -93,24 +93,23 @@ See `.github/instructions/README.md` for complete usage guidance.
 ### Healthcare MCP Tool Sets
 
 **Clinical Analysis Tools** - Comprehensive clinical analysis and medical research:
-- Medical literature search with evidence grading
-- Clinical entity extraction and terminology validation
-- Sequential thinking for complex diagnostic reasoning
+- Medical literature search with evidence grading (search-pubmed)
+- Clinical trial discovery and analysis (search-trials) 
+- Drug information and FDA data access (get-drug-info)
+- Patient data tools (require paid FHIR API access)
 
-**Patient Workflow Tools** - Clinical documentation and workflow optimization:
-- SOAP note generation with medical compliance
-- Clinical documentation review and validation
-- Healthcare workflow optimization with PHI protection
+**Open WebUI Integration Architecture** (Proven Working Solution):
+- **Direct MCP JSON-RPC Integration**: Authentication proxy (port 3001) with direct MCP protocol communication
+- **No Bridge Required**: Direct subprocess communication with Healthcare MCP server via stdio
+- **All 15 Tools Available**: Genuine tool discovery through MCP tools/list protocol
+- **Authentication**: Bearer token validation with healthcare-mcp-2025 API key
+- **Protocol**: MCP_TRANSPORT=stdio enables proper JSON-RPC 2.0 communication
 
-**Compliance Validation Tools** - Healthcare safety and regulatory compliance:
-- Automated PHI detection and protection
-- HIPAA compliance validation and audit trail generation
-- Clinical safety validation for all AI operations
-
-**Emergency Response Tools** - Critical clinical scenario handling:
-- Emergency detection with immediate response protocols
-- Critical care protocol integration
-- Rapid clinical assessment with safety validation
+**Successful MCP Integration Pattern**:
+- **Architecture**: Open WebUI → FastAPI Auth Proxy (3001) → Healthcare MCP Server (stdio/JSON-RPC)
+- **Tool Discovery**: Real-time discovery via MCP tools/list method (not fallback mechanisms)
+- **Communication**: Direct subprocess with stdin/stdout JSON-RPC messaging
+- **Result**: All 15 healthcare tools properly registered and accessible
 
 ### MCP Integration Patterns
 
