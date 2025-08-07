@@ -128,7 +128,8 @@ class HealthcareCacheManager:
             cache_entry.access_count += 1
 
             # Update in cache
-            await self.redis_client.setex(
+            redis_client = await self._ensure_redis_client()
+            await redis_client.setex(
                 cache_key,
                 self.cache_ttls[security_level],
                 json.dumps(asdict(cache_entry), default=str),
@@ -206,7 +207,8 @@ class HealthcareCacheManager:
             )
 
             # Set in Redis
-            await self.redis_client.setex(
+            redis_client = await self._ensure_redis_client()
+            await redis_client.setex(
                 cache_key, cache_entry.ttl_seconds, json.dumps(asdict(cache_entry), default=str)
             )
 
