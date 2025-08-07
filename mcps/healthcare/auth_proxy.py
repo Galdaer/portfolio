@@ -21,6 +21,7 @@ import logging
 import os
 import select
 import subprocess
+from collections.abc import Callable
 from typing import Any
 
 import uvicorn
@@ -42,7 +43,7 @@ security = HTTPBearer()
 EXPECTED_API_KEY = "healthcare-mcp-2025"
 
 # Direct MCP communication setup
-mcp_process: subprocess.Popen | None = None
+mcp_process: subprocess.Popen[str] | None = None
 healthcare_tools: list[dict[str, Any]] = []
 request_id_counter = 1
 
@@ -68,7 +69,7 @@ async def authenticate(credentials: HTTPAuthorizationCredentials = Depends(secur
     return True
 
 
-async def start_mcp_server():
+async def start_mcp_server() -> bool:
     """Start the Healthcare MCP server process"""
     global mcp_process, healthcare_tools, request_id_counter
 
@@ -90,7 +91,12 @@ async def start_mcp_server():
 
         # Check if the process is still running
         if mcp_process.poll() is not None:
-            stderr_output = mcp_process.stderr.read() if mcp_process.stderr else "No stderr"
+            stderr_output = ""
+            if mcp_process.stderr is not None:
+                try:
+                    stderr_output = mcp_process.stderr.read()
+                except Exception as e:
+                    stderr_output = f"Error reading stderr: {e}"
             logger.error(f"MCP server process exited early. Stderr: {stderr_output}")
             return False
 
@@ -99,31 +105,33 @@ async def start_mcp_server():
             # Try to read any initial output without sending requests first
 
             # Set non-blocking mode for both stdout and stderr
-            for stream in [mcp_process.stdout, mcp_process.stderr]:
-                if stream:
-                    fd = stream.fileno()
-                    fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-                    fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+            if mcp_process.stdout is not None and mcp_process.stderr is not None:
+                for stream in [mcp_process.stdout, mcp_process.stderr]:
+                    if stream:
+                        fd = stream.fileno()
+                        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+                        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-            # Check for any startup output
-            ready_out, _, _ = select.select([mcp_process.stdout], [], [], 1.0)
-            ready_err, _, _ = select.select([mcp_process.stderr], [], [], 1.0)
+                # Check for any startup output
+                if mcp_process.stdout is not None:
+                    ready_out, _, _ = select.select([mcp_process.stdout], [], [], 1.0)
+                    if ready_out:
+                        try:
+                            initial_output = mcp_process.stdout.read()
+                            if initial_output:
+                                logger.info(f"MCP server initial stdout: {initial_output}")
+                        except (OSError, ValueError) as e:
+                            logger.debug(f"Error reading stdout: {e}")
 
-            if ready_out:
-                try:
-                    initial_output = mcp_process.stdout.read()
-                    if initial_output:
-                        logger.info(f"MCP server initial stdout: {initial_output}")
-                except (OSError, ValueError) as e:
-                    logger.debug(f"Error reading stdout: {e}")
-
-            if ready_err:
-                try:
-                    stderr_output = mcp_process.stderr.read()
-                    if stderr_output:
-                        logger.info(f"MCP server initial stderr: {stderr_output}")
-                except (OSError, ValueError) as e:
-                    logger.debug(f"Error reading stderr: {e}")
+                if mcp_process.stderr is not None:
+                    ready_err, _, _ = select.select([mcp_process.stderr], [], [], 1.0)
+                    if ready_err:
+                        try:
+                            stderr_output = mcp_process.stderr.read()
+                            if stderr_output:
+                                logger.info(f"MCP server initial stderr: {stderr_output}")
+                        except (OSError, ValueError) as e:
+                            logger.debug(f"Error reading stderr: {e}")
 
         except Exception as e:
             logger.warning(f"Error reading initial MCP output: {e}")
@@ -154,51 +162,49 @@ async def start_mcp_server():
 
         # Check if server started successfully by looking at stderr for startup messages
         # MCP servers often output startup info to stderr
-        stderr_available = mcp_process.stderr.readable()
-        if stderr_available:
-            # Try to read any startup messages
-            try:
-                # Set non-blocking mode for stderr
-                import fcntl
-                import os
+        if mcp_process.stderr is not None:
+            stderr_available = mcp_process.stderr.readable()
+            if stderr_available:
+                # Try to read any startup messages
+                try:
+                    fd = mcp_process.stderr.fileno()
+                    fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+                    fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-                fd = mcp_process.stderr.fileno()
-                fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-                fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-
-                stderr_output = mcp_process.stderr.read()
-                if stderr_output:
-                    logger.info(f"MCP server startup output: {stderr_output.strip()}")
-            except (OSError, BlockingIOError, ValueError) as e:
-                logger.debug(f"Non-blocking read failed: {e}")  # Non-blocking read failed, continue
+                    stderr_output = mcp_process.stderr.read()
+                    if stderr_output:
+                        logger.info(f"MCP server startup output: {stderr_output.strip()}")
+                except (OSError, BlockingIOError, ValueError) as e:
+                    logger.debug(f"Non-blocking read failed: {e}")  # Non-blocking read failed, continue
 
         # Try to read initialization response with timeout
         try:
             # Use select to wait for output with timeout
-            import select
+            if mcp_process.stdout is not None:
+                ready, _, _ = select.select([mcp_process.stdout], [], [], 2.0)  # 2 second timeout
 
-            ready, _, _ = select.select([mcp_process.stdout], [], [], 2.0)  # 2 second timeout
-
-            if ready:
-                if mcp_process.stdout is None:
-                    logger.warning("MCP process stdout is None")
-                    return False
-
-                raw_response = mcp_process.stdout.readline()
-                response_line = raw_response.strip() if raw_response else ""
-                if response_line:
-                    json.loads(response_line)
-                    logger.info("MCP initialization successful")
+                if ready:
+                    raw_response = mcp_process.stdout.readline()
+                    response_line = raw_response.strip() if raw_response else ""
+                    if response_line:
+                        json.loads(response_line)
+                        logger.info("MCP initialization successful")
+                    else:
+                        logger.warning("MCP server returned empty response to initialization")
                 else:
-                    logger.warning("MCP server returned empty response to initialization")
+                    logger.warning("MCP server did not respond to initialization within timeout")
             else:
-                logger.warning("MCP server did not respond to initialization within timeout")
+                logger.warning("MCP process stdout is None")
+                return False
         except json.JSONDecodeError as e:
             logger.warning(f"MCP server returned invalid JSON: {e}")
         except Exception as e:
             logger.warning(f"Error reading MCP initialization response: {e}")
 
         # Send tools/list request to get available tools
+        # stdin should not be None since we created it with subprocess.PIPE
+        assert mcp_process.stdin is not None, "MCP process stdin should not be None"
+
         tools_request = {
             "jsonrpc": "2.0",
             "id": request_id_counter,
@@ -207,44 +213,36 @@ async def start_mcp_server():
         }
         request_id_counter += 1
 
-        if mcp_process.stdin is None:
-            logger.error("MCP process stdin is None for tools request")
-            return False
-
         mcp_process.stdin.write(json.dumps(tools_request) + "\n")
         mcp_process.stdin.flush()
 
         # Try to read tools response with timeout
         try:
-            if mcp_process.stdout is None:
+            if mcp_process.stdout is not None:
+                ready, _, _ = select.select([mcp_process.stdout], [], [], 2.0)  # 2 second timeout
+
+                if ready:
+                    raw_tools_response = mcp_process.stdout.readline()
+                    tools_response_line = raw_tools_response.strip() if raw_tools_response else ""
+                    if tools_response_line:
+                        tools_response = json.loads(tools_response_line)
+                        if "result" in tools_response and "tools" in tools_response["result"]:
+                            healthcare_tools = tools_response["result"]["tools"]
+                            logger.info(
+                                f"Successfully retrieved {len(healthcare_tools)} healthcare tools"
+                            )
+                            for tool in healthcare_tools:
+                                logger.info(f"Available tool: {tool.get('name', 'Unknown')}")
+                            return True
+                        else:
+                            logger.warning(f"Unexpected tools response format: {tools_response}")
+                    else:
+                        logger.warning("MCP server returned empty response to tools/list")
+                else:
+                    logger.warning("MCP server did not respond to tools/list within timeout")
+            else:
                 logger.error("MCP process stdout is None for tools response")
                 return False
-
-            ready, _, _ = select.select([mcp_process.stdout], [], [], 2.0)  # 2 second timeout
-
-            if ready:
-                if mcp_process.stdout is None:
-                    logger.warning("MCP process stdout became None")
-                    return False
-
-                raw_tools_response = mcp_process.stdout.readline()
-                tools_response_line = raw_tools_response.strip() if raw_tools_response else ""
-                if tools_response_line:
-                    tools_response = json.loads(tools_response_line)
-                    if "result" in tools_response and "tools" in tools_response["result"]:
-                        healthcare_tools = tools_response["result"]["tools"]
-                        logger.info(
-                            f"Successfully retrieved {len(healthcare_tools)} healthcare tools"
-                        )
-                        for tool in healthcare_tools:
-                            logger.info(f"Available tool: {tool.get('name', 'Unknown')}")
-                        return True
-                    else:
-                        logger.warning(f"Unexpected tools response format: {tools_response}")
-                else:
-                    logger.warning("MCP server returned empty response to tools/list")
-            else:
-                logger.warning("MCP server did not respond to tools/list within timeout")
         except json.JSONDecodeError as e:
             logger.warning(f"MCP server returned invalid JSON for tools/list: {e}")
         except Exception as e:
@@ -253,8 +251,6 @@ async def start_mcp_server():
         # No fallback - if MCP communication failed, we should not expose any tools
         logger.error("MCP tool discovery failed - no tools will be available")
         healthcare_tools = []
-        return False
-
         return False
 
     except Exception as e:
@@ -298,7 +294,11 @@ async def call_mcp_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, 
             if response_line:
                 response = json.loads(response_line)
                 if "result" in response:
-                    return response["result"]
+                    result = response["result"]
+                    if isinstance(result, dict):
+                        return result
+                    else:
+                        return {"result": result}
                 elif "error" in response:
                     raise HTTPException(
                         status_code=400, detail=f"MCP tool error: {response['error']}"
@@ -336,7 +336,7 @@ app.add_middleware(
 
 
 @app.on_event("startup")
-async def startup_event():
+async def startup_event() -> None:
     """Initialize the authentication proxy"""
     logger.info("Starting Healthcare MCP Authentication Proxy (Direct MCP)")
     logger.info(
@@ -354,10 +354,10 @@ async def startup_event():
             if not tool_name:
                 continue
 
-            def create_tool_handler(name: str):
+            def create_tool_handler(name: str) -> Callable:
                 async def tool_handler(
                     request: ToolRequest, authenticated: bool = Depends(authenticate)
-                ):
+                ) -> dict[str, Any]:
                     """Handle tool execution"""
                     try:
                         logger.info(f"Executing healthcare tool: {name}")
@@ -386,7 +386,7 @@ async def startup_event():
 
 
 @app.on_event("shutdown")
-async def shutdown_event():
+async def shutdown_event() -> None:
     """Cleanup on shutdown"""
     global mcp_process
     if mcp_process:
@@ -396,7 +396,7 @@ async def shutdown_event():
 
 
 @app.get("/health", response_model=HealthResponse)
-async def health_check():
+async def health_check() -> HealthResponse:
     """Health check endpoint"""
     global mcp_process
 
@@ -412,7 +412,7 @@ async def health_check():
 
 
 @app.get("/tools")
-async def list_tools(authenticated: bool = Depends(authenticate)):
+async def list_tools(authenticated: bool = Depends(authenticate)) -> dict[str, Any]:
     """List all available healthcare tools"""
     return {
         "tools": healthcare_tools,
