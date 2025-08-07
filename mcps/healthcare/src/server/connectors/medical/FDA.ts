@@ -14,11 +14,25 @@ interface FDAResponse {
 }
 
 export class FDA {
+    private lastRequestTime = 0;
+    private requestCount = 0;
+    private readonly rateLimitWindow = 60000; // 1 minute
+    private readonly maxRequestsPerMinute = 240;
+
+    private isRateLimited(): boolean {
+        const now = Date.now();
+        if (now - this.lastRequestTime > this.rateLimitWindow) {
+            this.requestCount = 0;
+            this.lastRequestTime = now;
+        }
+        this.requestCount++;
+        return this.requestCount > this.maxRequestsPerMinute;
+    }
 
     private readonly baseUrl = 'https://api.fda.gov/drug/ndc.json';
-    private readonly apiKey: string;
+    private readonly apiKey?: string;
 
-    constructor(apiKey: string) {
+    constructor(apiKey?: string) {
         this.apiKey = apiKey;
     }
 
@@ -53,6 +67,11 @@ export class FDA {
         const url = new URL(this.baseUrl);
         url.searchParams.append('search', `generic_name:"${genericName}"`)
 
+        
+        // Rate limiting: 240 requests/minute without API key
+        if (!this.apiKey && this.isRateLimited()) {
+            throw new Error('FDA API rate limit reached. Consider getting free API key at https://open.fda.gov/apis/authentication/');
+        }
         const response = await fetch(url);
         const data = await response.json() as FDAResponse;
 

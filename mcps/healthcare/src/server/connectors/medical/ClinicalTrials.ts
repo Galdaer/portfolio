@@ -17,9 +17,9 @@ interface ClinicalTrialsResponse {
 
 export class ClinicalTrials {
     private readonly baseUrl = 'https://clinicaltrials.gov/api/v2/studies';
-    private readonly apiKey: string;
+    private readonly apiKey?: string;
 
-    constructor(apiKey: string) {
+    constructor(apiKey?: string) {
         this.apiKey = apiKey;
     }
 

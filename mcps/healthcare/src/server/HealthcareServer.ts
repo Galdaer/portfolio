@@ -23,16 +23,16 @@ export class HealthcareServer {
         mcpServer: Server,
         authConfig: AuthConfig,
         fhirURL: string,
-        pubmedAPIKey: string,
-        trialsAPIKey: string,
-        fdaAPIKey: string,
+        pubmedAPIKey?: string,
+        trialsAPIKey?: string,
+        fdaAPIKey?: string,
         ollamaApiUrl: string = "http://172.20.0.10:11434",
         ollamaModel: string = "llama3"
     ) {
         this.mcpServer = mcpServer;
         this.fhirClient = new FhirClient(fhirURL);
         this.cache = new CacheManager();
-        this.pubmedApi = new PubMed(pubmedAPIKey);
+        this.pubmedApi = new PubMed(pubmedAPIKey || "optional_for_higher_rate_limits");
         this.trialsApi = new ClinicalTrials(trialsAPIKey);
         this.fdaApi = new FDA(fdaAPIKey);
         this.ollamaHandler = new OllamaHandler(ollamaApiUrl, ollamaModel);

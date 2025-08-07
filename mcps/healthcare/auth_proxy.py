@@ -15,8 +15,11 @@ be made by qualified healthcare professionals.
 """
 
 import asyncio
+import fcntl
 import json
 import logging
+import os
+import select
 import subprocess
 from typing import Any
 
@@ -94,9 +97,6 @@ async def start_mcp_server():
         # Check what the server outputs on startup
         try:
             # Try to read any initial output without sending requests first
-            import fcntl
-            import os
-            import select
 
             # Set non-blocking mode for both stdout and stderr
             for stream in [mcp_process.stdout, mcp_process.stderr]:
@@ -142,6 +142,10 @@ async def start_mcp_server():
         request_id_counter += 1
 
         # Send initialization request
+        if mcp_process.stdin is None:
+            logger.error("MCP process stdin is None")
+            return False
+
         mcp_process.stdin.write(json.dumps(init_request) + "\n")
         mcp_process.stdin.flush()
 
@@ -176,7 +180,12 @@ async def start_mcp_server():
             ready, _, _ = select.select([mcp_process.stdout], [], [], 2.0)  # 2 second timeout
 
             if ready:
-                response_line = mcp_process.stdout.readline().strip()
+                if mcp_process.stdout is None:
+                    logger.warning("MCP process stdout is None")
+                    return False
+
+                raw_response = mcp_process.stdout.readline()
+                response_line = raw_response.strip() if raw_response else ""
                 if response_line:
                     json.loads(response_line)
                     logger.info("MCP initialization successful")
@@ -198,15 +207,28 @@ async def start_mcp_server():
         }
         request_id_counter += 1
 
+        if mcp_process.stdin is None:
+            logger.error("MCP process stdin is None for tools request")
+            return False
+
         mcp_process.stdin.write(json.dumps(tools_request) + "\n")
         mcp_process.stdin.flush()
 
         # Try to read tools response with timeout
         try:
+            if mcp_process.stdout is None:
+                logger.error("MCP process stdout is None for tools response")
+                return False
+
             ready, _, _ = select.select([mcp_process.stdout], [], [], 2.0)  # 2 second timeout
 
             if ready:
-                tools_response_line = mcp_process.stdout.readline().strip()
+                if mcp_process.stdout is None:
+                    logger.warning("MCP process stdout became None")
+                    return False
+
+                raw_tools_response = mcp_process.stdout.readline()
+                tools_response_line = raw_tools_response.strip() if raw_tools_response else ""
                 if tools_response_line:
                     tools_response = json.loads(tools_response_line)
                     if "result" in tools_response and "tools" in tools_response["result"]:
@@ -258,16 +280,21 @@ async def call_mcp_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, 
         request_id_counter += 1
 
         # Send request to MCP server
+        if mcp_process.stdin is None:
+            raise HTTPException(status_code=503, detail="MCP server stdin unavailable")
+
         mcp_process.stdin.write(json.dumps(tool_request) + "\n")
         mcp_process.stdin.flush()
 
         # Read response with timeout
-        import select
+        if mcp_process.stdout is None:
+            raise HTTPException(status_code=503, detail="MCP server stdout unavailable")
 
         ready, _, _ = select.select([mcp_process.stdout], [], [], 10.0)  # 10 second timeout
 
         if ready:
-            response_line = mcp_process.stdout.readline().strip()
+            raw_response = mcp_process.stdout.readline()
+            response_line = raw_response.strip() if raw_response else ""
             if response_line:
                 response = json.loads(response_line)
                 if "result" in response:
