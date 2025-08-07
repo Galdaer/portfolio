@@ -62,6 +62,191 @@ class EmergencyScenarioTesting:
 
 ### Database-Backed Testing (Beyond HIPAA)
 
+**Healthcare Database Integration Patterns** - Use real PostgreSQL/Redis with synthetic data for comprehensive testing:
+
+```python
+# ✅ PATTERN: Full healthcare database integration testing
+from core.models.healthcare import (
+    get_healthcare_session, Doctor, Patient, Encounter, 
+    LabResult, BillingClaim, AuditLog
+)
+
+class HealthcareDatabaseTesting:
+    def __init__(self):
+        # Use real database with synthetic data for authentic testing
+        self.db_session = get_healthcare_session()
+        self.use_real_database = True
+        self.synthetic_data_only = True  # PHI-safe
+        
+    def test_complete_healthcare_workflow(self):
+        """Test full patient care workflow with database persistence"""
+        # Generate synthetic healthcare scenario
+        doctor = self.create_synthetic_doctor()
+        patient = self.create_synthetic_patient() 
+        encounter = self.create_synthetic_encounter(patient.patient_id, doctor.doctor_id)
+        
+        # Test database persistence
+        self.db_session.add(doctor)
+        self.db_session.add(patient)
+        self.db_session.add(encounter)
+        self.db_session.commit()
+        
+        # Verify relationships and data integrity
+        retrieved_encounter = self.db_session.query(Encounter).filter_by(
+            encounter_id=encounter.encounter_id
+        ).first()
+        
+        assert retrieved_encounter.patient.first_name == patient.first_name
+        assert retrieved_encounter.doctor.specialty == doctor.specialty
+        assert retrieved_encounter.diagnosis_codes is not None
+    
+    def test_synthetic_data_generation_integration(self):
+        """Test synthetic data generator database population"""
+        # Run synthetic data generator with database integration
+        from scripts.generate_synthetic_healthcare_data import SyntheticHealthcareDataGenerator
+        
+        generator = SyntheticHealthcareDataGenerator(
+            num_doctors=5,
+            num_patients=20, 
+            num_encounters=30,
+            use_database=True
+        )
+        
+        generator.generate_all_data()
+        
+        # Verify data was populated in database
+        doctor_count = self.db_session.query(Doctor).count()
+        patient_count = self.db_session.query(Patient).count()
+        encounter_count = self.db_session.query(Encounter).count()
+        
+        assert doctor_count == 5
+        assert patient_count == 20
+        assert encounter_count == 30
+    
+    def test_cross_table_healthcare_relationships(self):
+        """Test complex healthcare data relationships"""
+        # Test patient-doctor-encounter relationships
+        patients_with_multiple_visits = self.db_session.query(Patient).join(
+            Encounter
+        ).group_by(Patient.patient_id).having(
+            func.count(Encounter.encounter_id) > 1
+        ).all()
+        
+        for patient in patients_with_multiple_visits:
+            # Verify each patient has valid encounters
+            assert len(patient.encounters) > 1
+            # Verify all encounters have valid doctors
+            for encounter in patient.encounters:
+                assert encounter.doctor is not None
+                assert encounter.doctor.specialty is not None
+
+# ✅ PATTERN: Performance testing with realistic database loads
+class HealthcarePerformanceTesting:
+    def test_database_performance_with_healthcare_data(self):
+        """Test database performance with realistic healthcare data volumes"""
+        # Generate large synthetic dataset for performance testing
+        generator = SyntheticHealthcareDataGenerator(
+            num_doctors=100,
+            num_patients=10000,
+            num_encounters=50000,
+            use_database=True
+        )
+        
+        start_time = time.time()
+        generator.generate_all_data()
+        generation_time = time.time() - start_time
+        
+        # Performance requirements for healthcare data generation
+        assert generation_time < 300, f"Data generation too slow: {generation_time}s"
+        
+        # Test query performance with large dataset
+        start_time = time.time()
+        recent_encounters = self.db_session.query(Encounter).filter(
+            Encounter.date >= "2024-01-01"
+        ).limit(1000).all()
+        query_time = time.time() - start_time
+        
+        assert query_time < 5.0, f"Query performance too slow: {query_time}s"
+        assert len(recent_encounters) > 0
+
+# ✅ PATTERN: HIPAA compliance testing with database audit trails
+class HIPAAComplianceDatabaseTesting:
+    def test_audit_log_database_integration(self):
+        """Test HIPAA audit logging with database persistence"""
+        # Create test audit events
+        test_actions = [
+            ("view_patient", "doctor", "pt_12345"),
+            ("update_notes", "doctor", "enc_67890"), 
+            ("access_lab_results", "nurse", "lab_54321")
+        ]
+        
+        for action, user_type, resource_id in test_actions:
+            audit_log = AuditLog(
+                log_id=str(uuid.uuid4()),
+                user_id=f"test_user_{uuid.uuid4().hex[:8]}",
+                user_type=user_type,
+                action=action,
+                resource_id=resource_id,
+                timestamp=datetime.utcnow(),
+                success=True
+            )
+            self.db_session.add(audit_log)
+        
+        self.db_session.commit()
+        
+        # Verify audit trail completeness
+        audit_count = self.db_session.query(AuditLog).count()
+        assert audit_count >= len(test_actions)
+        
+        # Test audit query capabilities
+        doctor_actions = self.db_session.query(AuditLog).filter_by(
+            user_type="doctor"
+        ).all()
+        assert len(doctor_actions) > 0
+```
+
+### Redis Healthcare Session Testing
+
+```python
+# ✅ PATTERN: Redis integration testing for healthcare sessions
+class RedisHealthcareSessionTesting:
+    def __init__(self):
+        self.redis_client = redis.Redis(
+            host="172.20.0.14", port=6379, decode_responses=True
+        )
+    
+    def test_agent_session_redis_integration(self):
+        """Test AI agent session storage in Redis"""
+        # Create synthetic agent session
+        session_data = {
+            "session_id": str(uuid.uuid4()),
+            "doctor_id": "dr_test_123",
+            "agent_type": "intake",
+            "start_time": datetime.utcnow().isoformat(),
+            "duration_seconds": 180,
+            "messages_exchanged": 25,
+            "tokens_used": 2500,
+            "model_used": "llama3.2:8b",
+            "session_outcome": "completed"
+        }
+        
+        # Store in Redis
+        session_key = f"session:{session_data['session_id']}"
+        self.redis_client.hset(session_key, mapping=session_data)
+        self.redis_client.expire(session_key, 30 * 24 * 60 * 60)  # 30 days
+        
+        # Verify storage and retrieval
+        retrieved_data = self.redis_client.hgetall(session_key)
+        assert retrieved_data["doctor_id"] == session_data["doctor_id"]
+        assert retrieved_data["agent_type"] == session_data["agent_type"]
+        
+        # Test session expiration
+        ttl = self.redis_client.ttl(session_key)
+        assert ttl > 0 and ttl <= 30 * 24 * 60 * 60
+```
+
+### Database-Backed Testing (Beyond HIPAA)
+
 ```python
 # ✅ PATTERN: Database testing with enhanced synthetic data
 class EnhancedSyntheticDataTesting:

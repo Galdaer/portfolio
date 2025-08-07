@@ -78,6 +78,127 @@ def handle_database_fallback(data_type: str, identifier: str):
 **Development Environment:**
 - Database preferred, synthetic data fallback acceptable
 - Clear logging when fallbacks are used
+
+**Healthcare Database Integration Examples:**
+
+```python
+# ✅ PATTERN: Healthcare MCP tool with database-first approach
+class HealthcareMCPTool:
+    def __init__(self):
+        self.database_available = self.test_database_connection()
+        
+    def get_patient_encounters(self, patient_id: str):
+        if self.database_available:
+            # Primary: Use PostgreSQL with healthcare schema
+            return self.get_encounters_from_database(patient_id)
+        else:
+            # Fallback: Use synthetic data for development
+            logger.warning("Database unavailable, using synthetic data")
+            return self.generate_synthetic_encounters(patient_id)
+    
+    def get_encounters_from_database(self, patient_id: str):
+        """Get real encounter data from PostgreSQL healthcare schema"""
+        from core.models.healthcare import get_healthcare_session, Encounter
+        
+        session = get_healthcare_session()
+        encounters = session.query(Encounter).filter_by(
+            patient_id=patient_id
+        ).all()
+        session.close()
+        
+        return [
+            {
+                "encounter_id": enc.encounter_id,
+                "date": enc.date,
+                "reason": enc.reason,
+                "diagnosis_codes": enc.diagnosis_codes,
+                "vital_signs": json.loads(enc.vital_signs_json) if enc.vital_signs_json else None
+            }
+            for enc in encounters
+        ]
+
+# ✅ PATTERN: Healthcare agent with database integration
+class HealthcareAgent:
+    def __init__(self):
+        self.use_database = self.initialize_database_connection()
+        
+    def initialize_database_connection(self):
+        """Test database connectivity and set operation mode"""
+        try:
+            from core.models.healthcare import get_healthcare_session
+            session = get_healthcare_session()
+            session.execute("SELECT 1")
+            session.close()
+            logger.info("Healthcare database connection established")
+            return True
+        except Exception as e:
+            logger.warning(f"Database unavailable, using fallback mode: {e}")
+            return False
+    
+    def process_patient_data(self, patient_id: str):
+        if self.use_database:
+            # Use real database with healthcare schema
+            return self.process_from_database(patient_id)
+        else:
+            # Fallback for development/testing
+            return self.process_from_synthetic_data(patient_id)
+```
+
+**Healthcare Database Schema Integration:**
+
+```python
+# ✅ PATTERN: Using complete healthcare schema
+from core.models.healthcare import (
+    Doctor, Patient, Encounter, LabResult, BillingClaim,
+    InsuranceVerification, DoctorPreferences, AuditLog, AgentSession
+)
+
+class HealthcareDatabaseOperations:
+    def __init__(self):
+        self.session = get_healthcare_session()
+    
+    def get_complete_patient_context(self, patient_id: str):
+        """Get full patient context with all related data"""
+        patient = self.session.query(Patient).filter_by(
+            patient_id=patient_id
+        ).first()
+        
+        if not patient:
+            if is_development_environment():
+                return self.generate_synthetic_patient_context(patient_id)
+            else:
+                raise PatientNotFoundError(f"Patient {patient_id} not found")
+        
+        # Build complete context from database relationships
+        context = {
+            "patient": {
+                "id": patient.patient_id,
+                "name": f"{patient.first_name} {patient.last_name}",
+                "insurance": patient.insurance_provider
+            },
+            "encounters": [
+                {
+                    "id": enc.encounter_id,
+                    "date": enc.date,
+                    "doctor": enc.doctor.first_name + " " + enc.doctor.last_name,
+                    "specialty": enc.doctor.specialty,
+                    "notes": enc.notes
+                }
+                for enc in patient.encounters
+            ],
+            "lab_results": [
+                {
+                    "test": lab.test_name,
+                    "date": lab.date_completed,
+                    "result": lab.value,
+                    "status": lab.result_status
+                }
+                for lab in patient.lab_results
+            ]
+        }
+        
+        return context
+```
 - Synthetic data clearly marked as non-PHI
 
 **Testing Environment:**
