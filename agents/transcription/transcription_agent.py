@@ -158,7 +158,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
         try:
             # Call parent initialization which validates database connectivity
             await self.initialize_agent()
-            
+
             log_healthcare_event(
                 logger,
                 logging.INFO,

@@ -7,15 +7,19 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
-from decimal import Decimal
 
 from agents import BaseHealthcareAgent
+from agents.billing_helper.shared.billing_utils import SharedBillingUtils
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     healthcare_log_method,
     log_healthcare_event,
 )
-from core.infrastructure.phi_monitor import phi_monitor_decorator, sanitize_healthcare_data, scan_for_phi
+from core.infrastructure.phi_monitor import (
+    phi_monitor_decorator,
+    sanitize_healthcare_data,
+    scan_for_phi,
+)
 
 logger = get_healthcare_logger("agent.billing_helper")
 
@@ -81,7 +85,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
         self.agent_type = "billing_helper"
         self.capabilities = [
             "claims_processing",
-            "code_validation", 
+            "code_validation",
             "insurance_verification",
             "compliance_checking",
             "denial_management",
@@ -111,12 +115,16 @@ class BillingHelperAgent(BaseHealthcareAgent):
         try:
             # Call parent initialization which validates database connectivity
             await self.initialize_agent()
-            
+
             # Initialize advanced insurance calculation components
-            from domains.insurance_calculations import InsuranceCoverageCalculator, DeductibleTracker
+            from domains.insurance_calculations import (
+                DeductibleTracker,
+                InsuranceCoverageCalculator,
+            )
+
             self.insurance_calculator = InsuranceCoverageCalculator()
             self.deductible_tracker = DeductibleTracker()
-            
+
             log_healthcare_event(
                 logger,
                 logging.INFO,
@@ -492,12 +500,12 @@ class BillingHelperAgent(BaseHealthcareAgent):
     async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Implement billing agent-specific processing logic
-        
+
         Routes requests to appropriate billing methods based on request type.
         All responses include medical disclaimers.
         """
         request_type = request.get("type", "unknown")
-        
+
         # Add medical disclaimer to all responses
         base_response = {
             "medical_disclaimer": (
@@ -508,61 +516,62 @@ class BillingHelperAgent(BaseHealthcareAgent):
             "success": True,
             "timestamp": datetime.now().isoformat(),
         }
-        
+
         try:
             if request_type == "billing_processing":
-                result = await self.process_claim(
-                    request.get("billing_data", {})
-                )
+                result = await self.process_claim(request.get("billing_data", {}))
                 base_response.update({"billing_result": result})
-                
+
             elif request_type == "insurance_verification":
-                result = await self.verify_insurance_benefits(
-                    request.get("insurance_info", {})
-                )
+                result = await self.verify_insurance_benefits(request.get("insurance_info", {}))
                 base_response.update({"verification_result": result})
-                
+
             elif request_type == "report_generation":
                 result = await self.generate_billing_report(
-                    request.get("date_range", {}),
-                    request.get("report_type", "summary")
+                    request.get("date_range", {}), request.get("report_type", "summary")
                 )
                 base_response.update({"report": result})
-                
+
             else:
-                base_response.update({
-                    "success": False,
-                    "error": f"Unknown request type: {request_type}",
-                    "supported_types": ["billing_processing", "insurance_verification", "report_generation", "cost_prediction", "deductible_tracking"]
-                })
-                
+                base_response.update(
+                    {
+                        "success": False,
+                        "error": f"Unknown request type: {request_type}",
+                        "supported_types": [
+                            "billing_processing",
+                            "insurance_verification",
+                            "report_generation",
+                            "cost_prediction",
+                            "deductible_tracking",
+                        ],
+                    }
+                )
+
         except Exception as e:
-            base_response.update({
-                "success": False,
-                "error": str(e),
-                "error_type": type(e).__name__
-            })
-            
+            base_response.update(
+                {"success": False, "error": str(e), "error_type": type(e).__name__}
+            )
+
         return base_response
 
     # =================== ADVANCED INSURANCE CALCULATION METHODS ===================
-    
+
     @healthcare_log_method(operation_type="cost_prediction", phi_risk_level="medium")
     async def predict_visit_cost(self, visit_data: dict[str, Any]) -> dict[str, Any]:
         """
         Predict exact cost for scheduled visit with advanced insurance calculations
-        
+
         Supports:
         - Percentage copays (not just fixed dollar amounts)
         - Deductible proximity tracking
         - Complex insurance structures (HSA, family vs individual)
-        
+
         Args:
             visit_data: Dictionary containing visit information, CPT codes, patient insurance
-            
+
         Returns:
             Detailed cost prediction with breakdown
-            
+
         Medical Disclaimer: Administrative cost prediction only.
         Does not provide medical advice or treatment authorization.
         """
@@ -570,12 +579,12 @@ class BillingHelperAgent(BaseHealthcareAgent):
             patient_id = visit_data.get("patient_id")
             cpt_codes = visit_data.get("cpt_codes", [])
             insurance_type = visit_data.get("insurance_type", "standard")
-            
+
             # Get current deductible status
             deductible_status = await self.deductible_tracker.calculate_deductible_proximity(
                 patient_id, "current_year"
             )
-            
+
             # Calculate cost for each CPT code
             total_cost_prediction = {
                 "total_estimated_cost": 0.0,
@@ -589,52 +598,58 @@ class BillingHelperAgent(BaseHealthcareAgent):
                     "annual_deductible": deductible_status.annual_deductible,
                     "amount_applied": deductible_status.amount_applied,
                     "remaining_amount": deductible_status.remaining_amount,
-                    "percentage_met": deductible_status.percentage_met
+                    "percentage_met": deductible_status.percentage_met,
                 },
-                "cost_explanation": []
+                "cost_explanation": [],
             }
-            
+
             for cpt_code in cpt_codes:
-                # Get negotiated rate for CPT code (mock data)
-                negotiated_rate = self._get_negotiated_rate(cpt_code, insurance_type)
-                
-                # Create patient coverage data for insurance calculator
-                patient_coverage = self._get_patient_coverage_data(patient_id, insurance_type)
-                
+                # Get negotiated rate for CPT code using shared utility
+                negotiated_rate = SharedBillingUtils.get_negotiated_rate(cpt_code, insurance_type)
+
+                # Create patient coverage data for insurance calculator using shared utility
+                patient_coverage = SharedBillingUtils.get_patient_coverage_data(
+                    patient_id, insurance_type
+                )
+
                 # Calculate patient cost using advanced insurance calculator
                 cost_estimate = self.insurance_calculator.calculate_patient_cost(
                     cpt_code=cpt_code,
-                    billed_amount=self._ensure_decimal(negotiated_rate),
-                    patient_coverage=patient_coverage
+                    billed_amount=negotiated_rate,  # Already a Decimal from shared utility
+                    patient_coverage=patient_coverage,
                 )
-                
-                total_cost_prediction["breakdown_by_cpt"].append({
-                    "cpt_code": cpt_code,
-                    "negotiated_rate": negotiated_rate,
-                    "patient_cost": cost_estimate.patient_responsibility,
-                    "insurance_payment": cost_estimate.insurance_payment
-                })
-                
+
+                total_cost_prediction["breakdown_by_cpt"].append(
+                    {
+                        "cpt_code": cpt_code,
+                        "negotiated_rate": negotiated_rate,
+                        "patient_cost": cost_estimate.patient_responsibility,
+                        "insurance_payment": cost_estimate.insurance_payment,
+                    }
+                )
+
                 total_cost_prediction["total_estimated_cost"] += negotiated_rate
-                total_cost_prediction["patient_responsibility"] += cost_estimate.patient_responsibility
+                total_cost_prediction["patient_responsibility"] += (
+                    cost_estimate.patient_responsibility
+                )
                 total_cost_prediction["insurance_payment"] += cost_estimate.insurance_payment
-                
+
             # Add patient-friendly explanations
             if deductible_status.remaining_amount > 0:
                 total_cost_prediction["cost_explanation"].append(
                     f"You have ${deductible_status.remaining_amount:.2f} remaining on your "
                     f"${deductible_status.annual_deductible:.2f} annual deductible"
                 )
-                
+
             if deductible_status.percentage_met > 0.8:
                 total_cost_prediction["cost_explanation"].append(
                     f"You're {deductible_status.percentage_met:.0%} of the way to meeting your deductible"
                 )
-            
+
             total_cost_prediction["cost_explanation"].append(
                 f"Total estimated cost: ${total_cost_prediction['patient_responsibility']:.2f}"
             )
-            
+
             log_healthcare_event(
                 logger,
                 logging.INFO,
@@ -647,104 +662,41 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 },
                 operation_type="cost_prediction",
             )
-            
+
             return {
                 "success": True,
                 "cost_prediction": total_cost_prediction,
                 "prediction_timestamp": datetime.now().isoformat(),
-                "disclaimer": "Cost estimates are for informational purposes only. Actual costs may vary based on services provided and insurance processing."
+                "disclaimer": "Cost estimates are for informational purposes only. Actual costs may vary based on services provided and insurance processing.",
             }
-            
+
         except Exception as e:
             return {
                 "success": False,
                 "error": f"Cost prediction failed: {str(e)}",
-                "disclaimer": "Unable to generate cost prediction. Please contact billing department for assistance."
+                "disclaimer": "Unable to generate cost prediction. Please contact billing department for assistance.",
             }
 
-    def _get_negotiated_rate(self, cpt_code: str, insurance_type: str) -> float:
-        """Get negotiated rate for CPT code (mock implementation)"""
-        # Mock negotiated rates - in production, would query insurance contracts
-        base_rates = {
-            "99213": 150.00,  # Office visit, established patient
-            "99214": 200.00,  # Office visit, moderate complexity
-            "36415": 25.00,   # Blood draw
-            "85025": 35.00,   # CBC lab test
-        }
-        
-        base_rate = base_rates.get(cpt_code, 100.00)
-        
-        # Apply insurance-specific modifiers
-        if insurance_type == "medicare":
-            return base_rate * 0.85  # Medicare typically pays less
-        elif insurance_type == "medicaid":
-            return base_rate * 0.75  # Medicaid typically pays less
-        else:
-            return base_rate
-
-    def _ensure_decimal(self, value: Any) -> Decimal:
-        """Convert various number types to Decimal safely"""
-        if isinstance(value, Decimal):
-            return value
-        if isinstance(value, (int, float)):
-            return Decimal(str(value))  # Convert via string for precision
-        if isinstance(value, str):
-            return Decimal(value)
-        raise ValueError(f"Cannot convert {type(value)} to Decimal")
-
-    def _get_patient_coverage_data(self, patient_id: str, insurance_type: str) -> PatientCoverage:
-        """Get patient coverage data for insurance calculations"""
-        from domains.insurance_calculations import PatientCoverage, InsuranceType, CopayStructure, CopayType
-        
-        # Mock patient coverage data - in production, would query database
-        return PatientCoverage(
-            patient_id=patient_id,
-            insurance_type=InsuranceType.PPO if insurance_type == "ppo" else InsuranceType.HMO,
-            annual_deductible=Decimal("2000.00"),
-            deductible_met=Decimal("450.00"),
-            out_of_pocket_maximum=Decimal("8000.00"),
-            out_of_pocket_met=Decimal("800.00"),
-            copay_structures={
-                "office_visit": CopayStructure(
-                    copay_type=CopayType.FIXED_DOLLAR,
-                    primary_amount=Decimal("25.00")
-                ),
-                "specialist": CopayStructure(
-                    copay_type=CopayType.PERCENTAGE,
-                    primary_amount=Decimal("0.20")
-                ),
-                "laboratory": CopayStructure(
-                    copay_type=CopayType.FIXED_DOLLAR,
-                    primary_amount=Decimal("10.00")
-                ),
-                "general": CopayStructure(
-                    copay_type=CopayType.PERCENTAGE,
-                    primary_amount=Decimal("0.20")
-                )
-            },
-            coinsurance_rate=Decimal("0.20")
-        )
-    
     @healthcare_log_method(operation_type="deductible_tracking", phi_risk_level="medium")
     async def track_deductible_progress(self, patient_id: str) -> dict[str, Any]:
         """
         Track patient's deductible progress with advanced insights
-        
+
         Args:
             patient_id: Patient identifier
-            
+
         Returns:
             Comprehensive deductible tracking information
-            
+
         Medical Disclaimer: Administrative tracking only.
         """
         try:
             deductible_status = await self.deductible_tracker.calculate_deductible_proximity(
                 patient_id, "current_year"
             )
-            
+
             insights = self.deductible_tracker.generate_deductible_insights(deductible_status)
-            
+
             return {
                 "success": True,
                 "patient_id": patient_id,
@@ -753,18 +705,17 @@ class BillingHelperAgent(BaseHealthcareAgent):
                     "amount_applied": deductible_status.amount_applied,
                     "remaining_amount": deductible_status.remaining_amount,
                     "percentage_met": deductible_status.percentage_met,
-                    "projected_meet_date": deductible_status.projected_meet_date.isoformat() if deductible_status.projected_meet_date else None,
-                    "likelihood_to_meet": deductible_status.likelihood_to_meet
+                    "projected_meet_date": deductible_status.projected_meet_date.isoformat()
+                    if deductible_status.projected_meet_date
+                    else None,
+                    "likelihood_to_meet": deductible_status.likelihood_to_meet,
                 },
                 "insights": insights,
-                "tracking_timestamp": datetime.now().isoformat()
+                "tracking_timestamp": datetime.now().isoformat(),
             }
-            
+
         except Exception as e:
-            return {
-                "success": False,
-                "error": f"Deductible tracking failed: {str(e)}"
-            }
+            return {"success": False, "error": f"Deductible tracking failed: {str(e)}"}
 
 
 # Initialize the billing helper agent

@@ -6,13 +6,13 @@ logging, memory management, database connectivity, and safety boundaries.
 """
 
 import logging
-import uuid
 import os
+import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any
 
-from core.dependencies import get_database_connection, DatabaseConnectionError
+from core.dependencies import DatabaseConnectionError, get_database_connection
 from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
 from core.infrastructure.phi_monitor import sanitize_healthcare_data
 from core.memory import memory_manager
@@ -62,7 +62,7 @@ class BaseHealthcareAgent(ABC):
         try:
             # CRITICAL: Validate database connectivity first
             await self._validate_database_connectivity()
-            
+
             # Initialize registries if needed
             if not model_registry._initialized:
                 await model_registry.initialize()
@@ -77,8 +77,8 @@ class BaseHealthcareAgent(ABC):
                 extra={
                     "agent": self.agent_name,
                     "error_type": "database_required",
-                    "setup_guidance": "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
-                }
+                    "setup_guidance": "Run 'make setup' to initialize database or verify DATABASE_URL environment variable.",
+                },
             )
             raise
         except Exception as e:
@@ -89,12 +89,12 @@ class BaseHealthcareAgent(ABC):
         """Check if running in development environment"""
         env = os.getenv("ENVIRONMENT", "").lower()
         return env in ["development", "dev", "local"] or os.getenv("DEV_MODE", "").lower() == "true"
-    
+
     def _is_production_environment(self) -> bool:
         """Check if running in production environment"""
         env = os.getenv("ENVIRONMENT", "").lower()
         return env in ["production", "prod"] or os.getenv("PRODUCTION", "").lower() == "true"
-    
+
     def _is_testing_environment(self) -> bool:
         """Check if running in testing environment"""
         env = os.getenv("ENVIRONMENT", "").lower()
@@ -105,13 +105,13 @@ class BaseHealthcareAgent(ABC):
         connection = None
         try:
             connection = await get_database_connection()
-            
+
             # Test database connectivity
             await connection.execute("SELECT 1")
-            
+
             # Store connection for reuse only after successful validation
             self._db_connection = connection
-            
+
             self.logger.info(f"Database connectivity validated for agent {self.agent_name}")
         except Exception as e:
             # Ensure connection is properly closed on failure
@@ -120,7 +120,7 @@ class BaseHealthcareAgent(ABC):
                     await connection.close()
                 except Exception as close_error:
                     self.logger.warning(f"Error closing failed database connection: {close_error}")
-            
+
             # Database-first pattern: try database first, fallback based on environment
             if self._is_production_environment():
                 # Production: database required, no fallbacks
@@ -319,19 +319,21 @@ class BaseHealthcareAgent(ABC):
         """Remove or redact sensitive information for logging - DEPRECATED: Use phi_monitor instead"""
         # Use the new PHI monitor for sanitization
         return sanitize_healthcare_data(data)
-    
+
     async def cleanup(self) -> None:
         """Cleanup agent resources including database connections
-        
+
         Follows HealthcareDatabaseTypeSafety.get_connection_with_proper_release() pattern
         to ensure proper resource management in healthcare systems.
         """
-        if hasattr(self, '_db_connection') and self._db_connection:
+        if hasattr(self, "_db_connection") and self._db_connection:
             try:
                 await self._db_connection.close()
                 self.logger.info(f"Database connection closed for agent {self.agent_name}")
             except Exception as e:
-                self.logger.warning(f"Error closing database connection for agent {self.agent_name}: {e}")
+                self.logger.warning(
+                    f"Error closing database connection for agent {self.agent_name}: {e}"
+                )
             finally:
                 self._db_connection = None
 

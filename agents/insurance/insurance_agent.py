@@ -129,7 +129,7 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
         try:
             # Call parent initialization which validates database connectivity
             await self.initialize_agent()
-            
+
             log_healthcare_event(
                 logger,
                 logging.INFO,
@@ -630,12 +630,12 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
     async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Implement insurance agent-specific processing logic
-        
+
         Routes requests to appropriate insurance methods based on request type.
         All responses include medical disclaimers.
         """
         request_type = request.get("type", "unknown")
-        
+
         # Add medical disclaimer to all responses
         base_response = {
             "medical_disclaimer": (
@@ -646,47 +646,45 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
             "success": True,
             "timestamp": datetime.now().isoformat(),
         }
-        
+
         try:
             if request_type == "coverage_verification":
-                result = await self.check_coverage_for_service(
-                    request.get("coverage_request", {})
-                )
+                result = await self.check_coverage_for_service(request.get("coverage_request", {}))
                 base_response.update({"coverage_result": result})
-                
+
             elif request_type == "prior_authorization":
-                result = await self.request_prior_authorization(
-                    request.get("auth_request", {})
-                )
+                result = await self.request_prior_authorization(request.get("auth_request", {}))
                 base_response.update({"authorization_result": result})
-                
+
             elif request_type == "eligibility_verification":
                 result = await self.verify_insurance_eligibility(
-                    request.get("patient_info", {}),
-                    request.get("insurance_info", {})
+                    request.get("patient_info", {}), request.get("insurance_info", {})
                 )
                 base_response.update({"eligibility_result": result})
-                
+
             elif request_type == "report_generation":
-                result = await self.generate_insurance_report(
-                    request.get("date_range", {})
-                )
+                result = await self.generate_insurance_report(request.get("date_range", {}))
                 base_response.update({"report": result})
-                
+
             else:
-                base_response.update({
-                    "success": False,
-                    "error": f"Unknown request type: {request_type}",
-                    "supported_types": ["coverage_verification", "prior_authorization", "eligibility_verification", "report_generation"]
-                })
-                
+                base_response.update(
+                    {
+                        "success": False,
+                        "error": f"Unknown request type: {request_type}",
+                        "supported_types": [
+                            "coverage_verification",
+                            "prior_authorization",
+                            "eligibility_verification",
+                            "report_generation",
+                        ],
+                    }
+                )
+
         except Exception as e:
-            base_response.update({
-                "success": False,
-                "error": str(e),
-                "error_type": type(e).__name__
-            })
-            
+            base_response.update(
+                {"success": False, "error": str(e), "error_type": type(e).__name__}
+            )
+
         return base_response
 
 

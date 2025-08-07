@@ -13,12 +13,13 @@ They do not provide medical advice or replace clinical judgment.
 All medical decisions must be made by qualified healthcare professionals.
 """
 
-from dataclasses import dataclass, field
-from decimal import Decimal
-from datetime import datetime, date
-from enum import Enum
-from typing import Dict, List, Optional, Any, Union
 import logging
+from dataclasses import dataclass, field
+from datetime import datetime
+from decimal import Decimal
+from enum import Enum
+
+from core.financial.healthcare_financial_utils import HealthcareFinancialUtils
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +51,11 @@ class CopayStructure:
 
     copay_type: CopayType
     primary_amount: Decimal  # Dollar amount or percentage
-    secondary_amount: Optional[Decimal] = None  # For complex structures
+    secondary_amount: Decimal | None = None  # For complex structures
     service_type: str = "general"  # office_visit, specialist, emergency, etc.
 
     # Advanced features
-    max_out_of_pocket: Optional[Decimal] = None
+    max_out_of_pocket: Decimal | None = None
     applies_to_deductible: bool = True
     family_vs_individual: str = "individual"
 
@@ -67,12 +68,12 @@ class DeductibleStatus:
     amount_applied: Decimal
     remaining_amount: Decimal
     percentage_met: Decimal
-    projected_meet_date: Optional[datetime]
+    projected_meet_date: datetime | None
     family_vs_individual: str
 
     # Advanced tracking
     monthly_average_spending: Decimal
-    historical_meet_date: Optional[datetime] = None
+    historical_meet_date: datetime | None = None
     likelihood_to_meet: float = 0.0  # 0.0 to 1.0
 
 
@@ -92,8 +93,8 @@ class CostEstimate:
     out_of_pocket_impact: Decimal = Decimal("0")
 
     # Patient-friendly explanations
-    cost_explanation: List[str] = field(default_factory=list)
-    potential_variations: Dict[str, Decimal] = field(
+    cost_explanation: list[str] = field(default_factory=list)
+    potential_variations: dict[str, Decimal] = field(
         default_factory=dict
     )  # Best/worst case scenarios
 
@@ -108,10 +109,10 @@ class PatientCoverage:
     deductible_met: Decimal
     out_of_pocket_maximum: Decimal
     out_of_pocket_met: Decimal
-    copay_structures: Dict[str, CopayStructure]
+    copay_structures: dict[str, CopayStructure]
     coinsurance_rate: Decimal  # e.g., 0.20 for 20%
     family_plan: bool = False
-    hsa_balance: Optional[Decimal] = None
+    hsa_balance: Decimal | None = None
 
 
 class InsuranceCoverageCalculator:
@@ -129,16 +130,6 @@ class InsuranceCoverageCalculator:
             "99281": "emergency",
             "99282": "emergency",
         }
-
-    def _ensure_decimal(self, value: Any) -> Decimal:
-        """Convert various number types to Decimal safely"""
-        if isinstance(value, Decimal):
-            return value
-        if isinstance(value, (int, float)):
-            return Decimal(str(value))  # Convert via string for precision
-        if isinstance(value, str):
-            return Decimal(value)
-        raise ValueError(f"Cannot convert {type(value)} to Decimal")
 
     def _safe_division(
         self, numerator: Decimal, denominator: Decimal, default: Decimal = Decimal("0")
@@ -161,11 +152,9 @@ class InsuranceCoverageCalculator:
         """Calculate exact patient cost for a procedure"""
 
         # Ensure billed_amount is Decimal
-        billed_amount = self._ensure_decimal(billed_amount)
+        billed_amount = HealthcareFinancialUtils.ensure_decimal(billed_amount)
 
-        logger.info(
-            f"Calculating patient cost for CPT {cpt_code}, amount ${billed_amount}"
-        )
+        logger.info(f"Calculating patient cost for CPT {cpt_code}, amount ${billed_amount}")
 
         # Step 1: Determine service category
         service_category = self.categorize_cpt_code(cpt_code)
@@ -192,9 +181,7 @@ class InsuranceCoverageCalculator:
                 billed_amount, deductible_status, copay_structure
             )
         else:
-            patient_cost = self._calculate_post_deductible(
-                billed_amount, copay_structure
-            )
+            patient_cost = self._calculate_post_deductible(billed_amount, copay_structure)
 
         # Step 5: Apply out-of-pocket maximums
         final_cost = self._apply_oop_maximum(patient_cost, patient_coverage)
@@ -217,9 +204,7 @@ class InsuranceCoverageCalculator:
         """Categorize CPT code for copay determination"""
         return self.service_categories.get(cpt_code, "general")
 
-    def _calculate_deductible_status(
-        self, patient_coverage: PatientCoverage
-    ) -> DeductibleStatus:
+    def _calculate_deductible_status(self, patient_coverage: PatientCoverage) -> DeductibleStatus:
         """Calculate current deductible status with edge case protection"""
         # Handle zero or negative deductible (some plans have no deductible)
         if patient_coverage.annual_deductible <= 0:
@@ -229,9 +214,7 @@ class InsuranceCoverageCalculator:
                 remaining_amount=Decimal("0"),
                 percentage_met=Decimal("1.0"),
                 projected_meet_date=None,
-                family_vs_individual=(
-                    "family" if patient_coverage.family_plan else "individual"
-                ),
+                family_vs_individual=("family" if patient_coverage.family_plan else "individual"),
                 monthly_average_spending=Decimal("200.00"),  # Mock value
             )
 
@@ -248,9 +231,7 @@ class InsuranceCoverageCalculator:
             remaining_amount=max(remaining, Decimal("0")),  # Never negative
             percentage_met=min(percentage_met, Decimal("1.0")),  # Never over 100%
             projected_meet_date=None,  # Would calculate based on spending patterns
-            family_vs_individual=(
-                "family" if patient_coverage.family_plan else "individual"
-            ),
+            family_vs_individual=("family" if patient_coverage.family_plan else "individual"),
             monthly_average_spending=Decimal("200.00"),  # Mock value
         )
 
@@ -293,9 +274,7 @@ class InsuranceCoverageCalculator:
         self, calculated_cost: Decimal, patient_coverage: PatientCoverage
     ) -> Decimal:
         """Apply out-of-pocket maximum limits"""
-        remaining_oop = (
-            patient_coverage.out_of_pocket_maximum - patient_coverage.out_of_pocket_met
-        )
+        remaining_oop = patient_coverage.out_of_pocket_maximum - patient_coverage.out_of_pocket_met
         return min(calculated_cost, remaining_oop)
 
     def _calculate_confidence(self, patient_coverage: PatientCoverage) -> float:
@@ -316,7 +295,7 @@ class InsuranceCoverageCalculator:
         patient_cost: Decimal,
         copay_structure: CopayStructure,
         deductible_status: DeductibleStatus,
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate patient-friendly cost explanations"""
         explanations = []
 
@@ -400,16 +379,12 @@ class DeductibleTracker:
             family_vs_individual="individual",
         )
 
-    def _project_meet_date(
-        self, monthly_spending: Decimal, remaining: Decimal
-    ) -> Optional[datetime]:
+    def _project_meet_date(self, monthly_spending: Decimal, remaining: Decimal) -> datetime | None:
         """Project when deductible will be met"""
         if remaining <= 0 or monthly_spending <= 0:
             return None
 
-        months_to_meet = float(
-            self._safe_division(remaining, monthly_spending, Decimal("999"))
-        )
+        months_to_meet = float(self._safe_division(remaining, monthly_spending, Decimal("999")))
         if months_to_meet > 12:
             return None
 
@@ -423,7 +398,7 @@ class DeductibleTracker:
 
         return datetime(projected_year, projected_month, 15)  # Mid-month estimate
 
-    def generate_deductible_insights(self, status: DeductibleStatus) -> List[str]:
+    def generate_deductible_insights(self, status: DeductibleStatus) -> list[str]:
         """Generate patient-friendly deductible insights"""
         insights = []
 
@@ -433,9 +408,8 @@ class DeductibleTracker:
                 f"your annual deductible (${status.remaining_amount:.2f} remaining)"
             )
 
-        if (
-            status.projected_meet_date
-            and status.projected_meet_date < datetime.now().replace(month=12)
+        if status.projected_meet_date and status.projected_meet_date < datetime.now().replace(
+            month=12
         ):
             insights.append(
                 f"Based on your spending patterns, you're likely to meet "
@@ -465,7 +439,7 @@ class VisitCostPredictor:
         self,
         patient_id: str,
         provider_id: str,
-        scheduled_cpt_codes: List[str],
+        scheduled_cpt_codes: list[str],
         visit_date: datetime,
     ) -> CostEstimate:
         """Predict exact cost before patient visit"""
@@ -493,7 +467,7 @@ class VisitCostPredictor:
 
         return total_estimate
 
-    def _load_negotiated_rates(self) -> Dict[str, Decimal]:
+    def _load_negotiated_rates(self) -> dict[str, Decimal]:
         """Load negotiated rates by provider (mock implementation)"""
         return {
             "99213": Decimal("150.00"),
@@ -502,9 +476,7 @@ class VisitCostPredictor:
             "85025": Decimal("35.00"),
         }
 
-    async def _get_patient_coverage(
-        self, patient_id: str, visit_date: datetime
-    ) -> PatientCoverage:
+    async def _get_patient_coverage(self, patient_id: str, visit_date: datetime) -> PatientCoverage:
         """Get patient coverage details (mock implementation)"""
         return PatientCoverage(
             patient_id=patient_id,
@@ -528,18 +500,14 @@ class VisitCostPredictor:
             coinsurance_rate=Decimal("0.20"),
         )
 
-    def _get_negotiated_rates(
-        self, provider_id: str, cpt_codes: List[str]
-    ) -> Dict[str, Decimal]:
+    def _get_negotiated_rates(self, provider_id: str, cpt_codes: list[str]) -> dict[str, Decimal]:
         """Get negotiated rates for provider"""
         return {
             cpt_code: self.negotiated_rates.get(cpt_code, Decimal("100.00"))
             for cpt_code in cpt_codes
         }
 
-    def _combine_estimates(
-        self, total: CostEstimate, individual: CostEstimate
-    ) -> CostEstimate:
+    def _combine_estimates(self, total: CostEstimate, individual: CostEstimate) -> CostEstimate:
         """Combine individual CPT estimates into total"""
         total.total_billed += individual.total_billed
         total.patient_responsibility += individual.patient_responsibility

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 # Healthcare scripts require database connectivity - no fallbacks
 try:
     import psycopg2
+
     PSYCOPG2_AVAILABLE = True
 except ImportError as e:
     print("❌ Database connection required for healthcare data generation")
@@ -33,6 +34,7 @@ except ImportError as e:
 
 try:
     import redis
+
     redis_module = redis
     REDIS_AVAILABLE = True
 except ImportError as e:
@@ -46,29 +48,30 @@ except ImportError as e:
 # Initialize Faker with healthcare-specific providers
 fake = Faker()
 
+
 # Synthetic data generation constants for maintainability
 class SyntheticDataConstants:
     """Constants for synthetic healthcare data generation"""
-    
+
     # SSN Constants
     SYNTHETIC_SSN_PREFIX = "555"
     SSN_GROUP_MIN = 10
     SSN_GROUP_MAX = 99
     SSN_SERIAL_MIN = 1000
     SSN_SERIAL_MAX = 9999
-    
+
     # Phone Number Constants
     SYNTHETIC_PHONE_AREA_CODES = ["555", "123", "456"]
     PHONE_PREFIX_MIN = 100
     PHONE_PREFIX_MAX = 999
     PHONE_LINE_MIN = 1000
     PHONE_LINE_MAX = 9999
-    
+
     # Medical Record Number Constants
     MRN_PREFIXES = ["MRN", "HSP", "MED", "PAT"]
     MRN_NUMBER_MIN = 100000
     MRN_NUMBER_MAX = 999999
-    
+
     # Email Constants
     SYNTHETIC_EMAIL_DOMAIN = "synthetic-health.test"
     EMAIL_NUMBER_MIN = 1
@@ -233,7 +236,9 @@ class SyntheticHealthcareDataGenerator:
         except Exception as e:
             print(f"❌ PostgreSQL connection failed: {e}")
             print("   To fix: Run 'make setup' to initialize database or verify DATABASE_URL")
-            print("   Database-first architecture: Healthcare scripts require database connectivity")
+            print(
+                "   Database-first architecture: Healthcare scripts require database connectivity"
+            )
             raise ConnectionError(
                 f"Healthcare data generation requires PostgreSQL database connectivity. Error: {e}. "
                 "Run 'make setup' to initialize database."
@@ -258,7 +263,7 @@ class SyntheticHealthcareDataGenerator:
     def generate_patient(self) -> dict[str, Any]:
         """
         Generate synthetic patient data with PHI-like realistic patterns
-        
+
         Creates realistic synthetic data that properly tests PHI detection systems:
         - Realistic SSN patterns (555-xx-xxxx for synthetic safety)
         - Phone numbers with realistic area codes
@@ -268,28 +273,47 @@ class SyntheticHealthcareDataGenerator:
         """
         first_name = fake.first_name()
         last_name = fake.last_name()
-        
+
         # Enhanced PHI-like patterns for proper detection testing
-        synthetic_ssn = f"{SyntheticDataConstants.SYNTHETIC_SSN_PREFIX}-{random.randint(SyntheticDataConstants.SSN_GROUP_MIN, SyntheticDataConstants.SSN_GROUP_MAX)}-{random.randint(SyntheticDataConstants.SSN_SERIAL_MIN, SyntheticDataConstants.SSN_SERIAL_MAX)}"  # 555 area = clearly synthetic
-        realistic_phone = f"({random.choice(SyntheticDataConstants.SYNTHETIC_PHONE_AREA_CODES)}) {random.randint(SyntheticDataConstants.PHONE_PREFIX_MIN, SyntheticDataConstants.PHONE_PREFIX_MAX)}-{random.randint(SyntheticDataConstants.PHONE_LINE_MIN, SyntheticDataConstants.PHONE_LINE_MAX)}"
-        synthetic_email = f"{first_name.lower()}.{last_name.lower()}{random.randint(SyntheticDataConstants.EMAIL_NUMBER_MIN, SyntheticDataConstants.EMAIL_NUMBER_MAX)}@{SyntheticDataConstants.SYNTHETIC_EMAIL_DOMAIN}"
-        
-        # Realistic medical record number pattern 
+        # Break down SSN generation for readability
+        ssn_group = random.randint(
+            SyntheticDataConstants.SSN_GROUP_MIN, SyntheticDataConstants.SSN_GROUP_MAX
+        )
+        ssn_serial = random.randint(
+            SyntheticDataConstants.SSN_SERIAL_MIN, SyntheticDataConstants.SSN_SERIAL_MAX
+        )
+        synthetic_ssn = f"{SyntheticDataConstants.SYNTHETIC_SSN_PREFIX}-{ssn_group}-{ssn_serial}"  # 555 area = clearly synthetic
+
+        # Break down phone generation for readability
+        phone_area = random.choice(SyntheticDataConstants.SYNTHETIC_PHONE_AREA_CODES)
+        phone_prefix = random.randint(
+            SyntheticDataConstants.PHONE_PREFIX_MIN, SyntheticDataConstants.PHONE_PREFIX_MAX
+        )
+        phone_line = random.randint(
+            SyntheticDataConstants.PHONE_LINE_MIN, SyntheticDataConstants.PHONE_LINE_MAX
+        )
+        realistic_phone = f"({phone_area}) {phone_prefix}-{phone_line}"
+
+        # Break down email generation for readability
+        email_number = random.randint(
+            SyntheticDataConstants.EMAIL_NUMBER_MIN, SyntheticDataConstants.EMAIL_NUMBER_MAX
+        )
+        synthetic_email = f"{first_name.lower()}.{last_name.lower()}{email_number}@{SyntheticDataConstants.SYNTHETIC_EMAIL_DOMAIN}"
+
+        # Realistic medical record number pattern
         mrn_prefix = random.choice(SyntheticDataConstants.MRN_PREFIXES)
         medical_record_number = f"{mrn_prefix}{random.randint(SyntheticDataConstants.MRN_NUMBER_MIN, SyntheticDataConstants.MRN_NUMBER_MAX)}"
-        
+
         return {
             "id": str(uuid.uuid4()),
             "patient_id": f"pt_{uuid.uuid4().hex[:8]}",
             "first_name": first_name,
             "last_name": last_name,
-            
             # PHI-like patterns that should trigger detection systems
             "ssn": synthetic_ssn,
-            "phone_number": realistic_phone, 
+            "phone_number": realistic_phone,
             "email_address": synthetic_email,
             "medical_record_number": medical_record_number,
-            
             "dob": random_date(datetime(1940, 1, 1), datetime(2020, 1, 1)).strftime("%Y-%m-%d"),
             "age": random.randint(18, 95),
             "gender": random.choice(["M", "F", "Other"]),
@@ -303,12 +327,16 @@ class SyntheticHealthcareDataGenerator:
             "emergency_contact": fake.name(),
             "emergency_phone": fake.phone_number(),
             "created_at": fake.date_time_between(start_date="-2y", end_date="now").isoformat(),
-            
             # MANDATORY: Clear synthetic markers for compliance
             "synthetic_data": True,
             "data_source": "synthetic_healthcare_generator",
-            "phi_testing_patterns": ["ssn", "phone_number", "email_address", "medical_record_number"],
-            "compliance_note": "Synthetic data for PHI detection testing - not real patient information"
+            "phi_testing_patterns": [
+                "ssn",
+                "phone_number",
+                "email_address",
+                "medical_record_number",
+            ],
+            "compliance_note": "Synthetic data for PHI detection testing - not real patient information",
         }
 
     def generate_doctor(self) -> dict[str, Any]:

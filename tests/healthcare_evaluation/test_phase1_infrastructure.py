@@ -15,8 +15,8 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 # Import database-backed test utilities
-from tests.database_test_utils import get_test_medical_scenario  # noqa: E402
 from core.dependencies import DatabaseConnectionError  # noqa: E402
+from tests.database_test_utils import get_test_medical_scenario  # noqa: E402
 
 # Import Phase 1 modules with dynamic loading
 PHASE1_AVAILABLE = False
@@ -526,7 +526,9 @@ async def test_phase1_agent() -> None:
 
     except Exception as e:
         print(f"❌ Database connection required for healthcare testing: {e}")
-        print("   To fix: Run 'make setup' to initialize database or verify DATABASE_URL environment variable.")
+        print(
+            "   To fix: Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+        )
         print("   Database-first architecture: No synthetic file fallbacks allowed.")
         raise DatabaseConnectionError(
             "Healthcare testing requires database connectivity. "

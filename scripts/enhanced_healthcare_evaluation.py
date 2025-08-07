@@ -29,7 +29,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from deepeval.metrics.answer_relevancy.answer_relevancy import AnswerRelevancyMetric
@@ -42,6 +42,7 @@ else:
         from deepeval.metrics.contextual_recall.contextual_recall import ContextualRecallMetric
         from deepeval.metrics.faithfulness.faithfulness import FaithfulnessMetric
         from deepeval.test_case.llm_test_case import LLMTestCase
+
         DEEPEVAL_AVAILABLE = True
     except ImportError:
         DEEPEVAL_AVAILABLE = False

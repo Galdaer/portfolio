@@ -5,8 +5,8 @@ Provides MCP clients, LLM clients, and other healthcare services
 
 import logging
 import os
-from typing import Any
 from contextlib import asynccontextmanager
+from typing import Any
 
 import asyncpg
 from fastapi import Depends
@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class DatabaseConnectionError(Exception):
     """Raised when database connection is unavailable for healthcare operations"""
+
     pass
 
 
@@ -107,11 +108,11 @@ class HealthcareServices:
                 max_size=10,
                 command_timeout=30,
             )
-            
+
             # Test connection to ensure database is available
             async with self._db_pool.acquire() as connection:
                 await connection.execute("SELECT 1")
-            
+
             logger.info("Database pool initialized and validated")
 
         except Exception as e:
@@ -227,8 +228,6 @@ async def get_db_pool() -> Any:
     return healthcare_services.db_pool
 
 
-from contextlib import asynccontextmanager
-
 async def get_database_connection() -> Any:
     """Get database connection - required for healthcare operations"""
     if healthcare_services.db_pool is None:
@@ -236,7 +235,7 @@ async def get_database_connection() -> Any:
             "Healthcare database unavailable. Please check connection. "
             "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
         )
-    
+
     # Return a connection from the pool
     return await healthcare_services.db_pool.acquire()
 
@@ -249,7 +248,7 @@ async def get_database_connection_context():
             "Healthcare database unavailable. Please check connection. "
             "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
         )
-    
+
     conn = await healthcare_services.db_pool.acquire()
     try:
         yield conn
