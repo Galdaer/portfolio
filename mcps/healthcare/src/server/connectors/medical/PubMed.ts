@@ -36,11 +36,15 @@ interface PubMedSummaryResponse {
 
 export class PubMed {
     private readonly baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+    private readonly localMirrorUrl = 'http://172.20.0.20:8080/pubmed';
     private readonly apiKey?: string;
+    private useLocalMirror: boolean = true;
 
     constructor(apiKey?: string) {
         // Only set apiKey if it's a real key
         this.apiKey = apiKey && apiKey !== 'optional_for_higher_rate_limits' ? apiKey : undefined;
+        // Check environment for local mirror preference
+        this.useLocalMirror = process.env.USE_LOCAL_MEDICAL_MIRRORS !== 'false';
     }
 
     async getArticles(args: any, cache: CacheManager) {
@@ -88,6 +92,48 @@ export class PubMed {
                 throw new Error('PubMed search failed: Query string is empty or invalid.');
             }
 
+            // Try local mirror first
+            if (this.useLocalMirror) {
+                try {
+                    console.log('Attempting to use local PubMed mirror');
+                    return await this.searchLocalMirror(query, maxResults);
+                } catch (localError) {
+                    console.warn('Local PubMed mirror failed, falling back to external API:', localError);
+                    // Fall through to external API
+                }
+            }
+
+            console.log('Using external PubMed API');
+            return await this.searchExternalAPI(query, maxResults);
+        } catch (error) {
+            console.error('PubMed search failed:', error);
+            throw error;
+        }
+    }
+
+    private async searchLocalMirror(query: string, maxResults: number): Promise<PubMedArticle[]> {
+        const response = await fetch(`${this.localMirrorUrl}/search?query=${encodeURIComponent(query)}&max_results=${maxResults}`);
+
+        if (!response.ok) {
+            throw new Error(`Local mirror responded with ${response.status}`);
+        }
+
+        const data = await response.json();
+        const articles = JSON.parse(data.content[0].text);
+
+        return articles.map((article: any) => ({
+            title: article.title || '',
+            authors: article.authors || [],
+            journal: article.journal || '',
+            pubDate: article.pubDate || '',
+            doi: article.doi || '',
+            abstract: article.abstract || '',
+            pmid: article.pmid || ''
+        }));
+    }
+
+    private async searchExternalAPI(query: string, maxResults: number): Promise<PubMedArticle[]> {
+        try {
             // Step 1: Search for article IDs
             const searchUrl = new URL(`${this.baseUrl}/esearch.fcgi`);
             searchUrl.searchParams.append('db', 'pubmed');
