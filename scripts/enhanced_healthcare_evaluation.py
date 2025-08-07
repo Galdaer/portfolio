@@ -31,6 +31,13 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
+# Initialize DeepEval availability flags
+DEEPEVAL_AVAILABLE = False
+LLMTestCase = None
+AnswerRelevancyMetric = None
+ContextualRecallMetric = None
+FaithfulnessMetric = None
+
 if TYPE_CHECKING:
     from deepeval.metrics.answer_relevancy.answer_relevancy import AnswerRelevancyMetric
     from deepeval.metrics.contextual_recall.contextual_recall import ContextualRecallMetric
@@ -45,11 +52,7 @@ else:
 
         DEEPEVAL_AVAILABLE = True
     except ImportError:
-        DEEPEVAL_AVAILABLE = False
-        LLMTestCase = None
-        AnswerRelevancyMetric = None
-        ContextualRecallMetric = None
-        FaithfulnessMetric = None
+        pass  # Variables already initialized above
 
 logger = logging.getLogger(__name__)
 

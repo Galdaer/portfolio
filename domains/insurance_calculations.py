@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from typing import Any
 
 from core.financial.healthcare_financial_utils import HealthcareFinancialUtils
 
@@ -320,7 +321,7 @@ class DeductibleTracker:
     """Advanced deductible tracking and prediction"""
 
     def __init__(self) -> None:
-        self.spending_patterns = {}  # Would connect to actual spending history
+        self.spending_patterns: dict[str, Any] = {}  # Would connect to actual spending history
 
     def _safe_division(
         self, numerator: Decimal, denominator: Decimal, default: Decimal = Decimal("0")

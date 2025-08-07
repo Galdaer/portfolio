@@ -14,7 +14,7 @@ class ModelRegistry:
 
     def __init__(self) -> None:
         self._initialized = False
-        self._models = {}
+        self._models: dict[str, Any] = {}
 
     async def initialize(self) -> None:
         """Initialize model registry"""
