@@ -3,11 +3,8 @@ PubMed XML parser
 Parses PubMed XML files and extracts article information
 """
 
-import xml.etree.ElementTree as ET
 import logging
-from typing import List, Dict, Optional
-from datetime import datetime
-import re
+import xml.etree.ElementTree as ET
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +15,7 @@ class PubMedParser:
     def __init__(self):
         pass
 
-    def parse_xml_file(self, xml_file_path: str) -> List[Dict]:
+    def parse_xml_file(self, xml_file_path: str) -> list[dict]:
         """Parse a PubMed XML file and extract articles"""
         logger.info(f"Parsing PubMed XML file: {xml_file_path}")
         articles = []
@@ -40,7 +37,7 @@ class PubMedParser:
             logger.error(f"Failed to parse {xml_file_path}: {e}")
             return []
 
-    def parse_article(self, article_elem) -> Optional[Dict]:
+    def parse_article(self, article_elem) -> dict | None:
         """Parse a single PubmedArticle element"""
         try:
             # Get PMID
@@ -168,7 +165,7 @@ class PubMedParser:
             logger.error(f"Failed to extract DOI: {e}")
             return ""
 
-    def extract_mesh_terms(self, article_elem) -> List[str]:
+    def extract_mesh_terms(self, article_elem) -> list[str]:
         """Extract MeSH terms from article"""
         try:
             mesh_terms = []

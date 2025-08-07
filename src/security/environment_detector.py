@@ -48,12 +48,12 @@ class EnvironmentDetector:
             environment = Environment(env_var)
             logger.info(f"Environment detected: {environment.value}")
             return environment
-        except ValueError:
+        except ValueError as e:
             logger.error(f"Invalid ENVIRONMENT value: '{env_var}'")
             raise RuntimeError(
                 f"Invalid ENVIRONMENT value: '{env_var}'. "
                 f"Valid values: {', '.join([e.value for e in Environment])}"
-            )
+            ) from e
 
     @staticmethod
     def is_production() -> bool:

@@ -5,10 +5,11 @@ Manages local LLM models through Ollama integration with healthcare-specific
 model configurations and fine-tuning support.
 """
 
-import asyncio
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Any
+
 import httpx
+
 from config.app import config
 
 logger = logging.getLogger(__name__)
@@ -23,26 +24,23 @@ class ModelRegistry:
     """
 
     def __init__(self) -> None:
-        self.ollama_client: Optional[httpx.AsyncClient] = None
-        self._available_models: List[Dict[str, Any]] = []
-        self._performance_metrics: Dict[str, Dict[str, Any]] = {}
+        self.ollama_client: httpx.AsyncClient | None = None
+        self._available_models: list[dict[str, Any]] = []
+        self._performance_metrics: dict[str, dict[str, Any]] = {}
         self._initialized = False
 
-    def log_performance(self, model_name: str, metrics: Dict[str, Any]) -> None:
+    def log_performance(self, model_name: str, metrics: dict[str, Any]) -> None:
         """Log performance metrics for a model or adapter"""
         self._performance_metrics[model_name] = metrics
 
-    def get_performance_metrics(self, model_name: str) -> Optional[Dict[str, Any]]:
+    def get_performance_metrics(self, model_name: str) -> dict[str, Any] | None:
         """Get performance metrics for a model or adapter"""
         return self._performance_metrics.get(model_name)
 
     async def initialize(self) -> None:
         """Initialize Ollama client and discover available models"""
         try:
-            self.ollama_client = httpx.AsyncClient(
-                base_url=config.ollama_url,
-                timeout=30.0
-            )
+            self.ollama_client = httpx.AsyncClient(base_url=config.ollama_url, timeout=30.0)
 
             # Test connection and discover models
             await self._discover_models()
@@ -62,7 +60,7 @@ class ModelRegistry:
         self._initialized = False
         logger.info("Model registry closed")
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """Check health of model serving"""
         if not self._initialized or self.ollama_client is None:
             return {"status": "not_initialized"}
@@ -77,13 +75,13 @@ class ModelRegistry:
                     "status": "healthy",
                     "ollama_connected": True,
                     "available_models": len(models),
-                    "models": [model.get("name") for model in models]
+                    "models": [model.get("name") for model in models],
                 }
             else:
                 return {
                     "status": "unhealthy",
                     "ollama_connected": False,
-                    "error": f"HTTP {response.status_code}"
+                    "error": f"HTTP {response.status_code}",
                 }
 
         except Exception as e:
@@ -109,7 +107,7 @@ class ModelRegistry:
             logger.warning(f"Failed to discover models: {e}")
             self._available_models = []
 
-    async def get_available_models(self) -> List[Dict[str, Any]]:
+    async def get_available_models(self) -> list[dict[str, Any]]:
         """Get list of available models"""
         if not self._initialized:
             raise RuntimeError("Model registry not initialized")
@@ -122,12 +120,7 @@ class ModelRegistry:
             raise RuntimeError("Model registry not initialized")
 
         try:
-            payload = {
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                **kwargs
-            }
+            payload = {"model": model, "prompt": prompt, "stream": False, **kwargs}
 
             response = await self.ollama_client.post("/api/generate", json=payload)
             response.raise_for_status()
@@ -139,18 +132,15 @@ class ModelRegistry:
             logger.error(f"Failed to generate completion: {e}")
             raise
 
-    async def chat_completion(self, model: str, messages: List[Dict[str, str]], **kwargs: Any) -> str:
+    async def chat_completion(
+        self, model: str, messages: list[dict[str, str]], **kwargs: Any
+    ) -> str:
         """Generate chat completion using specified model"""
         if not self._initialized or self.ollama_client is None:
             raise RuntimeError("Model registry not initialized")
 
         try:
-            payload = {
-                "model": model,
-                "messages": messages,
-                "stream": False,
-                **kwargs
-            }
+            payload = {"model": model, "messages": messages, "stream": False, **kwargs}
 
             response = await self.ollama_client.post("/api/chat", json=payload)
             response.raise_for_status()

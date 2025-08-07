@@ -8,6 +8,7 @@ import hashlib
 import io
 import os
 import wave
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -200,7 +201,7 @@ class WhisperLiveSecurityBridge:
     @asynccontextmanager
     async def _secure_audio_context(
         self, audio_data: BinaryIO, security_metadata: AudioSecurityMetadata
-    ):
+    ) -> AsyncGenerator[str, None]:
         """Secure context manager for memory-only audio processing"""
 
         # Create in-memory buffer for processing

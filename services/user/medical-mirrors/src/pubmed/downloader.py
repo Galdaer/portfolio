@@ -3,14 +3,11 @@ PubMed data downloader
 Downloads XML dumps from NCBI FTP and processes them
 """
 
-import os
 import ftplib
 import gzip
 import logging
-from typing import List, Optional
-from datetime import datetime
-import asyncio
-import aiofiles
+import os
+
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -26,7 +23,7 @@ class PubMedDownloader:
         self.update_path = "/pubmed/updatefiles/"
         self.data_dir = self.config.get_pubmed_data_dir()
 
-    async def download_baseline(self) -> List[str]:
+    async def download_baseline(self) -> list[str]:
         """Download PubMed baseline files"""
         logger.info("Starting PubMed baseline download")
 
@@ -62,7 +59,7 @@ class PubMedDownloader:
             logger.error(f"PubMed baseline download failed: {e}")
             raise
 
-    async def download_updates(self) -> List[str]:
+    async def download_updates(self) -> list[str]:
         """Download PubMed update files"""
         logger.info("Starting PubMed updates download")
 
@@ -119,7 +116,7 @@ class PubMedDownloader:
             logger.error(f"Failed to extract {gz_file_path}: {e}")
             raise
 
-    async def get_available_files(self) -> List[str]:
+    async def get_available_files(self) -> list[str]:
         """Get list of downloaded XML files ready for parsing"""
         xml_files = []
 

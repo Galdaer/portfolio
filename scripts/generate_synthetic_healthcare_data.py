@@ -776,22 +776,22 @@ class SyntheticHealthcareDataGenerator:
         """Populate PostgreSQL with all healthcare data using SQLAlchemy models"""
         try:
             # Import healthcare models
-            import sys
             import os
+            import sys
 
             sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
             from core.models.healthcare import (
-                init_healthcare_database,
-                get_healthcare_session,
-                Doctor,
-                Patient,
-                Encounter,
-                LabResult,
-                InsuranceVerification,
-                BillingClaim,
-                DoctorPreferences,
-                AuditLog,
                 AgentSession,
+                AuditLog,
+                BillingClaim,
+                Doctor,
+                DoctorPreferences,
+                Encounter,
+                InsuranceVerification,
+                LabResult,
+                Patient,
+                get_healthcare_session,
+                init_healthcare_database,
             )
 
             # Initialize database tables
@@ -808,124 +808,145 @@ class SyntheticHealthcareDataGenerator:
                 # Populate doctors
                 for doctor_data in self.doctors:
                     # Remove fields that don't belong in the Doctor model
-                    doctor_dict = {k: v for k, v in doctor_data.items() 
-                                 if k not in ['id', 'preferences']}
+                    doctor_dict = {
+                        k: v for k, v in doctor_data.items() if k not in ["id", "preferences"]
+                    }
                     doctor = Doctor(**doctor_dict)
                     session.add(doctor)
                 session.commit()
                 print(f"✅ Populated {len(self.doctors)} doctors")
-                
-                # Populate patients  
+
+                # Populate patients
                 for patient_data in self.patients:
                     # Map fields and remove conflicts for Patient model
                     patient_dict = {}
                     for k, v in patient_data.items():
-                        if k == 'phone_number':
-                            patient_dict['phone'] = v  # Map phone_number to phone
-                        elif k == 'email_address':
-                            patient_dict['email'] = v  # Map email_address to email
-                        elif k == 'dob':
-                            patient_dict['date_of_birth'] = v  # Map dob to date_of_birth
-                        elif k == 'address':
-                            patient_dict['address_line1'] = v  # Map address to address_line1
-                        elif k == 'emergency_contact':
-                            patient_dict['emergency_contact_name'] = v
-                        elif k == 'emergency_phone':
-                            patient_dict['emergency_contact_phone'] = v
-                        elif k == 'member_id':
-                            patient_dict['insurance_member_id'] = v
-                        elif k not in ['id', 'age', 'gender', 'primary_condition', 'allergies', 
-                                     'synthetic_data', 'data_source', 'phi_testing_patterns']:
+                        if k == "phone_number":
+                            patient_dict["phone"] = v  # Map phone_number to phone
+                        elif k == "email_address":
+                            patient_dict["email"] = v  # Map email_address to email
+                        elif k == "dob":
+                            patient_dict["date_of_birth"] = v  # Map dob to date_of_birth
+                        elif k == "address":
+                            patient_dict["address_line1"] = v  # Map address to address_line1
+                        elif k == "emergency_contact":
+                            patient_dict["emergency_contact_name"] = v
+                        elif k == "emergency_phone":
+                            patient_dict["emergency_contact_phone"] = v
+                        elif k == "member_id":
+                            patient_dict["insurance_member_id"] = v
+                        elif k not in [
+                            "id",
+                            "age",
+                            "gender",
+                            "primary_condition",
+                            "allergies",
+                            "synthetic_data",
+                            "data_source",
+                            "phi_testing_patterns",
+                        ]:
                             # Only include fields that exist in the Patient model
-                            if k in ['patient_id', 'first_name', 'last_name', 'ssn', 'phone', 'email',
-                                   'address_line1', 'address_line2', 'city', 'state', 'zip_code',
-                                   'emergency_contact_name', 'emergency_contact_phone', 'insurance_provider',
-                                   'insurance_member_id', 'insurance_group_number', 'medical_record_number',
-                                   'date_of_birth', 'created_at']:
+                            if k in [
+                                "patient_id",
+                                "first_name",
+                                "last_name",
+                                "ssn",
+                                "phone",
+                                "email",
+                                "address_line1",
+                                "address_line2",
+                                "city",
+                                "state",
+                                "zip_code",
+                                "emergency_contact_name",
+                                "emergency_contact_phone",
+                                "insurance_provider",
+                                "insurance_member_id",
+                                "insurance_group_number",
+                                "medical_record_number",
+                                "date_of_birth",
+                                "created_at",
+                            ]:
                                 patient_dict[k] = v
-                    
+
                     patient = Patient(**patient_dict)
                     session.add(patient)
                 session.commit()
                 print(f"✅ Populated {len(self.patients)} patients")
-                
+
                 # Populate encounters
                 for encounter_data in self.encounters:
                     # Convert nested vital_signs to JSON string and remove id field
-                    encounter_dict = {k: v for k, v in encounter_data.items() 
-                                    if k not in ['id']}
-                    
+                    encounter_dict = {k: v for k, v in encounter_data.items() if k not in ["id"]}
+
                     # Handle vital_signs nested object
-                    if 'vital_signs' in encounter_dict:
+                    if "vital_signs" in encounter_dict:
                         import json
-                        encounter_dict['vital_signs_json'] = json.dumps(encounter_dict['vital_signs'])
-                        del encounter_dict['vital_signs']
-                    
+
+                        encounter_dict["vital_signs_json"] = json.dumps(
+                            encounter_dict["vital_signs"]
+                        )
+                        del encounter_dict["vital_signs"]
+
                     encounter = Encounter(**encounter_dict)
                     session.add(encounter)
                 session.commit()
                 print(f"✅ Populated {len(self.encounters)} encounters")
-                
+
                 # Populate lab results
                 for lab_data in self.lab_results:
                     # Remove fields that don't belong in the LabResult model
-                    lab_dict = {k: v for k, v in lab_data.items() 
-                              if k not in ['id']}
+                    lab_dict = {k: v for k, v in lab_data.items() if k not in ["id"]}
                     lab_result = LabResult(**lab_dict)
                     session.add(lab_result)
                 session.commit()
                 print(f"✅ Populated {len(self.lab_results)} lab results")
-                
+
                 # Populate insurance verifications
                 for insurance_data in self.insurance_verifications:
                     # Remove fields that don't belong in the InsuranceVerification model
-                    insurance_dict = {k: v for k, v in insurance_data.items() 
-                                    if k not in ['id']}
+                    insurance_dict = {k: v for k, v in insurance_data.items() if k not in ["id"]}
                     insurance = InsuranceVerification(**insurance_dict)
                     session.add(insurance)
                 session.commit()
                 print(f"✅ Populated {len(self.insurance_verifications)} insurance verifications")
-                
+
                 # Populate billing claims
                 for claim_data in self.billing_claims:
                     # Remove fields that don't belong in the BillingClaim model
-                    claim_dict = {k: v for k, v in claim_data.items() 
-                                if k not in ['id']}
+                    claim_dict = {k: v for k, v in claim_data.items() if k not in ["id"]}
                     claim = BillingClaim(**claim_dict)
                     session.add(claim)
                 session.commit()
                 print(f"✅ Populated {len(self.billing_claims)} billing claims")
-                
+
                 # Populate doctor preferences (from doctor preferences list, not nested data)
                 for pref_data in self.doctor_preferences:
                     # Remove fields that don't belong in the DoctorPreferences model
-                    pref_dict = {k: v for k, v in pref_data.items() 
-                               if k not in ['id']}
+                    pref_dict = {k: v for k, v in pref_data.items() if k not in ["id"]}
                     prefs = DoctorPreferences(**pref_dict)
                     session.add(prefs)
                 session.commit()
                 print(f"✅ Populated {len(self.doctor_preferences)} doctor preferences")
-                
+
                 # Populate audit logs
                 for audit_data in self.audit_logs:
                     # Remove fields that don't belong in the AuditLog model
-                    audit_dict = {k: v for k, v in audit_data.items() 
-                                if k not in ['id']}
+                    audit_dict = {k: v for k, v in audit_data.items() if k not in ["id"]}
                     audit = AuditLog(**audit_dict)
                     session.add(audit)
                 session.commit()
                 print(f"✅ Populated {len(self.audit_logs)} audit logs")
-                
+
                 # Populate agent sessions
                 for session_data in self.agent_sessions:
                     # Remove fields that don't belong in the AgentSession model
-                    session_dict = {k: v for k, v in session_data.items() 
-                                  if k not in ['id']}
+                    session_dict = {k: v for k, v in session_data.items() if k not in ["id"]}
                     agent_session = AgentSession(**session_dict)
                     session.add(agent_session)
                 session.commit()
                 print(f"✅ Populated {len(self.agent_sessions)} agent sessions")
-                
+
                 print("🎉 PostgreSQL population completed successfully!")
 
             except Exception as e:

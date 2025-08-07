@@ -4,9 +4,8 @@ Parses FDA database files and extracts drug information
 """
 
 import json
-import csv
 import logging
-from typing import List, Dict, Optional
+
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -18,13 +17,13 @@ class FDAParser:
     def __init__(self):
         pass
 
-    def parse_ndc_file(self, json_file_path: str) -> List[Dict]:
+    def parse_ndc_file(self, json_file_path: str) -> list[dict]:
         """Parse FDA NDC Directory JSON file"""
         logger.info(f"Parsing FDA NDC file: {json_file_path}")
         drugs = []
 
         try:
-            with open(json_file_path, "r") as f:
+            with open(json_file_path) as f:
                 for line in f:
                     try:
                         data = json.loads(line)
@@ -41,7 +40,7 @@ class FDAParser:
             logger.error(f"Failed to parse NDC file {json_file_path}: {e}")
             return []
 
-    def parse_ndc_record(self, ndc_data: Dict) -> Optional[Dict]:
+    def parse_ndc_record(self, ndc_data: dict) -> dict | None:
         """Parse a single NDC record"""
         try:
             # Extract NDC code
@@ -86,13 +85,13 @@ class FDAParser:
             logger.error(f"Failed to parse NDC record: {e}")
             return None
 
-    def parse_drugs_fda_file(self, json_file_path: str) -> List[Dict]:
+    def parse_drugs_fda_file(self, json_file_path: str) -> list[dict]:
         """Parse Drugs@FDA JSON file"""
         logger.info(f"Parsing Drugs@FDA file: {json_file_path}")
         drugs = []
 
         try:
-            with open(json_file_path, "r") as f:
+            with open(json_file_path) as f:
                 for line in f:
                     try:
                         data = json.loads(line)
@@ -109,7 +108,7 @@ class FDAParser:
             logger.error(f"Failed to parse Drugs@FDA file {json_file_path}: {e}")
             return []
 
-    def parse_drugs_fda_record(self, drugs_fda_data: Dict) -> Optional[Dict]:
+    def parse_drugs_fda_record(self, drugs_fda_data: dict) -> dict | None:
         """Parse a single Drugs@FDA record"""
         try:
             # Extract application number (use as identifier)
@@ -163,7 +162,7 @@ class FDAParser:
             logger.error(f"Failed to parse Drugs@FDA record: {e}")
             return None
 
-    def parse_orange_book_file(self, file_path: str) -> List[Dict]:
+    def parse_orange_book_file(self, file_path: str) -> list[dict]:
         """Parse Orange Book file (typically CSV or text format)"""
         logger.info(f"Parsing Orange Book file: {file_path}")
         drugs = []
@@ -191,7 +190,7 @@ class FDAParser:
             logger.error(f"Failed to parse Orange Book file {file_path}: {e}")
             return []
 
-    def parse_orange_book_record(self, orange_book_data: Dict) -> Optional[Dict]:
+    def parse_orange_book_record(self, orange_book_data: dict) -> dict | None:
         """Parse a single Orange Book record"""
         try:
             # Orange Book typically has fields like:
@@ -231,13 +230,13 @@ class FDAParser:
             logger.error(f"Failed to parse Orange Book record: {e}")
             return None
 
-    def parse_drug_labels_file(self, json_file_path: str) -> List[Dict]:
+    def parse_drug_labels_file(self, json_file_path: str) -> list[dict]:
         """Parse FDA drug labels JSON file"""
         logger.info(f"Parsing drug labels file: {json_file_path}")
         drugs = []
 
         try:
-            with open(json_file_path, "r") as f:
+            with open(json_file_path) as f:
                 for line in f:
                     try:
                         data = json.loads(line)
@@ -254,7 +253,7 @@ class FDAParser:
             logger.error(f"Failed to parse drug labels file {json_file_path}: {e}")
             return []
 
-    def parse_drug_label_record(self, label_data: Dict) -> Optional[Dict]:
+    def parse_drug_label_record(self, label_data: dict) -> dict | None:
         """Parse a single drug label record"""
         try:
             # Extract OpenFDA information

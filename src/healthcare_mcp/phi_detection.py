@@ -386,7 +386,7 @@ class BasicPHIDetector:
             return False
 
         # Check against synthetic patterns for individual matches
-        for pattern_name, pattern in self.synthetic_patterns.items():
+        for _pattern_name, pattern in self.synthetic_patterns.items():
             if re.fullmatch(pattern, text, re.IGNORECASE):
                 return True
 

@@ -3,13 +3,13 @@ ClinicalTrials.gov data downloader
 Downloads study data from ClinicalTrials.gov API
 """
 
-import os
+import asyncio
 import json
 import logging
-from typing import List, Dict, Optional
+import os
+
 import httpx
-import asyncio
-from datetime import datetime
+
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ class ClinicalTrialsDownloader:
         self.data_dir = self.config.get_trials_data_dir()
         self.session = httpx.AsyncClient(timeout=30.0)
 
-    async def download_all_studies(self, batch_size: int = 1000) -> List[str]:
+    async def download_all_studies(self, batch_size: int = 1000) -> list[str]:
         """Download all studies from ClinicalTrials.gov"""
         logger.info("Starting ClinicalTrials.gov full download")
 
@@ -52,7 +52,7 @@ class ClinicalTrialsDownloader:
             logger.error(f"ClinicalTrials download failed: {e}")
             raise
 
-    async def download_studies_batch(self, start: int, batch_size: int) -> Optional[str]:
+    async def download_studies_batch(self, start: int, batch_size: int) -> str | None:
         """Download a batch of studies"""
         try:
             params = {
@@ -88,7 +88,7 @@ class ClinicalTrialsDownloader:
             logger.error(f"Failed to download studies batch {start}: {e}")
             return None
 
-    async def download_study_details(self, nct_id: str) -> Optional[Dict]:
+    async def download_study_details(self, nct_id: str) -> dict | None:
         """Download detailed information for a specific study"""
         try:
             url = f"{self.api_base}/{nct_id}"
@@ -103,7 +103,7 @@ class ClinicalTrialsDownloader:
             logger.error(f"Failed to download study {nct_id}: {e}")
             return None
 
-    async def download_recent_updates(self, days: int = 7) -> List[str]:
+    async def download_recent_updates(self, days: int = 7) -> list[str]:
         """Download recently updated studies"""
         logger.info(f"Downloading studies updated in last {days} days")
 
@@ -147,7 +147,7 @@ class ClinicalTrialsDownloader:
             logger.error(f"Failed to download recent updates: {e}")
             raise
 
-    async def get_available_files(self) -> List[str]:
+    async def get_available_files(self) -> list[str]:
         """Get list of downloaded JSON files ready for parsing"""
         json_files = []
 

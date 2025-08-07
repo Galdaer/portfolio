@@ -4,15 +4,13 @@ Provides search functionality matching Healthcare MCP interface
 """
 
 import logging
-from typing import List, Dict, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import text, func
-import json
 from datetime import datetime
 
 from database import FDADrug, UpdateLog
 from fda.downloader import FDADownloader
 from fda.parser import FDAParser
+from sqlalchemy import func, text
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +25,7 @@ class FDAAPI:
 
     async def search_drugs(
         self, generic_name: str = None, ndc: str = None, max_results: int = 10
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Search FDA drugs in local database
         Matches the interface of Healthcare MCP get-drug-info tool
@@ -65,7 +63,7 @@ class FDAAPI:
                     SELECT ndc, name, generic_name, brand_name, manufacturer, ingredients,
                            dosage_form, route, approval_date, orange_book_code, therapeutic_class,
                            ts_rank(search_vector, plainto_tsquery(:search_term)) as rank
-                    FROM fda_drugs 
+                    FROM fda_drugs
                     WHERE {where_clause}
                     ORDER BY rank DESC, approval_date DESC
                     LIMIT :limit
@@ -75,7 +73,7 @@ class FDAAPI:
                     SELECT ndc, name, generic_name, brand_name, manufacturer, ingredients,
                            dosage_form, route, approval_date, orange_book_code, therapeutic_class,
                            0 as rank
-                    FROM fda_drugs 
+                    FROM fda_drugs
                     WHERE {where_clause}
                     ORDER BY approval_date DESC
                     LIMIT :limit
@@ -109,7 +107,7 @@ class FDAAPI:
         finally:
             db.close()
 
-    async def get_drug(self, ndc: str) -> Optional[Dict]:
+    async def get_drug(self, ndc: str) -> dict | None:
         """Get specific drug by NDC"""
         db = self.session_factory()
         try:
@@ -134,7 +132,7 @@ class FDAAPI:
         finally:
             db.close()
 
-    async def get_status(self) -> Dict:
+    async def get_status(self) -> dict:
         """Get status of FDA mirror"""
         db = self.session_factory()
         try:
@@ -162,7 +160,7 @@ class FDAAPI:
         finally:
             db.close()
 
-    async def trigger_update(self) -> Dict:
+    async def trigger_update(self) -> dict:
         """Trigger FDA data update"""
         logger.info("Triggering FDA data update")
 
@@ -249,7 +247,7 @@ class FDAAPI:
             logger.error(f"Failed to process dataset {dataset_name}: {e}")
             return processed_count
 
-    async def store_drugs(self, drugs: List[Dict], db: Session) -> int:
+    async def store_drugs(self, drugs: list[dict], db: Session) -> int:
         """Store drugs in database"""
         stored_count = 0
 
@@ -290,9 +288,9 @@ class FDAAPI:
         """Update full-text search vectors"""
         try:
             update_query = text("""
-                UPDATE fda_drugs 
-                SET search_vector = to_tsvector('english', 
-                    COALESCE(name, '') || ' ' || 
+                UPDATE fda_drugs
+                SET search_vector = to_tsvector('english',
+                    COALESCE(name, '') || ' ' ||
                     COALESCE(generic_name, '') || ' ' ||
                     COALESCE(brand_name, '') || ' ' ||
                     COALESCE(manufacturer, '') || ' ' ||
@@ -310,7 +308,7 @@ class FDAAPI:
             logger.error(f"Failed to update search vectors: {e}")
             db.rollback()
 
-    async def initialize_data(self) -> Dict:
+    async def initialize_data(self) -> dict:
         """Initialize FDA data"""
         logger.info("Initializing FDA data")
 

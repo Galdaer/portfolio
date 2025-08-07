@@ -3,15 +3,12 @@ FDA data downloader
 Downloads FDA Orange Book, NDC Directory, and Drug@FDA databases
 """
 
-import os
-import json
 import logging
+import os
 import zipfile
-from typing import List, Dict, Optional
+
 import httpx
-import asyncio
-from datetime import datetime
-import pandas as pd
+
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -31,7 +28,7 @@ class FDADownloader:
 
         try:
             # Orange Book URL (updated periodically)
-            url = "https://www.accessdata.fda.gov/scripts/cder/ob/search_product.cfm"
+            # url = "https://www.accessdata.fda.gov/scripts/cder/ob/search_product.cfm"
 
             # Alternative: Download from FDA.gov direct links
             orange_book_url = "https://www.fda.gov/media/76860/download"
@@ -148,7 +145,7 @@ class FDADownloader:
             logger.error(f"Failed to download drug labels: {e}")
             raise
 
-    async def download_all_fda_data(self) -> Dict[str, str]:
+    async def download_all_fda_data(self) -> dict[str, str]:
         """Download all FDA datasets"""
         logger.info("Starting full FDA data download")
 
@@ -170,7 +167,7 @@ class FDADownloader:
             logger.error(f"FDA data download failed: {e}")
             raise
 
-    async def get_available_files(self) -> Dict[str, List[str]]:
+    async def get_available_files(self) -> dict[str, list[str]]:
         """Get list of downloaded files ready for parsing"""
         files = {"orange_book": [], "ndc": [], "drugs_fda": [], "labels": []}
 

@@ -2,9 +2,10 @@
 Database migrations for medical mirrors
 """
 
-from sqlalchemy import create_engine, text
 import logging
+
 from database import Base, get_database_url
+from sqlalchemy import create_engine, text
 
 logger = logging.getLogger(__name__)
 
@@ -20,21 +21,21 @@ def create_database_indexes():
         # PubMed indexes
         conn.execute(
             text("""
-            CREATE INDEX IF NOT EXISTS idx_pubmed_search_vector 
+            CREATE INDEX IF NOT EXISTS idx_pubmed_search_vector
             ON pubmed_articles USING GIN(search_vector)
         """)
         )
 
         conn.execute(
             text("""
-            CREATE INDEX IF NOT EXISTS idx_pubmed_pmid 
+            CREATE INDEX IF NOT EXISTS idx_pubmed_pmid
             ON pubmed_articles(pmid)
         """)
         )
 
         conn.execute(
             text("""
-            CREATE INDEX IF NOT EXISTS idx_pubmed_pub_date 
+            CREATE INDEX IF NOT EXISTS idx_pubmed_pub_date
             ON pubmed_articles(pub_date)
         """)
         )
@@ -42,28 +43,28 @@ def create_database_indexes():
         # Clinical trials indexes
         conn.execute(
             text("""
-            CREATE INDEX IF NOT EXISTS idx_trials_search_vector 
+            CREATE INDEX IF NOT EXISTS idx_trials_search_vector
             ON clinical_trials USING GIN(search_vector)
         """)
         )
 
         conn.execute(
             text("""
-            CREATE INDEX IF NOT EXISTS idx_trials_nct_id 
+            CREATE INDEX IF NOT EXISTS idx_trials_nct_id
             ON clinical_trials(nct_id)
         """)
         )
 
         conn.execute(
             text("""
-            CREATE INDEX IF NOT EXISTS idx_trials_status 
+            CREATE INDEX IF NOT EXISTS idx_trials_status
             ON clinical_trials(status)
         """)
         )
 
         conn.execute(
             text("""
-            CREATE INDEX IF NOT EXISTS idx_trials_conditions 
+            CREATE INDEX IF NOT EXISTS idx_trials_conditions
             ON clinical_trials USING GIN(conditions)
         """)
         )
@@ -71,28 +72,28 @@ def create_database_indexes():
         # FDA drugs indexes
         conn.execute(
             text("""
-            CREATE INDEX IF NOT EXISTS idx_fda_search_vector 
+            CREATE INDEX IF NOT EXISTS idx_fda_search_vector
             ON fda_drugs USING GIN(search_vector)
         """)
         )
 
         conn.execute(
             text("""
-            CREATE INDEX IF NOT EXISTS idx_fda_ndc 
+            CREATE INDEX IF NOT EXISTS idx_fda_ndc
             ON fda_drugs(ndc)
         """)
         )
 
         conn.execute(
             text("""
-            CREATE INDEX IF NOT EXISTS idx_fda_generic_name 
+            CREATE INDEX IF NOT EXISTS idx_fda_generic_name
             ON fda_drugs(generic_name)
         """)
         )
 
         conn.execute(
             text("""
-            CREATE INDEX IF NOT EXISTS idx_fda_brand_name 
+            CREATE INDEX IF NOT EXISTS idx_fda_brand_name
             ON fda_drugs(brand_name)
         """)
         )
@@ -100,7 +101,7 @@ def create_database_indexes():
         # Update logs indexes
         conn.execute(
             text("""
-            CREATE INDEX IF NOT EXISTS idx_update_logs_source_date 
+            CREATE INDEX IF NOT EXISTS idx_update_logs_source_date
             ON update_logs(source, started_at DESC)
         """)
         )
@@ -123,8 +124,8 @@ def create_database_functions():
             CREATE OR REPLACE FUNCTION update_pubmed_search_vector()
             RETURNS TRIGGER AS $$
             BEGIN
-                NEW.search_vector := to_tsvector('english', 
-                    COALESCE(NEW.title, '') || ' ' || 
+                NEW.search_vector := to_tsvector('english',
+                    COALESCE(NEW.title, '') || ' ' ||
                     COALESCE(NEW.abstract, '') || ' ' ||
                     COALESCE(array_to_string(NEW.authors, ' '), '') || ' ' ||
                     COALESCE(array_to_string(NEW.mesh_terms, ' '), '')
@@ -141,8 +142,8 @@ def create_database_functions():
             CREATE OR REPLACE FUNCTION update_trials_search_vector()
             RETURNS TRIGGER AS $$
             BEGIN
-                NEW.search_vector := to_tsvector('english', 
-                    COALESCE(NEW.title, '') || ' ' || 
+                NEW.search_vector := to_tsvector('english',
+                    COALESCE(NEW.title, '') || ' ' ||
                     COALESCE(array_to_string(NEW.conditions, ' '), '') || ' ' ||
                     COALESCE(array_to_string(NEW.interventions, ' '), '') || ' ' ||
                     COALESCE(array_to_string(NEW.locations, ' '), '') || ' ' ||
@@ -160,8 +161,8 @@ def create_database_functions():
             CREATE OR REPLACE FUNCTION update_fda_search_vector()
             RETURNS TRIGGER AS $$
             BEGIN
-                NEW.search_vector := to_tsvector('english', 
-                    COALESCE(NEW.name, '') || ' ' || 
+                NEW.search_vector := to_tsvector('english',
+                    COALESCE(NEW.name, '') || ' ' ||
                     COALESCE(NEW.generic_name, '') || ' ' ||
                     COALESCE(NEW.brand_name, '') || ' ' ||
                     COALESCE(NEW.manufacturer, '') || ' ' ||

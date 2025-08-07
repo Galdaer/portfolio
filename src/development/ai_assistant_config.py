@@ -82,7 +82,8 @@ class SecurePatientDataHandler:
         phi_result = await self.phi_detector.detect_phi_in_json(patient_data)
 
         if any(res.phi_detected for res in phi_result.values()):
-            self.logger.warning(f"PHI detected in patient data: {list({res.phi_types for res in phi_result.values()})}")
+            phi_types = list({res.phi_types for res in phi_result.values()})
+            self.logger.warning(f"PHI detected in patient data: {phi_types}")
             # Handle PHI according to compliance requirements
             patient_data = self._mask_phi_data(patient_data, phi_result)
 

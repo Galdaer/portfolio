@@ -3,7 +3,6 @@ Configuration for medical mirrors service
 """
 
 import os
-from typing import Optional
 
 
 class Config:

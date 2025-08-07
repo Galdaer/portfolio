@@ -5,7 +5,6 @@ Parses ClinicalTrials.gov JSON files and extracts study information
 
 import json
 import logging
-from typing import List, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -16,13 +15,13 @@ class ClinicalTrialsParser:
     def __init__(self):
         pass
 
-    def parse_json_file(self, json_file_path: str) -> List[Dict]:
+    def parse_json_file(self, json_file_path: str) -> list[dict]:
         """Parse a ClinicalTrials.gov JSON file and extract studies"""
         logger.info(f"Parsing ClinicalTrials JSON file: {json_file_path}")
         studies = []
 
         try:
-            with open(json_file_path, "r") as f:
+            with open(json_file_path) as f:
                 data = json.load(f)
 
             # Extract studies from the JSON structure
@@ -43,7 +42,7 @@ class ClinicalTrialsParser:
             logger.error(f"Failed to parse {json_file_path}: {e}")
             return []
 
-    def parse_study(self, study_data: Dict) -> Optional[Dict]:
+    def parse_study(self, study_data: dict) -> dict | None:
         """Parse a single study record"""
         try:
             # Extract NCT ID
@@ -104,7 +103,7 @@ class ClinicalTrialsParser:
             logger.error(f"Failed to parse study: {e}")
             return None
 
-    def extract_value(self, data: Dict, paths: List[str]) -> Optional[str]:
+    def extract_value(self, data: dict, paths: list[str]) -> str | None:
         """Extract value from nested dict using multiple possible paths"""
         for path in paths:
             try:
@@ -118,12 +117,12 @@ class ClinicalTrialsParser:
 
                 if value:
                     return str(value)
-            except:
+            except (KeyError, TypeError, AttributeError):
                 continue
 
         return None
 
-    def extract_conditions(self, study_data: Dict) -> List[str]:
+    def extract_conditions(self, study_data: dict) -> list[str]:
         """Extract condition names from study"""
         conditions = []
 
@@ -145,12 +144,12 @@ class ClinicalTrialsParser:
                 elif value:
                     conditions.append(str(value))
 
-            except:
+            except (KeyError, TypeError, AttributeError):
                 continue
 
         return list(set(conditions))  # Remove duplicates
 
-    def extract_interventions(self, study_data: Dict) -> List[str]:
+    def extract_interventions(self, study_data: dict) -> list[str]:
         """Extract intervention names from study"""
         interventions = []
 
@@ -178,12 +177,12 @@ class ClinicalTrialsParser:
                 elif value:
                     interventions.append(str(value))
 
-            except:
+            except (KeyError, TypeError, AttributeError):
                 continue
 
         return list(set(interventions))  # Remove duplicates
 
-    def extract_locations(self, study_data: Dict) -> List[str]:
+    def extract_locations(self, study_data: dict) -> list[str]:
         """Extract location information from study"""
         locations = []
 
@@ -226,7 +225,7 @@ class ClinicalTrialsParser:
 
         return list(set(locations))  # Remove duplicates
 
-    def extract_sponsors(self, study_data: Dict) -> List[str]:
+    def extract_sponsors(self, study_data: dict) -> list[str]:
         """Extract sponsor information from study"""
         sponsors = []
 
@@ -271,7 +270,7 @@ class ClinicalTrialsParser:
 
         return list(set(sponsors))  # Remove duplicates
 
-    def extract_enrollment(self, study_data: Dict) -> Optional[int]:
+    def extract_enrollment(self, study_data: dict) -> int | None:
         """Extract enrollment count from study"""
         try:
             enrollment_paths = [
@@ -288,7 +287,7 @@ class ClinicalTrialsParser:
                 if value:
                     try:
                         return int(value)
-                    except:
+                    except (ValueError, TypeError):
                         continue
 
             return None

@@ -6,7 +6,7 @@ Comprehensive validation of security fixes with database-backed synthetic data
 import os
 import sys
 from typing import Any
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 

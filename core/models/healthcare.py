@@ -21,39 +21,40 @@ support only. Not for medical advice, diagnosis, or treatment recommendations.
 
 import os
 from datetime import datetime
-from typing import Optional
+from typing import Any
+
 from sqlalchemy import (
-    create_engine,
-    Column,
-    String,
-    Text,
-    DateTime,
-    Integer,
     Boolean,
+    Column,
+    DateTime,
     Float,
     ForeignKey,
     Index,
+    Integer,
+    String,
+    Text,
+    create_engine,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import relationship, sessionmaker
-import uuid
 
+# Create Base for SQLAlchemy models
 Base = declarative_base()
 
 
 def get_healthcare_database_url() -> str:
     """Get healthcare database URL from environment"""
     return os.getenv(
-        "POSTGRES_URL",
-        "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
+        "POSTGRES_URL", "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
     )
 
 
-class Doctor(Base):
+class Doctor(Base):  # type: ignore[valid-type,misc]
     """Healthcare providers with specialties, credentials, and preferences"""
+
     __tablename__ = "doctors"
-    
+
     doctor_id = Column(String(50), primary_key=True)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
@@ -66,23 +67,24 @@ class Doctor(Base):
     preferred_communication_style = Column(String(50))
     hospital_affiliations = Column(String(500))
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     encounters = relationship("Encounter", back_populates="doctor")
     billing_claims = relationship("BillingClaim", back_populates="doctor")
     preferences = relationship("DoctorPreferences", back_populates="doctor", uselist=False)
-    
+
     # Indexes for performance
     __table_args__ = (
-        Index('idx_doctor_specialty', 'specialty'),
-        Index('idx_doctor_npi', 'npi_number'),
+        Index("idx_doctor_specialty", "specialty"),
+        Index("idx_doctor_npi", "npi_number"),
     )
 
 
-class Patient(Base):
+class Patient(Base):  # type: ignore[valid-type,misc]
     """Patient demographics, insurance, and contact information"""
+
     __tablename__ = "patients"
-    
+
     patient_id = Column(String(50), primary_key=True)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
@@ -102,28 +104,29 @@ class Patient(Base):
     insurance_group_number = Column(String(50))
     medical_record_number = Column(String(50), unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     encounters = relationship("Encounter", back_populates="patient")
     lab_results = relationship("LabResult", back_populates="patient")
     insurance_verifications = relationship("InsuranceVerification", back_populates="patient")
     billing_claims = relationship("BillingClaim", back_populates="patient")
-    
+
     # Indexes for performance and HIPAA compliance
     __table_args__ = (
-        Index('idx_patient_mrn', 'medical_record_number'),
-        Index('idx_patient_name', 'last_name', 'first_name'),
-        Index('idx_patient_dob', 'date_of_birth'),
+        Index("idx_patient_mrn", "medical_record_number"),
+        Index("idx_patient_name", "last_name", "first_name"),
+        Index("idx_patient_dob", "date_of_birth"),
     )
 
 
-class Encounter(Base):
+class Encounter(Base):  # type: ignore[valid-type,misc]
     """Medical visits and appointments with SOAP notes"""
+
     __tablename__ = "encounters"
-    
+
     encounter_id = Column(String(50), primary_key=True)
-    patient_id = Column(String(50), ForeignKey('patients.patient_id'), nullable=False)
-    doctor_id = Column(String(50), ForeignKey('doctors.doctor_id'), nullable=False)
+    patient_id = Column(String(50), ForeignKey("patients.patient_id"), nullable=False)
+    doctor_id = Column(String(50), ForeignKey("doctors.doctor_id"), nullable=False)
     date = Column(String(10), nullable=False)  # YYYY-MM-DD
     time = Column(String(8))  # HH:MM:SS
     reason = Column(String(500))
@@ -131,7 +134,7 @@ class Encounter(Base):
     duration_minutes = Column(Integer)
     visit_type = Column(String(20))  # in-person, telehealth, phone
     notes = Column(Text)
-    diagnosis_codes = Column(ARRAY(String))  # ICD diagnosis codes
+    diagnosis_codes: Any = Column(ARRAY(String))  # ICD diagnosis codes
     vital_signs_json = Column(Text)  # JSON string for vital signs
     status = Column(String(20))  # scheduled, completed, cancelled, rescheduled
     soap_subjective = Column(Text)
@@ -139,26 +142,27 @@ class Encounter(Base):
     soap_assessment = Column(Text)
     soap_plan = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     patient = relationship("Patient", back_populates="encounters")
     doctor = relationship("Doctor", back_populates="encounters")
     billing_claims = relationship("BillingClaim", back_populates="encounter")
-    
+
     # Indexes for clinical workflows
     __table_args__ = (
-        Index('idx_encounter_patient', 'patient_id'),
-        Index('idx_encounter_doctor', 'doctor_id'),
-        Index('idx_encounter_date', 'date'),
+        Index("idx_encounter_patient", "patient_id"),
+        Index("idx_encounter_doctor", "doctor_id"),
+        Index("idx_encounter_date", "date"),
     )
 
 
-class LabResult(Base):
+class LabResult(Base):  # type: ignore[valid-type,misc]
     """Laboratory test results with values and reference ranges"""
+
     __tablename__ = "lab_results"
-    
+
     result_id = Column(String(50), primary_key=True)
-    patient_id = Column(String(50), ForeignKey('patients.patient_id'), nullable=False)
+    patient_id = Column(String(50), ForeignKey("patients.patient_id"), nullable=False)
     test_name = Column(String(200), nullable=False)
     date_ordered = Column(String(10))  # YYYY-MM-DD
     date_completed = Column(String(10))  # YYYY-MM-DD
@@ -169,25 +173,26 @@ class LabResult(Base):
     ordering_physician = Column(String(50))
     lab_facility = Column(String(200))
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     patient = relationship("Patient", back_populates="lab_results")
-    
+
     # Indexes for lab workflows
     __table_args__ = (
-        Index('idx_lab_patient', 'patient_id'),
-        Index('idx_lab_test_name', 'test_name'),
-        Index('idx_lab_status', 'result_status'),
-        Index('idx_lab_date_completed', 'date_completed'),
+        Index("idx_lab_patient", "patient_id"),
+        Index("idx_lab_test_name", "test_name"),
+        Index("idx_lab_status", "result_status"),
+        Index("idx_lab_date_completed", "date_completed"),
     )
 
 
-class InsuranceVerification(Base):
+class InsuranceVerification(Base):  # type: ignore[valid-type,misc]
     """Insurance coverage verification and eligibility"""
+
     __tablename__ = "insurance_verifications"
-    
+
     verification_id = Column(String(50), primary_key=True)
-    patient_id = Column(String(50), ForeignKey('patients.patient_id'), nullable=False)
+    patient_id = Column(String(50), ForeignKey("patients.patient_id"), nullable=False)
     insurance_provider = Column(String(100), nullable=False)
     member_id = Column(String(50))
     group_number = Column(String(20))
@@ -204,59 +209,61 @@ class InsuranceVerification(Base):
     verified_by = Column(String(100))
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     patient = relationship("Patient", back_populates="insurance_verifications")
-    
+
     # Indexes for insurance workflows
     __table_args__ = (
-        Index('idx_insurance_patient', 'patient_id'),
-        Index('idx_insurance_provider', 'insurance_provider'),
-        Index('idx_insurance_status', 'eligibility_status'),
+        Index("idx_insurance_patient", "patient_id"),
+        Index("idx_insurance_provider", "insurance_provider"),
+        Index("idx_insurance_status", "eligibility_status"),
     )
 
 
-class BillingClaim(Base):
+class BillingClaim(Base):  # type: ignore[valid-type,misc]
     """Medical billing claims with CPT/ICD codes and amounts"""
+
     __tablename__ = "billing_claims"
-    
+
     claim_id = Column(String(50), primary_key=True)
-    patient_id = Column(String(50), ForeignKey('patients.patient_id'), nullable=False)
-    doctor_id = Column(String(50), ForeignKey('doctors.doctor_id'), nullable=False)
-    encounter_id = Column(String(50), ForeignKey('encounters.encounter_id'), nullable=False)
+    patient_id = Column(String(50), ForeignKey("patients.patient_id"), nullable=False)
+    doctor_id = Column(String(50), ForeignKey("doctors.doctor_id"), nullable=False)
+    encounter_id = Column(String(50), ForeignKey("encounters.encounter_id"), nullable=False)
     claim_amount = Column(Float, nullable=False)
     insurance_amount = Column(Float)
     patient_amount = Column(Float)
     service_date = Column(String(10))  # YYYY-MM-DD
     submitted_date = Column(String(10))  # YYYY-MM-DD
-    cpt_codes = Column(ARRAY(String))  # CPT procedure codes
-    diagnosis_codes = Column(ARRAY(String))  # ICD diagnosis codes
+    cpt_codes: Any = Column(ARRAY(String))  # CPT procedure codes
+    diagnosis_codes: Any = Column(ARRAY(String))  # ICD diagnosis codes
     claim_status = Column(String(20))  # submitted, approved, denied, pending, resubmitted
     denial_reason = Column(String(500))
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     patient = relationship("Patient", back_populates="billing_claims")
     doctor = relationship("Doctor", back_populates="billing_claims")
     encounter = relationship("Encounter", back_populates="billing_claims")
-    
+
     # Indexes for billing workflows
     __table_args__ = (
-        Index('idx_billing_patient', 'patient_id'),
-        Index('idx_billing_doctor', 'doctor_id'),
-        Index('idx_billing_status', 'claim_status'),
-        Index('idx_billing_service_date', 'service_date'),
+        Index("idx_billing_patient", "patient_id"),
+        Index("idx_billing_doctor", "doctor_id"),
+        Index("idx_billing_status", "claim_status"),
+        Index("idx_billing_service_date", "service_date"),
     )
 
 
-class DoctorPreferences(Base):
+class DoctorPreferences(Base):  # type: ignore[valid-type,misc]
     """Doctor workflow preferences for LoRA personalization"""
+
     __tablename__ = "doctor_preferences"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
-    doctor_id = Column(String(50), ForeignKey('doctors.doctor_id'), nullable=False, unique=True)
+    doctor_id = Column(String(50), ForeignKey("doctors.doctor_id"), nullable=False, unique=True)
     documentation_style = Column(String(20))  # concise, detailed, bullet_points, narrative
-    preferred_templates = Column(ARRAY(String))
+    preferred_templates: Any = Column(ARRAY(String))
     ai_assistance_level = Column(String(20))  # minimal, moderate, extensive
     auto_coding_preference = Column(String(20))  # suggest_only, auto_apply, disabled
     alert_sensitivity = Column(String(10))  # low, medium, high
@@ -265,20 +272,19 @@ class DoctorPreferences(Base):
     specialization_focus = Column(String(50))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relationships
     doctor = relationship("Doctor", back_populates="preferences")
-    
+
     # Indexes for personalization workflows
-    __table_args__ = (
-        Index('idx_prefs_doctor', 'doctor_id'),
-    )
+    __table_args__ = (Index("idx_prefs_doctor", "doctor_id"),)
 
 
-class AuditLog(Base):
+class AuditLog(Base):  # type: ignore[valid-type,misc]
     """HIPAA compliance audit logging for all system activities"""
+
     __tablename__ = "audit_logs"
-    
+
     log_id = Column(String(50), primary_key=True)
     user_id = Column(String(50), nullable=False)
     user_type = Column(String(20), nullable=False)  # doctor, staff, system
@@ -292,21 +298,22 @@ class AuditLog(Base):
     error_message = Column(Text)
     session_id = Column(String(50))
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Indexes for audit and security workflows
     __table_args__ = (
-        Index('idx_audit_user', 'user_id'),
-        Index('idx_audit_timestamp', 'timestamp'),
-        Index('idx_audit_action', 'action'),
-        Index('idx_audit_success', 'success'),
-        Index('idx_audit_resource', 'resource_type', 'resource_id'),
+        Index("idx_audit_user", "user_id"),
+        Index("idx_audit_timestamp", "timestamp"),
+        Index("idx_audit_action", "action"),
+        Index("idx_audit_success", "success"),
+        Index("idx_audit_resource", "resource_type", "resource_id"),
     )
 
 
-class AgentSession(Base):
+class AgentSession(Base):  # type: ignore[valid-type,misc]
     """AI agent interaction sessions for Phase 1 development"""
+
     __tablename__ = "agent_sessions"
-    
+
     session_id = Column(String(50), primary_key=True)
     doctor_id = Column(String(50), nullable=False)
     agent_type = Column(String(50), nullable=False)
@@ -320,54 +327,55 @@ class AgentSession(Base):
     user_satisfaction = Column(Integer)  # 1-5 rating
     cost_usd = Column(Float)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Indexes for agent analytics
     __table_args__ = (
-        Index('idx_session_doctor', 'doctor_id'),
-        Index('idx_session_agent_type', 'agent_type'),
-        Index('idx_session_start_time', 'start_time'),
-        Index('idx_session_outcome', 'session_outcome'),
+        Index("idx_session_doctor", "doctor_id"),
+        Index("idx_session_agent_type", "agent_type"),
+        Index("idx_session_start_time", "start_time"),
+        Index("idx_session_outcome", "session_outcome"),
     )
 
 
-def create_healthcare_engine():
+def create_healthcare_engine() -> Any:
     """Create database engine for healthcare data"""
     return create_engine(get_healthcare_database_url())
 
 
-def create_healthcare_tables(engine=None):
+def create_healthcare_tables(engine: Any = None) -> None:
     """Create all healthcare tables in the database"""
     if engine is None:
         engine = create_healthcare_engine()
-    
+
     Base.metadata.create_all(engine)
     print("✅ Healthcare database tables created successfully")
 
 
-def get_healthcare_session():
+def get_healthcare_session() -> Any:
     """Get SQLAlchemy session for healthcare database operations"""
     engine = create_healthcare_engine()
     Session = sessionmaker(bind=engine)
     return Session()
 
 
-def init_healthcare_database():
+def init_healthcare_database() -> bool:
     """Initialize healthcare database with tables and basic setup"""
     try:
         engine = create_healthcare_engine()
-        
+
         # Test connection
         from sqlalchemy import text
+
         with engine.connect() as conn:
             result = conn.execute(text("SELECT 1"))
             result.fetchone()
-        
+
         # Create tables
         create_healthcare_tables(engine)
-        
+
         print("✅ Healthcare database initialized successfully")
         return True
-        
+
     except Exception as e:
         print(f"❌ Healthcare database initialization failed: {e}")
         return False

@@ -4,15 +4,13 @@ Provides search functionality matching Healthcare MCP interface
 """
 
 import logging
-from typing import List, Dict, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import text, func
-import json
 from datetime import datetime
 
-from database import ClinicalTrial, UpdateLog
 from clinicaltrials.downloader import ClinicalTrialsDownloader
 from clinicaltrials.parser import ClinicalTrialsParser
+from database import ClinicalTrial, UpdateLog
+from sqlalchemy import func, text
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +25,7 @@ class ClinicalTrialsAPI:
 
     async def search_trials(
         self, condition: str = None, location: str = None, max_results: int = 10
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Search clinical trials in local database
         Matches the interface of Healthcare MCP search-trials tool
@@ -53,10 +51,10 @@ class ClinicalTrialsAPI:
             where_clause = " AND ".join(query_parts) if query_parts else "1=1"
 
             search_query = text(f"""
-                SELECT nct_id, title, status, phase, conditions, interventions, 
+                SELECT nct_id, title, status, phase, conditions, interventions,
                        locations, sponsors, start_date, completion_date, enrollment, study_type,
                        ts_rank(search_vector, plainto_tsquery(:search_term)) as rank
-                FROM clinical_trials 
+                FROM clinical_trials
                 WHERE {where_clause}
                 ORDER BY rank DESC, start_date DESC
                 LIMIT :limit
@@ -99,7 +97,7 @@ class ClinicalTrialsAPI:
         finally:
             db.close()
 
-    async def get_trial(self, nct_id: str) -> Optional[Dict]:
+    async def get_trial(self, nct_id: str) -> dict | None:
         """Get specific trial by NCT ID"""
         db = self.session_factory()
         try:
@@ -125,7 +123,7 @@ class ClinicalTrialsAPI:
         finally:
             db.close()
 
-    async def get_status(self) -> Dict:
+    async def get_status(self) -> dict:
         """Get status of ClinicalTrials mirror"""
         db = self.session_factory()
         try:
@@ -153,7 +151,7 @@ class ClinicalTrialsAPI:
         finally:
             db.close()
 
-    async def trigger_update(self) -> Dict:
+    async def trigger_update(self) -> dict:
         """Trigger ClinicalTrials data update"""
         logger.info("Triggering ClinicalTrials data update")
 
@@ -201,7 +199,7 @@ class ClinicalTrialsAPI:
         finally:
             db.close()
 
-    async def store_trials(self, trials: List[Dict], db: Session) -> int:
+    async def store_trials(self, trials: list[dict], db: Session) -> int:
         """Store trials in database"""
         stored_count = 0
 
@@ -246,9 +244,9 @@ class ClinicalTrialsAPI:
         """Update full-text search vectors"""
         try:
             update_query = text("""
-                UPDATE clinical_trials 
-                SET search_vector = to_tsvector('english', 
-                    COALESCE(title, '') || ' ' || 
+                UPDATE clinical_trials
+                SET search_vector = to_tsvector('english',
+                    COALESCE(title, '') || ' ' ||
                     COALESCE(array_to_string(conditions, ' '), '') || ' ' ||
                     COALESCE(array_to_string(interventions, ' '), '') || ' ' ||
                     COALESCE(array_to_string(locations, ' '), '') || ' ' ||
@@ -265,7 +263,7 @@ class ClinicalTrialsAPI:
             logger.error(f"Failed to update search vectors: {e}")
             db.rollback()
 
-    async def initialize_data(self) -> Dict:
+    async def initialize_data(self) -> dict:
         """Initialize ClinicalTrials data"""
         logger.info("Initializing ClinicalTrials data")
 

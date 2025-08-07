@@ -26,7 +26,6 @@ except ImportError:
     PSYCOPG2_AVAILABLE = False
     _RealDictCursor = None
 
-from src.security.environment_detector import EnvironmentDetector
 from src.security.patient_assignment_db import (
     PatientAssignmentDB,
     RBACConfig,

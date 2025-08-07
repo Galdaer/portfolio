@@ -3,10 +3,11 @@ Database configuration and models for medical mirrors
 """
 
 import os
-from sqlalchemy import create_engine, Column, String, Text, DateTime, Integer, Boolean
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
 from datetime import datetime
+
+from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
+from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 

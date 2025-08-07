@@ -3,20 +3,20 @@ Medical Mirrors - Local mirrors for Healthcare MCP API sources
 Provides unlimited access to PubMed, ClinicalTrials.gov, and FDA databases
 """
 
-import os
 import logging
+import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
+
 import uvicorn
+from clinicaltrials.api import ClinicalTrialsAPI
+from database import Base, get_database_url
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fda.api import FDAAPI
+from pubmed.api import PubMedAPI
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from pubmed.api import PubMedAPI
-from clinicaltrials.api import ClinicalTrialsAPI
-from fda.api import FDAAPI
-from database import Base, get_database_url
 from config import Config
 
 # Configure logging

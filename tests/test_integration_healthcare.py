@@ -499,7 +499,7 @@ class TestSyntheticDataGeneration:
         # Test cases with PHI (should be blocked)
         phi_cases = [
             {"ssn": "123-45-6789"},
-            {"phone": "555-123-4567"},
+            {"phone": "212-123-4567"},  # Non-555 number should be blocked
             {"email": "patient@gmail.com"},
             {"patient_id": "REAL_PATIENT_123"},  # Missing TEST_ prefix
         ]

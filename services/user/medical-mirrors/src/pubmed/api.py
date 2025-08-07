@@ -4,15 +4,13 @@ Provides search functionality matching Healthcare MCP interface
 """
 
 import logging
-from typing import List, Dict, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import text, func
-import json
 from datetime import datetime
 
 from database import PubMedArticle, UpdateLog
 from pubmed.downloader import PubMedDownloader
 from pubmed.parser import PubMedParser
+from sqlalchemy import func, text
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +23,7 @@ class PubMedAPI:
         self.downloader = PubMedDownloader()
         self.parser = PubMedParser()
 
-    async def search_articles(self, query: str, max_results: int = 10) -> List[Dict]:
+    async def search_articles(self, query: str, max_results: int = 10) -> list[dict]:
         """
         Search PubMed articles in local database
         Matches the interface of Healthcare MCP search-pubmed tool
@@ -38,7 +36,7 @@ class PubMedAPI:
             search_query = text("""
                 SELECT pmid, title, abstract, authors, journal, pub_date, doi, mesh_terms,
                        ts_rank(search_vector, plainto_tsquery(:query)) as rank
-                FROM pubmed_articles 
+                FROM pubmed_articles
                 WHERE search_vector @@ plainto_tsquery(:query)
                 ORDER BY rank DESC, pub_date DESC
                 LIMIT :limit
@@ -69,7 +67,7 @@ class PubMedAPI:
         finally:
             db.close()
 
-    async def get_article(self, pmid: str) -> Optional[Dict]:
+    async def get_article(self, pmid: str) -> dict | None:
         """Get specific article by PMID"""
         db = self.session_factory()
         try:
@@ -91,7 +89,7 @@ class PubMedAPI:
         finally:
             db.close()
 
-    async def get_status(self) -> Dict:
+    async def get_status(self) -> dict:
         """Get status of PubMed mirror"""
         db = self.session_factory()
         try:
@@ -119,7 +117,7 @@ class PubMedAPI:
         finally:
             db.close()
 
-    async def trigger_update(self) -> Dict:
+    async def trigger_update(self) -> dict:
         """Trigger PubMed data update"""
         logger.info("Triggering PubMed data update")
 
@@ -167,7 +165,7 @@ class PubMedAPI:
         finally:
             db.close()
 
-    async def store_articles(self, articles: List[Dict], db: Session) -> int:
+    async def store_articles(self, articles: list[dict], db: Session) -> int:
         """Store articles in database"""
         stored_count = 0
 
@@ -212,9 +210,9 @@ class PubMedAPI:
         """Update full-text search vectors"""
         try:
             update_query = text("""
-                UPDATE pubmed_articles 
-                SET search_vector = to_tsvector('english', 
-                    COALESCE(title, '') || ' ' || 
+                UPDATE pubmed_articles
+                SET search_vector = to_tsvector('english',
+                    COALESCE(title, '') || ' ' ||
                     COALESCE(abstract, '') || ' ' ||
                     COALESCE(array_to_string(authors, ' '), '') || ' ' ||
                     COALESCE(array_to_string(mesh_terms, ' '), '')
@@ -230,7 +228,7 @@ class PubMedAPI:
             logger.error(f"Failed to update search vectors: {e}")
             db.rollback()
 
-    async def initialize_data(self) -> Dict:
+    async def initialize_data(self) -> dict:
         """Initialize PubMed data from baseline files"""
         logger.info("Initializing PubMed data from baseline")
 

@@ -11,6 +11,7 @@ from typing import Any
 
 from agents import BaseHealthcareAgent
 from agents.billing_helper.shared.billing_utils import SharedBillingUtils
+from core.financial.healthcare_financial_utils import HealthcareFinancialUtils
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     healthcare_log_method,
@@ -593,7 +594,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
             breakdown_by_cpt: list[dict[str, Any]] = []
             cost_explanation: list[str] = []
 
-            total_cost_prediction = {
+            total_cost_prediction: dict[str, Any] = {
                 "total_estimated_cost": Decimal("0.00"),
                 "patient_responsibility": Decimal("0.00"),
                 "insurance_payment": Decimal("0.00"),
@@ -619,27 +620,48 @@ class BillingHelperAgent(BaseHealthcareAgent):
                     patient_id, insurance_type
                 )
 
-                # Calculate patient cost using advanced insurance calculator
+                # Calculate cost using advanced insurance calculator
                 cost_estimate = self.insurance_calculator.calculate_patient_cost(
                     cpt_code=cpt_code,
                     billed_amount=negotiated_rate,  # Already a Decimal from shared utility
                     patient_coverage=patient_coverage,
                 )
 
+                # Convert to Decimal for safe addition
+                patient_cost = HealthcareFinancialUtils.ensure_decimal(
+                    cost_estimate.patient_responsibility
+                )
+                insurance_payment = HealthcareFinancialUtils.ensure_decimal(
+                    cost_estimate.insurance_payment
+                )
+
                 breakdown_by_cpt.append(
                     {
                         "cpt_code": cpt_code,
                         "negotiated_rate": negotiated_rate,
-                        "patient_cost": cost_estimate.patient_responsibility,
-                        "insurance_payment": cost_estimate.insurance_payment,
+                        "patient_cost": patient_cost,
+                        "insurance_payment": insurance_payment,
                     }
                 )
 
-                total_cost_prediction["total_estimated_cost"] += negotiated_rate
-                total_cost_prediction["patient_responsibility"] += (
-                    cost_estimate.patient_responsibility
+                # Update totals with safe Decimal arithmetic
+                total_estimated_cost = HealthcareFinancialUtils.ensure_decimal(
+                    total_cost_prediction["total_estimated_cost"]
                 )
-                total_cost_prediction["insurance_payment"] += cost_estimate.insurance_payment
+                total_patient_resp = HealthcareFinancialUtils.ensure_decimal(
+                    total_cost_prediction["patient_responsibility"]
+                )
+                total_insurance_payment = HealthcareFinancialUtils.ensure_decimal(
+                    total_cost_prediction["insurance_payment"]
+                )
+
+                total_cost_prediction["total_estimated_cost"] = (
+                    total_estimated_cost + negotiated_rate
+                )
+                total_cost_prediction["patient_responsibility"] = total_patient_resp + patient_cost
+                total_cost_prediction["insurance_payment"] = (
+                    total_insurance_payment + insurance_payment
+                )
 
             # Add patient-friendly explanations
             if deductible_status.remaining_amount > 0:
@@ -653,7 +675,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
                     f"You're {deductible_status.percentage_met:.0%} of the way to meeting your deductible"
                 )
 
-            total_cost_prediction["cost_explanation"].append(
+            cost_explanation.append(
                 f"Total estimated cost: ${total_cost_prediction['patient_responsibility']:.2f}"
             )
 

@@ -242,6 +242,9 @@ class HealthcareCacheManager:
         if not self.redis_client:
             await self.initialize()
 
+        if self.redis_client is None:
+            raise RuntimeError("Redis client not available")
+
         try:
             result = await self.redis_client.delete(cache_key)
 
@@ -399,6 +402,9 @@ class HealthcareCacheManager:
         if not self.redis_client:
             await self.initialize()
 
+        if self.redis_client is None:
+            raise RuntimeError("Redis client not available")
+
         pattern = f"{self.cache_prefixes['session_data']}*{session_id}*"
 
         try:
@@ -418,7 +424,7 @@ class HealthcareCacheManager:
                     },
                 )
 
-                return deleted_count
+                return int(deleted_count)
 
             return 0
 
@@ -431,6 +437,9 @@ class HealthcareCacheManager:
 
         if not self.redis_client:
             await self.initialize()
+
+        if self.redis_client is None:
+            raise RuntimeError("Redis client not available")
 
         try:
             info = await self.redis_client.info()
@@ -460,7 +469,7 @@ class HealthcareCacheManager:
             logger.error(f"Failed to get cache stats: {e}")
             return {"error": str(e)}
 
-    def _generate_cache_key(self, cache_type: str, primary_key: str, **kwargs) -> str:
+    def _generate_cache_key(self, cache_type: str, primary_key: str, **kwargs: Any) -> str:
         """Generate consistent cache key"""
 
         prefix = self.cache_prefixes.get(cache_type, f"{cache_type}:")
@@ -512,8 +521,8 @@ class HealthcareCacheDecorator:
         self.security_level = security_level
         self.ttl_seconds = ttl_seconds
 
-    def __call__(self, func):
-        async def wrapper(*args, **kwargs):
+    def __call__(self, func: Any) -> Any:
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Generate cache key from function arguments
             cache_key = self._generate_function_cache_key(func.__name__, args, kwargs)
 
@@ -571,10 +580,10 @@ async def get_healthcare_cache() -> HealthcareCacheManager:
 
 
 # Convenience decorators for common cache types
-def cache_medical_literature(ttl_seconds: int = 3600 * 24):
+def cache_medical_literature(ttl_seconds: int = 3600 * 24) -> Any:
     """Decorator for caching medical literature results"""
 
-    async def decorator(func):
+    async def decorator(func: Any) -> Any:
         cache_manager = await get_healthcare_cache()
         return HealthcareCacheDecorator(
             cache_manager, "medical_literature", CacheSecurityLevel.PUBLIC, ttl_seconds
@@ -583,10 +592,10 @@ def cache_medical_literature(ttl_seconds: int = 3600 * 24):
     return decorator
 
 
-def cache_drug_interactions(ttl_seconds: int = 3600 * 24 * 7):
+def cache_drug_interactions(ttl_seconds: int = 3600 * 24 * 7) -> Any:
     """Decorator for caching drug interaction results"""
 
-    async def decorator(func):
+    async def decorator(func: Any) -> Any:
         cache_manager = await get_healthcare_cache()
         return HealthcareCacheDecorator(
             cache_manager, "drug_interactions", CacheSecurityLevel.HEALTHCARE_SENSITIVE, ttl_seconds
