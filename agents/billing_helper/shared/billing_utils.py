@@ -80,6 +80,7 @@ class SharedBillingUtils:
             deductible_met=Decimal("450.00"),
             out_of_pocket_maximum=Decimal("8000.00"),
             out_of_pocket_met=Decimal("1200.00"),
+            coinsurance_rate=Decimal("0.20"),  # 20% coinsurance
             copay_structures={
                 "office_visit": CopayStructure(
                     copay_type=CopayType.FIXED_DOLLAR,

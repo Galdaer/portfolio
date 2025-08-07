@@ -578,6 +578,9 @@ class BillingHelperAgent(BaseHealthcareAgent):
         """
         try:
             patient_id = visit_data.get("patient_id")
+            if not patient_id or not isinstance(patient_id, str):
+                return {"error": "Valid patient_id is required"}
+                
             cpt_codes = visit_data.get("cpt_codes", [])
             insurance_type = visit_data.get("insurance_type", "standard")
 
@@ -587,6 +590,9 @@ class BillingHelperAgent(BaseHealthcareAgent):
             )
 
             # Calculate cost for each CPT code
+            breakdown_by_cpt: list[dict[str, Any]] = []
+            cost_explanation: list[str] = []
+            
             total_cost_prediction = {
                 "total_estimated_cost": Decimal("0.00"),
                 "patient_responsibility": Decimal("0.00"),
@@ -594,14 +600,14 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 "deductible_applied": Decimal("0.00"),
                 "copay_amount": Decimal("0.00"),
                 "coinsurance_amount": Decimal("0.00"),
-                "breakdown_by_cpt": [],
+                "breakdown_by_cpt": breakdown_by_cpt,
                 "deductible_status": {
                     "annual_deductible": deductible_status.annual_deductible,
                     "amount_applied": deductible_status.amount_applied,
                     "remaining_amount": deductible_status.remaining_amount,
                     "percentage_met": deductible_status.percentage_met,
                 },
-                "cost_explanation": [],
+                "cost_explanation": cost_explanation,
             }
 
             for cpt_code in cpt_codes:
@@ -620,7 +626,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
                     patient_coverage=patient_coverage,
                 )
 
-                total_cost_prediction["breakdown_by_cpt"].append(
+                breakdown_by_cpt.append(
                     {
                         "cpt_code": cpt_code,
                         "negotiated_rate": negotiated_rate,
@@ -637,13 +643,13 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
             # Add patient-friendly explanations
             if deductible_status.remaining_amount > 0:
-                total_cost_prediction["cost_explanation"].append(
+                cost_explanation.append(
                     f"You have ${deductible_status.remaining_amount:.2f} remaining on your "
                     f"${deductible_status.annual_deductible:.2f} annual deductible"
                 )
 
             if deductible_status.percentage_met > 0.8:
-                total_cost_prediction["cost_explanation"].append(
+                cost_explanation.append(
                     f"You're {deductible_status.percentage_met:.0%} of the way to meeting your deductible"
                 )
 

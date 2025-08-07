@@ -9,7 +9,7 @@ import io
 import os
 import wave
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, BinaryIO
 
@@ -32,11 +32,11 @@ class AudioSecurityMetadata:
     phi_detection_enabled: bool
     encryption_applied: bool
     memory_only: bool = True
-    audit_trail: list[str] = None
+    audit_trail: list[str] = field(default_factory=list)
 
-    def __post_init__(self):
-        if self.audit_trail is None:
-            self.audit_trail = []
+    def __post_init__(self) -> None:
+        # audit_trail is initialized by default_factory, no need for None check
+        pass
 
 
 @dataclass
@@ -57,7 +57,7 @@ class SecureTranscriptionResult:
 class WhisperLiveSecurityBridge:
     """Security bridge for WhisperLive with healthcare compliance"""
 
-    def __init__(self, whisperlive_config: dict[str, Any] | None = None):
+    def __init__(self, whisperlive_config: dict[str, Any] | None = None) -> None:
         self.config = whisperlive_config or self._get_default_config()
         self.phi_detector = SimplePHIDetector()
         self.chat_log_manager = ChatLogManager()
@@ -112,6 +112,8 @@ class WhisperLiveSecurityBridge:
             # Process audio in memory only
             async with self._secure_audio_context(audio_data, security_metadata) as processed_audio:
                 # Transcribe using WhisperLive (memory-only)
+                transcript: str
+                confidence: float
                 transcript, confidence = await self._transcribe_with_whisperlive(
                     processed_audio, security_metadata
                 )
@@ -143,10 +145,11 @@ class WhisperLiveSecurityBridge:
                 processing_time_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
 
                 # Create transcription result
+                final_transcript = sanitized_transcript if phi_detected and sanitized_transcript else transcript
                 result = SecureTranscriptionResult(
                     transcription_id=transcription_id,
                     session_id=session_id,
-                    transcript=sanitized_transcript if phi_detected else transcript,
+                    transcript=final_transcript,
                     confidence_score=confidence,
                     phi_detected=phi_detected,
                     sanitized_transcript=sanitized_transcript,
@@ -361,7 +364,7 @@ class WhisperLiveSecurityBridge:
 class HealthcareAudioProcessor:
     """Healthcare-specific audio processing with WhisperLive integration"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.security_bridge = WhisperLiveSecurityBridge()
         self.logger = get_healthcare_logger("healthcare_audio_processor")
 

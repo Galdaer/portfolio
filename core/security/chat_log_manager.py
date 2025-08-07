@@ -5,7 +5,7 @@ Manages chat logs with automatic PHI detection and secure storage
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -17,7 +17,7 @@ from core.infrastructure.healthcare_logger import get_healthcare_logger
 class SimplePHIDetector:
     """Simple PHI detection for chat log management"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         import re
         self.phi_patterns = [
             re.compile(r'\b\d{3}-\d{2}-\d{4}\b'),  # SSN
@@ -69,11 +69,11 @@ class ChatMessage:
     security_level: ChatLogLevel
     phi_detected: bool
     sanitized_content: str | None = None
-    audit_trail: list[str] = None
+    audit_trail: list[str] = field(default_factory=list)
 
-    def __post_init__(self):
-        if self.audit_trail is None:
-            self.audit_trail = []
+    def __post_init__(self) -> None:
+        # audit_trail is initialized by default_factory, no need for None check
+        pass
 
 
 @dataclass
@@ -87,11 +87,11 @@ class ChatSession:
     messages: list[ChatMessage]
     healthcare_context: dict[str, Any]
     phi_detected_count: int = 0
-    security_alerts: list[str] = None
+    security_alerts: list[str] = field(default_factory=list)
 
-    def __post_init__(self):
-        if self.security_alerts is None:
-            self.security_alerts = []
+    def __post_init__(self) -> None:
+        # security_alerts is initialized by default_factory, no need for None check
+        pass
 
 
 class ChatLogManager:

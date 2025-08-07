@@ -81,6 +81,13 @@ class HealthcareCacheManager:
             logger.error(f"Failed to connect to Redis: {e}")
             raise
 
+    async def _ensure_redis_client(self) -> redis.Redis:
+        """Ensure Redis client is available and initialized"""
+        if not self.redis_client:
+            await self.initialize()
+        assert self.redis_client is not None, "Redis client should be initialized"
+        return self.redis_client
+
     async def get(
         self, cache_key: str, security_level: CacheSecurityLevel = CacheSecurityLevel.PUBLIC
     ) -> Any | None:
@@ -92,9 +99,11 @@ class HealthcareCacheManager:
         if not self.redis_client:
             await self.initialize()
 
+        redis_client = await self._ensure_redis_client()
+
         try:
             # Get cache entry
-            cached_data = await self.redis_client.get(cache_key)
+            cached_data = await redis_client.get(cache_key)
             if not cached_data:
                 return None
 
@@ -119,7 +128,8 @@ class HealthcareCacheManager:
             cache_entry.access_count += 1
 
             # Update in cache
-            await self.redis_client.setex(
+            redis_client = await self._ensure_redis_client()
+            await redis_client.setex(
                 cache_key,
                 self.cache_ttls[security_level],
                 json.dumps(asdict(cache_entry), default=str),
@@ -197,7 +207,8 @@ class HealthcareCacheManager:
             )
 
             # Set in Redis
-            await self.redis_client.setex(
+            redis_client = await self._ensure_redis_client()
+            await redis_client.setex(
                 cache_key, cache_entry.ttl_seconds, json.dumps(asdict(cache_entry), default=str)
             )
 
