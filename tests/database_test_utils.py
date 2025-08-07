@@ -28,32 +28,34 @@ except ImportError as e:
     print("🔄 Using mock database for testing...")
     DATABASE_AVAILABLE = False
 
-    # Mock the database modules for testing
-    class MockCursor:
-        def fetchall(self):
-            return []
+# Define mock classes (always available for fallback)
+class MockCursor:
+    def fetchall(self):
+        return []
 
-        def close(self):
-            pass
-
-    class MockConnection:
-        def cursor(self):
-            return MockCursor()
-
-        def close(self):
-            pass
-
-        def commit(self):
-            pass
-
-    class MockPsycopg2:
-        @staticmethod
-        def connect(*args, **kwargs):
-            return MockConnection()
-
-    class MockRealDictCursor:
+    def close(self):
         pass
 
+class MockConnection:
+    def cursor(self):
+        return MockCursor()
+
+    def close(self):
+        pass
+
+    def commit(self):
+        pass
+
+class MockPsycopg2:
+    @staticmethod
+    def connect(*args, **kwargs):
+        return MockConnection()
+
+class MockRealDictCursor:
+    pass
+
+# Only replace imports if database not available
+if not DATABASE_AVAILABLE:
     # Replace imports with mocks
     psycopg2 = MockPsycopg2()
     RealDictCursor = MockRealDictCursor
@@ -88,7 +90,8 @@ class SyntheticHealthcareData:
         except Exception as e:
             logging.error(f"❌ Failed to connect to healthcare database: {e}")
             logging.info("🔄 Using mock database for testing")
-            self.connection = psycopg2.connect()
+            # Use mock connection when database connection fails
+            self.connection = MockConnection()
 
     async def async_connect(self) -> None:
         """Establish asynchronous database connection pool."""

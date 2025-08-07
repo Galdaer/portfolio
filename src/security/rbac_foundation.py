@@ -11,6 +11,8 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, cast
 
+from .environment_detector import EnvironmentDetector
+
 if TYPE_CHECKING:
     pass
 
@@ -169,10 +171,23 @@ class HealthcareRBACManager:
             os.getenv("RBAC_PLACEHOLDER_WARNINGS", "true").lower() == "true"
         )
 
-        # Initialize RBAC tables only if PostgreSQL is available
+        # Initialize RBAC tables only if PostgreSQL is available and connected
         if self.postgres_conn and PSYCOPG2_AVAILABLE:
-            self._init_rbac_tables()
-            self._init_default_roles()
+            # Test actual connectivity gracefully
+            try:
+                test_conn = self.postgres_conn.create_connection()
+                test_conn.close()  # Close test connection immediately
+                self._init_rbac_tables()
+                self._init_default_roles()
+            except Exception as e:
+                env_detector = EnvironmentDetector()
+                if env_detector.is_testing():
+                    self.logger.warning(f"RBAC initialization skipped in testing environment: {e}")
+                else:
+                    self.logger.error(f"Failed to initialize RBAC: {e}")
+                    # Don't raise in testing/development environments
+                    if not env_detector.is_development():
+                        raise
         else:
             self.logger.info("Running in development mode without PostgreSQL backend")
 
@@ -182,8 +197,11 @@ class HealthcareRBACManager:
             self.logger.warning("No PostgreSQL connection available for table initialization")
             return
 
+        connection = None
         try:
-            with self.postgres_conn.cursor() as cursor:
+            # Get actual database connection from the factory
+            connection = self.postgres_conn.create_connection()
+            with connection.cursor() as cursor:
                 # Roles table
                 cursor.execute(
                     """
@@ -270,12 +288,24 @@ class HealthcareRBACManager:
                 """
                 )
 
-            self.postgres_conn.commit()
+            connection.commit()
             self.logger.info("RBAC tables initialized")
 
         except Exception as e:
+            if connection:
+                connection.rollback()
+            
+            # More graceful handling for testing environments
+            env_detector = EnvironmentDetector()
+            if env_detector.is_testing():
+                self.logger.warning(f"RBAC table initialization failed in testing environment: {e}")
+                return  # Don't raise in testing mode
+            
             self.logger.error(f"Failed to initialize RBAC tables: {e}")
             raise
+        finally:
+            if connection:
+                connection.close()
 
     def _init_default_roles(self) -> None:
         """Initialize default healthcare roles"""

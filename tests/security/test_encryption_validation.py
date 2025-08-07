@@ -8,7 +8,7 @@ import os
 import secrets
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -194,14 +194,9 @@ class TestRBACStrictModeValidation:
         with patch.dict(os.environ, {"RBAC_STRICT_MODE": "true", "ENVIRONMENT": "development"}):
             from src.security.rbac_foundation import HealthcareRBACManager
 
-            connection_factory = PostgresConnectionFactory(
-                host="localhost",
-                database="intelluxe",
-                user="intelluxe",
-                password="secure_password",
-            )
-            test_connection = connection_factory.create_connection()
-            manager = HealthcareRBACManager(test_connection)
+            # Mock database connection for unit test
+            mock_connection = MagicMock()
+            manager = HealthcareRBACManager(mock_connection)
             assert manager.STRICT_MODE is True
 
     def test_valid_rbac_strict_mode_false(self) -> None:
@@ -209,14 +204,9 @@ class TestRBACStrictModeValidation:
         with patch.dict(os.environ, {"RBAC_STRICT_MODE": "false", "ENVIRONMENT": "development"}):
             from src.security.rbac_foundation import HealthcareRBACManager
 
-            connection_factory = PostgresConnectionFactory(
-                host="localhost",
-                database="intelluxe",
-                user="intelluxe",
-                password="secure_password",
-            )
-            test_connection = connection_factory.create_connection()
-            manager = HealthcareRBACManager(test_connection)
+            # Mock database connection for unit test
+            mock_connection = MagicMock()
+            manager = HealthcareRBACManager(mock_connection)
             assert manager.STRICT_MODE is False
 
     def test_invalid_rbac_strict_mode(self) -> None:
@@ -224,16 +214,11 @@ class TestRBACStrictModeValidation:
         with patch.dict(os.environ, {"RBAC_STRICT_MODE": "invalid", "ENVIRONMENT": "development"}):
             from src.security.rbac_foundation import HealthcareRBACManager
 
-            connection_factory = PostgresConnectionFactory(
-                host="localhost",
-                database="intelluxe",
-                user="intelluxe",
-                password="secure_password",
-            )
-            test_connection = connection_factory.create_connection()
+            # Mock database connection for unit test
+            mock_connection = MagicMock()
 
             with pytest.raises(ValueError, match="Invalid value for RBAC_STRICT_MODE"):
-                HealthcareRBACManager(test_connection)
+                HealthcareRBACManager(mock_connection)
 
     def test_rbac_strict_mode_case_insensitive(self) -> None:
         """Test RBAC strict mode is case insensitive"""
@@ -251,14 +236,9 @@ class TestRBACStrictModeValidation:
             ):
                 from src.security.rbac_foundation import HealthcareRBACManager
 
-                connection_factory = PostgresConnectionFactory(
-                    host="localhost",
-                    database="intelluxe",
-                    user="intelluxe",
-                    password="secure_password",
-                )
-                test_connection = connection_factory.create_connection()
-                manager = HealthcareRBACManager(test_connection)
+                # Mock database connection for unit test
+                mock_connection = MagicMock()
+                manager = HealthcareRBACManager(mock_connection)
                 assert manager.STRICT_MODE is expected
 
     def test_rbac_strict_mode_whitespace_handling(self) -> None:
@@ -266,14 +246,9 @@ class TestRBACStrictModeValidation:
         with patch.dict(os.environ, {"RBAC_STRICT_MODE": "  true  ", "ENVIRONMENT": "development"}):
             from src.security.rbac_foundation import HealthcareRBACManager
 
-            connection_factory = PostgresConnectionFactory(
-                host="localhost",
-                database="intelluxe",
-                user="intelluxe",
-                password="secure_password",
-            )
-            test_connection = connection_factory.create_connection()
-            manager = HealthcareRBACManager(test_connection)
+            # Mock database connection for unit test
+            mock_connection = MagicMock()
+            manager = HealthcareRBACManager(mock_connection)
             assert manager.STRICT_MODE is True
 
 
@@ -286,13 +261,8 @@ class TestSecurityScan:
 
     def setup_method(self) -> None:
         """Setup test environment"""
-        connection_factory = PostgresConnectionFactory(
-            host="localhost",
-            database="intelluxe",
-            user="intelluxe",
-            password="secure_password",
-        )
-        self.test_connection = connection_factory.create_connection()
+        # Mock database connection for unit tests
+        self.test_connection = MagicMock()
 
     def test_configuration_injection_pattern(self) -> None:
         """Test that configuration injection works without mocking private methods"""

@@ -21,7 +21,8 @@ class SimplePHIDetector:
         import re
         self.phi_patterns = [
             re.compile(r'\b\d{3}-\d{2}-\d{4}\b'),  # SSN
-            re.compile(r'\b\d{3}-\d{3}-\d{4}\b'),  # Phone
+            re.compile(r'\b\d{3}-\d{3}-\d{4}\b'),  # Phone (xxx-xxx-xxxx)
+            re.compile(r'\(\d{3}\)\s*\d{3}-\d{4}'),  # Phone ((xxx) xxx-xxxx)
             re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'),  # Email
         ]
     
@@ -40,7 +41,7 @@ class SimplePHIDetector:
         """Async method to sanitize text by replacing PHI with placeholders"""
         sanitized = text
         for pattern in self.phi_patterns:
-            sanitized = pattern.sub('[REDACTED]', sanitized)
+            sanitized = pattern.sub('[PHI_REDACTED]', sanitized)
         return sanitized
 
 logger = get_healthcare_logger("chat_log_manager")

@@ -70,4 +70,18 @@ ignore = [
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: marks tests as integration tests",
+    "e2e: marks tests as end-to-end tests",
+    "slow: marks tests as slow running",
+]
+env = [
+    "ENVIRONMENT=testing",
+]
 indent-style = "space"

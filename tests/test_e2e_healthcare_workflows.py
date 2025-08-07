@@ -5,6 +5,7 @@ Tests complete workflow: Open WebUI → Ollama → MCP → FastAPI Agents → Re
 
 import asyncio
 import json
+import os
 import uuid
 from datetime import datetime
 
@@ -23,7 +24,20 @@ class HealthcareE2ETestFramework(HealthcareTestCase):
         self.mcp_url = "http://localhost:3000"
         self.fastapi_url = "http://localhost:8000"
         self.phi_detector = SimplePHIDetector()
-        self.chat_log_manager = ChatLogManager()
+        # Use current working directory for test logs instead of /app
+        import tempfile
+        test_log_dir = os.path.join(tempfile.gettempdir(), "healthcare_test_logs")
+        self.chat_log_manager = ChatLogManager(test_log_dir)
+
+    def generate_synthetic_patient(self, patient_id: str):
+        """Generate synthetic patient data for testing"""
+        return {
+            "patient_id": patient_id,
+            "name": f"Test Patient {patient_id}",
+            "dob": "1990-01-01",
+            "insurance_type": "PPO",
+            "synthetic_marker": True
+        }
 
     async def setup_test_environment(self):
         """Setup test environment with synthetic data"""

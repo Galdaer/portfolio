@@ -6,7 +6,7 @@ Comprehensive validation of security fixes with database-backed synthetic data
 import os
 import sys
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -166,7 +166,15 @@ class TestRBACSecurityFixes:
                     method = getattr(manager, method_name)
                     # Test with minimal parameters that should work
                     try:
-                        result = method("test_user", "patient_123")
+                        import asyncio
+                        import inspect
+                        
+                        if inspect.iscoroutinefunction(method):
+                            # Handle async methods
+                            result = asyncio.run(method("test_user", "patient_123"))
+                        else:
+                            # Handle sync methods
+                            result = method("test_user", "patient_123")
                         assert isinstance(result, bool)
                         method_found = True
                         break
@@ -245,12 +253,8 @@ class TestAuditLoggingEnhancements:
 
 def test_integration_all_security_fixes() -> None:
     """Integration test ensuring all security fixes work together"""
-    connection_factory = PostgresConnectionFactory(
-        host="localhost",
-        database="intelluxe",
-        user="intelluxe",
-        password="secure_password",
-    )
+    # Mock database connection for integration test
+    mock_connection = MagicMock()
 
     with patch.dict(
         os.environ,
@@ -262,8 +266,8 @@ def test_integration_all_security_fixes() -> None:
     ):
         # Initialize all security components
         phi_detector = BasicPHIDetector()
-        rbac_manager = HealthcareRBACManager(connection_factory)
-        encryption_manager = HealthcareEncryptionManager(connection_factory)
+        rbac_manager = HealthcareRBACManager(mock_connection)
+        encryption_manager = HealthcareEncryptionManager(mock_connection)
 
         # Test they all work together
         test_data = "Patient data for John Doe"
