@@ -102,14 +102,25 @@ class BaseHealthcareAgent(ABC):
 
     async def _validate_database_connectivity(self) -> None:
         """Database-first validation with graceful fallbacks for development"""
+        connection = None
         try:
-            self._db_connection = await get_database_connection()
+            connection = await get_database_connection()
             
             # Test database connectivity
-            await self._db_connection.execute("SELECT 1")
+            await connection.execute("SELECT 1")
+            
+            # Store connection for reuse only after successful validation
+            self._db_connection = connection
             
             self.logger.info(f"Database connectivity validated for agent {self.agent_name}")
         except Exception as e:
+            # Ensure connection is properly closed on failure
+            if connection:
+                try:
+                    await connection.close()
+                except Exception as close_error:
+                    self.logger.warning(f"Error closing failed database connection: {close_error}")
+            
             # Database-first pattern: try database first, fallback based on environment
             if self._is_production_environment():
                 # Production: database required, no fallbacks
@@ -308,6 +319,21 @@ class BaseHealthcareAgent(ABC):
         """Remove or redact sensitive information for logging - DEPRECATED: Use phi_monitor instead"""
         # Use the new PHI monitor for sanitization
         return sanitize_healthcare_data(data)
+    
+    async def cleanup(self) -> None:
+        """Cleanup agent resources including database connections
+        
+        Follows HealthcareDatabaseTypeSafety.get_connection_with_proper_release() pattern
+        to ensure proper resource management in healthcare systems.
+        """
+        if hasattr(self, '_db_connection') and self._db_connection:
+            try:
+                await self._db_connection.close()
+                self.logger.info(f"Database connection closed for agent {self.agent_name}")
+            except Exception as e:
+                self.logger.warning(f"Error closing database connection for agent {self.agent_name}: {e}")
+            finally:
+                self._db_connection = None
 
 
 class DocumentProcessingAgent(BaseHealthcareAgent):

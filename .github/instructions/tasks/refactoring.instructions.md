@@ -98,6 +98,107 @@ class RefactoringSafetyValidator:
             "requires_medical_review": new_advice_patterns > 0 or refactored_safety_violations > original_safety_violations
         }
 
+### Modern Healthcare Refactoring Patterns (Based on PR #31 Lessons)
+
+```python
+# ✅ CRITICAL: Code formatting and line length patterns (From PR review feedback)
+class ModernRefactoringStandards:
+    """Modern refactoring patterns from real production issues."""
+    
+    @staticmethod
+    def refactor_long_lines(code: str, max_length: int = 120) -> str:
+        """Break extremely long lines identified in PR reviews."""
+        
+        # Pattern from PR #31: Long synthetic data generation lines  
+        # Before: synthetic_ssn = f"{SyntheticDataConstants.SYNTHETIC_SSN_PREFIX}-{random.randint(SyntheticDataConstants.SSN_GROUP_MIN, SyntheticDataConstants.SSN_GROUP_MAX)}-{random.randint(SyntheticDataConstants.SSN_SERIAL_MIN, SyntheticDataConstants.SSN_SERIAL_MAX)}"
+        # After: Extract variables for readability
+        long_line_patterns = [
+            {
+                'pattern': r'(\w+)\s*=\s*f".*{.*}.*{.*}.*{.*}"',
+                'refactor': 'Extract intermediate variables for f-string components'
+            },
+            {
+                'pattern': r'synthetic_ssn\s*=.*{.*}.*{.*}.*{.*}',
+                'refactor': 'Break SSN generation into multiple variables'
+            }
+        ]
+        
+        return code  # Implementation would apply refactoring patterns
+    
+    @staticmethod
+    def eliminate_method_duplication(file_paths: List[str]) -> Dict[str, List[str]]:
+        """Identify and eliminate method duplication across healthcare modules."""
+        
+        # Methods identified as duplicated in PR #31 reviews
+        commonly_duplicated = [
+            "_ensure_decimal",  # Found in billing_agent.py and insurance_calculations.py
+            "_get_negotiated_rate",  # Found in multiple billing modules
+            "_get_patient_coverage_data"  # Found in multiple insurance modules
+        ]
+        
+        duplication_report = {}
+        for method in commonly_duplicated:
+            duplication_report[method] = []
+            # Would scan files for duplicate implementations
+        
+        return duplication_report
+    
+    @staticmethod  
+    def consolidate_imports(code: str) -> str:
+        """Remove duplicate imports identified in PR reviews."""
+        
+        lines = code.split('\n')
+        import_lines = []
+        other_lines = []
+        seen_imports = set()
+        
+        for line in lines:
+            if line.strip().startswith(('import ', 'from ')):
+                if line.strip() not in seen_imports:
+                    import_lines.append(line)
+                    seen_imports.add(line.strip())
+                # Skip duplicate imports
+            else:
+                other_lines.append(line)
+        
+        # Combine unique imports with rest of code
+        return '\n'.join(import_lines + [''] + other_lines)
+
+# ✅ CRITICAL: Healthcare financial calculation refactoring (From PR review feedback)
+class HealthcareFinancialRefactoring:
+    """Financial calculation refactoring patterns from production issues."""
+    
+    @staticmethod
+    def add_division_by_zero_protection(code: str) -> str:
+        """Add zero protection to financial calculations."""
+        
+        # Pattern from PR #31: Division by zero in deductible calculations
+        division_patterns = [
+            r'(\w+)\s*/\s*(\w+\.annual_deductible)',
+            r'(\w+)\s*/\s*(\w+\.deductible)'
+        ]
+        
+        # Would add protection like:
+        # if patient_coverage.annual_deductible == 0: percentage_met = 1.0
+        # else: percentage_met = float(patient_coverage.deductible_met / patient_coverage.annual_deductible)
+        
+        return code
+    
+    @staticmethod
+    def ensure_decimal_type_safety(code: str) -> str:
+        """Convert financial calculations to use Decimal consistently."""
+        
+        # Pattern from PR #31: Decimal vs float type mismatches
+        float_to_decimal_patterns = [
+            r'float\((.*deductible.*)\)',
+            r'float\((.*amount.*)\)',
+            r'(billed_amount.*=.*\d+\.\d+)',  # Raw float literals
+        ]
+        
+        # Would convert to: self._ensure_decimal(value)
+        
+        return code
+
 # ✅ CORRECT: Healthcare-specific refactoring patterns
 class HealthcareRefactoringPatterns:
     """Common refactoring patterns for healthcare code."""

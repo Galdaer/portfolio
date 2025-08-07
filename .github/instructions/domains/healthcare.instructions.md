@@ -19,6 +19,73 @@ class HealthcareAISafetyFramework:
         return True, None
 ```
 
+### Healthcare Financial Calculation Safety (Based on PR #31 Lessons)
+
+```python
+# ✅ CRITICAL: Financial calculation safety patterns
+class HealthcareFinancialSafety:
+    """Financial calculation safety patterns from real production issues."""
+    
+    @staticmethod
+    def safe_division_with_zero_check(numerator: Decimal, denominator: Decimal) -> Decimal:
+        """Division with zero protection for insurance calculations."""
+        if denominator <= 0:
+            return Decimal('0')  # or appropriate default
+        return numerator / denominator
+    
+    @staticmethod
+    def ensure_decimal_precision(value: Any) -> Decimal:
+        """Convert financial values to Decimal safely."""
+        if isinstance(value, Decimal):
+            return value
+        if isinstance(value, (int, float)):
+            return Decimal(str(value))  # String conversion preserves precision
+        raise ValueError(f"Cannot convert {type(value)} to Decimal")
+    
+    @staticmethod
+    def validate_method_signature_compatibility(method_call: str, expected_params: List[str]) -> bool:
+        """Validate method calls match expected signatures."""
+        # Pattern to catch signature mismatches before runtime
+        pass
+
+# ✅ CRITICAL: Database resource management patterns
+class HealthcareDatabaseSafety:
+    """Database connection safety patterns from production issues."""
+    
+    @asynccontextmanager
+    async def get_connection_with_auto_release(self):
+        """Proper database connection management."""
+        conn = await self.pool.acquire()
+        try:
+            yield conn
+        finally:
+            await self.pool.release(conn)
+    
+    async def safe_database_operation(self, operation_func, *args, **kwargs):
+        """Template for safe database operations."""
+        async with self.get_connection_with_auto_release() as conn:
+            return await operation_func(conn, *args, **kwargs)
+
+# ✅ CRITICAL: Avoid code duplication patterns
+class HealthcareCodeOrganization:
+    """Code organization patterns to prevent duplication."""
+    
+    # Common utilities should be in shared modules:
+    # - domains/healthcare_utils.py for financial utilities
+    # - core/utils/type_conversion.py for type safety utilities  
+    # - core/utils/database_helpers.py for connection management
+    
+    @staticmethod
+    def identify_duplicate_methods() -> List[str]:
+        """Methods commonly duplicated across healthcare modules."""
+        return [
+            "_ensure_decimal",
+            "_get_negotiated_rate", 
+            "_get_patient_coverage_data",
+            "_validate_database_connection"
+        ]
+```
+
 ### Healthcare Compliance Framework
 
 ```python

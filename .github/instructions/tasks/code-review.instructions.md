@@ -17,6 +17,15 @@ def review_medical_advice_prevention(code: str) -> List[str]:
 
     # Flag medical advice patterns
     advice_patterns = [
+### Medical Safety & Compliance
+
+```python
+# ✅ REVIEW: Medical advice prevention
+def review_medical_advice_prevention(code: str) -> List[str]:
+    """Check for potential medical advice patterns."""
+    
+    warnings = []
+    advice_patterns = [
         r"diagnosis.*=.*recommend",
         r"treatment.*should.*take",
         r"medication.*dosage",
@@ -32,6 +41,86 @@ def review_medical_advice_prevention(code: str) -> List[str]:
         warnings.append("Missing medical advice disclaimer in medical context")
 
     return warnings
+
+# ✅ REVIEW: Financial calculation safety (Based on PR #31 comments)
+def review_financial_calculation_safety(code: str) -> List[str]:
+    """Check for financial calculation safety issues identified in PR reviews."""
+    
+    issues = []
+    
+    # Division by zero protection for insurance calculations
+    if re.search(r'(\w+)\s*/\s*(\w+\.annual_deductible|\w+\.deductible)', code):
+        issues.append("Potential division by zero in deductible calculations - add zero check protection")
+    
+    # Decimal vs float type safety for financial data
+    if re.search(r'float.*deductible|float.*amount|float.*cost', code, re.IGNORECASE):
+        issues.append("Use Decimal for financial calculations instead of float for precision")
+    
+    # Method signature validation for insurance calculations
+    if re.search(r'calculate_patient_cost.*\(.*deductible_status.*insurance_type', code):
+        issues.append("Method signature mismatch - verify calculate_patient_cost parameters")
+    
+    return issues
+
+# ✅ REVIEW: Database resource management (Based on PR #31 comments)
+def review_database_resource_management(code: str) -> List[str]:
+    """Check for database connection leaks and resource management."""
+    
+    issues = []
+    
+    # Database connection acquisition without release
+    if re.search(r'\.acquire\(\).*(?!.*release|.*finally|.*context)', code, re.DOTALL):
+        issues.append("Database connection acquired but not released - use context manager or ensure release")
+    
+    # Missing asynccontextmanager for database operations
+    if re.search(r'async def.*get.*connection.*\(\):', code) and 'asynccontextmanager' not in code:
+        issues.append("Consider using @asynccontextmanager for database connection management")
+    
+    return issues
+
+# ✅ REVIEW: Code duplication detection (Based on PR #31 comments)
+def review_code_duplication(code: str, file_path: str) -> List[str]:
+    """Check for method duplication across healthcare modules."""
+    
+    issues = []
+    
+    # Common duplicated methods identified in PR reviews
+    duplicated_methods = [
+        r'def _ensure_decimal\(',
+        r'def _get_negotiated_rate\(',
+        r'def _get_patient_coverage_data\('
+    ]
+    
+    for method_pattern in duplicated_methods:
+        if re.search(method_pattern, code):
+            issues.append(f"Method duplication detected: {method_pattern} - consolidate into shared utility")
+    
+    # Duplicate imports
+    import_lines = [line for line in code.split('\n') if line.strip().startswith('import ') or line.strip().startswith('from ')]
+    if len(import_lines) != len(set(import_lines)):
+        issues.append("Duplicate import statements detected - remove duplicates")
+    
+    return issues
+
+# ✅ REVIEW: Magic numbers replacement (Based on PR #31 comments)  
+def review_magic_numbers(code: str) -> List[str]:
+    """Check for magic numbers that should be constants."""
+    
+    issues = []
+    
+    # Healthcare-specific magic numbers identified in PR reviews
+    magic_patterns = [
+        (r'\b555\b(?!.*SYNTHETIC)', "Use SYNTHETIC_SSN_PREFIX constant instead of hardcoded 555"),
+        (r'\b10\b.*\b99\b', "Use SSN_GROUP_MIN/MAX constants for SSN group ranges"),
+        (r'\b1000\b.*\b9999\b', "Use SSN_SERIAL_MIN/MAX constants for SSN serial ranges"),
+        (r'"123".*"456"', "Use SYNTHETIC_PHONE_AREA_CODES constant array"),
+    ]
+    
+    for pattern, message in magic_patterns:
+        if re.search(pattern, code):
+            issues.append(message)
+    
+    return issues
 
 # ✅ REVIEW: PHI handling validation
 def review_phi_handling(code: str) -> List[str]:

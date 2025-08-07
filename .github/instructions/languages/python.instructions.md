@@ -12,6 +12,114 @@ Python patterns for healthcare AI systems with focus on medical compliance, PHI 
 - **Emergency-safe error handling**: Failures never compromise patient care
 - **Compassionate code design**: Code that supports healthcare providers, protects patients
 
+## Enhanced Type Safety from Production Issues (Based on PR #31)
+
+### MANDATORY Healthcare Type Safety Patterns (Lessons from Real Issues)
+
+```python
+# ✅ CRITICAL: Financial type safety patterns (From PR review feedback)
+from decimal import Decimal
+from typing import Any, Union
+
+class HealthcareFinancialTypeSafety:
+    """Type safety patterns for healthcare financial calculations."""
+    
+    @staticmethod
+    def ensure_decimal_precision(value: Any) -> Decimal:
+        """Convert financial values to Decimal safely (pattern from PR #31)."""
+        if isinstance(value, Decimal):
+            return value
+        if isinstance(value, (int, float)):
+            return Decimal(str(value))  # String conversion preserves precision
+        if isinstance(value, str):
+            return Decimal(value)
+        raise ValueError(f"Cannot convert {type(value)} to Decimal")
+    
+    @staticmethod
+    def validate_method_signature_match(
+        method_name: str, 
+        provided_params: Dict[str, Any], 
+        expected_params: List[str]
+    ) -> bool:
+        """Validate method calls match expected signatures (prevents runtime errors)."""
+        provided_keys = set(provided_params.keys())
+        expected_keys = set(expected_params)
+        
+        missing_params = expected_keys - provided_keys
+        unexpected_params = provided_keys - expected_keys
+        
+        if missing_params or unexpected_params:
+            logger.error(f"Method signature mismatch for {method_name}: missing={missing_params}, unexpected={unexpected_params}")
+            return False
+        return True
+
+# ✅ CRITICAL: Import management patterns (From PR review feedback)
+class HealthcareImportSafety:
+    """Import safety patterns to prevent duplicate imports."""
+    
+    @staticmethod
+    def detect_duplicate_imports(code: str) -> List[str]:
+        """Detect duplicate import statements."""
+        import_lines = [
+            line.strip() for line in code.split('\n') 
+            if line.strip().startswith(('import ', 'from '))
+        ]
+        
+        duplicates = []
+        seen = set()
+        for line in import_lines:
+            if line in seen:
+                duplicates.append(line)
+            seen.add(line)
+        
+        return duplicates
+    
+    @staticmethod
+    def organize_healthcare_imports() -> str:
+        """Standard import organization for healthcare modules."""
+        return '''
+# Standard library imports
+import logging
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
+from contextlib import asynccontextmanager
+
+# Third-party imports
+import asyncpg
+from fastapi import HTTPException
+
+# Healthcare-specific imports
+from core.dependencies import get_database_connection, DatabaseConnectionError
+from core.infrastructure.healthcare_logger import healthcare_log_method
+'''
+
+# ✅ CRITICAL: Database resource safety patterns (From PR review feedback)
+class HealthcareDatabaseTypeSafety:
+    """Database connection type safety patterns."""
+    
+    @asynccontextmanager
+    async def get_connection_with_proper_release(self) -> AsyncGenerator[Any, None]:
+        """Proper database connection management with type safety."""
+        conn = await self.pool.acquire()
+        try:
+            yield conn
+        finally:
+            await self.pool.release(conn)  # CRITICAL: Always release
+    
+    async def safe_database_query(
+        self, 
+        query: str, 
+        params: Optional[List[Any]] = None
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Type-safe database querying with connection management."""
+        async with self.get_connection_with_proper_release() as conn:
+            try:
+                result = await conn.fetch(query, *(params or []))
+                return [dict(row) for row in result]
+            except Exception as e:
+                logger.error(f"Database query failed: {e}")
+                return None
+
 ## Type Safety & Code Quality Requirements (Enhanced)
 
 ### MANDATORY Type Safety Patterns for Healthcare
