@@ -25,6 +25,13 @@
 	   mcp-build \
 	   mcp-rebuild \
 	   mcp-clean \
+	   medical-mirrors-build \
+	   medical-mirrors-rebuild \
+	   medical-mirrors-clean \
+	   medical-mirrors-run \
+	   medical-mirrors-logs \
+	   medical-mirrors-stop \
+	   medical-mirrors-health \
 	   reset \
 	   restore \
 	   setup \
@@ -387,6 +394,59 @@ mcp-clean:
 	@docker system prune -f --filter "label=maintainer=Intelluxe AI Healthcare Team"
 	@echo "✅ Healthcare MCP Docker cleanup complete"
 
+# Medical Mirrors Service Commands
+medical-mirrors-build:
+	@echo "🏗️  Building Medical Mirrors service Docker image"
+	@cd services/user/medical-mirrors && docker build -t intelluxe/medical-mirrors:latest .
+	@echo "✅ Medical Mirrors Docker image built successfully"
+
+medical-mirrors-rebuild:
+	@echo "🔄  Rebuilding Medical Mirrors service (no cache)"
+	@cd services/user/medical-mirrors && docker build --no-cache -t intelluxe/medical-mirrors:latest .
+	@echo "✅ Medical Mirrors Docker image rebuilt successfully"
+
+medical-mirrors-clean:
+	@echo "🧹  Cleaning up Medical Mirrors Docker artifacts"
+	@docker images intelluxe/medical-mirrors -q | xargs -r docker rmi -f
+	@docker system prune -f --filter "label=service=medical-mirrors"
+	@echo "✅ Medical Mirrors Docker cleanup complete"
+
+medical-mirrors-run:
+	@echo "🚀  Starting Medical Mirrors service container"
+	@docker run -d \
+		--name medical-mirrors \
+		--network intelluxe-net \
+		-p 8080:8080 \
+		-v $(PWD)/data:/app/data \
+		-v $(PWD)/logs:/app/logs \
+		-e PYTHONPATH=/app/src \
+		--restart unless-stopped \
+		intelluxe/medical-mirrors:latest
+	@echo "✅ Medical Mirrors service started on http://localhost:8080"
+
+medical-mirrors-logs:
+	@echo "📋  Viewing Medical Mirrors service logs"
+	@docker logs -f medical-mirrors
+
+medical-mirrors-stop:
+	@echo "🛑  Stopping Medical Mirrors service"
+	@docker stop medical-mirrors 2>/dev/null || echo "   ⚠️  Container not running"
+	@docker rm medical-mirrors 2>/dev/null || echo "   ⚠️  Container not found"
+	@echo "✅ Medical Mirrors service stopped"
+
+medical-mirrors-health:
+	@echo "🔍  Checking Medical Mirrors service health"
+	@if docker ps --filter "name=medical-mirrors" --filter "status=running" | grep -q medical-mirrors; then \
+		echo "   ✅ Container is running"; \
+		if curl -f http://localhost:8080/health 2>/dev/null; then \
+			echo "   ✅ Health endpoint responding"; \
+		else \
+			echo "   ⚠️  Health endpoint not responding"; \
+		fi; \
+	else \
+		echo "   ❌ Container not running"; \
+	fi
+
 # Development Commands
 hooks:
 	@echo "🔗  Installing git hooks for pre-push validation"
@@ -580,6 +640,15 @@ help:
 	@echo "   make mcp           - Build Healthcare MCP server Docker image"
 	@echo "   make mcp-rebuild   - Rebuild MCP server (no cache)"
 	@echo "   make mcp-clean     - Clean MCP Docker artifacts"
+	@echo ""
+	@echo "🏥  MEDICAL MIRRORS SERVICE:"
+	@echo "   make medical-mirrors-build   - Build Medical Mirrors Docker image"
+	@echo "   make medical-mirrors-rebuild - Rebuild Medical Mirrors (no cache)"
+	@echo "   make medical-mirrors-run     - Start Medical Mirrors container"
+	@echo "   make medical-mirrors-logs    - View Medical Mirrors logs"
+	@echo "   make medical-mirrors-stop    - Stop Medical Mirrors service"
+	@echo "   make medical-mirrors-health  - Check Medical Mirrors health"
+	@echo "   make medical-mirrors-clean   - Clean Medical Mirrors Docker artifacts"
 	@echo ""
 	@echo "⚙️   SYSTEM MANAGEMENT:"
 	@echo "   make diagnostics   - Run comprehensive system diagnostics"
