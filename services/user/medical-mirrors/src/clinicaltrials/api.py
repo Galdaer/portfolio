@@ -19,35 +19,39 @@ logger = logging.getLogger(__name__)
 
 class ClinicalTrialsAPI:
     """Local ClinicalTrials.gov API matching Healthcare MCP interface"""
-    
+
     def __init__(self, session_factory):
         self.session_factory = session_factory
         self.downloader = ClinicalTrialsDownloader()
         self.parser = ClinicalTrialsParser()
-    
-    async def search_trials(self, condition: str = None, location: str = None, max_results: int = 10) -> List[Dict]:
+
+    async def search_trials(
+        self, condition: str = None, location: str = None, max_results: int = 10
+    ) -> List[Dict]:
         """
         Search clinical trials in local database
         Matches the interface of Healthcare MCP search-trials tool
         """
-        logger.info(f"Searching trials for condition: {condition}, location: {location}, max_results: {max_results}")
-        
+        logger.info(
+            f"Searching trials for condition: {condition}, location: {location}, max_results: {max_results}"
+        )
+
         db = self.session_factory()
         try:
             # Build search query
             query_parts = []
-            params = {'limit': max_results}
-            
+            params = {"limit": max_results}
+
             if condition:
                 query_parts.append("search_vector @@ plainto_tsquery(:condition)")
-                params['condition'] = condition
-            
+                params["condition"] = condition
+
             if location:
                 query_parts.append("search_vector @@ plainto_tsquery(:location)")
-                params['location'] = location
-            
+                params["location"] = location
+
             where_clause = " AND ".join(query_parts) if query_parts else "1=1"
-            
+
             search_query = text(f"""
                 SELECT nct_id, title, status, phase, conditions, interventions, 
                        locations, sponsors, start_date, completion_date, enrollment, study_type,
@@ -57,44 +61,44 @@ class ClinicalTrialsAPI:
                 ORDER BY rank DESC, start_date DESC
                 LIMIT :limit
             """)
-            
+
             # Combine search terms
             search_terms = []
             if condition:
                 search_terms.append(condition)
             if location:
                 search_terms.append(location)
-            params['search_term'] = " ".join(search_terms) if search_terms else ""
-            
+            params["search_term"] = " ".join(search_terms) if search_terms else ""
+
             result = db.execute(search_query, params)
-            
+
             trials = []
             for row in result:
                 trial = {
-                    'nctId': row.nct_id,
-                    'title': row.title,
-                    'status': row.status,
-                    'phase': row.phase,
-                    'conditions': row.conditions or [],
-                    'interventions': row.interventions or [],
-                    'locations': row.locations or [],
-                    'sponsors': row.sponsors or [],
-                    'startDate': row.start_date,
-                    'completionDate': row.completion_date,
-                    'enrollment': row.enrollment,
-                    'studyType': row.study_type
+                    "nctId": row.nct_id,
+                    "title": row.title,
+                    "status": row.status,
+                    "phase": row.phase,
+                    "conditions": row.conditions or [],
+                    "interventions": row.interventions or [],
+                    "locations": row.locations or [],
+                    "sponsors": row.sponsors or [],
+                    "startDate": row.start_date,
+                    "completionDate": row.completion_date,
+                    "enrollment": row.enrollment,
+                    "studyType": row.study_type,
                 }
                 trials.append(trial)
-            
+
             logger.info(f"Found {len(trials)} trials")
             return trials
-            
+
         except Exception as e:
             logger.error(f"Clinical trials search failed: {e}")
             raise
         finally:
             db.close()
-    
+
     async def get_trial(self, nct_id: str) -> Optional[Dict]:
         """Get specific trial by NCT ID"""
         db = self.session_factory()
@@ -102,109 +106,114 @@ class ClinicalTrialsAPI:
             trial = db.query(ClinicalTrial).filter(ClinicalTrial.nct_id == nct_id).first()
             if not trial:
                 return None
-            
+
             return {
-                'nctId': trial.nct_id,
-                'title': trial.title,
-                'status': trial.status,
-                'phase': trial.phase,
-                'conditions': trial.conditions or [],
-                'interventions': trial.interventions or [],
-                'locations': trial.locations or [],
-                'sponsors': trial.sponsors or [],
-                'startDate': trial.start_date,
-                'completionDate': trial.completion_date,
-                'enrollment': trial.enrollment,
-                'studyType': trial.study_type
+                "nctId": trial.nct_id,
+                "title": trial.title,
+                "status": trial.status,
+                "phase": trial.phase,
+                "conditions": trial.conditions or [],
+                "interventions": trial.interventions or [],
+                "locations": trial.locations or [],
+                "sponsors": trial.sponsors or [],
+                "startDate": trial.start_date,
+                "completionDate": trial.completion_date,
+                "enrollment": trial.enrollment,
+                "studyType": trial.study_type,
             }
-            
+
         finally:
             db.close()
-    
+
     async def get_status(self) -> Dict:
         """Get status of ClinicalTrials mirror"""
         db = self.session_factory()
         try:
             # Get total trial count
             total_count = db.query(func.count(ClinicalTrial.nct_id)).scalar()
-            
+
             # Get last update info
-            last_update = db.query(UpdateLog).filter(
-                UpdateLog.source == 'trials'
-            ).order_by(UpdateLog.started_at.desc()).first()
-            
+            last_update = (
+                db.query(UpdateLog)
+                .filter(UpdateLog.source == "trials")
+                .order_by(UpdateLog.started_at.desc())
+                .first()
+            )
+
             status = {
-                'source': 'clinicaltrials',
-                'total_trials': total_count,
-                'status': 'healthy' if total_count > 0 else 'empty',
-                'last_update': last_update.started_at.isoformat() if last_update else None,
-                'last_update_status': last_update.status if last_update else None
+                "source": "clinicaltrials",
+                "total_trials": total_count,
+                "status": "healthy" if total_count > 0 else "empty",
+                "last_update": last_update.started_at.isoformat() if last_update else None,
+                "last_update_status": last_update.status if last_update else None,
             }
-            
+
             return status
-            
+
         finally:
             db.close()
-    
+
     async def trigger_update(self) -> Dict:
         """Trigger ClinicalTrials data update"""
         logger.info("Triggering ClinicalTrials data update")
-        
+
         db = self.session_factory()
         try:
             # Log update start
             update_log = UpdateLog(
-                source='trials',
-                update_type='incremental',
-                status='in_progress',
-                started_at=datetime.utcnow()
+                source="trials",
+                update_type="incremental",
+                status="in_progress",
+                started_at=datetime.utcnow(),
             )
             db.add(update_log)
             db.commit()
-            
+
             # Download and parse updates
             update_files = await self.downloader.download_recent_updates()
             total_processed = 0
-            
+
             for json_file in update_files:
                 trials = self.parser.parse_json_file(json_file)
                 processed = await self.store_trials(trials, db)
                 total_processed += processed
-            
+
             # Update log
-            update_log.status = 'success'
+            update_log.status = "success"
             update_log.records_processed = total_processed
             update_log.completed_at = datetime.utcnow()
             db.commit()
-            
+
             logger.info(f"ClinicalTrials update completed: {total_processed} trials processed")
             return {
-                'status': 'success',
-                'records_processed': total_processed,
-                'files_processed': len(update_files)
+                "status": "success",
+                "records_processed": total_processed,
+                "files_processed": len(update_files),
             }
-            
+
         except Exception as e:
             logger.error(f"ClinicalTrials update failed: {e}")
-            update_log.status = 'failed'
+            update_log.status = "failed"
             update_log.error_message = str(e)
             update_log.completed_at = datetime.utcnow()
             db.commit()
             raise
         finally:
             db.close()
-    
+
     async def store_trials(self, trials: List[Dict], db: Session) -> int:
         """Store trials in database"""
         stored_count = 0
-        
+
         for trial_data in trials:
             try:
                 # Check if trial already exists
-                existing = db.query(ClinicalTrial).filter(
-                    ClinicalTrial.nct_id == trial_data['nct_id']
-                ).first()
-                
+                existing = (
+                    db.query(ClinicalTrial)
+                    .filter(ClinicalTrial.nct_id == trial_data["nct_id"])
+                    .first()
+                )
+
                 if existing:
                     # Update existing trial
                     for key, value in trial_data.items():
@@ -214,25 +223,25 @@ class ClinicalTrialsAPI:
                     # Create new trial
                     trial = ClinicalTrial(**trial_data)
                     db.add(trial)
-                
+
                 stored_count += 1
-                
+
                 # Commit in batches
                 if stored_count % 100 == 0:
                     db.commit()
-                    
+
             except Exception as e:
                 logger.error(f"Failed to store trial {trial_data.get('nct_id')}: {e}")
                 db.rollback()
-        
+
         # Final commit
         db.commit()
-        
+
         # Update search vectors
         await self.update_search_vectors(db)
-        
+
         return stored_count
-    
+
     async def update_search_vectors(self, db: Session):
         """Update full-text search vectors"""
         try:
@@ -247,44 +256,44 @@ class ClinicalTrialsAPI:
                 )
                 WHERE search_vector IS NULL
             """)
-            
+
             db.execute(update_query)
             db.commit()
             logger.info("Updated search vectors for clinical trials")
-            
+
         except Exception as e:
             logger.error(f"Failed to update search vectors: {e}")
             db.rollback()
-    
+
     async def initialize_data(self) -> Dict:
         """Initialize ClinicalTrials data"""
         logger.info("Initializing ClinicalTrials data")
-        
+
         db = self.session_factory()
         try:
             # Check if data already exists
             count = db.query(func.count(ClinicalTrial.nct_id)).scalar()
             if count > 0:
                 logger.info(f"ClinicalTrials data already exists: {count} trials")
-                return {'status': 'already_initialized', 'trial_count': count}
-            
+                return {"status": "already_initialized", "trial_count": count}
+
             # Download all studies
             study_files = await self.downloader.download_all_studies()
             total_processed = 0
-            
+
             for json_file in study_files:
                 trials = self.parser.parse_json_file(json_file)
                 processed = await self.store_trials(trials, db)
                 total_processed += processed
                 logger.info(f"Processed {processed} trials from {json_file}")
-            
+
             logger.info(f"ClinicalTrials initialization completed: {total_processed} trials")
             return {
-                'status': 'initialized',
-                'records_processed': total_processed,
-                'files_processed': len(study_files)
+                "status": "initialized",
+                "records_processed": total_processed,
+                "files_processed": len(study_files),
             }
-            
+
         except Exception as e:
             logger.error(f"ClinicalTrials initialization failed: {e}")
             raise

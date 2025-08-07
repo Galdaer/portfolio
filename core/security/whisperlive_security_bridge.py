@@ -145,7 +145,9 @@ class WhisperLiveSecurityBridge:
                 processing_time_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
 
                 # Create transcription result
-                final_transcript = sanitized_transcript if phi_detected and sanitized_transcript else transcript
+                final_transcript = (
+                    sanitized_transcript if phi_detected and sanitized_transcript else transcript
+                )
                 result = SecureTranscriptionResult(
                     transcription_id=transcription_id,
                     session_id=session_id,

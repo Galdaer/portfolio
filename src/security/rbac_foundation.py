@@ -294,13 +294,13 @@ class HealthcareRBACManager:
         except Exception as e:
             if connection:
                 connection.rollback()
-            
+
             # More graceful handling for testing environments
             env_detector = EnvironmentDetector()
             if env_detector.is_testing():
                 self.logger.warning(f"RBAC table initialization failed in testing environment: {e}")
                 return  # Don't raise in testing mode
-            
+
             self.logger.error(f"Failed to initialize RBAC tables: {e}")
             raise
         finally:

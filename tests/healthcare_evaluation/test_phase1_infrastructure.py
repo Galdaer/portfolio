@@ -527,25 +527,21 @@ async def test_phase1_agent() -> None:
     except Exception as e:
         print(f"⚠️  Database unavailable, using mock data for testing: {e}")
         print("   Database-first architecture: graceful fallback to synthetic data for testing")
-        
+
         # Use mock synthetic data when database unavailable in testing
         patient = {
             "patient_id": "TEST-PAT-001",
             "first_name": "Test",
             "last_name": "Patient",
-            "insurance_provider": "Test Insurance"
+            "insurance_provider": "Test Insurance",
         }
-        doctor = {
-            "first_name": "Dr. Test",
-            "last_name": "Provider",
-            "specialty": "Family Medicine"
-        }
-        encounter = {
-            "chief_complaint": "Routine follow-up appointment"
-        }
-        
+        doctor = {"first_name": "Dr. Test", "last_name": "Provider", "specialty": "Family Medicine"}
+        encounter = {"chief_complaint": "Routine follow-up appointment"}
+
         print("✅ Using fallback synthetic data for testing:")
-        print(f"   Patient: {patient['first_name']} {patient['last_name']} (ID: {patient['patient_id']})")
+        print(
+            f"   Patient: {patient['first_name']} {patient['last_name']} (ID: {patient['patient_id']})"
+        )
         print(f"   Doctor: {doctor['first_name']} {doctor['last_name']} ({doctor['specialty']})")
         print(f"   Encounter: {encounter['chief_complaint']}")
         print()

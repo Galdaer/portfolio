@@ -362,7 +362,7 @@ class BasicPHIDetector:
             "test",
             "example",
             "PAT001",
-            "PAT002", 
+            "PAT002",
             "PAT003",
             "PROV001",
             "ENC001",
@@ -382,51 +382,51 @@ class BasicPHIDetector:
     def _is_individual_synthetic_pattern(self, text: str) -> bool:
         """Check if an individual matched pattern is synthetic"""
         # Don't treat already masked patterns as synthetic - they should be re-masked
-        if re.match(r'^[X*]+(-[X*]+)*$', text):
+        if re.match(r"^[X*]+(-[X*]+)*$", text):
             return False
-            
+
         # Check against synthetic patterns for individual matches
         for pattern_name, pattern in self.synthetic_patterns.items():
             if re.fullmatch(pattern, text, re.IGNORECASE):
                 return True
-        
+
         # Check for specific synthetic values
         synthetic_values = [
             "555-555-1234",
-            "123-45-6789", 
+            "123-45-6789",
             "test@example.com",
             "test@synthetic.test",
             # Synthetic names
             "John Doe",
-            "Jane Doe", 
+            "Jane Doe",
             "Test Patient",
-            "Synthetic Patient"
+            "Synthetic Patient",
         ]
-        
+
         return text.lower() in [v.lower() for v in synthetic_values]
 
     def _is_entirely_synthetic_data(self, text: str) -> bool:
         """Check if the entire text is synthetic data (not just containing synthetic elements)"""
         # Only skip PHI detection if the text is clearly entirely synthetic
         text_lower = text.lower()
-        
+
         # Full synthetic indicators
         entirely_synthetic_indicators = [
             "synthetic patient",
-            "test patient", 
+            "test patient",
             "example patient",
             "@synthetic.",
             "@test.",
             "@example.",
             "pat001",
             "pat002",
-            "pat003"
+            "pat003",
         ]
-        
+
         for indicator in entirely_synthetic_indicators:
             if indicator in text_lower:
                 return True
-                
+
         return False
 
     def _process_and_mask_matches(
@@ -503,7 +503,7 @@ class BasicPHIDetector:
             for match in matches:
                 # Always mask detected patterns, even if already masked
                 matched_text = match.group()
-                
+
                 # Skip if it's clearly synthetic test data (but not already masked data)
                 if self._is_individual_synthetic_pattern(matched_text):
                     self.logger.debug(f"Skipping synthetic match: {matched_text}")

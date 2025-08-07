@@ -26,6 +26,7 @@ class HealthcareE2ETestFramework(HealthcareTestCase):
         self.phi_detector = SimplePHIDetector()
         # Use current working directory for test logs instead of /app
         import tempfile
+
         test_log_dir = os.path.join(tempfile.gettempdir(), "healthcare_test_logs")
         self.chat_log_manager = ChatLogManager(test_log_dir)
 
@@ -36,7 +37,7 @@ class HealthcareE2ETestFramework(HealthcareTestCase):
             "name": f"Test Patient {patient_id}",
             "dob": "1990-01-01",
             "insurance_type": "PPO",
-            "synthetic_marker": True
+            "synthetic_marker": True,
         }
 
     async def setup_test_environment(self):

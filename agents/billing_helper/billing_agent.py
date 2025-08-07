@@ -580,7 +580,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
             patient_id = visit_data.get("patient_id")
             if not patient_id or not isinstance(patient_id, str):
                 return {"error": "Valid patient_id is required"}
-                
+
             cpt_codes = visit_data.get("cpt_codes", [])
             insurance_type = visit_data.get("insurance_type", "standard")
 
@@ -592,7 +592,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
             # Calculate cost for each CPT code
             breakdown_by_cpt: list[dict[str, Any]] = []
             cost_explanation: list[str] = []
-            
+
             total_cost_prediction = {
                 "total_estimated_cost": Decimal("0.00"),
                 "patient_responsibility": Decimal("0.00"),

@@ -28,6 +28,7 @@ except ImportError as e:
     print("🔄 Using mock database for testing...")
     DATABASE_AVAILABLE = False
 
+
 # Define mock classes (always available for fallback)
 class MockCursor:
     def fetchall(self):
@@ -35,6 +36,7 @@ class MockCursor:
 
     def close(self):
         pass
+
 
 class MockConnection:
     def cursor(self):
@@ -46,13 +48,16 @@ class MockConnection:
     def commit(self):
         pass
 
+
 class MockPsycopg2:
     @staticmethod
     def connect(*args, **kwargs):
         return MockConnection()
 
+
 class MockRealDictCursor:
     pass
+
 
 # Only replace imports if database not available
 if not DATABASE_AVAILABLE:

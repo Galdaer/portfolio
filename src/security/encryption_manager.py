@@ -143,14 +143,15 @@ class KeyManager:
         except Exception as e:
             if connection:
                 connection.rollback()
-            
+
             # More graceful handling for testing environments
             from .environment_detector import EnvironmentDetector
+
             env_detector = EnvironmentDetector()
             if env_detector.is_testing():
                 self.logger.warning(f"Key table initialization failed in testing environment: {e}")
                 return  # Don't raise in testing mode
-                
+
             self.logger.error(f"Failed to initialize key tables: {e}")
             raise
         finally:
@@ -690,7 +691,7 @@ class HealthcareEncryptionManager:
         try:
             # Get actual database connection from the factory
             connection = self.postgres_conn.create_connection()
-            
+
             # Check if default keys exist
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -723,14 +724,17 @@ class HealthcareEncryptionManager:
         except Exception as e:
             if connection:
                 connection.rollback()
-            
+
             # More graceful handling for testing environments
             from .environment_detector import EnvironmentDetector
+
             env_detector = EnvironmentDetector()
             if env_detector.is_testing():
-                self.logger.warning(f"Default key initialization failed in testing environment: {e}")
+                self.logger.warning(
+                    f"Default key initialization failed in testing environment: {e}"
+                )
                 return  # Don't raise in testing mode
-                
+
             self.logger.error(f"Failed to initialize default keys: {e}")
             raise
         finally:

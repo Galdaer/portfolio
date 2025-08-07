@@ -168,7 +168,7 @@ class TestRBACSecurityFixes:
                     try:
                         import asyncio
                         import inspect
-                        
+
                         if inspect.iscoroutinefunction(method):
                             # Handle async methods
                             result = asyncio.run(method("test_user", "patient_123"))

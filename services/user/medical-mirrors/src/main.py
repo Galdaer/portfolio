@@ -22,7 +22,7 @@ from config import Config
 # Configure logging
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 async def lifespan(app: FastAPI):
     """Application lifespan management"""
     logger.info("Starting Medical Mirrors API")
-    
+
     # Create database tables
     try:
         Base.metadata.create_all(bind=engine)
@@ -44,9 +44,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
         raise
-    
+
     yield
-    
+
     logger.info("Shutting down Medical Mirrors API")
 
 
@@ -55,7 +55,7 @@ app = FastAPI(
     title="Medical Mirrors API",
     description="Local mirrors for Healthcare MCP API sources - unlimited access to medical data",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Configure CORS
@@ -82,12 +82,12 @@ async def health_check():
         db = SessionLocal()
         db.execute("SELECT 1")
         db.close()
-        
+
         return {
             "status": "healthy",
             "service": "medical-mirrors",
             "version": "1.0.0",
-            "database": "connected"
+            "database": "connected",
         }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -101,14 +101,14 @@ async def get_status():
         pubmed_status = await pubmed_api.get_status()
         trials_status = await trials_api.get_status()
         fda_status = await fda_api.get_status()
-        
+
         return {
             "service": "medical-mirrors",
             "mirrors": {
                 "pubmed": pubmed_status,
                 "clinicaltrials": trials_status,
-                "fda": fda_status
-            }
+                "fda": fda_status,
+            },
         }
     except Exception as e:
         logger.error(f"Status check failed: {e}")
@@ -124,12 +124,7 @@ async def search_pubmed(query: str, max_results: int = 10):
     """
     try:
         results = await pubmed_api.search_articles(query, max_results)
-        return {
-            "content": [{
-                "type": "text",
-                "text": str(results)
-            }]
-        }
+        return {"content": [{"type": "text", "text": str(results)}]}
     except Exception as e:
         logger.error(f"PubMed search failed: {e}")
         raise HTTPException(status_code=500, detail=f"PubMed search failed: {str(e)}")
@@ -157,12 +152,7 @@ async def search_trials(condition: str = None, location: str = None, max_results
     """
     try:
         results = await trials_api.search_trials(condition, location, max_results)
-        return {
-            "content": [{
-                "type": "text",
-                "text": str(results)
-            }]
-        }
+        return {"content": [{"type": "text", "text": str(results)}]}
     except Exception as e:
         logger.error(f"Clinical trials search failed: {e}")
         raise HTTPException(status_code=500, detail=f"Trials search failed: {str(e)}")
@@ -190,12 +180,7 @@ async def search_fda(generic_name: str = None, ndc: str = None, max_results: int
     """
     try:
         results = await fda_api.search_drugs(generic_name, ndc, max_results)
-        return {
-            "content": [{
-                "type": "text",
-                "text": str(results)
-            }]
-        }
+        return {"content": [{"type": "text", "text": str(results)}]}
     except Exception as e:
         logger.error(f"FDA search failed: {e}")
         raise HTTPException(status_code=500, detail=f"FDA search failed: {str(e)}")
@@ -255,5 +240,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port,
         reload=False,
-        log_level=os.getenv("LOG_LEVEL", "info").lower()
+        log_level=os.getenv("LOG_LEVEL", "info").lower(),
     )

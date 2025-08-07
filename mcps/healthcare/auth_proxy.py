@@ -175,7 +175,9 @@ async def start_mcp_server() -> bool:
                     if stderr_output:
                         logger.info(f"MCP server startup output: {stderr_output.strip()}")
                 except (OSError, BlockingIOError, ValueError) as e:
-                    logger.debug(f"Non-blocking read failed: {e}")  # Non-blocking read failed, continue
+                    logger.debug(
+                        f"Non-blocking read failed: {e}"
+                    )  # Non-blocking read failed, continue
 
         # Try to read initialization response with timeout
         try:

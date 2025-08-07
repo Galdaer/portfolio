@@ -13,36 +13,39 @@ from typing import Any
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 
+
 # Simple PHI detector for chat logging
 class SimplePHIDetector:
     """Simple PHI detection for chat log management"""
-    
+
     def __init__(self) -> None:
         import re
+
         self.phi_patterns = [
-            re.compile(r'\b\d{3}-\d{2}-\d{4}\b'),  # SSN
-            re.compile(r'\b\d{3}-\d{3}-\d{4}\b'),  # Phone (xxx-xxx-xxxx)
-            re.compile(r'\(\d{3}\)\s*\d{3}-\d{4}'),  # Phone ((xxx) xxx-xxxx)
-            re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'),  # Email
+            re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),  # SSN
+            re.compile(r"\b\d{3}-\d{3}-\d{4}\b"),  # Phone (xxx-xxx-xxxx)
+            re.compile(r"\(\d{3}\)\s*\d{3}-\d{4}"),  # Phone ((xxx) xxx-xxxx)
+            re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"),  # Email
         ]
-    
+
     def contains_phi(self, text: str) -> bool:
         """Check if text contains potential PHI patterns"""
         for pattern in self.phi_patterns:
             if pattern.search(text):
                 return True
         return False
-    
+
     async def scan_text(self, text: str) -> bool:
         """Async method to scan text for PHI"""
         return self.contains_phi(text)
-    
+
     async def sanitize_text(self, text: str) -> str:
         """Async method to sanitize text by replacing PHI with placeholders"""
         sanitized = text
         for pattern in self.phi_patterns:
-            sanitized = pattern.sub('[PHI_REDACTED]', sanitized)
+            sanitized = pattern.sub("[PHI_REDACTED]", sanitized)
         return sanitized
+
 
 logger = get_healthcare_logger("chat_log_manager")
 

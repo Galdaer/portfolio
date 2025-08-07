@@ -14,15 +14,15 @@ Base = declarative_base()
 def get_database_url():
     """Get database URL from environment"""
     return os.getenv(
-        "POSTGRES_URL",
-        "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
+        "POSTGRES_URL", "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
     )
 
 
 class PubMedArticle(Base):
     """PubMed articles table with full-text search"""
+
     __tablename__ = "pubmed_articles"
-    
+
     pmid = Column(String(20), primary_key=True)
     title = Column(Text, nullable=False)
     abstract = Column(Text)
@@ -38,8 +38,9 @@ class PubMedArticle(Base):
 
 class ClinicalTrial(Base):
     """ClinicalTrials.gov studies table"""
+
     __tablename__ = "clinical_trials"
-    
+
     nct_id = Column(String(20), primary_key=True)
     title = Column(Text, nullable=False)
     status = Column(String(50))
@@ -59,8 +60,9 @@ class ClinicalTrial(Base):
 
 class FDADrug(Base):
     """FDA drug information table"""
+
     __tablename__ = "fda_drugs"
-    
+
     ndc = Column(String(20), primary_key=True)
     name = Column(String(500), nullable=False)
     generic_name = Column(String(500))
@@ -79,8 +81,9 @@ class FDADrug(Base):
 
 class UpdateLog(Base):
     """Track data update history"""
+
     __tablename__ = "update_logs"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     source = Column(String(50), nullable=False)  # pubmed, trials, fda
     update_type = Column(String(50), nullable=False)  # full, incremental
