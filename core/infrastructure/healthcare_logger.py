@@ -16,11 +16,21 @@ import re
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Optional
 
 
-class HealthcareLogFormatter(logging.Formatter):
-    """Healthcare-specific log formatter with automatic PHI scrubbing."""
+class HealthcareLogRecord(logging.LogRecord):
+    """Extended LogRecord with healthcare context"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.healthcare_context: Optional[Dict[str, Any]] = None
+        self.phi_detected: bool = False
+        self.audit_required: bool = False
+
+
+class HealthcareFormatter(logging.Formatter):
+    """Healthcare-compliant log formatter with PHI protection"""
 
     # PHI patterns that should be automatically scrubbed from logs
     PHI_PATTERNS = [
