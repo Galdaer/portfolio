@@ -318,7 +318,7 @@ class BasicPHIDetector:
                 "description": "Personal Name",
             },
             "ssn": {
-                "pattern": r"\b\d{3}-\d{2}-\d{4}\b|\b\d{9}\b|\b[X*]{3}-[X*]{2}-[X*]{4}\b",
+                "pattern": r"\b\d{3}-\d{2}-\d{4}\b|\b\d{9}\b",
                 "description": "Social Security Number",
             },
             "phone": {

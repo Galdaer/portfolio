@@ -379,7 +379,7 @@ class HealthcareAIAssistant:
             "medical_disclaimers": "disclaimer" in code.lower(),
         }
 
-        compliance_score = sum(compliance_checks.values()) / len(compliance_checks) if compliance_checks else 0.0
+        compliance_score = sum(compliance_checks.values()) / len(compliance_checks)
 
         return {
             "compliance_checks": compliance_checks,

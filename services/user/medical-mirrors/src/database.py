@@ -33,7 +33,7 @@ class PubMedArticle(Base):  # type: ignore[misc,valid-type]
 
     __tablename__ = "pubmed_articles"
 
-    pmid = Column(String(20), primary_key=True)
+    title = Column(Text)  # Now nullable (was previously nullable=False) to handle missing titles
     title = Column(Text, nullable=True)  # Changed from nullable=False to handle missing titles
     abstract = Column(Text)
     authors = Column(ARRAY(String))

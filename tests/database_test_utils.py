@@ -16,19 +16,6 @@ from typing import Any
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Import database and healthcare modules
-try:
-    import asyncpg
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
-
-    DATABASE_AVAILABLE = True
-except ImportError as e:
-    print(f"⚠️  Database dependencies not installed: {e}")
-    print("🔄 Using mock database for testing...")
-    DATABASE_AVAILABLE = False
-
-
 # Define mock classes (always available for fallback)
 class MockCursor:
     def fetchall(self):
@@ -59,12 +46,22 @@ class MockRealDictCursor:
     pass
 
 
-# Only replace imports if database not available
-if not DATABASE_AVAILABLE:
-    # Replace imports with mocks
+# Import database and healthcare modules with fallback to mocks
+try:
+    import asyncpg
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+
+    DATABASE_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️  Database dependencies not installed: {e}")
+    print("🔄 Using mock database for testing...")
+    DATABASE_AVAILABLE = False
+
+    # Use mocks when database dependencies not available
+    asyncpg = None
     psycopg2 = MockPsycopg2()
     RealDictCursor = MockRealDictCursor
-    asyncpg = None
 
 
 class SyntheticHealthcareData:

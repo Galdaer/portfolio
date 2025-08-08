@@ -12,7 +12,22 @@ from sqlalchemy.orm import sessionmaker
 
 
 def run_migration():
-    """Run database schema migration"""
+    """
+    Run database schema migration.
+
+    Handles migration of tables for the medical-mirrors service, including schema updates for
+    fda_drugs, pubmed_articles, and clinical_trials tables.
+
+    Error Handling:
+        - Catches exceptions related to database connection, SQL execution, and other runtime errors.
+        - On error, logs the exception, rolls back the transaction, and exits the process with a nonzero status code.
+
+    Exceptions:
+        - sqlalchemy.exc.SQLAlchemyError: Raised for database connection or SQL execution errors.
+        - Exception: Any other unexpected errors during migration.
+
+    This function is intended for production use; review logs and exit codes to determine migration success.
+    """
     print("🔄 Starting medical-mirrors database schema migration...")
 
     # Get database connection

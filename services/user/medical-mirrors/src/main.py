@@ -73,7 +73,7 @@ app.add_middleware(
 config = Config()
 
 # Use optimized multi-core parser if enabled
-if config.ENABLE_MULTICORE_PARSING:
+if hasattr(config, 'ENABLE_OPTIMIZED_PARSER') and config.ENABLE_OPTIMIZED_PARSER:
     max_workers = config.MAX_PARSER_WORKERS if config.MAX_PARSER_WORKERS > 0 else None
     pubmed_api = OptimizedPubMedAPI(SessionLocal, max_workers=max_workers)
     logger.info(f"Using optimized multi-core PubMed parser (workers: {max_workers or 'auto-detect'})")

@@ -14,6 +14,8 @@ import pytest
 
 from core.security.chat_log_manager import ChatLogManager, SimplePHIDetector
 from tests.database_test_utils import HealthcareTestCase
+import tempfile
+from pathlib import Path
 
 
 class HealthcareE2ETestFramework(HealthcareTestCase):
@@ -24,11 +26,24 @@ class HealthcareE2ETestFramework(HealthcareTestCase):
         self.mcp_url = "http://localhost:3000"
         self.fastapi_url = "http://localhost:8000"
         self.phi_detector = SimplePHIDetector()
-        # Use current working directory for test logs instead of /app
-        import tempfile
 
-        test_log_dir = os.path.join(tempfile.gettempdir(), "healthcare_test_logs")
-        self.chat_log_manager = ChatLogManager(test_log_dir)
+        # Use shared test directory with unique subdirectory
+        shared_test_dir = Path(tempfile.gettempdir()) / "healthcare_test_logs"
+        shared_test_dir.mkdir(exist_ok=True)
+
+        # Create unique subdirectory for this test instance
+        test_instance_id = uuid.uuid4().hex[:8]
+        self.test_log_dir = shared_test_dir / f"test_instance_{test_instance_id}"
+        self.test_log_dir.mkdir(exist_ok=True)
+
+        self.chat_log_manager = ChatLogManager(str(self.test_log_dir))
+
+    def cleanup_test_logs(self):
+        """Clean up test logs for this instance"""
+        import shutil
+
+        if self.test_log_dir.exists():
+            shutil.rmtree(self.test_log_dir)
 
     def generate_synthetic_patient(self, patient_id: str):
         """Generate synthetic patient data for testing"""
@@ -84,7 +99,9 @@ class TestHealthcareE2EWorkflows:
         """Initialize E2E testing framework"""
         framework = HealthcareE2ETestFramework()
         await framework.setup_test_environment()
-        return framework
+        yield framework
+        # Cleanup after test
+        framework.cleanup_test_logs()
 
     @pytest.mark.asyncio
     async def test_mcp_server_health(self, e2e_framework):
