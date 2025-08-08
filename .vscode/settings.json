@@ -49,7 +49,9 @@
         "**/*.tsbuildinfo": true,
         "reference/ai-patterns/**": true,
         "actions-runners/**": true,
-        "data/**": true
+        "data/**": true,
+        "**/database/medical_complete/**": true,
+        "**/database/postgresql_data/**": true
     },
     "search.exclude": {
         "**/logs/": true,
@@ -390,5 +392,7 @@
         ]
     },
     "continueAI.nextEditSuggestions.enabled": true,
-    "github.copilot.nextEditSuggestions.enabled": true
+    "github.copilot.nextEditSuggestions.enabled": true,
+    "// External Drive Configuration": "Medical data storage on 4TB external drive",
+    "medical.dataPath": "/home/intelluxe/database"
 }
