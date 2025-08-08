@@ -1,5 +1,9 @@
 # Copilot Instructions for Intelluxe AI Healthcare System
 
+**CRITICAL - TAKE ACTION IMMEDIATELY**: Once you understand the basic task and have identified target files, start implementing immediately. Don't endlessly explore or analyze - if you can see the files that need fixing and understand the general issue, begin the work. Gather additional context during implementation, not before.
+
+**DECISION THRESHOLD**: File exploration + basic understanding = sufficient context to begin. Stop analyzing and start coding.
+
 make deps FOR ALL DEPENDENCY INSTALLATION DON'T SUGGEST UV , PIP, NPM, OR ANYTHING ELSE OR I WILL TURN YOU OFF
 
 Use The Sequential Thinking MCP Server to think through your tasks.
@@ -562,6 +566,13 @@ When working on MyPy errors, follow this autonomous pattern:
 - **Multi-Step Problem Solving**: Breaking down complex fixes into manageable phases
 - **Phase 1 Priority Decisions**: Deciding what real implementations are complete vs what needs finishing for MCP integration
 - **MyPy Error Strategy**: Planning systematic approach for resolving remaining type errors
+
+### Anti-Analysis-Paralysis Guidelines
+- **If you can identify the problem files and understand the basic issue, START FIXING immediately**
+- **Don't explore every possible file - focus on the specific issue at hand**
+- **Context gathering should take max 5-10 minutes, then switch to implementation**
+- **You can read additional files as needed during implementation**
+- **Stop saying "Let me analyze" and start taking action**
 
 ## Architectural Decision Principles
 
