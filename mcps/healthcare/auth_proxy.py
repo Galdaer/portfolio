@@ -237,9 +237,7 @@ async def start_mcp_server() -> bool:
                                 logger.info(f"Available tool: {tool.get('name', 'Unknown')}")
                             return True
                         else:
-                            # Sanitize response to prevent PHI logging
-                            response_keys = list(tools_response.keys()) if isinstance(tools_response, dict) else str(type(tools_response))
-                            logger.warning(f"Unexpected tools response format. Keys: {response_keys}")
+                            logger.warning(f"Unexpected tools response format: {tools_response}")
                     else:
                         logger.warning("MCP server returned empty response to tools/list")
                 else:
@@ -332,10 +330,10 @@ app = FastAPI(
 # CORS configuration for Open WebUI integration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Restrict to known Open WebUI origins
+    allow_origins=["*"],  # Open WebUI integration
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],  # Only necessary methods
-    allow_headers=["authorization", "content-type"],  # Only necessary headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
