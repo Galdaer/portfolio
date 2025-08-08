@@ -1,457 +1,174 @@
+````instructions
 # Healthcare AI Code Review Instructions
 
 ## Purpose
 
-Specialized code review guidance for healthcare AI systems emphasizing medical compliance, PHI protection, and healthcare-specific patterns.
+Code review guidance for healthcare AI systems emphasizing medical compliance, PHI protection, and healthcare-specific patterns.
+
+## Healthcare Code Review Patterns (Based on PR #31 Analysis)
+
+### Type Safety & Financial Calculations
+```python
+# ❌ WRONG: Float precision loss in healthcare billing
+copay_amount = 25.50  # float - precision issues
+coinsurance = 0.80    # float - rounding errors
+
+# ✅ CORRECT: Decimal precision for financial calculations
+from decimal import Decimal
+copay_amount = Decimal('25.50')
+coinsurance = Decimal('0.80')
+
+# ✅ CORRECT: Method signature consistency
+def calculate_patient_cost(self, 
+                          base_cost: Decimal,
+                          insurance_rate: Decimal,
+                          copay: Decimal) -> Decimal:
+    """Calculate patient cost with exact precision"""
+    if base_cost <= 0:
+        raise ValueError("Base cost must be positive")
+    
+    insurance_portion = base_cost * insurance_rate
+    patient_portion = base_cost - insurance_portion + copay
+    return patient_portion.quantize(Decimal('0.01'))
+```
+
+### Database Resource Management Patterns  
+```python
+# ❌ WRONG: Connection leak risk
+async def get_patient_data(patient_id: str):
+    conn = await pool.acquire()
+    result = await conn.fetch("SELECT * FROM patients WHERE id = $1", patient_id)
+    # Missing connection release!
+    return result
+
+# ✅ CORRECT: Proper async context management
+async def get_patient_data(self, patient_id: str) -> Optional[Dict[str, Any]]:
+    async with self.db_pool.acquire() as conn:
+        result = await conn.fetchrow(
+            "SELECT * FROM patients WHERE id = $1", patient_id
+        )
+        return dict(result) if result else None
+
+# ✅ CORRECT: Exception-safe cleanup
+async def complex_patient_operation(self, patient_id: str):
+    conn = await self.pool.acquire()
+    try:
+        async with conn.transaction():
+            # Multiple database operations
+            await self.update_patient_record(conn, patient_id)
+            await self.log_access_event(conn, patient_id)
+    finally:
+        await self.pool.release(conn)
+```
+
+### Code Duplication Prevention
+```python
+# ❌ WRONG: Duplicate utility methods across files
+# In billing_helper.py:
+def _ensure_decimal(value: Any) -> Decimal:
+    if isinstance(value, Decimal):
+        return value
+    return Decimal(str(value))
+
+# In insurance.py: (DUPLICATE!)
+def _ensure_decimal(value: Any) -> Decimal:
+    if isinstance(value, Decimal):
+        return value
+    return Decimal(str(value))
+
+# ✅ CORRECT: Shared utilities module
+# In core/financial/utils.py:
+class FinancialUtils:
+    @staticmethod
+    def ensure_decimal(value: Any) -> Decimal:
+        """Convert value to Decimal for financial calculations"""
+        if isinstance(value, Decimal):
+            return value
+        if value is None:
+            return Decimal('0')
+        return Decimal(str(value))
+    
+    @staticmethod
+    def safe_division(numerator: Decimal, denominator: Decimal) -> Decimal:
+        """Perform safe division with zero-check"""
+        if denominator == 0:
+            return Decimal('0')
+        return numerator / denominator
+```
+
+### PHI Protection in Code Reviews
+```python
+# ❌ WRONG: PHI in logging
+logger.info(f"Processing patient John Doe, SSN: 123-45-6789")
+
+# ❌ WRONG: PHI in error messages  
+raise ValueError(f"Invalid patient data for {patient_name}")
+
+# ✅ CORRECT: PHI-safe logging and errors
+logger.info(f"Processing patient {patient_id[:4]}***", extra={
+    'patient_ref': patient_id,
+    'operation': 'data_processing'
+})
+
+raise ValueError(f"Invalid patient data for patient_ref {patient_id}")
+```
+
+### Security Review Patterns
+```python
+# ❌ WRONG: Hardcoded credentials
+API_KEY = "sk-1234567890abcdef"  # Exposed in code
+
+# ❌ WRONG: Overly permissive CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Security risk!
+    allow_credentials=True,
+)
+
+# ✅ CORRECT: Environment-based configuration
+from config import Config
+config = Config()
+api_key = config.get_api_key()  # From environment/vault
+
+# ✅ CORRECT: Restricted CORS for healthcare
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=config.ALLOWED_ORIGINS,  # Specific healthcare domains
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+```
 
 ## Healthcare Code Review Checklist
 
 ### Medical Safety & Compliance
-
-```python
-# ✅ REVIEW: Medical advice prevention
-def review_medical_advice_prevention(code: str) -> List[str]:
-    """Check code for inappropriate medical advice patterns."""
-
-    warnings = []
-
-    # Flag medical advice patterns
-    advice_patterns = [
-### Medical Safety & Compliance
-
-```python
-# ✅ REVIEW: Medical advice prevention
-def review_medical_advice_prevention(code: str) -> List[str]:
-    """Check for potential medical advice patterns."""
-    
-    warnings = []
-    advice_patterns = [
-        r"diagnosis.*=.*recommend",
-        r"treatment.*should.*take",
-        r"medication.*dosage",
-        r"patient.*should.*do"
-    ]
-
-    for pattern in advice_patterns:
-        if re.search(pattern, code, re.IGNORECASE):
-            warnings.append(f"Potential medical advice detected: {pattern}")
-
-    # Check for proper disclaimers
-    if "medical advice" not in code.lower() and any(term in code.lower() for term in ["diagnosis", "treatment", "medication"]):
-        warnings.append("Missing medical advice disclaimer in medical context")
-
-    return warnings
-
-# ✅ REVIEW: Financial calculation safety (Based on PR #31 comments)
-def review_financial_calculation_safety(code: str) -> List[str]:
-    """Check for financial calculation safety issues identified in PR reviews."""
-    
-    issues = []
-    
-    # Division by zero protection for insurance calculations
-    if re.search(r'(\w+)\s*/\s*(\w+\.annual_deductible|\w+\.deductible)', code):
-        issues.append("Potential division by zero in deductible calculations - add zero check protection")
-    
-    # Decimal vs float type safety for financial data
-    if re.search(r'float.*deductible|float.*amount|float.*cost', code, re.IGNORECASE):
-        issues.append("Use Decimal for financial calculations instead of float for precision")
-    
-    # Method signature validation for insurance calculations
-    if re.search(r'calculate_patient_cost.*\(.*deductible_status.*insurance_type', code):
-        issues.append("Method signature mismatch - verify calculate_patient_cost parameters")
-    
-    return issues
-
-# ✅ REVIEW: Database resource management (Based on PR #31 comments)
-def review_database_resource_management(code: str) -> List[str]:
-    """Check for database connection leaks and resource management."""
-    
-    issues = []
-    
-    # Database connection acquisition without release
-    if re.search(r'\.acquire\(\).*(?!.*release|.*finally|.*context)', code, re.DOTALL):
-        issues.append("Database connection acquired but not released - use context manager or ensure release")
-    
-    # Missing asynccontextmanager for database operations
-    if re.search(r'async def.*get.*connection.*\(\):', code) and 'asynccontextmanager' not in code:
-        issues.append("Consider using @asynccontextmanager for database connection management")
-    
-    return issues
-
-# ✅ REVIEW: Code duplication detection (Based on PR #31 comments)
-def review_code_duplication(code: str, file_path: str) -> List[str]:
-    """Check for method duplication across healthcare modules."""
-    
-    issues = []
-    
-    # Common duplicated methods identified in PR reviews
-    duplicated_methods = [
-        r'def _ensure_decimal\(',
-        r'def _get_negotiated_rate\(',
-        r'def _get_patient_coverage_data\('
-    ]
-    
-    for method_pattern in duplicated_methods:
-        if re.search(method_pattern, code):
-            issues.append(f"Method duplication detected: {method_pattern} - consolidate into shared utility")
-    
-    # Duplicate imports
-    import_lines = [line for line in code.split('\n') if line.strip().startswith('import ') or line.strip().startswith('from ')]
-    if len(import_lines) != len(set(import_lines)):
-        issues.append("Duplicate import statements detected - remove duplicates")
-    
-    return issues
-
-# ✅ REVIEW: Magic numbers replacement (Based on PR #31 comments)  
-def review_magic_numbers(code: str) -> List[str]:
-    """Check for magic numbers that should be constants."""
-    
-    issues = []
-    
-    # Healthcare-specific magic numbers identified in PR reviews
-    magic_patterns = [
-        (r'\b555\b(?!.*SYNTHETIC)', "Use SYNTHETIC_SSN_PREFIX constant instead of hardcoded 555"),
-        (r'\b10\b.*\b99\b', "Use SSN_GROUP_MIN/MAX constants for SSN group ranges"),
-        (r'\b1000\b.*\b9999\b', "Use SSN_SERIAL_MIN/MAX constants for SSN serial ranges"),
-        (r'"123".*"456"', "Use SYNTHETIC_PHONE_AREA_CODES constant array"),
-    ]
-    
-    for pattern, message in magic_patterns:
-        if re.search(pattern, code):
-            issues.append(message)
-    
-    return issues
-
-# ✅ REVIEW: PHI handling validation
-def review_phi_handling(code: str) -> List[str]:
-    """Validate PHI handling patterns in code."""
-
-    issues = []
-
-    # Check for direct PHI logging
-    if re.search(r'log.*patient.*name|print.*ssn|console.*phone', code, re.IGNORECASE):
-        issues.append("Direct PHI logging detected - use anonymized logging")
-
-    # Check for PHI in comments
-    if re.search(r'#.*\d{3}-\d{2}-\d{4}|#.*\(\d{3}\)\s*\d{3}-\d{4}', code):
-        issues.append("PHI patterns in comments - remove or anonymize")
-
-    # Validate encryption for PHI fields
-    phi_fields = ["ssn", "phone", "email", "address", "patient_name"]
-    for field in phi_fields:
-        if field in code and "encrypt" not in code:
-            issues.append(f"PHI field '{field}' may need encryption consideration")
-
-    return issues
-```
-
-### Healthcare-Specific Code Patterns
-
-```python
-# ✅ REVIEW: SOAP note processing
-def review_soap_note_handling(code: str) -> List[str]:
-    """Review SOAP note processing for proper medical formatting."""
-
-    recommendations = []
-
-    # Check for proper SOAP structure
-    required_sections = ["subjective", "objective", "assessment", "plan"]
-    soap_sections_found = sum(1 for section in required_sections if section in code.lower())
-
-    if soap_sections_found > 0 and soap_sections_found < 4:
-        recommendations.append("SOAP note processing should handle all four sections: S.O.A.P")
-
-    # Check for medical terminology standardization
-    if "medical_term" in code or "abbreviation" in code:
-        if "standardize" not in code:
-            recommendations.append("Consider medical terminology standardization")
-
-    # Validate assessment vs diagnosis distinction
-    if "diagnosis" in code and "assessment" not in code:
-        recommendations.append("Use 'assessment' for AI systems, 'diagnosis' is clinical judgment")
-
-    return recommendations
-
-# ✅ REVIEW: EHR integration patterns
-def review_ehr_integration(code: str) -> List[str]:
-    """Review EHR integration code for compliance patterns."""
-
-    issues = []
-
-    # Check for audit logging
-    if "ehr" in code.lower() and "audit" not in code.lower():
-        issues.append("EHR integration should include audit logging")
-
-    # Check for proper error handling
-    if "ehr_request" in code and "except" not in code:
-        issues.append("EHR requests need comprehensive error handling")
-
-    # Validate FHIR compliance if applicable
-    if "fhir" in code.lower():
-        if "validate" not in code:
-            issues.append("FHIR resources should be validated")
-
-    return issues
-```
-
-### Modern Development Standards
-
-```python
-# ✅ REVIEW: Type safety compliance
-def review_type_annotations(code: str) -> List[str]:
-    """Check for comprehensive type annotations."""
-
-    issues = []
-
-    # Check function return types
-    function_matches = re.findall(r'def\s+(\w+)\([^)]*\):', code)
-    for func in function_matches:
-        if f"def {func}" in code and "->" not in code:
-            issues.append(f"Function '{func}' missing return type annotation")
-
-    # Check class attribute types
-    if "class " in code and ":" in code:
-        if not re.search(r'self\.\w+:\s*\w+', code):
-            issues.append("Class attributes should have type annotations")
-
-    # Check for Dict[str, Any] patterns
-    if "dict" in code.lower() and "Dict[str, Any]" not in code:
-        issues.append("Use explicit Dict[str, Any] typing instead of dict")
-
-    return issues
-
-# ✅ REVIEW: Ruff compliance patterns
-def review_ruff_compliance(code: str) -> List[str]:
-    """Check code against Ruff formatting standards."""
-
-    suggestions = []
-
-    # Check for import sorting
-    imports = re.findall(r'^import\s+\w+|^from\s+\w+', code, re.MULTILINE)
-    if len(imports) > 1:
-        suggestions.append("Run 'ruff check --select I --fix' for import sorting")
-
-    # Check line length
-    long_lines = [line for line in code.split('\n') if len(line) > 100]
-    if long_lines:
-        suggestions.append(f"Consider breaking {len(long_lines)} lines over 100 characters")
-
-    # Check for unused imports
-    if re.search(r'^import\s+\w+', code, re.MULTILINE):
-        suggestions.append("Run 'ruff check --select F401 --fix' to remove unused imports")
-
-    return suggestions
-```
-
-## Healthcare-Specific Review Areas
-
-### 1. Medical Data Validation
-
-```python
-# ✅ REVIEW CHECKLIST: Medical data processing
-review_checklist = {
-    "medical_terminology": [
-        "Are medical terms used consistently?",
-        "Is medical abbreviation expansion handled?",
-        "Are ICD-10/CPT codes formatted correctly?"
-    ],
-    "soap_notes": [
-        "Does SOAP processing maintain proper structure?",
-        "Is there clear separation between sections?",
-        "Are assessment vs diagnosis terms used correctly?"
-    ],
-    "clinical_workflows": [
-        "Does the workflow follow clinical best practices?",
-        "Are care transitions handled properly?",
-        "Is provider handoff information preserved?"
-    ]
-}
-```
-
-### 2. Compliance & Security Review
-
-```python
-# ✅ REVIEW CHECKLIST: Healthcare compliance
-compliance_checklist = {
-    "hipaa_compliance": [
-        "Is PHI properly encrypted at rest and in transit?",
-        "Are access controls implemented for all PHI access?",
-        "Is audit logging comprehensive and tamper-proof?"
-    ],
-    "medical_safety": [
-        "Does code avoid making medical recommendations?",
-        "Are medical disclaimers present where needed?",
-        "Is there clear escalation to healthcare professionals?"
-    ],
-    "data_handling": [
-        "Is data minimization principle followed?",
-        "Are retention policies implemented correctly?",
-        "Is cross-border data transfer compliant?"
-    ]
-}
-```
-
-### 3. Integration & Interoperability
-
-```python
-# ✅ REVIEW CHECKLIST: Healthcare integration
-integration_checklist = {
-    "ehr_integration": [
-        "Are HL7 FHIR standards followed correctly?",
-        "Is error handling comprehensive for EHR failures?",
-        "Are transaction logs audit-compliant?"
-    ],
-    "agent_communication": [
-        "Is inter-agent communication secure?",
-        "Are message formats consistent across agents?",
-        "Is there proper timeout and retry logic?"
-    ],
-    "external_apis": [
-        "Are healthcare API calls properly authenticated?",
-        "Is rate limiting implemented for external services?",
-        "Are API responses validated for medical correctness?"
-    ]
-}
-```
-
-## Review Process Workflow
-
-### Pre-Review Setup
-
-1. **Environment Check**: Ensure review environment has no access to production PHI
-2. **Context Loading**: Review related healthcare compliance documentation
-3. **Tool Preparation**: Set up Ruff, MyPy, and healthcare-specific linters
-
-### Code Review Steps
-
-```python
-def healthcare_code_review_process(pull_request: PullRequest) -> ReviewResult:
-    """Comprehensive healthcare code review process."""
-
-    review_results = {
-        "medical_safety": [],
-        "phi_compliance": [],
-        "technical_quality": [],
-        "integration_patterns": []
-    }
-
-    for file_change in pull_request.changed_files:
-        # Medical safety review
-        review_results["medical_safety"].extend(
-            review_medical_advice_prevention(file_change.content)
-        )
-
-        # PHI handling review
-        review_results["phi_compliance"].extend(
-            review_phi_handling(file_change.content)
-        )
-
-        # Technical quality review
-        review_results["technical_quality"].extend(
-            review_type_annotations(file_change.content)
-        )
-
-        # Healthcare integration review
-        if "ehr" in file_change.path or "agent" in file_change.path:
-            review_results["integration_patterns"].extend(
-                review_ehr_integration(file_change.content)
-            )
-
-    return ReviewResult(review_results)
-```
-
-### Review Comments Templates
-
-#### Medical Safety Issues
-
-```markdown
-**⚠️ Medical Safety Concern**
-
-This code appears to provide medical advice/recommendations. In healthcare AI systems, we must:
-
-- Focus on administrative and documentation support only
-- Include medical disclaimers: "This system does not provide medical advice"
-- Escalate medical decisions to qualified healthcare professionals
-
-**Suggested Action**: Refactor to provide administrative support without medical interpretation.
-```
-
-#### PHI Protection Issues
-
-```markdown
-**🔒 PHI Protection Required**
-
-This code handles Protected Health Information (PHI) and needs additional safeguards:
-
-- Encrypt PHI fields at rest and in transit
-- Implement audit logging for all PHI access
-- Use anonymized logging (patient hash instead of identifiers)
-- Apply data minimization principles
-
-**Suggested Action**: Implement PHI protection patterns from healthcare security guidelines.
-```
-
-#### Healthcare Integration Issues
-
-```markdown
-**🏥 Healthcare Integration Pattern**
-
-This integration with healthcare systems should follow established patterns:
-
-- Use HL7 FHIR standards for data exchange
-- Implement comprehensive error handling and retry logic
-- Include audit logging for compliance requirements
-- Validate all healthcare data formats
-
-**Suggested Action**: Review healthcare integration documentation and apply standard patterns.
-```
-
-## Review Automation Integration
-
-### GitHub Actions Integration
-
-```yaml
-# Add to healthcare-ai-validation.yml
-- name: Healthcare Code Review Automation
-  run: |
-    echo "🏥 Running automated healthcare code review..."
-
-    # Check for medical advice patterns
-    python3 scripts/healthcare-compliance-check.py --mode=review
-
-    # Validate PHI handling
-    python3 scripts/check-phi-exposure.py --review-mode
-
-    # Run healthcare-specific linting
-    ruff check --config=pyproject.toml --select=HC  # Healthcare-specific rules
-```
-
-### Modern Development Tools Integration
-
-- **Ruff Integration**: `ruff check --select=E,W,F,HC` (with healthcare-specific rules)
-- **MyPy Healthcare**: Custom mypy configuration for healthcare type checking
-- **Pre-commit Hooks**: Healthcare compliance validation in pre-commit pipeline
-- **VS Code Integration**: Healthcare-specific snippets and linting rules
-
-## Review Success Criteria
-
-### Checklist for Approval
-
-- [ ] **Medical Safety**: No medical advice or clinical recommendations
-- [ ] **PHI Protection**: All PHI handling follows encryption and audit requirements
-- [ ] **Type Safety**: Comprehensive type annotations and MyPy compliance
-- [ ] **Modern Tools**: Ruff formatting and linting standards met
-- [ ] **Healthcare Integration**: HL7 FHIR standards and error handling patterns
-- [ ] **Documentation**: Medical disclaimers and usage guidance included
-- [ ] **Testing**: Healthcare-specific test coverage with synthetic data
-
-### Escalation Criteria
-
-Escalate to healthcare compliance team if:
-
-- Medical advice patterns detected
-- PHI exposure risks identified
-- Compliance requirements unclear
-- Integration with critical healthcare systems
-
-Remember: Healthcare code review balances technical excellence with strict medical compliance and patient safety requirements.
+- [ ] **No medical advice**: Code doesn't provide diagnosis or treatment recommendations
+- [ ] **Medical disclaimers**: Appropriate disclaimers in healthcare-facing modules
+- [ ] **PHI protection**: No patient data hardcoded or inappropriately logged
+- [ ] **HIPAA compliance**: Proper audit trails and access controls
+
+### Financial & Data Accuracy  
+- [ ] **Decimal precision**: Financial calculations use Decimal, not float
+- [ ] **Division by zero**: Protected against zero-division errors
+- [ ] **Null handling**: Proper None value checking in calculations
+- [ ] **Method signatures**: Consistent parameter types across related methods
+
+### Resource Management
+- [ ] **Database connections**: Proper acquisition and release patterns
+- [ ] **Async context**: Using async context managers appropriately  
+- [ ] **Exception safety**: Resources cleaned up in error scenarios
+- [ ] **Memory leaks**: No unclosed files, connections, or resources
+
+### Code Quality Patterns
+- [ ] **No duplication**: Shared utilities extracted to common modules
+- [ ] **Import cleanup**: No redundant or unused imports
+- [ ] **Constants**: Magic numbers replaced with named constants
+- [ ] **Type annotations**: All functions have proper return types
+
+### Security & Performance
+- [ ] **Credential management**: No hardcoded API keys or passwords
+- [ ] **Input validation**: User inputs properly sanitized
+- [ ] **Error handling**: Errors don't expose sensitive information
+- [ ] **Performance**: No obvious N+1 query or memory leak patterns
+````

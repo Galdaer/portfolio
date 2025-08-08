@@ -1,340 +1,221 @@
+`````instructions
+````instructions
 # Healthcare AI Logging Instructions
 
 ## Purpose
 
-Comprehensive guidance for implementing healthcare-compliant logging across all Intelluxe AI healthcare systems with PHI protection and HIPAA compliance.
+Comprehensive PHI-safe logging and monitoring implementation for healthcare AI systems with HIPAA compliance patterns.
 
-## Healthcare Logging Architecture
+## Healthcare Logging Patterns
 
-### Core Logging Infrastructure
-
+### PHI-Safe Logging Implementation
 ```python
-# ✅ CORRECT: Healthcare logging configuration
-# File: core/infrastructure/healthcare_logger.py
-
-import logging
-import logging.handlers
-from pathlib import Path
-from typing import Dict, Any, Optional
+# ✅ CORRECT: PHI scrubbing pattern
 import re
+import logging
+from typing import Any, Dict
+
+class HealthcareLogger:
+    PHI_PATTERNS = {
+        'ssn': re.compile(r'\b\d{3}-?\d{2}-?\d{4}\b'),
+        'phone': re.compile(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b'),
+        'mrn': re.compile(r'\bMRN[-:]?\s*\d+\b', re.IGNORECASE),
+        'dob': re.compile(r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b')
+    }
+    
+    def scrub_phi(self, message: str) -> str:
+        """Remove PHI from log messages"""
+        for phi_type, pattern in self.PHI_PATTERNS.items():
+            message = pattern.sub(f'[REDACTED_{phi_type.upper()}]', message)
+        return message
+    
+    def log_clinical_action(self, user_id: str, action: str, patient_id: str = None):
+        """Log clinical actions with PHI protection"""
+        safe_message = self.scrub_phi(f"User {user_id} performed {action}")
+        if patient_id:
+            safe_message += f" for patient {patient_id[:4]}***"
+        
+        logging.info(safe_message, extra={
+            'event_type': 'clinical_action',
+            'user_id': user_id,
+            'timestamp': datetime.utcnow(),
+            'compliance_flag': 'hipaa_audit'
+        })
+```
+
+### Audit Trail Implementation
+```python
+# ✅ CORRECT: HIPAA-compliant audit logging
+class AuditLogger:
+    def log_data_access(self, 
+                       user_id: str, 
+                       resource: str, 
+                       action: str,
+                       ip_address: str,
+                       success: bool = True):
+        """Log all healthcare data access for compliance"""
+        audit_entry = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'user_id': user_id,
+            'resource_type': resource,
+            'action': action,
+            'ip_address': ip_address,
+            'success': success,
+            'session_id': self.get_session_id(),
+            'compliance': 'hipaa_required'
+        }
+        
+        # Use structured logging for audit trails
+        logging.info("Data access event", extra=audit_entry)
+```
+
+### Performance Monitoring with PHI Protection
+```python
+# ✅ CORRECT: Monitor healthcare system performance safely
+import psutil
+import asyncio
 from datetime import datetime
 
-class HealthcareLogFormatter(logging.Formatter):
-    """Healthcare-specific log formatter with PHI scrubbing."""
-    
-    PHI_PATTERNS = [
-        (r'\b\d{3}-\d{2}-\d{4}\b', '[SSN_REDACTED]'),      # SSN
-        (r'\b\d{3}-\d{3}-\d{4}\b', '[PHONE_REDACTED]'),    # Phone
-        (r'\b[A-Z]{2}\d{6,10}\b', '[MRN_REDACTED]'),       # Medical Record Numbers
-        (r'patient_id["\']?\s*:\s*["\']?[^,}\]]+', 'patient_id: [PATIENT_ID_REDACTED]'),
-        (r'insurance_id["\']?\s*:\s*["\']?[^,}\]]+', 'insurance_id: [INSURANCE_ID_REDACTED]'),
-    ]
-    
-    def format(self, record):
-        # Format the message first
-        formatted = super().format(record)
+class HealthcareSystemMonitor:
+    async def log_performance_metrics(self):
+        """Monitor system performance without exposing PHI"""
+        metrics = {
+            'timestamp': datetime.utcnow(),
+            'memory_usage_mb': psutil.virtual_memory().used / 1024 / 1024,
+            'cpu_percent': psutil.cpu_percent(),
+            'active_sessions': await self.count_active_sessions(),
+            'database_connections': await self.count_db_connections(),
+            'queue_size': await self.get_task_queue_size()
+        }
         
-        # Scrub any potential PHI
-        for pattern, replacement in self.PHI_PATTERNS:
-            formatted = re.sub(pattern, replacement, formatted, flags=re.IGNORECASE)
+        # Log performance without any patient context
+        logging.info("System performance", extra=metrics)
         
-        return formatted
-
-def setup_healthcare_logging(log_dir: Path = Path("logs")) -> None:
-    """Setup healthcare-compliant logging infrastructure."""
-    
-    # Ensure log directory exists
-    log_dir.mkdir(exist_ok=True)
-    
-    # Custom log levels for healthcare
-    logging.addLevelName(25, 'PHI_ALERT')
-    logging.addLevelName(35, 'MEDICAL_ERROR') 
-    logging.addLevelName(33, 'COMPLIANCE_WARNING')
-    
-    # Healthcare root logger
-    healthcare_logger = logging.getLogger('healthcare')
-    healthcare_logger.setLevel(logging.INFO)
-    
-    # File handler with rotation for HIPAA retention compliance
-    file_handler = logging.handlers.RotatingFileHandler(
-        log_dir / 'healthcare_system.log',
-        maxBytes=50*1024*1024,  # 50MB
-        backupCount=10,         # Keep 10 files for audit trail
-        encoding='utf-8'
-    )
-    
-    # Healthcare-specific formatter
-    formatter = HealthcareLogFormatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    file_handler.setFormatter(formatter)
-    
-    # Console handler for development (with PHI scrubbing)
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(logging.WARNING)  # Only warnings+ to console
-    
-    healthcare_logger.addHandler(file_handler)
-    healthcare_logger.addHandler(console_handler)
-    
-    # Prevent propagation to root logger
-    healthcare_logger.propagate = False
-
-# ✅ CORRECT: PHI monitoring utilities
-class PHIMonitor:
-    """Real-time PHI detection and monitoring for healthcare compliance."""
-    
-    PHI_INDICATORS = [
-        'ssn', 'social security', 'social_security_number',
-        'insurance_id', 'insurance_number', 'policy_number',
-        'patient_id', 'medical_record_number', 'mrn',
-        'birth_date', 'date_of_birth', 'dob',
-        'phone_number', 'telephone', 'cell_phone',
-        'home_address', 'mailing_address', 'street_address'
-    ]
-    
-    @classmethod
-    def scan_for_phi(cls, data: Any) -> bool:
-        """Scan any data structure for potential PHI indicators."""
-        data_str = str(data).lower()
-        
-        # Check for PHI field names
-        for indicator in cls.PHI_INDICATORS:
-            if indicator in data_str:
-                return True
-        
-        # Check for PHI patterns (SSN, phone, etc.)
-        import re
-        phi_patterns = [
-            r'\b\d{3}-\d{2}-\d{4}\b',  # SSN format
-            r'\b\d{3}-\d{3}-\d{4}\b',  # Phone format
-            r'\b\d{2}/\d{2}/\d{4}\b',  # Date format (potential DOB)
-        ]
-        
-        for pattern in phi_patterns:
-            if re.search(pattern, data_str):
-                return True
-        
-        return False
-    
-    @classmethod
-    def log_phi_detection(cls, context: str, data_summary: str) -> None:
-        """Log PHI detection with healthcare compliance context."""
-        logger = logging.getLogger('healthcare.phi_monitor')
-        logger.log(25, f"PHI detected in {context}", extra={
-            'healthcare_context': {
-                'phi_detection': True,
-                'context': context,
-                'data_summary': data_summary[:100],  # Limited summary
-                'requires_review': True,
-                'timestamp': datetime.now().isoformat()
-            }
-        })
-```
-
-### Healthcare Method Logging Decorators
-
-```python
-# ✅ CORRECT: Healthcare method logging decorator
-# File: core/infrastructure/logging_decorators.py
-
-import functools
-import logging
-import time
-from typing import Any, Callable
-from .phi_monitor import PHIMonitor
-
-def healthcare_log_method(
-    operation_type: str = "healthcare_operation",
-    phi_risk_level: str = "medium"
-):
-    """Decorator for comprehensive healthcare method logging."""
-    
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            logger = logging.getLogger(f'healthcare.{func.__module__}')
-            method_name = f"{func.__qualname__}"
-            
-            # Entry logging
-            start_time = time.time()
-            logger.info(f"Healthcare method entry: {method_name}", extra={
-                'healthcare_context': {
-                    'method': method_name,
-                    'operation_type': operation_type,
-                    'phi_risk_level': phi_risk_level,
-                    'args_count': len(args),
-                    'kwargs_count': len(kwargs)
-                }
+        # Alert on concerning metrics
+        if metrics['memory_usage_mb'] > 8000:  # 8GB
+            logging.warning("High memory usage detected", extra={
+                'alert_type': 'resource_exhaustion',
+                'memory_mb': metrics['memory_usage_mb']
             })
-            
-            # PHI detection on inputs
-            all_inputs = {'args': args, 'kwargs': kwargs}
-            if PHIMonitor.scan_for_phi(all_inputs):
-                PHIMonitor.log_phi_detection(
-                    context=f"method_input_{method_name}",
-                    data_summary=f"Method {method_name} received potential PHI"
-                )
-            
-            try:
-                # Execute method
-                result = func(*args, **kwargs)
-                
-                # PHI detection on outputs
-                if PHIMonitor.scan_for_phi(result):
-                    PHIMonitor.log_phi_detection(
-                        context=f"method_output_{method_name}",
-                        data_summary=f"Method {method_name} returned potential PHI"
-                    )
-                
-                # Success logging
-                execution_time = time.time() - start_time
-                logger.info(f"Healthcare method success: {method_name}", extra={
-                    'healthcare_context': {
-                        'method': method_name,
-                        'execution_time_ms': round(execution_time * 1000, 2),
-                        'success': True
-                    }
-                })
-                
-                return result
-                
-            except Exception as e:
-                # Error logging with healthcare context
-                execution_time = time.time() - start_time
-                logger.log(35, f"Healthcare method error: {method_name}: {str(e)}", extra={
-                    'healthcare_context': {
-                        'method': method_name,
-                        'error_type': type(e).__name__,
-                        'error_message': str(e)[:200],  # Truncated for safety
-                        'execution_time_ms': round(execution_time * 1000, 2),
-                        'success': False
-                    }
-                })
-                raise
-                
-        return wrapper
-    return decorator
-
-# ✅ CORRECT: Healthcare agent logging decorator
-def healthcare_agent_log(agent_name: str):
-    """Specialized logging decorator for healthcare agents."""
-    
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            logger = logging.getLogger(f'healthcare.agent.{agent_name}')
-            
-            # Agent-specific logging
-            logger.info(f"Agent {agent_name} processing: {func.__name__}", extra={
-                'healthcare_context': {
-                    'agent': agent_name,
-                    'operation': func.__name__,
-                    'agent_version': '1.0',  # Could be dynamic
-                    'processing_start': time.time()
-                }
-            })
-            
-            return func(*args, **kwargs)
-        return wrapper
-    return decorator
 ```
 
-### Healthcare Integration Patterns
-
+### Error Handling with Healthcare Context
 ```python
-# ✅ CORRECT: Healthcare system integration logging
-# Example: agents/intake/intake_agent.py
-
-from core.infrastructure.logging_decorators import healthcare_log_method, healthcare_agent_log
-from core.infrastructure.phi_monitor import PHIMonitor
-import logging
-
-class IntakeAgent:
-    """Patient intake agent with comprehensive healthcare logging."""
-    
-    def __init__(self):
-        self.logger = logging.getLogger('healthcare.agent.intake')
-        self.logger.info("Intake agent initialized", extra={
-            'healthcare_context': {
-                'agent': 'intake',
-                'initialization': True,
-                'phi_monitoring': True
-            }
-        })
-    
-    @healthcare_log_method(operation_type="patient_intake", phi_risk_level="high")
-    @healthcare_agent_log("intake")
-    def process_patient_checkin(self, patient_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process patient check-in with comprehensive logging and PHI monitoring."""
+# ✅ CORRECT: Healthcare-safe error logging
+class HealthcareErrorHandler:
+    def log_medical_data_error(self, 
+                             error: Exception, 
+                             context: Dict[str, Any],
+                             user_id: str = None):
+        """Log errors while protecting PHI"""
+        # Scrub any potential PHI from error messages
+        safe_error_msg = self.scrub_phi(str(error))
         
-        # Validate required fields for healthcare compliance
-        required_fields = ['patient_id', 'appointment_time', 'insurance_info']
-        missing_fields = [field for field in required_fields if field not in patient_data]
+        # Create safe context (no patient data)
+        safe_context = {
+            'operation': context.get('operation', 'unknown'),
+            'module': context.get('module', 'unknown'),
+            'error_type': type(error).__name__,
+            'timestamp': datetime.utcnow(),
+            'user_id': user_id
+        }
         
-        if missing_fields:
-            self.logger.log(33, f"Missing required patient data fields: {missing_fields}")
-        
-        # Process intake (implementation details...)
-        processed_data = self._process_intake_data(patient_data)
-        
-        # Log successful processing
-        self.logger.info("Patient intake completed successfully", extra={
-            'healthcare_context': {
-                'operation_completed': 'patient_intake',
-                'data_fields_processed': len(processed_data),
-                'compliance_verified': True
-            }
-        })
-        
-        return processed_data
-    
-    def _process_intake_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Internal processing with PHI protection."""
-        # Implementation with PHI-safe processing
-        return data
+        logging.error(f"Healthcare operation failed: {safe_error_msg}", 
+                     extra=safe_context, exc_info=True)
 ```
 
-## Implementation Checklist
+### Database Operation Logging
+```python
+# ✅ CORRECT: Database access logging with PHI protection  
+class DatabaseAuditLogger:
+    def log_query_execution(self, 
+                          query_type: str,
+                          table: str, 
+                          user_id: str,
+                          execution_time: float,
+                          row_count: int = None):
+        """Log database operations for audit compliance"""
+        log_entry = {
+            'event_type': 'database_access',
+            'query_type': query_type,  # SELECT, INSERT, UPDATE, DELETE
+            'table_name': table,
+            'user_id': user_id,
+            'execution_time_ms': execution_time * 1000,
+            'affected_rows': row_count,
+            'timestamp': datetime.utcnow(),
+            'compliance_required': table in ['patients', 'encounters', 'lab_results']
+        }
+        
+        logging.info("Database operation", extra=log_entry)
+```
 
-### Phase 1: Core Infrastructure
-- [ ] Create `core/infrastructure/healthcare_logger.py`
-- [ ] Create `core/infrastructure/phi_monitor.py` 
-- [ ] Create `core/infrastructure/logging_decorators.py`
-- [ ] Update `main.py` with healthcare logging initialization
+### Multi-Agent Coordination Logging
+```python
+# ✅ CORRECT: Agent interaction logging for healthcare workflows
+class AgentCoordinationLogger:
+    def log_agent_handoff(self, 
+                         from_agent: str,
+                         to_agent: str, 
+                         task_type: str,
+                         session_id: str):
+        """Log agent-to-agent task handoffs"""
+        handoff_log = {
+            'event_type': 'agent_handoff',
+            'from_agent': from_agent,
+            'to_agent': to_agent,
+            'task_type': task_type,
+            'session_id': session_id,
+            'timestamp': datetime.utcnow(),
+            'workflow_stage': self.get_workflow_stage(task_type)
+        }
+        
+        logging.info("Agent coordination event", extra=handoff_log)
+```
 
-### Phase 2: Agent Integration
-- [ ] Update `agents/intake/` with comprehensive logging
-- [ ] Update `agents/document_processor/` with logging
-- [ ] Update `agents/research_assistant/` with logging
-- [ ] Verify PHI monitoring across all agents
+## Security & Compliance Requirements
 
-### Phase 3: Core System Integration  
-- [ ] Update `core/medical/` modules with logging
-- [ ] Update `core/orchestration/` with workflow logging
-- [ ] Update `core/reasoning/` with AI decision logging
-- [ ] Update `core/infrastructure/` background services
+### Log Security Patterns
+- **Encryption at rest**: Encrypt log files using healthcare-grade encryption
+- **Access control**: Limit log access to authorized healthcare personnel only
+- **Network security**: Use TLS for log transmission to external systems
+- **Retention policies**: Implement healthcare-compliant log retention (typically 7 years)
 
-### Phase 4: Testing & Validation
-- [ ] Test PHI detection accuracy with synthetic data
-- [ ] Validate log rotation and retention policies
-- [ ] Performance testing (ensure <5% overhead)
-- [ ] HIPAA compliance validation
-- [ ] Integration testing across all components
+### Performance Considerations  
+- **Async logging**: Use asyncio-compatible logging to avoid blocking healthcare operations
+- **Log rotation**: Implement size and time-based rotation to manage storage
+- **Sampling**: For high-volume operations, use intelligent sampling to reduce log volume
+- **Buffering**: Buffer logs for batch writing to improve performance
 
-## Critical Healthcare Compliance Notes
+### Common Healthcare Logging Errors to Avoid
 
-1. **PHI Protection**: All logs are automatically scrubbed of PHI
-2. **Audit Trails**: Every healthcare operation is logged for compliance
-3. **Real-time Monitoring**: PHI detection alerts in real-time
-4. **Retention Policy**: Logs retained according to HIPAA requirements
-5. **Access Control**: Healthcare logs require special access permissions
+**❌ PHI in Log Messages**:
+```python
+# Wrong - exposes patient data
+logging.info(f"Patient John Doe (SSN: 123-45-6789) checked in")
 
-## Performance Considerations
+# ✅ Correct - PHI protected
+logging.info(f"Patient {patient_id[:4]}*** checked in", extra={
+    'event': 'patient_checkin',
+    'patient_ref': patient_id
+})
+```
 
-- Log file rotation prevents disk space issues
-- PHI detection optimized for minimal performance impact
-- Structured logging enables efficient log analysis
-- Background log processing for high-throughput scenarios
+**❌ Missing Audit Context**:
+```python
+# Wrong - no audit trail
+logging.info("Updated patient record")
 
-This comprehensive logging infrastructure ensures HIPAA compliance while providing the visibility needed for healthcare AI system monitoring and debugging.
+# ✅ Correct - complete audit trail
+logging.info("Updated patient record", extra={
+    'user_id': user_id,
+    'patient_ref': patient_id, 
+    'fields_modified': ['insurance', 'contact'],
+    'timestamp': datetime.utcnow(),
+    'audit_required': True
+})
+```
+````
+`````
+- **Monitoring**: Alert on unusual patterns or security-relevant events
+- **Compliance reporting**: Generate reports for HIPAA and regulatory audits
+````
