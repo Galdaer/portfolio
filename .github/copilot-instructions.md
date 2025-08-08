@@ -56,9 +56,12 @@ Use The Sequential Thinking MCP Server to think through your tasks.
 - **🧠 Medical reasoning implementation** → Use `patterns/medical-reasoning.instructions.md` for transparent clinical reasoning, evidence-based recommendations, and diagnostic transparency
 - **🐍 Python development** → Use `languages/python.instructions.md` for modern Python patterns with Ruff/MyPy
 - **🏥 Healthcare domain work** → Use `domains/healthcare.instructions.md` for medical data and compliance
-- **� Healthcare logging** → Use `tasks/healthcare-logging.instructions.md` for comprehensive PHI-safe logging and monitoring implementation
-- **�🔌 MCP development** → Use `mcp-development.instructions.md` for RAG-powered development with available MCP servers
+- **📝 Healthcare logging** → Use `tasks/healthcare-logging.instructions.md` for comprehensive PHI-safe logging and monitoring implementation
+- **🔌 MCP development** → Use `mcp-development.instructions.md` for RAG-powered development with available MCP servers
 - **🐚 Shell script refactoring** → Use `tasks/shell-refactoring.instructions.md` for function complexity and single responsibility patterns
+- **🔗 FTP connection patterns** → Use `patterns/healthcare-ftp-connections.instructions.md` for robust medical data downloads with timeout handling
+- **⚡ Multi-core processing** → Use `tasks/performance.instructions.md` for proven 16-core medical literature processing patterns
+- **🏥 Medical data troubleshooting** → Use `tasks/medical-mirrors-troubleshooting.instructions.md` for PubMed/ClinicalTrials/FDA integration solutions
 
 **For general architecture, service deployment, and project strategy questions**, continue using these main instructions.
 

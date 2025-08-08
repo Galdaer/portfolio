@@ -120,8 +120,19 @@ class FDADownloader:
         logger.info("Downloading FDA drug labels")
 
         try:
-            # Drug labeling from openFDA
-            url = "https://download.open.fda.gov/drug/label/drug-label-0001-of-0001.json.zip"
+            # Get current download URLs from FDA API
+            download_info_response = await self.session.get("https://api.fda.gov/download.json")
+            download_info_response.raise_for_status()
+            download_info = download_info_response.json()
+
+            # Get the first partition URL for drug labels
+            label_partitions = download_info["results"]["drug"]["label"]["partitions"]
+            if not label_partitions:
+                raise Exception("No drug label partitions available")
+
+            # Download first partition (largest dataset)
+            url = label_partitions[0]["file"]
+            logger.info(f"Downloading drug labels from: {url}")
 
             response = await self.session.get(url)
             response.raise_for_status()

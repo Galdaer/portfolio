@@ -30,8 +30,20 @@
 	   medical-mirrors-clean \
 	   medical-mirrors-run \
 	   medical-mirrors-logs \
+	   medical-mirrors-errors \
+	   medical-mirrors-errors-summary \
 	   medical-mirrors-stop \
 	   medical-mirrors-health \
+	   medical-mirrors-restart \
+	   medical-mirrors-update \
+	   medical-mirrors-update-pubmed \
+	   medical-mirrors-update-trials \
+	   medical-mirrors-update-fda \
+	   medical-mirrors-progress \
+	   medical-mirrors-quick-test \
+	   medical-mirrors-validate-downloads \
+	   medical-mirrors-debug-ncbi \
+	   medical-mirrors-clean-data \
 	   reset \
 	   restore \
 	   setup \
@@ -416,17 +428,27 @@ medical-mirrors-run:
 	@docker run -d \
 		--name medical-mirrors \
 		--network intelluxe-net \
-		-p 8080:8080 \
+		-p 8081:8080 \
 		-v $(PWD)/data:/app/data \
 		-v $(PWD)/logs:/app/logs \
 		-e PYTHONPATH=/app/src \
 		--restart unless-stopped \
 		intelluxe/medical-mirrors:latest
-	@echo "✅ Medical Mirrors service started on http://localhost:8080"
+	@echo "✅ Medical Mirrors service started on http://localhost:8081"
 
 medical-mirrors-logs:
 	@echo "📋  Viewing Medical Mirrors service logs"
 	@docker logs -f medical-mirrors
+
+medical-mirrors-errors:
+	@echo "🚨  Viewing Medical Mirrors ERRORS ONLY"
+	@docker logs medical-mirrors 2>&1 | grep "ERROR" | sed 's/\[(psycopg2\.errors\.[^)]*)/[Database Error]/g' | sed 's/\[SQL: [^]]*\]/[SQL: query truncated]/g' | sed 's/\[parameters: [^]]*\]/[parameters: truncated]/g' | head -50
+
+medical-mirrors-errors-summary:
+	@echo "🔍  Medical Mirrors ERROR SUMMARY"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@docker logs medical-mirrors 2>&1 | grep "ERROR" | awk -F' - ERROR - ' '{print $$2}' | sed 's/: (psycopg2\.errors\.[^)]*).*/: [Database constraint violation]/' | sed 's/Client error.*for url.*/[API request failed - check endpoint URL]/' | sort | uniq -c | sort -nr
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 medical-mirrors-stop:
 	@echo "🛑  Stopping Medical Mirrors service"
@@ -438,13 +460,242 @@ medical-mirrors-health:
 	@echo "🔍  Checking Medical Mirrors service health"
 	@if docker ps --filter "name=medical-mirrors" --filter "status=running" | grep -q medical-mirrors; then \
 		echo "   ✅ Container is running"; \
-		if curl -f http://localhost:8080/health 2>/dev/null; then \
+		if curl -f http://localhost:8081/health 2>/dev/null; then \
 			echo "   ✅ Health endpoint responding"; \
 		else \
 			echo "   ⚠️  Health endpoint not responding"; \
 		fi; \
 	else \
 		echo "   ❌ Container not running"; \
+	fi
+
+medical-mirrors-restart:
+	@echo "🔄  Restarting Medical Mirrors service"
+	@$(MAKE) medical-mirrors-stop
+	@$(MAKE) medical-mirrors-run
+
+medical-mirrors-update:
+	@echo "🔄  Updating all Medical Mirrors databases"
+	@echo "   ⚠️  WARNING: This process will take HOURS and may hit rate limits!"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo "   🛑 To stop: make medical-mirrors-stop"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🚀 Starting async update process..."; \
+		curl -X POST http://localhost:8081/update/pubmed -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
+		echo "   📚 PubMed update started in background"; \
+		sleep 2; \
+		curl -X POST http://localhost:8081/update/trials -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
+		echo "   🧪 Trials update started in background"; \
+		sleep 2; \
+		curl -X POST http://localhost:8081/update/fda -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
+		echo "   💊 FDA update started in background"; \
+		echo "   ✅ All update requests sent asynchronously"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Update processes started - use 'make medical-mirrors-progress' to monitor" 
+
+medical-mirrors-update-pubmed:
+	@echo "📚  Updating PubMed database"
+	@echo "   ⚠️  WARNING: PubMed has 35+ million articles - this will take 6-12+ HOURS!"
+	@echo "   🚫 Rate limits: NCBI allows ~3 requests/second without API key"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   📚 Starting async PubMed update..."; \
+		curl -X POST http://localhost:8081/update/pubmed -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
+		echo "   ✅ PubMed update started in background"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ PubMed update started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-update-trials:
+	@echo "🧪  Updating ClinicalTrials database"
+	@echo "   ⚠️  WARNING: ClinicalTrials.gov has 400,000+ studies - this will take 2-4+ HOURS!"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🧪 Starting async ClinicalTrials update..."; \
+		curl -X POST http://localhost:8081/update/trials -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
+		echo "   ✅ ClinicalTrials update started in background"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ ClinicalTrials update started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-update-fda:
+	@echo "💊  Updating FDA database"
+	@echo "   ⚠️  WARNING: FDA database is large - this will take 1-3+ HOURS!"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   💊 Starting async FDA update..."; \
+		curl -X POST http://localhost:8081/update/fda -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
+		echo "   ✅ FDA update started in background"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ FDA update started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-progress:
+	@echo "📊  Medical Mirrors Update Progress"
+	@echo "   🔄 Refreshing every 10 seconds (Ctrl+C to stop)"
+	@echo ""
+	@while true; do 
+		clear; 
+		echo "📊 Medical Mirrors Progress - $$(date)"; 
+		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; 
+		curl -s http://localhost:8081/status | jq -r '
+			"🏥 Service: " + .service,
+			"",
+			"📚 PubMed:",
+			"   Articles: " + (.mirrors.pubmed.total_articles | tostring),
+			"   Status: " + .mirrors.pubmed.status,
+			"   Last Update: " + (.mirrors.pubmed.last_update // "Never"),
+			"",
+			"🧪 Clinical Trials:",
+			"   Trials: " + (.mirrors.clinicaltrials.total_trials | tostring),
+			"   Status: " + .mirrors.clinicaltrials.status,
+			"   Last Update: " + (.mirrors.clinicaltrials.last_update // "Never"),
+			"",
+			"💊 FDA Drugs:",
+			"   Drugs: " + (.mirrors.fda.total_drugs | tostring),
+			"   Status: " + .mirrors.fda.status,
+			"   Last Update: " + (.mirrors.fda.last_update // "Never")
+		' || echo "❌ Service not responding"; 
+		echo ""; 
+		echo "💡 Tips:"; 
+		echo "   • Updates run in background - you can close this monitor"; 
+		echo "   • Check logs: make medical-mirrors-logs"; 
+		echo "   • Stop updates: make medical-mirrors-stop"; 
+		sleep 10; 
+	done
+
+medical-mirrors-quick-test:
+	@echo "🚀  Quick test update (testing all 3 data sources with SMALL samples)"
+	@echo "   ⚠️  This will download minimal subsets for fast testing only"
+	@echo "   📊 Sample sizes: PubMed=3 files, Trials=100 studies, FDA=1000 drugs"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo ""; \
+		echo "   📚 Testing PubMed updates (3 files only)..."; \
+		curl -X POST "http://localhost:8081/update/pubmed?quick_test=true&max_files=3" -H "Content-Type: application/json" -m 10 2>/dev/null && echo "   ✅ PubMed request sent" || echo "   ⚠️  PubMed request timed out (normal)"; \
+		echo ""; \
+		echo "   🧪 Testing ClinicalTrials updates (100 trials only)..."; \
+		curl -X POST "http://localhost:8081/update/trials?quick_test=true&limit=100" -H "Content-Type: application/json" -m 10 2>/dev/null && echo "   ✅ Trials request sent" || echo "   ⚠️  Trials request timed out (normal)"; \
+		echo ""; \
+		echo "   💊 Testing FDA updates (1000 drugs only)..."; \
+		curl -X POST "http://localhost:8081/update/fda?quick_test=true&limit=1000" -H "Content-Type: application/json" -m 10 2>/dev/null && echo "   ✅ FDA request sent" || echo "   ⚠️  FDA request timed out (normal)"; \
+		echo ""; \
+		echo "   ⏳ Waiting 15 seconds for optimized multi-core processing..."; \
+		sleep 15; \
+		echo "   🔍 Validating all downloaded files..."; \
+		$(MAKE) medical-mirrors-validate-downloads; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Quick test completed with minimal samples - use 'make medical-mirrors-progress' for monitoring"
+
+medical-mirrors-validate-downloads:
+	@echo "🔍  Validating downloaded medical data files"
+	@echo ""
+	@echo "📚 PubMed Files:"
+	@if docker exec medical-mirrors sh -c 'ls -la /app/data/pubmed/ 2>/dev/null' | head -10; then \
+		echo "📂 Sample PubMed content:"; \
+		docker exec medical-mirrors sh -c 'for f in /app/data/pubmed/*.xml.gz; do if [ -f "$$f" ]; then echo "=== $$f ==="; zcat "$$f" 2>/dev/null | head -3 || echo "❌ Invalid gzip file"; break; fi; done' || echo "❌ No PubMed files found"; \
+	else \
+		echo "❌ No PubMed data directory found"; \
+	fi
+	@echo ""
+	@echo "🧪 ClinicalTrials Files:"
+	@if docker exec medical-mirrors sh -c 'ls -la /app/data/clinicaltrials/ 2>/dev/null' | head -10; then \
+		echo "📂 Sample ClinicalTrials content:"; \
+		docker exec medical-mirrors sh -c 'for f in /app/data/clinicaltrials/*.json /app/data/clinicaltrials/*.xml; do if [ -f "$$f" ]; then echo "=== $$f ==="; head -3 "$$f" 2>/dev/null || echo "❌ Invalid file"; break; fi; done' || echo "❌ No ClinicalTrials files found"; \
+	else \
+		echo "❌ No ClinicalTrials data directory found"; \
+	fi
+	@echo ""
+	@echo "💊 FDA Files:"
+	@if docker exec medical-mirrors sh -c 'ls -la /app/data/fda/ 2>/dev/null' | head -10; then \
+		echo "📂 Sample FDA content:"; \
+		docker exec medical-mirrors sh -c 'for f in /app/data/fda/*.json /app/data/fda/*.xml; do if [ -f "$$f" ]; then echo "=== $$f ==="; head -3 "$$f" 2>/dev/null || echo "❌ Invalid file"; break; fi; done' || echo "❌ No FDA files found"; \
+	else \
+		echo "❌ No FDA data directory found"; \
+	fi
+
+medical-mirrors-debug-ncbi:
+	@echo "🔬  Testing all medical data APIs directly"
+	@echo ""
+	@echo "� Testing NCBI PubMed API..."
+	@echo "   🔗 PubMed baseline files:"
+	@curl -s "https://ftp.ncbi.nlm.nih.gov/pubmed/baseline/" | head -10 || echo "❌ NCBI baseline connection failed"
+	@echo ""
+	@echo "   🔗 PubMed update files:"
+	@curl -s "https://ftp.ncbi.nlm.nih.gov/pubmed/updatefiles/" | head -10 || echo "❌ NCBI updates connection failed"
+	@echo ""
+	@echo "🧪 Testing ClinicalTrials.gov API..."
+	@echo "   � ClinicalTrials API test:"
+	@curl -s "https://clinicaltrials.gov/api/query/study_fields?expr=cancer&fields=NCTId,BriefTitle&min_rnk=1&max_rnk=3&fmt=json" | head -5 || echo "❌ ClinicalTrials API connection failed"
+	@echo ""
+	@echo "💊 Testing FDA API..."
+	@echo "   🔗 FDA Drug API test:"
+	@curl -s "https://api.fda.gov/drug/label.json?limit=2" | head -5 || echo "❌ FDA API connection failed"
+	@echo ""
+	@echo "💡 If any connections fail, this explains download issues for that data source"
+
+medical-mirrors-clean-data:
+	@echo "🧹  Cleaning all medical data files"
+	@echo ""
+	@echo "📚 Cleaning PubMed files..."
+	@if docker exec medical-mirrors sh -c 'ls /app/data/pubmed/*.xml.gz 2>/dev/null'; then \
+		echo "   🗑️  Removing PubMed files..."; \
+		docker exec medical-mirrors sh -c 'rm -f /app/data/pubmed/*.xml.gz'; \
+		echo "   ✅ PubMed files removed"; \
+	else \
+		echo "   ✅ No PubMed files found"; \
+	fi
+	@echo ""
+	@echo "🧪 Cleaning ClinicalTrials files..."
+	@if docker exec medical-mirrors sh -c 'ls /app/data/clinicaltrials/*.json /app/data/clinicaltrials/*.xml 2>/dev/null'; then \
+		echo "   🗑️  Removing ClinicalTrials files..."; \
+		docker exec medical-mirrors sh -c 'rm -f /app/data/clinicaltrials/*.json /app/data/clinicaltrials/*.xml'; \
+		echo "   ✅ ClinicalTrials files removed"; \
+	else \
+		echo "   ✅ No ClinicalTrials files found"; \
+	fi
+	@echo ""
+	@echo "💊 Cleaning FDA files..."
+	@if docker exec medical-mirrors sh -c 'ls /app/data/fda/*.json /app/data/fda/*.xml 2>/dev/null'; then \
+		echo "   🗑️  Removing FDA files..."; \
+		docker exec medical-mirrors sh -c 'rm -f /app/data/fda/*.json /app/data/fda/*.xml'; \
+		echo "   ✅ FDA files removed"; \
+	else \
+		echo "   ✅ No FDA files found"; \
 	fi
 
 # Development Commands
@@ -645,10 +896,21 @@ help:
 	@echo "   make medical-mirrors-build   - Build Medical Mirrors Docker image"
 	@echo "   make medical-mirrors-rebuild - Rebuild Medical Mirrors (no cache)"
 	@echo "   make medical-mirrors-run     - Start Medical Mirrors container"
+	@echo "   make medical-mirrors-restart - Restart Medical Mirrors service"
 	@echo "   make medical-mirrors-logs    - View Medical Mirrors logs"
+	@echo "   make medical-mirrors-errors  - View Medical Mirrors ERRORS ONLY"
+	@echo "   make medical-mirrors-errors-summary - Concise error summary with counts"
 	@echo "   make medical-mirrors-stop    - Stop Medical Mirrors service"
 	@echo "   make medical-mirrors-health  - Check Medical Mirrors health"
 	@echo "   make medical-mirrors-clean   - Clean Medical Mirrors Docker artifacts"
+	@echo ""
+	@echo "�  DATA UPDATES (WARNING: VERY TIME CONSUMING!):"
+	@echo "   make medical-mirrors-quick-test     - Quick test update (small dataset)"
+	@echo "   make medical-mirrors-update         - Update ALL databases (6-12+ hours!)"
+	@echo "   make medical-mirrors-update-pubmed  - Update PubMed only (6-12+ hours!)"
+	@echo "   make medical-mirrors-update-trials  - Update ClinicalTrials (2-4+ hours!)"
+	@echo "   make medical-mirrors-update-fda     - Update FDA only (1-3+ hours!)"
+	@echo "   make medical-mirrors-progress       - Monitor update progress (real-time)"
 	@echo ""
 	@echo "⚙️   SYSTEM MANAGEMENT:"
 	@echo "   make diagnostics   - Run comprehensive system diagnostics"

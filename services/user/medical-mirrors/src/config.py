@@ -35,6 +35,10 @@ class Config:
     DEFAULT_MAX_RESULTS: int = 10
     MAX_SEARCH_RESULTS: int = 1000
 
+    # Performance optimization settings
+    ENABLE_MULTICORE_PARSING: bool = os.getenv("ENABLE_MULTICORE_PARSING", "true").lower() == "true"
+    MAX_PARSER_WORKERS: int = int(os.getenv("MAX_PARSER_WORKERS", "0"))  # 0 = auto-detect CPU count
+
     @classmethod
     def get_pubmed_data_dir(cls) -> str:
         """Get PubMed data directory"""

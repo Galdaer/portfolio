@@ -92,7 +92,8 @@ class ClinicalTrialsDownloader:
         """Download detailed information for a specific study"""
         try:
             url = f"{self.api_base}/{nct_id}"
-            params = {"fmt": "json"}
+            # API v2 doesn't need fmt=json parameter
+            params = {}
 
             response = await self.session.get(url, params=params)
             response.raise_for_status()
@@ -105,19 +106,16 @@ class ClinicalTrialsDownloader:
 
     async def download_recent_updates(self, days: int = 7) -> list[str]:
         """Download recently updated studies"""
-        logger.info(f"Downloading studies updated in last {days} days")
+        logger.info("Downloading recent studies (API v2 doesn't support date filtering)")
 
         try:
-            # Calculate date range
-            from datetime import datetime, timedelta
+            # API v2 doesn't support date filtering, so get recent studies without filter
+            from datetime import datetime
 
             end_date = datetime.now()
-            start_date = end_date - timedelta(days=days)
 
             params = {
-                "fmt": "json",
-                "lup_s": start_date.strftime("%m/%d/%Y"),
-                "lup_e": end_date.strftime("%m/%d/%Y"),
+                "pageSize": 100,  # Smaller page size since no date filtering
                 "fields": "NCTId,BriefTitle,OverallStatus,Phase,Condition,InterventionName,LocationFacility,LocationCity,LocationState,LocationCountry,StartDate,CompletionDate,EnrollmentCount,StudyType,LeadSponsorName",
             }
 
@@ -131,7 +129,7 @@ class ClinicalTrialsDownloader:
                 # Save updates to file
                 update_file = os.path.join(
                     self.data_dir,
-                    f"updates_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.json",
+                    f"updates_{end_date.strftime('%Y%m%d')}.json",
                 )
 
                 with open(update_file, "w") as f:

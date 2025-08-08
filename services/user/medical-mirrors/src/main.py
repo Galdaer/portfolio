@@ -14,7 +14,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fda.api import FDAAPI
 from pubmed.api import PubMedAPI
-from sqlalchemy import create_engine
+from pubmed.api_optimized import OptimizedPubMedAPI
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from config import Config
@@ -69,7 +70,16 @@ app.add_middleware(
 
 # Initialize API handlers
 config = Config()
-pubmed_api = PubMedAPI(SessionLocal)
+
+# Use optimized multi-core parser if enabled
+if config.ENABLE_MULTICORE_PARSING:
+    max_workers = config.MAX_PARSER_WORKERS if config.MAX_PARSER_WORKERS > 0 else None
+    pubmed_api = OptimizedPubMedAPI(SessionLocal, max_workers=max_workers)
+    logger.info(f"Using optimized multi-core PubMed parser (workers: {max_workers or 'auto-detect'})")
+else:
+    pubmed_api = PubMedAPI(SessionLocal)
+    logger.info("Using standard single-threaded PubMed parser")
+
 trials_api = ClinicalTrialsAPI(SessionLocal)
 fda_api = FDAAPI(SessionLocal)
 
@@ -80,7 +90,7 @@ async def health_check():
     try:
         # Test database connection
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db.close()
 
         return {
@@ -201,10 +211,10 @@ async def get_drug_info(ndc: str):
 
 # Update endpoints for maintenance
 @app.post("/update/pubmed")
-async def trigger_pubmed_update():
+async def trigger_pubmed_update(quick_test: bool = False, max_files: int = None):
     """Trigger PubMed data update"""
     try:
-        result = await pubmed_api.trigger_update()
+        result = await pubmed_api.trigger_update(quick_test=quick_test, max_files=max_files)
         return {"status": "update_triggered", "details": result}
     except Exception as e:
         logger.error(f"PubMed update failed: {e}")
@@ -212,10 +222,10 @@ async def trigger_pubmed_update():
 
 
 @app.post("/update/trials")
-async def trigger_trials_update():
+async def trigger_trials_update(quick_test: bool = False, limit: int = None):
     """Trigger ClinicalTrials data update"""
     try:
-        result = await trials_api.trigger_update()
+        result = await trials_api.trigger_update(quick_test=quick_test, limit=limit)
         return {"status": "update_triggered", "details": result}
     except Exception as e:
         logger.error(f"Trials update failed: {e}")
@@ -223,10 +233,10 @@ async def trigger_trials_update():
 
 
 @app.post("/update/fda")
-async def trigger_fda_update():
+async def trigger_fda_update(quick_test: bool = False, limit: int = None):
     """Trigger FDA data update"""
     try:
-        result = await fda_api.trigger_update()
+        result = await fda_api.trigger_update(quick_test=quick_test, limit=limit)
         return {"status": "update_triggered", "details": result}
     except Exception as e:
         logger.error(f"FDA update failed: {e}")

@@ -117,9 +117,12 @@ class PubMedAPI:
         finally:
             db.close()
 
-    async def trigger_update(self) -> dict:
+    async def trigger_update(self, quick_test: bool = False, max_files: int = None) -> dict:
         """Trigger PubMed data update"""
-        logger.info("Triggering PubMed data update")
+        if quick_test:
+            logger.info(f"Triggering PubMed QUICK TEST update (max_files={max_files or 3})")
+        else:
+            logger.info("Triggering PubMed data update")
 
         db = self.session_factory()
         try:
@@ -135,6 +138,13 @@ class PubMedAPI:
 
             # Download and parse updates
             update_files = await self.downloader.download_updates()
+            
+            # Limit files for quick testing
+            if quick_test:
+                max_files_to_process = max_files or 3
+                update_files = update_files[:max_files_to_process]
+                logger.info(f"Quick test mode: processing only {len(update_files)} files")
+            
             total_processed = 0
 
             for xml_file in update_files:
@@ -166,28 +176,30 @@ class PubMedAPI:
             db.close()
 
     async def store_articles(self, articles: list[dict], db: Session) -> int:
-        """Store articles in database"""
+        """Store articles in database using proper UPSERT"""
         stored_count = 0
 
         for article_data in articles:
             try:
-                # Check if article already exists
-                existing = (
-                    db.query(PubMedArticle)
-                    .filter(PubMedArticle.pmid == article_data["pmid"])
-                    .first()
+                # Use PostgreSQL UPSERT (INSERT ... ON CONFLICT DO UPDATE)
+                from sqlalchemy.dialects.postgresql import insert
+                
+                stmt = insert(PubMedArticle).values(**article_data)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=['pmid'],
+                    set_={
+                        'title': stmt.excluded.title,
+                        'abstract': stmt.excluded.abstract,
+                        'authors': stmt.excluded.authors,
+                        'journal': stmt.excluded.journal,
+                        'pub_date': stmt.excluded.pub_date,
+                        'doi': stmt.excluded.doi,
+                        'mesh_terms': stmt.excluded.mesh_terms,
+                        'updated_at': stmt.excluded.updated_at
+                    }
                 )
-
-                if existing:
-                    # Update existing article
-                    for key, value in article_data.items():
-                        setattr(existing, key, value)
-                    existing.updated_at = datetime.utcnow()
-                else:
-                    # Create new article
-                    article = PubMedArticle(**article_data)
-                    db.add(article)
-
+                
+                db.execute(stmt)
                 stored_count += 1
 
                 # Commit in batches

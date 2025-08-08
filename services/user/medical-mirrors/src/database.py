@@ -5,9 +5,10 @@ Database configuration and models for medical mirrors
 import os
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
 from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 Base = declarative_base()
 
@@ -19,18 +20,25 @@ def get_database_url():
     )
 
 
+def get_database_session():
+    """Get database session for medical mirrors operations"""
+    engine = create_engine(get_database_url())
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    return SessionLocal()
+
+
 class PubMedArticle(Base):
     """PubMed articles table with full-text search"""
 
     __tablename__ = "pubmed_articles"
 
     pmid = Column(String(20), primary_key=True)
-    title = Column(Text, nullable=False)
+    title = Column(Text, nullable=True)  # Changed from nullable=False to handle missing titles
     abstract = Column(Text)
     authors = Column(ARRAY(String))
-    journal = Column(String(500))
+    journal = Column(Text)  # Changed from String(500) to Text
     pub_date = Column(String(50))
-    doi = Column(String(100))
+    doi = Column(String(200))  # Increased from 100 to 200 for longer DOIs
     mesh_terms = Column(ARRAY(String))
     search_vector = Column(TSVECTOR)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -43,9 +51,9 @@ class ClinicalTrial(Base):
     __tablename__ = "clinical_trials"
 
     nct_id = Column(String(20), primary_key=True)
-    title = Column(Text, nullable=False)
-    status = Column(String(50))
-    phase = Column(String(50))
+    title = Column(Text, nullable=True)  # Changed from nullable=False to handle missing titles
+    status = Column(String(100))  # Increased from 50 to 100
+    phase = Column(String(100))  # Increased from 50 to 100
     conditions = Column(ARRAY(String))
     interventions = Column(ARRAY(String))
     locations = Column(ARRAY(String))
@@ -53,7 +61,7 @@ class ClinicalTrial(Base):
     start_date = Column(String(20))
     completion_date = Column(String(20))
     enrollment = Column(Integer)
-    study_type = Column(String(50))
+    study_type = Column(String(100))  # Increased from 50 to 100
     search_vector = Column(TSVECTOR)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -64,17 +72,17 @@ class FDADrug(Base):
 
     __tablename__ = "fda_drugs"
 
-    ndc = Column(String(20), primary_key=True)
-    name = Column(String(500), nullable=False)
-    generic_name = Column(String(500))
-    brand_name = Column(String(500))
-    manufacturer = Column(String(500))
+    ndc = Column(String(50), primary_key=True)  # Increased from 20 to handle longer NDCs
+    name = Column(Text, nullable=False)  # Changed from String(500) to Text for unlimited length
+    generic_name = Column(Text)  # Changed from String(500) to Text
+    brand_name = Column(Text)  # Changed from String(500) to Text
+    manufacturer = Column(Text)  # Changed from String(500) to Text
     ingredients = Column(ARRAY(String))
-    dosage_form = Column(String(100))
-    route = Column(String(100))
+    dosage_form = Column(String(200))  # Increased from 100 to 200
+    route = Column(String(200))  # Increased from 100 to 200
     approval_date = Column(String(20))
-    orange_book_code = Column(String(10))
-    therapeutic_class = Column(String(200))
+    orange_book_code = Column(String(20))  # Increased from 10 to 20
+    therapeutic_class = Column(Text)  # Changed from String(200) to Text
     search_vector = Column(TSVECTOR)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

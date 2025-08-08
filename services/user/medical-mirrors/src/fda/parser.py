@@ -24,14 +24,20 @@ class FDAParser:
 
         try:
             with open(json_file_path) as f:
-                for line in f:
-                    try:
-                        data = json.loads(line)
-                        drug = self.parse_ndc_record(data)
+                # Parse the entire JSON file as a single object
+                data = json.load(f)
+
+                # Extract the results array
+                if isinstance(data, dict) and "results" in data:
+                    results = data["results"]
+                    logger.info(f"Found {len(results)} NDC records")
+
+                    for record in results:
+                        drug = self.parse_ndc_record(record)
                         if drug:
                             drugs.append(drug)
-                    except json.JSONDecodeError:
-                        continue
+                else:
+                    logger.warning("No 'results' field found in NDC file")
 
             logger.info(f"Parsed {len(drugs)} drugs from NDC file")
             return drugs
@@ -92,14 +98,20 @@ class FDAParser:
 
         try:
             with open(json_file_path) as f:
-                for line in f:
-                    try:
-                        data = json.loads(line)
-                        drug = self.parse_drugs_fda_record(data)
+                # Parse the entire JSON file as a single object
+                data = json.load(f)
+
+                # Extract the results array
+                if isinstance(data, dict) and "results" in data:
+                    results = data["results"]
+                    logger.info(f"Found {len(results)} Drugs@FDA records")
+
+                    for record in results:
+                        drug = self.parse_drugs_fda_record(record)
                         if drug:
                             drugs.append(drug)
-                    except json.JSONDecodeError:
-                        continue
+                else:
+                    logger.warning("No 'results' field found in Drugs@FDA file")
 
             logger.info(f"Parsed {len(drugs)} drugs from Drugs@FDA file")
             return drugs
@@ -237,14 +249,30 @@ class FDAParser:
 
         try:
             with open(json_file_path) as f:
-                for line in f:
-                    try:
-                        data = json.loads(line)
-                        drug = self.parse_drug_label_record(data)
+                # Parse the entire JSON file as a single object
+                data = json.load(f)
+
+                # Extract the results array
+                if isinstance(data, dict) and "results" in data:
+                    results = data["results"]
+                    logger.info(f"Found {len(results)} drug label records")
+
+                    for record in results:
+                        drug = self.parse_drug_label_record(record)
                         if drug:
                             drugs.append(drug)
-                    except json.JSONDecodeError:
-                        continue
+                else:
+                    # Fallback: try line-by-line parsing for JSONL format
+                    logger.warning("No 'results' field found, trying line-by-line parsing")
+                    f.seek(0)
+                    for line in f:
+                        try:
+                            line_data = json.loads(line)
+                            drug = self.parse_drug_label_record(line_data)
+                            if drug:
+                                drugs.append(drug)
+                        except json.JSONDecodeError:
+                            continue
 
             logger.info(f"Parsed {len(drugs)} drugs from labels file")
             return drugs

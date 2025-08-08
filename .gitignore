@@ -87,8 +87,8 @@
 !/test-setup.sh
 
 # === AI DATA DIRECTORIES (CONTROLLED) ===
-!/data/
-!/data/**/*
+/data/
+/data/**/*
 # Exclude sensitive AI data even if directories are whitelisted
 /data/training/user_samples/*
 !/data/training/user_samples/.gitkeep

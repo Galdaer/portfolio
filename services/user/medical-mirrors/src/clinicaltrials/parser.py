@@ -45,41 +45,97 @@ class ClinicalTrialsParser:
     def parse_study(self, study_data: dict) -> dict | None:
         """Parse a single study record"""
         try:
+            # Handle API v2 structure (protocolSection)
+            protocol_section = study_data.get("protocolSection", {})
+
             # Extract NCT ID
-            nct_id = self.extract_value(study_data, ["NCTId", "Identification", "NCTId"])
+            nct_id = None
+            if protocol_section:
+                # API v2 structure
+                nct_id = protocol_section.get("identificationModule", {}).get("nctId")
+            else:
+                # Legacy structure
+                nct_id = self.extract_value(study_data, ["NCTId", "Identification", "NCTId"])
+
             if not nct_id:
                 return None
 
             # Extract basic information
-            title = self.extract_value(
-                study_data, ["BriefTitle", "IdentificationModule", "BriefTitle"]
-            )
-            status = self.extract_value(
-                study_data, ["OverallStatus", "StatusModule", "OverallStatus"]
-            )
-            phase = self.extract_value(study_data, ["Phase", "DesignModule", "Phase"])
-            study_type = self.extract_value(study_data, ["StudyType", "DesignModule", "StudyType"])
+            if protocol_section:
+                # API v2 structure
+                identification = protocol_section.get("identificationModule", {})
+                status_module = protocol_section.get("statusModule", {})
+                design_module = protocol_section.get("designModule", {})
 
-            # Extract conditions
-            conditions = self.extract_conditions(study_data)
+                title = identification.get("briefTitle", "")
+                status = status_module.get("overallStatus", "")
+                phase = design_module.get("phases", [""])[0] if design_module.get("phases") else ""
+                study_type = design_module.get("studyType", "")
 
-            # Extract interventions
-            interventions = self.extract_interventions(study_data)
+                # Extract conditions
+                conditions_module = protocol_section.get("conditionsModule", {})
+                conditions = conditions_module.get("conditions", [])
 
-            # Extract locations
-            locations = self.extract_locations(study_data)
+                # Extract interventions
+                arms_module = protocol_section.get("armsInterventionsModule", {})
+                interventions = []
+                if arms_module.get("interventions"):
+                    for intervention in arms_module["interventions"]:
+                        interventions.append(intervention.get("name", ""))
 
-            # Extract sponsors
-            sponsors = self.extract_sponsors(study_data)
+                # Extract sponsors
+                sponsors_module = protocol_section.get("sponsorCollaboratorsModule", {})
+                sponsors = []
+                if sponsors_module.get("leadSponsor"):
+                    sponsors.append(sponsors_module["leadSponsor"].get("name", ""))
+                if sponsors_module.get("collaborators"):
+                    for collab in sponsors_module["collaborators"]:
+                        sponsors.append(collab.get("name", ""))
 
-            # Extract dates
-            start_date = self.extract_value(
-                study_data, ["StartDate", "StatusModule", "StartDateStruct", "StartDate"]
-            )
-            completion_date = self.extract_value(
-                study_data,
-                ["CompletionDate", "StatusModule", "CompletionDateStruct", "CompletionDate"],
-            )
+                # Extract dates
+                start_date = status_module.get("startDateStruct", {}).get("date", "")
+                completion_date = status_module.get("completionDateStruct", {}).get("date", "")
+
+                # Extract locations
+                contacts_module = protocol_section.get("contactsLocationsModule", {})
+                locations = []
+                if contacts_module.get("locations"):
+                    for location in contacts_module["locations"]:
+                        loc_str = location.get("facility", "")
+                        if location.get("city"):
+                            loc_str += f", {location['city']}"
+                        if location.get("state"):
+                            loc_str += f", {location['state']}"
+                        if location.get("country"):
+                            loc_str += f", {location['country']}"
+                        if loc_str:
+                            locations.append(loc_str)
+
+            else:
+                # Legacy structure
+                title = self.extract_value(
+                    study_data, ["BriefTitle", "IdentificationModule", "BriefTitle"]
+                )
+                status = self.extract_value(
+                    study_data, ["OverallStatus", "StatusModule", "OverallStatus"]
+                )
+                phase = self.extract_value(study_data, ["Phase", "DesignModule", "Phase"])
+                study_type = self.extract_value(study_data, ["StudyType", "DesignModule", "StudyType"])
+
+                # Extract conditions, interventions, locations, sponsors using legacy methods
+                conditions = self.extract_conditions(study_data)
+                interventions = self.extract_interventions(study_data)
+                locations = self.extract_locations(study_data)
+                sponsors = self.extract_sponsors(study_data)
+
+                # Extract dates
+                start_date = self.extract_value(
+                    study_data, ["StartDate", "StatusModule", "StartDateStruct", "StartDate"]
+                )
+                completion_date = self.extract_value(
+                    study_data,
+                    ["CompletionDate", "StatusModule", "CompletionDateStruct", "CompletionDate"],
+                )
 
             # Extract enrollment
             enrollment = self.extract_enrollment(study_data)

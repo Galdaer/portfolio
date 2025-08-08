@@ -3,6 +3,7 @@ PubMed XML parser
 Parses PubMed XML files and extracts article information
 """
 
+import gzip
 import logging
 import xml.etree.ElementTree as ET
 
@@ -21,7 +22,13 @@ class PubMedParser:
         articles = []
 
         try:
-            tree = ET.parse(xml_file_path)
+            # Handle gzipped files
+            if xml_file_path.endswith('.gz'):
+                with gzip.open(xml_file_path, 'rt', encoding='utf-8') as f:
+                    tree = ET.parse(f)
+            else:
+                tree = ET.parse(xml_file_path)
+
             root = tree.getroot()
 
             # Find all PubmedArticle elements

@@ -160,9 +160,12 @@ class FDAAPI:
         finally:
             db.close()
 
-    async def trigger_update(self) -> dict:
+    async def trigger_update(self, quick_test: bool = False, limit: int = None) -> dict:
         """Trigger FDA data update"""
-        logger.info("Triggering FDA data update")
+        if quick_test:
+            logger.info(f"Triggering FDA QUICK TEST update (limit={limit or 1000})")
+        else:
+            logger.info("Triggering FDA data update")
 
         db = self.session_factory()
         try:
@@ -179,10 +182,16 @@ class FDAAPI:
             # Download latest FDA data
             fda_data_dirs = await self.downloader.download_all_fda_data()
             total_processed = 0
+            drug_limit = limit or 1000 if quick_test else None
 
             # Process each dataset
             for dataset_name, data_dir in fda_data_dirs.items():
-                processed = await self.process_fda_dataset(dataset_name, data_dir, db)
+                if quick_test and total_processed >= drug_limit:
+                    logger.info(f"Quick test limit reached: {total_processed} drugs processed")
+                    break
+                    
+                remaining_limit = drug_limit - total_processed if quick_test else None
+                processed = await self.process_fda_dataset(dataset_name, data_dir, db, quick_test_limit=remaining_limit)
                 total_processed += processed
 
             # Update log
@@ -208,7 +217,7 @@ class FDAAPI:
         finally:
             db.close()
 
-    async def process_fda_dataset(self, dataset_name: str, data_dir: str, db: Session) -> int:
+    async def process_fda_dataset(self, dataset_name: str, data_dir: str, db: Session, quick_test_limit: int = None) -> int:
         """Process a specific FDA dataset"""
         logger.info(f"Processing FDA dataset: {dataset_name}")
 
@@ -218,25 +227,41 @@ class FDAAPI:
 
         try:
             for file in os.listdir(data_dir):
+                if quick_test_limit and processed_count >= quick_test_limit:
+                    logger.info(f"Quick test limit reached for {dataset_name}: {processed_count} drugs")
+                    break
+                    
                 file_path = os.path.join(data_dir, file)
 
                 if dataset_name == "ndc" and file.endswith(".json"):
                     drugs = self.parser.parse_ndc_file(file_path)
+                    if quick_test_limit:
+                        remaining = quick_test_limit - processed_count
+                        drugs = drugs[:remaining]
                     stored = await self.store_drugs(drugs, db)
                     processed_count += stored
 
                 elif dataset_name == "drugs_fda" and file.endswith(".json"):
                     drugs = self.parser.parse_drugs_fda_file(file_path)
+                    if quick_test_limit:
+                        remaining = quick_test_limit - processed_count
+                        drugs = drugs[:remaining]
                     stored = await self.store_drugs(drugs, db)
                     processed_count += stored
 
                 elif dataset_name == "orange_book" and file.endswith((".csv", ".txt")):
                     drugs = self.parser.parse_orange_book_file(file_path)
+                    if quick_test_limit:
+                        remaining = quick_test_limit - processed_count
+                        drugs = drugs[:remaining]
                     stored = await self.store_drugs(drugs, db)
                     processed_count += stored
 
                 elif dataset_name == "labels" and file.endswith(".json"):
                     drugs = self.parser.parse_drug_labels_file(file_path)
+                    if quick_test_limit:
+                        remaining = quick_test_limit - processed_count
+                        drugs = drugs[:remaining]
                     stored = await self.store_drugs(drugs, db)
                     processed_count += stored
 
