@@ -174,7 +174,7 @@ async def start_mcp_server() -> bool:
                     stderr_output = mcp_process.stderr.read()
                     if stderr_output:
                         logger.info(f"MCP server startup output: {stderr_output.strip()}")
-                except (OSError, BlockingIOError, ValueError) as e:
+                except (OSError, BlockingIOError, ValueError, TypeError) as e:
                     logger.debug(
                         f"Non-blocking read failed: {e}",
                     )  # Non-blocking read failed, continue
@@ -415,6 +415,28 @@ async def list_tools(authenticated: bool = Depends(authenticate)) -> dict[str, A
         "tools": healthcare_tools,
         "count": len(healthcare_tools),
         "disclaimer": "Medical Disclaimer: This service provides administrative support only, not medical advice",
+    }
+
+
+@app.get("/tools/list")
+async def list_tools_alternative(authenticated: bool = Depends(authenticate)) -> dict[str, Any]:
+    """Alternative tools list endpoint for MCP protocol compatibility"""
+    return {
+        "tools": healthcare_tools,
+        "count": len(healthcare_tools),
+        "disclaimer": "Medical Disclaimer: This service provides administrative support only, not medical advice",
+    }
+
+
+@app.post("/tools/list")
+async def list_tools_post(authenticated: bool = Depends(authenticate)) -> dict[str, Any]:
+    """POST version of tools list for MCP JSON-RPC compatibility"""
+    return {
+        "jsonrpc": "2.0",
+        "result": {
+            "tools": healthcare_tools
+        },
+        "id": 1
     }
 
 

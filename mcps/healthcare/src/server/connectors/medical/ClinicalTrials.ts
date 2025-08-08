@@ -82,7 +82,7 @@ export class ClinicalTrials {
             throw new Error(`Local mirror responded with ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as { content: Array<{ text: string }> };
         const trials = JSON.parse(data.content[0].text);
 
         return trials.map((trial: any) => ({

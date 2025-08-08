@@ -118,7 +118,7 @@ export class PubMed {
             throw new Error(`Local mirror responded with ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as { content: Array<{ text: string }> };
         const articles = JSON.parse(data.content[0].text);
 
         return articles.map((article: any) => ({

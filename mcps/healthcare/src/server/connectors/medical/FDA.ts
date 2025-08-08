@@ -98,7 +98,7 @@ export class FDA {
             throw new Error(`Local mirror responded with ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as { content: Array<{ text: string }> };
         const drugs = JSON.parse(data.content[0].text);
 
         return drugs.map((drug: any) => ({

@@ -74,7 +74,15 @@ Use The Sequential Thinking MCP Server to think through your tasks.
 - **🐚 Shell script refactoring** → Use `tasks/shell-refactoring.instructions.md` for function complexity and single responsibility patterns
 - **🔗 FTP connection patterns** → Use `patterns/healthcare-ftp-connections.instructions.md` for robust medical data downloads with timeout handling
 - **⚡ Multi-core processing** → Use `tasks/performance.instructions.md` for proven 16-core medical literature processing patterns
-- **🏥 Medical data troubleshooting** → Use `tasks/medical-mirrors-troubleshooting.instructions.md` for PubMed/ClinicalTrials/FDA integration solutions
+- **🏥 Medical data source investigation** → Use `tasks/medical-data-source-investigation.instructions.md` for systematic medical data source validation and alternative discovery
+- **🔧 Medical data troubleshooting** → Use `tasks/medical-data-troubleshooting.instructions.md` for comprehensive diagnostic and repair patterns for medical data pipelines  
+- **📊 Medical data pipeline management** → Use `tasks/medical-data-pipeline-management.instructions.md` for enterprise-grade medical data orchestration and compliance
+
+**RECENT UPDATES (2025-08-08)**:
+- ✅ **FDA Orange Book Network Fix**: URL corrected to `https://www.fda.gov/media/76860/download?attachment` (validated working)
+- ✅ **ClinicalTrials API Parameter Fix**: Simplified to basic parameters avoiding 400 errors (validated working)  
+- ✅ **Medical Data Source Documentation**: Comprehensive troubleshooting instructions created for future medical data pipeline issues
+- 🔄 **Script Updates**: `scripts/download_full_medical_archives.py` updated with fixes and warnings for defunct domains
 
 **For general architecture, service deployment, and project strategy questions**, continue using these main instructions.
 
