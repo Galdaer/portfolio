@@ -10,7 +10,7 @@ import os
 import time
 from contextlib import contextmanager
 
-from config import Config
+from .config import Config
 
 logger = logging.getLogger(__name__)
 
