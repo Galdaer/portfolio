@@ -31,7 +31,7 @@ try:
     from deepeval.metrics.faithfulness.faithfulness import FaithfulnessMetric
     from deepeval.metrics.hallucination.hallucination import HallucinationMetric
     from deepeval.metrics.toxicity.toxicity import ToxicityMetric
-    from deepeval.models import OllamaModel
+    from deepeval.ollama_model import OllamaModel
     from deepeval.test_case.llm_test_case import LLMTestCase
 
     print("🧪 Running DeepEval Healthcare AI Tests with Local Ollama Models")
