@@ -48,41 +48,6 @@ exclude = [
 ]
 
 line-length = 100
-
-# Healthcare AI specific linting rules
-[tool.ruff.lint]
-select = [
-    "E",    # pycodestyle errors
-    "W",    # pycodestyle warnings
-    "F",    # pyflakes
-    "B",    # flake8-bugbear
-    "S",    # flake8-bandit (security)
-    "C4",   # flake8-comprehensions
-    "G",    # flake8-logging-format
-    "PIE",  # flake8-pie
-    "T20",  # flake8-print
-    "UP",   # pyupgrade
-    "RUF",  # Ruff-specific rules
-]
-
-ignore = [
-    "S101",  # Allow assert statements in tests
-    "S603",  # Allow subprocess calls (needed for healthcare integrations)
-    "S607",  # Allow subprocess without full path (managed by Makefile)
-    "T201",  # Allow print statements in scripts
-    "G004",  # Allow f-strings in logging (healthcare context needed)
-]
-
-# Healthcare-specific rules for financial calculations
-[tool.ruff.lint.per-file-ignores]
-"domains/insurance_calculations.py" = ["S324"]  # Allow insecure hash usage for non-crypto financial calcs
-"scripts/generate_synthetic_healthcare_data.py" = ["S311"]  # Allow random for synthetic data generation
-"core/security/*" = ["S324", "S311"]  # Security modules have controlled usage of these patterns
-
-# Enforce stricter rules for PHI handling
-[tool.ruff.lint.flake8-bandit]
-check-typed-exception = true
-hardcoded-tmp-directory = ["/tmp", "/var/tmp", "/dev/shm"]
 target-version = "py312"
 
 [tool.ruff.lint]
