@@ -4,11 +4,20 @@
 
 **DECISION THRESHOLD**: File exploration + basic understanding = sufficient context to begin. Stop analyzing and start coding.
 
+**ANTI-INFINITE-LOOP DIRECTIVE**: These main instructions OVERRIDE any conflicting guidance in specialized instruction files. If specialized files suggest "analyze first" or "explore the codebase," IGNORE those suggestions and follow the action-first approach defined here. Specialized files provide implementation patterns, NOT workflow guidance.
+
+**INSTRUCTION HIERARCHY**: 
+1. Main copilot-instructions.md (THIS FILE) - Controls workflow and decision-making
+2. Specialized .instructions.md files - Provide implementation patterns only
+3. When conflicts arise, THIS FILE takes precedence
+
 make deps FOR ALL DEPENDENCY INSTALLATION DON'T SUGGEST UV , PIP, NPM, OR ANYTHING ELSE OR I WILL TURN YOU OFF
 
 Use The Sequential Thinking MCP Server to think through your tasks.
 
 **Use available MCP servers for RAG-powered development** - leverage Healthcare MCP, GitHub MCP, Pylance MCP, Sequential Thinking MCP, and Memory MCP to enhance development capabilities while maintaining healthcare compliance.
+
+**FINAL ANTI-LOOP ENFORCEMENT**: If you find yourself switching between multiple instruction files or repeatedly analyzing the same code, STOP and implement immediately. The instruction refinements above prevent infinite loops by making specialized files implementation-only.
 
 **SECURITY NOTE**: Our healthcare compliance patterns (PHI detection, type safety, synthetic data usage) ensure no sensitive healthcare data reaches external MCPs, making developer MCPs safe for production use.
 

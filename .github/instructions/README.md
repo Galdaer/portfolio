@@ -5,6 +5,15 @@
 - Always validate JSON payloads before sending to MCP server.
 - Use synthetic data and compliance disclaimers for all development and testing.
 - Troubleshoot endpoint issues by checking handler implementation and server logs.
+
+## CRITICAL: Anti-Infinite-Loop Architecture
+
+**INSTRUCTION HIERARCHY (Prevents Analysis Paralysis):**
+1. **copilot-instructions.md** - Master workflow control (ACTION-FIRST)
+2. **Specialized instructions** - Implementation patterns only (NO workflow guidance)
+3. **In conflicts** - copilot-instructions.md always wins
+
+**ANTI-LOOP PRINCIPLE**: Specialized instruction files provide PATTERNS, not PROCESS. They show HOW to implement, not WHEN to analyze.
 # AI Instructions Directory
 
 This directory contains specialized AI instruction files for different development contexts, tasks, and tools. These files are **officially supported by GitHub Copilot coding agent** and enable enhanced AI assistance across the healthcare AI development workflow.

@@ -1,192 +1,38 @@
-````instructions
-`````instructions
-````instructions
 # Medical Mirrors Service Troubleshooting Instructions
 
 ## Strategic Purpose
 
-Proven troubleshooting patterns for medical data download services that process PubMed, ClinicalTrials.gov, and FDA data.
+Comprehensive troubleshooting patterns for the medical-mirrors service that downloads and processes PubMed, ClinicalTrials.gov, and FDA data for healthcare AI systems.
 
-## Common Issues & Solutions from PR #31
+## Critical Issues Identified (2025-08-07)
 
-### Type Safety & Import Issues
-```python
-# ✅ CORRECT: Proper imports and type annotations
-import asyncio
-import json
-import logging
-import os
-from typing import Any, Dict, List, Optional
-from decimal import Decimal
+### Issue 1: Data Storage Architecture Problem
+**Problem**: Medical-mirrors service downloads files to `/app/data/` but fails to parse and store them in PostgreSQL.
 
-class DownloaderBase:
-    def __init__(self) -> None:
-        self.config = Config()
-    
-    async def download_batch(self, start: int, batch_size: int) -> Optional[str]:
-        files: List[str] = []  # Explicit type annotation
-        # Implementation...
-```
+**Root Cause**: Parser bugs prevent data from reaching the database:
+- PubMed: Parser already has gzip support but still failing to parse
+- ClinicalTrials: Using old API v1 parameters instead of new v2 format  
+- FDA: Parser expects dict objects but receives strings/booleans
 
-### Database Connection Management
-```python
-# ✅ CORRECT: Proper async connection cleanup
-async def get_connection(self):
-    conn = await self.pool.acquire()
-    try:
-        yield conn
-    finally:
-        await self.pool.release(conn)
-
-# ✅ CORRECT: Context manager usage
-async with self.get_connection() as conn:
-    result = await conn.fetch(query)
-```
-
-### Robust FTP Download Patterns  
-```python
-# ✅ CORRECT: Timeout handling and retry logic
-async def download_with_retry(self, url: str, max_retries: int = 3) -> bool:
-    for attempt in range(max_retries):
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(url)
-                response.raise_for_status()
-                return True
-        except (httpx.TimeoutException, httpx.HTTPError) as e:
-            if attempt == max_retries - 1:
-                logger.error(f"Final attempt failed: {e}")
-                raise
-            await asyncio.sleep(2 ** attempt)  # Exponential backoff
-```
-
-### Multi-Core Processing for Medical Literature
-```python
-# ✅ CORRECT: 16-core processing pattern that works
-import multiprocessing as mp
-from concurrent.futures import ProcessPoolExecutor
-
-def process_medical_files(self, files: List[str]) -> Dict[str, Any]:
-    cpu_count = min(16, mp.cpu_count())
-    
-    with ProcessPoolExecutor(max_workers=cpu_count) as executor:
-        futures = [executor.submit(self.parse_file, f) for f in files]
-        results = [f.result() for f in futures]
-    
-    return self.combine_results(results)
-```
-
-### Common Error Patterns to Avoid
-
-**❌ Missing Type Annotations** (Causes MyPy errors):
-```python
-# Wrong
-files = []  
-data = response.json()
-
-# ✅ Correct  
-files: List[str] = []
-data: Dict[str, Any] = response.json()
-```
-
-**❌ Database Connection Leaks**:
-```python
-# Wrong - no cleanup
-conn = await pool.acquire()
-result = await conn.fetch(query)
-
-# ✅ Correct - proper cleanup
-conn = await pool.acquire()
-try:
-    result = await conn.fetch(query)
-finally:
-    await pool.release(conn)
-```
-
-**❌ Float for Financial Calculations**:
-```python
-# Wrong - precision loss
-rate = 0.85  # float
-amount = price * rate
-
-# ✅ Correct - exact precision
-from decimal import Decimal
-rate = Decimal('0.85')  
-amount = price * rate
-```
-
-## Troubleshooting Tools
-
-### Quick Diagnostics
+**Database Status**: All tables exist but are empty:
 ```bash
-# Check service status
-make medical-mirrors-status
-
-# View recent logs
-make medical-mirrors-logs
-
-# Test database connectivity
-make medical-mirrors-test-db
-
-# Rebuild and restart
-make medical-mirrors-rebuild && make medical-mirrors-restart
+# Check data in database
+docker exec medical-mirrors python3 -c "
+import asyncio, sys
+sys.path.append('/app/src')
+from database import SessionLocal
+from sqlalchemy import text
+async def check():
+    async with SessionLocal() as session:
+        result = await session.execute(text('SELECT COUNT(*) FROM pubmed_articles'))
+        print(f'PubMed: {result.scalar()}')
+asyncio.run(check())
+"
 ```
 
-### Performance Monitoring
-```python
-# ✅ Memory usage monitoring
-import psutil
-import logging
+### Issue 2: API Migration Problems
 
-logger = logging.getLogger(__name__)
-
-def monitor_resources(self):
-    memory_mb = psutil.virtual_memory().used / 1024 / 1024
-    cpu_percent = psutil.cpu_percent()
-    
-    if memory_mb > 8000:  # 8GB threshold
-        logger.warning(f"High memory usage: {memory_mb:.1f} MB")
-    
-    if cpu_percent > 80:
-        logger.warning(f"High CPU usage: {cpu_percent}%")
-```
-
-### Medical Data Validation
-```python
-# ✅ Validate medical data integrity
-def validate_pubmed_data(self, article_data: Dict[str, Any]) -> bool:
-    required_fields = ['pmid', 'title', 'authors', 'abstract']
-    
-    for field in required_fields:
-        if field not in article_data or not article_data[field]:
-            logger.error(f"Missing required field: {field}")
-            return False
-    
-    return True
-
-def validate_clinical_trial(self, trial_data: Dict[str, Any]) -> bool:
-    if 'nct_id' not in trial_data:
-        logger.error("Missing NCT ID")
-        return False
-        
-    if not trial_data['nct_id'].startswith('NCT'):
-        logger.error(f"Invalid NCT ID format: {trial_data['nct_id']}")
-        return False
-    
-    return True
-```
-````
-`````
-- **Progress tracking**: Implement progress reporting for long-running operations
-- **Error aggregation**: Collect and report errors across worker processes
-
-### Healthcare Data Quality
-- **Data validation**: Verify medical data integrity and completeness
-- **Format consistency**: Ensure consistent data formats across sources
-- **Update frequency**: Balance freshness with system resources
-- **Audit trails**: Maintain logs of data processing operations
-````
-````
+#### ClinicalTrials.gov API v2 Migration
 **Problem**: Using old API v1 parameters (`lup_s`, `lup_e`, `fmt`) instead of new v2 format.
 
 **Fixed Parameters**:

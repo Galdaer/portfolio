@@ -1,10 +1,11 @@
-# Healthcare AI MLOps Development Instructions
+````instructions
+# Healthcare AI MLOps Implementation Patterns
 
-## Strategic Purpose
+## Implementation Purpose
 
-Establish comprehensive machine learning operations patterns specifically designed for healthcare AI systems that require continuous model improvement while maintaining clinical safety and regulatory compliance. These patterns support single-machine GPU tower deployments with sophisticated model lifecycle management.
+**IMPLEMENTATION-ONLY**: Machine learning operations patterns for healthcare AI systems. For workflow guidance, see main copilot-instructions.md.
 
-## Healthcare MLOps Architecture Patterns
+## Healthcare MLOps Implementation Patterns
 
 ### Model Lifecycle Management
 

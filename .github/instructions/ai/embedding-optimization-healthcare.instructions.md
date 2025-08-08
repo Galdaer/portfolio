@@ -1,10 +1,11 @@
-# Healthcare AI Embedding and Semantic Search Instructions
+````instructions
+# Healthcare AI Embedding and Semantic Search Implementation Patterns
 
-## Strategic Purpose
+## Implementation Purpose
 
-Provide comprehensive patterns for medical literature embedding strategies, vector database optimization, and semantic search implementations that understand complex medical terminology, clinical relationships, and healthcare-specific semantic nuances while maintaining privacy and regulatory compliance.
+**IMPLEMENTATION-ONLY**: This file contains pure implementation patterns for medical literature embedding strategies, vector database optimization, and semantic search. For workflow guidance, see main copilot-instructions.md.
 
-## Medical Literature Embedding Strategies
+## Medical Literature Embedding Implementation Patterns
 
 ### Healthcare-Optimized Embedding Architecture
 

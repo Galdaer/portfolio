@@ -1,10 +1,11 @@
-# Clinical Prompt Engineering Instructions
+````instructions
+# Clinical Prompt Engineering Implementation Patterns
 
-## Strategic Purpose
+## Implementation Purpose
 
-Establish sophisticated prompt management and optimization patterns for healthcare AI systems that require consistent clinical accuracy, appropriate medical disclaimers, context-aware responses across diverse clinical scenarios, and systematic prompt evolution based on clinical feedback and safety requirements.
+**IMPLEMENTATION-ONLY**: Prompt management and optimization patterns for healthcare AI systems. For workflow guidance, see main copilot-instructions.md.
 
-## Healthcare Prompt Architecture Patterns
+## Healthcare Prompt Implementation Patterns
 
 ### Clinical Prompt Template System
 
