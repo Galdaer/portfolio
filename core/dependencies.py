@@ -229,23 +229,16 @@ async def get_db_pool() -> Any:
     return healthcare_services.db_pool
 
 
-@asynccontextmanager
-async def get_database_connection() -> AsyncGenerator[Any, None]:
-    """Get database connection with automatic cleanup - required for healthcare operations
-
-    Yields a connection from the pool and ensures it is released after use.
-    """
+async def get_database_connection() -> Any:
+    """Get database connection - required for healthcare operations"""
     if healthcare_services.db_pool is None:
         raise DatabaseConnectionError(
             "Healthcare database unavailable. Please check connection. "
             "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
         )
 
-    conn = await healthcare_services.db_pool.acquire()
-    try:
-        yield conn
-    finally:
-        await healthcare_services.db_pool.release(conn)
+    # Return a connection from the pool
+    return await healthcare_services.db_pool.acquire()
 
 
 @asynccontextmanager
