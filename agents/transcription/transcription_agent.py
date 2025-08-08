@@ -16,8 +16,7 @@ from core.infrastructure.healthcare_logger import (
     healthcare_log_method,
     log_healthcare_event,
 )
-from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor
-from core.infrastructure.phi_monitor import scan_for_phi
+from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor, scan_for_phi
 
 logger = get_healthcare_logger("agent.transcription")
 
@@ -462,7 +461,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
 
             # Generate recommendations
             recommendations = self._generate_note_recommendations(
-                structured_content, missing_sections
+                structured_content, missing_sections,
             )
 
             log_healthcare_event(
@@ -515,7 +514,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
             )
 
     async def _structure_note_content(
-        self, raw_content: str, template: DocumentationTemplate
+        self, raw_content: str, template: DocumentationTemplate,
     ) -> dict[str, Any]:
         """Structure raw content into organized sections"""
 
@@ -553,7 +552,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
         return structured
 
     async def _format_clinical_note(
-        self, structured_content: dict[str, Any], template: DocumentationTemplate
+        self, structured_content: dict[str, Any], template: DocumentationTemplate,
     ) -> str:
         """Format structured content into clinical note"""
 
@@ -581,7 +580,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
         return "\n".join(formatted_lines)
 
     def _calculate_note_quality(
-        self, structured_content: dict[str, Any], template: DocumentationTemplate
+        self, structured_content: dict[str, Any], template: DocumentationTemplate,
     ) -> float:
         """Calculate quality score for clinical note"""
 
@@ -591,7 +590,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
                 s
                 for s in template.required_sections + template.optional_sections
                 if s in structured_content
-            ]
+            ],
         )
 
         section_score = present_sections / total_sections if total_sections > 0 else 0.0
@@ -611,7 +610,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
         return round(quality_score, 2)
 
     def _identify_missing_sections(
-        self, structured_content: dict[str, Any], template: DocumentationTemplate
+        self, structured_content: dict[str, Any], template: DocumentationTemplate,
     ) -> list[str]:
         """Identify missing required sections"""
 
@@ -623,7 +622,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
         return missing
 
     def _generate_note_recommendations(
-        self, structured_content: dict[str, Any], missing_sections: list[str]
+        self, structured_content: dict[str, Any], missing_sections: list[str],
     ) -> list[str]:
         """Generate recommendations for note improvement"""
 
@@ -631,7 +630,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
 
         if missing_sections:
             recommendations.append(
-                f"Consider adding missing sections: {', '.join(missing_sections)}"
+                f"Consider adding missing sections: {', '.join(missing_sections)}",
             )
 
         # Check for specific content recommendations
@@ -639,7 +638,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
             assessment = structured_content["assessment"].lower()
             if "diagnosis" not in assessment and "condition" not in assessment:
                 recommendations.append(
-                    "Consider including specific diagnosis or clinical condition in assessment"
+                    "Consider including specific diagnosis or clinical condition in assessment",
                 )
 
         if "plan" in structured_content:
@@ -665,16 +664,15 @@ class TranscriptionAgent(BaseHealthcareAgent):
         try:
             if "audio_data" in request:
                 result = await self.transcribe_audio(request["audio_data"])
-                return cast(dict[str, Any], result.__dict__)
-            elif "text_data" in request:
+                return cast("dict[str, Any]", result.__dict__)
+            if "text_data" in request:
                 result = await self.generate_clinical_note(request["text_data"])
-                return cast(dict[str, Any], result.__dict__)
-            else:
-                return {
-                    "success": False,
-                    "error": "No supported data type found in request",
-                    "supported_types": ["audio_data", "text_data"],
-                }
+                return cast("dict[str, Any]", result.__dict__)
+            return {
+                "success": False,
+                "error": "No supported data type found in request",
+                "supported_types": ["audio_data", "text_data"],
+            }
         except Exception as e:
             return {
                 "success": False,

@@ -14,8 +14,7 @@ from core.infrastructure.healthcare_logger import (
     healthcare_log_method,
     log_healthcare_event,
 )
-from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor
-from core.infrastructure.phi_monitor import scan_for_phi
+from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor, scan_for_phi
 
 logger = get_healthcare_logger("agent.scheduling_optimizer")
 
@@ -314,7 +313,7 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
         end_hour = 17
 
         current_time = preferred_datetime.replace(
-            hour=start_hour, minute=0, second=0, microsecond=0
+            hour=start_hour, minute=0, second=0, microsecond=0,
         )
         end_time = preferred_datetime.replace(hour=end_hour, minute=0, second=0, microsecond=0)
 
@@ -339,7 +338,7 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
                             duration_minutes=duration_minutes,
                             room_id=f"room_{(slot_counter % 5) + 1}",
                             notes=["Standard appointment slot"],
-                        )
+                        ),
                     )
 
             current_time += timedelta(minutes=30)
@@ -362,7 +361,7 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
         return available_slots
 
     def _select_optimal_slot(
-        self, available_slots: list[AppointmentSlot], appointment_request: dict[str, Any]
+        self, available_slots: list[AppointmentSlot], appointment_request: dict[str, Any],
     ) -> AppointmentSlot:
         """
         Select the optimal appointment slot based on scheduling criteria
@@ -391,7 +390,7 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
 
     @healthcare_log_method(operation_type="scheduling_optimization", phi_risk_level="medium")
     async def optimize_provider_schedule(
-        self, provider_id: str, date_range: dict[str, str]
+        self, provider_id: str, date_range: dict[str, str],
     ) -> list[OptimizationRecommendation]:
         """
         Analyze and optimize provider schedule for efficiency
@@ -444,7 +443,7 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
                     implementation_priority="low",
                     estimated_impact=60,
                 ),
-            ]
+            ],
         )
 
         log_healthcare_event(
@@ -456,7 +455,7 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
                 "date_range": date_range,
                 "recommendations_count": len(recommendations),
                 "high_priority_count": len(
-                    [r for r in recommendations if r.implementation_priority == "high"]
+                    [r for r in recommendations if r.implementation_priority == "high"],
                 ),
             },
             operation_type="schedule_optimization",
@@ -590,29 +589,28 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
 
             if request_type == "schedule_appointment":
                 result = await self.schedule_appointment(request["appointment"])
-                return cast(dict[str, Any], result)
-            elif request_type == "optimize_schedule":
+                return cast("dict[str, Any]", result)
+            if request_type == "optimize_schedule":
                 result = await self.optimize_provider_schedule(
-                    request["provider_id"], request["date"]
+                    request["provider_id"], request["date"],
                 )
-                return cast(dict[str, Any], result)
-            elif request_type == "wait_time_analysis":
+                return cast("dict[str, Any]", result)
+            if request_type == "wait_time_analysis":
                 result = await self.calculate_wait_times(request["provider_id"], request["date"])
-                return cast(dict[str, Any], result)
-            elif request_type == "capacity_report":
+                return cast("dict[str, Any]", result)
+            if request_type == "capacity_report":
                 result = await self.generate_capacity_report(request["date_range"])
-                return cast(dict[str, Any], result)
-            else:
-                return {
-                    "success": False,
-                    "error": "Unsupported request type",
-                    "supported_types": [
-                        "schedule_appointment",
-                        "optimize_schedule",
-                        "wait_time_analysis",
-                        "capacity_report",
-                    ],
-                }
+                return cast("dict[str, Any]", result)
+            return {
+                "success": False,
+                "error": "Unsupported request type",
+                "supported_types": [
+                    "schedule_appointment",
+                    "optimize_schedule",
+                    "wait_time_analysis",
+                    "capacity_report",
+                ],
+            }
         except Exception as e:
             return {
                 "success": False,

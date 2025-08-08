@@ -36,7 +36,7 @@ async def list_tools():
         "tools": [
             {"name": "healthcare_search", "description": "Search healthcare information"},
             {"name": "patient_lookup", "description": "Look up patient information"},
-        ]
+        ],
     }
 
 

@@ -41,7 +41,7 @@ class HealthcareComplianceConfig(BaseModel):
     audit_logging_enabled: bool = Field(default=True, description="Enable audit logging")
     session_timeout_minutes: int = Field(default=480, description="8-hour healthcare shift timeout")
     max_failed_auth_attempts: int = Field(
-        default=3, description="Max failed authentication attempts"
+        default=3, description="Max failed authentication attempts",
     )
     require_mfa: bool = Field(default=False, description="Require multi-factor authentication")
     data_retention_days: int = Field(default=2555, description="7-year HIPAA retention")
@@ -52,7 +52,7 @@ class CacheConfig(BaseModel):
 
     redis_url: str = Field(default="redis://localhost:6379", description="Redis connection URL")
     medical_literature_ttl_hours: int = Field(
-        default=24, description="Medical literature cache TTL"
+        default=24, description="Medical literature cache TTL",
     )
     drug_interaction_ttl_hours: int = Field(default=12, description="Drug interaction cache TTL")
     patient_context_ttl_minutes: int = Field(default=60, description="Patient context cache TTL")
@@ -63,7 +63,7 @@ class DatabaseConfig(BaseModel):
     """Database configuration for healthcare data"""
 
     postgres_url: str = Field(
-        default="postgresql://localhost:5432/intelluxe", description="PostgreSQL URL"
+        default="postgresql://localhost:5432/intelluxe", description="PostgreSQL URL",
     )
     max_connections: int = Field(default=20, description="Maximum database connections")
     connection_timeout_seconds: int = Field(default=30, description="Connection timeout")
@@ -76,10 +76,10 @@ class MonitoringConfig(BaseModel):
 
     health_check_interval_seconds: int = Field(default=30, description="Health check interval")
     alert_threshold_error_rate: float = Field(
-        default=0.05, description="Error rate alert threshold (5%)"
+        default=0.05, description="Error rate alert threshold (5%)",
     )
     alert_threshold_response_time_ms: int = Field(
-        default=5000, description="Response time alert threshold"
+        default=5000, description="Response time alert threshold",
     )
     log_level: str = Field(default="INFO", description="Logging level")
     enable_performance_metrics: bool = Field(default=True, description="Enable performance metrics")
@@ -135,7 +135,7 @@ class HealthcareConfigManager:
                 database_config["postgres_url"] = os.getenv(
                     "DATABASE_URL",
                     config_data.get("database", {}).get(
-                        "postgres_url", "postgresql://localhost:5432/intelluxe"
+                        "postgres_url", "postgresql://localhost:5432/intelluxe",
                     )
                     if isinstance(config_data.get("database"), dict)
                     else "postgresql://localhost:5432/intelluxe",
@@ -151,7 +151,7 @@ class HealthcareConfigManager:
 
         # Security overrides from environment
         config_data["jwt_secret_key"] = os.getenv(
-            "JWT_SECRET_KEY", config_data.get("jwt_secret_key", "change-in-production")
+            "JWT_SECRET_KEY", config_data.get("jwt_secret_key", "change-in-production"),
         )
 
         # Development-specific settings

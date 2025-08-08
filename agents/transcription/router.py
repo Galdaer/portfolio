@@ -10,8 +10,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, status
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
-from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor
-from core.infrastructure.phi_monitor import scan_for_phi
+from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor, scan_for_phi
 
 from .transcription_agent import transcription_agent
 
@@ -173,7 +172,7 @@ async def get_documentation_templates() -> dict[str, Any]:
                     "required_sections": template.required_sections,
                     "optional_sections": template.optional_sections,
                     "formatting_rules": template.formatting_rules,
-                }
+                },
             )
 
         return {

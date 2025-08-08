@@ -10,7 +10,7 @@ class Config:
 
     # Database settings
     POSTGRES_URL: str = os.getenv(
-        "POSTGRES_URL", "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
+        "POSTGRES_URL", "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe",
     )
 
     # Data source URLs

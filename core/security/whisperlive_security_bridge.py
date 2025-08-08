@@ -116,7 +116,7 @@ class WhisperLiveSecurityBridge:
                 transcript: str
                 confidence: float
                 transcript, confidence = await self._transcribe_with_whisperlive(
-                    processed_audio, security_metadata
+                    processed_audio, security_metadata,
                 )
 
                 # PHI detection and sanitization
@@ -129,7 +129,7 @@ class WhisperLiveSecurityBridge:
                     if phi_detected:
                         sanitized_transcript = await self.phi_detector.sanitize_text(transcript)
                         security_metadata.audit_trail.append(
-                            f"PHI detected and sanitized at {datetime.utcnow().isoformat()}"
+                            f"PHI detected and sanitized at {datetime.utcnow().isoformat()}",
                         )
 
                         logger.warning(
@@ -187,7 +187,7 @@ class WhisperLiveSecurityBridge:
                 return result
 
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Secure audio transcription failed",
                 extra={
                     "operation_type": "audio_transcription_error",
@@ -200,8 +200,8 @@ class WhisperLiveSecurityBridge:
 
     @asynccontextmanager
     async def _secure_audio_context(
-        self, audio_data: BinaryIO, security_metadata: AudioSecurityMetadata
-    ) -> AsyncGenerator[str, None]:
+        self, audio_data: BinaryIO, security_metadata: AudioSecurityMetadata,
+    ) -> AsyncGenerator[io.BytesIO, None]:
         """Secure context manager for memory-only audio processing"""
 
         # Create in-memory buffer for processing
@@ -222,7 +222,7 @@ class WhisperLiveSecurityBridge:
                 encrypted_buffer = await self._encrypt_audio_memory(memory_buffer)
                 security_metadata.encryption_applied = True
                 security_metadata.audit_trail.append(
-                    f"Audio encrypted in memory at {datetime.utcnow().isoformat()}"
+                    f"Audio encrypted in memory at {datetime.utcnow().isoformat()}",
                 )
                 yield encrypted_buffer
             else:
@@ -238,11 +238,11 @@ class WhisperLiveSecurityBridge:
             memory_buffer.close()
 
             security_metadata.audit_trail.append(
-                f"Memory securely cleared at {datetime.utcnow().isoformat()}"
+                f"Memory securely cleared at {datetime.utcnow().isoformat()}",
             )
 
     async def _transcribe_with_whisperlive(
-        self, audio_buffer: io.BytesIO, security_metadata: AudioSecurityMetadata
+        self, audio_buffer: io.BytesIO, security_metadata: AudioSecurityMetadata,
     ) -> tuple[str, float]:
         """Transcribe audio using WhisperLive in memory-only mode"""
 
@@ -271,11 +271,11 @@ class WhisperLiveSecurityBridge:
             return transcript, confidence
 
         except Exception as e:
-            logger.error(f"WhisperLive transcription failed: {e}")
+            logger.exception(f"WhisperLive transcription failed: {e}")
             raise
 
     async def _mock_transcription(
-        self, audio_buffer: io.BytesIO, security_metadata: AudioSecurityMetadata
+        self, audio_buffer: io.BytesIO, security_metadata: AudioSecurityMetadata,
     ) -> tuple[str, float]:
         """Mock transcription for testing purposes"""
 
@@ -297,7 +297,7 @@ class WhisperLiveSecurityBridge:
         return transcript, confidence
 
     async def _detect_audio_properties(
-        self, audio_buffer: io.BytesIO, security_metadata: AudioSecurityMetadata
+        self, audio_buffer: io.BytesIO, security_metadata: AudioSecurityMetadata,
     ) -> None:
         """Detect audio properties for security metadata"""
 
@@ -309,7 +309,7 @@ class WhisperLiveSecurityBridge:
                 with wave.open(audio_buffer, "rb") as wav_file:
                     security_metadata.sample_rate = wav_file.getframerate()
                     security_metadata.duration_seconds = wav_file.getnframes() / float(
-                        wav_file.getframerate()
+                        wav_file.getframerate(),
                     )
             else:
                 # For other formats, use defaults or audio library
@@ -341,8 +341,7 @@ class WhisperLiveSecurityBridge:
         for i, byte in enumerate(audio_data):
             encrypted_data.append(byte ^ key[i % len(key)])
 
-        encrypted_buffer = io.BytesIO(encrypted_data)
-        return encrypted_buffer
+        return io.BytesIO(encrypted_data)
 
     def _generate_transcription_id(self, session_id: str, user_id: str) -> str:
         """Generate unique transcription ID"""
@@ -428,7 +427,7 @@ class HealthcareAudioProcessor:
             return response
 
         except Exception as e:
-            self.logger.error(
+            self.logger.exception(
                 "Clinical audio processing failed",
                 extra={
                     "operation_type": "clinical_audio_error",
@@ -449,7 +448,8 @@ class HealthcareAudioProcessor:
 
         max_size = 50 * 1024 * 1024  # 50MB max
         if file_size > max_size:
-            raise ValueError(f"Audio file too large: {file_size} bytes (max: {max_size})")
+            msg = f"Audio file too large: {file_size} bytes (max: {max_size})"
+            raise ValueError(msg)
 
         if file_size == 0:
             raise ValueError("Audio file is empty")
@@ -463,13 +463,12 @@ class HealthcareAudioProcessor:
 
         if header.startswith(b"RIFF") and b"WAVE" in header:
             return "wav"
-        elif header.startswith(b"ID3") or header.startswith(b"\xff\xfb"):
+        if header.startswith((b"ID3", b"\xff\xfb")):
             return "mp3"
-        elif header.startswith(b"fLaC"):
+        if header.startswith(b"fLaC"):
             return "flac"
-        else:
-            # Default to wav
-            return "wav"
+        # Default to wav
+        return "wav"
 
 
 # FastAPI integration endpoint

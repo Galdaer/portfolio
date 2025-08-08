@@ -5,17 +5,16 @@ Tests complete workflow: Open WebUI → Ollama → MCP → FastAPI Agents → Re
 
 import asyncio
 import json
-import os
+import tempfile
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 import httpx
 import pytest
 
 from core.security.chat_log_manager import ChatLogManager, SimplePHIDetector
 from tests.database_test_utils import HealthcareTestCase
-import tempfile
-from pathlib import Path
 
 
 class HealthcareE2ETestFramework(HealthcareTestCase):
@@ -244,7 +243,7 @@ class TestHealthcareE2EWorkflows:
         async with httpx.AsyncClient() as client:
             # Execute intake
             intake_response = await client.post(
-                f"{e2e_framework.mcp_url}/mcp", json=intake_request, timeout=30.0
+                f"{e2e_framework.mcp_url}/mcp", json=intake_request, timeout=30.0,
             )
 
             assert intake_response.status_code == 200
@@ -267,7 +266,7 @@ class TestHealthcareE2EWorkflows:
             }
 
             research_response = await client.post(
-                f"{e2e_framework.mcp_url}/mcp", json=research_request, timeout=30.0
+                f"{e2e_framework.mcp_url}/mcp", json=research_request, timeout=30.0,
             )
 
             assert research_response.status_code == 200
@@ -290,7 +289,7 @@ class TestHealthcareE2EWorkflows:
             }
 
             document_response = await client.post(
-                f"{e2e_framework.mcp_url}/mcp", json=document_request, timeout=30.0
+                f"{e2e_framework.mcp_url}/mcp", json=document_request, timeout=30.0,
             )
 
             assert document_response.status_code == 200
@@ -310,7 +309,7 @@ class TestHealthcareE2EWorkflows:
             assert not phi_detected, f"PHI detected in {step_name} response"
 
         print(
-            f"✅ Complete patient workflow executed successfully with {len(workflow_results)} steps"
+            f"✅ Complete patient workflow executed successfully with {len(workflow_results)} steps",
         )
 
     @pytest.mark.asyncio
@@ -342,7 +341,7 @@ class TestHealthcareE2EWorkflows:
         ]
 
         session_id = await e2e_framework.chat_log_manager.create_session(
-            user_id="test_user_001", healthcare_context={"test_scenario": "phi_detection"}
+            user_id="test_user_001", healthcare_context={"test_scenario": "phi_detection"},
         )
 
         for i, test_case in enumerate(phi_test_cases):
@@ -365,11 +364,11 @@ class TestHealthcareE2EWorkflows:
 
         # Test chat history retrieval with PHI filtering
         history_without_phi = await e2e_framework.chat_log_manager.get_chat_history(
-            session_id=session_id, user_id="test_user_001", include_phi=False
+            session_id=session_id, user_id="test_user_001", include_phi=False,
         )
 
         history_with_phi = await e2e_framework.chat_log_manager.get_chat_history(
-            session_id=session_id, user_id="test_user_001", include_phi=True
+            session_id=session_id, user_id="test_user_001", include_phi=True,
         )
 
         assert len(history_without_phi) == len(phi_test_cases)
@@ -413,7 +412,7 @@ class TestHealthcareE2EWorkflows:
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{e2e_framework.mcp_url}/mcp", json=transcription_request, timeout=30.0
+                f"{e2e_framework.mcp_url}/mcp", json=transcription_request, timeout=30.0,
             )
 
             assert response.status_code == 200
@@ -469,7 +468,7 @@ class TestHealthcareE2EWorkflows:
         async with httpx.AsyncClient() as client:
             for _ in range(5):  # 5 requests
                 response = await client.post(
-                    f"{e2e_framework.mcp_url}/mcp", json=intake_request, timeout=30.0
+                    f"{e2e_framework.mcp_url}/mcp", json=intake_request, timeout=30.0,
                 )
                 assert response.status_code == 200
 
@@ -503,7 +502,7 @@ class TestHealthcareSecurityCompliance:
 
         # Verify synthetic data passes PHI validation
         phi_detected = await security_framework.phi_detector.scan_text(
-            json.dumps(synthetic_patient)
+            json.dumps(synthetic_patient),
         )
 
         # Synthetic data might contain phone patterns but should be clearly marked as test data
@@ -519,7 +518,7 @@ class TestHealthcareSecurityCompliance:
         """Test audit logging for healthcare compliance"""
 
         session_id = await security_framework.chat_log_manager.create_session(
-            user_id="test_audit_user", healthcare_context={"audit_test": True}
+            user_id="test_audit_user", healthcare_context={"audit_test": True},
         )
 
         # Log various message types
@@ -534,12 +533,12 @@ class TestHealthcareSecurityCompliance:
 
         for role, content in message_types:
             await security_framework.chat_log_manager.log_chat_message(
-                session_id=session_id, user_id="test_audit_user", role=role, content=content
+                session_id=session_id, user_id="test_audit_user", role=role, content=content,
             )
 
         # Retrieve audit trail
         history = await security_framework.chat_log_manager.get_chat_history(
-            session_id=session_id, user_id="test_audit_user"
+            session_id=session_id, user_id="test_audit_user",
         )
 
         assert len(history) == 3
@@ -550,7 +549,7 @@ class TestHealthcareSecurityCompliance:
             assert any("Created at" in entry for entry in message.audit_trail)
 
         session_summary = await security_framework.chat_log_manager.end_session(
-            session_id, "test_audit_user"
+            session_id, "test_audit_user",
         )
 
         assert "session_id" in session_summary
@@ -578,16 +577,14 @@ if __name__ == "__main__":
         print("📊 Running comprehensive E2E workflow validation...")
 
         # Run pytest with this file
-        exit_code = pytest.main(
+        return pytest.main(
             [
                 __file__,
                 "-v",
                 "--tb=short",
                 "-x",  # Stop on first failure
-            ]
+            ],
         )
-
-        return exit_code
 
     exit_code = asyncio.run(run_tests())
     sys.exit(exit_code)

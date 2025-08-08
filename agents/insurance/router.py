@@ -10,8 +10,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, status
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
-from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor
-from core.infrastructure.phi_monitor import scan_for_phi
+from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor, scan_for_phi
 
 from .insurance_agent import insurance_verification_agent
 

@@ -7,11 +7,11 @@ import asyncio
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
-from .config import Config
+from ..config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +25,11 @@ class ClinicalTrialsDownloader:
         self.data_dir = self.config.get_trials_data_dir()
         self.session = httpx.AsyncClient(timeout=30.0)
 
-    async def download_all_studies(self, batch_size: int = 1000) -> List[str]:
+    async def download_all_studies(self, batch_size: int = 1000) -> list[str]:
         """Download all studies from ClinicalTrials.gov"""
         logger.info("Starting ClinicalTrials.gov full download")
 
-        downloaded_files: List[str] = []
+        downloaded_files: list[str] = []
         start = 1
 
         try:
@@ -50,13 +50,13 @@ class ClinicalTrialsDownloader:
             return downloaded_files
 
         except Exception as e:
-            logger.error(f"ClinicalTrials download failed: {e}")
+            logger.exception(f"ClinicalTrials download failed: {e}")
             raise
 
-    async def download_studies_batch(self, start: int, batch_size: int) -> Optional[str]:
+    async def download_studies_batch(self, start: int, batch_size: int) -> str | None:
         """Download a batch of studies"""
         try:
-            params: Dict[str, Any] = {
+            params: dict[str, Any] = {
                 "fmt": "json",
                 "min_rnk": start,
                 "max_rnk": start + batch_size - 1,
@@ -76,7 +76,7 @@ class ClinicalTrialsDownloader:
 
             # Save batch to file
             batch_file = os.path.join(
-                self.data_dir, f"studies_batch_{start}_{start + len(studies) - 1}.json"
+                self.data_dir, f"studies_batch_{start}_{start + len(studies) - 1}.json",
             )
 
             with open(batch_file, "w") as f:
@@ -86,15 +86,15 @@ class ClinicalTrialsDownloader:
             return batch_file
 
         except Exception as e:
-            logger.error(f"Failed to download studies batch {start}: {e}")
+            logger.exception(f"Failed to download studies batch {start}: {e}")
             return None
 
-    async def download_study_details(self, nct_id: str) -> Optional[Dict[str, Any]]:
+    async def download_study_details(self, nct_id: str) -> dict[str, Any] | None:
         """Download detailed information for a specific study"""
         try:
             url = f"{self.api_base}/{nct_id}"
             # API v2 doesn't need fmt=json parameter
-            params: Dict[str, Any] = {}
+            params: dict[str, Any] = {}
 
             response = await self.session.get(url, params=params)
             response.raise_for_status()
@@ -102,10 +102,10 @@ class ClinicalTrialsDownloader:
             return response.json()
 
         except Exception as e:
-            logger.error(f"Failed to download study {nct_id}: {e}")
+            logger.exception(f"Failed to download study {nct_id}: {e}")
             return None
 
-    async def download_recent_updates(self, days: int = 7) -> List[str]:
+    async def download_recent_updates(self, days: int = 7) -> list[str]:
         """Download recently updated studies"""
         logger.info("Downloading recent studies (API v2 doesn't support date filtering)")
 
@@ -115,7 +115,7 @@ class ClinicalTrialsDownloader:
 
             end_date = datetime.now()
 
-            params: Dict[str, Any] = {
+            params: dict[str, Any] = {
                 "pageSize": 100,  # Smaller page size since no date filtering
                 "fields": "NCTId,BriefTitle,OverallStatus,Phase,Condition,InterventionName,LocationFacility,LocationCity,LocationState,LocationCountry,StartDate,CompletionDate,EnrollmentCount,StudyType,LeadSponsorName",
             }
@@ -138,17 +138,16 @@ class ClinicalTrialsDownloader:
 
                 logger.info(f"Downloaded {len(studies)} updated studies")
                 return [update_file]
-            else:
-                logger.info("No updated studies found")
-                return []
+            logger.info("No updated studies found")
+            return []
 
         except Exception as e:
-            logger.error(f"Failed to download recent updates: {e}")
+            logger.exception(f"Failed to download recent updates: {e}")
             raise
 
-    async def get_available_files(self) -> List[str]:
+    async def get_available_files(self) -> list[str]:
         """Get list of downloaded JSON files ready for parsing"""
-        json_files: List[str] = []
+        json_files: list[str] = []
 
         for file in os.listdir(self.data_dir):
             if file.endswith(".json"):

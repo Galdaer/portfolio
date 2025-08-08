@@ -141,7 +141,7 @@ class HealthcareEvaluationFramework:
             self.logger.info("Database connections initialized successfully")
 
         except Exception as e:
-            self.logger.error(f"Failed to initialize database connections: {e}")
+            self.logger.exception(f"Failed to initialize database connections: {e}")
             raise
 
     def _init_ollama_connection(self) -> None:
@@ -167,7 +167,7 @@ class HealthcareEvaluationFramework:
             self.logger.info(f"Ollama connection initialized. Available models: {available_models}")
 
         except Exception as e:
-            self.logger.error(f"Failed to initialize Ollama connection: {e}")
+            self.logger.exception(f"Failed to initialize Ollama connection: {e}")
             raise
 
     def create_test_case(
@@ -236,7 +236,7 @@ class HealthcareEvaluationFramework:
                 self.postgres_conn.commit()
 
         except Exception as e:
-            self.logger.error(f"Failed to log evaluation results: {e}")
+            self.logger.exception(f"Failed to log evaluation results: {e}")
 
     def close_connections(self) -> None:
         """Close all database connections"""

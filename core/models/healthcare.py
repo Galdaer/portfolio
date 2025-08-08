@@ -46,7 +46,7 @@ Base = declarative_base()
 def get_healthcare_database_url() -> str:
     """Get healthcare database URL from environment"""
     return os.getenv(
-        "POSTGRES_URL", "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
+        "POSTGRES_URL", "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe",
     )
 
 

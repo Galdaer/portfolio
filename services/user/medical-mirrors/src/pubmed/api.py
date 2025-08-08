@@ -5,7 +5,7 @@ Provides search functionality matching Healthcare MCP interface
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from database import PubMedArticle, UpdateLog
 from pubmed.downloader import PubMedDownloader
@@ -24,7 +24,7 @@ class PubMedAPI:
         self.downloader = PubMedDownloader()
         self.parser = PubMedParser()
 
-    async def search_articles(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
+    async def search_articles(self, query: str, max_results: int = 10) -> list[dict[str, Any]]:
         """
         Search PubMed articles in local database
         Matches the interface of Healthcare MCP search-pubmed tool
@@ -63,7 +63,7 @@ class PubMedAPI:
             return articles
 
         except Exception as e:
-            logger.error(f"PubMed search failed: {e}")
+            logger.exception(f"PubMed search failed: {e}")
             raise
         finally:
             db.close()
@@ -105,7 +105,7 @@ class PubMedAPI:
                 .first()
             )
 
-            status = {
+            return {
                 "source": "pubmed",
                 "total_articles": total_count,
                 "status": "healthy" if total_count > 0 else "empty",
@@ -113,12 +113,10 @@ class PubMedAPI:
                 "last_update_status": last_update.status if last_update else None,
             }
 
-            return status
-
         finally:
             db.close()
 
-    async def trigger_update(self, quick_test: bool = False, max_files: Optional[int] = None) -> Dict[str, Any]:
+    async def trigger_update(self, quick_test: bool = False, max_files: int | None = None) -> dict[str, Any]:
         """Trigger PubMed data update"""
         if quick_test:
             logger.info(f"Triggering PubMed QUICK TEST update (max_files={max_files or 3})")
@@ -167,7 +165,7 @@ class PubMedAPI:
             }
 
         except Exception as e:
-            logger.error(f"PubMed update failed: {e}")
+            logger.exception(f"PubMed update failed: {e}")
             update_log.status = "failed"  # type: ignore[assignment]
             update_log.error_message = str(e)  # type: ignore[assignment]
             update_log.completed_at = datetime.utcnow()  # type: ignore[assignment]
@@ -187,17 +185,17 @@ class PubMedAPI:
 
                 stmt = insert(PubMedArticle).values(**article_data)
                 stmt = stmt.on_conflict_do_update(
-                    index_elements=['pmid'],
+                    index_elements=["pmid"],
                     set_={
-                        'title': stmt.excluded.title,
-                        'abstract': stmt.excluded.abstract,
-                        'authors': stmt.excluded.authors,
-                        'journal': stmt.excluded.journal,
-                        'pub_date': stmt.excluded.pub_date,
-                        'doi': stmt.excluded.doi,
-                        'mesh_terms': stmt.excluded.mesh_terms,
-                        'updated_at': stmt.excluded.updated_at
-                    }
+                        "title": stmt.excluded.title,
+                        "abstract": stmt.excluded.abstract,
+                        "authors": stmt.excluded.authors,
+                        "journal": stmt.excluded.journal,
+                        "pub_date": stmt.excluded.pub_date,
+                        "doi": stmt.excluded.doi,
+                        "mesh_terms": stmt.excluded.mesh_terms,
+                        "updated_at": stmt.excluded.updated_at,
+                    },
                 )
 
                 db.execute(stmt)
@@ -208,7 +206,7 @@ class PubMedAPI:
                     db.commit()
 
             except Exception as e:
-                logger.error(f"Failed to store article {article_data.get('pmid')}: {e}")
+                logger.exception(f"Failed to store article {article_data.get('pmid')}: {e}")
                 db.rollback()
 
         # Final commit
@@ -238,7 +236,7 @@ class PubMedAPI:
             logger.info("Updated search vectors for PubMed articles")
 
         except Exception as e:
-            logger.error(f"Failed to update search vectors: {e}")
+            logger.exception(f"Failed to update search vectors: {e}")
             db.rollback()
 
     async def initialize_data(self) -> dict:
@@ -271,7 +269,7 @@ class PubMedAPI:
             }
 
         except Exception as e:
-            logger.error(f"PubMed initialization failed: {e}")
+            logger.exception(f"PubMed initialization failed: {e}")
             raise
         finally:
             db.close()

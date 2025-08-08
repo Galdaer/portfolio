@@ -36,9 +36,12 @@ class HealthcareAuditLogger:
         # Validate log level before setting
         log_level_upper = log_level.upper()
         if log_level_upper not in self.VALID_LOG_LEVELS:
-            raise ValueError(
+            msg = (
                 f"Invalid log level: {log_level}. "
                 f"Must be one of: {', '.join(sorted(self.VALID_LOG_LEVELS))}"
+            )
+            raise ValueError(
+                msg,
             )
 
         self.logger.setLevel(getattr(logging, log_level_upper))
@@ -49,7 +52,7 @@ class HealthcareAuditLogger:
             f"REQUEST: method={getattr(request, 'method', 'unknown')}, "
             f"path={getattr(request, 'url', 'unknown')}, "
             f"processing_time={processing_time:.3f}s, "
-            f"status={getattr(response, 'status_code', 'unknown')}"
+            f"status={getattr(response, 'status_code', 'unknown')}",
         )
 
     def log_security_event(self, event_type: str, details: dict[str, Any]) -> None:
@@ -65,7 +68,7 @@ class HealthcareAuditLogger:
             f"PHI_DETECTION: request_id={request_id}, "
             f"types={phi_types}, "
             f"confidence={phi_details.get('confidence', 0.0)}, "
-            f"details={phi_details.get('detection_details', [])}"
+            f"details={phi_details.get('detection_details', [])}",
         )
 
     def log_audit_event(

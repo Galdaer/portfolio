@@ -132,7 +132,7 @@ class EnhancedMedicalQueryEngine:
 
             # Evaluate result quality and relevance
             quality_score = await self._evaluate_result_quality(
-                query=query, results=iteration_results, query_type=query_type
+                query=query, results=iteration_results, query_type=query_type,
             )
 
             # Add reasoning step
@@ -172,7 +172,7 @@ class EnhancedMedicalQueryEngine:
         phi_in_result = self._monitor_runtime_phi(result_content, "medical_query_result")
         if phi_in_result:
             print(
-                f"⚠️  PHI detected in medical query result {query_id} - review output sanitization"
+                f"⚠️  PHI detected in medical query result {query_id} - review output sanitization",
             )
 
         # Cache result
@@ -281,7 +281,7 @@ class EnhancedMedicalQueryEngine:
                         "relevance_score": article.get("relevance_score", 0.0),
                         "study_type": article.get("publication_type", ""),
                         "evidence_level": self._determine_evidence_level(article),
-                    }
+                    },
                 )
 
             return {"sources": processed_sources}
@@ -290,7 +290,7 @@ class EnhancedMedicalQueryEngine:
             return {"sources": []}
 
     async def _search_fda_drugs(
-        self, query: str, medical_entities: list[dict[str, Any]]
+        self, query: str, medical_entities: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """
         Search FDA drug database for medication information
@@ -334,7 +334,7 @@ class EnhancedMedicalQueryEngine:
                             "adverse_events": fda_result.get("adverse_events", []),
                             "url": fda_result.get("fda_url", ""),
                             "evidence_level": "regulatory_approval",
-                        }
+                        },
                     )
 
             return {"sources": fda_sources}
@@ -389,7 +389,7 @@ class EnhancedMedicalQueryEngine:
         try:
             # Use medical NER via MCP tools
             entities_result = await self.mcp_client.call_healthcare_tool(
-                "extract_medical_entities", {"text": query}
+                "extract_medical_entities", {"text": query},
             )
 
             entities_data = entities_result.get("entities", [])
@@ -399,7 +399,7 @@ class EnhancedMedicalQueryEngine:
             return []
 
     async def _evaluate_result_quality(
-        self, query: str, results: dict[str, Any], query_type: QueryType
+        self, query: str, results: dict[str, Any], query_type: QueryType,
     ) -> float:
         """
         Evaluate quality and relevance of search results
@@ -516,7 +516,7 @@ class EnhancedMedicalQueryEngine:
         source_quality = self._calculate_evidence_level_score(sources)
         source_quantity = min(len(sources) / 15.0, 1.0)  # Up to 15 sources = max score
         reasoning_quality = sum(step.get("quality_score", 0.5) for step in reasoning_chain) / max(
-            len(reasoning_chain), 1
+            len(reasoning_chain), 1,
         )
 
         # Weighted average
@@ -524,7 +524,7 @@ class EnhancedMedicalQueryEngine:
         return min(confidence, 1.0)
 
     async def _search_clinical_trials(
-        self, query: str, medical_entities: list[dict[str, Any]]
+        self, query: str, medical_entities: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """Search clinical trials database"""
         try:
@@ -554,7 +554,7 @@ class EnhancedMedicalQueryEngine:
                         "url": f"https://clinicaltrials.gov/study/{trial.get('nct_id', '')}",
                         "evidence_level": "clinical_trial",
                         "enrollment": trial.get("enrollment", 0),
-                    }
+                    },
                 )
 
             return {"sources": processed_trials}
@@ -563,7 +563,7 @@ class EnhancedMedicalQueryEngine:
             return {"sources": []}
 
     async def _search_clinical_guidelines(
-        self, query: str, medical_entities: list[dict[str, Any]]
+        self, query: str, medical_entities: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """Search clinical practice guidelines"""
         try:
@@ -590,7 +590,7 @@ class EnhancedMedicalQueryEngine:
                         "url": guideline.get("url", ""),
                         "evidence_level": "clinical_guideline",
                         "summary": guideline.get("summary", ""),
-                    }
+                    },
                 )
 
             return {"sources": processed_guidelines}
@@ -599,7 +599,7 @@ class EnhancedMedicalQueryEngine:
             return {"sources": []}
 
     async def _generate_source_reasoning(
-        self, query: str, sources: list[dict[str, Any]], query_type: QueryType
+        self, query: str, sources: list[dict[str, Any]], query_type: QueryType,
     ) -> str:
         """Generate reasoning for source selection and quality"""
         if not sources:
@@ -647,7 +647,7 @@ class EnhancedMedicalQueryEngine:
             )
 
             result_text: str = result.get(
-                "response", "Sources selected based on relevance and evidence quality."
+                "response", "Sources selected based on relevance and evidence quality.",
             )
             return result_text
 
@@ -655,7 +655,7 @@ class EnhancedMedicalQueryEngine:
             return f"Found {len(sources)} sources including {source_summary['high_evidence']} high-evidence sources."
 
     async def _enhance_query_with_entities(
-        self, query: str, medical_entities: list[dict[str, Any]]
+        self, query: str, medical_entities: list[dict[str, Any]],
     ) -> str:
         """Enhance query with extracted medical entities"""
         if not medical_entities:
@@ -674,8 +674,7 @@ class EnhancedMedicalQueryEngine:
                 entity_terms.append(f"({entity_text} AND (drug OR medication))")
 
         if entity_terms:
-            enhanced_query = f"{query} AND ({' OR '.join(entity_terms[:3])})"  # Limit to top 3
-            return enhanced_query
+            return f"{query} AND ({' OR '.join(entity_terms[:3])})"  # Limit to top 3
 
         return query
 
@@ -686,23 +685,22 @@ class EnhancedMedicalQueryEngine:
 
         if any(term in pub_type for term in ["systematic review", "meta-analysis"]):
             return "systematic_review"
-        elif any(term in pub_type for term in ["randomized controlled trial", "rct"]):
+        if any(term in pub_type for term in ["randomized controlled trial", "rct"]):
             return "randomized_controlled_trial"
-        elif any(term in title for term in ["systematic review", "meta-analysis"]):
+        if any(term in title for term in ["systematic review", "meta-analysis"]):
             return "systematic_review"
-        elif any(term in title for term in ["randomized", "controlled trial"]):
+        if any(term in title for term in ["randomized", "controlled trial"]):
             return "randomized_controlled_trial"
-        elif "cohort" in pub_type or "cohort" in title:
+        if "cohort" in pub_type or "cohort" in title:
             return "cohort_study"
-        elif "case control" in pub_type or "case-control" in title:
+        if "case control" in pub_type or "case-control" in title:
             return "case_control_study"
-        elif "case series" in pub_type or "case series" in title:
+        if "case series" in pub_type or "case series" in title:
             return "case_series"
-        else:
-            return "unknown"
+        return "unknown"
 
     async def _analyze_result_gaps(
-        self, previous_results: list[dict[str, Any]], query_type: QueryType
+        self, previous_results: list[dict[str, Any]], query_type: QueryType,
     ) -> str:
         """Analyze gaps in previous search results"""
         if not previous_results:
@@ -751,8 +749,7 @@ class EnhancedMedicalQueryEngine:
 
         if gaps:
             return f"Missing: {', '.join(gaps)}. Need more specific search terms."
-        else:
-            return "Good coverage of source types and evidence levels."
+        return "Good coverage of source types and evidence levels."
 
     def _calculate_evidence_level_score(self, sources: list[dict[str, Any]]) -> float:
         """Calculate score based on evidence level quality"""
@@ -839,7 +836,7 @@ class EnhancedMedicalQueryEngine:
 
             title_overlap = len(query_words.intersection(title_words)) / max(len(query_words), 1)
             abstract_overlap = len(query_words.intersection(abstract_words)) / max(
-                len(query_words), 1
+                len(query_words), 1,
             )
 
             # Weight title more heavily than abstract
@@ -886,7 +883,7 @@ class EnhancedMedicalQueryEngine:
                 # Log the detection (without exposing actual content)
                 content_hash = hashlib.sha256(content.encode()).hexdigest()[:8]
                 print(
-                    f"🚨 Runtime PHI detection: {context_type} contains potential PHI (hash: {content_hash})"
+                    f"🚨 Runtime PHI detection: {context_type} contains potential PHI (hash: {content_hash})",
                 )
                 return True
 

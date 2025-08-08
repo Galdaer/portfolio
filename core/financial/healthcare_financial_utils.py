@@ -37,13 +37,15 @@ class HealthcareFinancialUtils:
             try:
                 return Decimal(value)
             except Exception as e:
-                raise ValueError(f"Cannot convert string '{value}' to Decimal") from e
+                msg = f"Cannot convert string '{value}' to Decimal"
+                raise ValueError(msg) from e
 
-        raise ValueError(f"Cannot convert {type(value)} to Decimal")
+        msg = f"Cannot convert {type(value)} to Decimal"
+        raise ValueError(msg)
 
     @staticmethod
     def safe_division(
-        numerator: Decimal, denominator: Decimal, default: Decimal = Decimal("0")
+        numerator: Decimal, denominator: Decimal, default: Decimal = Decimal("0"),
     ) -> Decimal:
         """
         Perform safe division with zero protection for healthcare calculations.
@@ -58,7 +60,7 @@ class HealthcareFinancialUtils:
         """
         if denominator <= 0:
             logger.warning(
-                f"Division by zero avoided: {numerator} / {denominator}, returning {default}"
+                f"Division by zero avoided: {numerator} / {denominator}, returning {default}",
             )
             return default
         return numerator / denominator
@@ -98,9 +100,11 @@ class HealthcareFinancialUtils:
             decimal_amount = HealthcareFinancialUtils.ensure_decimal(amount)
 
             if decimal_amount < 0:
-                raise ValueError(f"{field_name} cannot be negative: {decimal_amount}")
+                msg = f"{field_name} cannot be negative: {decimal_amount}"
+                raise ValueError(msg)
 
             return decimal_amount
 
         except (ValueError, TypeError) as e:
-            raise ValueError(f"Invalid {field_name}: {amount} - {str(e)}") from e
+            msg = f"Invalid {field_name}: {amount} - {str(e)}"
+            raise ValueError(msg) from e

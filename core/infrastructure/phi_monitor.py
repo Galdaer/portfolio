@@ -194,7 +194,7 @@ class PHIMonitor:
         return compiled
 
     def scan_for_phi(
-        self, data: str | dict[str, Any] | list[Any], context: str | None = None
+        self, data: str | dict[str, Any] | list[Any], context: str | None = None,
     ) -> PHIDetectionResult:
         """
         Comprehensive PHI detection scan.
@@ -273,34 +273,32 @@ class PHIMonitor:
         """Convert various data types to scannable text."""
         if isinstance(data, str):
             return data
-        elif isinstance(data, dict):
+        if isinstance(data, dict):
             # Create searchable text from dict keys and values
             text_parts = []
             for key, value in data.items():
                 text_parts.append(f"{key}: {value}")
             return " ".join(text_parts)
-        elif isinstance(data, list):
+        if isinstance(data, list):
             return " ".join(str(item) for item in data)
 
         # This should never be reached given the type annotation
-        raise AssertionError(f"Unexpected data type: {type(data)}")
+        msg = f"Unexpected data type: {type(data)}"
+        raise AssertionError(msg)
 
     def _is_synthetic_data(self, text: str) -> bool:
         """Check if data appears to be synthetic/test data."""
         if not self.enable_synthetic_detection:
             return False
 
-        for pattern in self.SYNTHETIC_PATTERNS:
-            if re.search(pattern, text, re.IGNORECASE):
-                return True
-        return False
+        return any(re.search(pattern, text, re.IGNORECASE) for pattern in self.SYNTHETIC_PATTERNS)
 
     def _scan_field_names(self, data: str | dict[str, Any] | list[Any]) -> list[str]:
         """Scan for PHI field names in data structure."""
         phi_fields = []
 
         if isinstance(data, dict):
-            for key in data.keys():
+            for key in data:
                 if isinstance(key, str) and key.lower() in self.PHI_FIELD_NAMES:
                     phi_fields.append(key)
         elif isinstance(data, str):
@@ -313,7 +311,7 @@ class PHIMonitor:
         return phi_fields
 
     def _calculate_risk_level(
-        self, detected_types: list[PHIType], phi_fields: list[str]
+        self, detected_types: list[PHIType], phi_fields: list[str],
     ) -> PHIRiskLevel:
         """Calculate risk level based on detected PHI types."""
         if not detected_types and not phi_fields:
@@ -325,15 +323,14 @@ class PHIMonitor:
 
         if any(phi_type in high_risk_types for phi_type in detected_types):
             return PHIRiskLevel.CRITICAL
-        elif len(detected_types) >= 3:  # Multiple PHI types
+        if len(detected_types) >= 3:  # Multiple PHI types
             return PHIRiskLevel.HIGH
-        elif any(phi_type in medium_risk_types for phi_type in detected_types):
+        if any(phi_type in medium_risk_types for phi_type in detected_types):
             return PHIRiskLevel.MEDIUM
-        else:
-            return PHIRiskLevel.LOW
+        return PHIRiskLevel.LOW
 
     def _generate_recommendations(
-        self, detected_types: list[PHIType], risk_level: PHIRiskLevel
+        self, detected_types: list[PHIType], risk_level: PHIRiskLevel,
     ) -> list[str]:
         """Generate recommendations based on detection results."""
         recommendations = []
@@ -345,7 +342,7 @@ class PHIMonitor:
                     "Encrypt or remove PHI before processing",
                     "Review data handling procedures",
                     "Consider using anonymized/hashed identifiers",
-                ]
+                ],
             )
         elif risk_level == PHIRiskLevel.HIGH:
             recommendations.extend(
@@ -354,7 +351,7 @@ class PHIMonitor:
                     "Apply data minimization principles",
                     "Use hashed identifiers for logging",
                     "Verify necessity of PHI for operation",
-                ]
+                ],
             )
         elif risk_level == PHIRiskLevel.MEDIUM:
             recommendations.extend(
@@ -362,11 +359,11 @@ class PHIMonitor:
                     "MEDIUM PRIORITY: PHI detected",
                     "Consider anonymization for non-essential operations",
                     "Ensure proper audit logging",
-                ]
+                ],
             )
         elif risk_level == PHIRiskLevel.LOW:
             recommendations.extend(
-                ["LOW PRIORITY: Minimal PHI detected", "Monitor for data context expansion"]
+                ["LOW PRIORITY: Minimal PHI detected", "Monitor for data context expansion"],
             )
 
         return recommendations
@@ -387,7 +384,7 @@ class PHIMonitor:
         )
 
     def monitor_data_pipeline(
-        self, pipeline_name: str, data: Any, stage: str = "processing"
+        self, pipeline_name: str, data: Any, stage: str = "processing",
     ) -> bool:
         """
         Monitor data pipeline for PHI exposure.
@@ -412,7 +409,7 @@ class PHIMonitor:
                     "phi_detected": result.phi_detected,
                     "risk_level": result.risk_level.value,
                     "phi_types": [t.value for t in result.phi_types],
-                }
+                },
             },
         )
 
@@ -569,7 +566,7 @@ def monitor_pipeline_safety(pipeline_name: str, data: Any, stage: str = "process
 
 
 def phi_monitor_decorator(
-    risk_level: str = "medium", operation_type: str = "healthcare_operation"
+    risk_level: str = "medium", operation_type: str = "healthcare_operation",
 ) -> Callable:
     """
     Decorator for PHI monitoring of healthcare methods.
@@ -624,7 +621,7 @@ def phi_monitor_decorator(
             except Exception as e:
                 # Log error without exposing PHI
                 logger = get_healthcare_logger("phi_monitor")
-                logger.error(
+                logger.exception(
                     f"PHI monitored method failed: {method_name}",
                     extra={
                         "healthcare_context": {
@@ -632,7 +629,7 @@ def phi_monitor_decorator(
                             "operation_type": operation_type,
                             "risk_level": risk_level,
                             "error_type": type(e).__name__,
-                        }
+                        },
                     },
                 )
                 raise
@@ -672,7 +669,7 @@ def phi_monitor_decorator(
 
             except Exception as e:
                 logger = get_healthcare_logger("phi_monitor")
-                logger.error(
+                logger.exception(
                     f"PHI monitored method failed: {method_name}",
                     extra={
                         "healthcare_context": {
@@ -680,7 +677,7 @@ def phi_monitor_decorator(
                             "operation_type": operation_type,
                             "risk_level": risk_level,
                             "error_type": type(e).__name__,
-                        }
+                        },
                     },
                 )
                 raise
@@ -690,8 +687,7 @@ def phi_monitor_decorator(
 
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
-        else:
-            return sync_wrapper
+        return sync_wrapper
 
     return decorator
 

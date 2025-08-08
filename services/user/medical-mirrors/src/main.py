@@ -5,8 +5,9 @@ Provides unlimited access to PubMed, ClinicalTrials.gov, and FDA databases
 
 import logging
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any
 
 import uvicorn
 from clinicaltrials.api import ClinicalTrialsAPI
@@ -44,7 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables created/verified")
     except Exception as e:
-        logger.error(f"Database initialization failed: {e}")
+        logger.exception(f"Database initialization failed: {e}")
         raise
 
     yield
@@ -73,7 +74,7 @@ app.add_middleware(
 config = Config()
 
 # Use optimized multi-core parser if enabled
-if hasattr(config, 'ENABLE_OPTIMIZED_PARSER') and config.ENABLE_OPTIMIZED_PARSER:
+if hasattr(config, "ENABLE_OPTIMIZED_PARSER") and config.ENABLE_OPTIMIZED_PARSER:
     max_workers = config.MAX_PARSER_WORKERS if config.MAX_PARSER_WORKERS > 0 else None
     pubmed_api = OptimizedPubMedAPI(SessionLocal, max_workers=max_workers)
     logger.info(f"Using optimized multi-core PubMed parser (workers: {max_workers or 'auto-detect'})")
@@ -86,7 +87,7 @@ fda_api = FDAAPI(SessionLocal)
 
 
 @app.get("/health")
-async def health_check() -> Dict[str, Any]:
+async def health_check() -> dict[str, Any]:
     """Health check endpoint"""
     try:
         # Test database connection
@@ -101,12 +102,12 @@ async def health_check() -> Dict[str, Any]:
             "database": "connected",
         }
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
+        logger.exception(f"Health check failed: {e}")
         raise HTTPException(status_code=503, detail="Service unhealthy")
 
 
 @app.get("/status")
-async def get_status() -> Dict[str, Any]:
+async def get_status() -> dict[str, Any]:
     """Get status of all mirrors including data freshness"""
     try:
         pubmed_status = await pubmed_api.get_status()
@@ -122,13 +123,13 @@ async def get_status() -> Dict[str, Any]:
             },
         }
     except Exception as e:
-        logger.error(f"Status check failed: {e}")
+        logger.exception(f"Status check failed: {e}")
         raise HTTPException(status_code=500, detail="Status check failed")
 
 
 # PubMed Mirror Endpoints
 @app.get("/pubmed/search")
-async def search_pubmed(query: str, max_results: int = 10) -> Dict[str, Any]:
+async def search_pubmed(query: str, max_results: int = 10) -> dict[str, Any]:
     """
     Search PubMed local mirror
     Matches interface of Healthcare MCP search-pubmed tool
@@ -137,12 +138,12 @@ async def search_pubmed(query: str, max_results: int = 10) -> Dict[str, Any]:
         results = await pubmed_api.search_articles(query, max_results)
         return {"content": [{"type": "text", "text": str(results)}]}
     except Exception as e:
-        logger.error(f"PubMed search failed: {e}")
+        logger.exception(f"PubMed search failed: {e}")
         raise HTTPException(status_code=500, detail=f"PubMed search failed: {str(e)}")
 
 
 @app.get("/pubmed/article/{pmid}")
-async def get_pubmed_article(pmid: str) -> Dict[str, Any]:
+async def get_pubmed_article(pmid: str) -> dict[str, Any]:
     """Get specific PubMed article by PMID"""
     try:
         article = await pubmed_api.get_article(pmid)
@@ -150,13 +151,13 @@ async def get_pubmed_article(pmid: str) -> Dict[str, Any]:
             raise HTTPException(status_code=404, detail="Article not found")
         return article
     except Exception as e:
-        logger.error(f"PubMed article retrieval failed: {e}")
+        logger.exception(f"PubMed article retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=f"Article retrieval failed: {str(e)}")
 
 
 # ClinicalTrials Mirror Endpoints
 @app.get("/trials/search")
-async def search_trials(condition: Optional[str] = None, location: Optional[str] = None, max_results: int = 10) -> Dict[str, Any]:
+async def search_trials(condition: str | None = None, location: str | None = None, max_results: int = 10) -> dict[str, Any]:
     """
     Search ClinicalTrials.gov local mirror
     Matches interface of Healthcare MCP search-trials tool
@@ -165,12 +166,12 @@ async def search_trials(condition: Optional[str] = None, location: Optional[str]
         results = await trials_api.search_trials(condition, location, max_results)
         return {"content": [{"type": "text", "text": str(results)}]}
     except Exception as e:
-        logger.error(f"Clinical trials search failed: {e}")
+        logger.exception(f"Clinical trials search failed: {e}")
         raise HTTPException(status_code=500, detail=f"Trials search failed: {str(e)}")
 
 
 @app.get("/trials/study/{nct_id}")
-async def get_trial_details(nct_id: str) -> Dict[str, Any]:
+async def get_trial_details(nct_id: str) -> dict[str, Any]:
     """Get specific clinical trial by NCT ID"""
     try:
         trial = await trials_api.get_trial(nct_id)
@@ -178,13 +179,13 @@ async def get_trial_details(nct_id: str) -> Dict[str, Any]:
             raise HTTPException(status_code=404, detail="Trial not found")
         return trial
     except Exception as e:
-        logger.error(f"Trial retrieval failed: {e}")
+        logger.exception(f"Trial retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=f"Trial retrieval failed: {str(e)}")
 
 
 # FDA Mirror Endpoints
 @app.get("/fda/search")
-async def search_fda(generic_name: Optional[str] = None, ndc: Optional[str] = None, max_results: int = 10) -> Dict[str, Any]:
+async def search_fda(generic_name: str | None = None, ndc: str | None = None, max_results: int = 10) -> dict[str, Any]:
     """
     Search FDA databases local mirror
     Matches interface of Healthcare MCP get-drug-info tool
@@ -193,12 +194,12 @@ async def search_fda(generic_name: Optional[str] = None, ndc: Optional[str] = No
         results = await fda_api.search_drugs(generic_name, ndc, max_results)
         return {"content": [{"type": "text", "text": str(results)}]}
     except Exception as e:
-        logger.error(f"FDA search failed: {e}")
+        logger.exception(f"FDA search failed: {e}")
         raise HTTPException(status_code=500, detail=f"FDA search failed: {str(e)}")
 
 
 @app.get("/fda/drug/{ndc}")
-async def get_drug_info(ndc: str) -> Dict[str, Any]:
+async def get_drug_info(ndc: str) -> dict[str, Any]:
     """Get specific drug information by NDC"""
     try:
         drug = await fda_api.get_drug(ndc)
@@ -206,41 +207,41 @@ async def get_drug_info(ndc: str) -> Dict[str, Any]:
             raise HTTPException(status_code=404, detail="Drug not found")
         return drug
     except Exception as e:
-        logger.error(f"Drug info retrieval failed: {e}")
+        logger.exception(f"Drug info retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=f"Drug info retrieval failed: {str(e)}")
 
 
 # Update endpoints for maintenance
 @app.post("/update/pubmed")
-async def trigger_pubmed_update(quick_test: bool = False, max_files: Optional[int] = None) -> Dict[str, Any]:
+async def trigger_pubmed_update(quick_test: bool = False, max_files: int | None = None) -> dict[str, Any]:
     """Trigger PubMed data update"""
     try:
         result = await pubmed_api.trigger_update(quick_test=quick_test, max_files=max_files)
         return {"status": "update_triggered", "details": result}
     except Exception as e:
-        logger.error(f"PubMed update failed: {e}")
+        logger.exception(f"PubMed update failed: {e}")
         raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
 
 @app.post("/update/trials")
-async def trigger_trials_update(quick_test: bool = False, limit: Optional[int] = None) -> Dict[str, Any]:
+async def trigger_trials_update(quick_test: bool = False, limit: int | None = None) -> dict[str, Any]:
     """Trigger ClinicalTrials data update"""
     try:
         result = await trials_api.trigger_update(quick_test=quick_test, limit=limit)
         return {"status": "update_triggered", "details": result}
     except Exception as e:
-        logger.error(f"Trials update failed: {e}")
+        logger.exception(f"Trials update failed: {e}")
         raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
 
 @app.post("/update/fda")
-async def trigger_fda_update(quick_test: bool = False, limit: Optional[int] = None) -> Dict[str, Any]:
+async def trigger_fda_update(quick_test: bool = False, limit: int | None = None) -> dict[str, Any]:
     """Trigger FDA data update"""
     try:
         result = await fda_api.trigger_update(quick_test=quick_test, limit=limit)
         return {"status": "update_triggered", "details": result}
     except Exception as e:
-        logger.error(f"FDA update failed: {e}")
+        logger.exception(f"FDA update failed: {e}")
         raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
 

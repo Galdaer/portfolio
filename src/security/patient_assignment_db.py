@@ -23,7 +23,7 @@ class PatientAssignmentDB:
         if db_path is None:
             # Create data directory if it doesn't exist
             data_dir = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data"
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data",
             )
             os.makedirs(data_dir, exist_ok=True)
             db_path = os.path.join(data_dir, "healthcare.db")
@@ -48,7 +48,7 @@ class PatientAssignmentDB:
                         is_active BOOLEAN DEFAULT 1,
                         UNIQUE(user_id, patient_id)
                     )
-                """
+                """,
                 )
 
                 conn.execute(
@@ -63,7 +63,7 @@ class PatientAssignmentDB:
                         expires_at TIMESTAMP NOT NULL,
                         is_active BOOLEAN DEFAULT 1
                     )
-                """
+                """,
                 )
 
                 conn.execute(
@@ -79,13 +79,13 @@ class PatientAssignmentDB:
                         user_agent TEXT,
                         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
-                """
+                """,
                 )
 
                 self.logger.info("Patient assignment database initialized successfully")
 
         except Exception as e:
-            self.logger.error(f"Failed to initialize database: {e}")
+            self.logger.exception(f"Failed to initialize database: {e}")
             raise
 
     def validate_patient_assignment(self, user_id: str, patient_id: str) -> bool:
@@ -109,7 +109,7 @@ class PatientAssignmentDB:
                 return result
 
         except Exception as e:
-            self.logger.error(f"Patient assignment validation failed: {e}")
+            self.logger.exception(f"Patient assignment validation failed: {e}")
             return False
 
     def check_emergency_access(self, user_id: str, patient_id: str) -> bool:
@@ -133,7 +133,7 @@ class PatientAssignmentDB:
                 return result
 
         except Exception as e:
-            self.logger.error(f"Emergency access check failed: {e}")
+            self.logger.exception(f"Emergency access check failed: {e}")
             return False
 
     def log_access_attempt(
@@ -157,11 +157,11 @@ class PatientAssignmentDB:
                 )
 
                 self.logger.debug(
-                    f"Logged access attempt: {user_id} -> {patient_id} [{action}] = {result}"
+                    f"Logged access attempt: {user_id} -> {patient_id} [{action}] = {result}",
                 )
 
         except Exception as e:
-            self.logger.error(f"Failed to log access attempt: {e}")
+            self.logger.exception(f"Failed to log access attempt: {e}")
 
     def add_patient_assignment(
         self,
@@ -183,12 +183,12 @@ class PatientAssignmentDB:
                 )
 
                 self.logger.info(
-                    f"Added patient assignment: {user_id} -> {patient_id} ({assignment_type})"
+                    f"Added patient assignment: {user_id} -> {patient_id} ({assignment_type})",
                 )
                 return True
 
         except Exception as e:
-            self.logger.error(f"Failed to add patient assignment: {e}")
+            self.logger.exception(f"Failed to add patient assignment: {e}")
             return False
 
     def grant_emergency_access(
@@ -221,12 +221,12 @@ class PatientAssignmentDB:
 
                 self.logger.warning(
                     f"Emergency access granted: {user_id} -> {patient_id} "
-                    f"(expires: {expires_at}, reason: {reason})"
+                    f"(expires: {expires_at}, reason: {reason})",
                 )
                 return True
 
         except Exception as e:
-            self.logger.error(f"Failed to grant emergency access: {e}")
+            self.logger.exception(f"Failed to grant emergency access: {e}")
             return False
 
 
@@ -276,7 +276,7 @@ class SessionManager:
             return token_str
 
         except Exception as e:
-            self.logger.error(f"Failed to create session: {e}")
+            self.logger.exception(f"Failed to create session: {e}")
             return None
 
     def validate_session(self, token: str) -> dict[str, Any] | None:
@@ -316,7 +316,7 @@ class RBACConfig:
         default_db_path = os.getenv("RBAC_DATABASE_PATH")
         if default_db_path is None:
             data_dir = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data"
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data",
             )
             os.makedirs(data_dir, exist_ok=True)
             default_db_path = os.path.join(data_dir, "healthcare.db")
@@ -336,17 +336,16 @@ class RBACConfig:
             # Test database connectivity
             with sqlite3.connect(db.db_path) as conn:
                 cursor = conn.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='patient_assignments'"
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='patient_assignments'",
                 )
                 has_tables = cursor.fetchone() is not None
 
             if has_tables:
                 self.logger.info("RBAC production readiness confirmed")
                 return True
-            else:
-                self.logger.warning("Patient assignment tables not found")
-                return False
+            self.logger.warning("Patient assignment tables not found")
+            return False
 
         except Exception as e:
-            self.logger.error(f"RBAC production readiness check failed: {e}")
+            self.logger.exception(f"RBAC production readiness check failed: {e}")
             return False

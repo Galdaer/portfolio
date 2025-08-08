@@ -145,7 +145,7 @@ class RBACFoundation:
         return True
 
     def check_permission(
-        self, user_id: str, resource: ResourceType, permission: Permission
+        self, user_id: str, resource: ResourceType, permission: Permission,
     ) -> bool:
         """
         Check if user has permission for resource

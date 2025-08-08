@@ -14,14 +14,14 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-def parse_xml_file_worker(xml_file_path: str) -> 'tuple[str, list[dict]]':
+def parse_xml_file_worker(xml_file_path: str) -> "tuple[str, list[dict]]":
     """Worker function for multiprocessing XML parsing"""
     try:
         logger.info(f"Worker parsing: {xml_file_path}")
         articles = []
 
-        if xml_file_path.endswith('.gz'):
-            with gzip.open(xml_file_path, 'rt', encoding='utf-8') as f:
+        if xml_file_path.endswith(".gz"):
+            with gzip.open(xml_file_path, "rt", encoding="utf-8") as f:
                 tree = ET.parse(f)
         else:
             tree = ET.parse(xml_file_path)
@@ -38,7 +38,7 @@ def parse_xml_file_worker(xml_file_path: str) -> 'tuple[str, list[dict]]':
         return xml_file_path, articles
 
     except Exception as e:
-        logger.error(f"Worker failed to parse {xml_file_path}: {e}")
+        logger.exception(f"Worker failed to parse {xml_file_path}: {e}")
         return xml_file_path, []
 
 
@@ -104,7 +104,7 @@ def parse_article_element(article_elem) -> dict | None:
         }
 
     except Exception as e:
-        logger.error(f"Failed to parse article element: {e}")
+        logger.exception(f"Failed to parse article element: {e}")
         return None
 
 
@@ -127,7 +127,7 @@ def extract_pub_date(article_elem) -> str:
                 month_map = {
                     "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
                     "May": "05", "Jun": "06", "Jul": "07", "Aug": "08",
-                    "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12"
+                    "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12",
                 }
                 if month in month_map:
                     month = month_map[month]

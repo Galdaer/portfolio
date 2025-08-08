@@ -9,7 +9,7 @@ import zipfile
 
 import httpx
 
-from config import Config
+from ..config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class FDADownloader:
             return extract_dir
 
         except Exception as e:
-            logger.error(f"Failed to download Orange Book: {e}")
+            logger.exception(f"Failed to download Orange Book: {e}")
             raise
 
     async def download_ndc_directory(self) -> str:
@@ -82,7 +82,7 @@ class FDADownloader:
             return extract_dir
 
         except Exception as e:
-            logger.error(f"Failed to download NDC Directory: {e}")
+            logger.exception(f"Failed to download NDC Directory: {e}")
             raise
 
     async def download_drugs_at_fda(self) -> str:
@@ -112,7 +112,7 @@ class FDADownloader:
             return extract_dir
 
         except Exception as e:
-            logger.error(f"Failed to download Drugs@FDA: {e}")
+            logger.exception(f"Failed to download Drugs@FDA: {e}")
             raise
 
     async def download_drug_labels(self) -> str:
@@ -153,7 +153,7 @@ class FDADownloader:
             return extract_dir
 
         except Exception as e:
-            logger.error(f"Failed to download drug labels: {e}")
+            logger.exception(f"Failed to download drug labels: {e}")
             raise
 
     async def download_all_fda_data(self) -> dict[str, str]:
@@ -175,14 +175,14 @@ class FDADownloader:
             }
 
         except Exception as e:
-            logger.error(f"FDA data download failed: {e}")
+            logger.exception(f"FDA data download failed: {e}")
             raise
 
     async def get_available_files(self) -> dict[str, list[str]]:
         """Get list of downloaded files ready for parsing"""
         files = {"orange_book": [], "ndc": [], "drugs_fda": [], "labels": []}
 
-        for dataset in files.keys():
+        for dataset in files:
             dataset_dir = os.path.join(self.data_dir, dataset)
             if os.path.exists(dataset_dir):
                 for file in os.listdir(dataset_dir):

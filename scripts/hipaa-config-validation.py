@@ -169,7 +169,7 @@ class HIPAAConfigValidator:
                     "termination_procedures",
                 ],
                 "validation_checks": {
-                    "baa_management": lambda x: isinstance(x, dict) and "tracking_enabled" in x
+                    "baa_management": lambda x: isinstance(x, dict) and "tracking_enabled" in x,
                 },
             },
         }
@@ -198,9 +198,8 @@ class HIPAAConfigValidator:
                                 "security",
                                 "healthcare_settings",
                             ]
-                        ):
-                            if file.endswith((".yml", ".yaml", ".json")):
-                                config_files.append(file_path)
+                        ) and file.endswith((".yml", ".yaml", ".json")):
+                            config_files.append(file_path)
 
         return config_files
 
@@ -222,7 +221,7 @@ class HIPAAConfigValidator:
                             issue_type="unsupported_format",
                             message="Unsupported configuration file format",
                             severity="error",
-                        )
+                        ),
                     )
                     return issues
 
@@ -234,7 +233,7 @@ class HIPAAConfigValidator:
                         issue_type="invalid_structure",
                         message="Configuration file must contain a dictionary",
                         severity="error",
-                    )
+                    ),
                 )
                 return issues
 
@@ -255,13 +254,13 @@ class HIPAAConfigValidator:
                     issue_type="file_error",
                     message=f"Error reading configuration file: {str(e)}",
                     severity="error",
-                )
+                ),
             )
 
         return issues
 
     def _validate_hipaa_sections(
-        self, config_data: dict[str, Any], config_file: str
+        self, config_data: dict[str, Any], config_file: str,
     ) -> list[HIPAAValidationIssue]:
         """Validate HIPAA-specific configuration sections"""
         issues = []
@@ -280,7 +279,7 @@ class HIPAAConfigValidator:
                             severity="error",
                             hipaa_requirement=section_rules["hipaa_ref"],
                             remediation=f"Add {section_name} section with required fields: {section_rules['required_fields']}",
-                        )
+                        ),
                     )
                     continue
 
@@ -296,7 +295,7 @@ class HIPAAConfigValidator:
                                 severity="error",
                                 hipaa_requirement=section_rules["hipaa_ref"],
                                 remediation=f"Add {required_field} field to {section_name} section",
-                            )
+                            ),
                         )
 
                 # Validate field values
@@ -313,7 +312,7 @@ class HIPAAConfigValidator:
                                         message=f"Invalid value for {field_name}",
                                         severity="warning",
                                         hipaa_requirement=section_rules["hipaa_ref"],
-                                    )
+                                    ),
                                 )
                         except Exception as e:
                             issues.append(
@@ -323,13 +322,13 @@ class HIPAAConfigValidator:
                                     issue_type="validation_error",
                                     message=f"Error validating {field_name}: {str(e)}",
                                     severity="warning",
-                                )
+                                ),
                             )
 
         return issues
 
     def _validate_healthcare_system_config(
-        self, config_data: dict[str, Any], config_file: str
+        self, config_data: dict[str, Any], config_file: str,
     ) -> list[HIPAAValidationIssue]:
         """Validate healthcare system specific configuration"""
         issues: list[HIPAAValidationIssue] = []
@@ -351,7 +350,7 @@ class HIPAAConfigValidator:
                     message="Medical disclaimer is required for healthcare systems",
                     severity="error",
                     remediation="Add medical_disclaimer field with appropriate medical disclaimer text",
-                )
+                ),
             )
 
         hipaa_compliance = medical_compliance.get("hipaa_compliance", {})
@@ -365,7 +364,7 @@ class HIPAAConfigValidator:
                     severity="error",
                     hipaa_requirement="HIPAA_164.530",
                     remediation="Enable HIPAA compliance by setting enabled: true",
-                )
+                ),
             )
 
         # Validate audit retention
@@ -380,7 +379,7 @@ class HIPAAConfigValidator:
                     severity="error",
                     hipaa_requirement="HIPAA_164.312(b)",
                     remediation="Set audit_retention_days to at least 2555 (7 years)",
-                )
+                ),
             )
 
         # Validate security configuration
@@ -398,7 +397,7 @@ class HIPAAConfigValidator:
                     severity="warning",
                     hipaa_requirement="HIPAA_164.312(a)(2)(iii)",
                     remediation="Set jwt_expiration_minutes to 30 or less for healthcare environments",
-                )
+                ),
             )
 
         # Check encryption algorithm
@@ -413,13 +412,13 @@ class HIPAAConfigValidator:
                     severity="error",
                     hipaa_requirement="HIPAA_164.312(a)(2)(iv)",
                     remediation="Set phi_encryption_algorithm to AES-256-GCM",
-                )
+                ),
             )
 
         return issues
 
     def _validate_environment_requirements(
-        self, config_data: dict[str, Any], config_file: str
+        self, config_data: dict[str, Any], config_file: str,
     ) -> list[HIPAAValidationIssue]:
         """Validate environment-specific requirements"""
         issues = []
@@ -447,7 +446,7 @@ class HIPAAConfigValidator:
         return issues
 
     def _validate_production_requirements(
-        self, config_data: dict[str, Any], config_file: str
+        self, config_data: dict[str, Any], config_file: str,
     ) -> list[HIPAAValidationIssue]:
         """Validate production environment requirements"""
         issues = []
@@ -471,7 +470,7 @@ class HIPAAConfigValidator:
                     severity="error",
                     hipaa_requirement="HIPAA_164.312(a)(2)(i)",
                     remediation=f"Add {missing_mfa_roles} to mfa_required_roles for production environment",
-                )
+                ),
             )
 
         # Check rate limiting
@@ -487,33 +486,33 @@ class HIPAAConfigValidator:
                     message="Emergency bypass is enabled in production environment",
                     severity="warning",
                     remediation="Consider disabling emergency_bypass_enabled in production for enhanced security",
-                )
+                ),
             )
 
         return issues
 
     def _find_nested_section(
-        self, config_data: dict[str, Any], section_name: str
+        self, config_data: dict[str, Any], section_name: str,
     ) -> dict[str, Any] | None:
         """Find nested configuration section"""
         # Direct lookup
         if section_name in config_data:
-            return cast(dict[str, Any], config_data[section_name])
+            return cast("dict[str, Any]", config_data[section_name])
 
         # Look in healthcare_system section
         healthcare_system = config_data.get("healthcare_system", {})
         if section_name in healthcare_system:
-            return cast(dict[str, Any], healthcare_system[section_name])
+            return cast("dict[str, Any]", healthcare_system[section_name])
 
         # Look in medical_compliance section
         medical_compliance = healthcare_system.get("medical_compliance", {})
         if section_name in medical_compliance:
-            return cast(dict[str, Any], medical_compliance[section_name])
+            return cast("dict[str, Any]", medical_compliance[section_name])
 
         # Look in security section
         security = healthcare_system.get("security", {})
         if section_name in security:
-            return cast(dict[str, Any], security[section_name])
+            return cast("dict[str, Any]", security[section_name])
 
         return None
 
@@ -534,7 +533,7 @@ class HIPAAConfigValidator:
                     message="No HIPAA configuration files found",
                     severity="warning",
                     remediation="Create HIPAA compliance configuration files",
-                )
+                ),
             )
 
         total_issues = 0
@@ -559,10 +558,9 @@ class HIPAAConfigValidator:
         """Generate HIPAA validation report"""
         if output_format == "json":
             return self._generate_json_report()
-        elif output_format == "yaml":
+        if output_format == "yaml":
             return self._generate_yaml_report()
-        else:
-            return self._generate_text_report()
+        return self._generate_text_report()
 
     def _generate_text_report(self) -> str:
         """Generate text format validation report"""
@@ -605,7 +603,7 @@ class HIPAAConfigValidator:
                 f"  Errors: {len(errors)}",
                 f"  Warnings: {len(warnings)}",
                 f"  Info: {len(infos)}",
-            ]
+            ],
         )
 
         return "\n".join(report_lines)
@@ -634,7 +632,7 @@ class HIPAAConfigValidator:
                     "severity": issue.severity,
                     "hipaa_requirement": issue.hipaa_requirement,
                     "remediation": issue.remediation,
-                }
+                },
             )
 
         return json.dumps(report_data, indent=2)
@@ -663,7 +661,7 @@ class HIPAAConfigValidator:
                     "severity": issue.severity,
                     "hipaa_requirement": issue.hipaa_requirement,
                     "remediation": issue.remediation,
-                }
+                },
             )
 
         return str(yaml.dump(report_data, default_flow_style=False))
@@ -705,7 +703,7 @@ Examples:
     )
 
     parser.add_argument(
-        "--strict", action="store_true", help="Strict mode: warnings are treated as errors"
+        "--strict", action="store_true", help="Strict mode: warnings are treated as errors",
     )
 
     args = parser.parse_args()
@@ -721,9 +719,7 @@ Examples:
     print(report)
 
     # Determine exit code
-    if errors > 0:
-        sys.exit(1)
-    elif warnings > 0 and args.strict:
+    if errors > 0 or warnings > 0 and args.strict:
         sys.exit(1)
     elif total_issues > 0:
         sys.exit(0)  # Issues found but not failing

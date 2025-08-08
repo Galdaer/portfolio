@@ -3,10 +3,12 @@ Background Task Processing for Healthcare AI
 Handles long-running medical analysis tasks asynchronously
 """
 
-import asyncio
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ class HealthcareTaskManager:
         self.active_tasks: dict[str, asyncio.Task] = {}
 
     async def process_medical_analysis(
-        self, task_id: str, analysis_func: Callable, patient_data: dict[str, Any]
+        self, task_id: str, analysis_func: Callable, patient_data: dict[str, Any],
     ) -> None:
         """
         Process medical analysis in background with progress tracking
@@ -45,7 +47,7 @@ class HealthcareTaskManager:
             await self._store_task_result(task_id, result)
 
         except Exception as e:
-            logger.error(f"Medical analysis task {task_id} failed: {e}")
+            logger.exception(f"Medical analysis task {task_id} failed: {e}")
             await self._store_task_error(task_id, str(e))
         finally:
             self.active_tasks.pop(task_id, None)
@@ -81,7 +83,7 @@ class HealthcareTaskManager:
 
                 # Store with 1 hour expiration
                 await redis_client.setex(
-                    f"task_result:{task_id}", 3600, json.dumps({"status": "error", "error": error})
+                    f"task_result:{task_id}", 3600, json.dumps({"status": "error", "error": error}),
                 )
         except Exception as e:
             logger.warning(f"Failed to store task error {task_id}: {e}")
@@ -115,7 +117,7 @@ class HealthcareTaskManager:
                 if result_data:
                     from typing import cast
 
-                    result: dict[str, Any] = cast(dict[str, Any], json.loads(result_data))
+                    result: dict[str, Any] = cast("dict[str, Any]", json.loads(result_data))
                     return result
         except Exception as e:
             logger.warning(f"Failed to get task status {task_id}: {e}")

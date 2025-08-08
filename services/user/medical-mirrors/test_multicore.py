@@ -13,7 +13,7 @@ import time
 from pubmed.parser_optimized import OptimizedPubMedParser
 
 # Add the src directory to Python path
-sys.path.insert(0, '/app/src')
+sys.path.insert(0, "/app/src")
 
 
 async def test_multicore_parsing():
@@ -27,7 +27,7 @@ async def test_multicore_parsing():
 
     if os.path.exists(data_dir):
         for filename in os.listdir(data_dir):
-            if filename.endswith('.xml.gz'):
+            if filename.endswith(".xml.gz"):
                 xml_files.append(os.path.join(data_dir, filename))
 
     if not xml_files:

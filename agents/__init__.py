@@ -35,7 +35,7 @@ class BaseHealthcareAgent(ABC):
     def __init__(self, agent_name: str, agent_type: str):
         self.agent_name = agent_name
         self.agent_type = agent_type
-        self.logger = get_healthcare_logger(f"agent.{agent_name}")
+        self.logger = logging.getLogger(f"agent.{agent_name}")
         self._session_id: str | None = None
         self._db_connection: Any = None
 
@@ -82,7 +82,7 @@ class BaseHealthcareAgent(ABC):
             )
             raise
         except Exception as e:
-            self.logger.error(f"Failed to initialize agent {self.agent_name}: {e}")
+            self.logger.exception(f"Failed to initialize agent {self.agent_name}: {e}")
             raise
 
     def _is_development_environment(self) -> bool:
@@ -124,25 +124,31 @@ class BaseHealthcareAgent(ABC):
             # Database-first pattern: try database first, fallback based on environment
             if self._is_production_environment():
                 # Production: database required, no fallbacks
-                raise DatabaseConnectionError(
+                msg = (
                     f"Agent {self.agent_name} requires database connectivity in production. "
                     f"Error: {e}. "
                     "Verify DATABASE_URL environment variable and database availability."
+                )
+                raise DatabaseConnectionError(
+                    msg,
                 ) from e
-            elif self._is_development_environment():
+            if self._is_development_environment():
                 # Development: log warning but allow operation with synthetic data
                 self.logger.warning(
                     f"Database unavailable for agent {self.agent_name} in development. "
                     f"Error: {e}. "
-                    "Using synthetic data fallbacks. Run 'make setup' for full database functionality."
+                    "Using synthetic data fallbacks. Run 'make setup' for full database functionality.",
                 )
                 self._db_connection = None  # Signal to use fallbacks
             else:
                 # Testing or unknown environment: require database for consistency
-                raise DatabaseConnectionError(
+                msg = (
                     f"Agent {self.agent_name} requires database connectivity for healthcare operations. "
                     f"Error: {e}. "
                     "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+                )
+                raise DatabaseConnectionError(
+                    msg,
                 ) from e
 
     async def get_available_models(self) -> list[dict[str, Any]]:
@@ -161,7 +167,7 @@ class BaseHealthcareAgent(ABC):
         model_registry.log_performance(f"agent_{self.agent_name}", metrics)
 
     async def initialize_session(
-        self, user_id: str, session_data: dict[str, Any] | None = None
+        self, user_id: str, session_data: dict[str, Any] | None = None,
     ) -> str:
         """Initialize a new session for the agent"""
         self._session_id = str(uuid.uuid4())
@@ -225,7 +231,7 @@ class BaseHealthcareAgent(ABC):
             }
 
             await self._log_interaction("error", request_id, error_response)
-            self.logger.error(f"Request {request_id} failed: {e}")
+            self.logger.exception(f"Request {request_id} failed: {e}")
 
             return error_response
 
@@ -236,7 +242,6 @@ class BaseHealthcareAgent(ABC):
 
         This method should be overridden by each agent implementation.
         """
-        pass
 
     async def _check_safety_boundaries(self, request: dict[str, Any]) -> dict[str, Any]:
         """
@@ -272,7 +277,7 @@ class BaseHealthcareAgent(ABC):
         return {"safe": True}
 
     async def _log_interaction(
-        self, interaction_type: str, request_id: str, data: dict[str, Any]
+        self, interaction_type: str, request_id: str, data: dict[str, Any],
     ) -> None:
         """Log agent interaction for audit purposes with PHI protection"""
         try:
@@ -332,7 +337,7 @@ class BaseHealthcareAgent(ABC):
                 self.logger.info(f"Database connection closed for agent {self.agent_name}")
             except Exception as e:
                 self.logger.warning(
-                    f"Error closing database connection for agent {self.agent_name}: {e}"
+                    f"Error closing database connection for agent {self.agent_name}: {e}",
                 )
             finally:
                 self._db_connection = None

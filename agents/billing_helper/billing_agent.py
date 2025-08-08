@@ -316,14 +316,13 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 modifier_required=bool(code_info["modifier_required"]),
                 billing_notes=list(code_info["billing_notes"]),
             )
-        else:
-            return CPTCodeValidation(
-                code=clean_code,
-                is_valid=False,
-                description=None,
-                modifier_required=False,
-                billing_notes=[f"CPT code {clean_code} not found in database"],
-            )
+        return CPTCodeValidation(
+            code=clean_code,
+            is_valid=False,
+            description=None,
+            modifier_required=False,
+            billing_notes=[f"CPT code {clean_code} not found in database"],
+        )
 
     @healthcare_log_method(operation_type="icd_validation", phi_risk_level="low")
     async def validate_icd_code(self, icd_code: str) -> ICDCodeValidation:
@@ -372,17 +371,16 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 category=str(code_info["category"]),
                 billing_notes=list(code_info["billing_notes"]),
             )
-        else:
-            return ICDCodeValidation(
-                code=clean_code,
-                is_valid=False,
-                description=None,
-                category=None,
-                billing_notes=[f"ICD-10 code {clean_code} not found in database"],
-            )
+        return ICDCodeValidation(
+            code=clean_code,
+            is_valid=False,
+            description=None,
+            category=None,
+            billing_notes=[f"ICD-10 code {clean_code} not found in database"],
+        )
 
     def _calculate_claim_amount(
-        self, claim_data: dict[str, Any], cpt_validations: list[CPTCodeValidation]
+        self, claim_data: dict[str, Any], cpt_validations: list[CPTCodeValidation],
     ) -> float:
         """
         Calculate total claim amount based on procedure codes
@@ -530,7 +528,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
             elif request_type == "report_generation":
                 result = await self.generate_billing_report(
-                    request.get("date_range", {}), request.get("report_type", "summary")
+                    request.get("date_range", {}), request.get("report_type", "summary"),
                 )
                 base_response.update({"report": result})
 
@@ -546,12 +544,12 @@ class BillingHelperAgent(BaseHealthcareAgent):
                             "cost_prediction",
                             "deductible_tracking",
                         ],
-                    }
+                    },
                 )
 
         except Exception as e:
             base_response.update(
-                {"success": False, "error": str(e), "error_type": type(e).__name__}
+                {"success": False, "error": str(e), "error_type": type(e).__name__},
             )
 
         return base_response
@@ -587,7 +585,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
             # Get current deductible status
             deductible_status = await self.deductible_tracker.calculate_deductible_proximity(
-                patient_id, "current_year"
+                patient_id, "current_year",
             )
 
             # Calculate cost for each CPT code
@@ -617,7 +615,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
                 # Create patient coverage data for insurance calculator using shared utility
                 patient_coverage = SharedBillingUtils.get_patient_coverage_data(
-                    patient_id, insurance_type
+                    patient_id, insurance_type,
                 )
 
                 # Calculate cost using advanced insurance calculator
@@ -629,10 +627,10 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
                 # Convert to Decimal for safe addition
                 patient_cost = HealthcareFinancialUtils.ensure_decimal(
-                    cost_estimate.patient_responsibility
+                    cost_estimate.patient_responsibility,
                 )
                 insurance_payment = HealthcareFinancialUtils.ensure_decimal(
-                    cost_estimate.insurance_payment
+                    cost_estimate.insurance_payment,
                 )
 
                 breakdown_by_cpt.append(
@@ -641,18 +639,18 @@ class BillingHelperAgent(BaseHealthcareAgent):
                         "negotiated_rate": negotiated_rate,
                         "patient_cost": patient_cost,
                         "insurance_payment": insurance_payment,
-                    }
+                    },
                 )
 
                 # Update totals with safe Decimal arithmetic
                 total_estimated_cost = HealthcareFinancialUtils.ensure_decimal(
-                    total_cost_prediction["total_estimated_cost"]
+                    total_cost_prediction["total_estimated_cost"],
                 )
                 total_patient_resp = HealthcareFinancialUtils.ensure_decimal(
-                    total_cost_prediction["patient_responsibility"]
+                    total_cost_prediction["patient_responsibility"],
                 )
                 total_insurance_payment = HealthcareFinancialUtils.ensure_decimal(
-                    total_cost_prediction["insurance_payment"]
+                    total_cost_prediction["insurance_payment"],
                 )
 
                 total_cost_prediction["total_estimated_cost"] = (
@@ -667,16 +665,16 @@ class BillingHelperAgent(BaseHealthcareAgent):
             if deductible_status.remaining_amount > 0:
                 cost_explanation.append(
                     f"You have ${deductible_status.remaining_amount:.2f} remaining on your "
-                    f"${deductible_status.annual_deductible:.2f} annual deductible"
+                    f"${deductible_status.annual_deductible:.2f} annual deductible",
                 )
 
             if deductible_status.percentage_met > 0.8:
                 cost_explanation.append(
-                    f"You're {deductible_status.percentage_met:.0%} of the way to meeting your deductible"
+                    f"You're {deductible_status.percentage_met:.0%} of the way to meeting your deductible",
                 )
 
             cost_explanation.append(
-                f"Total estimated cost: ${total_cost_prediction['patient_responsibility']:.2f}"
+                f"Total estimated cost: ${total_cost_prediction['patient_responsibility']:.2f}",
             )
 
             log_healthcare_event(
@@ -721,7 +719,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
         """
         try:
             deductible_status = await self.deductible_tracker.calculate_deductible_proximity(
-                patient_id, "current_year"
+                patient_id, "current_year",
             )
 
             insights = self.deductible_tracker.generate_deductible_insights(deductible_status)

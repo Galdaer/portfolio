@@ -42,7 +42,7 @@ class MemoryManager:
         try:
             # Initialize Redis connection
             self.redis_client = redis.from_url(
-                config.redis_url, encoding="utf-8", decode_responses=True
+                config.redis_url, encoding="utf-8", decode_responses=True,
             )
 
             # Test Redis connection
@@ -51,14 +51,14 @@ class MemoryManager:
 
             # Initialize PostgreSQL connection pool
             self.postgres_pool = await asyncpg.create_pool(
-                config.postgres_url, min_size=2, max_size=10
+                config.postgres_url, min_size=2, max_size=10,
             )
 
             logger.info("PostgreSQL connection pool established")
             self._initialized = True
 
         except Exception as e:
-            logger.error(f"Failed to initialize memory manager: {e}")
+            logger.exception(f"Failed to initialize memory manager: {e}")
             raise
 
     async def close(self) -> None:
@@ -91,7 +91,7 @@ class MemoryManager:
             }
 
         except Exception as e:
-            logger.error(f"Memory health check failed: {e}")
+            logger.exception(f"Memory health check failed: {e}")
             return {"status": "unhealthy", "error": str(e)}
 
     async def _test_redis_latency(self) -> float:
@@ -122,7 +122,7 @@ class MemoryManager:
         await self.redis_client.setex(f"session:{session_id}", ttl, json.dumps(data, default=str))
 
     async def store_session_with_expiration(
-        self, session_id: str, data: dict[str, Any], expires_in: timedelta | None = None
+        self, session_id: str, data: dict[str, Any], expires_in: timedelta | None = None,
     ) -> None:
         """Store session data with timedelta-based expiration (healthcare compliant)"""
         if not self._initialized:
@@ -142,7 +142,7 @@ class MemoryManager:
 
         ttl_seconds = int(expiration.total_seconds())
         await self.redis_client.setex(
-            f"session:{session_id}", ttl_seconds, json.dumps(data, default=str)
+            f"session:{session_id}", ttl_seconds, json.dumps(data, default=str),
         )
 
     async def cleanup_expired_sessions(self) -> int:
@@ -167,13 +167,13 @@ class MemoryManager:
                     expires_at = session_data.get("expires_at")
                     if expires_at:
                         expiry_time = datetime.fromisoformat(
-                            expires_at.replace("Z", "+00:00").replace("+00:00", "")
+                            expires_at.replace("Z", "+00:00").replace("+00:00", ""),
                         )
                         if current_time > expiry_time:
                             await self.redis_client.delete(key)
                             expired_count += 1
             except Exception as e:
-                logger.error(f"Error checking session {key}: {e}")
+                logger.exception(f"Error checking session {key}: {e}")
 
         if expired_count > 0:
             logger.info(f"Cleaned up {expired_count} expired sessions")

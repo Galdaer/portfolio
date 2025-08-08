@@ -136,12 +136,12 @@ class HealthcareMCPServer:
 
         # Track failed attempts by IP address
         self.jwt_failed_attempts: defaultdict[str, deque[float]] = defaultdict(
-            deque
+            deque,
         )  # IP -> deque of failure timestamps
         self.jwt_locked_ips: dict[str, float] = {}  # IP -> lockout expiry timestamp
 
         self.logger.info(
-            f"JWT rate limiting initialized: {self.jwt_max_failures} failures per {self.jwt_rate_limit_window}s window"
+            f"JWT rate limiting initialized: {self.jwt_max_failures} failures per {self.jwt_rate_limit_window}s window",
         )
 
     def _validate_startup_configuration(self) -> None:
@@ -158,14 +158,14 @@ class HealthcareMCPServer:
                 self.logger.error("JWT_SECRET not configured for production environment")
                 raise RuntimeError(
                     "JWT_SECRET must be configured for production deployment. "
-                    "Application cannot start without proper authentication configuration."
+                    "Application cannot start without proper authentication configuration.",
                 )
 
             if len(jwt_secret) < 32:
                 self.logger.error("JWT_SECRET is too short for production use")
                 raise RuntimeError(
                     "JWT_SECRET must be at least 32 characters for production security. "
-                    "Please configure a stronger secret."
+                    "Please configure a stronger secret.",
                 )
 
             self.logger.info("Production authentication configuration validated")
@@ -192,7 +192,7 @@ class HealthcareMCPServer:
             self.logger.error("ENVIRONMENT variable not set")
             raise RuntimeError(
                 "Server misconfiguration: ENVIRONMENT variable required. "
-                "Set ENVIRONMENT to one of: production, development, testing, staging"
+                "Set ENVIRONMENT to one of: production, development, testing, staging",
             )
 
         # Normalize to lowercase for comparison
@@ -200,9 +200,12 @@ class HealthcareMCPServer:
 
         if environment_lower not in valid_environments:
             self.logger.error(f"Invalid ENVIRONMENT value: {environment}")
-            raise RuntimeError(
+            msg = (
                 f"Server misconfiguration: invalid environment '{environment}'. "
                 f"Valid values are: {', '.join(sorted(valid_environments))}"
+            )
+            raise RuntimeError(
+                msg,
             )
 
         # Log validated environment
@@ -231,7 +234,7 @@ class HealthcareMCPServer:
         for var in dev_only_vars:
             if os.getenv(var):
                 self.logger.warning(
-                    f"Development configuration {var} found in production environment"
+                    f"Development configuration {var} found in production environment",
                 )
 
         # Validate required production configurations
@@ -244,11 +247,14 @@ class HealthcareMCPServer:
 
         if missing_vars:
             self.logger.error(
-                f"Missing required production configuration: {', '.join(missing_vars)}"
+                f"Missing required production configuration: {', '.join(missing_vars)}",
             )
-            raise RuntimeError(
+            msg = (
                 f"Production deployment requires: {', '.join(missing_vars)}. "
                 "Please configure all required variables before starting in production."
+            )
+            raise RuntimeError(
+                msg,
             )
 
         self.logger.info("Production environment requirements validated")
@@ -273,13 +279,12 @@ class HealthcareMCPServer:
             if current_time < lockout_expiry:
                 remaining_time = int(lockout_expiry - current_time)
                 self.logger.warning(
-                    f"JWT rate limit: IP {client_ip} locked out for {remaining_time}s"
+                    f"JWT rate limit: IP {client_ip} locked out for {remaining_time}s",
                 )
                 return False
-            else:
-                # Lockout expired, remove from locked IPs
-                del self.jwt_locked_ips[client_ip]
-                self.logger.info(f"JWT rate limit: Lockout expired for IP {client_ip}")
+            # Lockout expired, remove from locked IPs
+            del self.jwt_locked_ips[client_ip]
+            self.logger.info(f"JWT rate limit: Lockout expired for IP {client_ip}")
 
         # Clean old failure records outside the window
         if client_ip in self.jwt_failed_attempts:
@@ -305,7 +310,7 @@ class HealthcareMCPServer:
         failure_count = len(self.jwt_failed_attempts[client_ip])
 
         self.logger.warning(
-            f"JWT authentication failure recorded for IP {client_ip}: {failure_count}/{self.jwt_max_failures}"
+            f"JWT authentication failure recorded for IP {client_ip}: {failure_count}/{self.jwt_max_failures}",
         )
 
         # Check if rate limit exceeded
@@ -314,7 +319,7 @@ class HealthcareMCPServer:
             self.jwt_locked_ips[client_ip] = lockout_expiry
 
             self.logger.error(
-                f"JWT rate limit exceeded: IP {client_ip} locked out for {self.jwt_lockout_duration}s"
+                f"JWT rate limit exceeded: IP {client_ip} locked out for {self.jwt_lockout_duration}s",
             )
 
             # Security audit log
@@ -350,7 +355,7 @@ class HealthcareMCPServer:
             self.logger.info("Database connections initialized successfully")
 
         except Exception as e:
-            self.logger.error(f"Failed to initialize database connections: {e}")
+            self.logger.exception(f"Failed to initialize database connections: {e}")
             raise
 
     def _init_app(self) -> None:
@@ -384,7 +389,7 @@ class HealthcareMCPServer:
         # Add security middleware
         @self.app.middleware("http")
         async def security_middleware(
-            request: Request, call_next: Callable[[Request], Awaitable[Response]]
+            request: Request, call_next: Callable[[Request], Awaitable[Response]],
         ) -> Response:
             # Log all requests for audit trail
             start_time = datetime.now()
@@ -436,7 +441,7 @@ class HealthcareMCPServer:
                 return MCPResponse(result=result, error=None, id=request.id)
 
             except Exception as e:
-                self.logger.error(f"MCP request processing failed: {e}")
+                self.logger.exception(f"MCP request processing failed: {e}")
                 error = {
                     "code": -32603,
                     "message": "Internal error",
@@ -466,7 +471,7 @@ class HealthcareMCPServer:
                             "patient_id": {
                                 "type": "string",
                                 "description": "Patient identifier",
-                            }
+                            },
                         },
                     },
                     {
@@ -476,7 +481,7 @@ class HealthcareMCPServer:
                             "query": {
                                 "type": "string",
                                 "description": "Medical research query",
-                            }
+                            },
                         },
                     },
                     {
@@ -486,10 +491,10 @@ class HealthcareMCPServer:
                             "medications": {
                                 "type": "array",
                                 "description": "List of medications",
-                            }
+                            },
                         },
                     },
-                ]
+                ],
             }
 
     def _get_client_ip(self, request: Request) -> str:
@@ -520,7 +525,7 @@ class HealthcareMCPServer:
         return "unknown"
 
     def _validate_credentials(
-        self, credentials: HTTPAuthorizationCredentials, client_ip: str = "unknown"
+        self, credentials: HTTPAuthorizationCredentials, client_ip: str = "unknown",
     ) -> bool:
         """Validate authentication credentials with rate limiting and secure environment detection"""
         from src.security.environment_detector import EnvironmentDetector
@@ -540,7 +545,7 @@ class HealthcareMCPServer:
             if len(token) > 0:
                 if not self._dev_auth_warning_logged:
                     self.logger.warning(
-                        "Using basic token validation - NOT SUITABLE FOR PRODUCTION"
+                        "Using basic token validation - NOT SUITABLE FOR PRODUCTION",
                     )
                     self._dev_auth_warning_logged = True
                 auth_result = True
@@ -556,7 +561,7 @@ class HealthcareMCPServer:
             token_preview = token[:8] + "..." if len(token) > 8 else "empty"
             self.logger.warning(
                 f"Authentication failed - IP: {client_ip}, Token preview: {token_preview}, "
-                f"Environment: {os.getenv('ENVIRONMENT', 'unknown')}"
+                f"Environment: {os.getenv('ENVIRONMENT', 'unknown')}",
             )
 
             # Record failure for rate limiting (only for production JWT failures)
@@ -580,7 +585,7 @@ class HealthcareMCPServer:
             if not jwt_secret:
                 # This should not happen if startup validation passed
                 self.logger.error(
-                    "JWT_SECRET not available during authentication - configuration error"
+                    "JWT_SECRET not available during authentication - configuration error",
                 )
                 return False
 
@@ -591,7 +596,7 @@ class HealthcareMCPServer:
                 f"JWT validation successful - "
                 f"timestamp: {timestamp}, "
                 f"user: {payload.get('sub', 'unknown')}, "
-                f"exp: {payload.get('exp', 'none')}"
+                f"exp: {payload.get('exp', 'none')}",
             )
             return True
 
@@ -600,7 +605,7 @@ class HealthcareMCPServer:
             self.logger.warning(
                 f"JWT validation failed - token expired - "
                 f"timestamp: {timestamp}, "
-                f"source_ip: {self.get_request_ip()}"
+                f"source_ip: {self.get_request_ip()}",
             )
             return False
 
@@ -610,17 +615,17 @@ class HealthcareMCPServer:
                 f"JWT validation failed - invalid token - "
                 f"timestamp: {timestamp}, "
                 f"error: {str(e)}, "
-                f"source_ip: {self.get_request_ip()}"
+                f"source_ip: {self.get_request_ip()}",
             )
             return False
 
         except Exception as e:
             timestamp = datetime.utcnow().isoformat()
-            self.logger.error(
+            self.logger.exception(
                 f"JWT validation error - unexpected failure - "
                 f"timestamp: {timestamp}, "
                 f"error: {str(e)}, "
-                f"source_ip: {self.get_request_ip()}"
+                f"source_ip: {self.get_request_ip()}",
             )
             return False
 
@@ -728,12 +733,12 @@ class HealthcareMCPServer:
 
         if method == "patient_lookup":
             return await self._handle_patient_lookup(params)
-        elif method == "medical_research":
+        if method == "medical_research":
             return await self._handle_medical_research(params)
-        elif method == "drug_interaction_check":
+        if method == "drug_interaction_check":
             return await self._handle_drug_interaction_check(params)
-        else:
-            raise ValueError(f"Unknown method: {method}")
+        msg = f"Unknown method: {method}"
+        raise ValueError(msg)
 
     async def _handle_patient_lookup(self, params: dict[str, Any]) -> dict[str, Any]:
         """Handle patient lookup (synthetic data only)"""
@@ -794,8 +799,9 @@ class HealthcareMCPServer:
             }
 
         except Exception as e:
-            self.logger.error(f"Medical research failed: {e}")
-            raise ValueError(f"Research query failed: {str(e)}")
+            self.logger.exception(f"Medical research failed: {e}")
+            msg = f"Research query failed: {str(e)}"
+            raise ValueError(msg)
 
     async def _handle_drug_interaction_check(self, params: dict[str, Any]) -> dict[str, Any]:
         """Handle drug interaction check"""

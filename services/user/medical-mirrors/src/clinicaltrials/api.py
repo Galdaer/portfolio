@@ -25,21 +25,21 @@ class ClinicalTrialsAPI:
         self.parser = ClinicalTrialsParser()
 
     async def search_trials(
-        self, condition: Optional[str] = None, location: Optional[str] = None, max_results: int = 10
-    ) -> List[Dict[str, Any]]:
+        self, condition: str | None = None, location: str | None = None, max_results: int = 10,
+    ) -> list[dict[str, Any]]:
         """
         Search clinical trials in local database
         Matches the interface of Healthcare MCP search-trials tool
         """
         logger.info(
-            f"Searching trials for condition: {condition}, location: {location}, max_results: {max_results}"
+            f"Searching trials for condition: {condition}, location: {location}, max_results: {max_results}",
         )
 
         db = self.session_factory()
         try:
             # Build search query
             query_parts = []
-            params: Dict[str, Any] = {"limit": max_results}
+            params: dict[str, Any] = {"limit": max_results}
 
             if condition:
                 query_parts.append("search_vector @@ plainto_tsquery(:condition)")
@@ -93,12 +93,12 @@ class ClinicalTrialsAPI:
             return trials
 
         except Exception as e:
-            logger.error(f"Clinical trials search failed: {e}")
+            logger.exception(f"Clinical trials search failed: {e}")
             raise
         finally:
             db.close()
 
-    async def get_trial(self, nct_id: str) -> Optional[Dict[str, Any]]:
+    async def get_trial(self, nct_id: str) -> dict[str, Any] | None:
         """Get specific trial by NCT ID"""
         db = self.session_factory()
         try:
@@ -124,7 +124,7 @@ class ClinicalTrialsAPI:
         finally:
             db.close()
 
-    async def get_status(self) -> Dict[str, Any]:
+    async def get_status(self) -> dict[str, Any]:
         """Get status of ClinicalTrials mirror"""
         db = self.session_factory()
         try:
@@ -139,7 +139,7 @@ class ClinicalTrialsAPI:
                 .first()
             )
 
-            status = {
+            return {
                 "source": "clinicaltrials",
                 "total_trials": total_count,
                 "status": "healthy" if total_count > 0 else "empty",
@@ -147,12 +147,10 @@ class ClinicalTrialsAPI:
                 "last_update_status": last_update.status if last_update else None,
             }
 
-            return status
-
         finally:
             db.close()
 
-    async def trigger_update(self, quick_test: bool = False, limit: Optional[int] = None) -> Dict[str, Any]:
+    async def trigger_update(self, quick_test: bool = False, limit: int | None = None) -> dict[str, Any]:
         """Trigger ClinicalTrials data update"""
         if quick_test:
             logger.info(f"Triggering ClinicalTrials QUICK TEST update (limit={limit or 100})")
@@ -160,6 +158,7 @@ class ClinicalTrialsAPI:
             logger.info("Triggering ClinicalTrials data update")
 
         db = self.session_factory()
+        update_log: Optional[UpdateLog] = None
         try:
             # Log update start
             update_log = UpdateLog(
@@ -201,9 +200,9 @@ class ClinicalTrialsAPI:
                     break
 
             # Update log
-            update_log.status = "success"
-            update_log.records_processed = total_processed
-            update_log.completed_at = datetime.utcnow()
+            setattr(update_log, 'status', 'success')
+            setattr(update_log, 'records_processed', total_processed)
+            setattr(update_log, 'completed_at', datetime.utcnow())
             db.commit()
 
             logger.info(f"ClinicalTrials update completed: {total_processed} trials processed")
@@ -214,16 +213,30 @@ class ClinicalTrialsAPI:
             }
 
         except Exception as e:
-            logger.error(f"ClinicalTrials update failed: {e}")
-            update_log.status = "failed"
-            update_log.error_message = str(e)
-            update_log.completed_at = datetime.utcnow()
-            db.commit()
+            logger.exception(f"ClinicalTrials update failed: {e}")
+            # Only update log if it was created
+            if update_log is not None:
+                setattr(update_log, 'status', 'failed')
+                setattr(update_log, 'error_message', str(e))
+                setattr(update_log, 'completed_at', datetime.utcnow())
+                db.commit()
+            else:
+                # update_log was not created yet, create a failed log entry
+                failed_log = UpdateLog(
+                    source="trials",
+                    update_type="incremental",
+                    status="failed",
+                    error_message=str(e),
+                    started_at=datetime.utcnow(),
+                    completed_at=datetime.utcnow(),
+                )
+                db.add(failed_log)
+                db.commit()
             raise
         finally:
             db.close()
 
-    async def store_trials(self, trials: List[Dict[str, Any]], db: Session) -> int:
+    async def store_trials(self, trials: list[dict[str, Any]], db: Session) -> int:
         """Store trials in database"""
         stored_count = 0
 
@@ -240,7 +253,7 @@ class ClinicalTrialsAPI:
                     # Update existing trial
                     for key, value in trial_data.items():
                         setattr(existing, key, value)
-                    existing.updated_at = datetime.utcnow()
+                    setattr(existing, 'updated_at', datetime.utcnow())
                 else:
                     # Create new trial
                     trial = ClinicalTrial(**trial_data)
@@ -253,7 +266,7 @@ class ClinicalTrialsAPI:
                     db.commit()
 
             except Exception as e:
-                logger.error(f"Failed to store trial {trial_data.get('nct_id')}: {e}")
+                logger.exception(f"Failed to store trial {trial_data.get('nct_id')}: {e}")
                 db.rollback()
 
         # Final commit
@@ -284,10 +297,10 @@ class ClinicalTrialsAPI:
             logger.info("Updated search vectors for clinical trials")
 
         except Exception as e:
-            logger.error(f"Failed to update search vectors: {e}")
+            logger.exception(f"Failed to update search vectors: {e}")
             db.rollback()
 
-    async def initialize_data(self) -> Dict[str, Any]:
+    async def initialize_data(self) -> dict[str, Any]:
         """Initialize ClinicalTrials data"""
         logger.info("Initializing ClinicalTrials data")
 
@@ -317,7 +330,7 @@ class ClinicalTrialsAPI:
             }
 
         except Exception as e:
-            logger.error(f"ClinicalTrials initialization failed: {e}")
+            logger.exception(f"ClinicalTrials initialization failed: {e}")
             raise
         finally:
             db.close()

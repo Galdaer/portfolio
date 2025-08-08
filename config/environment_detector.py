@@ -93,7 +93,7 @@ class EnvironmentDetector:
                     "enable_hot_reload": True,
                     "strict_ssl": False,
                     "enable_debug_endpoints": True,
-                }
+                },
             )
         elif env == EnvironmentType.PRODUCTION:
             base_settings.update(
@@ -103,7 +103,7 @@ class EnvironmentDetector:
                     "strict_ssl": True,
                     "enable_debug_endpoints": False,
                     "security_headers": True,
-                }
+                },
             )
         elif env == EnvironmentType.TESTING:
             base_settings.update(
@@ -113,7 +113,7 @@ class EnvironmentDetector:
                     "strict_ssl": False,
                     "enable_debug_endpoints": True,
                     "mock_external_services": True,
-                }
+                },
             )
 
         return base_settings

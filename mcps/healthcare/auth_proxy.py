@@ -32,7 +32,7 @@ from pydantic import BaseModel
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ async def start_mcp_server() -> bool:
                         logger.info(f"MCP server startup output: {stderr_output.strip()}")
                 except (OSError, BlockingIOError, ValueError) as e:
                     logger.debug(
-                        f"Non-blocking read failed: {e}"
+                        f"Non-blocking read failed: {e}",
                     )  # Non-blocking read failed, continue
 
         # Try to read initialization response with timeout
@@ -231,13 +231,12 @@ async def start_mcp_server() -> bool:
                         if "result" in tools_response and "tools" in tools_response["result"]:
                             healthcare_tools = tools_response["result"]["tools"]
                             logger.info(
-                                f"Successfully retrieved {len(healthcare_tools)} healthcare tools"
+                                f"Successfully retrieved {len(healthcare_tools)} healthcare tools",
                             )
                             for tool in healthcare_tools:
                                 logger.info(f"Available tool: {tool.get('name', 'Unknown')}")
                             return True
-                        else:
-                            logger.warning(f"Unexpected tools response format: {tools_response}")
+                        logger.warning(f"Unexpected tools response format: {tools_response}")
                     else:
                         logger.warning("MCP server returned empty response to tools/list")
                 else:
@@ -256,7 +255,7 @@ async def start_mcp_server() -> bool:
         return False
 
     except Exception as e:
-        logger.error(f"Failed to start MCP server: {e}")
+        logger.exception(f"Failed to start MCP server: {e}")
         return False
 
 
@@ -299,24 +298,20 @@ async def call_mcp_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, 
                     result = response["result"]
                     if isinstance(result, dict):
                         return result
-                    else:
-                        return {"result": result}
-                elif "error" in response:
+                    return {"result": result}
+                if "error" in response:
                     raise HTTPException(
-                        status_code=400, detail=f"MCP tool error: {response['error']}"
+                        status_code=400, detail=f"MCP tool error: {response['error']}",
                     )
-                else:
-                    raise HTTPException(status_code=500, detail="Unexpected MCP response format")
-            else:
-                raise HTTPException(status_code=500, detail="No response from MCP server")
-        else:
-            raise HTTPException(status_code=504, detail="MCP server timeout")
+                raise HTTPException(status_code=500, detail="Unexpected MCP response format")
+            raise HTTPException(status_code=500, detail="No response from MCP server")
+        raise HTTPException(status_code=504, detail="MCP server timeout")
 
     except json.JSONDecodeError as e:
-        logger.error(f"JSON decode error in MCP communication: {e}")
+        logger.exception(f"JSON decode error in MCP communication: {e}")
         raise HTTPException(status_code=500, detail="Invalid MCP response format")
     except Exception as e:
-        logger.error(f"Error calling MCP tool {tool_name}: {e}")
+        logger.exception(f"Error calling MCP tool {tool_name}: {e}")
         raise HTTPException(status_code=500, detail=f"MCP tool execution failed: {str(e)}")
 
 
@@ -342,7 +337,7 @@ async def startup_event() -> None:
     """Initialize the authentication proxy"""
     logger.info("Starting Healthcare MCP Authentication Proxy (Direct MCP)")
     logger.info(
-        "Medical Disclaimer: This service provides administrative support only, not medical advice"
+        "Medical Disclaimer: This service provides administrative support only, not medical advice",
     )
 
     # Start MCP server
@@ -358,7 +353,7 @@ async def startup_event() -> None:
 
             def create_tool_handler(name: str) -> Callable:
                 async def tool_handler(
-                    request: ToolRequest, authenticated: bool = Depends(authenticate)
+                    request: ToolRequest, authenticated: bool = Depends(authenticate),
                 ) -> dict[str, Any]:
                     """Handle tool execution"""
                     try:
@@ -373,7 +368,7 @@ async def startup_event() -> None:
                     except HTTPException:
                         raise
                     except Exception as e:
-                        logger.error(f"Unexpected error in tool {name}: {e}")
+                        logger.exception(f"Unexpected error in tool {name}: {e}")
                         raise HTTPException(status_code=500, detail="Internal server error")
 
                 return tool_handler
@@ -426,7 +421,7 @@ async def list_tools(authenticated: bool = Depends(authenticate)) -> dict[str, A
 if __name__ == "__main__":
     logger.info("Starting Healthcare MCP Authentication Proxy on port 3001")
     logger.info(
-        "Medical Disclaimer: This service provides administrative support only, not medical advice"
+        "Medical Disclaimer: This service provides administrative support only, not medical advice",
     )
 
     uvicorn.run(app, host="0.0.0.0", port=3001, log_level="info")

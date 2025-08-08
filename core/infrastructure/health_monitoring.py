@@ -113,7 +113,7 @@ class HealthcareSystemMonitor:
             return health_status
 
         except Exception as e:
-            logger.error(f"Health check failed: {e}")
+            logger.exception(f"Health check failed: {e}")
             return {
                 "overall_status": "critical",
                 "timestamp": datetime.utcnow().isoformat(),
@@ -224,15 +224,13 @@ class HealthcareSystemMonitor:
                         "response_time_ms": response_time,
                         "mock_client": True,
                     }
-                else:
-                    return {
-                        "status": "healthy",
-                        "message": "MCP server connection successful",
-                        "response_time_ms": response_time,
-                        "mock_client": False,
-                    }
-            else:
-                return {"status": "error", "message": "MCP client missing expected interface"}
+                return {
+                    "status": "healthy",
+                    "message": "MCP server connection successful",
+                    "response_time_ms": response_time,
+                    "mock_client": False,
+                }
+            return {"status": "error", "message": "MCP client missing expected interface"}
 
         except Exception as e:
             logger.warning(f"MCP health check failed: {e}")
@@ -270,15 +268,13 @@ class HealthcareSystemMonitor:
                         "response_time_ms": response_time,
                         "mock_client": True,
                     }
-                else:
-                    return {
-                        "status": "healthy",
-                        "message": "LLM connection successful",
-                        "response_time_ms": response_time,
-                        "mock_client": False,
-                    }
-            else:
-                return {"status": "error", "message": "LLM client missing expected interface"}
+                return {
+                    "status": "healthy",
+                    "message": "LLM connection successful",
+                    "response_time_ms": response_time,
+                    "mock_client": False,
+                }
+            return {"status": "error", "message": "LLM client missing expected interface"}
 
         except Exception as e:
             logger.warning(f"LLM health check failed: {e}")
@@ -342,21 +338,20 @@ class HealthcareSystemMonitor:
 
             if cache_stats.get("status") == "redis_unavailable":
                 return {"status": "degraded", "message": "Cache system unavailable"}
-            elif cache_stats.get("status") == "error":
+            if cache_stats.get("status") == "error":
                 return {
                     "status": "error",
                     "error": cache_stats.get("error"),
                     "message": "Cache performance check failed",
                 }
-            else:
-                total_keys = cache_stats.get("total_keys", 0)
-                return {
-                    "status": "healthy",
-                    "total_cache_keys": total_keys,
-                    "cache_entry_counts": cache_stats.get("cache_entry_counts", {}),
-                    "redis_memory": cache_stats.get("redis_memory_used", "unknown"),
-                    "message": f"Cache system healthy with {total_keys} entries",
-                }
+            total_keys = cache_stats.get("total_keys", 0)
+            return {
+                "status": "healthy",
+                "total_cache_keys": total_keys,
+                "cache_entry_counts": cache_stats.get("cache_entry_counts", {}),
+                "redis_memory": cache_stats.get("redis_memory_used", "unknown"),
+                "message": f"Cache system healthy with {total_keys} entries",
+            }
 
         except Exception as e:
             logger.warning(f"Cache performance check failed: {e}")

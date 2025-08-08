@@ -43,12 +43,10 @@ class ConnectionFactory(ABC):
     @abstractmethod
     def create_connection(self) -> DatabaseConnection:
         """Create database connection"""
-        pass
 
     @abstractmethod
     def get_connection_info(self) -> dict:
         """Get connection information for logging/debugging"""
-        pass
 
 
 class PostgresConnectionFactory(ConnectionFactory):
@@ -80,12 +78,12 @@ class PostgresConnectionFactory(ConnectionFactory):
             if self.connection_string:
                 if "sslmode=require" not in self.connection_string.lower():
                     self.logger.warning(
-                        "SSL not explicitly required in production connection string"
+                        "SSL not explicitly required in production connection string",
                     )
             elif self.connection_params:
                 if self.connection_params.get("sslmode") != "require":
                     self.logger.warning(
-                        "SSL not explicitly required in production connection params"
+                        "SSL not explicitly required in production connection params",
                     )
 
     def create_connection(self) -> DatabaseConnection:
@@ -101,11 +99,12 @@ class PostgresConnectionFactory(ConnectionFactory):
             connection.autocommit = False
 
             self.logger.info("Database connection established successfully")
-            return cast(DatabaseConnection, connection)
+            return cast("DatabaseConnection", connection)
 
         except psycopg2.Error as e:
-            self.logger.error(f"Failed to create database connection: {e}")
-            raise RuntimeError(f"Database connection failed: {e}")
+            self.logger.exception(f"Failed to create database connection: {e}")
+            msg = f"Database connection failed: {e}"
+            raise RuntimeError(msg)
 
     def _get_secure_connection_params(self) -> dict:
         """Get secure connection parameters with environment-specific defaults"""
@@ -128,7 +127,7 @@ class PostgresConnectionFactory(ConnectionFactory):
                     "sslcert": self.connection_params.get("sslcert"),
                     "sslkey": self.connection_params.get("sslkey"),
                     "sslrootcert": self.connection_params.get("sslrootcert"),
-                }
+                },
             )
         elif EnvironmentDetector.is_development():
             params.update({"sslmode": self.connection_params.get("sslmode", "prefer")})
@@ -150,11 +149,10 @@ class PostgresConnectionFactory(ConnectionFactory):
                     safe_string,
                 )
             return {"connection_string": safe_string}
-        else:
-            safe_params = self.connection_params.copy()
-            if "password" in safe_params:
-                safe_params["password"] = "***"
-            return {"connection_params": safe_params}
+        safe_params = self.connection_params.copy()
+        if "password" in safe_params:
+            safe_params["password"] = "***"
+        return {"connection_params": safe_params}
 
 
 class MockConnectionFactory(ConnectionFactory):
@@ -167,7 +165,7 @@ class MockConnectionFactory(ConnectionFactory):
     def create_connection(self) -> DatabaseConnection:
         """Return mock connection for testing"""
         if self.mock_connection:
-            return cast(DatabaseConnection, self.mock_connection)
+            return cast("DatabaseConnection", self.mock_connection)
 
         # Create a simple mock connection
         from unittest.mock import Mock
@@ -176,7 +174,7 @@ class MockConnectionFactory(ConnectionFactory):
         mock_conn.cursor.return_value.__enter__.return_value = Mock()
         mock_conn.cursor.return_value.__exit__.return_value = None
         mock_conn.closed = 0
-        return cast(DatabaseConnection, mock_conn)
+        return cast("DatabaseConnection", mock_conn)
 
     def get_connection_info(self) -> dict:
         """Get mock connection info"""

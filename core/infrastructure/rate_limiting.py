@@ -203,7 +203,7 @@ class HealthcareRateLimiter:
         if is_emergency and limit_config.emergency_bypass:
             logger.info(
                 f"Emergency bypass activated - User: {user.user_id}, "
-                f"Type: {limit_type.value}, Role: {user.role.value}"
+                f"Type: {limit_type.value}, Role: {user.role.value}",
             )
             self.emergency_bypass_active[user.user_id] = datetime.now()
 
@@ -224,12 +224,12 @@ class HealthcareRateLimiter:
             if self.redis_client:
                 # Use Redis for distributed rate limiting
                 status = await self._check_redis_rate_limit(
-                    user, limit_config, limit_type, minute_key, hour_key, current_time
+                    user, limit_config, limit_type, minute_key, hour_key, current_time,
                 )
             else:
                 # Fallback to in-memory rate limiting
                 status = await self._check_memory_rate_limit(
-                    user, limit_config, limit_type, current_time
+                    user, limit_config, limit_type, current_time,
                 )
 
             # Log rate limit status for healthcare audit
@@ -237,13 +237,13 @@ class HealthcareRateLimiter:
                 logger.warning(
                     f"Rate limit exceeded - User: {user.user_id}, "
                     f"Role: {user.role.value}, Type: {limit_type.value}, "
-                    f"Retry after: {status.retry_after_seconds}s"
+                    f"Retry after: {status.retry_after_seconds}s",
                 )
 
             return status
 
         except Exception as e:
-            logger.error(f"Rate limit check failed: {e}")
+            logger.exception(f"Rate limit check failed: {e}")
             # Fail open for healthcare safety - allow request
             return RateLimitStatus(
                 allowed=True,
@@ -332,7 +332,7 @@ class HealthcareRateLimiter:
         )
 
     async def activate_emergency_bypass(
-        self, user: AuthenticatedUser, duration_minutes: int = 30, reason: str = "Medical emergency"
+        self, user: AuthenticatedUser, duration_minutes: int = 30, reason: str = "Medical emergency",
     ) -> bool:
         """
         Activate emergency bypass for healthcare user
@@ -344,12 +344,12 @@ class HealthcareRateLimiter:
             return False
 
         self.emergency_bypass_active[user.user_id] = datetime.now() + timedelta(
-            minutes=duration_minutes
+            minutes=duration_minutes,
         )
 
         logger.info(
             f"Emergency bypass activated - User: {user.user_id}, "
-            f"Duration: {duration_minutes}min, Reason: {reason}"
+            f"Duration: {duration_minutes}min, Reason: {reason}",
         )
 
         return True

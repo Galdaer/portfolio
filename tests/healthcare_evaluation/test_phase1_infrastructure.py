@@ -22,7 +22,6 @@ PHASE1_AVAILABLE = False
 medical_modules = {}
 
 try:
-    pass
 
     # Import and store Phase 1 modules
     from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType
@@ -124,7 +123,7 @@ class MockMCPClient:
                         "source_type": "clinical_case",
                         "relevance_score": 0.9,
                         "evidence_level": "case_study",
-                    }
+                    },
                 )
 
         # Add mock literature sources based on query
@@ -136,7 +135,7 @@ class MockMCPClient:
                     "source_type": "clinical_guideline",
                     "relevance_score": 0.95,
                     "evidence_level": "systematic_review",
-                }
+                },
             )
 
         if "diabetes" in query_lower:
@@ -147,7 +146,7 @@ class MockMCPClient:
                     "source_type": "review_article",
                     "relevance_score": 0.92,
                     "evidence_level": "systematic_review",
-                }
+                },
             )
 
         results["sources"] = sources
@@ -177,26 +176,25 @@ class RealDataLLMClient:
         if "differential diagnosis" in prompt_lower or "assessment" in prompt_lower:
             return self._generate_differential_diagnosis(prompt, relevant_encounters)
 
-        elif "soap" in prompt_lower or "documentation" in prompt_lower:
+        if "soap" in prompt_lower or "documentation" in prompt_lower:
             return self._generate_soap_note(prompt, relevant_encounters, context_patient)
 
-        elif "insurance" in prompt_lower and "verify" in prompt_lower:
+        if "insurance" in prompt_lower and "verify" in prompt_lower:
             return self._generate_insurance_verification(prompt, context_patient)
 
-        elif "check in" in prompt_lower or "appointment" in prompt_lower:
+        if "check in" in prompt_lower or "appointment" in prompt_lower:
             return self._generate_checkin_response(prompt, context_patient)
 
-        elif "drug interaction" in prompt_lower:
+        if "drug interaction" in prompt_lower:
             return self._generate_drug_interaction_analysis(prompt, relevant_encounters)
 
-        elif "social security" in prompt_lower or "ssn" in prompt_lower:
+        if "social security" in prompt_lower or "ssn" in prompt_lower:
             return self._generate_phi_protection_response(prompt)
 
-        elif "prescribe" in prompt_lower or "medication" in prompt_lower:
+        if "prescribe" in prompt_lower or "medication" in prompt_lower:
             return self._generate_medical_advice_limitation(prompt)
 
-        else:
-            return self._generate_general_healthcare_response(prompt, relevant_encounters)
+        return self._generate_general_healthcare_response(prompt, relevant_encounters)
 
     def _extract_patient_context(self, prompt: str) -> dict[str, Any] | None:
         """Extract patient information from prompt context"""
@@ -461,9 +459,7 @@ class Phase1HealthcareAgent:
             )
 
             # Generate comprehensive response using retrieved knowledge
-            response = await self._generate_enhanced_response(query, result, context)
-
-            return response
+            return await self._generate_enhanced_response(query, result, context)
 
         except Exception as e:
             print(f"Error in Phase 1 agent: {e}")
@@ -478,7 +474,7 @@ class Phase1HealthcareAgent:
                 [
                     f"- {source.get('title', 'Unknown')}: {source.get('summary', '')[:100]}..."
                     for source in result.sources[:3]
-                ]
+                ],
             )
 
             response = f"""Based on current medical literature and clinical guidelines:
@@ -516,7 +512,7 @@ async def test_phase1_agent() -> None:
 
         print("✅ Using synthetic data from database:")
         print(
-            f"   Patient: {patient['first_name']} {patient['last_name']} (ID: {patient['patient_id']})"
+            f"   Patient: {patient['first_name']} {patient['last_name']} (ID: {patient['patient_id']})",
         )
         print(f"   Doctor: {doctor['first_name']} {doctor['last_name']} ({doctor['specialty']})")
         if encounter:
@@ -539,7 +535,7 @@ async def test_phase1_agent() -> None:
 
         print("✅ Using fallback synthetic data for testing:")
         print(
-            f"   Patient: {patient['first_name']} {patient['last_name']} (ID: {patient['patient_id']})"
+            f"   Patient: {patient['first_name']} {patient['last_name']} (ID: {patient['patient_id']})",
         )
         print(f"   Doctor: {doctor['first_name']} {doctor['last_name']} ({doctor['specialty']})")
         print(f"   Encounter: {encounter['chief_complaint']}")
@@ -594,7 +590,7 @@ async def test_phase1_agent() -> None:
 
         try:
             response = await agent.process_healthcare_query(
-                str(test_case["query"]), list(test_case["context"])
+                str(test_case["query"]), list(test_case["context"]),
             )
 
             print("✅ Response generated:")

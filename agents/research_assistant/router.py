@@ -27,7 +27,7 @@ class ResearchRequest(BaseModel):
         description="Type of research: general_inquiry, differential_diagnosis, drug_interaction, literature_research",
     )
     clinical_context: dict[str, Any] = Field(
-        default_factory=dict, description="Clinical context for the research"
+        default_factory=dict, description="Clinical context for the research",
     )
     session_id: str = Field(default="default", description="Session identifier")
 
@@ -38,7 +38,7 @@ class ResearchRequest(BaseModel):
                 "query_type": "literature_research",
                 "clinical_context": {"specialty": "cardiology"},
                 "session_id": "research_session_001",
-            }
+            },
         }
 
 
@@ -47,7 +47,7 @@ class LiteratureSearchRequest(BaseModel):
 
     search_query: str = Field(..., description="Medical literature search query")
     search_context: dict[str, Any] = Field(
-        default_factory=dict, description="Additional search context"
+        default_factory=dict, description="Additional search context",
     )
 
     class Config:
@@ -55,7 +55,7 @@ class LiteratureSearchRequest(BaseModel):
             "example": {
                 "search_query": "diabetes management guidelines 2024",
                 "search_context": {"focus": "type_2_diabetes", "patient_age": "adult"},
-            }
+            },
         }
 
 
@@ -92,7 +92,7 @@ async def clinical_research(
         return result
 
     except Exception as e:
-        logger.error(f"Clinical research error: {e}")
+        logger.exception(f"Clinical research error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Research processing failed: {str(e)}",
@@ -139,7 +139,7 @@ async def literature_search(
         }
 
     except Exception as e:
-        logger.error(f"Literature search error: {e}")
+        logger.exception(f"Literature search error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Literature search failed: {str(e)}",

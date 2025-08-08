@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class OptimizedPubMedAPI:
     """Multi-core optimized PubMed API for high-performance medical data processing"""
 
-    def __init__(self, session_factory, max_workers: int = None):
+    def __init__(self, session_factory, max_workers: int | None = None):
         self.session_factory = session_factory
         self.downloader = PubMedDownloader()
         self.parser = OptimizedPubMedParser(max_workers=max_workers)
@@ -64,12 +64,12 @@ class OptimizedPubMedAPI:
             return articles
 
         except Exception as e:
-            logger.error(f"PubMed search failed: {e}")
+            logger.exception(f"PubMed search failed: {e}")
             raise
         finally:
             db.close()
 
-    async def update_recent_articles(self, quick_test: bool = False, max_files: int = None) -> dict:
+    async def update_recent_articles(self, quick_test: bool = False, max_files: int | None = None) -> dict:
         """
         Multi-core optimized update of recent PubMed articles
         Uses all available CPU cores for XML parsing and bulk database operations
@@ -81,7 +81,7 @@ class OptimizedPubMedAPI:
             source="pubmed",
             update_type="recent",
             started_at=datetime.utcnow(),
-            status="running"
+            status="running",
         )
         db.add(update_log)
         db.commit()
@@ -119,7 +119,7 @@ class OptimizedPubMedAPI:
                 logger.info(f"Deduplicating {len(all_articles)} articles by PMID...")
                 unique_articles = {}
                 for article in all_articles:
-                    pmid = article.get('pmid')
+                    pmid = article.get("pmid")
                     if pmid:
                         # Keep the most recent version if we see the same PMID multiple times
                         unique_articles[pmid] = article
@@ -140,9 +140,10 @@ class OptimizedPubMedAPI:
                 await self.bulk_update_search_vectors(db)
 
             # Update log
-            update_log.status = "success"
-            update_log.records_processed = total_processed
-            update_log.completed_at = datetime.utcnow()
+            setattr(update_log, 'status', "success")
+            setattr(update_log, 'records_processed', total_processed)
+            setattr(update_log, 'completed_at', datetime.utcnow())
+            db.merge(update_log)
             db.commit()
 
             logger.info(f"Optimized PubMed update completed: {total_processed} articles processed")
@@ -150,15 +151,16 @@ class OptimizedPubMedAPI:
                 "status": "success",
                 "records_processed": total_processed,
                 "files_processed": len(update_files),
-                "optimization": "multi-core parallel processing"
+                "optimization": "multi-core parallel processing",
             }
-
         except Exception as e:
-            logger.error(f"Optimized PubMed update failed: {e}")
-            update_log.status = "failed"
-            update_log.error_message = str(e)
-            update_log.completed_at = datetime.utcnow()
+            logger.exception(f"Optimized PubMed update failed: {e}")
+            setattr(update_log, 'status', "failed")
+            setattr(update_log, 'error_message', str(e))
+            setattr(update_log, 'completed_at', datetime.utcnow())
+            db.merge(update_log)
             db.commit()
+            raise
             raise
         finally:
             db.close()
@@ -177,17 +179,17 @@ class OptimizedPubMedAPI:
             # Prepare bulk UPSERT statement
             stmt = insert(PubMedArticle)
             stmt = stmt.on_conflict_do_update(
-                index_elements=['pmid'],
+                index_elements=["pmid"],
                 set_={
-                    'title': stmt.excluded.title,
-                    'abstract': stmt.excluded.abstract,
-                    'authors': stmt.excluded.authors,
-                    'journal': stmt.excluded.journal,
-                    'pub_date': stmt.excluded.pub_date,
-                    'doi': stmt.excluded.doi,
-                    'mesh_terms': stmt.excluded.mesh_terms,
-                    'updated_at': stmt.excluded.updated_at
-                }
+                    "title": stmt.excluded.title,
+                    "abstract": stmt.excluded.abstract,
+                    "authors": stmt.excluded.authors,
+                    "journal": stmt.excluded.journal,
+                    "pub_date": stmt.excluded.pub_date,
+                    "doi": stmt.excluded.doi,
+                    "mesh_terms": stmt.excluded.mesh_terms,
+                    "updated_at": stmt.excluded.updated_at,
+                },
             )
 
             # Process in batches for memory efficiency
@@ -211,7 +213,7 @@ class OptimizedPubMedAPI:
             return stored_count
 
         except Exception as e:
-            logger.error(f"Bulk storage failed: {e}")
+            logger.exception(f"Bulk storage failed: {e}")
             db.rollback()
             raise
 
@@ -241,7 +243,7 @@ class OptimizedPubMedAPI:
             logger.info("Bulk search vector update completed")
 
         except Exception as e:
-            logger.error(f"Bulk search vector update failed: {e}")
+            logger.exception(f"Bulk search vector update failed: {e}")
             db.rollback()
             raise
 
@@ -273,14 +275,14 @@ class OptimizedPubMedAPI:
                 "status": "active",
                 "total_articles": total_count,
                 "last_update": last_update_info,
-                "optimization": "multi-core parallel processing enabled"
+                "optimization": "multi-core parallel processing enabled",
             }
 
         finally:
             db.close()
 
     # Keep backward compatibility methods
-    async def trigger_update(self, quick_test: bool = False, max_files: int = None) -> dict:
+    async def trigger_update(self, quick_test: bool = False, max_files: int | None = None) -> dict:
         """Compatibility method - calls optimized update_recent_articles"""
         return await self.update_recent_articles(quick_test=quick_test, max_files=max_files)
 

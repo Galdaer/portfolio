@@ -4,6 +4,7 @@ Comprehensive security framework for healthcare AI systems with HIPAA compliance
 """
 
 import base64
+import contextlib
 import json
 import logging
 import os
@@ -32,20 +33,14 @@ else:
     HTTPException: Any | None = None
     Request: Any | None = None
 
-    try:
+    with contextlib.suppress(ImportError):
         import jwt
-    except ImportError:
-        pass
 
-    try:
+    with contextlib.suppress(ImportError):
         import psycopg2
-    except ImportError:
-        pass
 
-    try:
+    with contextlib.suppress(ImportError):
         import redis
-    except ImportError:
-        pass
 
     try:
         from cryptography.fernet import Fernet
@@ -54,10 +49,8 @@ else:
     except ImportError:
         pass
 
-    try:
+    with contextlib.suppress(ImportError):
         from fastapi import HTTPException, Request
-    except ImportError:
-        pass
 
 from src.healthcare_mcp.audit_logger import HealthcareAuditLogger
 from src.healthcare_mcp.phi_detection import PHIDetector
@@ -107,7 +100,7 @@ class EncryptionManager:
             if Fernet is not None:
                 if encryption_key:
                     self.fernet = Fernet(
-                        base64.urlsafe_b64encode(encryption_key[:32].ljust(32, b"\0"))
+                        base64.urlsafe_b64encode(encryption_key[:32].ljust(32, b"\0")),
                     )
                 else:
                     # Generate a key for development
@@ -122,7 +115,7 @@ class EncryptionManager:
         """Encrypt sensitive data"""
         if self.fernet is None:
             logger.warning(
-                "Encryption not available - returning data unencrypted (DEVELOPMENT ONLY)"
+                "Encryption not available - returning data unencrypted (DEVELOPMENT ONLY)",
             )
             return data
         encrypted_bytes: bytes = self.fernet.encrypt(data.encode())
@@ -161,11 +154,10 @@ class EncryptionManager:
                 key = kdf.derive(password.encode())
                 hashed = base64.urlsafe_b64encode(key).decode()
                 return hashed, salt
-            else:
-                raise ImportError("Cryptography library not available")
+            raise ImportError("Cryptography library not available")
         except Exception:
             logger.warning(
-                "Cryptography library not available - using basic hash (DEVELOPMENT ONLY)"
+                "Cryptography library not available - using basic hash (DEVELOPMENT ONLY)",
             )
             if salt is None:
                 salt = secrets.token_hex(16)
@@ -208,7 +200,7 @@ class SessionManager:
         # Store session in Redis with expiration - convert timedelta to seconds
         session_key = f"session:{session_id}"
         timeout_seconds = int(
-            timedelta(minutes=self.config.session_timeout_minutes).total_seconds()
+            timedelta(minutes=self.config.session_timeout_minutes).total_seconds(),
         )
         self.redis_conn.setex(session_key, timeout_seconds, json.dumps(session_data))
 
@@ -252,7 +244,7 @@ class SessionManager:
             return session
 
         except (json.JSONDecodeError, ValueError, TypeError, AttributeError) as e:
-            self.logger.error(f"Session validation failed: {e}")
+            self.logger.exception(f"Session validation failed: {e}")
             return None
 
     def invalidate_session(self, session_id: str) -> None:
@@ -281,7 +273,7 @@ class RateLimiter:
             if current_count_raw is None:
                 # First request in window
                 timeout_seconds = int(
-                    timedelta(minutes=self.config.rate_limit_window_minutes).total_seconds()
+                    timedelta(minutes=self.config.rate_limit_window_minutes).total_seconds(),
                 )
                 self.redis_conn.setex(key, timeout_seconds, "1")
                 return True
@@ -304,7 +296,7 @@ class RateLimiter:
             return True
 
         except (ValueError, TypeError, AttributeError) as e:
-            self.logger.error(f"Rate limit check failed: {e}")
+            self.logger.exception(f"Rate limit check failed: {e}")
             return True  # Fail open for availability
 
 
@@ -369,7 +361,7 @@ class HealthcareSecurityMiddleware:
                         created_at TIMESTAMP DEFAULT NOW(),
                         updated_at TIMESTAMP DEFAULT NOW()
                     )
-                """
+                """,
                 )
 
                 # Access control table
@@ -385,7 +377,7 @@ class HealthcareSecurityMiddleware:
                         ip_address INET,
                         timestamp TIMESTAMP DEFAULT NOW()
                     )
-                """
+                """,
                 )
 
                 # Security events table
@@ -400,14 +392,14 @@ class HealthcareSecurityMiddleware:
                         details JSONB,
                         timestamp TIMESTAMP DEFAULT NOW()
                     )
-                """
+                """,
                 )
 
             self.postgres_conn.commit()
             self.logger.info("Security tables initialized")
 
         except Exception as e:
-            self.logger.error(f"Failed to initialize security tables: {e}")
+            self.logger.exception(f"Failed to initialize security tables: {e}")
             raise
 
     async def authenticate_request(self, request: Request) -> dict[str, Any] | None:
@@ -422,7 +414,7 @@ class HealthcareSecurityMiddleware:
         # Validate JWT token
         try:
             payload = jwt.decode(
-                token, self.config.jwt_secret, algorithms=[self.config.jwt_algorithm]
+                token, self.config.jwt_secret, algorithms=[self.config.jwt_algorithm],
             )
 
             user_id = payload.get("user_id")
@@ -476,7 +468,7 @@ class HealthcareSecurityMiddleware:
         return has_access
 
     async def _log_access_attempt(
-        self, user_id: str, resource: str, action: str, granted: bool
+        self, user_id: str, resource: str, action: str, granted: bool,
     ) -> None:
         """Log access attempt for audit"""
         try:
@@ -491,7 +483,7 @@ class HealthcareSecurityMiddleware:
                 )
             self.postgres_conn.commit()
         except Exception as e:
-            self.logger.error(f"Failed to log access attempt: {e}")
+            self.logger.exception(f"Failed to log access attempt: {e}")
 
     async def log_security_event(
         self,
@@ -513,7 +505,7 @@ class HealthcareSecurityMiddleware:
                 )
             self.postgres_conn.commit()
         except Exception as e:
-            self.logger.error(f"Failed to log security event: {e}")
+            self.logger.exception(f"Failed to log security event: {e}")
 
 
 def require_authentication(security_middleware: HealthcareSecurityMiddleware) -> Callable:

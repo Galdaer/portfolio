@@ -5,7 +5,7 @@ Provides search functionality matching Healthcare MCP interface
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from database import FDADrug, UpdateLog
 from fda.downloader import FDADownloader
@@ -25,14 +25,14 @@ class FDAAPI:
         self.parser = FDAParser()
 
     async def search_drugs(
-        self, generic_name: Optional[str] = None, ndc: Optional[str] = None, max_results: int = 10
-    ) -> List[Dict[str, Any]]:
+        self, generic_name: str | None = None, ndc: str | None = None, max_results: int = 10,
+    ) -> list[dict[str, Any]]:
         """
         Search FDA drugs in local database
         Matches the interface of Healthcare MCP get-drug-info tool
         """
         logger.info(
-            f"Searching FDA drugs for generic_name: {generic_name}, ndc: {ndc}, max_results: {max_results}"
+            f"Searching FDA drugs for generic_name: {generic_name}, ndc: {ndc}, max_results: {max_results}",
         )
 
         db = self.session_factory()
@@ -40,7 +40,7 @@ class FDAAPI:
             # Build search query
             query_parts = []
             params: dict[str, str] = {
-                "limit": str(max_results)
+                "limit": str(max_results),
             }
 
             if generic_name:
@@ -105,7 +105,7 @@ class FDAAPI:
             return drugs
 
         except Exception as e:
-            logger.error(f"FDA search failed: {e}")
+            logger.exception(f"FDA search failed: {e}")
             raise
         finally:
             db.close()
@@ -150,15 +150,13 @@ class FDAAPI:
                 .first()
             )
 
-            status = {
+            return {
                 "source": "fda",
                 "total_drugs": total_count,
                 "status": "healthy" if total_count > 0 else "empty",
                 "last_update": last_update.started_at.isoformat() if last_update else None,
                 "last_update_status": last_update.status if last_update else None,
             }
-
-            return status
 
         finally:
             db.close()
@@ -171,6 +169,7 @@ class FDAAPI:
             logger.info("Triggering FDA data update")
 
         db = self.session_factory()
+        update_log = None
         try:
             # Log update start
             update_log = UpdateLog(
@@ -198,9 +197,9 @@ class FDAAPI:
                 total_processed += processed
 
             # Update log
-            update_log.status = "success"
-            update_log.records_processed = total_processed
-            update_log.completed_at = datetime.utcnow()
+            setattr(update_log, 'status', "success")
+            setattr(update_log, 'records_processed', total_processed)
+            setattr(update_log, 'completed_at', datetime.utcnow())
             db.commit()
 
             logger.info(f"FDA update completed: {total_processed} drugs processed")
@@ -209,13 +208,14 @@ class FDAAPI:
                 "records_processed": total_processed,
                 "datasets_processed": len(fda_data_dirs),
             }
-
         except Exception as e:
-            logger.error(f"FDA update failed: {e}")
-            update_log.status = "failed"
-            update_log.error_message = str(e)
-            update_log.completed_at = datetime.utcnow()
-            db.commit()
+            logger.exception(f"FDA update failed: {e}")
+            if update_log is not None:
+                setattr(update_log, 'status', "failed")
+                setattr(update_log, 'error_message', str(e))
+                setattr(update_log, 'completed_at', datetime.utcnow())
+                db.commit()
+            raise
             raise
         finally:
             db.close()
@@ -272,7 +272,7 @@ class FDAAPI:
             return processed_count
 
         except Exception as e:
-            logger.error(f"Failed to process dataset {dataset_name}: {e}")
+            logger.exception(f"Failed to process dataset {dataset_name}: {e}")
             return processed_count
 
     async def store_drugs(self, drugs: list[dict], db: Session) -> int:
@@ -303,26 +303,26 @@ class FDAAPI:
                     "approval_date": drug_data.get("approval_date"),
                     "orange_book_code": drug_data.get("orange_book_code", ""),
                     "therapeutic_class": drug_data.get("therapeutic_class", ""),
-                    "updated_at": datetime.utcnow()
+                    "updated_at": datetime.utcnow(),
                 }
 
                 # Create UPSERT statement
                 stmt = insert(FDADrug).values(insert_data)
                 stmt = stmt.on_conflict_do_update(
-                    index_elements=['ndc'],
+                    index_elements=["ndc"],
                     set_={
-                        'name': stmt.excluded.name,
-                        'generic_name': stmt.excluded.generic_name,
-                        'brand_name': stmt.excluded.brand_name,
-                        'manufacturer': stmt.excluded.manufacturer,
-                        'ingredients': stmt.excluded.ingredients,
-                        'dosage_form': stmt.excluded.dosage_form,
-                        'route': stmt.excluded.route,
-                        'approval_date': stmt.excluded.approval_date,
-                        'orange_book_code': stmt.excluded.orange_book_code,
-                        'therapeutic_class': stmt.excluded.therapeutic_class,
-                        'updated_at': stmt.excluded.updated_at
-                    }
+                        "name": stmt.excluded.name,
+                        "generic_name": stmt.excluded.generic_name,
+                        "brand_name": stmt.excluded.brand_name,
+                        "manufacturer": stmt.excluded.manufacturer,
+                        "ingredients": stmt.excluded.ingredients,
+                        "dosage_form": stmt.excluded.dosage_form,
+                        "route": stmt.excluded.route,
+                        "approval_date": stmt.excluded.approval_date,
+                        "orange_book_code": stmt.excluded.orange_book_code,
+                        "therapeutic_class": stmt.excluded.therapeutic_class,
+                        "updated_at": stmt.excluded.updated_at,
+                    },
                 )
 
                 db.execute(stmt)
@@ -334,7 +334,7 @@ class FDAAPI:
                     logger.info(f"Stored batch: {stored_count} drugs")
 
             except Exception as e:
-                logger.error(f"Failed to store drug {drug_data.get('ndc', 'unknown')}: {e}")
+                logger.exception(f"Failed to store drug {drug_data.get('ndc', 'unknown')}: {e}")
                 db.rollback()
                 # Continue processing other drugs instead of failing completely
 
@@ -343,7 +343,7 @@ class FDAAPI:
             db.commit()
             logger.info(f"Successfully stored {stored_count} FDA drugs")
         except Exception as e:
-            logger.error(f"Final commit failed: {e}")
+            logger.exception(f"Final commit failed: {e}")
             db.rollback()
 
         # Update search vectors
@@ -372,7 +372,7 @@ class FDAAPI:
             logger.info("Updated search vectors for FDA drugs")
 
         except Exception as e:
-            logger.error(f"Failed to update search vectors: {e}")
+            logger.exception(f"Failed to update search vectors: {e}")
             db.rollback()
 
     async def initialize_data(self) -> dict:
@@ -405,7 +405,7 @@ class FDAAPI:
             }
 
         except Exception as e:
-            logger.error(f"FDA initialization failed: {e}")
+            logger.exception(f"FDA initialization failed: {e}")
             raise
         finally:
             db.close()

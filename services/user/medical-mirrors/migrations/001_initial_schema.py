@@ -23,21 +23,21 @@ def create_database_indexes():
             text("""
             CREATE INDEX IF NOT EXISTS idx_pubmed_search_vector
             ON pubmed_articles USING GIN(search_vector)
-        """)
+        """),
         )
 
         conn.execute(
             text("""
             CREATE INDEX IF NOT EXISTS idx_pubmed_pmid
             ON pubmed_articles(pmid)
-        """)
+        """),
         )
 
         conn.execute(
             text("""
             CREATE INDEX IF NOT EXISTS idx_pubmed_pub_date
             ON pubmed_articles(pub_date)
-        """)
+        """),
         )
 
         # Clinical trials indexes
@@ -45,28 +45,28 @@ def create_database_indexes():
             text("""
             CREATE INDEX IF NOT EXISTS idx_trials_search_vector
             ON clinical_trials USING GIN(search_vector)
-        """)
+        """),
         )
 
         conn.execute(
             text("""
             CREATE INDEX IF NOT EXISTS idx_trials_nct_id
             ON clinical_trials(nct_id)
-        """)
+        """),
         )
 
         conn.execute(
             text("""
             CREATE INDEX IF NOT EXISTS idx_trials_status
             ON clinical_trials(status)
-        """)
+        """),
         )
 
         conn.execute(
             text("""
             CREATE INDEX IF NOT EXISTS idx_trials_conditions
             ON clinical_trials USING GIN(conditions)
-        """)
+        """),
         )
 
         # FDA drugs indexes
@@ -74,28 +74,28 @@ def create_database_indexes():
             text("""
             CREATE INDEX IF NOT EXISTS idx_fda_search_vector
             ON fda_drugs USING GIN(search_vector)
-        """)
+        """),
         )
 
         conn.execute(
             text("""
             CREATE INDEX IF NOT EXISTS idx_fda_ndc
             ON fda_drugs(ndc)
-        """)
+        """),
         )
 
         conn.execute(
             text("""
             CREATE INDEX IF NOT EXISTS idx_fda_generic_name
             ON fda_drugs(generic_name)
-        """)
+        """),
         )
 
         conn.execute(
             text("""
             CREATE INDEX IF NOT EXISTS idx_fda_brand_name
             ON fda_drugs(brand_name)
-        """)
+        """),
         )
 
         # Update logs indexes
@@ -103,7 +103,7 @@ def create_database_indexes():
             text("""
             CREATE INDEX IF NOT EXISTS idx_update_logs_source_date
             ON update_logs(source, started_at DESC)
-        """)
+        """),
         )
 
         conn.commit()
@@ -133,7 +133,7 @@ def create_database_functions():
                 RETURN NEW;
             END
             $$ LANGUAGE plpgsql;
-        """)
+        """),
         )
 
         # Clinical trials search vector update function
@@ -152,7 +152,7 @@ def create_database_functions():
                 RETURN NEW;
             END
             $$ LANGUAGE plpgsql;
-        """)
+        """),
         )
 
         # FDA drugs search vector update function
@@ -172,7 +172,7 @@ def create_database_functions():
                 RETURN NEW;
             END
             $$ LANGUAGE plpgsql;
-        """)
+        """),
         )
 
         conn.commit()
@@ -193,7 +193,7 @@ def create_database_triggers():
             CREATE TRIGGER pubmed_search_vector_trigger
             BEFORE INSERT OR UPDATE ON pubmed_articles
             FOR EACH ROW EXECUTE FUNCTION update_pubmed_search_vector();
-        """)
+        """),
         )
 
         # Clinical trials triggers
@@ -203,7 +203,7 @@ def create_database_triggers():
             CREATE TRIGGER trials_search_vector_trigger
             BEFORE INSERT OR UPDATE ON clinical_trials
             FOR EACH ROW EXECUTE FUNCTION update_trials_search_vector();
-        """)
+        """),
         )
 
         # FDA drugs triggers
@@ -213,7 +213,7 @@ def create_database_triggers():
             CREATE TRIGGER fda_search_vector_trigger
             BEFORE INSERT OR UPDATE ON fda_drugs
             FOR EACH ROW EXECUTE FUNCTION update_fda_search_vector();
-        """)
+        """),
         )
 
         conn.commit()
@@ -242,7 +242,7 @@ def migrate_database():
         logger.info("Database migration completed successfully")
 
     except Exception as e:
-        logger.error(f"Database migration failed: {e}")
+        logger.exception(f"Database migration failed: {e}")
         raise
 
 

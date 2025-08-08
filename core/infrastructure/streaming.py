@@ -53,7 +53,7 @@ class HealthcareStreamer:
         logger.info("Healthcare streamer initialized")
 
     async def create_medical_literature_stream(
-        self, query: str, user_id: str, session_id: str, max_results: int = 10
+        self, query: str, user_id: str, session_id: str, max_results: int = 10,
     ) -> AsyncGenerator[str, None]:
         """
         Stream medical literature search results as they arrive
@@ -82,7 +82,7 @@ class HealthcareStreamer:
                     medical_context="literature_search",
                     user_id=user_id,
                     session_id=session_id,
-                )
+                ),
             )
 
             # Simulate literature search progress
@@ -109,7 +109,7 @@ class HealthcareStreamer:
                         medical_context="literature_search",
                         user_id=user_id,
                         session_id=session_id,
-                    )
+                    ),
                 )
 
                 await asyncio.sleep(0.5)  # Simulate processing time
@@ -152,7 +152,7 @@ class HealthcareStreamer:
                         medical_context="literature_search",
                         user_id=user_id,
                         session_id=session_id,
-                    )
+                    ),
                 )
 
                 await asyncio.sleep(0.3)  # Simulate result processing
@@ -171,11 +171,11 @@ class HealthcareStreamer:
                     medical_context="literature_search",
                     user_id=user_id,
                     session_id=session_id,
-                )
+                ),
             )
 
         except Exception as e:
-            logger.error(f"Error in literature stream {stream_id}: {e}")
+            logger.exception(f"Error in literature stream {stream_id}: {e}")
             yield self._format_sse_event(
                 StreamingEvent(
                     event_type=StreamingEventType.ERROR,
@@ -184,13 +184,13 @@ class HealthcareStreamer:
                     medical_context="literature_search",
                     user_id=user_id,
                     session_id=session_id,
-                )
+                ),
             )
         finally:
             self.active_streams.pop(stream_id, None)
 
     async def create_ai_reasoning_stream(
-        self, medical_query: str, user_id: str, session_id: str
+        self, medical_query: str, user_id: str, session_id: str,
     ) -> AsyncGenerator[str, None]:
         """
         Stream AI reasoning steps for medical query processing
@@ -217,7 +217,7 @@ class HealthcareStreamer:
                     medical_context="ai_reasoning",
                     user_id=user_id,
                     session_id=session_id,
-                )
+                ),
             )
 
             # Reasoning steps
@@ -261,7 +261,7 @@ class HealthcareStreamer:
                         medical_context="ai_reasoning",
                         user_id=user_id,
                         session_id=session_id,
-                    )
+                    ),
                 )
 
                 await asyncio.sleep(0.8)  # Simulate reasoning time
@@ -280,11 +280,11 @@ class HealthcareStreamer:
                     medical_context="ai_reasoning",
                     user_id=user_id,
                     session_id=session_id,
-                )
+                ),
             )
 
         except Exception as e:
-            logger.error(f"Error in reasoning stream {stream_id}: {e}")
+            logger.exception(f"Error in reasoning stream {stream_id}: {e}")
             yield self._format_sse_event(
                 StreamingEvent(
                     event_type=StreamingEventType.ERROR,
@@ -293,13 +293,13 @@ class HealthcareStreamer:
                     medical_context="ai_reasoning",
                     user_id=user_id,
                     session_id=session_id,
-                )
+                ),
             )
         finally:
             self.active_streams.pop(stream_id, None)
 
     async def create_document_processing_stream(
-        self, document_type: str, user_id: str, session_id: str
+        self, document_type: str, user_id: str, session_id: str,
     ) -> AsyncGenerator[str, None]:
         """
         Stream document processing progress for medical documents
@@ -338,7 +338,7 @@ class HealthcareStreamer:
                         medical_context="document_processing",
                         user_id=user_id,
                         session_id=session_id,
-                    )
+                    ),
                 )
 
                 await asyncio.sleep(1.0)  # Simulate processing time
@@ -358,11 +358,11 @@ class HealthcareStreamer:
                     medical_context="document_processing",
                     user_id=user_id,
                     session_id=session_id,
-                )
+                ),
             )
 
         except Exception as e:
-            logger.error(f"Error in document processing stream {stream_id}: {e}")
+            logger.exception(f"Error in document processing stream {stream_id}: {e}")
             yield self._format_sse_event(
                 StreamingEvent(
                     event_type=StreamingEventType.ERROR,
@@ -371,7 +371,7 @@ class HealthcareStreamer:
                     medical_context="document_processing",
                     user_id=user_id,
                     session_id=session_id,
-                )
+                ),
             )
         finally:
             self.active_streams.pop(stream_id, None)
@@ -417,7 +417,7 @@ def get_healthcare_streamer() -> HealthcareStreamer:
 
 # Helper functions for creating streaming responses
 async def stream_medical_literature_search(
-    query: str, user_id: str, session_id: str, max_results: int = 10
+    query: str, user_id: str, session_id: str, max_results: int = 10,
 ) -> StreamingResponse:
     """Create streaming response for medical literature search"""
     streamer = get_healthcare_streamer()
@@ -434,7 +434,7 @@ async def stream_medical_literature_search(
 
 
 async def stream_ai_reasoning(
-    medical_query: str, user_id: str, session_id: str
+    medical_query: str, user_id: str, session_id: str,
 ) -> StreamingResponse:
     """Create streaming response for AI reasoning transparency"""
     streamer = get_healthcare_streamer()
@@ -451,7 +451,7 @@ async def stream_ai_reasoning(
 
 
 async def stream_document_processing(
-    document_type: str, user_id: str, session_id: str
+    document_type: str, user_id: str, session_id: str,
 ) -> StreamingResponse:
     """Create streaming response for document processing"""
     streamer = get_healthcare_streamer()

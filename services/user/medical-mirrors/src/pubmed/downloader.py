@@ -8,9 +8,9 @@ import gzip
 import logging
 import os
 import time
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 
-from .config import Config
+from ..config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class PubMedDownloader:
             yield ftp
 
         except ftplib.all_errors as e:
-            logger.error(f"FTP connection error: {e}")
+            logger.exception(f"FTP connection error: {e}")
             raise
         finally:
             if ftp:
@@ -57,12 +57,10 @@ class PubMedDownloader:
                     logger.debug("FTP connection closed")
                 except Exception:
                     # Force close if quit fails
-                    try:
+                    with suppress(Exception):
                         ftp.close()
-                    except Exception:
-                        pass
 
-    def retry_operation(self, operation_name: str, operation_func, *args, **kwargs):
+    def retry_operation(self, operation_name: str, operation_func, *args, **kwargs) -> list[str]:
         """Retry an operation with exponential backoff"""
         for attempt in range(self.max_retries):
             try:
@@ -70,25 +68,27 @@ class PubMedDownloader:
                 return operation_func(*args, **kwargs)
             except Exception as e:
                 if attempt == self.max_retries - 1:
-                    logger.error(f"{operation_name} failed after {self.max_retries} attempts: {e}")
+                    logger.exception(f"{operation_name} failed after {self.max_retries} attempts: {e}")
                     raise
 
                 wait_time = self.retry_delay * (2 ** attempt)
                 logger.warning(f"{operation_name} failed (attempt {attempt + 1}): {e}, retrying in {wait_time}s")
                 time.sleep(wait_time)
 
+        # This should never be reached due to the raise in the loop, but ensures type safety
+        return []
+
     async def download_baseline(self) -> list[str]:
         """Download PubMed baseline files with robust error handling"""
         logger.info("Starting PubMed baseline download")
-
-        def download_operation():
+        def download_operation() -> list[str]:
             with self.ftp_connection(self.connection_timeout) as ftp:
                 # Change to baseline directory
                 ftp.cwd(self.ftp_path)
                 logger.info(f"Changed to directory: {self.ftp_path}")
 
                 # Get list of baseline files
-                files = []
+                files: list[str] = []
                 ftp.retrlines("NLST", files.append)
                 xml_files = [f for f in files if f.endswith(".xml.gz")]
 
@@ -96,6 +96,7 @@ class PubMedDownloader:
 
                 # Download first few files for testing (adjust as needed)
                 recent_files = xml_files[:5]  # Download first 5 for testing
+                downloaded_files: list[str] = []
                 downloaded_files = []
 
                 for i, file in enumerate(recent_files, 1):
@@ -104,7 +105,8 @@ class PubMedDownloader:
                         logger.info(f"Downloading baseline file {i}/{len(recent_files)}: {file}")
 
                         # Set longer timeout for large file downloads
-                        ftp.sock.settimeout(self.download_timeout)
+                        if hasattr(ftp, "sock") and ftp.sock:
+                            ftp.sock.settimeout(self.download_timeout)
 
                         with open(local_path, "wb") as local_file:
                             ftp.retrbinary(f"RETR {file}", local_file.write)
@@ -123,21 +125,20 @@ class PubMedDownloader:
             return downloaded_files
 
         except Exception as e:
-            logger.error(f"PubMed baseline download failed: {e}")
+            logger.exception(f"PubMed baseline download failed: {e}")
             raise
 
     async def download_updates(self) -> list[str]:
         """Download PubMed update files with robust error handling"""
         logger.info("Starting PubMed updates download")
-
-        def download_operation():
+        def download_operation() -> list[str]:
             with self.ftp_connection(self.connection_timeout) as ftp:
                 # Change to updates directory
                 ftp.cwd(self.update_path)
                 logger.info(f"Changed to directory: {self.update_path}")
 
                 # Get list of update files
-                files = []
+                files: list[str] = []
                 ftp.retrlines("NLST", files.append)
                 xml_files = [f for f in files if f.endswith(".xml.gz")]
 
@@ -145,6 +146,7 @@ class PubMedDownloader:
                 recent_files = xml_files[-50:] if len(xml_files) > 50 else xml_files
                 logger.info(f"Found {len(recent_files)} recent update files")
 
+                downloaded_files: list[str] = []
                 downloaded_files = []
                 for i, file in enumerate(recent_files, 1):
                     local_path = os.path.join(self.data_dir, f"updates_{file}")
@@ -152,7 +154,8 @@ class PubMedDownloader:
                         logger.info(f"Downloading update file {i}/{len(recent_files)}: {file}")
 
                         # Set longer timeout for large file downloads
-                        ftp.sock.settimeout(self.download_timeout)
+                        if hasattr(ftp, "sock") and ftp.sock:
+                            ftp.sock.settimeout(self.download_timeout)
 
                         with open(local_path, "wb") as local_file:
                             ftp.retrbinary(f"RETR {file}", local_file.write)
@@ -171,7 +174,7 @@ class PubMedDownloader:
             return downloaded_files
 
         except Exception as e:
-            logger.error(f"PubMed updates download failed: {e}")
+            logger.exception(f"PubMed updates download failed: {e}")
             raise
 
     def extract_xml_file(self, gz_file_path: str) -> str:
@@ -190,7 +193,7 @@ class PubMedDownloader:
             return extracted_path
 
         except Exception as e:
-            logger.error(f"Failed to extract {gz_file_path}: {e}")
+            logger.exception(f"Failed to extract {gz_file_path}: {e}")
             raise
 
     async def get_available_files(self) -> list[str]:

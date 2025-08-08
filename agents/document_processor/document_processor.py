@@ -138,11 +138,11 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
             return self._format_processing_response(result, session_id)
 
         except Exception as e:
-            logger.error(f"Document processing error: {e}")
+            logger.exception(f"Document processing error: {e}")
             return self._create_error_response(f"Document processing failed: {str(e)}", session_id)
 
     async def _process_soap_note(
-        self, document_data: dict[str, Any], session_id: str
+        self, document_data: dict[str, Any], session_id: str,
     ) -> DocumentProcessingResult:
         """
         Process SOAP note formatting with administrative structure validation
@@ -213,7 +213,7 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
         )
 
     async def _process_medical_form(
-        self, document_data: dict[str, Any], session_id: str
+        self, document_data: dict[str, Any], session_id: str,
     ) -> DocumentProcessingResult:
         """
         Process medical form formatting with administrative validation
@@ -281,7 +281,7 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
         )
 
     async def _process_patient_summary(
-        self, document_data: dict[str, Any], session_id: str
+        self, document_data: dict[str, Any], session_id: str,
     ) -> DocumentProcessingResult:
         """
         Process patient summary formatting with administrative organization
@@ -346,7 +346,7 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
         )
 
     async def _process_clinical_note(
-        self, document_data: dict[str, Any], session_id: str
+        self, document_data: dict[str, Any], session_id: str,
     ) -> DocumentProcessingResult:
         """
         Process clinical note formatting with administrative structure
@@ -413,7 +413,7 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
         )
 
     async def _process_general_document(
-        self, document_data: dict[str, Any], session_id: str
+        self, document_data: dict[str, Any], session_id: str,
     ) -> DocumentProcessingResult:
         """
         Process general healthcare document with basic formatting
@@ -449,13 +449,13 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
         for line in lines:
             line_lower = line.lower().strip()
 
-            if line_lower.startswith("subjective") or line_lower.startswith("s:"):
+            if line_lower.startswith(("subjective", "s:")):
                 current_section = "subjective"
-            elif line_lower.startswith("objective") or line_lower.startswith("o:"):
+            elif line_lower.startswith(("objective", "o:")):
                 current_section = "objective"
-            elif line_lower.startswith("assessment") or line_lower.startswith("a:"):
+            elif line_lower.startswith(("assessment", "a:")):
                 current_section = "assessment"
-            elif line_lower.startswith("plan") or line_lower.startswith("p:"):
+            elif line_lower.startswith(("plan", "p:")):
                 current_section = "plan"
             elif current_section and line.strip():
                 sections[current_section] += line + "\n"
@@ -503,7 +503,7 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
         return templates.get(form_type, templates["general"])
 
     def _format_medical_form(
-        self, form_data: dict[str, Any], template: dict[str, Any]
+        self, form_data: dict[str, Any], template: dict[str, Any],
     ) -> dict[str, Any]:
         """Format medical form according to template"""
         formatted_form = {
@@ -526,10 +526,10 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
         return formatted_form
 
     def _format_patient_summary(
-        self, patient_data: dict[str, Any], summary_type: str
+        self, patient_data: dict[str, Any], summary_type: str,
     ) -> dict[str, Any]:
         """Format patient summary with administrative organization"""
-        formatted_summary = {
+        return {
             "header": {
                 "summary_type": summary_type,
                 "patient_id": patient_data.get("patient_id", ""),
@@ -546,11 +546,10 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
             },
         }
 
-        return formatted_summary
 
     def _format_clinical_note(self, content: str, note_type: str) -> dict[str, Any]:
         """Format clinical note with administrative structure"""
-        formatted_note = {
+        return {
             "header": {
                 "note_type": note_type,
                 "created_at": datetime.utcnow().isoformat(),
@@ -565,7 +564,6 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
             },
         }
 
-        return formatted_note
 
     def _structure_note_content(self, content: str) -> dict[str, Any]:
         """Structure note content into organized sections (administrative tool)"""
@@ -584,7 +582,7 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
         return f"DOC_{doc_type.upper()}_{timestamp}"
 
     def _format_processing_response(
-        self, result: DocumentProcessingResult, session_id: str
+        self, result: DocumentProcessingResult, session_id: str,
     ) -> dict[str, Any]:
         """Format processing result for API response"""
         return {

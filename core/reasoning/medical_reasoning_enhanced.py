@@ -116,7 +116,7 @@ class EnhancedMedicalReasoning:
             # Perform iterative reasoning
             for iteration in range(max_iterations):
                 step = await self._perform_reasoning_step(
-                    clinical_scenario, reasoning_type_enum, iteration + 1
+                    clinical_scenario, reasoning_type_enum, iteration + 1,
                 )
                 steps.append(step)
 
@@ -188,7 +188,7 @@ class EnhancedMedicalReasoning:
             # Apply reasoning type-specific analysis
             if reasoning_type == ReasoningType.DIFFERENTIAL_DIAGNOSIS:
                 analysis_data.update(
-                    await self._analyze_differential_diagnosis_step(clinical_scenario)
+                    await self._analyze_differential_diagnosis_step(clinical_scenario),
                 )
             elif reasoning_type == ReasoningType.DRUG_INTERACTION:
                 analysis_data.update(await self._analyze_drug_interactions_step(clinical_scenario))
@@ -238,7 +238,7 @@ class EnhancedMedicalReasoning:
             )
 
     async def _analyze_differential_diagnosis_step(
-        self, scenario: dict[str, Any]
+        self, scenario: dict[str, Any],
     ) -> dict[str, Any]:
         """Analyze differential diagnosis possibilities"""
         symptoms = scenario.get("symptoms", [])
@@ -295,15 +295,13 @@ class EnhancedMedicalReasoning:
         """Systematic symptom analysis"""
         symptoms = scenario.get("symptoms", [])
 
-        analysis = {
+        return {
             "symptom_clusters": self._group_related_symptoms(symptoms),
             "severity_assessment": self._assess_symptom_severity(symptoms),
             "temporal_patterns": self._analyze_symptom_timeline(scenario),
             "red_flags": self._identify_red_flag_symptoms(symptoms),
             "sources": ["Clinical symptom analysis", "Medical assessment guidelines"],
         }
-
-        return analysis
 
     async def _analyze_treatment_options_step(self, scenario: dict[str, Any]) -> dict[str, Any]:
         """Analyze treatment options based on clinical scenario"""
@@ -315,7 +313,7 @@ class EnhancedMedicalReasoning:
         # Generate evidence-based treatment recommendations
         if condition:
             treatment_options = self._get_treatment_options_for_condition(
-                condition, patient_factors
+                condition, patient_factors,
             )
 
         return {
@@ -344,7 +342,7 @@ class EnhancedMedicalReasoning:
         }
 
     def _calculate_step_confidence(
-        self, analysis_data: dict[str, Any], reasoning_type: ReasoningType
+        self, analysis_data: dict[str, Any], reasoning_type: ReasoningType,
     ) -> float:
         """Calculate confidence score for reasoning step"""
         base_confidence = 0.6
@@ -526,10 +524,9 @@ class EnhancedMedicalReasoning:
 
         if "sudden" in onset or "acute" in onset:
             return "acute"
-        elif "gradual" in onset or "progressive" in onset:
+        if "gradual" in onset or "progressive" in onset:
             return "chronic"
-        else:
-            return "indeterminate"
+        return "indeterminate"
 
     def _identify_red_flag_symptoms(self, symptoms: list[str]) -> list[str]:
         """Identify symptoms that require immediate attention"""
@@ -552,7 +549,7 @@ class EnhancedMedicalReasoning:
         return red_flags
 
     def _get_treatment_options_for_condition(
-        self, condition: str, patient_factors: dict
+        self, condition: str, patient_factors: dict,
     ) -> list[dict]:
         """Get treatment options for a specific condition"""
         # Basic treatment guidelines - would be expanded with real medical databases
@@ -600,7 +597,7 @@ class EnhancedMedicalReasoning:
                     "treatment": "Consultation with specialist",
                     "first_line": True,
                     "considerations": "Individual assessment needed",
-                }
+                },
             ],
         )
 
@@ -687,7 +684,7 @@ class EnhancedMedicalReasoning:
         return observations or ["Limited clinical information available"]
 
     async def _generate_final_analysis(
-        self, steps: list[ReasoningStep], reasoning_type: ReasoningType
+        self, steps: list[ReasoningStep], reasoning_type: ReasoningType,
     ) -> dict[str, Any]:
         """
         Generate comprehensive final analysis from reasoning steps
@@ -736,7 +733,7 @@ class EnhancedMedicalReasoning:
         }
 
     def _create_reasoning_summary(
-        self, steps: list[ReasoningStep], reasoning_type: ReasoningType
+        self, steps: list[ReasoningStep], reasoning_type: ReasoningType,
     ) -> str:
         """Create a comprehensive reasoning summary"""
         summary_parts = [f"Completed {len(steps)} reasoning steps for {reasoning_type.value}."]
@@ -754,14 +751,13 @@ class EnhancedMedicalReasoning:
         """Interpret numerical confidence as descriptive assessment"""
         if confidence >= 0.8:
             return "High confidence - multiple reliable sources and clear clinical patterns"
-        elif confidence >= 0.6:
+        if confidence >= 0.6:
             return "Moderate confidence - some supporting evidence with reasonable clinical correlation"
-        elif confidence >= 0.4:
+        if confidence >= 0.4:
             return "Low-moderate confidence - limited evidence requiring additional evaluation"
-        else:
-            return (
-                "Low confidence - insufficient evidence, requires comprehensive clinical assessment"
-            )
+        return (
+            "Low confidence - insufficient evidence, requires comprehensive clinical assessment"
+        )
 
     def _generate_next_steps(self, reasoning_type: ReasoningType, confidence: float) -> list[str]:
         """Generate appropriate next steps based on reasoning type and confidence"""
@@ -773,7 +769,7 @@ class EnhancedMedicalReasoning:
                     "Consider additional diagnostic testing",
                     "Review patient history comprehensively",
                     "Perform focused physical examination",
-                ]
+                ],
             )
         elif reasoning_type == ReasoningType.DRUG_INTERACTION:
             base_steps.extend(
@@ -781,7 +777,7 @@ class EnhancedMedicalReasoning:
                     "Review all medications with pharmacist",
                     "Monitor for interaction symptoms",
                     "Consider alternative medications if needed",
-                ]
+                ],
             )
         elif reasoning_type == ReasoningType.TREATMENT_OPTIONS:
             base_steps.extend(
@@ -789,7 +785,7 @@ class EnhancedMedicalReasoning:
                     "Discuss treatment options with patient",
                     "Consider patient preferences and contraindications",
                     "Establish monitoring plan",
-                ]
+                ],
             )
 
         if confidence < 0.5:
@@ -825,7 +821,7 @@ class EnhancedMedicalReasoning:
                         "step": step.step_number,
                         "confidence": step.confidence,
                         "reasoning_type": step.reasoning_type,
-                    }
+                    },
                 )
         return evidence_sources
 

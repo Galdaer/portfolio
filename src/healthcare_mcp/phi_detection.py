@@ -45,7 +45,7 @@ REDACTION_LENGTH_THRESHOLD = 100  # Minimum length for value redaction in error 
 
 
 def apply_replacements_in_reverse(
-    replacements: list[tuple[int, int, str]], text: str, batch_size: int = 500
+    replacements: list[tuple[int, int, str]], text: str, batch_size: int = 500,
 ) -> str:
     """
     Apply text replacements in reverse order with batching for large texts
@@ -70,19 +70,19 @@ def apply_replacements_in_reverse(
 
     if text_length > streaming_threshold:
         logger.info(
-            f"Very large document detected: {text_length} bytes, enabling streaming processing"
+            f"Very large document detected: {text_length} bytes, enabling streaming processing",
         )
         return _mask_phi_streaming(text, replacements, start_time)
-    elif text_length > memory_threshold:
+    if text_length > memory_threshold:
         logger.info(
-            f"Large document detected: {text_length} bytes, enabling memory-efficient processing"
+            f"Large document detected: {text_length} bytes, enabling memory-efficient processing",
         )
         return _apply_replacements_memory_efficient(replacements, text, batch_size, start_time)
 
     # For small replacement sets, process normally
     if replacement_count <= batch_size:
         logger.debug(
-            f"PHI processing: {replacement_count} replacements in text of {text_length} chars (normal mode)"
+            f"PHI processing: {replacement_count} replacements in text of {text_length} chars (normal mode)",
         )
         sorted_replacements = sorted(replacements, key=lambda x: x[0], reverse=True)
         result = text
@@ -99,7 +99,7 @@ def apply_replacements_in_reverse(
     batch_count = 0
 
     logger.info(
-        f"Batching enabled: Total replacements={len(sorted_replacements)}, Batch size={batch_size}"
+        f"Batching enabled: Total replacements={len(sorted_replacements)}, Batch size={batch_size}",
     )
     for i in range(0, len(sorted_replacements), batch_size):
         batch = sorted_replacements[i : i + batch_size]
@@ -112,7 +112,7 @@ def apply_replacements_in_reverse(
 
         batch_time = time.time() - batch_start_time
         logger.debug(
-            f"PHI batch {batch_count} processed: {len(batch)} replacements in {batch_time:.3f}s"
+            f"PHI batch {batch_count} processed: {len(batch)} replacements in {batch_time:.3f}s",
         )
 
     total_time = time.time() - start_time
@@ -122,7 +122,7 @@ def apply_replacements_in_reverse(
 
 
 def _mask_phi_streaming(
-    text: str, replacements: list[tuple[int, int, str]], start_time: float
+    text: str, replacements: list[tuple[int, int, str]], start_time: float,
 ) -> str:
     """
     Memory-efficient PHI masking for very large documents using streaming approach
@@ -145,7 +145,7 @@ def _mask_phi_streaming(
     replacement_count = len(replacements)
 
     logger.info(
-        f"Streaming PHI processing: {replacement_count} replacements, {text_length:,} chars"
+        f"Streaming PHI processing: {replacement_count} replacements, {text_length:,} chars",
     )
 
     # Sort replacements by start position (forward order for streaming)
@@ -163,13 +163,13 @@ def _mask_phi_streaming(
         # Validate indices
         if start < current_index:
             logger.warning(
-                f"Overlapping replacement detected: start={start}, current_index={current_index}"
+                f"Overlapping replacement detected: start={start}, current_index={current_index}",
             )
             continue
 
         if start >= text_length or end > text_length or start >= end:
             logger.warning(
-                f"Invalid replacement indices: start={start}, end={end}, text_length={text_length}"
+                f"Invalid replacement indices: start={start}, end={end}, text_length={text_length}",
             )
             continue
 
@@ -185,7 +185,7 @@ def _mask_phi_streaming(
         if i % 1000 == 0 and i > 0:
             current_memory = sys.getsizeof(masked_parts)
             logger.debug(
-                f"Streaming progress: {i}/{replacement_count} replacements, memory: {current_memory:,} bytes"
+                f"Streaming progress: {i}/{replacement_count} replacements, memory: {current_memory:,} bytes",
             )
 
     # Add remaining text after last replacement
@@ -200,7 +200,7 @@ def _mask_phi_streaming(
 
     logger.info(
         f"Streaming PHI processing completed: {replacement_count} replacements in {total_time:.3f}s, "
-        f"input: {initial_memory:,} bytes, output: {final_memory:,} bytes"
+        f"input: {initial_memory:,} bytes, output: {final_memory:,} bytes",
     )
 
     return result
@@ -231,7 +231,7 @@ def _apply_replacements_memory_efficient(
     replacement_count = len(replacements)
 
     logger.info(
-        f"Memory-efficient PHI processing: {replacement_count} replacements, {text_length} chars"
+        f"Memory-efficient PHI processing: {replacement_count} replacements, {text_length} chars",
     )
 
     # Sort replacements in reverse order to prevent index shifting
@@ -254,7 +254,7 @@ def _apply_replacements_memory_efficient(
             # Validate indices
             if start < 0 or end > len(text_chars) or start >= end:
                 logger.warning(
-                    f"Invalid replacement indices: start={start}, end={end}, text_length={len(text_chars)}"
+                    f"Invalid replacement indices: start={start}, end={end}, text_length={len(text_chars)}",
                 )
                 continue
 
@@ -267,7 +267,7 @@ def _apply_replacements_memory_efficient(
         current_memory = sys.getsizeof(text_chars)
         logger.debug(
             f"Memory-efficient batch {batch_count}: {len(batch)} replacements, "
-            f"{batch_time:.3f}s, memory: {current_memory:,} bytes"
+            f"{batch_time:.3f}s, memory: {current_memory:,} bytes",
         )
 
     # Convert back to string
@@ -278,7 +278,7 @@ def _apply_replacements_memory_efficient(
 
     logger.info(
         f"Memory-efficient PHI processing completed: {batch_count} batches in {total_time:.3f}s, "
-        f"final size: {len(result):,} chars, memory: {final_memory:,} bytes"
+        f"final size: {len(result):,} chars, memory: {final_memory:,} bytes",
     )
 
     return result
@@ -423,11 +423,7 @@ class BasicPHIDetector:
             "pat003",
         ]
 
-        for indicator in entirely_synthetic_indicators:
-            if indicator in text_lower:
-                return True
-
-        return False
+        return any(indicator in text_lower for indicator in entirely_synthetic_indicators)
 
     def _process_and_mask_matches(
         self,
@@ -459,7 +455,7 @@ class BasicPHIDetector:
                     "end": match.end(),
                     "text": match.group(),
                     "confidence": 0.8,
-                }
+                },
             )
 
             # Mask the detected PHI (processing in reverse order prevents IndexError)
@@ -521,7 +517,7 @@ class BasicPHIDetector:
                         "end": match.end(),
                         "text": match.group(),
                         "confidence": 0.8,
-                    }
+                    },
                 )
 
                 # Collect replacement
@@ -575,7 +571,7 @@ class PresidioPHIDetector:
         try:
             # Analyze text for PII/PHI
             results = self.analyzer.analyze(
-                text=text, entities=self.healthcare_entities, language="en"
+                text=text, entities=self.healthcare_entities, language="en",
             )
 
             phi_detected = len(results) > 0
@@ -586,7 +582,7 @@ class PresidioPHIDetector:
             anonymized_result = self.anonymizer.anonymize(
                 text=text,
                 analyzer_results=cast(
-                    list[Any], results
+                    "list[Any]", results,
                 ),  # Type cast to resolve Presidio type mismatch
             )
             masked_text = anonymized_result.text
@@ -602,7 +598,7 @@ class PresidioPHIDetector:
                         "end": result.end,
                         "text": text[result.start : result.end],
                         "confidence": result.score,
-                    }
+                    },
                 )
 
             return PHIDetectionResult(
@@ -614,7 +610,7 @@ class PresidioPHIDetector:
             )
 
         except Exception as e:
-            self.logger.error(f"Presidio PHI detection failed: {e}")
+            self.logger.exception(f"Presidio PHI detection failed: {e}")
             # Fallback to basic detection
             basic_detector = BasicPHIDetector()
             return basic_detector.detect_phi(text)
@@ -659,7 +655,7 @@ class PHIDetector:
             if isinstance(value, str):
                 # Detect PHI in strings
                 return self.detector.detect_phi(value)
-            elif isinstance(value, dict):
+            if isinstance(value, dict):
                 # Recursively process nested dictionaries
                 dict_phi_results = {}
                 for nested_key, nested_value in value.items():
@@ -667,7 +663,7 @@ class PHIDetector:
                 return PHIDetectionResult(
                     phi_detected=any(res.phi_detected for res in dict_phi_results.values()),
                     phi_types=list(
-                        {ptype for res in dict_phi_results.values() for ptype in res.phi_types}
+                        {ptype for res in dict_phi_results.values() for ptype in res.phi_types},
                     ),
                     confidence_scores=[
                         score
@@ -675,7 +671,7 @@ class PHIDetector:
                         for score in res.confidence_scores
                     ],
                     masked_text=json.dumps(
-                        {k: res.masked_text for k, res in dict_phi_results.items()}
+                        {k: res.masked_text for k, res in dict_phi_results.items()},
                     ),
                     detection_details=[
                         detail
@@ -683,7 +679,7 @@ class PHIDetector:
                         for detail in res.detection_details
                     ],
                 )
-            elif isinstance(value, list):
+            if isinstance(value, list):
                 # Recursively process lists
                 list_phi_results = []
                 for i, item in enumerate(value):
@@ -692,7 +688,7 @@ class PHIDetector:
                     return PHIDetectionResult(
                         phi_detected=any(res.phi_detected for res in list_phi_results),
                         phi_types=list(
-                            {ptype for res in list_phi_results for ptype in res.phi_types}
+                            {ptype for res in list_phi_results for ptype in res.phi_types},
                         ),
                         confidence_scores=[
                             score for res in list_phi_results for score in res.confidence_scores
@@ -703,7 +699,7 @@ class PHIDetector:
                         ],
                     )
                 except (TypeError, ValueError) as e:
-                    self.logger.error(
+                    self.logger.exception(
                         "Failed to serialize list value to JSON. Key: %s, List length: %s, Error: %s",
                         key,
                         len(value) if isinstance(value, list) else "unknown",
@@ -787,7 +783,7 @@ class PHIDetector:
 
         self.logger.info(
             f"Batch PHI detection completed: {field_count} fields processed in {processing_time:.3f}s, "
-            f"{phi_detected_count} fields with PHI detected"
+            f"{phi_detected_count} fields with PHI detected",
         )
 
         return results
@@ -862,7 +858,7 @@ class PHIMaskingService:
 
             if masked_fields:
                 self.logger.info(
-                    f"Batch PHI masking completed: {len(masked_fields)} fields masked - {', '.join(masked_fields)}"
+                    f"Batch PHI masking completed: {len(masked_fields)} fields masked - {', '.join(masked_fields)}",
                 )
 
         return masked_data

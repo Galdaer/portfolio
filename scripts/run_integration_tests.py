@@ -93,7 +93,7 @@ class HealthcareIntegrationRunner:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    self.mcp_url, json=request_data, headers={"Content-Type": "application/json"}
+                    self.mcp_url, json=request_data, headers={"Content-Type": "application/json"},
                 )
 
                 if response.status_code != 200:
@@ -116,7 +116,7 @@ class HealthcareIntegrationRunner:
 
                 success = len(agent_tools) > 0
                 print(
-                    f"  {'✅' if success else '❌'} Found {len(agent_tools)}/3 agent bridge tools"
+                    f"  {'✅' if success else '❌'} Found {len(agent_tools)}/3 agent bridge tools",
                 )
 
                 return {
@@ -154,7 +154,7 @@ class HealthcareIntegrationRunner:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    self.mcp_url, json=request_data, headers={"Content-Type": "application/json"}
+                    self.mcp_url, json=request_data, headers={"Content-Type": "application/json"},
                 )
 
                 if response.status_code != 200:
@@ -182,7 +182,7 @@ class HealthcareIntegrationRunner:
 
                 success = has_result and not has_error and phi_safe
                 print(
-                    f"  {'✅' if success else '❌'} Clinical intake bridge {'working' if success else 'failed'}"
+                    f"  {'✅' if success else '❌'} Clinical intake bridge {'working' if success else 'failed'}",
                 )
 
                 if phi_error:
@@ -219,7 +219,7 @@ class HealthcareIntegrationRunner:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    self.mcp_url, json=request_data, headers={"Content-Type": "application/json"}
+                    self.mcp_url, json=request_data, headers={"Content-Type": "application/json"},
                 )
 
                 if response.status_code != 200:
@@ -238,7 +238,7 @@ class HealthcareIntegrationRunner:
 
                 success = has_result and not has_error
                 print(
-                    f"  {'✅' if success else '❌'} Research literature bridge {'working' if success else 'failed'}"
+                    f"  {'✅' if success else '❌'} Research literature bridge {'working' if success else 'failed'}",
                 )
 
                 if has_medical_disclaimer:
@@ -280,7 +280,7 @@ class HealthcareIntegrationRunner:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    self.mcp_url, json=request_data, headers={"Content-Type": "application/json"}
+                    self.mcp_url, json=request_data, headers={"Content-Type": "application/json"},
                 )
 
                 if response.status_code != 200:
@@ -298,7 +298,7 @@ class HealthcareIntegrationRunner:
 
                 success = has_result and not has_error
                 print(
-                    f"  {'✅' if success else '❌'} Transcription bridge {'working' if success else 'failed'}"
+                    f"  {'✅' if success else '❌'} Transcription bridge {'working' if success else 'failed'}",
                 )
 
                 return {
@@ -379,7 +379,7 @@ class HealthcareIntegrationRunner:
                         "test_name": test_func.__name__.replace("test_", ""),
                         "success": False,
                         "error": f"Test execution failed: {e}",
-                    }
+                    },
                 )
 
         # Calculate summary
@@ -429,13 +429,13 @@ async def main() -> None:
         runner = HealthcareIntegrationRunner()
         results = await runner.run_all_tests()
         exit_code = results["return_code"]
-        exit(exit_code)
+        sys.exit(exit_code)
     except KeyboardInterrupt:
         print("\n⚠️  Tests interrupted by user")
-        exit(130)
+        sys.exit(130)
     except Exception as e:
         print(f"\n❌ Test runner failed: {e}")
-        exit(1)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

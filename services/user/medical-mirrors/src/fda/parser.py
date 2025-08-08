@@ -43,7 +43,7 @@ class FDAParser:
             return drugs
 
         except Exception as e:
-            logger.error(f"Failed to parse NDC file {json_file_path}: {e}")
+            logger.exception(f"Failed to parse NDC file {json_file_path}: {e}")
             return []
 
     def parse_ndc_record(self, ndc_data: dict) -> dict | None:
@@ -88,7 +88,7 @@ class FDAParser:
             }
 
         except Exception as e:
-            logger.error(f"Failed to parse NDC record: {e}")
+            logger.exception(f"Failed to parse NDC record: {e}")
             return None
 
     def parse_drugs_fda_file(self, json_file_path: str) -> list[dict]:
@@ -117,7 +117,7 @@ class FDAParser:
             return drugs
 
         except Exception as e:
-            logger.error(f"Failed to parse Drugs@FDA file {json_file_path}: {e}")
+            logger.exception(f"Failed to parse Drugs@FDA file {json_file_path}: {e}")
             return []
 
     def parse_drugs_fda_record(self, drugs_fda_data: dict) -> dict | None:
@@ -171,7 +171,7 @@ class FDAParser:
             }
 
         except Exception as e:
-            logger.error(f"Failed to parse Drugs@FDA record: {e}")
+            logger.exception(f"Failed to parse Drugs@FDA record: {e}")
             return None
 
     def parse_orange_book_file(self, file_path: str) -> list[dict]:
@@ -199,7 +199,7 @@ class FDAParser:
             return drugs
 
         except Exception as e:
-            logger.error(f"Failed to parse Orange Book file {file_path}: {e}")
+            logger.exception(f"Failed to parse Orange Book file {file_path}: {e}")
             return []
 
     def parse_orange_book_record(self, orange_book_data: dict) -> dict | None:
@@ -210,14 +210,14 @@ class FDAParser:
 
             # Extract basic information
             ingredient = orange_book_data.get(
-                "Ingredient", orange_book_data.get("Active_Ingredient", "")
+                "Ingredient", orange_book_data.get("Active_Ingredient", ""),
             )
             trade_name = orange_book_data.get("Trade_Name", orange_book_data.get("Brand_Name", ""))
             applicant = orange_book_data.get("Applicant", orange_book_data.get("Manufacturer", ""))
             dosage_form = orange_book_data.get("Dosage_Form", "")
             route = orange_book_data.get("Route", "")
             te_code = orange_book_data.get(
-                "TE_Code", orange_book_data.get("Therapeutic_Equivalence_Code", "")
+                "TE_Code", orange_book_data.get("Therapeutic_Equivalence_Code", ""),
             )
 
             # Create synthetic NDC (Orange Book doesn't have NDC)
@@ -239,7 +239,7 @@ class FDAParser:
             }
 
         except Exception as e:
-            logger.error(f"Failed to parse Orange Book record: {e}")
+            logger.exception(f"Failed to parse Orange Book record: {e}")
             return None
 
     def parse_drug_labels_file(self, json_file_path: str) -> list[dict]:
@@ -278,7 +278,7 @@ class FDAParser:
             return drugs
 
         except Exception as e:
-            logger.error(f"Failed to parse drug labels file {json_file_path}: {e}")
+            logger.exception(f"Failed to parse drug labels file {json_file_path}: {e}")
             return []
 
     def parse_drug_label_record(self, label_data: dict) -> dict | None:
@@ -324,5 +324,5 @@ class FDAParser:
             }
 
         except Exception as e:
-            logger.error(f"Failed to parse drug label record: {e}")
+            logger.exception(f"Failed to parse drug label record: {e}")
             return None

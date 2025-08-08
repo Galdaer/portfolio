@@ -5,7 +5,7 @@ Parses ClinicalTrials.gov JSON files and extracts study information
 
 import json
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +16,10 @@ class ClinicalTrialsParser:
     def __init__(self) -> None:
         pass
 
-    def parse_json_file(self, json_file_path: str) -> List[Dict[str, Any]]:
+    def parse_json_file(self, json_file_path: str) -> list[dict[str, Any]]:
         """Parse a ClinicalTrials.gov JSON file and extract studies"""
         logger.info(f"Parsing ClinicalTrials JSON file: {json_file_path}")
-        studies: List[Dict[str, Any]] = []
+        studies: list[dict[str, Any]] = []
 
         try:
             with open(json_file_path) as f:
@@ -40,10 +40,10 @@ class ClinicalTrialsParser:
             return studies
 
         except Exception as e:
-            logger.error(f"Failed to parse {json_file_path}: {e}")
+            logger.exception(f"Failed to parse {json_file_path}: {e}")
             return []
 
-    def parse_study(self, study_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def parse_study(self, study_data: dict[str, Any]) -> dict[str, Any] | None:
         """Parse a single study record"""
         try:
             # Handle API v2 structure (protocolSection)
@@ -115,10 +115,10 @@ class ClinicalTrialsParser:
             else:
                 # Legacy structure
                 title = self.extract_value(
-                    study_data, ["BriefTitle", "IdentificationModule", "BriefTitle"]
+                    study_data, ["BriefTitle", "IdentificationModule", "BriefTitle"],
                 )
                 status = self.extract_value(
-                    study_data, ["OverallStatus", "StatusModule", "OverallStatus"]
+                    study_data, ["OverallStatus", "StatusModule", "OverallStatus"],
                 )
                 phase = self.extract_value(study_data, ["Phase", "DesignModule", "Phase"])
                 study_type = self.extract_value(study_data, ["StudyType", "DesignModule", "StudyType"])
@@ -131,7 +131,7 @@ class ClinicalTrialsParser:
 
                 # Extract dates
                 start_date = self.extract_value(
-                    study_data, ["StartDate", "StatusModule", "StartDateStruct", "StartDate"]
+                    study_data, ["StartDate", "StatusModule", "StartDateStruct", "StartDate"],
                 )
                 completion_date = self.extract_value(
                     study_data,
@@ -157,10 +157,10 @@ class ClinicalTrialsParser:
             }
 
         except Exception as e:
-            logger.error(f"Failed to parse study: {e}")
+            logger.exception(f"Failed to parse study: {e}")
             return None
 
-    def extract_value(self, data: Dict[str, Any], paths: List[str]) -> Optional[str]:
+    def extract_value(self, data: dict[str, Any], paths: list[str]) -> str | None:
         """Extract value from nested dict using multiple possible paths"""
         for path in paths:
             try:
@@ -179,9 +179,9 @@ class ClinicalTrialsParser:
 
         return None
 
-    def extract_conditions(self, study_data: Dict[str, Any]) -> List[str]:
+    def extract_conditions(self, study_data: dict[str, Any]) -> list[str]:
         """Extract condition names from study"""
-        conditions: List[str] = []
+        conditions: list[str] = []
 
         # Try different paths for conditions
         condition_paths = [
@@ -210,9 +210,9 @@ class ClinicalTrialsParser:
 
         return list(set(conditions))  # Remove duplicates
 
-    def extract_interventions(self, study_data: Dict[str, Any]) -> List[str]:
+    def extract_interventions(self, study_data: dict[str, Any]) -> list[str]:
         """Extract intervention names from study"""
-        interventions: List[str] = []
+        interventions: list[str] = []
 
         # Try different paths for interventions
         intervention_paths = [
@@ -247,9 +247,9 @@ class ClinicalTrialsParser:
 
         return list(set(interventions))  # Remove duplicates
 
-    def extract_locations(self, study_data: Dict[str, Any]) -> List[str]:
+    def extract_locations(self, study_data: dict[str, Any]) -> list[str]:
         """Extract location information from study"""
-        locations: List[str] = []
+        locations: list[str] = []
 
         try:
             # Try different paths for locations
@@ -280,7 +280,7 @@ class ClinicalTrialsParser:
                                 locations.append(location_str)
 
             # Also try simple location fields
-            simple_locations: List[str] = []
+            simple_locations: list[str] = []
             for field in ["LocationFacility", "LocationCity", "LocationState", "LocationCountry"]:
                 value = study_data.get(field)
                 if value:
@@ -290,13 +290,13 @@ class ClinicalTrialsParser:
                 locations.append(", ".join(simple_locations))
 
         except Exception as e:
-            logger.error(f"Failed to extract locations: {e}")
+            logger.exception(f"Failed to extract locations: {e}")
 
         return list(set(locations))  # Remove duplicates
 
-    def extract_sponsors(self, study_data: Dict[str, Any]) -> List[str]:
+    def extract_sponsors(self, study_data: dict[str, Any]) -> list[str]:
         """Extract sponsor information from study"""
-        sponsors: List[str] = []
+        sponsors: list[str] = []
 
         try:
             # Try different paths for sponsors
@@ -343,11 +343,11 @@ class ClinicalTrialsParser:
                             sponsors.append(str(collab))
 
         except Exception as e:
-            logger.error(f"Failed to extract sponsors: {e}")
+            logger.exception(f"Failed to extract sponsors: {e}")
 
         return list(set(sponsors))  # Remove duplicates
 
-    def extract_enrollment(self, study_data: Dict[str, Any]) -> Optional[int]:
+    def extract_enrollment(self, study_data: dict[str, Any]) -> int | None:
         """Extract enrollment count from study"""
         try:
             enrollment_paths = [
@@ -374,5 +374,5 @@ class ClinicalTrialsParser:
             return None
 
         except Exception as e:
-            logger.error(f"Failed to extract enrollment: {e}")
+            logger.exception(f"Failed to extract enrollment: {e}")
             return None

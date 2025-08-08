@@ -23,8 +23,8 @@ class PubMedParser:
 
         try:
             # Handle gzipped files
-            if xml_file_path.endswith('.gz'):
-                with gzip.open(xml_file_path, 'rt', encoding='utf-8') as f:
+            if xml_file_path.endswith(".gz"):
+                with gzip.open(xml_file_path, "rt", encoding="utf-8") as f:
                     tree = ET.parse(f)
             else:
                 tree = ET.parse(xml_file_path)
@@ -41,7 +41,7 @@ class PubMedParser:
             return articles
 
         except Exception as e:
-            logger.error(f"Failed to parse {xml_file_path}: {e}")
+            logger.exception(f"Failed to parse {xml_file_path}: {e}")
             return []
 
     def parse_article(self, article_elem) -> dict | None:
@@ -106,7 +106,7 @@ class PubMedParser:
             }
 
         except Exception as e:
-            logger.error(f"Failed to parse article: {e}")
+            logger.exception(f"Failed to parse article: {e}")
             return None
 
     def extract_pub_date(self, article_elem) -> str:
@@ -148,7 +148,7 @@ class PubMedParser:
             return ""
 
         except Exception as e:
-            logger.error(f"Failed to extract publication date: {e}")
+            logger.exception(f"Failed to extract publication date: {e}")
             return ""
 
     def extract_doi(self, article_elem) -> str:
@@ -169,7 +169,7 @@ class PubMedParser:
             return ""
 
         except Exception as e:
-            logger.error(f"Failed to extract DOI: {e}")
+            logger.exception(f"Failed to extract DOI: {e}")
             return ""
 
     def extract_mesh_terms(self, article_elem) -> list[str]:
@@ -192,5 +192,5 @@ class PubMedParser:
             return mesh_terms
 
         except Exception as e:
-            logger.error(f"Failed to extract MeSH terms: {e}")
+            logger.exception(f"Failed to extract MeSH terms: {e}")
             return []

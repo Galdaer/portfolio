@@ -25,7 +25,7 @@ class DocumentProcessingRequest(BaseModel):
         description="Type of document: soap_note, medical_form, patient_summary, clinical_note",
     )
     document_data: dict[str, Any] = Field(
-        default_factory=dict, description="Document data for processing"
+        default_factory=dict, description="Document data for processing",
     )
     session_id: str = Field(default="default", description="Session identifier")
 
@@ -39,7 +39,7 @@ class DocumentProcessingRequest(BaseModel):
                     "provider_id": "PROV_001",
                 },
                 "session_id": "doc_session_001",
-            }
+            },
         }
 
 
@@ -56,7 +56,7 @@ class SOAPNoteRequest(BaseModel):
                 "content": "Subjective: Patient presents with chest pain\nObjective: HR 72, BP 120/80, no distress\nAssessment: Atypical chest pain\nPlan: EKG, follow up in 1 week",
                 "patient_id": "PAT_001",
                 "provider_id": "PROV_001",
-            }
+            },
         }
 
 
@@ -79,7 +79,7 @@ class MedicalFormRequest(BaseModel):
                     "emergency_contact": "Jane Doe - 555-987-6543",
                 },
                 "patient_id": "PAT_001",
-            }
+            },
         }
 
 
@@ -99,7 +99,7 @@ class PatientSummaryRequest(BaseModel):
                     "chief_complaint": "Chest pain",
                     "encounter_details": {"date": "2024-08-03", "duration": "30 min"},
                 },
-            }
+            },
         }
 
 
@@ -123,12 +123,11 @@ async def process_document(
         )
 
         # Process document
-        result = await processor._process_implementation(request.model_dump())
+        return await processor._process_implementation(request.model_dump())
 
-        return result
 
     except Exception as e:
-        logger.error(f"Document processing error: {e}")
+        logger.exception(f"Document processing error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Document processing failed: {str(e)}",
@@ -158,12 +157,11 @@ async def process_soap_note(
         }
 
         processor = HealthcareDocumentProcessor(mcp_client=mcp_client, llm_client=llm_client)
-        result = await processor._process_implementation(processing_request)
+        return await processor._process_implementation(processing_request)
 
-        return result
 
     except Exception as e:
-        logger.error(f"SOAP note processing error: {e}")
+        logger.exception(f"SOAP note processing error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"SOAP note processing failed: {str(e)}",
@@ -193,12 +191,11 @@ async def process_medical_form(
         }
 
         processor = HealthcareDocumentProcessor(mcp_client=mcp_client, llm_client=llm_client)
-        result = await processor._process_implementation(processing_request)
+        return await processor._process_implementation(processing_request)
 
-        return result
 
     except Exception as e:
-        logger.error(f"Medical form processing error: {e}")
+        logger.exception(f"Medical form processing error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Medical form processing failed: {str(e)}",
@@ -227,12 +224,11 @@ async def process_patient_summary(
         }
 
         processor = HealthcareDocumentProcessor(mcp_client=mcp_client, llm_client=llm_client)
-        result = await processor._process_implementation(processing_request)
+        return await processor._process_implementation(processing_request)
 
-        return result
 
     except Exception as e:
-        logger.error(f"Patient summary processing error: {e}")
+        logger.exception(f"Patient summary processing error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Patient summary processing failed: {str(e)}",
@@ -264,12 +260,11 @@ async def process_clinical_note(
         }
 
         processor = HealthcareDocumentProcessor(mcp_client=mcp_client, llm_client=llm_client)
-        result = await processor._process_implementation(processing_request)
+        return await processor._process_implementation(processing_request)
 
-        return result
 
     except Exception as e:
-        logger.error(f"Clinical note processing error: {e}")
+        logger.exception(f"Clinical note processing error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Clinical note processing failed: {str(e)}",
@@ -328,7 +323,7 @@ async def validate_document_completeness(
         }
 
         requirements = validation_requirements.get(
-            document_type, validation_requirements["clinical_note"]
+            document_type, validation_requirements["clinical_note"],
         )
 
         return {
@@ -339,7 +334,7 @@ async def validate_document_completeness(
         }
 
     except Exception as e:
-        logger.error(f"Document validation error: {e}")
+        logger.exception(f"Document validation error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Document validation failed: {str(e)}",

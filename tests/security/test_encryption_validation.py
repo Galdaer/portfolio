@@ -12,6 +12,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import contextlib
+
+from src.security.database_factory import PostgresConnectionFactory  # noqa: E402
+from src.security.encryption_manager import HealthcareEncryptionManager  # noqa: E402
+
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -21,10 +26,6 @@ try:
     from tests.database_test_utils import HealthcareTestCase  # noqa: F401
 except ImportError:
     pytest.skip("Database test utilities not available", allow_module_level=True)
-
-from src.security.database_factory import PostgresConnectionFactory  # noqa: E402
-from src.security.encryption_manager import HealthcareEncryptionManager  # noqa: E402
-
 
 class TestEncryptionValidation(HealthcareTestCase):
     """Test encryption security validation functionality with database-backed data"""
@@ -48,10 +49,8 @@ class TestEncryptionValidation(HealthcareTestCase):
 
     def tearDown(self) -> None:
         """Clean up test case."""
-        try:
+        with contextlib.suppress(Exception):
             super().tearDown()
-        except Exception:
-            pass
 
     def test_valid_master_key_base64_format(self) -> None:
         """Test valid master key in base64 format"""
@@ -103,9 +102,8 @@ class TestEncryptionValidation(HealthcareTestCase):
         with patch.dict(
             os.environ,
             {"MASTER_ENCRYPTION_KEY": short_key, "ENVIRONMENT": "development"},
-        ):
-            with pytest.raises(ValueError, match="MASTER_ENCRYPTION_KEY length error"):
-                HealthcareEncryptionManager(self.test_connection)
+        ), pytest.raises(ValueError, match="MASTER_ENCRYPTION_KEY length error"):
+            HealthcareEncryptionManager(self.test_connection)
 
     def test_invalid_master_key_not_base64(self) -> None:
         """Test invalid master key - not valid base64"""
@@ -115,9 +113,8 @@ class TestEncryptionValidation(HealthcareTestCase):
                 "MASTER_ENCRYPTION_KEY": "not-valid-base64!@#",
                 "ENVIRONMENT": "development",
             },
-        ):
-            with pytest.raises(ValueError, match="Master encryption key must be valid base64"):
-                HealthcareEncryptionManager(self.test_connection)
+        ), pytest.raises(ValueError, match="Master encryption key must be valid base64"):
+            HealthcareEncryptionManager(self.test_connection)
 
     def test_production_requires_master_key(self) -> None:
         """Test that production environment requires MASTER_ENCRYPTION_KEY"""
@@ -178,7 +175,7 @@ class TestEncryptionValidation(HealthcareTestCase):
                             try:
                                 method = getattr(manager2, method_name)
                                 with pytest.raises(
-                                    (ValueError, RuntimeError, TypeError)
+                                    (ValueError, RuntimeError, TypeError),
                                 ):  # Should fail to decrypt with wrong key
                                     method(encrypted_data)
                                 return  # Test passed
@@ -287,7 +284,7 @@ class TestSecurityScan:
             # Test configuration with specific values
             override_config = {
                 "MASTER_ENCRYPTION_KEY": base64.urlsafe_b64encode(
-                    b"test_key_32_bytes_long_exactly!"
+                    b"test_key_32_bytes_long_exactly!",
                 ).decode(),
                 "TEST_MODE": True,
             }

@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 class DatabaseConnectionError(Exception):
     """Raised when database connection is unavailable for healthcare operations"""
 
-    pass
 
 
 class HealthcareServices:
@@ -55,7 +54,7 @@ class HealthcareServices:
             logger.info("Healthcare services initialized successfully")
 
         except Exception as e:
-            logger.error(f"Failed to initialize healthcare services: {e}")
+            logger.exception(f"Failed to initialize healthcare services: {e}")
             raise
 
     async def _initialize_mcp_client(self) -> None:
@@ -117,10 +116,10 @@ class HealthcareServices:
             logger.info("Database pool initialized and validated")
 
         except Exception as e:
-            logger.error(f"CRITICAL: Database pool initialization failed: {e}")
+            logger.exception(f"CRITICAL: Database pool initialization failed: {e}")
             raise DatabaseConnectionError(
                 "Healthcare database unavailable. Please check connection. "
-                "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+                "Run 'make setup' to initialize database or verify DATABASE_URL environment variable.",
             ) from e
 
     async def _initialize_redis_client(self) -> None:
@@ -149,7 +148,7 @@ class HealthcareServices:
 
         class MockMCPClient:
             async def call_healthcare_tool(
-                self, tool_name: str, params: dict[str, Any]
+                self, tool_name: str, params: dict[str, Any],
             ) -> dict[str, Any]:
                 return {
                     "tool": tool_name,
@@ -165,7 +164,7 @@ class HealthcareServices:
 
         class MockLLMClient:
             async def generate(
-                self, model: str = "llama3.1", prompt: str = "", **kwargs: Any
+                self, model: str = "llama3.1", prompt: str = "", **kwargs: Any,
             ) -> dict[str, Any]:
                 return {
                     "response": f"Mock LLM response for: {prompt[:50]}...",
@@ -224,7 +223,7 @@ async def get_db_pool() -> Any:
     if healthcare_services.db_pool is None:
         raise DatabaseConnectionError(
             "Healthcare database unavailable. Please check connection. "
-            "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+            "Run 'make setup' to initialize database or verify DATABASE_URL environment variable.",
         )
     return healthcare_services.db_pool
 
@@ -234,7 +233,7 @@ async def get_database_connection() -> Any:
     if healthcare_services.db_pool is None:
         raise DatabaseConnectionError(
             "Healthcare database unavailable. Please check connection. "
-            "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+            "Run 'make setup' to initialize database or verify DATABASE_URL environment variable.",
         )
 
     # Return a connection from the pool
@@ -247,7 +246,7 @@ async def get_database_connection_context() -> AsyncGenerator[asyncpg.Connection
     if healthcare_services.db_pool is None:
         raise DatabaseConnectionError(
             "Healthcare database unavailable. Please check connection. "
-            "Run 'make setup' to initialize database or verify DATABASE_URL environment variable."
+            "Run 'make setup' to initialize database or verify DATABASE_URL environment variable.",
         )
 
     conn = await healthcare_services.db_pool.acquire()

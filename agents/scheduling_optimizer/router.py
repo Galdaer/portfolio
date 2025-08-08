@@ -10,8 +10,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, status
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
-from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor
-from core.infrastructure.phi_monitor import scan_for_phi
+from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor, scan_for_phi
 
 from .scheduling_agent import scheduling_optimizer_agent
 
@@ -168,7 +167,7 @@ async def find_available_slots(
 
 @router.get("/optimize-schedule/{provider_id}")
 async def optimize_provider_schedule(
-    provider_id: str, start_date: str, end_date: str
+    provider_id: str, start_date: str, end_date: str,
 ) -> dict[str, Any]:
     """
     Generate schedule optimization recommendations for provider
@@ -198,7 +197,7 @@ async def optimize_provider_schedule(
         date_range = {"start_date": start_date, "end_date": end_date}
 
         recommendations = await scheduling_optimizer_agent.optimize_provider_schedule(
-            provider_id=provider_id, date_range=date_range
+            provider_id=provider_id, date_range=date_range,
         )
 
         # Convert recommendations to JSON-serializable format
@@ -222,7 +221,7 @@ async def optimize_provider_schedule(
                 "recommendations": recommendations_data,
                 "total_recommendations": len(recommendations_data),
                 "high_priority_count": len(
-                    [r for r in recommendations if r.implementation_priority == "high"]
+                    [r for r in recommendations if r.implementation_priority == "high"],
                 ),
             },
         }

@@ -51,12 +51,11 @@ class HealthcareSecurityMiddleware:
         """
         if isinstance(data, str):
             return self._redact_pii_from_string(data)
-        elif isinstance(data, dict):
+        if isinstance(data, dict):
             return {k: self.sanitize_data(v) for k, v in data.items()}
-        elif isinstance(data, list):
+        if isinstance(data, list):
             return [self.sanitize_data(item) for item in data]
-        else:
-            return data
+        return data
 
     def _redact_pii_from_string(self, text: str) -> str:
         """
@@ -133,7 +132,4 @@ class HealthcareSecurityMiddleware:
         ]
 
         text_lower = text.lower()
-        for pattern in injection_patterns:
-            if re.search(pattern, text_lower, re.IGNORECASE):
-                return True
-        return False
+        return any(re.search(pattern, text_lower, re.IGNORECASE) for pattern in injection_patterns)

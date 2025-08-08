@@ -45,7 +45,7 @@ class MedicalLiteratureSearchAssistant:
         ]
 
     async def search_medical_literature(
-        self, search_query: str, search_context: dict[str, Any] | None = None
+        self, search_query: str, search_context: dict[str, Any] | None = None,
     ) -> MedicalSearchResult:
         """
         Search medical literature like a medical librarian would
@@ -114,7 +114,7 @@ class MedicalLiteratureSearchAssistant:
         )
 
     async def _search_condition_information(
-        self, medical_concepts: list[str]
+        self, medical_concepts: list[str],
     ) -> list[dict[str, Any]]:
         """
         Search for condition information in medical literature
@@ -153,7 +153,7 @@ class MedicalLiteratureSearchAssistant:
                             "evidence_level": self._determine_evidence_level(article),
                             "relevance_score": self._calculate_concept_relevance(concept, article),
                             "information_type": "medical_literature",
-                        }
+                        },
                     )
 
             except Exception:
@@ -210,7 +210,7 @@ class MedicalLiteratureSearchAssistant:
                             "abstract": article.get("abstract", ""),
                             "evidence_level": self._determine_evidence_level(article),
                             "information_type": "symptom_research",
-                        }
+                        },
                     )
 
             except Exception:
@@ -266,7 +266,7 @@ class MedicalLiteratureSearchAssistant:
                             "url": fda_results.get("fda_url", ""),
                             "information_type": "regulatory_information",
                             "evidence_level": "regulatory_approval",
-                        }
+                        },
                     )
 
             except Exception:
@@ -275,7 +275,7 @@ class MedicalLiteratureSearchAssistant:
         return sources
 
     async def _search_clinical_references(
-        self, medical_concepts: list[str]
+        self, medical_concepts: list[str],
     ) -> list[dict[str, Any]]:
         """
         Search clinical practice guidelines and reference materials
@@ -308,7 +308,7 @@ class MedicalLiteratureSearchAssistant:
                             "evidence_grade": guideline.get("evidence_grade", ""),
                             "information_type": "clinical_reference",
                             "evidence_level": "clinical_guideline",
-                        }
+                        },
                     )
 
             except Exception:
@@ -330,7 +330,7 @@ class MedicalLiteratureSearchAssistant:
                     source.get("title", ""),
                     source.get("abstract", ""),
                     source.get("summary", ""),
-                ]
+                ],
             ).lower()
 
             # Common medical conditions to look for in literature
@@ -358,7 +358,7 @@ class MedicalLiteratureSearchAssistant:
                             "source_url": source.get("url", ""),
                             "context": "mentioned_in_literature",
                             "note": "Condition mentioned in medical literature, not a diagnosis",
-                        }
+                        },
                     )
 
         # Remove duplicates and limit results
@@ -371,7 +371,7 @@ class MedicalLiteratureSearchAssistant:
         return list(unique_conditions.values())[:10]  # Top 10 mentioned conditions
 
     def _rank_sources_by_evidence(
-        self, sources: list[dict[str, Any]], query: str
+        self, sources: list[dict[str, Any]], query: str,
     ) -> list[dict[str, Any]]:
         """
         Rank sources by evidence quality and relevance, like a medical librarian would
@@ -404,7 +404,7 @@ class MedicalLiteratureSearchAssistant:
                     source.get("title", ""),
                     source.get("abstract", ""),
                     source.get("summary", ""),
-                ]
+                ],
             ).lower()
 
             relevance_count = sum(1 for term in query_terms if term in source_text)
@@ -422,7 +422,7 @@ class MedicalLiteratureSearchAssistant:
                     "search_score": final_score,
                     "relevance_score": relevance_score,
                     "evidence_weight": base_score,
-                }
+                },
             )
 
         return sorted(scored_sources, key=lambda x: x.get("search_score", 0), reverse=True)
@@ -466,7 +466,7 @@ class MedicalLiteratureSearchAssistant:
         """Extract medical concepts from search query using NLP"""
         try:
             entities_result = await self.mcp_client.call_healthcare_tool(
-                "extract_medical_entities", {"text": search_query}
+                "extract_medical_entities", {"text": search_query},
             )
 
             concepts = []
@@ -506,16 +506,15 @@ class MedicalLiteratureSearchAssistant:
 
         if "systematic review" in pub_type or "systematic review" in title:
             return "systematic_review"
-        elif "meta-analysis" in pub_type or "meta-analysis" in title:
+        if "meta-analysis" in pub_type or "meta-analysis" in title:
             return "meta_analysis"
-        elif "randomized controlled trial" in pub_type:
+        if "randomized controlled trial" in pub_type:
             return "randomized_controlled_trial"
-        elif "clinical trial" in pub_type:
+        if "clinical trial" in pub_type:
             return "clinical_study"
-        elif "review" in pub_type:
+        if "review" in pub_type:
             return "review"
-        else:
-            return "unknown"
+        return "unknown"
 
     def _calculate_recency_score(self, publication_date: str) -> float:
         """Calculate recency bonus for more recent publications"""
@@ -531,12 +530,11 @@ class MedicalLiteratureSearchAssistant:
             # Recent publications get higher scores
             if years_old <= 2:
                 return 1.0
-            elif years_old <= 5:
+            if years_old <= 5:
                 return 0.5
-            elif years_old <= 10:
+            if years_old <= 10:
                 return 0.2
-            else:
-                return 0.0
+            return 0.0
 
         except (ValueError, TypeError):
             return 0.0

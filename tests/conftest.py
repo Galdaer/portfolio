@@ -23,7 +23,7 @@ from tests.healthcare_integration_tests import (
 
 # Configure test logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
 

@@ -49,7 +49,7 @@ def run_migration():
             print(f"   Found tables: {existing_tables}")
 
             # Migrate FDA drugs table
-            if 'fda_drugs' in existing_tables:
+            if "fda_drugs" in existing_tables:
                 print("🔧 Updating fda_drugs table schema...")
 
                 # Increase column sizes to prevent truncation
@@ -62,7 +62,7 @@ def run_migration():
                     "ALTER TABLE fda_drugs ALTER COLUMN dosage_form TYPE VARCHAR(200)",
                     "ALTER TABLE fda_drugs ALTER COLUMN route TYPE VARCHAR(200)",
                     "ALTER TABLE fda_drugs ALTER COLUMN orange_book_code TYPE VARCHAR(20)",
-                    "ALTER TABLE fda_drugs ALTER COLUMN therapeutic_class TYPE TEXT"
+                    "ALTER TABLE fda_drugs ALTER COLUMN therapeutic_class TYPE TEXT",
                 ]
 
                 for migration in migrations:
@@ -76,13 +76,13 @@ def run_migration():
                 print("   🎉 FDA drugs schema updated")
 
             # Migrate PubMed articles table
-            if 'pubmed_articles' in existing_tables:
+            if "pubmed_articles" in existing_tables:
                 print("🔧 Updating pubmed_articles table schema...")
 
                 migrations = [
                     "ALTER TABLE pubmed_articles ALTER COLUMN title DROP NOT NULL",
                     "ALTER TABLE pubmed_articles ALTER COLUMN journal TYPE TEXT",
-                    "ALTER TABLE pubmed_articles ALTER COLUMN doi TYPE VARCHAR(200)"
+                    "ALTER TABLE pubmed_articles ALTER COLUMN doi TYPE VARCHAR(200)",
                 ]
 
                 for migration in migrations:
@@ -96,14 +96,14 @@ def run_migration():
                 print("   🎉 PubMed articles schema updated")
 
             # Migrate Clinical trials table
-            if 'clinical_trials' in existing_tables:
+            if "clinical_trials" in existing_tables:
                 print("🔧 Updating clinical_trials table schema...")
 
                 migrations = [
                     "ALTER TABLE clinical_trials ALTER COLUMN title DROP NOT NULL",
                     "ALTER TABLE clinical_trials ALTER COLUMN status TYPE VARCHAR(100)",
                     "ALTER TABLE clinical_trials ALTER COLUMN phase TYPE VARCHAR(100)",
-                    "ALTER TABLE clinical_trials ALTER COLUMN study_type TYPE VARCHAR(100)"
+                    "ALTER TABLE clinical_trials ALTER COLUMN study_type TYPE VARCHAR(100)",
                 ]
 
                 for migration in migrations:

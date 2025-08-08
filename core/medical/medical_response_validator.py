@@ -53,7 +53,7 @@ class MedicalResponseValidator:
         if phi_detected:
             response_hash = hashlib.sha256(response.encode()).hexdigest()[:8]
             print(
-                f"🚨 PHI detected in medical response validation {response_hash} - flagging for review"
+                f"🚨 PHI detected in medical response validation {response_hash} - flagging for review",
             )
 
         # Parallel validation checks
@@ -97,7 +97,7 @@ class MedicalResponseValidator:
             [
                 f"Source {i + 1}: {source.get('title', 'Unknown')} - {source.get('summary', '')[:200]}"
                 for i, source in enumerate(sources[:5])
-            ]
+            ],
         )
 
         validation_prompt = f"""
@@ -284,7 +284,7 @@ class MedicalResponseValidator:
                 # Log the detection (without exposing actual content)
                 content_hash = hashlib.sha256(content.encode()).hexdigest()[:8]
                 print(
-                    f"🚨 Runtime PHI detection: {context_type} contains potential PHI (hash: {content_hash})"
+                    f"🚨 Runtime PHI detection: {context_type} contains potential PHI (hash: {content_hash})",
                 )
                 return True
 

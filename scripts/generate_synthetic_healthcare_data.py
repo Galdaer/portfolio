@@ -10,13 +10,10 @@ import os
 import random
 import uuid
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from faker import Faker
 from faker.providers import BaseProvider
-
-if TYPE_CHECKING:
-    from typing import Any as Psycopg2Connection
 
 # Healthcare scripts require database connectivity - no fallbacks
 try:
@@ -29,7 +26,7 @@ except ImportError as e:
     print("   Database-first architecture: Healthcare scripts require database connectivity")
     raise ImportError(
         "Healthcare data generation requires psycopg2 database connectivity. "
-        "Run 'make setup' to initialize database or install with: pip install psycopg2-binary"
+        "Run 'make setup' to initialize database or install with: pip install psycopg2-binary",
     ) from e
 
 try:
@@ -42,7 +39,7 @@ except ImportError as e:
     print("   To fix: Run 'make setup' to initialize Redis dependencies")
     raise ImportError(
         "Healthcare data generation requires Redis for caching. "
-        "Run 'make setup' to initialize Redis or install with: pip install redis"
+        "Run 'make setup' to initialize Redis or install with: pip install redis",
     ) from e
 
 # Initialize Faker with healthcare-specific providers
@@ -230,24 +227,27 @@ class SyntheticHealthcareDataGenerator:
         # PostgreSQL connection - REQUIRED
         try:
             self.db_conn = psycopg2.connect(
-                "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
+                "postgresql://intelluxe:secure_password@localhost:5432/intelluxe",
             )
             print("✅ Connected to PostgreSQL")
         except Exception as e:
             print(f"❌ PostgreSQL connection failed: {e}")
             print("   To fix: Run 'make setup' to initialize database or verify DATABASE_URL")
             print(
-                "   Database-first architecture: Healthcare scripts require database connectivity"
+                "   Database-first architecture: Healthcare scripts require database connectivity",
             )
-            raise ConnectionError(
+            msg = (
                 f"Healthcare data generation requires PostgreSQL database connectivity. Error: {e}. "
                 "Run 'make setup' to initialize database."
+            )
+            raise ConnectionError(
+                msg,
             ) from e
 
         # Redis connection - REQUIRED
         try:
             self.redis_client = redis_module.Redis(
-                host="localhost", port=6379, decode_responses=True
+                host="localhost", port=6379, decode_responses=True,
             )
             if self.redis_client:
                 self.redis_client.ping()
@@ -255,9 +255,12 @@ class SyntheticHealthcareDataGenerator:
         except Exception as e:
             print(f"❌ Redis connection failed: {e}")
             print("   To fix: Run 'make setup' to initialize Redis dependencies")
-            raise ConnectionError(
+            msg = (
                 f"Healthcare data generation requires Redis for caching. Error: {e}. "
                 "Run 'make setup' to initialize Redis."
+            )
+            raise ConnectionError(
+                msg,
             ) from e
 
     def generate_patient(self) -> dict[str, Any]:
@@ -277,26 +280,26 @@ class SyntheticHealthcareDataGenerator:
         # Enhanced PHI-like patterns for proper detection testing
         # Break down SSN generation for readability
         ssn_group = random.randint(
-            SyntheticDataConstants.SSN_GROUP_MIN, SyntheticDataConstants.SSN_GROUP_MAX
+            SyntheticDataConstants.SSN_GROUP_MIN, SyntheticDataConstants.SSN_GROUP_MAX,
         )
         ssn_serial = random.randint(
-            SyntheticDataConstants.SSN_SERIAL_MIN, SyntheticDataConstants.SSN_SERIAL_MAX
+            SyntheticDataConstants.SSN_SERIAL_MIN, SyntheticDataConstants.SSN_SERIAL_MAX,
         )
         synthetic_ssn = f"{SyntheticDataConstants.SYNTHETIC_SSN_PREFIX}-{ssn_group}-{ssn_serial}"  # 555 prefix = synthetic SSN (reserved for test data)
 
         # Break down phone generation for readability
         phone_area = random.choice(SyntheticDataConstants.SYNTHETIC_PHONE_AREA_CODES)
         phone_prefix = random.randint(
-            SyntheticDataConstants.PHONE_PREFIX_MIN, SyntheticDataConstants.PHONE_PREFIX_MAX
+            SyntheticDataConstants.PHONE_PREFIX_MIN, SyntheticDataConstants.PHONE_PREFIX_MAX,
         )
         phone_line = random.randint(
-            SyntheticDataConstants.PHONE_LINE_MIN, SyntheticDataConstants.PHONE_LINE_MAX
+            SyntheticDataConstants.PHONE_LINE_MIN, SyntheticDataConstants.PHONE_LINE_MAX,
         )
         realistic_phone = f"({phone_area}) {phone_prefix}-{phone_line}"
 
         # Break down email generation for readability
         email_number = random.randint(
-            SyntheticDataConstants.EMAIL_NUMBER_MIN, SyntheticDataConstants.EMAIL_NUMBER_MAX
+            SyntheticDataConstants.EMAIL_NUMBER_MIN, SyntheticDataConstants.EMAIL_NUMBER_MAX,
         )
         synthetic_email = f"{first_name.lower()}.{last_name.lower()}{email_number}@{SyntheticDataConstants.SYNTHETIC_EMAIL_DOMAIN}"
 
@@ -360,7 +363,7 @@ class SyntheticHealthcareDataGenerator:
                     "University Hospital",
                     "Community Health Center",
                     "Specialty Clinic",
-                ]
+                ],
             ),
             "created_at": fake.date_time_between(start_date="-2y", end_date="now").isoformat(),
             "preferences": {
@@ -389,7 +392,7 @@ class SyntheticHealthcareDataGenerator:
                     "Medication review",
                     "Preventive care",
                     "Acute symptoms",
-                ]
+                ],
             ),
             "duration_minutes": random.randint(15, 60),
             "visit_type": random.choice(["in-person", "telehealth", "phone"]),
@@ -400,7 +403,7 @@ class SyntheticHealthcareDataGenerator:
                     "Needs follow-up in 3 months",
                     "Lab work ordered",
                     "Referral to specialist recommended",
-                ]
+                ],
             ),
             "diagnosis_codes": [f"Z{fake.random_number(digits=2)}.{fake.random_number(digits=1)}"],
             "vital_signs": {
@@ -437,10 +440,10 @@ class SyntheticHealthcareDataGenerator:
             "patient_id": patient_id,
             "test_name": lab_test,
             "date_ordered": random_date(datetime(2023, 1, 1), datetime(2025, 7, 1)).strftime(
-                "%Y-%m-%d"
+                "%Y-%m-%d",
             ),
             "date_completed": random_date(datetime(2023, 1, 1), datetime(2025, 7, 1)).strftime(
-                "%Y-%m-%d"
+                "%Y-%m-%d",
             ),
             "result_status": random.choice(["Normal", "Abnormal", "Critical", "Pending"]),
             "value": round(random.uniform(min_val, max_val), 2),
@@ -448,7 +451,7 @@ class SyntheticHealthcareDataGenerator:
             "reference_range": f"{min_val}-{max_val}",
             "ordering_physician": f"dr_{uuid.uuid4().hex[:8]}",
             "lab_facility": random.choice(
-                ["Central Lab", "Hospital Lab", "Regional Testing Center", "Quick Lab"]
+                ["Central Lab", "Hospital Lab", "Regional Testing Center", "Quick Lab"],
             ),
             "created_at": fake.date_time_between(start_date="-1y", end_date="now").isoformat(),
         }
@@ -469,10 +472,10 @@ class SyntheticHealthcareDataGenerator:
             "deductible_met": random.choice([True, False]),
             "prior_auth_required": random.choice([True, False]),
             "effective_date": fake.date_between(start_date="-2y", end_date="today").strftime(
-                "%Y-%m-%d"
+                "%Y-%m-%d",
             ),
             "termination_date": fake.date_between(start_date="today", end_date="+2y").strftime(
-                "%Y-%m-%d"
+                "%Y-%m-%d",
             ),
             "verification_method": random.choice(["API", "Phone", "Web Portal", "Fax"]),
             "verified_by": fake.name(),
@@ -482,7 +485,7 @@ class SyntheticHealthcareDataGenerator:
                     "Prior authorization required for specialists",
                     "High deductible plan",
                     "Coverage active, no issues",
-                ]
+                ],
             ),
         }
 
@@ -498,7 +501,7 @@ class SyntheticHealthcareDataGenerator:
                     "research_assistant",
                     "scheduling_optimizer",
                     "billing_helper",
-                ]
+                ],
             ),
             "start_time": fake.date_time_between(start_date="-30d", end_date="now").isoformat(),
             "end_time": fake.date_time_between(start_date="-30d", end_date="now").isoformat(),
@@ -513,7 +516,7 @@ class SyntheticHealthcareDataGenerator:
         }
 
     def generate_billing_claim(
-        self, patient_id: str, doctor_id: str, encounter_id: str
+        self, patient_id: str, doctor_id: str, encounter_id: str,
     ) -> dict[str, Any]:
         """Generate synthetic billing claim for Phase 2 business automation"""
         return {
@@ -531,10 +534,10 @@ class SyntheticHealthcareDataGenerator:
                 k=random.randint(1, 3),
             ),
             "diagnosis_codes": random.sample(
-                ["Z00.00", "I10", "E11.9", "M79.3", "R50.9"], k=random.randint(1, 2)
+                ["Z00.00", "I10", "E11.9", "M79.3", "R50.9"], k=random.randint(1, 2),
             ),
             "claim_status": random.choice(
-                ["submitted", "approved", "denied", "pending", "resubmitted"]
+                ["submitted", "approved", "denied", "pending", "resubmitted"],
             ),
             "denial_reason": (
                 random.choice(
@@ -543,7 +546,7 @@ class SyntheticHealthcareDataGenerator:
                         "Prior authorization required",
                         "Service not covered",
                         "Duplicate claim",
-                    ]
+                    ],
                 )
                 if random.random() < 0.2
                 else None
@@ -556,7 +559,7 @@ class SyntheticHealthcareDataGenerator:
         return {
             "doctor_id": doctor_id,
             "documentation_style": random.choice(
-                ["concise", "detailed", "bullet_points", "narrative"]
+                ["concise", "detailed", "bullet_points", "narrative"],
             ),
             "preferred_templates": random.sample(
                 [
@@ -572,7 +575,7 @@ class SyntheticHealthcareDataGenerator:
             "auto_coding_preference": random.choice(["suggest_only", "auto_apply", "disabled"]),
             "alert_sensitivity": random.choice(["low", "medium", "high"]),
             "communication_style": random.choice(
-                ["formal", "conversational", "brief", "empathetic"]
+                ["formal", "conversational", "brief", "empathetic"],
             ),
             "typical_appointment_duration": random.randint(10, 45),
             "specialization_focus": random.choice(
@@ -583,7 +586,7 @@ class SyntheticHealthcareDataGenerator:
                     "pediatrics",
                     "geriatrics",
                     "mental_health",
-                ]
+                ],
             ),
             "created_at": fake.date_time_between(start_date="-365d", end_date="now").isoformat(),
             "updated_at": fake.date_time_between(start_date="-30d", end_date="now").isoformat(),
@@ -625,7 +628,7 @@ class SyntheticHealthcareDataGenerator:
                     "billing",
                     "lab_result",
                     "system_config",
-                ]
+                ],
             ),
             "resource_id": f"RES-{fake.random_number(digits=6)}",
             "ip_address": fake.ipv4_private(),
@@ -884,7 +887,7 @@ class SyntheticHealthcareDataGenerator:
                         import json
 
                         encounter_dict["vital_signs_json"] = json.dumps(
-                            encounter_dict["vital_signs"]
+                            encounter_dict["vital_signs"],
                         )
                         del encounter_dict["vital_signs"]
 
@@ -971,10 +974,10 @@ def main() -> None:
     parser.add_argument("--doctors", type=int, default=25, help="Number of doctors to generate")
     parser.add_argument("--patients", type=int, default=100, help="Number of patients to generate")
     parser.add_argument(
-        "--encounters", type=int, default=300, help="Number of encounters to generate"
+        "--encounters", type=int, default=300, help="Number of encounters to generate",
     )
     parser.add_argument(
-        "--output-dir", default="data/synthetic", help="Output directory for JSON files"
+        "--output-dir", default="data/synthetic", help="Output directory for JSON files",
     )
     parser.add_argument("--use-database", action="store_true", help="Also populate databases")
 

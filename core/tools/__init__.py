@@ -53,7 +53,7 @@ class ToolRegistry:
             logger.info(f"Tool registry initialized with {len(self._available_tools)} tools")
 
         except Exception as e:
-            logger.error(f"Failed to initialize tool registry: {e}")
+            logger.exception(f"Failed to initialize tool registry: {e}")
             raise
 
     async def close(self) -> None:
@@ -80,15 +80,14 @@ class ToolRegistry:
                     "available_tools": len(self._available_tools),
                     "tools": [tool.get("name") for tool in self._available_tools],
                 }
-            else:
-                return {
-                    "status": "unhealthy",
-                    "mcp_connected": False,
-                    "error": f"HTTP {response.status_code}",
-                }
+            return {
+                "status": "unhealthy",
+                "mcp_connected": False,
+                "error": f"HTTP {response.status_code}",
+            }
 
         except Exception as e:
-            logger.error(f"Tool health check failed: {e}")
+            logger.exception(f"Tool health check failed: {e}")
             return {"status": "unhealthy", "error": str(e)}
 
     async def _discover_tools(self) -> None:
@@ -152,11 +151,11 @@ class ToolRegistry:
             return result
 
         except Exception as e:
-            logger.error(f"Failed to execute tool {tool_name}: {e}")
+            logger.exception(f"Failed to execute tool {tool_name}: {e}")
             raise
 
     async def execute_tools_concurrently(
-        self, tool_requests: list[dict[str, Any]], timeout: float = 30.0
+        self, tool_requests: list[dict[str, Any]], timeout: float = 30.0,
     ) -> list[dict[str, Any]]:
         """Execute multiple tools concurrently using asyncio for healthcare workflows"""
         if not self._initialized:
@@ -169,7 +168,7 @@ class ToolRegistry:
             parameters = req.get("parameters", {})
             if tool_name:
                 task = asyncio.create_task(
-                    self.execute_tool(tool_name, parameters), name=f"tool_{tool_name}"
+                    self.execute_tool(tool_name, parameters), name=f"tool_{tool_name}",
                 )
                 tasks.append((req.get("request_id", "unknown"), task))
 
@@ -185,13 +184,13 @@ class ToolRegistry:
                 request_id = tasks[i][0]
                 if isinstance(result, Exception):
                     results.append(
-                        {"request_id": request_id, "success": False, "error": str(result)}
+                        {"request_id": request_id, "success": False, "error": str(result)},
                     )
                 else:
                     results.append({"request_id": request_id, "success": True, "result": result})
 
         except TimeoutError:
-            logger.error(f"Tool execution batch timed out after {timeout}s")
+            logger.exception(f"Tool execution batch timed out after {timeout}s")
             # Cancel remaining tasks
             for _, task in tasks:
                 if not task.done():
@@ -216,7 +215,7 @@ class ToolRegistry:
             return capabilities
 
         except Exception as e:
-            logger.error(f"Failed to get capabilities for tool {tool_name}: {e}")
+            logger.exception(f"Failed to get capabilities for tool {tool_name}: {e}")
             raise
 
 

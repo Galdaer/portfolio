@@ -46,10 +46,9 @@ class SharedBillingUtils:
         # Apply insurance-specific modifiers
         if insurance_type.lower() == "medicare":
             return base_rate_decimal * Decimal("0.85")  # Medicare typically pays less
-        elif insurance_type.lower() == "medicaid":
+        if insurance_type.lower() == "medicaid":
             return base_rate_decimal * Decimal("0.75")  # Medicaid typically pays less
-        else:
-            return base_rate_decimal
+        return base_rate_decimal
 
     @staticmethod
     def get_patient_coverage_data(patient_id: str, insurance_type: str) -> "PatientCoverage":
@@ -86,7 +85,7 @@ class SharedBillingUtils:
                     copay_type=CopayType.FIXED_DOLLAR,
                     primary_amount=Decimal("25.00"),
                     service_type="office_visit",
-                )
+                ),
             },
         )
 
@@ -114,7 +113,7 @@ class SharedBillingUtils:
             if amount_field in billing_data:
                 try:
                     HealthcareFinancialUtils.validate_financial_amount(
-                        billing_data[amount_field], amount_field
+                        billing_data[amount_field], amount_field,
                     )
                 except ValueError as e:
                     validation_errors.append(str(e))

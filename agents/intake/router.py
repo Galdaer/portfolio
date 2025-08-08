@@ -25,7 +25,7 @@ class IntakeRequest(BaseModel):
         description="Type of intake: new_patient_registration, appointment_scheduling, insurance_verification, document_checklist",
     )
     patient_data: dict[str, Any] = Field(
-        default_factory=dict, description="Patient data for intake processing"
+        default_factory=dict, description="Patient data for intake processing",
     )
     session_id: str = Field(default="default", description="Session identifier")
 
@@ -43,7 +43,7 @@ class IntakeRequest(BaseModel):
                     "insurance_primary": "Blue Cross Blue Shield",
                 },
                 "session_id": "intake_session_001",
-            }
+            },
         }
 
 
@@ -53,7 +53,7 @@ class AppointmentSchedulingRequest(BaseModel):
     patient_id: str = Field(..., description="Patient identifier")
     provider_preference: str | None = Field(None, description="Preferred provider")
     preferred_times: list[str] = Field(
-        default_factory=list, description="Preferred appointment times"
+        default_factory=list, description="Preferred appointment times",
     )
     appointment_type: str = Field(default="general", description="Type of appointment")
 
@@ -64,7 +64,7 @@ class AppointmentSchedulingRequest(BaseModel):
                 "provider_preference": "Dr. Smith",
                 "preferred_times": ["2024-08-10 09:00", "2024-08-10 14:00"],
                 "appointment_type": "annual_checkup",
-            }
+            },
         }
 
 
@@ -73,7 +73,7 @@ class InsuranceVerificationRequest(BaseModel):
 
     patient_id: str = Field(..., description="Patient identifier")
     insurance_info: dict[str, Any] = Field(
-        ..., description="Insurance information for verification"
+        ..., description="Insurance information for verification",
     )
 
     class Config:
@@ -86,7 +86,7 @@ class InsuranceVerificationRequest(BaseModel):
                     "group_number": "GRP001",
                     "subscriber_name": "John Doe",
                 },
-            }
+            },
         }
 
 
@@ -112,10 +112,10 @@ async def process_intake(
         # Process intake request
         result = await agent._process_implementation(request.model_dump())
 
-        return cast(dict[str, Any], result)
+        return cast("dict[str, Any]", result)
 
     except Exception as e:
-        logger.error(f"Intake processing error: {e}")
+        logger.exception(f"Intake processing error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Intake processing failed: {str(e)}",
@@ -143,10 +143,10 @@ async def register_new_patient(
         agent = HealthcareIntakeAgent(mcp_client=mcp_client, llm_client=llm_client)
         result = await agent._process_implementation(request)
 
-        return cast(dict[str, Any], result)
+        return cast("dict[str, Any]", result)
 
     except Exception as e:
-        logger.error(f"Patient registration error: {e}")
+        logger.exception(f"Patient registration error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Patient registration failed: {str(e)}",
@@ -179,10 +179,10 @@ async def schedule_appointment(
         agent = HealthcareIntakeAgent(mcp_client=mcp_client, llm_client=llm_client)
         result = await agent._process_implementation(intake_request)
 
-        return cast(dict[str, Any], result)
+        return cast("dict[str, Any]", result)
 
     except Exception as e:
-        logger.error(f"Appointment scheduling error: {e}")
+        logger.exception(f"Appointment scheduling error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Appointment scheduling failed: {str(e)}",
@@ -213,10 +213,10 @@ async def verify_insurance(
         agent = HealthcareIntakeAgent(mcp_client=mcp_client, llm_client=llm_client)
         result = await agent._process_implementation(intake_request)
 
-        return cast(dict[str, Any], result)
+        return cast("dict[str, Any]", result)
 
     except Exception as e:
-        logger.error(f"Insurance verification error: {e}")
+        logger.exception(f"Insurance verification error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Insurance verification failed: {str(e)}",
@@ -248,10 +248,10 @@ async def get_document_checklist(
         agent = HealthcareIntakeAgent(mcp_client=mcp_client, llm_client=llm_client)
         result = await agent._process_implementation(request)
 
-        return cast(dict[str, Any], result)
+        return cast("dict[str, Any]", result)
 
     except Exception as e:
-        logger.error(f"Document checklist error: {e}")
+        logger.exception(f"Document checklist error: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Document checklist generation failed: {str(e)}",

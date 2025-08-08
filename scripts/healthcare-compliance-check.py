@@ -77,7 +77,7 @@ class HealthcareComplianceChecker:
         if config_file and os.path.exists(config_file):
             try:
                 with open(config_file) as f:
-                    if config_file.endswith(".yml") or config_file.endswith(".yaml"):
+                    if config_file.endswith((".yml", ".yaml")):
                         user_config = yaml.safe_load(f)
                     else:
                         user_config = json.load(f)
@@ -225,11 +225,7 @@ class HealthcareComplianceChecker:
 
         # Check for synthetic markers in content
         content_lower = content.lower()
-        for marker in self.synthetic_markers:
-            if marker.lower() in content_lower:
-                return True
-
-        return False
+        return any(marker.lower() in content_lower for marker in self.synthetic_markers)
 
     def check_phi_patterns(self, content: str, filename: str) -> list[ComplianceIssue]:
         """Check for PHI patterns in content"""
@@ -258,7 +254,7 @@ class HealthcareComplianceChecker:
                                 message=f"Potential {description} detected: '{match.group()}'",
                                 severity=severity,
                                 compliance_requirement=compliance,
-                            )
+                            ),
                         )
 
         return issues
@@ -318,7 +314,7 @@ class HealthcareComplianceChecker:
                     message=f"Medical AI code missing required disclaimers: {missing_disclaimers}",
                     severity="warning",
                     compliance_requirement="MEDICAL_DISCLAIMER_REQUIREMENT",
-                )
+                ),
             )
 
         return issues
@@ -367,7 +363,7 @@ class HealthcareComplianceChecker:
                     message="Medical data handling without apparent security measures",
                     severity="warning",
                     compliance_requirement="HIPAA_164.312",
-                )
+                ),
             )
 
         return issues
@@ -390,7 +386,7 @@ class HealthcareComplianceChecker:
                         issue_type="invalid_yaml",
                         message="Invalid YAML configuration file",
                         severity="error",
-                    )
+                    ),
                 )
 
         elif file_ext == ".json":
@@ -405,7 +401,7 @@ class HealthcareComplianceChecker:
                         issue_type="invalid_json",
                         message="Invalid JSON configuration file",
                         severity="error",
-                    )
+                    ),
                 )
 
         return issues
@@ -429,7 +425,7 @@ class HealthcareComplianceChecker:
                     issue_type="file_read_error",
                     message=f"Error reading file: {str(e)}",
                     severity="error",
-                )
+                ),
             )
             return issues
 
@@ -494,10 +490,9 @@ class HealthcareComplianceChecker:
         """Generate compliance report"""
         if output_format == "json":
             return self._generate_json_report()
-        elif output_format == "yaml":
+        if output_format == "yaml":
             return self._generate_yaml_report()
-        else:
-            return self._generate_text_report()
+        return self._generate_text_report()
 
     def _is_pattern_in_synthetic_context(self, line: str, pattern_match: str) -> bool:
         """Check if a pattern match is in synthetic context"""
@@ -510,11 +505,7 @@ class HealthcareComplianceChecker:
 
         # Check for test/mock contexts
         test_contexts = ["test", "mock", "example", "sample", "demo", "fake"]
-        for context in test_contexts:
-            if context in line_lower:
-                return True
-
-        return False
+        return any(context in line_lower for context in test_contexts)
 
     def _check_yaml_config(self, config_data: Any, filename: str) -> list[ComplianceIssue]:
         """Check YAML configuration for healthcare compliance"""
@@ -537,7 +528,7 @@ class HealthcareComplianceChecker:
                             message=f"Missing required healthcare configuration section: {section}",
                             severity="warning",
                             compliance_requirement="HEALTHCARE_CONFIG_REQUIREMENT",
-                        )
+                        ),
                     )
 
         return issues
@@ -562,7 +553,7 @@ class HealthcareComplianceChecker:
                             message=f"Missing required healthcare configuration section: {section}",
                             severity="warning",
                             compliance_requirement="HEALTHCARE_CONFIG_REQUIREMENT",
-                        )
+                        ),
                     )
 
         return issues
@@ -573,9 +564,8 @@ class HealthcareComplianceChecker:
             return True
 
         for value in data.values():
-            if isinstance(value, dict):
-                if self._find_nested_key(value, key):
-                    return True
+            if isinstance(value, dict) and self._find_nested_key(value, key):
+                return True
 
         return False
 
@@ -616,7 +606,7 @@ class HealthcareComplianceChecker:
                 f"  Errors: {len(errors)}",
                 f"  Warnings: {len(warnings)}",
                 f"  Info: {len(infos)}",
-            ]
+            ],
         )
 
         return "\n".join(report_lines)
@@ -643,7 +633,7 @@ class HealthcareComplianceChecker:
                     "message": issue.message,
                     "severity": issue.severity,
                     "compliance_requirement": issue.compliance_requirement,
-                }
+                },
             )
 
         return json.dumps(report_data, indent=2)
@@ -670,7 +660,7 @@ class HealthcareComplianceChecker:
                     "message": issue.message,
                     "severity": issue.severity,
                     "compliance_requirement": issue.compliance_requirement,
-                }
+                },
             )
 
         return yaml.dump(report_data, default_flow_style=False)
@@ -699,7 +689,7 @@ Examples:
     )
 
     parser.add_argument(
-        "paths", nargs="*", default=["."], help="Paths to check (default: current directory)"
+        "paths", nargs="*", default=["."], help="Paths to check (default: current directory)",
     )
 
     parser.add_argument("--config", help="Configuration file path")
@@ -712,13 +702,13 @@ Examples:
     )
 
     parser.add_argument(
-        "--strict", action="store_true", help="Strict mode: warnings are treated as errors"
+        "--strict", action="store_true", help="Strict mode: warnings are treated as errors",
     )
 
     parser.add_argument("--no-phi-check", action="store_true", help="Disable PHI pattern checking")
 
     parser.add_argument(
-        "--no-disclaimer-check", action="store_true", help="Disable medical disclaimer checking"
+        "--no-disclaimer-check", action="store_true", help="Disable medical disclaimer checking",
     )
 
     args = parser.parse_args()
@@ -742,9 +732,7 @@ Examples:
     print(report)
 
     # Determine exit code
-    if errors > 0:
-        sys.exit(1)
-    elif warnings > 0 and args.strict:
+    if errors > 0 or warnings > 0 and args.strict:
         sys.exit(1)
     elif total_issues > 0:
         sys.exit(0)  # Issues found but not failing

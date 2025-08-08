@@ -117,7 +117,7 @@ class SecurityAnalyzer:
                             message=f"Dangerous function '{node.func.id}' usage detected",
                             line_number=node.lineno,
                             column=node.col_offset,
-                        )
+                        ),
                     )
 
     def _check_sql_injection_patterns(self, tree: ast.AST) -> None:
@@ -133,7 +133,7 @@ class SecurityAnalyzer:
                             message="Potential SQL injection: string concatenation with SQL keywords",
                             line_number=node.lineno,
                             column=node.col_offset,
-                        )
+                        ),
                     )
 
             # Check for f-string with SQL keywords
@@ -146,7 +146,7 @@ class SecurityAnalyzer:
                             message="Potential SQL injection: f-string with SQL keywords",
                             line_number=node.lineno,
                             column=node.col_offset,
-                        )
+                        ),
                     )
 
     def _check_hardcoded_secrets(self, tree: ast.AST) -> None:
@@ -161,7 +161,7 @@ class SecurityAnalyzer:
                         message="Potential hardcoded secret detected",
                         line_number=node.lineno,
                         column=node.col_offset,
-                    )
+                    ),
                 )
 
             # Check variable assignments
@@ -176,7 +176,7 @@ class SecurityAnalyzer:
                                     message=f"Hardcoded secret in variable '{target.id}'",
                                     line_number=node.lineno,
                                     column=node.col_offset,
-                                )
+                                ),
                             )
 
     def _check_weak_cryptography(self, tree: ast.AST) -> None:
@@ -194,7 +194,7 @@ class SecurityAnalyzer:
                                 message=f"Weak cryptographic algorithm detected: {func_name}",
                                 line_number=node.lineno,
                                 column=node.col_offset,
-                            )
+                            ),
                         )
 
                 # Check imports for weak crypto libraries
@@ -207,7 +207,7 @@ class SecurityAnalyzer:
                                 message=f"Weak cryptographic function: {node.func.id}",
                                 line_number=node.lineno,
                                 column=node.col_offset,
-                            )
+                            ),
                         )
 
     def _check_authentication_issues(self, tree: ast.AST) -> None:
@@ -223,7 +223,7 @@ class SecurityAnalyzer:
                             message="Potential plaintext password comparison",
                             line_number=node.lineno,
                             column=node.col_offset,
-                        )
+                        ),
                     )
 
     def _check_input_validation(self, tree: ast.AST) -> None:
@@ -240,7 +240,7 @@ class SecurityAnalyzer:
                             message="User input should be validated before use",
                             line_number=node.lineno,
                             column=node.col_offset,
-                        )
+                        ),
                     )
 
     def _check_file_operations(self, tree: ast.AST) -> None:
@@ -257,7 +257,7 @@ class SecurityAnalyzer:
                                 message="File path should be validated to prevent path traversal",
                                 line_number=node.lineno,
                                 column=node.col_offset,
-                            )
+                            ),
                         )
 
     def _contains_sql_and_string_concat(self, node: ast.BinOp) -> bool:
@@ -315,9 +315,7 @@ class SecurityAnalyzer:
         if len(value) > 20 and value.endswith("="):
             return True
         # PBKDF2: starts with $pbkdf2-
-        if value.lower().startswith("$pbkdf2-"):
-            return True
-        return False
+        return bool(value.lower().startswith("$pbkdf2-"))
 
     def _basic_security_analysis(self, code: str) -> dict[str, Any]:
         """Fallback basic security analysis using AST-based analysis"""
@@ -331,17 +329,16 @@ class SecurityAnalyzer:
                 and node.targets
                 and isinstance(node.targets[0], ast.Name)
                 and self._is_secret_variable_name(node.targets[0].id)
-            ):
-                if isinstance(node.value, ast.Str) and not self._is_hashed_value(node.value.s):
-                    issues.append(
-                        SecurityIssue(
-                            severity="medium",
-                            category="authentication",
-                            message="Potential plaintext password usage",
-                            line_number=node.lineno,
-                            code_snippet=ast.get_source_segment(code, node),
-                        )
-                    )
+            ) and isinstance(node.value, ast.Str) and not self._is_hashed_value(node.value.s):
+                issues.append(
+                    SecurityIssue(
+                        severity="medium",
+                        category="authentication",
+                        message="Potential plaintext password usage",
+                        line_number=node.lineno,
+                        code_snippet=ast.get_source_segment(code, node),
+                    ),
+                )
 
         # Check for potential SQL injection vulnerabilities
         for node in ast.walk(tree):
@@ -353,7 +350,7 @@ class SecurityAnalyzer:
                         message="Potential SQL injection vulnerability",
                         line_number=node.lineno,
                         code_snippet=ast.get_source_segment(code, node),
-                    )
+                    ),
                 )
 
         return self._format_results(issues)

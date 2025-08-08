@@ -87,7 +87,7 @@ class TestPHIMaskingFixes(HealthcareTestCase):
         # Synthetic data should be detected as PHI-like patterns but marked as safe
         assert result is not None
         print(
-            f"✅ PHI detection tested with synthetic patient: {patient['first_name']} {patient['last_name']}"
+            f"✅ PHI detection tested with synthetic patient: {patient['first_name']} {patient['last_name']}",
         )
 
     def test_phi_detection_with_real_patterns(self) -> None:

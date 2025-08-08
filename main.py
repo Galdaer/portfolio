@@ -234,7 +234,7 @@ async def health_check() -> dict[str, Any]:
         return await healthcare_monitor.comprehensive_health_check()
 
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
+        logger.exception(f"Health check failed: {e}")
         raise HTTPException(status_code=500, detail="Health check failed")
 
 
@@ -257,7 +257,7 @@ async def quick_health_check() -> dict[str, Any]:
         return await healthcare_monitor.quick_health_check()
 
     except Exception as e:
-        logger.error(f"Quick health check failed: {e}")
+        logger.exception(f"Quick health check failed: {e}")
         raise HTTPException(status_code=500, detail="Quick health check failed")
 
 
@@ -280,7 +280,7 @@ def custom_openapi() -> dict[str, Any]:
             "scheme": "bearer",
             "bearerFormat": "JWT",
             "description": "Healthcare JWT token with role-based permissions",
-        }
+        },
     }
 
     # Add healthcare compliance tags
@@ -310,7 +310,7 @@ app.openapi = custom_openapi  # type: ignore[method-assign]
 # Streaming endpoints for enhanced user experience
 @app.get("/stream/literature_search", tags=["streaming"])
 async def stream_literature_search(
-    query: str, max_results: int = 10, user_id: str = "demo_user", session_id: str = "demo_session"
+    query: str, max_results: int = 10, user_id: str = "demo_user", session_id: str = "demo_session",
 ) -> StreamingResponse:
     """
     Stream Medical Literature Search Results
@@ -333,7 +333,7 @@ async def stream_literature_search(
 
 @app.get("/stream/ai_reasoning", tags=["streaming"])
 async def stream_ai_reasoning(
-    medical_query: str, user_id: str = "demo_user", session_id: str = "demo_session"
+    medical_query: str, user_id: str = "demo_user", session_id: str = "demo_session",
 ) -> StreamingResponse:
     """
     Stream AI Reasoning Process

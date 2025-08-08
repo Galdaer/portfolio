@@ -29,7 +29,7 @@ class ModelRegistry:
                 "name": "Healthcare LLM",
                 "type": "text_generation",
                 "status": "available",
-            }
+            },
         ]
 
     def log_performance(self, model_id: str, metrics: dict[str, Any]) -> None:

@@ -49,7 +49,7 @@ class ModelRegistry:
             logger.info(f"Model registry initialized with {len(self._available_models)} models")
 
         except Exception as e:
-            logger.error(f"Failed to initialize model registry: {e}")
+            logger.exception(f"Failed to initialize model registry: {e}")
             raise
 
     async def close(self) -> None:
@@ -77,15 +77,14 @@ class ModelRegistry:
                     "available_models": len(models),
                     "models": [model.get("name") for model in models],
                 }
-            else:
-                return {
-                    "status": "unhealthy",
-                    "ollama_connected": False,
-                    "error": f"HTTP {response.status_code}",
-                }
+            return {
+                "status": "unhealthy",
+                "ollama_connected": False,
+                "error": f"HTTP {response.status_code}",
+            }
 
         except Exception as e:
-            logger.error(f"Model health check failed: {e}")
+            logger.exception(f"Model health check failed: {e}")
             return {"status": "unhealthy", "error": str(e)}
 
     async def _discover_models(self) -> None:
@@ -129,11 +128,11 @@ class ModelRegistry:
             return str(result.get("response", ""))
 
         except Exception as e:
-            logger.error(f"Failed to generate completion: {e}")
+            logger.exception(f"Failed to generate completion: {e}")
             raise
 
     async def chat_completion(
-        self, model: str, messages: list[dict[str, str]], **kwargs: Any
+        self, model: str, messages: list[dict[str, str]], **kwargs: Any,
     ) -> str:
         """Generate chat completion using specified model"""
         if not self._initialized or self.ollama_client is None:
@@ -149,7 +148,7 @@ class ModelRegistry:
             return str(result.get("message", {}).get("content", ""))
 
         except Exception as e:
-            logger.error(f"Failed to generate chat completion: {e}")
+            logger.exception(f"Failed to generate chat completion: {e}")
             raise
 
 

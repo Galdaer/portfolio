@@ -40,7 +40,7 @@ class EnvironmentDetector:
             logger.error("ENVIRONMENT variable is not set - this is required for security")
             raise RuntimeError(
                 "ENVIRONMENT variable must be explicitly set. "
-                "Valid values: development, testing, staging, production"
+                "Valid values: development, testing, staging, production",
             )
 
         # Validate against known environments
@@ -49,10 +49,13 @@ class EnvironmentDetector:
             logger.info(f"Environment detected: {environment.value}")
             return environment
         except ValueError as e:
-            logger.error(f"Invalid ENVIRONMENT value: '{env_var}'")
-            raise RuntimeError(
+            logger.exception(f"Invalid ENVIRONMENT value: '{env_var}'")
+            msg = (
                 f"Invalid ENVIRONMENT value: '{env_var}'. "
                 f"Valid values: {', '.join([e.value for e in Environment])}"
+            )
+            raise RuntimeError(
+                msg,
             ) from e
 
     @staticmethod
@@ -62,9 +65,9 @@ class EnvironmentDetector:
             return EnvironmentDetector.get_environment() == Environment.PRODUCTION
         except RuntimeError as e:
             # If environment cannot be determined, assume production for security
-            logger.error(
+            logger.exception(
                 "CRITICAL: Environment could not be determined. "
-                f"Falling back to production mode as a secure default. Error: {e}"
+                f"Falling back to production mode as a secure default. Error: {e}",
             )
             # Also log to stderr for immediate visibility
             import sys
@@ -82,9 +85,9 @@ class EnvironmentDetector:
             return EnvironmentDetector.get_environment() == Environment.DEVELOPMENT
         except RuntimeError as e:
             # If environment cannot be determined, do not assume development
-            logger.error(
+            logger.exception(
                 "Environment could not be determined. "
-                f"NOT assuming development mode for security. Error: {e}"
+                f"NOT assuming development mode for security. Error: {e}",
             )
             return False
 
@@ -117,9 +120,12 @@ class EnvironmentDetector:
         """
         current_env = EnvironmentDetector.get_environment()
         if current_env != required_env:
-            raise RuntimeError(
+            msg = (
                 f"This operation requires {required_env.value} environment, "
                 f"but running in {current_env.value}"
+            )
+            raise RuntimeError(
+                msg,
             )
 
     @staticmethod

@@ -35,7 +35,7 @@ class HealthcareAuthManager:
         """Authenticate against existing clinic systems"""
         if self.auth_mode == AuthenticationMode.STANDALONE:
             return self._standalone_auth(username, credentials)
-        elif self.auth_mode == AuthenticationMode.ACTIVE_DIRECTORY:
+        if self.auth_mode == AuthenticationMode.ACTIVE_DIRECTORY:
             return self._ad_auth(username, credentials)
         # Add other auth methods as needed
         return False

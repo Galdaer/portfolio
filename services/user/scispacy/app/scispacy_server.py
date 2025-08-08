@@ -5,6 +5,7 @@ SciSpacy Server - REST API for biomedical text analysis
 
 import logging
 import os
+import sys
 from typing import Any
 
 import spacy
@@ -29,7 +30,7 @@ def load_model() -> bool:
         logger.info("Model loaded successfully")
         return True
     except Exception as e:
-        logger.error(f"Failed to load model {MODEL_NAME}: {e}")
+        logger.exception(f"Failed to load model {MODEL_NAME}: {e}")
         return False
 
 
@@ -100,7 +101,7 @@ def analyze() -> tuple[dict[str, Any], int]:
                     "start": ent.start_char,
                     "end": ent.end_char,
                     "confidence": getattr(ent, "_.confidence", 1.0) if hasattr(ent, "_") else 1.0,
-                }
+                },
             )
 
         # Extract sentences
@@ -118,7 +119,7 @@ def analyze() -> tuple[dict[str, Any], int]:
                         "tag": token.tag_,
                         "is_alpha": token.is_alpha,
                         "is_stop": token.is_stop,
-                    }
+                    },
                 )
 
         result = {
@@ -134,7 +135,7 @@ def analyze() -> tuple[dict[str, Any], int]:
         return result, 200
 
     except Exception as e:
-        logger.error(f"Error processing text: {e}")
+        logger.exception(f"Error processing text: {e}")
         return {"error": f"Processing failed: {str(e)}"}, 500
 
 
@@ -142,7 +143,7 @@ if __name__ == "__main__":
     # Load the model on startup
     if not load_model():
         logger.error("Failed to load model, exiting")
-        exit(1)
+        sys.exit(1)
 
     # Get configuration from environment
     host = os.environ.get("FLASK_HOST", "0.0.0.0")

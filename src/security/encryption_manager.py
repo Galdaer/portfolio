@@ -106,7 +106,7 @@ class KeyManager:
                         rotated_from VARCHAR(255),
                         metadata JSONB
                     )
-                """
+                """,
                 )
 
                 cursor.execute(
@@ -120,7 +120,7 @@ class KeyManager:
                         timestamp TIMESTAMP DEFAULT NOW(),
                         success BOOLEAN DEFAULT TRUE
                     )
-                """
+                """,
                 )
 
                 # Create indexes
@@ -128,13 +128,13 @@ class KeyManager:
                     """
                     CREATE INDEX IF NOT EXISTS idx_encryption_keys_key_id
                     ON encryption_keys(key_id)
-                """
+                """,
                 )
                 cursor.execute(
                     """
                     CREATE INDEX IF NOT EXISTS idx_encryption_keys_active
                     ON encryption_keys(is_active)
-                """
+                """,
                 )
 
             connection.commit()
@@ -152,7 +152,7 @@ class KeyManager:
                 self.logger.warning(f"Key table initialization failed in testing environment: {e}")
                 return  # Don't raise in testing mode
 
-            self.logger.error(f"Failed to initialize key tables: {e}")
+            self.logger.exception(f"Failed to initialize key tables: {e}")
             raise
         finally:
             if connection:
@@ -225,10 +225,10 @@ class KeyManager:
             if not all(c in valid_chars for c in master_key):
                 invalid_chars = [c for c in master_key if c not in valid_chars]
                 self.logger.error(
-                    f"MASTER_ENCRYPTION_KEY contains invalid base64 characters: {invalid_chars}"
+                    f"MASTER_ENCRYPTION_KEY contains invalid base64 characters: {invalid_chars}",
                 )
                 raise ValueError(
-                    "MASTER_ENCRYPTION_KEY format error: Contains invalid base64 characters"
+                    "MASTER_ENCRYPTION_KEY format error: Contains invalid base64 characters",
                 )
 
             # Attempt base64 decoding
@@ -236,30 +236,32 @@ class KeyManager:
 
         except ValueError as ve:
             # Specific base64 decoding error
-            self.logger.error(f"MASTER_ENCRYPTION_KEY base64 decoding failed: {ve}")
+            self.logger.exception(f"MASTER_ENCRYPTION_KEY base64 decoding failed: {ve}")
             raise ValueError("MASTER_ENCRYPTION_KEY format error: Invalid base64 encoding")
         except Exception as e:
             # Other decoding errors
-            self.logger.error(f"MASTER_ENCRYPTION_KEY validation failed during decoding: {e}")
+            self.logger.exception(f"MASTER_ENCRYPTION_KEY validation failed during decoding: {e}")
             raise ValueError("MASTER_ENCRYPTION_KEY format error: Decoding failed")
 
         # Step 2: Validate key length
         if len(decoded_key) < self.MIN_KEY_LENGTH:
             self.logger.error(
-                f"MASTER_ENCRYPTION_KEY validation failed: length {len(decoded_key)} bytes, required minimum {self.MIN_KEY_LENGTH} bytes"
+                f"MASTER_ENCRYPTION_KEY validation failed: length {len(decoded_key)} bytes, required minimum {self.MIN_KEY_LENGTH} bytes",
             )
+            msg = f"MASTER_ENCRYPTION_KEY length error: Key is {len(decoded_key)} bytes, minimum required is {self.MIN_KEY_LENGTH} bytes"
             raise ValueError(
-                f"MASTER_ENCRYPTION_KEY length error: Key is {len(decoded_key)} bytes, minimum required is {self.MIN_KEY_LENGTH} bytes"
+                msg,
             )
 
         # Step 3: Validate key entropy
         entropy = self._calculate_entropy(decoded_key)
         if entropy < self.MIN_ENTROPY_THRESHOLD:
             self.logger.error(
-                f"MASTER_ENCRYPTION_KEY validation failed: entropy {entropy:.2f}, required minimum {self.MIN_ENTROPY_THRESHOLD}"
+                f"MASTER_ENCRYPTION_KEY validation failed: entropy {entropy:.2f}, required minimum {self.MIN_ENTROPY_THRESHOLD}",
             )
+            msg = f"MASTER_ENCRYPTION_KEY entropy error: Key entropy is {entropy:.2f}, minimum required is {self.MIN_ENTROPY_THRESHOLD}"
             raise ValueError(
-                f"MASTER_ENCRYPTION_KEY entropy error: Key entropy is {entropy:.2f}, minimum required is {self.MIN_ENTROPY_THRESHOLD}"
+                msg,
             )
 
         self.logger.info(f"Master key validated: {len(decoded_key)} bytes, entropy: {entropy:.2f}")
@@ -307,16 +309,15 @@ class KeyManager:
                 if len(key) >= self.MIN_KEY_LENGTH:
                     self.logger.info("Using existing persistent development master key")
                     self.logger.warning(
-                        "Development key persistence enabled - data will be consistent across restarts"
+                        "Development key persistence enabled - data will be consistent across restarts",
                     )
                     return key
-                else:
-                    self.logger.warning(
-                        f"Existing development key too short ({len(key)} bytes), generating new key"
-                    )
-                    os.remove(key_file)
+                self.logger.warning(
+                    f"Existing development key too short ({len(key)} bytes), generating new key",
+                )
+                os.remove(key_file)
             except Exception as e:
-                self.logger.error(f"Failed to read existing development key: {e}")
+                self.logger.exception(f"Failed to read existing development key: {e}")
                 if os.path.exists(key_file):
                     os.remove(key_file)
 
@@ -336,10 +337,10 @@ class KeyManager:
 
             self.logger.warning(f"Generated new persistent development master key at {key_file}")
             self.logger.warning(
-                "Development key persistence enabled - data will be consistent across restarts"
+                "Development key persistence enabled - data will be consistent across restarts",
             )
             self.logger.warning(
-                "SECURITY: Development key persisted to disk - remove before production deployment"
+                "SECURITY: Development key persisted to disk - remove before production deployment",
             )
 
             # Also log to stderr for immediate visibility
@@ -353,7 +354,7 @@ class KeyManager:
             )
 
         except Exception as e:
-            self.logger.error(f"Failed to persist development key: {e}")
+            self.logger.exception(f"Failed to persist development key: {e}")
             self.logger.warning("Falling back to non-persistent key generation")
             return secrets.token_bytes(32)
 
@@ -409,7 +410,7 @@ class KeyManager:
 
         # Generate RSA key pair
         private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=key_size, backend=default_backend()
+            public_exponent=65537, key_size=key_size, backend=default_backend(),
         )
 
         # Serialize keys
@@ -472,8 +473,9 @@ class KeyManager:
 
         # Validate that key was generated
         if raw_key is None:
+            msg = f"Failed to generate key for type {key_type} and level {encryption_level}"
             raise ValueError(
-                f"Failed to generate key for type {key_type} and level {encryption_level}"
+                msg,
             )
 
         # Encrypt the key with master key
@@ -518,7 +520,7 @@ class KeyManager:
             return key_metadata
 
         except Exception as e:
-            self.logger.error(f"Failed to store encryption key: {e}")
+            self.logger.exception(f"Failed to store encryption key: {e}")
             raise
 
     def get_key(self, key_id: str) -> bytes | None:
@@ -563,7 +565,7 @@ class KeyManager:
                 return raw_key
 
         except Exception as e:
-            self.logger.error(f"Failed to retrieve key {key_id}: {e}")
+            self.logger.exception(f"Failed to retrieve key {key_id}: {e}")
             return None
 
     def rotate_key(self, old_key_id: str) -> EncryptionKey:
@@ -582,7 +584,8 @@ class KeyManager:
 
                 result = cursor.fetchone()
                 if not result:
-                    raise ValueError(f"Key not found: {old_key_id}")
+                    msg = f"Key not found: {old_key_id}"
+                    raise ValueError(msg)
 
                 key_type_str, encryption_level_str, algorithm = result
                 key_type = KeyType(key_type_str)
@@ -607,7 +610,7 @@ class KeyManager:
             return new_key
 
         except Exception as e:
-            self.logger.error(f"Failed to rotate key {old_key_id}: {e}")
+            self.logger.exception(f"Failed to rotate key {old_key_id}: {e}")
             raise
 
     def _log_key_usage(
@@ -630,7 +633,7 @@ class KeyManager:
                 )
             self.postgres_conn.commit()
         except Exception as e:
-            self.logger.error(f"Failed to log key usage: {e}")
+            self.logger.exception(f"Failed to log key usage: {e}")
 
 
 class HealthcareEncryptionManager:
@@ -676,7 +679,7 @@ class HealthcareEncryptionManager:
                         "dev_master_key",
                     ),
                     "allow_weak_keys": True,  # Only for development
-                }
+                },
             )
 
         return base_config
@@ -699,7 +702,7 @@ class HealthcareEncryptionManager:
                     SELECT key_id, encryption_level
                     FROM encryption_keys
                     WHERE key_id LIKE 'default_%' AND is_active = TRUE
-                """
+                """,
                 )
                 existing_keys = {row[1]: row[0] for row in cursor.fetchall()}
 
@@ -731,30 +734,30 @@ class HealthcareEncryptionManager:
             env_detector = EnvironmentDetector()
             if env_detector.is_testing():
                 self.logger.warning(
-                    f"Default key initialization failed in testing environment: {e}"
+                    f"Default key initialization failed in testing environment: {e}",
                 )
                 return  # Don't raise in testing mode
 
-            self.logger.error(f"Failed to initialize default keys: {e}")
+            self.logger.exception(f"Failed to initialize default keys: {e}")
             raise
         finally:
             if connection:
                 connection.close()
 
     def encrypt_phi_data(
-        self, data: str | dict[str, Any], user_id: str | None = None
+        self, data: str | dict[str, Any], user_id: str | None = None,
     ) -> dict[str, Any]:
         """Encrypt PHI data with healthcare-level encryption"""
         return self._encrypt_data(data, EncryptionLevel.HEALTHCARE, user_id)
 
     def encrypt_critical_data(
-        self, data: str | dict[str, Any], user_id: str | None = None
+        self, data: str | dict[str, Any], user_id: str | None = None,
     ) -> dict[str, Any]:
         """Encrypt critical data with maximum security"""
         return self._encrypt_data(data, EncryptionLevel.CRITICAL, user_id)
 
     def encrypt_basic_data(
-        self, data: str | dict[str, Any], user_id: str | None = None
+        self, data: str | dict[str, Any], user_id: str | None = None,
     ) -> dict[str, Any]:
         """Encrypt non-PHI data with basic encryption"""
         return self._encrypt_data(data, EncryptionLevel.BASIC, user_id)
@@ -768,17 +771,15 @@ class HealthcareEncryptionManager:
         """Internal method to encrypt data"""
         try:
             # Convert data to string if needed
-            if isinstance(data, dict):
-                data_str = json.dumps(data, sort_keys=True)
-            else:
-                data_str = str(data)
+            data_str = json.dumps(data, sort_keys=True) if isinstance(data, dict) else str(data)
 
             # Get encryption key
             key_id = f"default_{level.value}"
             raw_key = self.key_manager.get_key(key_id)
 
             if not raw_key:
-                raise ValueError(f"Encryption key not found: {key_id}")
+                msg = f"Encryption key not found: {key_id}"
+                raise ValueError(msg)
 
             # Encrypt based on level
             if level == EncryptionLevel.CRITICAL:
@@ -800,11 +801,11 @@ class HealthcareEncryptionManager:
             }
 
         except Exception as e:
-            self.logger.error(f"Encryption failed: {e}")
+            self.logger.exception(f"Encryption failed: {e}")
             raise
 
     def decrypt_data(
-        self, encrypted_package: dict[str, Any], user_id: str | None = None
+        self, encrypted_package: dict[str, Any], user_id: str | None = None,
     ) -> str | dict[str, Any]:
         """Decrypt data package"""
         try:
@@ -815,7 +816,8 @@ class HealthcareEncryptionManager:
             # Get decryption key
             raw_key = self.key_manager.get_key(key_id)
             if not raw_key:
-                raise ValueError(f"Decryption key not found: {key_id}")
+                msg = f"Decryption key not found: {key_id}"
+                raise ValueError(msg)
 
             # Decrypt data
             encrypted_data = base64.b64decode(encrypted_data_b64.encode())
@@ -839,7 +841,7 @@ class HealthcareEncryptionManager:
                 return decoded_data
 
         except Exception as e:
-            self.logger.error(f"Decryption failed: {e}")
+            self.logger.exception(f"Decryption failed: {e}")
             raise
 
     def _encrypt_aes_gcm(self, data: bytes, key: bytes) -> bytes:
@@ -861,8 +863,7 @@ class HealthcareEncryptionManager:
         if isinstance(ciphertext_bytes, bytes) and isinstance(encryptor.tag, bytes):
             # Return IV + tag + ciphertext
             return iv + encryptor.tag + ciphertext_bytes
-        else:
-            raise ValueError("Encryption operation did not return expected bytes")
+        raise ValueError("Encryption operation did not return expected bytes")
 
     def _decrypt_aes_gcm(self, encrypted_data: bytes, key: bytes) -> bytes:
         """Decrypt using AES-256-GCM"""
@@ -884,8 +885,7 @@ class HealthcareEncryptionManager:
         # Ensure we return bytes
         if isinstance(decrypted_bytes, bytes):
             return decrypted_bytes
-        else:
-            raise ValueError("Decryption operation did not return expected bytes")
+        raise ValueError("Decryption operation did not return expected bytes")
 
     def get_encryption_status(self) -> dict[str, Any]:
         """Get encryption system status"""
@@ -898,7 +898,7 @@ class HealthcareEncryptionManager:
                     FROM encryption_keys
                     WHERE is_active = TRUE
                     GROUP BY encryption_level
-                """
+                """,
                 )
                 key_counts = dict(cursor.fetchall())
 
@@ -909,7 +909,7 @@ class HealthcareEncryptionManager:
                     FROM key_usage_log
                     WHERE timestamp > NOW() - INTERVAL '24 hours'
                     GROUP BY operation
-                """
+                """,
                 )
                 usage_stats = dict(cursor.fetchall())
 
@@ -921,7 +921,7 @@ class HealthcareEncryptionManager:
                 }
 
         except Exception as e:
-            self.logger.error(f"Failed to get encryption status: {e}")
+            self.logger.exception(f"Failed to get encryption status: {e}")
             return {"status": "error", "error": str(e)}
 
 

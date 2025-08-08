@@ -90,7 +90,7 @@ class SyntheticHealthcareData:
             self.connection = psycopg2.connect(self.db_url, cursor_factory=RealDictCursor)
             logging.info("✅ Connected to synthetic healthcare database")
         except Exception as e:
-            logging.error(f"❌ Failed to connect to healthcare database: {e}")
+            logging.exception(f"❌ Failed to connect to healthcare database: {e}")
             logging.info("🔄 Using mock database for testing")
             # Use mock connection when database connection fails
             self.connection = MockConnection()
@@ -105,7 +105,7 @@ class SyntheticHealthcareData:
             self.async_pool = await asyncpg.create_pool(self.db_url)
             logging.info("✅ Connected to synthetic healthcare database (async)")
         except Exception as e:
-            logging.error(f"❌ Failed to connect to healthcare database (async): {e}")
+            logging.exception(f"❌ Failed to connect to healthcare database (async): {e}")
             logging.info("🔄 Using mock async connection for testing")
 
     def get_test_patients(self, limit: int = 10) -> list[dict[str, Any]]:
@@ -229,7 +229,7 @@ class SyntheticHealthcareData:
             ]
 
     def get_test_encounters(
-        self, patient_id: str | None = None, limit: int = 10
+        self, patient_id: str | None = None, limit: int = 10,
     ) -> list[dict[str, Any]]:
         """Get synthetic encounter data for testing."""
         if not self.connection:
@@ -358,7 +358,7 @@ class HealthcareTestCase:
         if self.test_patients:
             # Get encounters for first test patient
             self.test_encounters = self.synthetic_data.get_test_encounters(
-                patient_id=self.test_patients[0]["patient_id"], limit=3
+                patient_id=self.test_patients[0]["patient_id"], limit=3,
             )
 
     def tearDown(self) -> None:

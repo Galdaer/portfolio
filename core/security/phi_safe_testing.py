@@ -66,13 +66,15 @@ class PHISafeTestingFramework:
                     phi_violations.append(f"{phi_type}: {matches}")
 
         if phi_violations:
-            raise ValueError(f"Potential PHI detected in test data: {phi_violations}")
+            msg = f"Potential PHI detected in test data: {phi_violations}"
+            raise ValueError(msg)
 
         # Ensure test identifiers have proper prefixes
         for field, prefix in cls.SAFE_TEST_PREFIXES.items():
             if field in data and isinstance(data[field], str):
                 if not data[field].startswith(prefix):
-                    raise ValueError(f"{field} must start with {prefix} for test data")
+                    msg = f"{field} must start with {prefix} for test data"
+                    raise ValueError(msg)
 
         return True
 
@@ -105,7 +107,7 @@ class PHISafeTestingFramework:
             "encounter_date": "2024-01-15",
             "encounter_type": random.choice(["office_visit", "consultation", "follow_up"]),
             "chief_complaint": random.choice(
-                ["Routine checkup", "Follow-up visit", "Annual physical", "Medication review"]
+                ["Routine checkup", "Follow-up visit", "Annual physical", "Medication review"],
             ),
             "session_id": f"TEST_SESS_{encounter_num}",
             "synthetic_marker": True,
@@ -131,7 +133,7 @@ class PHISafeTestingFramework:
 
         for phi_type, pattern in cls.PHI_PATTERNS.items():
             scrubbed = re.sub(
-                pattern, f"[{phi_type.upper()}_REDACTED]", scrubbed, flags=re.IGNORECASE
+                pattern, f"[{phi_type.upper()}_REDACTED]", scrubbed, flags=re.IGNORECASE,
             )
 
         return scrubbed
@@ -169,7 +171,8 @@ class HealthcareTestValidator:
 
         for pattern in medical_advice_patterns:
             if pattern in response_text:
-                raise ValueError(f"Medical advice detected in response: {pattern}")
+                msg = f"Medical advice detected in response: {pattern}"
+                raise ValueError(msg)
 
         return True
 
@@ -182,7 +185,8 @@ class HealthcareTestValidator:
             framework.validate_test_data(response)
             return True
         except ValueError as e:
-            raise ValueError(f"PHI protection violation in response: {e}")
+            msg = f"PHI protection violation in response: {e}"
+            raise ValueError(msg)
 
     @staticmethod
     def validate_audit_logging(response: dict[str, Any]) -> bool:
@@ -194,7 +198,8 @@ class HealthcareTestValidator:
         missing_fields = [field for field in required_audit_fields if field not in audit_metadata]
 
         if missing_fields:
-            raise ValueError(f"Missing audit fields: {missing_fields}")
+            msg = f"Missing audit fields: {missing_fields}"
+            raise ValueError(msg)
 
         return True
 

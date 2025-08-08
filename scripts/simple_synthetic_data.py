@@ -29,7 +29,7 @@ def generate_simple_synthetic_data(output_dir: str = "data/synthetic") -> None:
                 "member_id": f"SYN{random.randint(100000, 999999)}",
                 "primary_condition": "Test Condition",
                 "_synthetic": True,
-            }
+            },
         )
 
     # Generate synthetic doctors
@@ -43,7 +43,7 @@ def generate_simple_synthetic_data(output_dir: str = "data/synthetic") -> None:
                 "specialty": "General Medicine",
                 "npi": f"123456789{i}",
                 "_synthetic": True,
-            }
+            },
         )
 
     # Generate synthetic encounters
@@ -63,7 +63,7 @@ def generate_simple_synthetic_data(output_dir: str = "data/synthetic") -> None:
                 "diagnosis_codes": ["Z00.00"],
                 "notes": "Standard synthetic encounter",
                 "_synthetic": True,
-            }
+            },
         )
 
     # Generate synthetic lab results
@@ -77,7 +77,7 @@ def generate_simple_synthetic_data(output_dir: str = "data/synthetic") -> None:
                 "result_date": "2024-01-15",
                 "status": "Normal",
                 "_synthetic": True,
-            }
+            },
         )
 
     # Generate synthetic insurance verifications
@@ -93,7 +93,7 @@ def generate_simple_synthetic_data(output_dir: str = "data/synthetic") -> None:
                 "copay_amount": 25,
                 "verification_date": "2024-01-15",
                 "_synthetic": True,
-            }
+            },
         )
 
     # Generate synthetic billing claims
@@ -111,7 +111,7 @@ def generate_simple_synthetic_data(output_dir: str = "data/synthetic") -> None:
                 "claim_status": "Pending",
                 "insurance_provider": "SyntheticInsurance",
                 "_synthetic": True,
-            }
+            },
         )
 
     # Generate synthetic agent sessions
@@ -126,7 +126,7 @@ def generate_simple_synthetic_data(output_dir: str = "data/synthetic") -> None:
                 "session_end": "2024-01-15T10:30:00Z",
                 "summary": "Synthetic test session",
                 "_synthetic": True,
-            }
+            },
         )
 
     # Generate synthetic doctor preferences
@@ -139,7 +139,7 @@ def generate_simple_synthetic_data(output_dir: str = "data/synthetic") -> None:
                 "preferred_templates": ["soap_note"],
                 "workflow_settings": {"auto_save": True},
                 "_synthetic": True,
-            }
+            },
         )
 
     # Generate synthetic audit logs
@@ -154,7 +154,7 @@ def generate_simple_synthetic_data(output_dir: str = "data/synthetic") -> None:
                 "timestamp": "2024-01-15T10:00:00Z",
                 "compliance_level": "HIPAA",
                 "_synthetic": True,
-            }
+            },
         )
 
     # Save all data to JSON files

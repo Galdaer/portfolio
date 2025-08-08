@@ -132,7 +132,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             return self._create_error_response(f"Processing error: {str(e)}", session_id)
 
     async def _process_with_step_limit(
-        self, input_data: dict[str, Any], session_id: str
+        self, input_data: dict[str, Any], session_id: str,
     ) -> dict[str, Any]:
         """Process single step with completion checking"""
         # Extract query information
@@ -144,13 +144,13 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         try:
             if query_type == "differential_diagnosis":
                 result = await self._process_differential_diagnosis(
-                    query, clinical_context, session_id
+                    query, clinical_context, session_id,
                 )
             elif query_type == "drug_interaction":
                 result = await self._process_drug_interaction(query, clinical_context, session_id)
             elif query_type == "literature_research":
                 result = await self._process_literature_research(
-                    query, clinical_context, session_id
+                    query, clinical_context, session_id,
                 )
             else:
                 # Default general processing
@@ -164,7 +164,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             return self._create_error_response(f"Step processing error: {str(e)}", session_id)
 
     async def _process_differential_diagnosis(
-        self, query: str, clinical_context: dict[str, Any], session_id: str
+        self, query: str, clinical_context: dict[str, Any], session_id: str,
     ) -> dict[str, Any]:
         """
         Process differential diagnosis with iterative reasoning
@@ -242,7 +242,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         }
 
     async def _process_drug_interaction(
-        self, query: str, clinical_context: dict[str, Any], session_id: str
+        self, query: str, clinical_context: dict[str, Any], session_id: str,
     ) -> dict[str, Any]:
         """
         Process drug interaction analysis with FDA and literature integration
@@ -252,7 +252,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         if not medications:
             # Try to extract from query using NLP
             entity_result = await self.mcp_client.call_healthcare_tool(
-                "extract_medical_entities", {"text": query}
+                "extract_medical_entities", {"text": query},
             )
             drug_entities = [
                 e.get("text")
@@ -263,7 +263,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
 
         if not medications:
             return self._create_error_response(
-                "No medications identified for interaction analysis", session_id
+                "No medications identified for interaction analysis", session_id,
             )
 
         # Enhanced drug interaction reasoning
@@ -291,7 +291,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
                             for source in fda_query.sources
                             if source.get("source_type") == "fda"
                         ],
-                    }
+                    },
                 )
             except Exception:
                 continue
@@ -318,7 +318,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         }
 
     async def _process_literature_research(
-        self, query: str, clinical_context: dict[str, Any], session_id: str
+        self, query: str, clinical_context: dict[str, Any], session_id: str,
     ) -> dict[str, Any]:
         """
         Comprehensive literature research with source prioritization
@@ -389,12 +389,12 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
 
         # Prioritize sources by evidence level
         prioritized_sources = self._prioritize_sources_by_evidence(
-            categorized_results["all_sources"]
+            categorized_results["all_sources"],
         )
 
         # Generate research summary
         summary = await self._generate_research_summary(
-            query, prioritized_sources, clinical_context
+            query, prioritized_sources, clinical_context,
         )
 
         return {
@@ -407,10 +407,10 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             "prioritized_sources": prioritized_sources[:15],  # Top 15 sources
             "total_sources_found": len(categorized_results["all_sources"]),
             "evidence_quality_distribution": self._analyze_evidence_quality(
-                categorized_results["all_sources"]
+                categorized_results["all_sources"],
             ),
             "source_links": list(
-                {source.get("url", "") for source in prioritized_sources if source.get("url")}
+                {source.get("url", "") for source in prioritized_sources if source.get("url")},
             ),
             "disclaimers": [
                 "This research summary is for informational purposes only.",
@@ -421,7 +421,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         }
 
     def _prioritize_sources_by_evidence(
-        self, sources: list[dict[str, Any]]
+        self, sources: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         """
         Prioritize sources by evidence level and quality
@@ -488,12 +488,12 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
                 source_summaries.append(
                     f"- {source.get('title', 'Unknown title')} "
                     f"({source.get('evidence_level', 'Unknown level')}) - "
-                    f"{source.get('abstract', 'No abstract')[:200]}..."
+                    f"{source.get('abstract', 'No abstract')[:200]}...",
                 )
             elif source.get("source_type") == "fda":
                 source_summaries.append(
                     f"- FDA: {source.get('drug_name', 'Unknown drug')} - "
-                    f"Indications: {', '.join(source.get('indications', [])[:3])}"
+                    f"Indications: {', '.join(source.get('indications', [])[:3])}",
                 )
 
         summary_prompt = f"""
@@ -553,7 +553,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             llm_settings.update(validation_config.get("llm_settings", {}))
 
         response = await self.llm_client.generate(
-            prompt=prompt, model="llama3.1", options=llm_settings
+            prompt=prompt, model="llama3.1", options=llm_settings,
         )
 
         response_text = response.get("response", "")
@@ -578,7 +578,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         return {"llm_settings": {"temperature": 0.1, "max_tokens": 10}}
 
     async def _process_general_inquiry(
-        self, query: str, clinical_context: dict[str, Any], session_id: str
+        self, query: str, clinical_context: dict[str, Any], session_id: str,
     ) -> dict[str, Any]:
         """
         Process general medical inquiry

@@ -34,7 +34,8 @@ def validate_config() -> bool:
 
     for field in required_fields:
         if not hasattr(config, field):
-            raise ValueError(f"Required configuration field '{field}' is missing")
+            msg = f"Required configuration field '{field}' is missing"
+            raise ValueError(msg)
 
     return True
 
@@ -55,12 +56,13 @@ def check_compliance_config() -> bool:
             missing_fields.append(field)
 
     if missing_fields:
-        raise ValueError(f"Healthcare compliance fields missing: {missing_fields}")
+        msg = f"Healthcare compliance fields missing: {missing_fields}"
+        raise ValueError(msg)
 
     # Validate healthcare-specific values
     if config.data_retention_days < 2555:  # 7 years minimum for healthcare
         raise ValueError(
-            "Data retention must be at least 7 years (2555 days) for healthcare compliance"
+            "Data retention must be at least 7 years (2555 days) for healthcare compliance",
         )
 
     return True

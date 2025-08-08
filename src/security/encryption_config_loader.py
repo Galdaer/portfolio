@@ -22,7 +22,7 @@ class EncryptionConfigLoader:
                 raise RuntimeError(
                     "Critical security configuration missing: MASTER_ENCRYPTION_KEY. "
                     "Ensure the MASTER_ENCRYPTION_KEY is set in the environment variables or configuration files. "
-                    "Contact the system administrator for assistance."
+                    "Contact the system administrator for assistance.",
                 )
 
             # Validate key format and entropy
@@ -30,15 +30,14 @@ class EncryptionConfigLoader:
                 logger.error("MASTER_ENCRYPTION_KEY does not meet minimum length requirements")
                 raise ValueError(
                     "MASTER_ENCRYPTION_KEY must be at least 32 characters long. "
-                    "Generate a new key using: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+                    "Generate a new key using: python -c 'import secrets; print(secrets.token_urlsafe(32))'",
                 )
 
         if master_key_str:
             # Use helper function to handle all key conversion logic
             return EncryptionConfigLoader.create_fernet_key_from_string(master_key_str)
-        else:
-            # Generate key for development - return base64 encoded
-            return EncryptionConfigLoader._get_or_create_development_key(logger, config)
+        # Generate key for development - return base64 encoded
+        return EncryptionConfigLoader._get_or_create_development_key(logger, config)
 
     @staticmethod
     def _get_or_create_development_key(logger: Any, config: Any = None) -> bytes:
@@ -118,8 +117,7 @@ class EncryptionConfigLoader:
 
             if EncryptionConfigLoader.validate_fernet_key_length(key_bytes):
                 return True, base64.urlsafe_b64encode(key_bytes)
-            else:
-                return False, b""
+            return False, b""
         except Exception:
             return False, b""
 

@@ -374,7 +374,7 @@ def changed_services(old: dict[str, Any], new: dict[str, Any]) -> set[str]:
 
 
 def run_bootstrap(
-    args: list[str] | None = None, env: dict[str, str] | None = None, suppress: bool = True
+    args: list[str] | None = None, env: dict[str, str] | None = None, suppress: bool = True,
 ) -> subprocess.Popen[bytes]:
     """Run ``bootstrap.sh`` with optional arguments.
 
@@ -405,8 +405,7 @@ def run_bootstrap(
 
     if suppress:
         return subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    else:
-        return subprocess.Popen(cmd, env=env)
+    return subprocess.Popen(cmd, env=env)
 
 
 def get_container_statuses() -> dict[str, str]:
