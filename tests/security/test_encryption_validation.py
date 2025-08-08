@@ -4,6 +4,7 @@ Validates master key security requirements and entropy validation with database-
 """
 
 import base64
+import contextlib
 import os
 import secrets
 import sys
@@ -11,8 +12,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-import contextlib
 
 from src.security.database_factory import PostgresConnectionFactory  # noqa: E402
 from src.security.encryption_manager import HealthcareEncryptionManager  # noqa: E402
