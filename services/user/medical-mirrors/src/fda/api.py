@@ -197,9 +197,9 @@ class FDAAPI:
                 total_processed += processed
 
             # Update log
-            setattr(update_log, 'status', "success")
-            setattr(update_log, 'records_processed', total_processed)
-            setattr(update_log, 'completed_at', datetime.utcnow())
+            update_log.status = "success"
+            update_log.records_processed = total_processed
+            update_log.completed_at = datetime.utcnow()
             db.commit()
 
             logger.info(f"FDA update completed: {total_processed} drugs processed")
@@ -211,9 +211,9 @@ class FDAAPI:
         except Exception as e:
             logger.exception(f"FDA update failed: {e}")
             if update_log is not None:
-                setattr(update_log, 'status', "failed")
-                setattr(update_log, 'error_message', str(e))
-                setattr(update_log, 'completed_at', datetime.utcnow())
+                update_log.status = "failed"
+                update_log.error_message = str(e)
+                update_log.completed_at = datetime.utcnow()
                 db.commit()
             raise
             raise
@@ -351,7 +351,7 @@ class FDAAPI:
 
         return stored_count
 
-    async def update_search_vectors(self, db: Session):
+    async def update_search_vectors(self, db: Session) -> None:
         """Update full-text search vectors"""
         try:
             update_query = text("""

@@ -6,6 +6,7 @@ Parses PubMed XML files and extracts article information
 import gzip
 import logging
 import xml.etree.ElementTree as ET
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 class PubMedParser:
     """Parses PubMed XML files and extracts article data"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     def parse_xml_file(self, xml_file_path: str) -> list[dict]:
@@ -44,7 +45,7 @@ class PubMedParser:
             logger.exception(f"Failed to parse {xml_file_path}: {e}")
             return []
 
-    def parse_article(self, article_elem) -> dict | None:
+    def parse_article(self, article_elem: ET.Element) -> dict[str, Any] | None:
         """Parse a single PubmedArticle element"""
         try:
             # Get PMID
@@ -78,7 +79,7 @@ class PubMedParser:
                 first_name = author_elem.find("ForeName")
                 if last_name is not None and first_name is not None:
                     authors.append(f"{first_name.text} {last_name.text}")
-                elif last_name is not None:
+                elif last_name is not None and last_name.text is not None:
                     authors.append(last_name.text)
 
             # Get journal
@@ -109,7 +110,7 @@ class PubMedParser:
             logger.exception(f"Failed to parse article: {e}")
             return None
 
-    def extract_pub_date(self, article_elem) -> str:
+    def extract_pub_date(self, article_elem: ET.Element) -> str:
         """Extract publication date from article"""
         try:
             # Try PubDate first
@@ -151,7 +152,7 @@ class PubMedParser:
             logger.exception(f"Failed to extract publication date: {e}")
             return ""
 
-    def extract_doi(self, article_elem) -> str:
+    def extract_doi(self, article_elem: ET.Element) -> str:
         """Extract DOI from article"""
         try:
             # Look for DOI in ArticleId elements
@@ -172,7 +173,7 @@ class PubMedParser:
             logger.exception(f"Failed to extract DOI: {e}")
             return ""
 
-    def extract_mesh_terms(self, article_elem) -> list[str]:
+    def extract_mesh_terms(self, article_elem: ET.Element) -> list[str]:
         """Extract MeSH terms from article"""
         try:
             mesh_terms = []

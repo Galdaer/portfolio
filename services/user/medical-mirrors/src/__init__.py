@@ -1,5 +1,4 @@
 """Medical mirrors package for healthcare data integration."""
 
-from .config import Config
-
-__all__ = ["Config"]
+# Configuration is imported directly by modules that need it
+__all__: list[str] = []

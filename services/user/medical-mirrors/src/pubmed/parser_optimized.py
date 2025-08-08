@@ -7,9 +7,9 @@ import asyncio
 import gzip
 import logging
 import multiprocessing as mp
-import xml.etree.ElementTree as ET
 from concurrent.futures import ProcessPoolExecutor
 from typing import Any
+from xml.etree import ElementTree as ET
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def parse_xml_file_worker(xml_file_path: str) -> "tuple[str, list[dict]]":
         return xml_file_path, []
 
 
-def parse_article_element(article_elem) -> dict | None:
+def parse_article_element(article_elem: ET.Element) -> dict[str, Any] | None:
     """Parse a single PubmedArticle element (pure function for multiprocessing)"""
     try:
         # Get PMID
@@ -76,7 +76,7 @@ def parse_article_element(article_elem) -> dict | None:
             first_name = author_elem.find("ForeName")
             if last_name is not None and first_name is not None:
                 authors.append(f"{first_name.text} {last_name.text}")
-            elif last_name is not None:
+            elif last_name is not None and last_name.text is not None:
                 authors.append(last_name.text)
 
         # Get journal
@@ -108,7 +108,7 @@ def parse_article_element(article_elem) -> dict | None:
         return None
 
 
-def extract_pub_date(article_elem) -> str:
+def extract_pub_date(article_elem: ET.Element) -> str:
     """Extract publication date from article element"""
     try:
         # Try PubDate first
@@ -139,7 +139,7 @@ def extract_pub_date(article_elem) -> str:
         return ""
 
 
-def extract_doi(article_elem) -> str:
+def extract_doi(article_elem: ET.Element) -> str:
     """Extract DOI from article element"""
     try:
         doi_elems = article_elem.findall(".//ArticleId[@IdType='doi']")
@@ -150,7 +150,7 @@ def extract_doi(article_elem) -> str:
         return ""
 
 
-def extract_mesh_terms(article_elem) -> list[str]:
+def extract_mesh_terms(article_elem: ET.Element) -> list[str]:
     """Extract MeSH terms from article element"""
     try:
         mesh_terms = []

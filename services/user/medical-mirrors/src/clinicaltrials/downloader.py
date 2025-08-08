@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from ..config import Config
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,8 @@ class ClinicalTrialsDownloader:
             response = await self.session.get(url, params=params)
             response.raise_for_status()
 
-            return response.json()
+            data: dict[str, Any] = response.json()
+            return data
 
         except Exception as e:
             logger.exception(f"Failed to download study {nct_id}: {e}")

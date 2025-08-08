@@ -9,7 +9,7 @@ import zipfile
 
 import httpx
 
-from ..config import Config
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class FDADownloader:
     """Downloads FDA drug databases"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.config = Config()
         self.data_dir = self.config.get_fda_data_dir()
         self.session = httpx.AsyncClient(timeout=60.0)
@@ -180,7 +180,7 @@ class FDADownloader:
 
     async def get_available_files(self) -> dict[str, list[str]]:
         """Get list of downloaded files ready for parsing"""
-        files = {"orange_book": [], "ndc": [], "drugs_fda": [], "labels": []}
+        files: dict[str, list[str]] = {"orange_book": [], "ndc": [], "drugs_fda": [], "labels": []}
 
         for dataset in files:
             dataset_dir = os.path.join(self.data_dir, dataset)
@@ -191,6 +191,6 @@ class FDADownloader:
 
         return files
 
-    async def close(self):
+    async def close(self) -> None:
         """Close HTTP session"""
         await self.session.aclose()

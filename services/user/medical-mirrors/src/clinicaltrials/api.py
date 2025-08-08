@@ -5,7 +5,7 @@ Provides search functionality matching Healthcare MCP interface
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from clinicaltrials.downloader import ClinicalTrialsDownloader
 from clinicaltrials.parser import ClinicalTrialsParser
@@ -158,7 +158,7 @@ class ClinicalTrialsAPI:
             logger.info("Triggering ClinicalTrials data update")
 
         db = self.session_factory()
-        update_log: Optional[UpdateLog] = None
+        update_log: UpdateLog | None = None
         try:
             # Log update start
             update_log = UpdateLog(
@@ -200,9 +200,9 @@ class ClinicalTrialsAPI:
                     break
 
             # Update log
-            setattr(update_log, 'status', 'success')
-            setattr(update_log, 'records_processed', total_processed)
-            setattr(update_log, 'completed_at', datetime.utcnow())
+            update_log.status = "success"
+            update_log.records_processed = total_processed
+            update_log.completed_at = datetime.utcnow()
             db.commit()
 
             logger.info(f"ClinicalTrials update completed: {total_processed} trials processed")
@@ -216,9 +216,9 @@ class ClinicalTrialsAPI:
             logger.exception(f"ClinicalTrials update failed: {e}")
             # Only update log if it was created
             if update_log is not None:
-                setattr(update_log, 'status', 'failed')
-                setattr(update_log, 'error_message', str(e))
-                setattr(update_log, 'completed_at', datetime.utcnow())
+                update_log.status = "failed"
+                update_log.error_message = str(e)
+                update_log.completed_at = datetime.utcnow()
                 db.commit()
             else:
                 # update_log was not created yet, create a failed log entry
@@ -253,7 +253,7 @@ class ClinicalTrialsAPI:
                     # Update existing trial
                     for key, value in trial_data.items():
                         setattr(existing, key, value)
-                    setattr(existing, 'updated_at', datetime.utcnow())
+                    existing.updated_at = datetime.utcnow()
                 else:
                     # Create new trial
                     trial = ClinicalTrial(**trial_data)

@@ -217,7 +217,7 @@ class PubMedAPI:
 
         return stored_count
 
-    async def update_search_vectors(self, db: Session):
+    async def update_search_vectors(self, db: Session) -> None:
         """Update full-text search vectors"""
         try:
             update_query = text("""

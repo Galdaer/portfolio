@@ -4,7 +4,6 @@ Database configuration and models for medical mirrors
 
 import os
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
 from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
@@ -33,6 +32,7 @@ class PubMedArticle(Base):  # type: ignore[misc,valid-type]
 
     __tablename__ = "pubmed_articles"
 
+    pmid = Column(String(20), primary_key=True)  # PubMed ID as primary key
     title = Column(Text)  # Now nullable (was previously nullable=False) to handle missing titles
     abstract = Column(Text)
     authors = Column(ARRAY(String))

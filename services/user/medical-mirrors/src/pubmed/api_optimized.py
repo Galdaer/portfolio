@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class OptimizedPubMedAPI:
     """Multi-core optimized PubMed API for high-performance medical data processing"""
 
-    def __init__(self, session_factory, max_workers: int | None = None):
+    def __init__(self, session_factory: Any, max_workers: int | None = None) -> None:
         self.session_factory = session_factory
         self.downloader = PubMedDownloader()
         self.parser = OptimizedPubMedParser(max_workers=max_workers)
@@ -140,9 +140,9 @@ class OptimizedPubMedAPI:
                 await self.bulk_update_search_vectors(db)
 
             # Update log
-            setattr(update_log, 'status', "success")
-            setattr(update_log, 'records_processed', total_processed)
-            setattr(update_log, 'completed_at', datetime.utcnow())
+            update_log.status = "success"
+            update_log.records_processed = total_processed
+            update_log.completed_at = datetime.utcnow()
             db.merge(update_log)
             db.commit()
 
@@ -155,9 +155,9 @@ class OptimizedPubMedAPI:
             }
         except Exception as e:
             logger.exception(f"Optimized PubMed update failed: {e}")
-            setattr(update_log, 'status', "failed")
-            setattr(update_log, 'error_message', str(e))
-            setattr(update_log, 'completed_at', datetime.utcnow())
+            update_log.status = "failed"
+            update_log.error_message = str(e)
+            update_log.completed_at = datetime.utcnow()
             db.merge(update_log)
             db.commit()
             raise
@@ -217,7 +217,7 @@ class OptimizedPubMedAPI:
             db.rollback()
             raise
 
-    async def bulk_update_search_vectors(self, db: Session):
+    async def bulk_update_search_vectors(self, db: Session) -> None:
         """
         Bulk update search vectors for all new articles
         Much more efficient than updating after each file

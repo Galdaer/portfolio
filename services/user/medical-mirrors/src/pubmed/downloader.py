@@ -8,9 +8,11 @@ import gzip
 import logging
 import os
 import time
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager, suppress
+from typing import Any
 
-from ..config import Config
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +20,7 @@ logger = logging.getLogger(__name__)
 class PubMedDownloader:
     """Downloads PubMed XML data from NCBI FTP"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.config = Config()
         self.ftp_host = "ftp.ncbi.nlm.nih.gov"
         self.ftp_path = "/pubmed/baseline/"
@@ -33,7 +35,7 @@ class PubMedDownloader:
         self.retry_delay = 5          # seconds
 
     @contextmanager
-    def ftp_connection(self, timeout: int | None = None):
+    def ftp_connection(self, timeout: int | None = None) -> Iterator[ftplib.FTP]:
         """Context manager for FTP connections with timeout and cleanup"""
         ftp = None
         try:
@@ -60,7 +62,7 @@ class PubMedDownloader:
                     with suppress(Exception):
                         ftp.close()
 
-    def retry_operation(self, operation_name: str, operation_func, *args, **kwargs) -> list[str]:
+    def retry_operation(self, operation_name: str, operation_func: Callable[..., list[str]], *args: Any, **kwargs: Any) -> list[str]:
         """Retry an operation with exponential backoff"""
         for attempt in range(self.max_retries):
             try:

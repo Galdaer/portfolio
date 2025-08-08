@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class FDAParser:
     """Parses FDA database files and extracts drug data"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     def parse_ndc_file(self, json_file_path: str) -> list[dict]:

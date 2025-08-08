@@ -44,6 +44,12 @@
 	   medical-mirrors-validate-downloads \
 	   medical-mirrors-debug-ncbi \
 	   medical-mirrors-clean-data \
+	   parse-downloaded-quick \
+	   parse-downloaded-full \
+	   parse-downloaded-status \
+	   parse-downloaded-pubmed \
+	   parse-downloaded-fda \
+	   parse-downloaded-trials \
 	   reset \
 	   restore \
 	   setup \
@@ -680,6 +686,46 @@ medical-mirrors-clean-data:
 	else \
 		echo "   ✅ No FDA files found"; \
 	fi
+
+# Parse Downloaded Medical Archives (without re-downloading)
+parse-downloaded-quick:
+	@echo "🔍  Quick parsing test for downloaded medical archives"
+	@echo "   ⚠️  This only processes small samples to verify parsing works"
+	@python3 scripts/parse_downloaded_archives.py quick
+
+parse-downloaded-full:
+	@echo "🚀  Full parsing of all downloaded medical archives"
+	@echo "   ⚠️  This may take several hours for complete datasets"
+	@echo "   📊 Will parse ALL available downloaded files"
+	@python3 scripts/parse_downloaded_archives.py full
+
+parse-downloaded-status:
+	@echo "📊  Checking medical data parsing status"
+	@python3 scripts/parse_downloaded_archives.py status
+
+parse-downloaded-pubmed:
+	@echo "📚  Parsing downloaded PubMed data only"
+	@python3 scripts/parse_downloaded_archives.py pubmed
+
+parse-downloaded-pubmed-quick:
+	@echo "📚  Quick parsing test for PubMed data"
+	@python3 scripts/parse_downloaded_archives.py pubmed --quick
+
+parse-downloaded-fda:
+	@echo "💊  Parsing downloaded FDA data only"
+	@python3 scripts/parse_downloaded_archives.py fda
+
+parse-downloaded-fda-quick:
+	@echo "💊  Quick parsing test for FDA data"
+	@python3 scripts/parse_downloaded_archives.py fda --quick
+
+parse-downloaded-trials:
+	@echo "🧪  Parsing downloaded ClinicalTrials data only"
+	@python3 scripts/parse_downloaded_archives.py trials
+
+parse-downloaded-trials-quick:
+	@echo "🧪  Quick parsing test for ClinicalTrials data"
+	@python3 scripts/parse_downloaded_archives.py trials --quick
 
 # Development Commands
 hooks:
