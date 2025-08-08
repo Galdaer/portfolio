@@ -563,34 +563,17 @@ medical-mirrors-progress:
 	@echo "📊  Medical Mirrors Update Progress"
 	@echo "   🔄 Refreshing every 10 seconds (Ctrl+C to stop)"
 	@echo ""
-	@while true; do 
-		clear; 
-		echo "📊 Medical Mirrors Progress - $$(date)"; 
-		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; 
-		curl -s http://localhost:8081/status | jq -r '
-			"🏥 Service: " + .service,
-			"",
-			"📚 PubMed:",
-			"   Articles: " + (.mirrors.pubmed.total_articles | tostring),
-			"   Status: " + .mirrors.pubmed.status,
-			"   Last Update: " + (.mirrors.pubmed.last_update // "Never"),
-			"",
-			"🧪 Clinical Trials:",
-			"   Trials: " + (.mirrors.clinicaltrials.total_trials | tostring),
-			"   Status: " + .mirrors.clinicaltrials.status,
-			"   Last Update: " + (.mirrors.clinicaltrials.last_update // "Never"),
-			"",
-			"💊 FDA Drugs:",
-			"   Drugs: " + (.mirrors.fda.total_drugs | tostring),
-			"   Status: " + .mirrors.fda.status,
-			"   Last Update: " + (.mirrors.fda.last_update // "Never")
-		' || echo "❌ Service not responding"; 
-		echo ""; 
-		echo "💡 Tips:"; 
-		echo "   • Updates run in background - you can close this monitor"; 
-		echo "   • Check logs: make medical-mirrors-logs"; 
-		echo "   • Stop updates: make medical-mirrors-stop"; 
-		sleep 10; 
+	@while true; do \
+		clear; \
+		echo "📊 Medical Mirrors Progress - $$(date)"; \
+		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+		curl -s http://localhost:8081/status | jq -r '"🏥 Service: " + .service, "", "📚 PubMed:", "   Articles: " + (.mirrors.pubmed.total_articles | tostring), "   Status: " + .mirrors.pubmed.status, "   Last Update: " + (.mirrors.pubmed.last_update // "Never"), "", "🧪 Clinical Trials:", "   Trials: " + (.mirrors.clinicaltrials.total_trials | tostring), "   Status: " + .mirrors.clinicaltrials.status, "   Last Update: " + (.mirrors.clinicaltrials.last_update // "Never"), "", "💊 FDA Drugs:", "   Drugs: " + (.mirrors.fda.total_drugs | tostring), "   Status: " + .mirrors.fda.status, "   Last Update: " + (.mirrors.fda.last_update // "Never")' || echo "❌ Service not responding"; \
+		echo ""; \
+		echo "💡 Tips:"; \
+		echo "   • Updates run in background - you can close this monitor"; \
+		echo "   • Check logs: make medical-mirrors-logs"; \
+		echo "   • Stop updates: make medical-mirrors-stop"; \
+		sleep 10; \
 	done
 
 medical-mirrors-quick-test:

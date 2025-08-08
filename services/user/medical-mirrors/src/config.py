@@ -37,25 +37,22 @@ class Config:
 
     # Performance optimization settings
     ENABLE_MULTICORE_PARSING: bool = os.getenv("ENABLE_MULTICORE_PARSING", "true").lower() == "true"
-    MAX_PARSER_WORKERS: int = int(os.getenv("MAX_PARSER_WORKERS", "0"))  # 0 = auto-detect CPU count
+    MAX_PARSER_WORKERS: int = int(os.getenv("MAX_PARSER_WORKERS", "8"))  # Default to 8 cores (half of typical 16-core system)
 
-    @classmethod
-    def get_pubmed_data_dir(cls) -> str:
+    def get_pubmed_data_dir(self) -> str:
         """Get PubMed data directory"""
-        path = f"{cls.DATA_DIR}/pubmed"
+        path = f"{self.DATA_DIR}/pubmed"
         os.makedirs(path, exist_ok=True)
         return path
 
-    @classmethod
-    def get_trials_data_dir(cls) -> str:
+    def get_trials_data_dir(self) -> str:
         """Get ClinicalTrials data directory"""
-        path = f"{cls.DATA_DIR}/trials"
+        path = f"{self.DATA_DIR}/trials"
         os.makedirs(path, exist_ok=True)
         return path
 
-    @classmethod
-    def get_fda_data_dir(cls) -> str:
+    def get_fda_data_dir(self) -> str:
         """Get FDA data directory"""
-        path = f"{cls.DATA_DIR}/fda"
+        path = f"{self.DATA_DIR}/fda"
         os.makedirs(path, exist_ok=True)
         return path

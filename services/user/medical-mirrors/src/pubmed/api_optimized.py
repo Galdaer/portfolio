@@ -3,17 +3,16 @@ Optimized PubMed API with multi-core processing and bulk database operations
 Provides significant performance improvements for large medical datasets
 """
 
-import asyncio
 import logging
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import Any
 
 from database import PubMedArticle, UpdateLog
 from pubmed.downloader import PubMedDownloader
 from pubmed.parser_optimized import OptimizedPubMedParser
 from sqlalchemy import func, text
-from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -91,13 +90,13 @@ class OptimizedPubMedAPI:
             # Download update files
             logger.info("Downloading PubMed update files...")
             update_files = await self.downloader.download_updates()
-            
+
             # Limit files for quick testing
             if quick_test:
                 max_files_to_process = max_files or 3
                 update_files = update_files[:max_files_to_process]
                 logger.info(f"Quick test mode: processing only {len(update_files)} files")
-            
+
             if not update_files:
                 logger.info("No update files to process")
                 return {"status": "success", "records_processed": 0, "files_processed": 0}
@@ -105,16 +104,16 @@ class OptimizedPubMedAPI:
             # PARALLEL XML PARSING - This is where the magic happens!
             logger.info(f"Starting parallel parsing of {len(update_files)} files...")
             parsed_files = await self.parser.parse_xml_files_parallel(update_files)
-            
+
             # BULK DATABASE OPERATIONS
             total_processed = 0
             all_articles = []
-            
+
             # Collect all articles from all files
             for xml_file, articles in parsed_files.items():
                 all_articles.extend(articles)
                 logger.info(f"Collected {len(articles)} articles from {xml_file}")
-            
+
             # CRITICAL: Remove duplicates by PMID to prevent database constraint violations
             if all_articles:
                 logger.info(f"Deduplicating {len(all_articles)} articles by PMID...")
@@ -124,18 +123,18 @@ class OptimizedPubMedAPI:
                     if pmid:
                         # Keep the most recent version if we see the same PMID multiple times
                         unique_articles[pmid] = article
-                
+
                 deduplicated_articles = list(unique_articles.values())
                 duplicate_count = len(all_articles) - len(deduplicated_articles)
-                
+
                 if duplicate_count > 0:
                     logger.info(f"Removed {duplicate_count} duplicate PMIDs, processing {len(deduplicated_articles)} unique articles")
-                
+
                 # Bulk store deduplicated articles
                 logger.info(f"Bulk storing {len(deduplicated_articles)} unique articles...")
                 processed = await self.bulk_store_articles(deduplicated_articles, db)
                 total_processed = processed
-                
+
                 # Single bulk search vector update
                 logger.info("Updating search vectors in bulk...")
                 await self.bulk_update_search_vectors(db)
@@ -164,16 +163,16 @@ class OptimizedPubMedAPI:
         finally:
             db.close()
 
-    async def bulk_store_articles(self, articles: List[Dict[str, Any]], db: Session) -> int:
+    async def bulk_store_articles(self, articles: list[dict[str, Any]], db: Session) -> int:
         """
         Bulk store articles using PostgreSQL UPSERT for maximum performance
         Much faster than individual INSERT operations
         """
         logger.info(f"Bulk storing {len(articles)} articles...")
-        
+
         if not articles:
             return 0
-            
+
         try:
             # Prepare bulk UPSERT statement
             stmt = insert(PubMedArticle)
@@ -190,24 +189,24 @@ class OptimizedPubMedAPI:
                     'updated_at': stmt.excluded.updated_at
                 }
             )
-            
+
             # Process in batches for memory efficiency
             batch_size = 1000
             stored_count = 0
-            
+
             for i in range(0, len(articles), batch_size):
                 batch = articles[i:i + batch_size]
-                
+
                 # Execute bulk insert for this batch
                 db.execute(stmt, batch)
                 stored_count += len(batch)
-                
+
                 # Commit batch
                 db.commit()
-                
+
                 if stored_count % 5000 == 0:
                     logger.info(f"Bulk stored {stored_count}/{len(articles)} articles...")
-            
+
             logger.info(f"Bulk storage completed: {stored_count} articles stored")
             return stored_count
 
@@ -222,7 +221,7 @@ class OptimizedPubMedAPI:
         Much more efficient than updating after each file
         """
         logger.info("Starting bulk search vector update...")
-        
+
         try:
             # Update search vectors for articles that don't have them
             update_query = text("""
@@ -238,7 +237,7 @@ class OptimizedPubMedAPI:
 
             db.execute(update_query)
             db.commit()
-            
+
             logger.info("Bulk search vector update completed")
 
         except Exception as e:

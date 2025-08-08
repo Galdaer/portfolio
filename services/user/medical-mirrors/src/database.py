@@ -4,30 +4,31 @@ Database configuration and models for medical mirrors
 
 import os
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
 from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 Base = declarative_base()
 
 
-def get_database_url():
+def get_database_url() -> str:
     """Get database URL from environment"""
     return os.getenv(
         "POSTGRES_URL", "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
     )
 
 
-def get_database_session():
+def get_database_session() -> Session:
     """Get database session for medical mirrors operations"""
     engine = create_engine(get_database_url())
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return SessionLocal()
 
 
-class PubMedArticle(Base):
+class PubMedArticle(Base):  # type: ignore[misc,valid-type]
     """PubMed articles table with full-text search"""
 
     __tablename__ = "pubmed_articles"
@@ -45,7 +46,7 @@ class PubMedArticle(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class ClinicalTrial(Base):
+class ClinicalTrial(Base):  # type: ignore[misc,valid-type]
     """ClinicalTrials.gov studies table"""
 
     __tablename__ = "clinical_trials"
@@ -67,7 +68,7 @@ class ClinicalTrial(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class FDADrug(Base):
+class FDADrug(Base):  # type: ignore[misc,valid-type]
     """FDA drug information table"""
 
     __tablename__ = "fda_drugs"
@@ -88,7 +89,7 @@ class FDADrug(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class UpdateLog(Base):
+class UpdateLog(Base):  # type: ignore[misc,valid-type]
     """Track data update history"""
 
     __tablename__ = "update_logs"

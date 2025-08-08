@@ -5,6 +5,7 @@ Provides search functionality matching Healthcare MCP interface
 
 import logging
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from database import FDADrug, UpdateLog
 from fda.downloader import FDADownloader
@@ -18,14 +19,14 @@ logger = logging.getLogger(__name__)
 class FDAAPI:
     """Local FDA API matching Healthcare MCP interface"""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Any) -> None:
         self.session_factory = session_factory
         self.downloader = FDADownloader()
         self.parser = FDAParser()
 
     async def search_drugs(
-        self, generic_name: str = None, ndc: str = None, max_results: int = 10
-    ) -> list[dict]:
+        self, generic_name: Optional[str] = None, ndc: Optional[str] = None, max_results: int = 10
+    ) -> List[Dict[str, Any]]:
         """
         Search FDA drugs in local database
         Matches the interface of Healthcare MCP get-drug-info tool
@@ -38,7 +39,9 @@ class FDAAPI:
         try:
             # Build search query
             query_parts = []
-            params = {"limit": max_results}
+            params: dict[str, str] = {
+                "limit": str(max_results)
+            }
 
             if generic_name:
                 query_parts.append("search_vector @@ plainto_tsquery(:generic_name)")
@@ -160,7 +163,7 @@ class FDAAPI:
         finally:
             db.close()
 
-    async def trigger_update(self, quick_test: bool = False, limit: int = None) -> dict:
+    async def trigger_update(self, quick_test: bool = False, limit: int | None = None) -> dict:
         """Trigger FDA data update"""
         if quick_test:
             logger.info(f"Triggering FDA QUICK TEST update (limit={limit or 1000})")
@@ -186,11 +189,11 @@ class FDAAPI:
 
             # Process each dataset
             for dataset_name, data_dir in fda_data_dirs.items():
-                if quick_test and total_processed >= drug_limit:
+                if quick_test and drug_limit is not None and total_processed >= drug_limit:
                     logger.info(f"Quick test limit reached: {total_processed} drugs processed")
                     break
-                    
-                remaining_limit = drug_limit - total_processed if quick_test else None
+
+                remaining_limit = (drug_limit - total_processed) if (quick_test and drug_limit is not None) else None
                 processed = await self.process_fda_dataset(dataset_name, data_dir, db, quick_test_limit=remaining_limit)
                 total_processed += processed
 
@@ -217,7 +220,7 @@ class FDAAPI:
         finally:
             db.close()
 
-    async def process_fda_dataset(self, dataset_name: str, data_dir: str, db: Session, quick_test_limit: int = None) -> int:
+    async def process_fda_dataset(self, dataset_name: str, data_dir: str, db: Session, quick_test_limit: int | None = None) -> int:
         """Process a specific FDA dataset"""
         logger.info(f"Processing FDA dataset: {dataset_name}")
 
@@ -230,7 +233,7 @@ class FDAAPI:
                 if quick_test_limit and processed_count >= quick_test_limit:
                     logger.info(f"Quick test limit reached for {dataset_name}: {processed_count} drugs")
                     break
-                    
+
                 file_path = os.path.join(data_dir, file)
 
                 if dataset_name == "ndc" and file.endswith(".json"):
@@ -273,36 +276,75 @@ class FDAAPI:
             return processed_count
 
     async def store_drugs(self, drugs: list[dict], db: Session) -> int:
-        """Store drugs in database"""
+        """Store drugs in database using proper UPSERT to handle duplicates"""
         stored_count = 0
 
         for drug_data in drugs:
             try:
-                # Check if drug already exists
-                existing = db.query(FDADrug).filter(FDADrug.ndc == drug_data["ndc"]).first()
+                # Ensure NDC is properly formatted and not None
+                ndc = drug_data.get("ndc", "").strip()
+                if not ndc:
+                    logger.warning(f"Skipping drug with empty NDC: {drug_data}")
+                    continue
 
-                if existing:
-                    # Update existing drug
-                    for key, value in drug_data.items():
-                        setattr(existing, key, value)
-                    existing.updated_at = datetime.utcnow()
-                else:
-                    # Create new drug
-                    drug = FDADrug(**drug_data)
-                    db.add(drug)
+                # Use PostgreSQL UPSERT (ON CONFLICT DO UPDATE)
+                from sqlalchemy.dialects.postgresql import insert
 
+                # Prepare the data for insertion
+                insert_data = {
+                    "ndc": ndc,
+                    "name": drug_data.get("name", ""),
+                    "generic_name": drug_data.get("generic_name", ""),
+                    "brand_name": drug_data.get("brand_name", ""),
+                    "manufacturer": drug_data.get("manufacturer", ""),
+                    "ingredients": drug_data.get("ingredients", []),
+                    "dosage_form": drug_data.get("dosage_form", ""),
+                    "route": drug_data.get("route", ""),
+                    "approval_date": drug_data.get("approval_date"),
+                    "orange_book_code": drug_data.get("orange_book_code", ""),
+                    "therapeutic_class": drug_data.get("therapeutic_class", ""),
+                    "updated_at": datetime.utcnow()
+                }
+
+                # Create UPSERT statement
+                stmt = insert(FDADrug).values(insert_data)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=['ndc'],
+                    set_={
+                        'name': stmt.excluded.name,
+                        'generic_name': stmt.excluded.generic_name,
+                        'brand_name': stmt.excluded.brand_name,
+                        'manufacturer': stmt.excluded.manufacturer,
+                        'ingredients': stmt.excluded.ingredients,
+                        'dosage_form': stmt.excluded.dosage_form,
+                        'route': stmt.excluded.route,
+                        'approval_date': stmt.excluded.approval_date,
+                        'orange_book_code': stmt.excluded.orange_book_code,
+                        'therapeutic_class': stmt.excluded.therapeutic_class,
+                        'updated_at': stmt.excluded.updated_at
+                    }
+                )
+
+                db.execute(stmt)
                 stored_count += 1
 
                 # Commit in batches
                 if stored_count % 100 == 0:
                     db.commit()
+                    logger.info(f"Stored batch: {stored_count} drugs")
 
             except Exception as e:
-                logger.error(f"Failed to store drug {drug_data.get('ndc')}: {e}")
+                logger.error(f"Failed to store drug {drug_data.get('ndc', 'unknown')}: {e}")
                 db.rollback()
+                # Continue processing other drugs instead of failing completely
 
         # Final commit
-        db.commit()
+        try:
+            db.commit()
+            logger.info(f"Successfully stored {stored_count} FDA drugs")
+        except Exception as e:
+            logger.error(f"Final commit failed: {e}")
+            db.rollback()
 
         # Update search vectors
         await self.update_search_vectors(db)

@@ -9,7 +9,6 @@ import logging
 import os
 import time
 from contextlib import contextmanager
-from typing import Optional
 
 from config import Config
 
@@ -25,7 +24,7 @@ class PubMedDownloader:
         self.ftp_path = "/pubmed/baseline/"
         self.update_path = "/pubmed/updatefiles/"
         self.data_dir = self.config.get_pubmed_data_dir()
-        
+
         # FTP timeout and retry configuration
         self.connection_timeout = 30  # seconds
         self.operation_timeout = 60   # seconds
@@ -34,20 +33,20 @@ class PubMedDownloader:
         self.retry_delay = 5          # seconds
 
     @contextmanager
-    def ftp_connection(self, timeout: Optional[int] = None):
+    def ftp_connection(self, timeout: int | None = None):
         """Context manager for FTP connections with timeout and cleanup"""
         ftp = None
         try:
             timeout = timeout or self.connection_timeout
             logger.info(f"Connecting to {self.ftp_host} with {timeout}s timeout")
-            
+
             ftp = ftplib.FTP(timeout=timeout)
             ftp.connect(self.ftp_host)
             ftp.login()
-            
+
             logger.info("FTP connection established successfully")
             yield ftp
-            
+
         except ftplib.all_errors as e:
             logger.error(f"FTP connection error: {e}")
             raise
@@ -73,7 +72,7 @@ class PubMedDownloader:
                 if attempt == self.max_retries - 1:
                     logger.error(f"{operation_name} failed after {self.max_retries} attempts: {e}")
                     raise
-                
+
                 wait_time = self.retry_delay * (2 ** attempt)
                 logger.warning(f"{operation_name} failed (attempt {attempt + 1}): {e}, retrying in {wait_time}s")
                 time.sleep(wait_time)
@@ -92,7 +91,7 @@ class PubMedDownloader:
                 files = []
                 ftp.retrlines("NLST", files.append)
                 xml_files = [f for f in files if f.endswith(".xml.gz")]
-                
+
                 logger.info(f"Found {len(xml_files)} baseline files")
 
                 # Download first few files for testing (adjust as needed)
@@ -103,13 +102,13 @@ class PubMedDownloader:
                     local_path = os.path.join(self.data_dir, file)
                     if not os.path.exists(local_path):
                         logger.info(f"Downloading baseline file {i}/{len(recent_files)}: {file}")
-                        
+
                         # Set longer timeout for large file downloads
                         ftp.sock.settimeout(self.download_timeout)
-                        
+
                         with open(local_path, "wb") as local_file:
                             ftp.retrbinary(f"RETR {file}", local_file.write)
-                        
+
                         logger.info(f"Successfully downloaded: {file}")
                         downloaded_files.append(local_path)
                     else:
@@ -151,13 +150,13 @@ class PubMedDownloader:
                     local_path = os.path.join(self.data_dir, f"updates_{file}")
                     if not os.path.exists(local_path):
                         logger.info(f"Downloading update file {i}/{len(recent_files)}: {file}")
-                        
+
                         # Set longer timeout for large file downloads
                         ftp.sock.settimeout(self.download_timeout)
-                        
+
                         with open(local_path, "wb") as local_file:
                             ftp.retrbinary(f"RETR {file}", local_file.write)
-                        
+
                         logger.info(f"Successfully downloaded: {file}")
                         downloaded_files.append(local_path)
                     else:

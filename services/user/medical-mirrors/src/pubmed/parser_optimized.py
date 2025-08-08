@@ -8,13 +8,13 @@ import gzip
 import logging
 import multiprocessing as mp
 import xml.etree.ElementTree as ET
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from typing import List, Dict, Tuple, Any
+from concurrent.futures import ProcessPoolExecutor
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def parse_xml_file_worker(xml_file_path: str) -> 'Tuple[str, List[dict]]':
+def parse_xml_file_worker(xml_file_path: str) -> 'tuple[str, list[dict]]':
     """Worker function for multiprocessing XML parsing"""
     try:
         logger.info(f"Worker parsing: {xml_file_path}")
@@ -117,12 +117,12 @@ def extract_pub_date(article_elem) -> str:
             year_elem = pub_date_elem.find("Year")
             month_elem = pub_date_elem.find("Month")
             day_elem = pub_date_elem.find("Day")
-            
+
             if year_elem is not None:
                 year = year_elem.text
                 month = month_elem.text if month_elem is not None else "01"
                 day = day_elem.text if day_elem is not None else "01"
-                
+
                 # Convert month name to number if needed
                 month_map = {
                     "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
@@ -131,9 +131,9 @@ def extract_pub_date(article_elem) -> str:
                 }
                 if month in month_map:
                     month = month_map[month]
-                
+
                 return f"{year}-{month:0>2}-{day:0>2}"
-        
+
         return ""
     except Exception:
         return ""
@@ -166,41 +166,47 @@ def extract_mesh_terms(article_elem) -> list[str]:
 class OptimizedPubMedParser:
     """Multi-core optimized PubMed XML parser"""
 
-    def __init__(self, max_workers: int = None):
-        # Use all available CPU cores by default
-        self.max_workers = max_workers or mp.cpu_count()
-        logger.info(f"Initialized PubMed parser with {self.max_workers} workers")
+    def __init__(self, max_workers: int | None = None):
+        # Use half of available CPU cores by default to leave resources for other processes
+        if max_workers is None:
+            max_workers = max(1, mp.cpu_count() // 2)
+        self.max_workers = max_workers
+        logger.info(f"Initialized PubMed parser with {self.max_workers} workers (CPU cores: {mp.cpu_count()})")
 
-    async def parse_xml_files_parallel(self, xml_files: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    async def parse_xml_files_parallel(self, xml_files: list[str]) -> dict[str, list[dict[str, Any]]]:
         """Parse multiple XML files in parallel using all CPU cores"""
         logger.info(f"Parsing {len(xml_files)} XML files using {self.max_workers} cores")
-        
+
         # Use ProcessPoolExecutor for CPU-intensive XML parsing
         loop = asyncio.get_event_loop()
-        
+
         with ProcessPoolExecutor(max_workers=self.max_workers) as executor:
             # Submit all parsing tasks
             tasks = []
             for xml_file in xml_files:
                 task = loop.run_in_executor(executor, parse_xml_file_worker, xml_file)
                 tasks.append(task)
-            
+
             # Wait for all tasks to complete
             results = await asyncio.gather(*tasks, return_exceptions=True)
-        
+
         # Process results
         parsed_files = {}
         total_articles = 0
-        
+
         for result in results:
             if isinstance(result, Exception):
                 logger.error(f"Parsing task failed: {result}")
                 continue
-                
+
+            if not isinstance(result, tuple) or len(result) != 2:
+                logger.error(f"Invalid result format: {result}")
+                continue
+
             xml_file, articles = result
             parsed_files[xml_file] = articles
             total_articles += len(articles)
-        
+
         logger.info(f"Parallel parsing completed: {total_articles} total articles from {len(parsed_files)} files")
         return parsed_files
 

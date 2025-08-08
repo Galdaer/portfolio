@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 import os
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -18,17 +19,17 @@ logger = logging.getLogger(__name__)
 class ClinicalTrialsDownloader:
     """Downloads ClinicalTrials.gov study data"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.config = Config()
         self.api_base = self.config.CLINICALTRIALS_API
         self.data_dir = self.config.get_trials_data_dir()
         self.session = httpx.AsyncClient(timeout=30.0)
 
-    async def download_all_studies(self, batch_size: int = 1000) -> list[str]:
+    async def download_all_studies(self, batch_size: int = 1000) -> List[str]:
         """Download all studies from ClinicalTrials.gov"""
         logger.info("Starting ClinicalTrials.gov full download")
 
-        downloaded_files = []
+        downloaded_files: List[str] = []
         start = 1
 
         try:
@@ -52,10 +53,10 @@ class ClinicalTrialsDownloader:
             logger.error(f"ClinicalTrials download failed: {e}")
             raise
 
-    async def download_studies_batch(self, start: int, batch_size: int) -> str | None:
+    async def download_studies_batch(self, start: int, batch_size: int) -> Optional[str]:
         """Download a batch of studies"""
         try:
-            params = {
+            params: Dict[str, Any] = {
                 "fmt": "json",
                 "min_rnk": start,
                 "max_rnk": start + batch_size - 1,
@@ -88,12 +89,12 @@ class ClinicalTrialsDownloader:
             logger.error(f"Failed to download studies batch {start}: {e}")
             return None
 
-    async def download_study_details(self, nct_id: str) -> dict | None:
+    async def download_study_details(self, nct_id: str) -> Optional[Dict[str, Any]]:
         """Download detailed information for a specific study"""
         try:
             url = f"{self.api_base}/{nct_id}"
             # API v2 doesn't need fmt=json parameter
-            params = {}
+            params: Dict[str, Any] = {}
 
             response = await self.session.get(url, params=params)
             response.raise_for_status()
@@ -104,7 +105,7 @@ class ClinicalTrialsDownloader:
             logger.error(f"Failed to download study {nct_id}: {e}")
             return None
 
-    async def download_recent_updates(self, days: int = 7) -> list[str]:
+    async def download_recent_updates(self, days: int = 7) -> List[str]:
         """Download recently updated studies"""
         logger.info("Downloading recent studies (API v2 doesn't support date filtering)")
 
@@ -114,7 +115,7 @@ class ClinicalTrialsDownloader:
 
             end_date = datetime.now()
 
-            params = {
+            params: Dict[str, Any] = {
                 "pageSize": 100,  # Smaller page size since no date filtering
                 "fields": "NCTId,BriefTitle,OverallStatus,Phase,Condition,InterventionName,LocationFacility,LocationCity,LocationState,LocationCountry,StartDate,CompletionDate,EnrollmentCount,StudyType,LeadSponsorName",
             }
@@ -145,9 +146,9 @@ class ClinicalTrialsDownloader:
             logger.error(f"Failed to download recent updates: {e}")
             raise
 
-    async def get_available_files(self) -> list[str]:
+    async def get_available_files(self) -> List[str]:
         """Get list of downloaded JSON files ready for parsing"""
-        json_files = []
+        json_files: List[str] = []
 
         for file in os.listdir(self.data_dir):
             if file.endswith(".json"):
@@ -155,6 +156,6 @@ class ClinicalTrialsDownloader:
 
         return json_files
 
-    async def close(self):
+    async def close(self) -> None:
         """Close HTTP session"""
         await self.session.aclose()

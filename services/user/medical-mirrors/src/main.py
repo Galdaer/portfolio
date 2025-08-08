@@ -6,6 +6,7 @@ Provides unlimited access to PubMed, ClinicalTrials.gov, and FDA databases
 import logging
 import os
 from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import uvicorn
 from clinicaltrials.api import ClinicalTrialsAPI
@@ -34,7 +35,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan management"""
     logger.info("Starting Medical Mirrors API")
 
@@ -85,7 +86,7 @@ fda_api = FDAAPI(SessionLocal)
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> Dict[str, Any]:
     """Health check endpoint"""
     try:
         # Test database connection
@@ -105,7 +106,7 @@ async def health_check():
 
 
 @app.get("/status")
-async def get_status():
+async def get_status() -> Dict[str, Any]:
     """Get status of all mirrors including data freshness"""
     try:
         pubmed_status = await pubmed_api.get_status()
@@ -127,7 +128,7 @@ async def get_status():
 
 # PubMed Mirror Endpoints
 @app.get("/pubmed/search")
-async def search_pubmed(query: str, max_results: int = 10):
+async def search_pubmed(query: str, max_results: int = 10) -> Dict[str, Any]:
     """
     Search PubMed local mirror
     Matches interface of Healthcare MCP search-pubmed tool
@@ -141,7 +142,7 @@ async def search_pubmed(query: str, max_results: int = 10):
 
 
 @app.get("/pubmed/article/{pmid}")
-async def get_pubmed_article(pmid: str):
+async def get_pubmed_article(pmid: str) -> Dict[str, Any]:
     """Get specific PubMed article by PMID"""
     try:
         article = await pubmed_api.get_article(pmid)
@@ -155,7 +156,7 @@ async def get_pubmed_article(pmid: str):
 
 # ClinicalTrials Mirror Endpoints
 @app.get("/trials/search")
-async def search_trials(condition: str = None, location: str = None, max_results: int = 10):
+async def search_trials(condition: Optional[str] = None, location: Optional[str] = None, max_results: int = 10) -> Dict[str, Any]:
     """
     Search ClinicalTrials.gov local mirror
     Matches interface of Healthcare MCP search-trials tool
@@ -169,7 +170,7 @@ async def search_trials(condition: str = None, location: str = None, max_results
 
 
 @app.get("/trials/study/{nct_id}")
-async def get_trial_details(nct_id: str):
+async def get_trial_details(nct_id: str) -> Dict[str, Any]:
     """Get specific clinical trial by NCT ID"""
     try:
         trial = await trials_api.get_trial(nct_id)
@@ -183,7 +184,7 @@ async def get_trial_details(nct_id: str):
 
 # FDA Mirror Endpoints
 @app.get("/fda/search")
-async def search_fda(generic_name: str = None, ndc: str = None, max_results: int = 10):
+async def search_fda(generic_name: Optional[str] = None, ndc: Optional[str] = None, max_results: int = 10) -> Dict[str, Any]:
     """
     Search FDA databases local mirror
     Matches interface of Healthcare MCP get-drug-info tool
@@ -197,7 +198,7 @@ async def search_fda(generic_name: str = None, ndc: str = None, max_results: int
 
 
 @app.get("/fda/drug/{ndc}")
-async def get_drug_info(ndc: str):
+async def get_drug_info(ndc: str) -> Dict[str, Any]:
     """Get specific drug information by NDC"""
     try:
         drug = await fda_api.get_drug(ndc)
@@ -211,7 +212,7 @@ async def get_drug_info(ndc: str):
 
 # Update endpoints for maintenance
 @app.post("/update/pubmed")
-async def trigger_pubmed_update(quick_test: bool = False, max_files: int = None):
+async def trigger_pubmed_update(quick_test: bool = False, max_files: Optional[int] = None) -> Dict[str, Any]:
     """Trigger PubMed data update"""
     try:
         result = await pubmed_api.trigger_update(quick_test=quick_test, max_files=max_files)
@@ -222,7 +223,7 @@ async def trigger_pubmed_update(quick_test: bool = False, max_files: int = None)
 
 
 @app.post("/update/trials")
-async def trigger_trials_update(quick_test: bool = False, limit: int = None):
+async def trigger_trials_update(quick_test: bool = False, limit: Optional[int] = None) -> Dict[str, Any]:
     """Trigger ClinicalTrials data update"""
     try:
         result = await trials_api.trigger_update(quick_test=quick_test, limit=limit)
@@ -233,7 +234,7 @@ async def trigger_trials_update(quick_test: bool = False, limit: int = None):
 
 
 @app.post("/update/fda")
-async def trigger_fda_update(quick_test: bool = False, limit: int = None):
+async def trigger_fda_update(quick_test: bool = False, limit: Optional[int] = None) -> Dict[str, Any]:
     """Trigger FDA data update"""
     try:
         result = await fda_api.trigger_update(quick_test=quick_test, limit=limit)

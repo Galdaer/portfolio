@@ -5,6 +5,7 @@ Parses ClinicalTrials.gov JSON files and extracts study information
 
 import json
 import logging
+from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -12,13 +13,13 @@ logger = logging.getLogger(__name__)
 class ClinicalTrialsParser:
     """Parses ClinicalTrials.gov JSON files and extracts study data"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def parse_json_file(self, json_file_path: str) -> list[dict]:
+    def parse_json_file(self, json_file_path: str) -> List[Dict[str, Any]]:
         """Parse a ClinicalTrials.gov JSON file and extract studies"""
         logger.info(f"Parsing ClinicalTrials JSON file: {json_file_path}")
-        studies = []
+        studies: List[Dict[str, Any]] = []
 
         try:
             with open(json_file_path) as f:
@@ -42,7 +43,7 @@ class ClinicalTrialsParser:
             logger.error(f"Failed to parse {json_file_path}: {e}")
             return []
 
-    def parse_study(self, study_data: dict) -> dict | None:
+    def parse_study(self, study_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Parse a single study record"""
         try:
             # Handle API v2 structure (protocolSection)
@@ -159,11 +160,11 @@ class ClinicalTrialsParser:
             logger.error(f"Failed to parse study: {e}")
             return None
 
-    def extract_value(self, data: dict, paths: list[str]) -> str | None:
+    def extract_value(self, data: Dict[str, Any], paths: List[str]) -> Optional[str]:
         """Extract value from nested dict using multiple possible paths"""
         for path in paths:
             try:
-                value = data
+                value: Any = data
                 for key in path.split(".") if "." in path else [path]:
                     if isinstance(value, dict) and key in value:
                         value = value[key]
@@ -178,9 +179,9 @@ class ClinicalTrialsParser:
 
         return None
 
-    def extract_conditions(self, study_data: dict) -> list[str]:
+    def extract_conditions(self, study_data: Dict[str, Any]) -> List[str]:
         """Extract condition names from study"""
-        conditions = []
+        conditions: List[str] = []
 
         # Try different paths for conditions
         condition_paths = [
@@ -191,9 +192,13 @@ class ClinicalTrialsParser:
 
         for path in condition_paths:
             try:
-                value = study_data
+                value: Any = study_data
                 for key in path.split("."):
-                    value = value.get(key, {})
+                    if isinstance(value, dict):
+                        value = value.get(key, {})
+                    else:
+                        value = None
+                        break
 
                 if isinstance(value, list):
                     conditions.extend([str(c) for c in value if c])
@@ -205,9 +210,9 @@ class ClinicalTrialsParser:
 
         return list(set(conditions))  # Remove duplicates
 
-    def extract_interventions(self, study_data: dict) -> list[str]:
+    def extract_interventions(self, study_data: Dict[str, Any]) -> List[str]:
         """Extract intervention names from study"""
-        interventions = []
+        interventions: List[str] = []
 
         # Try different paths for interventions
         intervention_paths = [
@@ -218,9 +223,13 @@ class ClinicalTrialsParser:
 
         for path in intervention_paths:
             try:
-                value = study_data
+                value: Any = study_data
                 for key in path.split("."):
-                    value = value.get(key, {})
+                    if isinstance(value, dict):
+                        value = value.get(key, {})
+                    else:
+                        value = None
+                        break
 
                 if isinstance(value, list):
                     for intervention in value:
@@ -238,9 +247,9 @@ class ClinicalTrialsParser:
 
         return list(set(interventions))  # Remove duplicates
 
-    def extract_locations(self, study_data: dict) -> list[str]:
+    def extract_locations(self, study_data: Dict[str, Any]) -> List[str]:
         """Extract location information from study"""
-        locations = []
+        locations: List[str] = []
 
         try:
             # Try different paths for locations
@@ -250,9 +259,13 @@ class ClinicalTrialsParser:
             ]
 
             for path in location_paths:
-                value = study_data
+                value: Any = study_data
                 for key in path.split("."):
-                    value = value.get(key, {})
+                    if isinstance(value, dict):
+                        value = value.get(key, {})
+                    else:
+                        value = None
+                        break
 
                 if isinstance(value, list):
                     for location in value:
@@ -267,7 +280,7 @@ class ClinicalTrialsParser:
                                 locations.append(location_str)
 
             # Also try simple location fields
-            simple_locations = []
+            simple_locations: List[str] = []
             for field in ["LocationFacility", "LocationCity", "LocationState", "LocationCountry"]:
                 value = study_data.get(field)
                 if value:
@@ -281,9 +294,9 @@ class ClinicalTrialsParser:
 
         return list(set(locations))  # Remove duplicates
 
-    def extract_sponsors(self, study_data: dict) -> list[str]:
+    def extract_sponsors(self, study_data: Dict[str, Any]) -> List[str]:
         """Extract sponsor information from study"""
-        sponsors = []
+        sponsors: List[str] = []
 
         try:
             # Try different paths for sponsors
@@ -294,9 +307,13 @@ class ClinicalTrialsParser:
             ]
 
             for path in sponsor_paths:
-                value = study_data
+                value: Any = study_data
                 for key in path.split("."):
-                    value = value.get(key, {})
+                    if isinstance(value, dict):
+                        value = value.get(key, {})
+                    else:
+                        value = None
+                        break
 
                 if value:
                     sponsors.append(str(value))
@@ -310,7 +327,11 @@ class ClinicalTrialsParser:
             for path in collab_paths:
                 value = study_data
                 for key in path.split("."):
-                    value = value.get(key, {})
+                    if isinstance(value, dict):
+                        value = value.get(key, {})
+                    else:
+                        value = None
+                        break
 
                 if isinstance(value, list):
                     for collab in value:
@@ -326,7 +347,7 @@ class ClinicalTrialsParser:
 
         return list(set(sponsors))  # Remove duplicates
 
-    def extract_enrollment(self, study_data: dict) -> int | None:
+    def extract_enrollment(self, study_data: Dict[str, Any]) -> Optional[int]:
         """Extract enrollment count from study"""
         try:
             enrollment_paths = [
@@ -336,9 +357,13 @@ class ClinicalTrialsParser:
             ]
 
             for path in enrollment_paths:
-                value = study_data
+                value: Any = study_data
                 for key in path.split("."):
-                    value = value.get(key, {})
+                    if isinstance(value, dict):
+                        value = value.get(key, {})
+                    else:
+                        value = None
+                        break
 
                 if value:
                     try:

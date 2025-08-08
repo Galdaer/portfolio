@@ -5,6 +5,7 @@ Provides search functionality matching Healthcare MCP interface
 
 import logging
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from clinicaltrials.downloader import ClinicalTrialsDownloader
 from clinicaltrials.parser import ClinicalTrialsParser
@@ -18,14 +19,14 @@ logger = logging.getLogger(__name__)
 class ClinicalTrialsAPI:
     """Local ClinicalTrials.gov API matching Healthcare MCP interface"""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Any) -> None:
         self.session_factory = session_factory
         self.downloader = ClinicalTrialsDownloader()
         self.parser = ClinicalTrialsParser()
 
     async def search_trials(
-        self, condition: str = None, location: str = None, max_results: int = 10
-    ) -> list[dict]:
+        self, condition: Optional[str] = None, location: Optional[str] = None, max_results: int = 10
+    ) -> List[Dict[str, Any]]:
         """
         Search clinical trials in local database
         Matches the interface of Healthcare MCP search-trials tool
@@ -38,7 +39,7 @@ class ClinicalTrialsAPI:
         try:
             # Build search query
             query_parts = []
-            params = {"limit": max_results}
+            params: Dict[str, Any] = {"limit": max_results}
 
             if condition:
                 query_parts.append("search_vector @@ plainto_tsquery(:condition)")
@@ -97,7 +98,7 @@ class ClinicalTrialsAPI:
         finally:
             db.close()
 
-    async def get_trial(self, nct_id: str) -> dict | None:
+    async def get_trial(self, nct_id: str) -> Optional[Dict[str, Any]]:
         """Get specific trial by NCT ID"""
         db = self.session_factory()
         try:
@@ -123,7 +124,7 @@ class ClinicalTrialsAPI:
         finally:
             db.close()
 
-    async def get_status(self) -> dict:
+    async def get_status(self) -> Dict[str, Any]:
         """Get status of ClinicalTrials mirror"""
         db = self.session_factory()
         try:
@@ -151,7 +152,7 @@ class ClinicalTrialsAPI:
         finally:
             db.close()
 
-    async def trigger_update(self, quick_test: bool = False, limit: int = None) -> dict:
+    async def trigger_update(self, quick_test: bool = False, limit: Optional[int] = None) -> Dict[str, Any]:
         """Trigger ClinicalTrials data update"""
         if quick_test:
             logger.info(f"Triggering ClinicalTrials QUICK TEST update (limit={limit or 100})")
@@ -178,22 +179,22 @@ class ClinicalTrialsAPI:
                 update_files = await self.downloader.download_recent_updates(days=1)  # Only recent studies
             else:
                 update_files = await self.downloader.download_recent_updates()
-            
-            total_processed = 0
-            trials_processed = 0
+
+            total_processed: int = 0
+            trials_processed: int = 0
 
             for json_file in update_files:
                 trials = self.parser.parse_json_file(json_file)
-                
+
                 # For quick test, limit number of trials processed
                 if quick_test and trials_processed + len(trials) > (limit or 100):
                     trials = trials[:(limit or 100) - trials_processed]
                     logger.info(f"Quick test: processing {len(trials)} trials from {json_file}")
-                
+
                 processed = await self.store_trials(trials, db)
                 total_processed += processed
                 trials_processed += len(trials)
-                
+
                 # Stop if we've reached the quick test limit
                 if quick_test and trials_processed >= (limit or 100):
                     logger.info(f"Quick test complete: processed {trials_processed} trials")
@@ -222,7 +223,7 @@ class ClinicalTrialsAPI:
         finally:
             db.close()
 
-    async def store_trials(self, trials: list[dict], db: Session) -> int:
+    async def store_trials(self, trials: List[Dict[str, Any]], db: Session) -> int:
         """Store trials in database"""
         stored_count = 0
 
@@ -263,7 +264,7 @@ class ClinicalTrialsAPI:
 
         return stored_count
 
-    async def update_search_vectors(self, db: Session):
+    async def update_search_vectors(self, db: Session) -> None:
         """Update full-text search vectors"""
         try:
             update_query = text("""
@@ -286,7 +287,7 @@ class ClinicalTrialsAPI:
             logger.error(f"Failed to update search vectors: {e}")
             db.rollback()
 
-    async def initialize_data(self) -> dict:
+    async def initialize_data(self) -> Dict[str, Any]:
         """Initialize ClinicalTrials data"""
         logger.info("Initializing ClinicalTrials data")
 

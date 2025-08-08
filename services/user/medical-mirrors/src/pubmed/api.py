@@ -5,6 +5,7 @@ Provides search functionality matching Healthcare MCP interface
 
 import logging
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from database import PubMedArticle, UpdateLog
 from pubmed.downloader import PubMedDownloader
@@ -18,12 +19,12 @@ logger = logging.getLogger(__name__)
 class PubMedAPI:
     """Local PubMed API matching Healthcare MCP interface"""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Any) -> None:
         self.session_factory = session_factory
         self.downloader = PubMedDownloader()
         self.parser = PubMedParser()
 
-    async def search_articles(self, query: str, max_results: int = 10) -> list[dict]:
+    async def search_articles(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         """
         Search PubMed articles in local database
         Matches the interface of Healthcare MCP search-pubmed tool
@@ -117,7 +118,7 @@ class PubMedAPI:
         finally:
             db.close()
 
-    async def trigger_update(self, quick_test: bool = False, max_files: int = None) -> dict:
+    async def trigger_update(self, quick_test: bool = False, max_files: Optional[int] = None) -> Dict[str, Any]:
         """Trigger PubMed data update"""
         if quick_test:
             logger.info(f"Triggering PubMed QUICK TEST update (max_files={max_files or 3})")
@@ -138,13 +139,13 @@ class PubMedAPI:
 
             # Download and parse updates
             update_files = await self.downloader.download_updates()
-            
+
             # Limit files for quick testing
             if quick_test:
                 max_files_to_process = max_files or 3
                 update_files = update_files[:max_files_to_process]
                 logger.info(f"Quick test mode: processing only {len(update_files)} files")
-            
+
             total_processed = 0
 
             for xml_file in update_files:
@@ -153,9 +154,9 @@ class PubMedAPI:
                 total_processed += processed
 
             # Update log
-            update_log.status = "success"
-            update_log.records_processed = total_processed
-            update_log.completed_at = datetime.utcnow()
+            update_log.status = "success"  # type: ignore[assignment]
+            update_log.records_processed = total_processed  # type: ignore[assignment]
+            update_log.completed_at = datetime.utcnow()  # type: ignore[assignment]
             db.commit()
 
             logger.info(f"PubMed update completed: {total_processed} articles processed")
@@ -167,9 +168,9 @@ class PubMedAPI:
 
         except Exception as e:
             logger.error(f"PubMed update failed: {e}")
-            update_log.status = "failed"
-            update_log.error_message = str(e)
-            update_log.completed_at = datetime.utcnow()
+            update_log.status = "failed"  # type: ignore[assignment]
+            update_log.error_message = str(e)  # type: ignore[assignment]
+            update_log.completed_at = datetime.utcnow()  # type: ignore[assignment]
             db.commit()
             raise
         finally:
@@ -183,7 +184,7 @@ class PubMedAPI:
             try:
                 # Use PostgreSQL UPSERT (INSERT ... ON CONFLICT DO UPDATE)
                 from sqlalchemy.dialects.postgresql import insert
-                
+
                 stmt = insert(PubMedArticle).values(**article_data)
                 stmt = stmt.on_conflict_do_update(
                     index_elements=['pmid'],
@@ -198,7 +199,7 @@ class PubMedAPI:
                         'updated_at': stmt.excluded.updated_at
                     }
                 )
-                
+
                 db.execute(stmt)
                 stored_count += 1
 
