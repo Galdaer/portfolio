@@ -435,7 +435,7 @@ medical-mirrors-run:
 		--name medical-mirrors \
 		--network intelluxe-net \
 		-p 8081:8080 \
-		-v $(PWD)/data:/app/data \
+		-v $(PWD)/database/medical_complete:/app/data \
 		-v $(PWD)/logs:/app/logs \
 		-e PYTHONPATH=/app/src \
 		--restart unless-stopped \

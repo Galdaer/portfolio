@@ -27,6 +27,17 @@ class FullMedicalDownloader:
     def __init__(self, config: DownloadConfig):
         self.config = config
         self.logger = self._setup_logging()
+        
+        # Configure session with appropriate headers
+        self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+        })
 
     def _setup_logging(self) -> logging.Logger:
         """Setup comprehensive download logging"""
@@ -77,7 +88,7 @@ class FullMedicalDownloader:
         """Download complete PubMed baseline + updates"""
         self.logger.info("Starting complete PubMed download...")
 
-        pubmed_dir = self.config.base_dir / "pubmed_complete"
+        pubmed_dir = self.config.base_dir / "pubmed"
         pubmed_dir.mkdir(parents=True, exist_ok=True)
 
         # Download baseline files (complete corpus)
@@ -129,7 +140,7 @@ class FullMedicalDownloader:
         """Download ALL ClinicalTrials.gov studies with results"""
         self.logger.info("Starting complete ClinicalTrials download...")
 
-        trials_dir = self.config.base_dir / "clinicaltrials_complete"
+        trials_dir = self.config.base_dir / "clinicaltrials"
         trials_dir.mkdir(parents=True, exist_ok=True)
 
         # Use bulk download API for all studies
@@ -137,21 +148,28 @@ class FullMedicalDownloader:
 
         try:
             # Download all studies with results (completed trials)
+            # Simplified API parameters that work correctly (validated 2025-08-08)
             params = {
-                "format": "json",
-                "markupFormat": "markdown",
-                "countTotal": "true",
-                "pageSize": 1000,  # Maximum page size
-                "filter.overallStatus": ["COMPLETED", "TERMINATED", "WITHDRAWN"],
-                "filter.hasResults": "true",  # Only studies with results
+                "pageSize": 1000,
+                "format": "json"
+                # NOTE: Removed parameters that cause 400 Bad Request errors:
+                # - countTotal: not supported by this API endpoint
+                # - filter.overallStatus arrays don't work
+                # - filter.hasResults causes parameter errors
+                # - pageToken should only be used with actual token values
             }
 
             all_studies = []
-            page = 1
+            next_page_token = None
 
             while True:
-                params["pageToken"] = page
-                response = requests.get(api_url, params=params)
+                # Use nextPageToken from previous response for pagination
+                if next_page_token:
+                    params["pageToken"] = next_page_token
+                elif "pageToken" in params:
+                    del params["pageToken"]  # Remove pageToken for first request
+
+                response = self.session.get(api_url, params=params, timeout=30)
                 response.raise_for_status()
 
                 data = response.json()
@@ -161,13 +179,12 @@ class FullMedicalDownloader:
                     break
 
                 all_studies.extend(studies)
-                self.logger.info(f"Downloaded page {page}, total studies: {len(all_studies)}")
+                self.logger.info(f"Downloaded {len(studies)} studies, total: {len(all_studies)}")
 
-                # Check if we have more pages
-                if len(studies) < params["pageSize"]:
+                # Get next page token from response
+                next_page_token = data.get("nextPageToken")
+                if not next_page_token:
                     break
-
-                page += 1
 
             # Save complete dataset
             import json
@@ -186,7 +203,7 @@ class FullMedicalDownloader:
         """Download ALL FDA drug data files"""
         self.logger.info("Starting complete FDA download...")
 
-        fda_dir = self.config.base_dir / "fda_complete"
+        fda_dir = self.config.base_dir / "fda"
         fda_dir.mkdir(parents=True, exist_ok=True)
 
         # Download all drug label files (13 files)
@@ -227,7 +244,20 @@ class FullMedicalDownloader:
             "prescription_current.zip",
         ]
 
-        base_url = "https://download.fda.gov/Drugs/DrugsfDALabel/"
+        # WARNING: download.fda.gov domain is NXDOMAIN (domain does not exist)
+        # This base URL is defunct - DISABLING this download section
+        self.logger.warning("FDA drug labels download DISABLED - download.fda.gov domain is defunct")
+        self.logger.info("Alternative: Research FDA main site for drug label data sources")
+        
+        # TODO: Find alternative FDA drug labels data source
+        # Possible alternatives:
+        # - https://dailymed.nlm.nih.gov/dailymed/
+        # - https://www.accessdata.fda.gov/scripts/cder/daf/
+        self.logger.info("Skipping FDA drug labels - domain no longer exists")
+        return  # Skip this entire download section
+        
+        # DISABLED CODE BELOW (keeping for reference):
+        base_url = "https://download.fda.gov/Drugs/DrugsfDALabel/"  # DEFUNCT
 
         with ThreadPoolExecutor(max_workers=4) as executor:  # Fewer workers for large files
             futures = []
@@ -256,7 +286,13 @@ class FullMedicalDownloader:
                 headers["Range"] = f"bytes={resume_pos}-"
 
             try:
-                response = requests.get(url, headers=headers, stream=True)
+                response = self.session.get(url, headers=headers, stream=True, allow_redirects=True, timeout=30)
+                
+                # Check for FDA apology/abuse detection pages
+                if 'apology' in response.url or 'abuse-detection' in response.url:
+                    self.logger.error(f"FDA blocked request for {url} - redirected to: {response.url}")
+                    return False
+                
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code == 416:
@@ -266,7 +302,13 @@ class FullMedicalDownloader:
                         local_path.unlink()  # Delete partial file
                     resume_pos = 0
                     headers = {}
-                    response = requests.get(url, headers=headers, stream=True)
+                    response = self.session.get(url, headers=headers, stream=True, allow_redirects=True, timeout=30)
+                    
+                    # Check for FDA apology/abuse detection pages
+                    if 'apology' in response.url or 'abuse-detection' in response.url:
+                        self.logger.error(f"FDA blocked request for {url} - redirected to: {response.url}")
+                        return False
+                    
                     response.raise_for_status()
                 else:
                     raise
@@ -332,8 +374,8 @@ class FullMedicalDownloader:
         orange_dir = fda_dir / "orange_book"
         orange_dir.mkdir(parents=True, exist_ok=True)
         
-        # FDA Orange Book download URL
-        orange_book_url = "https://www.fda.gov/media/76860/download"
+        # FDA Orange Book download URL (corrected with attachment parameter)
+        orange_book_url = "https://www.fda.gov/media/76860/download?attachment"
         local_path = orange_dir / "orange_book.zip"
         
         try:
@@ -420,7 +462,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Download complete medical archives")
-    parser.add_argument("--data-dir", default="/home/intelluxe/data/medical_complete",
+    parser.add_argument("--data-dir", default="/home/intelluxe/database/medical_complete",
                         help="Directory to store complete medical data")
     parser.add_argument("--estimate-only", action="store_true",
                         help="Only show size estimates, don't download")
