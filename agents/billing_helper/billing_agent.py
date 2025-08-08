@@ -623,8 +623,8 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 # Calculate cost using advanced insurance calculator
                 cost_estimate = self.insurance_calculator.calculate_patient_cost(
                     cpt_code=cpt_code,
-                    billed_amount=negotiated_rate,  # Already a Decimal from shared utility
-                    patient_coverage=patient_coverage,
+                    billed_amount=HealthcareFinancialUtils.ensure_decimal(negotiated_rate),
+                    patient_coverage=patient_coverage
                 )
 
                 # Convert to Decimal for safe addition

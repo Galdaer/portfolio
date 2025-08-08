@@ -196,6 +196,10 @@ class KeyManager:
         byte_counts = Counter(data)
         data_len = len(data)
 
+        # Guard against empty data
+        if data_len == 0:
+            return 0.0
+
         # Calculate Shannon entropy
         entropy = 0.0
         for count in byte_counts.values():

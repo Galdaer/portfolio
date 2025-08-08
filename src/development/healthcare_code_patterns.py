@@ -571,7 +571,7 @@ class MedicalAIAgent:
 
         # Calculate compliance score
         all_checks = {**security_checks, **medical_checks}
-        compliance_score = sum(all_checks.values()) / len(all_checks)
+        compliance_score = sum(all_checks.values()) / len(all_checks) if all_checks else 0.0
         validation_results["compliance_score"] = compliance_score
 
         # Generate recommendations with proper type casting

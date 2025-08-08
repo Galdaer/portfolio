@@ -16,7 +16,7 @@ from faker import Faker
 from faker.providers import BaseProvider
 
 if TYPE_CHECKING:
-    import psycopg2
+    from typing import Any as Psycopg2Connection
 
 # Healthcare scripts require database connectivity - no fallbacks
 try:
@@ -282,7 +282,7 @@ class SyntheticHealthcareDataGenerator:
         ssn_serial = random.randint(
             SyntheticDataConstants.SSN_SERIAL_MIN, SyntheticDataConstants.SSN_SERIAL_MAX
         )
-        synthetic_ssn = f"{SyntheticDataConstants.SYNTHETIC_SSN_PREFIX}-{ssn_group}-{ssn_serial}"  # 555 area = clearly synthetic
+        synthetic_ssn = f"{SyntheticDataConstants.SYNTHETIC_SSN_PREFIX}-{ssn_group}-{ssn_serial}"  # 555 prefix = synthetic SSN (reserved for test data)
 
         # Break down phone generation for readability
         phone_area = random.choice(SyntheticDataConstants.SYNTHETIC_PHONE_AREA_CODES)
