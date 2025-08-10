@@ -1,4 +1,39 @@
 #!/usr/bin/env node
+// EARLY STDIO TAP (inserted before any other imports that may write to stdout)
+// We capture the very first chunks arriving on stdin and tee them to a file to verify
+// whether an MCP client actually sends an initialize request over stdio. This occurs
+// before loading the SDK so we can distinguish transport vs. server handler issues.
+{
+    // Wrap in an async IIFE to allow dynamic import without top-level await (compiled ESM acceptable)
+    (async () => {
+        try {
+            const earlyTransportMode = process.env.MCP_TRANSPORT;
+            if (earlyTransportMode === 'stdio' || earlyTransportMode === 'stdio-only') {
+                const fsEarly = await import('fs');
+                const earlyLogDir = '/app/logs';
+                const earlyLogPath = `${earlyLogDir}/early_stdio_tap.log`;
+                try { (fsEarly as any).mkdirSync(earlyLogDir, { recursive: true }); } catch (_) { /* ignore */ }
+                let captured = 0;
+                const CAP_LIMIT = 1024; // capture up to 1KB for diagnostic
+                process.stdin.on('data', (chunk: Buffer) => {
+                    try {
+                        if (captured < CAP_LIMIT) {
+                            const slice = chunk.subarray(0, Math.min(chunk.length, CAP_LIMIT - captured));
+                            (fsEarly as any).appendFileSync(earlyLogPath, `IN ${new Date().toISOString()} ${slice.toString()}`);
+                            captured += slice.length;
+                            if (captured >= CAP_LIMIT) {
+                                (fsEarly as any).appendFileSync(earlyLogPath, '\n-- CAPTURE LIMIT REACHED --\n');
+                            }
+                        }
+                    } catch (e) { /* ignore */ }
+                });
+                (fsEarly as any).appendFileSync(earlyLogPath, `[early-tap] process start pid=${process.pid} mode=${earlyTransportMode}\n`);
+            }
+        } catch (e) {
+            console.error('[early-tap][error]', e);
+        }
+    })();
+}
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -41,6 +76,27 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
+// ---------------------------------------------------------------------------
+// STDIO Transport Logging Safety
+// When running in MCP stdio or stdio-only modes, ANY writes to process.stdout
+// that are not well‑formed JSON-RPC frames will corrupt the protocol stream
+// and cause clients (Python pipeline / Open WebUI) to see zero tools.
+// We therefore redirect all console.log/info/warn output to stderr so that
+// only the MCP SDK emits JSON-RPC payloads on stdout. This preserves existing
+// debug visibility without breaking the framing.
+// ---------------------------------------------------------------------------
+const __transportMode = process.env.MCP_TRANSPORT;
+if (__transportMode === 'stdio' || __transportMode === 'stdio-only') {
+    const divert = (label: string) => (...args: any[]) => {
+        // Use console.error's original binding to ensure stderr routing
+        (console as any).error(`[LOG:${label}]`, ...args);
+    };
+    // Preserve original error for structured logging already using console.error
+    console.log = divert('OUT');
+    console.info = divert('INFO');
+    console.warn = divert('WARN');
+}
+
 const authConfig: AuthConfig = {
     clientId: process.env.OAUTH_CLIENT_ID!,
     clientSecret: process.env.OAUTH_CLIENT_SECRET!,
@@ -74,17 +130,21 @@ if (!FDA_API_KEY) {
     console.warn("FDA_API_KEY is not set. Using public rate limits.");
 }
 
+// Create MCP server with explicit (non-empty) tools capability so some clients
+// that short‑circuit when capabilities.tools is undefined/empty still issue
+// a tools/list request. We don't enumerate tools here (dynamic); just signal support.
 let mcpServer = new Server({
     name: "healthcare-mcp",
     version: "1.0.0"
 }, {
     capabilities: {
         resources: {},
-        tools: {},
+        tools: { listChanged: true },
         prompts: {},
         logging: {}
     }
 });
+console.error('[MCP][init] Server instantiated with tools capability stub');
 
 const healthcareServer = new HealthcareServer(
     mcpServer,
@@ -100,6 +160,31 @@ const healthcareServer = new HealthcareServer(
 // Create Express app for HTTP server mode
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
+
+// NOTE: Do NOT start run() here to avoid double invocation. Actual invocation handled below
+// after HTTP vs stdio-only branching. Double run() caused two StdioServerTransport instances
+// and likely swallowed initialize frames from clients, resulting in zero discovered tools.
+
+// Lightweight raw frame logging (incoming + outgoing) for stdio modes to /app/logs/stdio_frames.log
+if (__transportMode === 'stdio' || __transportMode === 'stdio-only') {
+    try {
+        const fs = await import('fs');
+        const logDir = '/app/logs';
+        const logPath = `${logDir}/stdio_frames.log`;
+        try { fs.mkdirSync(logDir, { recursive: true }); } catch (_) { /* ignore */ }
+        const originalWrite = process.stdout.write.bind(process.stdout);
+        (process.stdout as any).write = (chunk: any, encoding?: any, cb?: any) => {
+            try { fs.appendFileSync(logPath, `OUT ${new Date().toISOString()} ${chunk.toString()}`); } catch (_) { /* ignore */ }
+            return originalWrite(chunk, encoding, cb);
+        };
+        process.stdin.on('data', (chunk) => {
+            try { fs.appendFileSync(logPath, `IN  ${new Date().toISOString()} ${chunk.toString()}`); } catch (_) { /* ignore */ }
+        });
+        console.error('[MCP][debug] Enabled raw stdio frame logging at /app/logs/stdio_frames.log');
+    } catch (e) {
+        console.error('[MCP][debug] Failed to enable raw stdio frame logging', e);
+    }
+}
 
 // OpenAI Client Setup (if API key provided)
 let openaiClient: any = null;
@@ -930,14 +1015,27 @@ app.post("/generate_documentation", async (req, res) => {
     }
 });
 
-// Start HTTP server
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Healthcare MCP Server running on port ${PORT}`);
-    console.log(`Health check available at http://localhost:${PORT}/health`);
-    console.log(`Available tools: ${healthcareServer.getTools().map((t: any) => t.name).join(', ')}`);
-});
+const transportMode = process.env.MCP_TRANSPORT;
+const isPrimaryContainerProcess = process.pid === 1; // PID 1 inside container
+// Treat non-PID1 stdio invocation (docker exec) as pure stdio-only; main PID1 keeps HTTP + optional side-channel
+const effectiveStdioOnly = transportMode === 'stdio-only' || (transportMode === 'stdio' && !isPrimaryContainerProcess);
 
-// Keep the stdio version for development/testing
-if (process.env.MCP_TRANSPORT === 'stdio') {
-    healthcareServer.run().catch(console.error);
+if (effectiveStdioOnly) {
+    if (transportMode === 'stdio' && !isPrimaryContainerProcess) {
+        console.error('[MCP][startup] docker exec stdio session detected (non-PID1). Running in STDIO ONLY mode.');
+    }
+    console.error('[MCP][startup] Starting Healthcare MCP in EFFECTIVE STDIO ONLY mode');
+    console.error(`[MCP][startup] Registering tools: ${healthcareServer.getTools().map((t: any) => t.name).join(', ')}`);
+    healthcareServer.run().catch(err => console.error('[MCP][run][error]', err));
+} else {
+    // Primary container process: start HTTP listener (needed for healthcheck) and optionally stdio side-channel
+    app.listen(PORT, '0.0.0.0', () => {
+        console.error(`[MCP][startup] Healthcare MCP Server running on port ${PORT}`);
+        console.error(`[MCP][startup] Health check available at http://localhost:${PORT}/health`);
+        console.error(`[MCP][startup] Available tools: ${healthcareServer.getTools().map((t: any) => t.name).join(', ')}`);
+    });
+    if (transportMode === 'stdio') {
+        console.error('[MCP][startup] Enabling STDIO side-channel (primary PID1 process)');
+        healthcareServer.run().catch(err => console.error('[MCP][run][error]', err));
+    }
 }

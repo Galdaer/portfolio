@@ -206,7 +206,21 @@ export class HealthcareServer {
     }
 
     private setupHandlers() {
+        // Register tool handlers
+        // Debug instrumentation: snapshot tool definitions at registration time
+        try {
+            const snapshot = this.toolHandler.getRegisteredTools().map(t => t.name);
+            console.error(`[MCP][debug] Registering handlers with ${snapshot.length} tools: ${JSON.stringify(snapshot)}`);
+        } catch (e) {
+            console.error('[MCP][debug] Failed to snapshot tools during setupHandlers', e);
+        }
         this.toolHandler.register(this.mcpServer);
+
+        // Custom initialize handler temporarily disabled to allow SDK default handshake.
+        // This is for debugging stdio tool discovery (zero tools). If default handshake works,
+        // we can reintroduce a minimal wrapper that only adds logging.
+        // Previous handler advertised tools.listChanged=true but client never triggered list.
+        // Leaving capability stub created during Server instantiation.
     }
 
     private setupErrorHandling() {
@@ -223,7 +237,34 @@ export class HealthcareServer {
     async run() {
         const transport = new StdioServerTransport();
 
+        // Tee outgoing frames to a log file for stdio debugging
+        try {
+            const fs = await import('fs');
+            const logPath = '/app/logs/stdio_frames.log';
+            // Ensure directory exists
+            try { fs.mkdirSync('/app/logs', { recursive: true }); } catch (_) { /* ignore */ }
+            const originalWrite = (transport as any).writer?.write?.bind((transport as any).writer);
+            if (originalWrite) {
+                (transport as any).writer.write = (chunk: any) => {
+                    try {
+                        fs.appendFileSync(logPath, `OUT ${new Date().toISOString()} ${chunk.toString()}\n`);
+                    } catch (e) {
+                        console.error('[MCP][debug] Failed to append frame log', e);
+                    }
+                    return originalWrite(chunk);
+                };
+                console.error('[MCP][debug] Enabled stdio frame logging to', logPath);
+            } else {
+                console.error('[MCP][debug] Could not hook writer for frame logging');
+            }
+        } catch (e) {
+            console.error('[MCP][debug] Frame logging setup error', e);
+        }
+
         await this.mcpServer.connect(transport);
-        console.error("FHIR MCP server running on stdio");
+        const tools = this.getTools();
+        console.error(`[MCP][startup] FHIR MCP server running on stdio with ${tools.length} registered tools: ${tools.map(t => t.name).join(', ')}`);
+        // Proactively emit a tools/list style log so we know registration happened before any client request
+        console.error(`[MCP][debug] Tool registry snapshot at startup: ${JSON.stringify(tools.map(t => t.name))}`);
     }
 }

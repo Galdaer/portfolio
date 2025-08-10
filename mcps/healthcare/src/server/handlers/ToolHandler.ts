@@ -34,13 +34,18 @@ export class ToolHandler {
         mcpServer.setRequestHandler(CallToolRequestSchema, this.handleCall);
     }
 
-    private handleList = async () => ({
-        tools: TOOL_DEFINITIONS
-    });
+    private handleList = async () => {
+        // Instrumentation for stdio debugging
+        const toolNames = TOOL_DEFINITIONS.map(t => t.name).join(", ");
+        console.error(`[MCP][tools/list] Returning ${TOOL_DEFINITIONS.length} tools: ${toolNames}`);
+        return {
+            tools: TOOL_DEFINITIONS
+        };
+    };
 
     private handleCall = async (request: any) => {
         // Tools that don't require FHIR authentication
-        const noAuthTools = ["search-pubmed", "search-trials", "get-drug-info"];
+        const noAuthTools = ["search-pubmed", "search-trials", "get-drug-info", "echo_test"];
 
         if (noAuthTools.includes(request.params?.name)) {
             // Handle non-auth tools directly
@@ -51,6 +56,16 @@ export class ToolHandler {
                     return await this.trialsApi.getTrials(request.params.arguments, this.cache);
                 case "get-drug-info":
                     return await this.fdaApi.getDrug(request.params.arguments, this.cache);
+                case "echo_test":
+                    return {
+                        content: [{
+                            type: 'text',
+                            text: JSON.stringify({
+                                echoed: request.params.arguments?.text,
+                                timestamp: new Date().toISOString()
+                            }, null, 2)
+                        }]
+                    };
                 default:
                     throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
             }

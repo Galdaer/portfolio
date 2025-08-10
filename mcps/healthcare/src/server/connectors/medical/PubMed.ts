@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { Client } from 'pg';
 import { CacheManager } from "../../utils/Cache.js";
 
 export interface PubMedArticle {
@@ -45,9 +46,7 @@ export class PubMed {
         this.apiKey = apiKey && apiKey !== 'optional_for_higher_rate_limits' ? apiKey : undefined;
         // Check environment for local mirror preference
         this.useLocalMirror = process.env.USE_LOCAL_MEDICAL_MIRRORS !== 'false';
-    }
-
-    async getArticles(args: any, cache: CacheManager) {
+    } async getArticles(args: any, cache: CacheManager) {
         const { query, maxResults = 10 } = args;
         const cacheKey = cache.createKey('pubmed', { query, maxResults });
 
@@ -92,19 +91,27 @@ export class PubMed {
                 throw new Error('PubMed search failed: Query string is empty or invalid.');
             }
 
-            // Try local mirror first
-            if (this.useLocalMirror) {
-                try {
-                    console.log('Attempting to use local PubMed mirror');
-                    return await this.searchLocalMirror(query, maxResults);
-                } catch (localError) {
-                    console.warn('Local PubMed mirror failed, falling back to external API:', localError);
-                    // Fall through to external API
-                }
-            }
+            // Use database search first (since user has local PubMed data)
+            try {
+                console.log('Searching local PostgreSQL database for PubMed articles');
+                return await this.searchDatabase(query, maxResults);
+            } catch (dbError) {
+                console.warn('Database search failed, trying mirror/external:', dbError);
 
-            console.log('Using external PubMed API');
-            return await this.searchExternalAPI(query, maxResults);
+                // Try local mirror second
+                if (this.useLocalMirror) {
+                    try {
+                        console.log('Attempting to use local PubMed mirror');
+                        return await this.searchLocalMirror(query, maxResults);
+                    } catch (localError) {
+                        console.warn('Local PubMed mirror failed, falling back to external API:', localError);
+                        // Fall through to external API
+                    }
+                }
+
+                console.log('Using external PubMed API');
+                return await this.searchExternalAPI(query, maxResults);
+            }
         } catch (error) {
             console.error('PubMed search failed:', error);
             throw error;
@@ -132,7 +139,55 @@ export class PubMed {
         }));
     }
 
-    private async searchExternalAPI(query: string, maxResults: number): Promise<PubMedArticle[]> {
+    private async searchDatabase(query: string, maxResults: number): Promise<PubMedArticle[]> {
+        try {
+            // Create a new connection for each query (simple approach)
+            const client = new Client({
+                host: process.env.POSTGRES_HOST || '172.20.0.13',
+                port: parseInt(process.env.POSTGRES_PORT || '5432'),
+                user: process.env.POSTGRES_USER || 'intelluxe',
+                password: process.env.POSTGRES_PASSWORD || 'secure_password',
+                database: process.env.DATABASE_NAME || 'intelluxe'
+            });
+
+            await client.connect();
+
+            // Search the pubmed_articles table
+            const searchQuery = `
+                SELECT pmid, title, journal, pub_date, abstract, authors
+                FROM pubmed_articles 
+                WHERE title ILIKE $1 
+                   OR abstract ILIKE $1 
+                   OR journal ILIKE $1
+                ORDER BY pub_date DESC
+                LIMIT $2
+            `;
+
+            const searchTerm = `%${query}%`;
+            console.log(`Executing database search for: "${query}" (limit: ${maxResults})`);
+
+            const result = await client.query(searchQuery, [searchTerm, maxResults]);
+
+            console.log(`Database search returned ${result.rows.length} articles`);
+
+            const articles = result.rows.map((row: any) => ({
+                pmid: row.pmid?.toString() || '',
+                title: row.title || '',
+                journal: row.journal || '',
+                pubDate: row.pub_date || '',
+                abstract: row.abstract || '',
+                authors: row.authors ? (Array.isArray(row.authors) ? row.authors : [row.authors]) : [],
+                doi: '' // Not stored in this table structure
+            }));
+
+            await client.end();
+            return articles;
+
+        } catch (error) {
+            console.error('Database search error:', error);
+            throw new Error(`Database search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    } private async searchExternalAPI(query: string, maxResults: number): Promise<PubMedArticle[]> {
         try {
             // Step 1: Search for article IDs
             const searchUrl = new URL(`${this.baseUrl}/esearch.fcgi`);

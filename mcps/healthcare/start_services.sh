@@ -13,12 +13,12 @@ set -eu
 # Configuration
 AUTH_PROXY_PORT=3001
 
-echo "🏥 Starting Healthcare MCP Services (Direct MCP Integration)..."
-echo "Medical Disclaimer: Administrative support only, not medical advice"
+>&2 echo "🏥 Starting Healthcare MCP Services (Direct MCP Integration)..."
+>&2 echo "Medical Disclaimer: Administrative support only, not medical advice"
 
 # Set environment variable to run Healthcare MCP server in stdio mode
 export MCP_TRANSPORT=stdio
 
 # Start authentication proxy with direct MCP integration
-echo "🔐 Starting authentication proxy with direct MCP on port $AUTH_PROXY_PORT..."
+>&2 echo "🔐 Starting authentication proxy with direct MCP on port $AUTH_PROXY_PORT..."
 python3 /app/auth_proxy.py

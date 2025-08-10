@@ -76,6 +76,8 @@ ENV PHI_DETECTION_ENABLED=true
 ENV AUDIT_LOGGING_LEVEL=comprehensive
 ENV HIPAA_COMPLIANCE_MODE=strict
 
+# Database configuration will be passed at runtime via docker run -e
+
 # Security hardening environment variables
 ENV NODE_OPTIONS="--max-old-space-size=512"
 ENV TMPDIR=/tmp
