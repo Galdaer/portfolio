@@ -1,13 +1,8 @@
 fastapi==0.111.0
 uvicorn[standard]==0.35.0
 pydantic==2.11.7
-python-multipart==0.0.9
-python-socketio
-grpcio
-passlib[bcrypt]==1.7.4
-requests==2.32.2
-aiohttp==3.9.5
-httpx
-PyJWT[crypto]
-mcp==1.12.4
-asyncpg
+httpx==0.27.2
+aiohttp==3.11.7
+
+# Only minimal dependencies required for thin forwarding layer.
+# (All business logic and persistence lives in healthcare-api.)

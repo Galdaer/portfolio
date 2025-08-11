@@ -17,3 +17,5 @@ cryptography
 aiofiles
 python-dotenv
 pydantic-settings
+cachetools
+ollama

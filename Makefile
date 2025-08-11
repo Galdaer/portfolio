@@ -370,7 +370,7 @@ update-deps:
 # Main Setup Commands
 setup:
 	@echo "🚀  Setting up complete Intelluxe AI healthcare stack (interactive)"
-	./scripts/bootstrap.sh
+	export ENVIRONMENT=development && ./scripts/bootstrap.sh
 
 dry-run:
 	@echo "🔍  Preview Intelluxe AI healthcare setup without making changes"
@@ -420,12 +420,12 @@ mcp: mcp-build
 
 mcp-build:
 	@echo "🏗️  Building Healthcare MCP server Docker image"
-	@cd mcps/healthcare && docker build -t intelluxe/healthcare-mcp:latest .
+	@cd services/user/healthcare-mcp && docker build -t intelluxe/healthcare-mcp:latest .
 	@echo "✅ Healthcare MCP Docker image built successfully"
 
 mcp-rebuild:
 	@echo "🔄  Rebuilding Healthcare MCP server (no cache)"
-	@cd mcps/healthcare && docker build --no-cache -t intelluxe/healthcare-mcp:latest .
+	@cd services/user/healthcare-mcp && docker build --no-cache -t intelluxe/healthcare-mcp:latest .
 	@echo "✅ Healthcare MCP Docker image rebuilt successfully"
 
 mcp-clean:

@@ -10,11 +10,15 @@ LABEL security="hardened-healthcare"
 RUN groupadd -g 1001 intelluxe && \
     useradd -u 1000 -g 1001 -m -s /bin/bash api
 
-# Security hardening - update packages and install required tools
+# Security hardening - update packages and install required tools including Docker
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     curl \
     ca-certificates \
+    docker.io \
     && rm -rf /var/lib/apt/lists/*
+
+# Add api user to docker group for container communication
+RUN usermod -a -G docker api
 
 WORKDIR /app
 

@@ -60,20 +60,21 @@ class HealthcareServices:
     async def _initialize_mcp_client(self) -> None:
         """Initialize MCP client for healthcare tools"""
         try:
-            # TODO: Replace with actual MCP client implementation
-            # For now, create a mock client that works with our agent code
             from core.mcp.healthcare_mcp_client import HealthcareMCPClient
 
-            self._mcp_client = HealthcareMCPClient(
-                server_url=os.getenv("HEALTHCARE_MCP_URL", "http://localhost:3001"),
-                api_key=os.getenv("HEALTHCARE_MCP_KEY", "dev-key"),
-            )
+            # Initialize stdio-based MCP client (no HTTP parameters needed)
+            self._mcp_client = HealthcareMCPClient()
             await self._mcp_client.connect()
-            logger.info("MCP client initialized")
+            logger.info("MCP client initialized successfully via stdio")
 
         except ImportError:
             # Fallback mock for development
             logger.warning("MCP client not available, using mock")
+            self._mcp_client = self._create_mock_mcp_client()
+        except Exception as e:
+            logger.error(f"Failed to initialize MCP client: {e}")
+            # Use mock client as fallback
+            logger.warning("Using mock MCP client as fallback")
             self._mcp_client = self._create_mock_mcp_client()
 
     async def _initialize_llm_client(self) -> None:
@@ -82,16 +83,24 @@ class HealthcareServices:
             import ollama
 
             self._llm_client = ollama.AsyncClient(
-                host=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
+                host=os.getenv("OLLAMA_URL", "http://172.20.0.10:11434"),
                 timeout=30.0,
             )
 
-            # Test connection
-            models = await self._llm_client.list()
-            logger.info(f"Ollama client initialized with {len(models.get('models', []))} models")
+            # Test connection (non-blocking - use fallback if it fails)
+            try:
+                models = await self._llm_client.list()
+                logger.info(f"Ollama client initialized with {len(models.get('models', []))} models")
+            except Exception as e:
+                logger.warning(f"Ollama connection test failed: {e}")
+                logger.warning("Ollama client created but not verified - will retry on first use")
 
         except ImportError:
             logger.warning("Ollama not available, using mock LLM client")
+            self._llm_client = self._create_mock_llm_client()
+        except Exception as e:
+            logger.error(f"Failed to initialize Ollama client: {e}")
+            logger.warning("Using mock LLM client as fallback")
             self._llm_client = self._create_mock_llm_client()
 
     async def _initialize_database_pool(self) -> None:

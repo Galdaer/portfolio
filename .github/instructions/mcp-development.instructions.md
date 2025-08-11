@@ -21,6 +21,24 @@ interface PatientFirstMCPServer {…}
 class EnhancedHealthcareMCP implements PatientFirstMCPServer {…}
 ```
 
+### MCP Pipeline Architecture Integration
+
+**THIN PIPELINE PATTERN**: MCP pipeline serves as minimal proxy, healthcare-api handles all complex logic.
+
+```typescript
+// Pattern: Thin MCP pipeline integration
+interface ThinPipelineIntegration {
+    forwardToHealthcareAPI(request: any): Promise<any>;
+    handleTimeout(error: TimeoutError): ErrorResponse;
+    transformRequest(openWebUIRequest: any): HealthcareAPIRequest;
+}
+```
+
+**IMPLEMENTATION REFERENCES**:
+- See `patterns/thin-mcp-pipeline.instructions.md` for minimal pipeline patterns
+- See `patterns/healthcare-api-orchestration.instructions.md` for API orchestration patterns
+- See `tasks/api-development.instructions.md` for MCP integration and authentication patterns
+
 ### Open WebUI Integration Patterns
 
 **DIRECT MCP INTEGRATION ARCHITECTURE** (PROVEN SOLUTION): Direct JSON-RPC communication without mcpo bridge provides superior tool discovery and reliability.

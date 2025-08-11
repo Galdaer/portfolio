@@ -80,49 +80,69 @@ export class ToolHandler {
 
         //initalize auth if not already initialized. this will set up the callback server 
         if (!this.authInitialized) {
-            this.auth = new Auth(this.authConfig);
-            this.authInitialized = true;
+            try {
+                this.auth = new Auth(this.authConfig);
+                this.authInitialized = true;
+            } catch (error) {
+                console.error('[ToolHandler] Failed to initialize auth:', error);
+                throw new McpError(ErrorCode.InternalError, "Authentication system not available");
+            }
         }
 
-        return this.auth.executeWithAuth(async () => {
+        try {
+            return this.auth.executeWithAuth(async () => {
+                const access_token = await this.auth.ensureValidToken();
+                this.fhirClient.setAccessToken(access_token);
 
-            const access_token = await this.auth.ensureValidToken();
-
-            this.fhirClient.setAccessToken(access_token);
-
-            switch (request.params.name) {
-                case "clinical_query":
-                    return await this.handleClinicalQuery(request.params.arguments);
-                case "find_patient":
-                    return await this.fhirClient.findPatient(request.params.arguments);
-                case "get_patient_observations":
-                    return await this.fhirClient.getPatientObservations(request.params.arguments);
-                case "get_patient_conditions":
-                    return await this.fhirClient.getPatientConditions(request.params.arguments);
-                case "get_patient_medications":
-                    return await this.fhirClient.getPatientMedications(request.params.arguments);
-                case "get_patient_encounters":
-                    return await this.fhirClient.getPatientEncounters(request.params.arguments);
-                case "get_patient_allergies":
-                    return await this.fhirClient.getPatientAllergies(request.params.arguments);
-                case "get_patient_procedures":
-                    return await this.fhirClient.getPatientProcedures(request.params.arguments);
-                case "get_patient_careteam":
-                    return await this.fhirClient.getPatientCareTeam(request.params.arguments);
-                case "get_patient_careplans":
-                    return await this.fhirClient.getPatientCarePlans(request.params.arguments);
-                case "get_vital_signs":
-                    return await this.fhirClient.getPatientVitalSigns(request.params.arguments);
-                case "get_lab_results":
-                    return await this.fhirClient.getPatientLabResults(request.params.arguments);
-                case "get_medications_history":
-                    return await this.fhirClient.getMedicationHistory(request.params.arguments);
-                case "get_appointments":
-                    return await this.fhirClient.getPatientAppointments(request.params.arguments);
-                default:
-                    throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
+                switch (request.params.name) {
+                    case "clinical_query":
+                        return await this.handleClinicalQuery(request.params.arguments);
+                    case "find_patient":
+                        return await this.fhirClient.findPatient(request.params.arguments);
+                    case "get_patient_observations":
+                        return await this.fhirClient.getPatientObservations(request.params.arguments);
+                    case "get_patient_conditions":
+                        return await this.fhirClient.getPatientConditions(request.params.arguments);
+                    case "get_patient_medications":
+                        return await this.fhirClient.getPatientMedications(request.params.arguments);
+                    case "get_patient_encounters":
+                        return await this.fhirClient.getPatientEncounters(request.params.arguments);
+                    case "get_patient_allergies":
+                        return await this.fhirClient.getPatientAllergies(request.params.arguments);
+                    case "get_patient_procedures":
+                        return await this.fhirClient.getPatientProcedures(request.params.arguments);
+                    case "get_patient_careteam":
+                        return await this.fhirClient.getPatientCareTeam(request.params.arguments);
+                    case "get_patient_careplans":
+                        return await this.fhirClient.getPatientCarePlans(request.params.arguments);
+                    case "get_vital_signs":
+                        return await this.fhirClient.getPatientVitalSigns(request.params.arguments);
+                    case "get_lab_results":
+                        return await this.fhirClient.getPatientLabResults(request.params.arguments);
+                    case "get_medications_history":
+                        return await this.fhirClient.getMedicationHistory(request.params.arguments);
+                    case "get_appointments":
+                        return await this.fhirClient.getPatientAppointments(request.params.arguments);
+                    default:
+                        throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
+                }
+            });
+        } catch (error) {
+            console.error(`[ToolHandler] Auth error for tool ${request.params.name}:`, error);
+            if (error instanceof McpError) {
+                throw error;
             }
-        });
+            // Convert auth errors to user-friendly messages
+            if (error instanceof Error) {
+                if (error.message.includes('OAuth not configured')) {
+                    throw new McpError(ErrorCode.InternalError, "FHIR authentication not configured - only public medical tools available");
+                }
+                if (error.message.includes('authentication required')) {
+                    throw new McpError(ErrorCode.InternalError, "FHIR authentication required for patient data access");
+                }
+            }
+            throw new McpError(ErrorCode.InternalError, "Authentication error");
+        }
     }
 
     private async handleClinicalQuery(args: any) {

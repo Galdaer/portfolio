@@ -1,11 +1,11 @@
-import { AuthorizationCode } from 'simple-oauth2';
+import axios from 'axios';
 import express, { Request, Response } from 'express';
+import { exec } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { platform } from 'node:os';
-import { exec } from 'node:child_process';
-import { AuthConfig, Token } from "./AuthConfig.js";
+import { AuthorizationCode } from 'simple-oauth2';
 import { fileURLToPath } from 'url';
-import axios from 'axios';
+import { AuthConfig, Token } from "./AuthConfig.js";
 
 interface StateHandler {
     resolve: (value: any) => void;
@@ -15,33 +15,50 @@ interface StateHandler {
 
 export class Auth {
     private authConfig: any;
-    private oauth2: AuthorizationCode;
+    private oauth2: AuthorizationCode | null = null;
     private authState = new Map<string, StateHandler>();
     private token: Token | null = null;
     private callbackServer: any;
+    private isConfigured: boolean = false;
 
     constructor(authConfig: AuthConfig) {
         this.authConfig = authConfig;
 
-        this.oauth2 = new AuthorizationCode({
-            client: {
-                id: authConfig.clientId,
-                secret: authConfig.clientSecret
-            },
-            auth: {
-                tokenHost: authConfig.tokenHost,
-                tokenPath: authConfig.tokenPath,
-                authorizePath: authConfig.authorizePath
-            }
-        });
+        // Check if OAuth is properly configured
+        if (!authConfig.clientId || authConfig.clientId === 'not-configured' ||
+            !authConfig.tokenHost || authConfig.tokenHost === 'not-configured' ||
+            !authConfig.audience || authConfig.audience === 'not-configured') {
+            console.warn('[Auth] OAuth not configured - FHIR authentication will not be available');
+            this.isConfigured = false;
+            return;
+        }
 
-        this.oauth2.authorizeURL({
-            redirect_uri: this.authConfig.callbackURL,
-            scope: this.authConfig.scopes,
-            state: randomUUID()
-        });
+        try {
+            this.oauth2 = new AuthorizationCode({
+                client: {
+                    id: authConfig.clientId,
+                    secret: authConfig.clientSecret
+                },
+                auth: {
+                    tokenHost: authConfig.tokenHost,
+                    tokenPath: authConfig.tokenPath,
+                    authorizePath: authConfig.authorizePath
+                }
+            });
 
-        this.setupCallbackServer();
+            this.oauth2.authorizeURL({
+                redirect_uri: this.authConfig.callbackURL,
+                scope: this.authConfig.scopes,
+                state: randomUUID()
+            });
+
+            this.setupCallbackServer();
+            this.isConfigured = true;
+            console.error('[Auth] OAuth configured successfully');
+        } catch (error) {
+            console.error('[Auth] Failed to initialize OAuth:', error);
+            this.isConfigured = false;
+        }
     }
 
     public openBrowser = async (url: string) => {
@@ -66,6 +83,10 @@ export class Auth {
     };
 
     private async refreshToken(): Promise<void> {
+        if (!this.isConfigured || !this.oauth2) {
+            throw new Error('OAuth not configured');
+        }
+
         if (!this.token?.refresh_token) {
             throw new Error('No refresh token available');
         }
@@ -94,8 +115,12 @@ export class Auth {
     }
 
     async ensureValidToken(): Promise<string> {
+        if (!this.isConfigured) {
+            throw new Error('OAuth not configured - cannot authenticate with FHIR server');
+        }
+
         if (!this.token) {
-            throw new Error('No token available');
+            throw new Error('No token available - authentication required');
         }
 
         if (this.isTokenExpired()) {
@@ -210,6 +235,13 @@ export class Auth {
     }
 
     async executeWithAuth<T>(operation: () => Promise<T>): Promise<T> {
+        if (!this.isConfigured) {
+            throw new Error('OAuth not configured - FHIR operations not available');
+        }
+
+        if (!this.oauth2) {
+            throw new Error('OAuth2 client not initialized');
+        }
         try {
             if (this.token) {
                 await this.ensureValidToken();
@@ -225,7 +257,7 @@ export class Auth {
                     pendingOperation: operation
                 });
 
-                const baseAuthUrl = this.oauth2.authorizeURL({
+                const baseAuthUrl = this.oauth2!.authorizeURL({
                     redirect_uri: this.authConfig.callbackURL,
                     scope: this.authConfig.scopes,
                     state: state

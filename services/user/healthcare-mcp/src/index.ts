@@ -97,23 +97,24 @@ if (__transportMode === 'stdio' || __transportMode === 'stdio-only') {
     console.warn = divert('WARN');
 }
 
+// Create auth config only if OAuth environment variables are provided
 const authConfig: AuthConfig = {
-    clientId: process.env.OAUTH_CLIENT_ID!,
-    clientSecret: process.env.OAUTH_CLIENT_SECRET!,
-    tokenHost: process.env.OAUTH_TOKEN_HOST!,
-    tokenPath: process.env.OAUTH_TOKEN_PATH!,
-    authorizePath: process.env.OAUTH_AUTHORIZE_PATH!,
+    clientId: process.env.OAUTH_CLIENT_ID || 'not-configured',
+    clientSecret: process.env.OAUTH_CLIENT_SECRET || '',
+    tokenHost: process.env.OAUTH_TOKEN_HOST || 'not-configured',
+    tokenPath: process.env.OAUTH_TOKEN_PATH || '/token',
+    authorizePath: process.env.OAUTH_AUTHORIZE_PATH || '/authorize',
     authorizationMethod: (process.env.OAUTH_AUTHORIZATION_METHOD as "body" | "header") || "body",
-    audience: process.env.OAUTH_AUDIENCE!,
-    callbackURL: process.env.OAUTH_CALLBACK_URL!,
-    scopes: process.env.OAUTH_SCOPES!,
-    callbackPort: parseInt(process.env.OAUTH_CALLBACK_PORT || '3000', 10)
+    audience: process.env.OAUTH_AUDIENCE || 'not-configured',
+    callbackURL: process.env.OAUTH_CALLBACK_URL || 'http://localhost:3456/oauth/callback',
+    scopes: process.env.OAUTH_SCOPES || 'read',
+    callbackPort: parseInt(process.env.OAUTH_CALLBACK_PORT || '3456', 10)
 };
 
-const FHIR_BASE_URL = process.env.FHIR_BASE_URL!;
-const PUBMED_API_KEY = process.env.PUBMED_API_KEY!;
-const TRIALS_API_KEY = process.env.TRIALS_API_KEY!;
-const FDA_API_KEY = process.env.FDA_API_KEY!;
+const FHIR_BASE_URL = process.env.FHIR_BASE_URL || 'http://172.20.0.13:5432';
+const PUBMED_API_KEY = process.env.PUBMED_API_KEY || 'test';
+const TRIALS_API_KEY = process.env.TRIALS_API_KEY || process.env.CLINICALTRIALS_API_KEY || 'test';
+const FDA_API_KEY = process.env.FDA_API_KEY || 'test';
 
 if (!FHIR_BASE_URL) {
     throw new Error("FHIR_BASE_URL is missing");
@@ -1026,7 +1027,22 @@ if (effectiveStdioOnly) {
     }
     console.error('[MCP][startup] Starting Healthcare MCP in EFFECTIVE STDIO ONLY mode');
     console.error(`[MCP][startup] Registering tools: ${healthcareServer.getTools().map((t: any) => t.name).join(', ')}`);
-    healthcareServer.run().catch(err => console.error('[MCP][run][error]', err));
+
+    // For container primary process (PID 1), also start HTTP server for healthcheck even in stdio-only mode
+    if (isPrimaryContainerProcess) {
+        app.listen(PORT, '0.0.0.0', () => {
+            console.error(`[MCP][startup] Healthcare MCP Server running on port ${PORT} (healthcheck endpoint only)`);
+            console.error(`[MCP][startup] Health check available at http://localhost:${PORT}/health`);
+            console.error(`[MCP][startup] Available tools: ${healthcareServer.getTools().map((t: any) => t.name).join(', ')}`);
+        });
+        console.error('[MCP][startup] Primary container process - HTTP healthcheck enabled alongside stdio');
+
+        // Keep stdio available for MCP client connections via docker exec
+        healthcareServer.run().catch(err => console.error('[MCP][run][error]', err));
+    } else {
+        // Non-primary process (docker exec) - pure stdio only
+        healthcareServer.run().catch(err => console.error('[MCP][run][error]', err));
+    }
 } else {
     // Primary container process: start HTTP listener (needed for healthcheck) and optionally stdio side-channel
     app.listen(PORT, '0.0.0.0', () => {

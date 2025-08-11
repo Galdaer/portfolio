@@ -1,0 +1,3 @@
+# Basic system utilities for healthcare-mcp container healthchecks and debugging
+procps
+psmisc
