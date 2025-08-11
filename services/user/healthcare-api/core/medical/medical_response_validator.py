@@ -15,6 +15,8 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any
 
+from core.config.models import MODEL_CONFIG
+
 
 @dataclass
 class MedicalTrustScore:
@@ -120,7 +122,7 @@ class MedicalResponseValidator:
         try:
             result = await self.llm_client.generate(
                 prompt=validation_prompt,
-                model="llama3.1",
+                model=MODEL_CONFIG.get_model_for_task("medical_analysis"),
                 options={"temperature": 0.1, "max_tokens": 10},
             )
 
@@ -159,7 +161,7 @@ class MedicalResponseValidator:
         try:
             result = await self.llm_client.generate(
                 prompt=safety_prompt,
-                model="llama3.1",
+                model=MODEL_CONFIG.get_model_for_task("medical_analysis"),
                 options={"temperature": 0.1, "max_tokens": 10},
             )
 
@@ -198,7 +200,7 @@ class MedicalResponseValidator:
         try:
             result = await self.llm_client.generate(
                 prompt=evidence_prompt,
-                model="llama3.1",
+                model=MODEL_CONFIG.get_model_for_task("medical_analysis"),
                 options={"temperature": 0.1, "max_tokens": 10},
             )
 
@@ -235,7 +237,7 @@ class MedicalResponseValidator:
         try:
             result = await self.llm_client.generate(
                 prompt=scope_prompt,
-                model="llama3.1",
+                model=MODEL_CONFIG.get_model_for_task("clinical"),
                 options={"temperature": 0.1, "max_tokens": 10},
             )
 

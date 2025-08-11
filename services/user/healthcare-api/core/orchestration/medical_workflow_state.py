@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from config.app import config
+
 
 class MedicalWorkflowStep(Enum):
     QUERY_ANALYSIS = "query_analysis"
@@ -61,7 +63,7 @@ class MedicalWorkflowOrchestrator:
 
             result = await self.llm_client.generate(
                 prompt=analysis_prompt,
-                model="llama3.1",
+                model=config.get_model_for_task("clinical"),
                 options={"temperature": 0.1, "max_tokens": 300},
             )
 
@@ -121,7 +123,7 @@ class MedicalWorkflowOrchestrator:
 
                 result = await self.llm_client.generate(
                     prompt=refinement_prompt,
-                    model="llama3.1",
+                    model=config.get_model_for_task("reasoning"),
                     options={"temperature": 0.2, "max_tokens": 200},
                 )
 
@@ -182,7 +184,7 @@ class MedicalWorkflowOrchestrator:
 
             result = await self.llm_client.generate(
                 prompt=synthesis_prompt,
-                model="llama3.1",
+                model=config.get_model_for_task("reasoning"),
                 options={"temperature": 0.1, "max_tokens": 800},
             )
 

@@ -794,7 +794,7 @@ class HealthcareMCPServer:
             return {
                 "query": query,
                 "research_result": research_response,
-                "source": "ollama_llama3.1",
+                "source": "ollama_configured_model",
                 "timestamp": datetime.now().isoformat(),
             }
 

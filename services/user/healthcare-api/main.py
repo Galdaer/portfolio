@@ -53,6 +53,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from core.dependencies import healthcare_services
 
         await healthcare_services.initialize()
+        # Store healthcare services in app state for access by other components
+        app.state.healthcare_services = healthcare_services
         log_healthcare_event(
             logger,
             logging.INFO,
@@ -91,7 +93,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from core.tools import ToolRegistry
 
         app.state.tool_registry = ToolRegistry()
-        await app.state.tool_registry.initialize()
+        # Pass the MCP client from healthcare services
+        mcp_client = app.state.healthcare_services.mcp_client
+        await app.state.tool_registry.initialize(mcp_client=mcp_client)
         log_healthcare_event(
             logger,
             logging.INFO,

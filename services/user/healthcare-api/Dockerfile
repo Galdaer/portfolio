@@ -18,7 +18,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Add api user to docker group for container communication
-RUN usermod -a -G docker api
+RUN groupmod -g 984 docker && usermod -a -G docker api
 
 WORKDIR /app
 

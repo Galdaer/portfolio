@@ -9,6 +9,8 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
+from core.config.models import MODEL_CONFIG
+
 import asyncpg
 from fastapi import Depends
 
@@ -78,30 +80,11 @@ class HealthcareServices:
             self._mcp_client = self._create_mock_mcp_client()
 
     async def _initialize_llm_client(self) -> None:
-        """Initialize Ollama LLM client"""
-        try:
-            import ollama
-
-            self._llm_client = ollama.AsyncClient(
-                host=os.getenv("OLLAMA_URL", "http://172.20.0.10:11434"),
-                timeout=30.0,
-            )
-
-            # Test connection (non-blocking - use fallback if it fails)
-            try:
-                models = await self._llm_client.list()
-                logger.info(f"Ollama client initialized with {len(models.get('models', []))} models")
-            except Exception as e:
-                logger.warning(f"Ollama connection test failed: {e}")
-                logger.warning("Ollama client created but not verified - will retry on first use")
-
-        except ImportError:
-            logger.warning("Ollama not available, using mock LLM client")
-            self._llm_client = self._create_mock_llm_client()
-        except Exception as e:
-            logger.error(f"Failed to initialize Ollama client: {e}")
-            logger.warning("Using mock LLM client as fallback")
-            self._llm_client = self._create_mock_llm_client()
+        """LLM communication handled via MCP stdio protocol - no direct HTTP client needed"""
+        # For stdio MCP mode, we don't initialize HTTP ollama client
+        # All LLM requests go through MCP stdio protocol
+        self._llm_client = None
+        logger.info("LLM communication will use MCP stdio protocol")
 
     async def _initialize_database_pool(self) -> None:
         """Initialize PostgreSQL connection pool - REQUIRED for healthcare operations"""
@@ -169,19 +152,8 @@ class HealthcareServices:
         return MockMCPClient()
 
     def _create_mock_llm_client(self) -> Any:
-        """Create mock LLM client for development"""
-
-        class MockLLMClient:
-            async def generate(
-                self, model: str = "llama3.1", prompt: str = "", **kwargs: Any,
-            ) -> dict[str, Any]:
-                return {
-                    "response": f"Mock LLM response for: {prompt[:50]}...",
-                    "model": model,
-                    "mock": True,
-                }
-
-        return MockLLMClient()
+        """Mock LLM client removed - stdio MCP only"""
+        return None
 
     @property
     def mcp_client(self) -> Any:

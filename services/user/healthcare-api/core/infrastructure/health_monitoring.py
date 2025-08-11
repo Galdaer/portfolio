@@ -9,6 +9,8 @@ import time
 from datetime import datetime
 from typing import Any
 
+from config.app import config
+
 logger = logging.getLogger(__name__)
 
 
@@ -241,44 +243,41 @@ class HealthcareSystemMonitor:
             }
 
     async def _check_llm_health(self) -> dict[str, Any]:
-        """Check LLM (Ollama) health"""
+        """Check MCP stdio protocol health - no direct LLM HTTP calls"""
         try:
             from core.dependencies import healthcare_services
 
-            llm_client = healthcare_services.llm_client
+            # For stdio MCP, we check MCP client health instead of direct LLM HTTP calls
+            mcp_client = healthcare_services.mcp_client
+            
+            if not mcp_client:
+                return {"status": "degraded", "message": "MCP client not initialized"}
 
-            if not llm_client:
-                return {"status": "degraded", "message": "LLM client not initialized"}
-
-            start_time = time.time()
-
-            # Test with simple generation
-            if hasattr(llm_client, "generate"):
-                result = await llm_client.generate(
-                    model="llama3.1",
-                    prompt="Health check test",
-                )
-
-                response_time = round((time.time() - start_time) * 1000, 2)
-
-                if result.get("mock"):
+            # Check if MCP client is responsive (stdio protocol)
+            if hasattr(mcp_client, "is_connected") and callable(mcp_client.is_connected):
+                connected = await mcp_client.is_connected()
+                if connected:
+                    return {
+                        "status": "healthy",
+                        "message": "MCP stdio protocol operational",
+                        "protocol": "stdio"
+                    }
+                else:
                     return {
                         "status": "degraded",
-                        "message": "Using mock LLM client - Ollama not connected",
-                        "response_time_ms": response_time,
-                        "mock_client": True,
+                        "message": "MCP stdio connection not established",
+                        "protocol": "stdio"
                     }
+            else:
                 return {
                     "status": "healthy",
-                    "message": "LLM connection successful",
-                    "response_time_ms": response_time,
-                    "mock_client": False,
+                    "message": "MCP client available (stdio protocol)",
+                    "protocol": "stdio"
                 }
-            return {"status": "error", "message": "LLM client missing expected interface"}
 
         except Exception as e:
-            logger.warning(f"LLM health check failed: {e}")
-            return {"status": "critical", "error": str(e), "message": "LLM connection failed"}
+            logger.warning(f"MCP health check failed: {e}")
+            return {"status": "critical", "error": str(e), "message": "MCP stdio protocol failed"}
 
     async def _check_background_tasks_health(self) -> dict[str, Any]:
         """Check background task system health"""

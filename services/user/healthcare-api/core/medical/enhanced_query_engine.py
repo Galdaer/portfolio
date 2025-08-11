@@ -18,6 +18,7 @@ from typing import Any
 
 from cachetools import TTLCache
 
+from config.app import config
 from .medical_response_validator import MedicalTrustScore
 
 
@@ -370,7 +371,7 @@ class EnhancedMedicalQueryEngine:
             Refined query:"""
 
             response = await self.llm_client.generate(
-                model="llama3.1",
+                model=config.get_model_for_task("reasoning"),
                 prompt=refinement_prompt,
                 options={"temperature": 0.3, "max_tokens": 100},
             )
@@ -493,7 +494,7 @@ class EnhancedMedicalQueryEngine:
         try:
             result = await self.llm_client.generate(
                 prompt=refinement_prompt,
-                model="llama3.1",
+                model=config.get_model_for_task("reasoning"),
                 options={"temperature": 0.3, "max_tokens": 100},
             )
 
@@ -642,7 +643,7 @@ class EnhancedMedicalQueryEngine:
         try:
             result = await self.llm_client.generate(
                 prompt=reasoning_prompt,
-                model="llama3.1",
+                model=config.get_model_for_task("reasoning"),
                 options={"temperature": 0.3, "max_tokens": 150},
             )
 

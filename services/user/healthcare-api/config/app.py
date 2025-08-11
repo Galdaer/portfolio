@@ -4,6 +4,10 @@ Intelluxe AI Configuration Management
 Centralized configuration for the healthcare AI system.
 """
 
+import logging
+import os
+from pathlib import Path
+from typing import Dict, Any
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
@@ -44,6 +48,11 @@ class IntelluxeConfig(BaseSettings):
         if self.redis_password:
             return f"redis://:{self.redis_password}@{self.redis_host}:6379"
         return f"redis://{self.redis_host}:6379"
+
+    def get_model_for_task(self, task_type: str = "default") -> str:
+        """Get appropriate model for a specific task type - delegates to MODEL_CONFIG"""
+        from core.config.models import MODEL_CONFIG
+        return MODEL_CONFIG.get_model_for_task(task_type)
 
     # AI Model configuration
     ollama_url: str = Field(default="intelluxe-ai", json_schema_extra={"env": "OLLAMA_URL"})

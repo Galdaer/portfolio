@@ -57,6 +57,11 @@ class ModelConfig:
             "validation": self.VALIDATION_MODEL,
             "workflow": self.WORKFLOW_MODEL,
             "fallback": self.FALLBACK_MODEL,
+            # Add the task types we were using in the other config
+            "clinical": self.MEDICAL_ANALYSIS_MODEL,
+            "reasoning": self.RESEARCH_MODEL,
+            "fast": self.PRIMARY_CHAT_MODEL,
+            "default": self.PRIMARY_CHAT_MODEL,
         }
         return task_model_map.get(task_type, self.PRIMARY_CHAT_MODEL)
 

@@ -13,6 +13,7 @@ from typing import Any
 import yaml
 
 from agents import BaseHealthcareAgent
+from config.app import config
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     log_healthcare_event,
@@ -514,7 +515,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         """
 
         response = await self.llm_client.generate(
-            model="llama3.1",
+            model=config.get_model_for_task("clinical"),
             prompt=summary_prompt,
             options={"temperature": 0.3, "max_tokens": 1000},
         )
@@ -553,7 +554,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             llm_settings.update(validation_config.get("llm_settings", {}))
 
         response = await self.llm_client.generate(
-            prompt=prompt, model="llama3.1", options=llm_settings,
+            prompt=prompt, model=config.get_model_for_task("clinical"), options=llm_settings,
         )
 
         response_text = response.get("response", "")

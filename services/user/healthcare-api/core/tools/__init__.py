@@ -9,8 +9,6 @@ import asyncio
 import logging
 from typing import Any
 
-import httpx
-
 from config.app import config
 
 logger = logging.getLogger(__name__)
@@ -25,7 +23,7 @@ class ToolRegistry:
     """
 
     def __init__(self) -> None:
-        self.mcp_client: httpx.AsyncClient | None = None
+        self.mcp_client: Any = None  # Will be set to HealthcareMCPClient
         self._available_tools: list[dict[str, Any]] = []
         self._tool_versions: dict[str, str] = {}
         self._tool_capabilities: dict[str, Any] = {}
@@ -41,11 +39,13 @@ class ToolRegistry:
         """Get a registered transcription plugin"""
         return self._summary_plugins.get(plugin_name)
 
-    async def initialize(self) -> None:
-        """Initialize MCP client and discover available tools"""
+    async def initialize(self, mcp_client: Any = None) -> None:
+        """Initialize with MCP client and discover available tools"""
         try:
-            self.mcp_client = httpx.AsyncClient(base_url=config.mcp_server_url, timeout=30.0)
-
+            # Use provided MCP client (from HealthcareServices)
+            if mcp_client is not None:
+                self.mcp_client = mcp_client
+            
             # Test connection and discover tools
             await self._discover_tools()
             self._initialized = True
@@ -91,25 +91,33 @@ class ToolRegistry:
             return {"status": "unhealthy", "error": str(e)}
 
     async def _discover_tools(self) -> None:
-        """Discover available tools from MCP server and track version/capabilities"""
+        """Discover available tools from MCP server via stdio protocol"""
         if self.mcp_client is None:
             logger.error("MCP client is not initialized")
             self._available_tools = []
             return
         try:
-            response = await self.mcp_client.get("/tools")
-            response.raise_for_status()
-            data = response.json()
-            self._available_tools = data.get("tools", [])
+            # Use MCP protocol method for tool discovery (not HTTP)
+            if hasattr(self.mcp_client, 'list_tools'):
+                tools = await self.mcp_client.list_tools()
+                self._available_tools = tools
+            elif hasattr(self.mcp_client, 'get_tools'):
+                tools = await self.mcp_client.get_tools()
+                self._available_tools = tools
+            else:
+                # Fallback - assume client has tools method or attribute
+                logger.warning("MCP client doesn't have expected tool discovery methods")
+                self._available_tools = []
+                
             # Track version and capabilities if available
             for tool in self._available_tools:
-                name = tool.get("name")
-                version = tool.get("version", "unknown")
-                capabilities = tool.get("capabilities", {})
+                name = tool.get("name") if isinstance(tool, dict) else getattr(tool, 'name', None)
+                version = tool.get("version", "unknown") if isinstance(tool, dict) else getattr(tool, 'version', "unknown")
+                capabilities = tool.get("capabilities", {}) if isinstance(tool, dict) else getattr(tool, 'capabilities', {})
                 if name is not None:
                     self._tool_versions[name] = version
                     self._tool_capabilities[name] = capabilities
-            logger.info(f"Discovered {len(self._available_tools)} tools")
+            logger.info(f"Discovered {len(self._available_tools)} tools via MCP stdio")
         except Exception as e:
             logger.warning(f"Failed to discover tools: {e}")
             self._available_tools = []
@@ -208,10 +216,15 @@ class ToolRegistry:
             raise RuntimeError("MCP client is not initialized")
 
         try:
-            response = await self.mcp_client.get(f"/tools/{tool_name}")
-            response.raise_for_status()
-
-            capabilities: dict[str, Any] = response.json()
+            # Use MCP protocol method for tool capabilities (not HTTP)
+            if hasattr(self.mcp_client, 'get_tool_schema'):
+                capabilities = await self.mcp_client.get_tool_schema(tool_name)
+            elif hasattr(self.mcp_client, 'describe_tool'):
+                capabilities = await self.mcp_client.describe_tool(tool_name)
+            else:
+                # Fallback to cached capabilities from discovery
+                capabilities = self._tool_capabilities.get(tool_name, {})
+            
             return capabilities
 
         except Exception as e:
