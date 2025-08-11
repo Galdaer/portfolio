@@ -30,6 +30,7 @@ class HealthcareServices:
     _llm_client: Any = None
     _db_pool: Any = None
     _redis_client: Any = None
+    _initialized: bool = False
 
     def __new__(cls) -> "HealthcareServices":
         if cls._instance is None:
@@ -54,20 +55,21 @@ class HealthcareServices:
             await self._initialize_redis_client()
 
             logger.info("Healthcare services initialized successfully")
+            self._initialized = True
 
         except Exception as e:
             logger.exception(f"Failed to initialize healthcare services: {e}")
             raise
 
     async def _initialize_mcp_client(self) -> None:
-        """Initialize MCP client for healthcare tools"""
+        """Initialize MCP client for healthcare tools (lazy connection)"""
         try:
             from core.mcp.healthcare_mcp_client import HealthcareMCPClient
 
-            # Initialize stdio-based MCP client (no HTTP parameters needed)
+            # Initialize stdio-based MCP client but don't connect yet (lazy connection)
+            # Connection will happen on first use to avoid blocking startup
             self._mcp_client = HealthcareMCPClient()
-            await self._mcp_client.connect()
-            logger.info("MCP client initialized successfully via stdio")
+            logger.info("MCP client initialized (lazy connection - will connect on first use)")
 
         except ImportError:
             # Fallback mock for development
@@ -136,20 +138,57 @@ class HealthcareServices:
             self._redis_client = None
 
     def _create_mock_mcp_client(self) -> Any:
-        """Create mock MCP client for development"""
+        """Create simplified mock MCP client for development"""
 
-        class MockMCPClient:
+        class SimplifiedMockMCPClient:
+            """Simplified mock that implements expected interface without breaking"""
+            
             async def call_healthcare_tool(
                 self, tool_name: str, params: dict[str, Any],
             ) -> dict[str, Any]:
-                return {
-                    "tool": tool_name,
-                    "params": params,
-                    "result": "Mock healthcare tool response",
-                    "mock": True,
-                }
+                """Mock healthcare tool call"""
+                if tool_name == "search-pubmed":
+                    return {
+                        "tool": tool_name,
+                        "params": params,
+                        "articles": [
+                            {
+                                "title": f"Mock PubMed article for: {params.get('query', 'N/A')}",
+                                "abstract": "This is a mock response for development purposes.",
+                                "authors": ["Mock Author"],
+                                "journal": "Mock Journal",
+                                "year": "2024"
+                            }
+                        ],
+                        "mock": True,
+                    }
+                elif tool_name == "search-trials":
+                    return {
+                        "tool": tool_name,
+                        "params": params,
+                        "trials": [
+                            {
+                                "title": f"Mock clinical trial for: {params.get('condition', 'N/A')}",
+                                "status": "Recruiting",
+                                "phase": "Phase II",
+                                "location": "Mock Medical Center"
+                            }
+                        ],
+                        "mock": True,
+                    }
+                else:
+                    return {
+                        "tool": tool_name,
+                        "params": params,
+                        "result": f"Mock response for {tool_name}",
+                        "mock": True,
+                    }
 
-        return MockMCPClient()
+            # Add any other methods the real client might have
+            async def list_tools(self) -> list[str]:
+                return ["search-pubmed", "search-trials", "get-drug-info", "echo_test"]
+
+        return SimplifiedMockMCPClient()
 
     def _create_mock_llm_client(self) -> Any:
         """Mock LLM client removed - stdio MCP only"""

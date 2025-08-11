@@ -383,6 +383,78 @@ async def stream_document_processing(
     return await stream_document_processing(document_type, user_id, session_id)
 
 
+@app.post("/process", tags=["pipeline"])
+async def process_pipeline_request(request: dict[str, Any]) -> dict[str, Any]:
+    """
+    Generic Pipeline Request Processor
+    
+    This endpoint receives requests from the pipeline and routes them to appropriate
+    agents based on content analysis. The pipeline should forward all requests here
+    rather than trying to connect to MCP servers directly.
+    
+    **Architecture**: Pipeline → Main API → Agents → MCP Client → MCP Server
+    """
+    try:
+        # Extract message content from various possible formats
+        message = ""
+        if "message" in request:
+            message = str(request["message"])
+        elif "messages" in request and request["messages"]:
+            last_msg = request["messages"][-1]
+            if isinstance(last_msg, dict) and "content" in last_msg:
+                message = str(last_msg["content"])
+        elif "query" in request:
+            message = str(request["query"])
+        else:
+            message = str(request.get("content", ""))
+        
+        if not message.strip():
+            return {
+                "status": "error",
+                "message": "No message content provided",
+                "data": None
+            }
+        
+        # Simple routing based on content (can be enhanced)
+        user_id = request.get("user_id", "pipeline_user")
+        session_id = request.get("session_id", "pipeline_session")
+        
+        # Route to research assistant for medical queries
+        from agents.research_assistant.clinical_research_agent import ClinicalResearchAgent
+        from core.dependencies import healthcare_services
+        
+        # Get services through dependency injection
+        services = healthcare_services
+        if not services._initialized:
+            await services.initialize()
+            
+        agent = ClinicalResearchAgent(
+            mcp_client=services.mcp_client,
+            llm_client=services.llm_client
+        )
+        
+        # Process through agent
+        result = await agent.process_research_query(
+            query=message,
+            user_id=user_id,
+            session_id=session_id
+        )
+        
+        return {
+            "status": "success",
+            "message": "Request processed successfully",
+            "data": result
+        }
+        
+    except Exception as e:
+        logger.error(f"Pipeline request processing error: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Processing failed: {str(e)}",
+            "data": None
+        }
+
+
 # Import and include agent routers
 try:
     from agents.document_processor import router as document_router

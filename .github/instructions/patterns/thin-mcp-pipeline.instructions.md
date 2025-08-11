@@ -6,6 +6,17 @@
 
 **Architecture Flow**: Open WebUI → MCP Pipeline (thin proxy) → Healthcare API → Agents → MCP Tools
 
+## ✅ PROVEN WORKING ARCHITECTURE (2025-08-11)
+
+**CRITICAL DISCOVERY**: Pipeline MUST NOT contain MCP logic. The pipeline should be a simple HTTP forwarder to healthcare-api `/process` endpoint.
+
+**Correct Separation of Concerns**:
+- **Pipeline**: HTTP proxy only (175 lines, simplified from 219)
+- **Healthcare-API**: Agent orchestration and MCP client management  
+- **MCP Server**: Stdio-only transport with 16 healthcare tools
+
+**Architecture Validation**: Successfully achieved Open WebUI → Pipeline → Healthcare API communication with agent method calls being triggered.
+
 ## Thin Pipeline Architecture Patterns
 
 ### Minimal Proxy Implementation

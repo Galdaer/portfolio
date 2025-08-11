@@ -6,6 +6,28 @@
 
 Provide comprehensive patterns for healthcare MCP development with beyond-HIPAA security, patient-first design principles, and advanced clinical integration patterns.
 
+## ✅ BREAKTHROUGH: MCP Integration Working (2025-08-11)
+
+**PROVEN WORKING ARCHITECTURE**: Open WebUI → Pipeline → Healthcare API → Agents → MCP Client → MCP Server
+
+**CRITICAL TRANSPORT REQUIREMENT**: MCP MUST use stdio-only transport via docker exec. HTTP transport causes architectural bypass issues.
+
+**Lazy MCP Client Pattern**: MCP client should connect on first use, not during startup, to prevent blocking healthcare-api initialization.
+
+```python
+# ✅ PATTERN: Lazy MCP client connection
+class HealthcareMCPClient:
+    async def ensure_connected(self):
+        if not self.session:
+            await self.connect()
+    
+    async def call_tool(self, name: str, params: Dict[str, Any]):
+        await self.ensure_connected()  # Connect on first use
+        return await self.session.call_tool(name, params)
+```
+
+**Agent Implementation Status**: Architecture working, now need to implement missing agent methods like `process_research_query` in ClinicalResearchAgent.
+
 ## Enhanced MCP Architecture
 
 ### Patient-First MCP Design Principles

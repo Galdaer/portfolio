@@ -24,14 +24,15 @@ class HealthcareMCPClient:
         """
         Initialize MCP client using official MCP Python library
 
-        This uses the same reliable stdio communication as the working pipeline.
+        Connect to the existing healthcare-mcp container via stdio, NOT spawning a new server.
         """
         if not MCP_AVAILABLE:
             raise RuntimeError("MCP library not available")
             
-        # Use the same command pattern as working pipeline
-        command = server_command or "docker"
-        args = ["exec", "-i", "healthcare-mcp", "node", "/app/build/index.js"]
+        # Connect to existing healthcare-mcp container via stdio
+        # Use docker exec to connect to the existing stdio server, not spawn a new one
+        command = "docker"
+        args = ["exec", "-i", "healthcare-mcp", "node", "/app/build/stdio_entry.js"]
         env = {"MCP_TRANSPORT": "stdio"}
         
         self.params = StdioServerParameters(command=command, args=args, env=env)
@@ -96,8 +97,15 @@ class HealthcareMCPClient:
             logger.error(f"Failed to discover tools: {e}")
             self.tools = []
 
+    async def _ensure_connected(self) -> None:
+        """Ensure MCP client is connected, connect if not already connected"""
+        if not self.session:
+            await self.connect()
+
     async def call_tool(self, tool_name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Call a tool using official MCP client session.call_tool()"""
+        await self._ensure_connected()
+        
         if not self.session:
             raise RuntimeError("Session not initialized")
             
@@ -114,6 +122,7 @@ class HealthcareMCPClient:
     
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         """Get list of available tools"""
+        await self._ensure_connected()
         return self.tools
     
     async def disconnect(self) -> None:
