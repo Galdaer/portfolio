@@ -36,6 +36,17 @@
 	   mcp-pipeline-health \
 	   mcp-pipeline-status \
 	mcp-pipeline-test \
+	   healthcare-api \
+	   healthcare-api-build \
+	   healthcare-api-rebuild \
+	   healthcare-api-clean \
+	   healthcare-api-run \
+	   healthcare-api-stop \
+	   healthcare-api-restart \
+	   healthcare-api-logs \
+	   healthcare-api-health \
+	   healthcare-api-status \
+	   healthcare-api-test \
 	   medical-mirrors-build \
 	   medical-mirrors-rebuild \
 	   medical-mirrors-clean \
@@ -493,6 +504,58 @@ mcp-pipeline-test:
 	@echo "🧪  Running MCP Pipeline validation script"
 	@bash scripts/test_mcp_pipeline.sh
 	@echo "✅  MCP Pipeline validation complete"
+
+# Healthcare API Service Commands
+healthcare-api: healthcare-api-build
+	@echo "✅ Healthcare API service build complete"
+
+healthcare-api-build:
+	@echo "🏗️  Building Healthcare API service Docker image"
+	@cd services/user/healthcare-api && docker build -t intelluxe/healthcare-api:latest .
+	@echo "✅ Healthcare API Docker image built successfully"
+
+healthcare-api-rebuild:
+	@echo "🔄  Rebuilding Healthcare API service (no cache)"
+	@cd services/user/healthcare-api && docker build --no-cache -t intelluxe/healthcare-api:latest .
+	@echo "✅ Healthcare API Docker image rebuilt successfully"
+
+healthcare-api-clean:
+	@echo "🧹  Cleaning up Healthcare API Docker artifacts"
+	@docker images intelluxe/healthcare-api -q | xargs -r docker rmi -f
+	@docker system prune -f --filter "label=description=HIPAA-compliant Healthcare API with administrative support agents"
+	@echo "✅ Healthcare API Docker cleanup complete"
+
+healthcare-api-run:
+	@echo "🚀  Starting Healthcare API service"
+	@./scripts/universal-service-runner.sh services/user/healthcare-api/healthcare-api.conf
+	@echo "✅ Healthcare API service started"
+
+healthcare-api-stop:
+	@echo "🛑  Stopping Healthcare API service"
+	@docker stop healthcare-api 2>/dev/null || echo "Container not running"
+	@docker rm healthcare-api 2>/dev/null || echo "Container not found"
+	@echo "✅ Healthcare API service stopped"
+
+healthcare-api-restart: healthcare-api-stop healthcare-api-run
+	@echo "🔄  Healthcare API service restarted"
+
+healthcare-api-logs:
+	@echo "📋  Healthcare API service logs (last 50 lines):"
+	@docker logs --tail 50 healthcare-api 2>/dev/null || echo "Container not found or not running"
+
+healthcare-api-health:
+	@echo "🏥  Checking Healthcare API service health"
+	@curl -f http://172.20.0.16:8000/health 2>/dev/null && echo "✅ Healthcare API service is healthy" || echo "❌ Healthcare API service is unhealthy"
+
+healthcare-api-status:
+	@echo "📊  Healthcare API service status:"
+	@docker ps --filter name=healthcare-api --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || echo "Container not found"
+
+healthcare-api-test:
+	@echo "🧪  Running Healthcare API validation"
+	@curl -f http://172.20.0.16:8000/docs 2>/dev/null && echo "✅ Healthcare API docs accessible" || echo "❌ Healthcare API docs not accessible"
+	@curl -f http://172.20.0.16:8000/health 2>/dev/null && echo "✅ Healthcare API health check passed" || echo "❌ Healthcare API health check failed"
+	@echo "✅  Healthcare API validation complete"
 
 # Medical Mirrors Service Commands
 medical-mirrors-build:

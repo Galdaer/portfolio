@@ -28,22 +28,22 @@ class IntelluxeConfig(BaseSettings):
     postgres_password: str = Field(
         default="secure_password_here", json_schema_extra={"env": "POSTGRES_PASSWORD"},
     )
-    postgres_host: str = Field(default="postgres", json_schema_extra={"env": "POSTGRES_HOST"})
-    postgres_port: int = Field(default=5432, json_schema_extra={"env": "POSTGRES_PORT"})
-    redis_host: str = Field(default="redis", json_schema_extra={"env": "REDIS_HOST"})
-    redis_port: int = Field(default=6379, json_schema_extra={"env": "REDIS_PORT"})
     redis_password: str | None = Field(default=None, json_schema_extra={"env": "REDIS_PASSWORD"})
+    
+    # Database host configuration
+    postgres_host: str = Field(default="postgresql", json_schema_extra={"env": "POSTGRES_HOST"})
+    redis_host: str = Field(default="redis", json_schema_extra={"env": "REDIS_HOST"})
 
     # Database URLs
     @property
     def postgres_url(self) -> str:
-        return f"postgresql://intelluxe:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.database_name}"
+        return f"postgresql://intelluxe:{self.postgres_password}@{self.postgres_host}:5432/{self.database_name}"
 
     @property
     def redis_url(self) -> str:
         if self.redis_password:
-            return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}"
-        return f"redis://{self.redis_host}:{self.redis_port}"
+            return f"redis://:{self.redis_password}@{self.redis_host}:6379"
+        return f"redis://{self.redis_host}:6379"
 
     # AI Model configuration
     ollama_url: str = Field(default="intelluxe-ai", json_schema_extra={"env": "OLLAMA_URL"})
