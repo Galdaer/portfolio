@@ -80,7 +80,7 @@ class FDADrug(Base):  # type: ignore[misc,valid-type]
     ingredients = Column(ARRAY(String))
     dosage_form = Column(String(200))  # Increased from 100 to 200
     route = Column(String(200))  # Increased from 100 to 200
-    approval_date = Column(String(20))
+    approval_date = Column(String(100))  # Increased from 20 to 100 for longer approval descriptions
     orange_book_code = Column(String(20))  # Increased from 10 to 20
     therapeutic_class = Column(Text)  # Changed from String(200) to Text
     search_vector = Column(TSVECTOR)

@@ -184,8 +184,8 @@ class FDAParser:
             if file_path.endswith(".csv"):
                 df = pd.read_csv(file_path)
             elif file_path.endswith(".txt"):
-                # Try tab-separated
-                df = pd.read_csv(file_path, sep="\t")
+                # Orange Book uses tilde (~) as delimiter
+                df = pd.read_csv(file_path, sep="~")
             else:
                 logger.warning(f"Unknown file format for {file_path}")
                 return []
@@ -205,37 +205,47 @@ class FDAParser:
     def parse_orange_book_record(self, orange_book_data: dict) -> dict | None:
         """Parse a single Orange Book record"""
         try:
-            # Orange Book typically has fields like:
-            # Ingredient, Trade_Name, Applicant, Strength, Dosage_Form, Route, TE_Code
+            # Orange Book has fields like:
+            # Ingredient, DF;Route, Trade_Name, Applicant, Strength, Appl_Type, Appl_No, Product_No, TE_Code, Approval_Date, RLD, RS, Type, Applicant_Full_Name
 
-            # Extract basic information
-            ingredient = orange_book_data.get(
-                "Ingredient", orange_book_data.get("Active_Ingredient", ""),
-            )
-            trade_name = orange_book_data.get("Trade_Name", orange_book_data.get("Brand_Name", ""))
-            applicant = orange_book_data.get("Applicant", orange_book_data.get("Manufacturer", ""))
-            dosage_form = orange_book_data.get("Dosage_Form", "")
-            route = orange_book_data.get("Route", "")
-            te_code = orange_book_data.get(
-                "TE_Code", orange_book_data.get("Therapeutic_Equivalence_Code", ""),
-            )
+            # Extract basic information using actual Orange Book column names
+            ingredient = orange_book_data.get("Ingredient", "")
+            trade_name = orange_book_data.get("Trade_Name", "")
+            applicant = orange_book_data.get("Applicant", "")
+            applicant_full_name = orange_book_data.get("Applicant_Full_Name", "")
+            dosage_form_route = orange_book_data.get("DF;Route", "")
+            strength = orange_book_data.get("Strength", "")
+            te_code = orange_book_data.get("TE_Code", "")
+            approval_date = orange_book_data.get("Approval_Date", "")
+            appl_no = orange_book_data.get("Appl_No", "")
 
-            # Create synthetic NDC (Orange Book doesn't have NDC)
-            ndc = f"OB_{hash(str(orange_book_data)) % 1000000}"
+            # Split dosage form and route
+            if ";" in dosage_form_route:
+                dosage_form, route = dosage_form_route.split(";", 1)
+            else:
+                dosage_form = dosage_form_route
+                route = ""
+
+            # Create synthetic NDC using application number (Orange Book doesn't have NDC)
+            ndc = f"OB_{appl_no}_{orange_book_data.get('Product_No', '001')}"
             name = trade_name or ingredient or "Unknown"
+
+            # Use full applicant name if available, otherwise short name
+            manufacturer = applicant_full_name or applicant
 
             return {
                 "ndc": ndc,
                 "name": name,
                 "generic_name": ingredient,
                 "brand_name": trade_name,
-                "manufacturer": applicant,
+                "manufacturer": manufacturer,
                 "ingredients": [ingredient] if ingredient else [],
-                "dosage_form": dosage_form,
-                "route": route,
-                "approval_date": "",  # Not typically in Orange Book
+                "dosage_form": dosage_form.strip(),
+                "route": route.strip(),
+                "approval_date": approval_date,
                 "orange_book_code": te_code,
-                "therapeutic_class": "",
+                "therapeutic_class": "",  # Not in Orange Book data
+                "strength": strength,  # Include strength information
             }
 
         except Exception as e:
