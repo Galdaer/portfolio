@@ -146,8 +146,9 @@ id_ed25519*
 # Logs
 /scripts/logs/
 *.log
-!/logs/
-!/logs/*
+/logs/*.log
+logs/
+logs/*
 
 # Backups created by scripts
 /backups/
