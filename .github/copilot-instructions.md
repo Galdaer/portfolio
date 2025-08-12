@@ -1,6 +1,7 @@
 # Copilot Instructions for Intelluxe AI Healthcare System
 
-**CRITICAL - TAKE ACTION IMMEDIATELY**: Once you understand the basic task and have identified target files, start implementing immediately. Don't endlessly explore or analyze - if you can see the files that need fixing and understand the general issue, begin the work. Gather additional context during implementation, not before.
+**CRITICAL - TAKE ACTION IMMEDIATELY**: Once you understand the basic task and have identified target files, start implementing immediately. Don't endlessly explore or analyze - if you can see the files that need fixing and understand the general issue, begin the work. Gather additional context during implementation, not before. Use todo lists and the sequential thinking MCP to work through things. If you might be tempted to use things like function names 
+by purely guessing, please use online resources or refer to the project code to find the exact API/documentation/methods/etc.
 
 **DECISION THRESHOLD**: File exploration + basic understanding = sufficient context to begin. Stop analyzing and start coding.
 
