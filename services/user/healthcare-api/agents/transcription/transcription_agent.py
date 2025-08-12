@@ -82,8 +82,10 @@ class TranscriptionAgent(BaseHealthcareAgent):
     - Transcription quality assurance and review
     """
 
-    def __init__(self) -> None:
+    def __init__(self, mcp_client=None, llm_client=None) -> None:
         super().__init__("transcription", "transcription")
+        self.mcp_client = mcp_client
+        self.llm_client = llm_client
         self.agent_type = "transcription"
         self.capabilities = [
             "audio_transcription",

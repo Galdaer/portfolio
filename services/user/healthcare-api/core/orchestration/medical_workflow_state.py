@@ -407,7 +407,7 @@ class HealthcareMCPOrchestrator:
         """Create healthcare agent with MCP integration like MCPAgent pattern"""
 
         # Import here to avoid circular imports
-        from agents.research_assistant.clinical_research_agent import (
+        from agents.clinical_research_assistant.clinical_research_agent import (
             ClinicalResearchAgent,
         )
 

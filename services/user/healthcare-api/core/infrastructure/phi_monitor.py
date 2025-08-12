@@ -281,8 +281,12 @@ class PHIMonitor:
             return " ".join(text_parts)
         if isinstance(data, list):
             return " ".join(str(item) for item in data)
+        
+        # Handle other primitive types (bool, int, float, None)
+        if isinstance(data, (bool, int, float, type(None))):
+            return str(data)
 
-        # This should never be reached given the type annotation
+        # This should never be reached for supported types
         msg = f"Unexpected data type: {type(data)}"
         raise AssertionError(msg)
 

@@ -24,6 +24,7 @@ import os
 from typing import Any, List, Dict
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
+import aiohttp
 
 # Direct subprocess communication for healthcare-api stdio bridge
 import subprocess
@@ -69,73 +70,54 @@ class ForwardResult(BaseModel):
 # Healthcare API Client for direct stdio communication
 # ---------------------------------------------------------------------------
 class HealthcareAPIClient:
-    """Direct stdio client for healthcare-api container (not MCP protocol)"""
+    """HTTP client for healthcare-api container communication"""
     
     def __init__(self):
-        # Connect to healthcare-api container via stdio using same pattern as healthcare-api → healthcare-mcp
-        self.process = None
+        # Simple HTTP client for container-to-container communication
+        self.base_url = "http://healthcare-api:8000"
+        self.session = None
         
     async def connect(self):
-        """Connect to the healthcare-api via direct stdio"""
+        """Connect to the healthcare-api via HTTP"""
         try:
-            logger.info("Connecting to healthcare-api via direct stdio")
+            logger.info("Connecting to healthcare-api via HTTP")
             
-            # Use docker exec to connect to existing healthcare-api container via stdio
-            # This duplicates the successful pattern from healthcare-api → healthcare-mcp
-            self.process = await asyncio.create_subprocess_exec(
-                "docker", "exec", "-i", "healthcare-api", "python", "main.py", "--stdio",
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
+            # Simple HTTP session for container-to-container communication
+            self.session = aiohttp.ClientSession()
             
-            logger.info("Connected to healthcare-api via direct stdio")
+            logger.info("Connected to healthcare-api via HTTP")
             
         except Exception as e:
             logger.error(f"Failed to connect to healthcare-api: {e}")
             raise
     
     async def ensure_connection(self):
-        """Ensure we have a valid connection, reconnect if needed"""
-        if self.process is None or self.process.returncode is not None:
-            logger.info("Process not running, reconnecting...")
+        """Ensure we have a valid HTTP session"""
+        if self.session is None or self.session.closed:
+            logger.info("Session not available, reconnecting...")
             await self.connect()
     
-    async def send_request(self, method: str, params: dict[str, Any] = None) -> dict[str, Any]:
-        """Send JSON-RPC request to healthcare-api"""
+    async def send_request(self, endpoint: str, data: dict[str, Any] = None) -> dict[str, Any]:
+        """Send HTTP request to healthcare-api"""
         await self.ensure_connection()
         
-        request = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": method,
-            "params": params or {}
-        }
-        
         try:
-            # Send request to healthcare-api via stdio
-            request_json = json.dumps(request) + "\n"
-            self.process.stdin.write(request_json.encode())
-            await self.process.stdin.drain()
-            
-            # Read response from healthcare-api
-            response_line = await self.process.stdout.readline()
-            response = json.loads(response_line.decode().strip())
-            
-            if "error" in response:
-                return {"status": "error", "error": response["error"]}
-            else:
-                return {"status": "success", "result": response.get("result")}
+            # Send HTTP POST request to healthcare-api
+            async with self.session.post(f"{self.base_url}/{endpoint}", json=data or {}) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return {"status": "success", "result": result}
+                else:
+                    error_text = await response.text()
+                    return {"status": "error", "error": f"HTTP {response.status}: {error_text}"}
                 
         except Exception as e:
-            logger.error(f"Failed to send request to healthcare-api: {e}")
-            # Reset connection on error
-            self.process = None
+            logger.error(f"Failed to send HTTP request to healthcare-api: {e}")
             return {"status": "error", "error": str(e)}
     
     async def process_chat(self, message: str, user_id: str = None, session_id: str = None) -> dict[str, Any]:
-        """Process chat message via healthcare-api"""
-        return await self.send_request("process_message", {
+        """Process chat message via healthcare-api HTTP endpoint"""
+        return await self.send_request("process", {
             "message": message,
             "user_id": user_id or "anonymous",
             "session_id": session_id or "default"
@@ -144,13 +126,12 @@ class HealthcareAPIClient:
     async def disconnect(self):
         """Disconnect from healthcare-api"""
         try:
-            if self.process and self.process.returncode is None:
-                self.process.terminate()
-                await self.process.wait()
+            if self.session and not self.session.closed:
+                await self.session.close()
         except Exception as e:
             logger.error(f"Error disconnecting: {e}")
         finally:
-            self.process = None
+            self.session = None
 
 
 # ---------------------------------------------------------------------------

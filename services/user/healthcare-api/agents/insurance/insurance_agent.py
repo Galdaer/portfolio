@@ -84,8 +84,10 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
     - Coverage gap identification
     """
 
-    def __init__(self) -> None:
+    def __init__(self, mcp_client=None, llm_client=None) -> None:
         super().__init__(agent_name="insurance_verification", agent_type="administrative_support")
+        self.mcp_client = mcp_client
+        self.llm_client = llm_client
         self.agent_type = "insurance_verification"
         self.capabilities = [
             "eligibility_verification",

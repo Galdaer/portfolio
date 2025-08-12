@@ -4,9 +4,15 @@ Provides information about medical concepts, not diagnoses
 """
 
 import asyncio
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+
+from agents import BaseHealthcareAgent
+from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
+
+logger = get_healthcare_logger("agent.medical_search")
 
 
 @dataclass
@@ -25,13 +31,14 @@ class MedicalSearchResult:
     generated_at: datetime
 
 
-class MedicalLiteratureSearchAssistant:
+class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
     """
     Medical literature search assistant - provides information, not diagnoses
     Acts like a sophisticated medical Google, not a diagnostic tool
     """
 
     def __init__(self, mcp_client: Any, llm_client: Any) -> None:
+        super().__init__(mcp_client, llm_client, agent_name="medical_search", agent_type="literature_search")
         self.mcp_client = mcp_client
         self.llm_client = llm_client
 
@@ -43,6 +50,53 @@ class MedicalLiteratureSearchAssistant:
             "In case of emergency, contact emergency services immediately.",
             "This search provides literature information, not clinical recommendations.",
         ]
+
+    async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
+        """
+        Required implementation for BaseHealthcareAgent
+        Processes search requests through the standard agent interface
+        """
+        search_query = request.get("search_query", request.get("query", ""))
+        search_context = request.get("search_context", {})
+        
+        if not search_query:
+            return {
+                "success": False,
+                "error": "Missing search query",
+                "agent_type": "medical_search",
+            }
+        
+        try:
+            # Perform the literature search
+            search_result = await self.search_medical_literature(
+                search_query=search_query,
+                search_context=search_context,
+            )
+            
+            # Convert dataclass to dict for response
+            return {
+                "success": True,
+                "search_id": search_result.search_id,
+                "search_query": search_result.search_query,
+                "information_sources": search_result.information_sources,
+                "related_conditions": search_result.related_conditions,
+                "drug_information": search_result.drug_information,
+                "clinical_references": search_result.clinical_references,
+                "search_confidence": search_result.search_confidence,
+                "disclaimers": search_result.disclaimers,
+                "source_links": search_result.source_links,
+                "generated_at": search_result.generated_at.isoformat(),
+                "total_sources": len(search_result.information_sources),
+                "agent_type": "search",
+            }
+            
+        except Exception as e:
+            logger.exception(f"Search processing error: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "agent_type": "search",
+            }
 
     async def search_medical_literature(
         self, search_query: str, search_context: dict[str, Any] | None = None,

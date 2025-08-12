@@ -45,7 +45,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         max_steps: int | None = None,
         config_override: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__("clinical_research", "research_assistant")
+        super().__init__(mcp_client, llm_client, agent_name="clinical_research", agent_type="research_assistant")
 
         # Load configuration
         self.config = self._load_agent_config(config_override)

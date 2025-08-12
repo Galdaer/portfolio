@@ -82,8 +82,10 @@ class BillingHelperAgent(BaseHealthcareAgent):
     - Denial management and appeals assistance
     """
 
-    def __init__(self) -> None:
+    def __init__(self, mcp_client=None, llm_client=None) -> None:
         super().__init__(agent_name="billing_helper", agent_type="billing_helper")
+        self.mcp_client = mcp_client
+        self.llm_client = llm_client
         self.agent_type = "billing_helper"
         self.capabilities = [
             "claims_processing",

@@ -32,9 +32,17 @@ class BaseHealthcareAgent(ABC):
     - All interactions logged for compliance
     """
 
-    def __init__(self, agent_name: str, agent_type: str):
+    def __init__(self, mcp_client: Any = None, llm_client: Any = None, agent_name: str = None, agent_type: str = None):
+        # Auto-derive agent name and type from class name if not provided
+        if agent_name is None:
+            agent_name = self.__class__.__name__.lower().replace('agent', '').replace('healthcare', '')
+        if agent_type is None:
+            agent_type = agent_name
+            
         self.agent_name = agent_name
         self.agent_type = agent_type
+        self.mcp_client = mcp_client
+        self.llm_client = llm_client
         self.logger = logging.getLogger(f"agent.{agent_name}")
         self._session_id: str | None = None
         self._db_connection: Any = None
@@ -343,48 +351,4 @@ class BaseHealthcareAgent(ABC):
                 self._db_connection = None
 
 
-class DocumentProcessingAgent(BaseHealthcareAgent):
-    """Template for document processing agent"""
 
-    def __init__(self) -> None:
-        super().__init__("document_processor", "document_processing")
-
-    async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Process document-related requests"""
-        # Template implementation - will be enhanced in Phase 1
-        return {
-            "success": True,
-            "message": "Document processing agent is ready for Phase 1 implementation",
-            "capabilities": [
-                "form_extraction",
-                "document_classification",
-                "pii_redaction",
-                "content_organization",
-            ],
-        }
-
-
-class ResearchAssistantAgent(BaseHealthcareAgent):
-    """Template for research assistant agent"""
-
-    def __init__(self) -> None:
-        super().__init__("research_assistant", "research")
-
-    async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Process research-related requests"""
-        # Template implementation - will be enhanced in Phase 1
-        return {
-            "success": True,
-            "message": "Research assistant agent is ready for Phase 1 implementation",
-            "capabilities": [
-                "pubmed_search",
-                "fda_lookup",
-                "clinical_trials_search",
-                "citation_management",
-            ],
-        }
-
-
-# Global agent instances (for templates)
-document_agent = DocumentProcessingAgent()
-research_agent = ResearchAssistantAgent()

@@ -80,8 +80,10 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
     - Appointment reminder coordination
     """
 
-    def __init__(self) -> None:
+    def __init__(self, mcp_client=None, llm_client=None) -> None:
         super().__init__("scheduling_optimizer", "scheduling_optimizer")
+        self.mcp_client = mcp_client
+        self.llm_client = llm_client
         self.agent_type = "scheduling_optimizer"
         self.capabilities = [
             "appointment_scheduling",
