@@ -302,7 +302,7 @@ class PatientFirstIntegrationTesting:
         # Pattern: Test agent coordination with patient safety priority
         patient_request = self.create_complex_patient_scenario()
         
-        # Test coordination: intake → document_processor → research_assistant
+        # Test coordination: intake → document_processor → clinical_research_agent
         coordination_result = agent_orchestrator.process_patient_request(patient_request)
         
         # Validate patient-first outcomes

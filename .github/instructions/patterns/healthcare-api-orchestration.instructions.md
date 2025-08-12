@@ -17,7 +17,7 @@ class HealthcareOrchestrator:
         self.agents = {
             'intake': IntakeAgent(),
             'document_processor': DocumentProcessorAgent(),
-            'research_assistant': ResearchAssistantAgent()
+            'clinical_research_agent': ClinicalResearchAgent()
         }
         self.mcp_client = HealthcareMCPClient()
     

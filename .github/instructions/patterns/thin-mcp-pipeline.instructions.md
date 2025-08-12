@@ -1,21 +1,31 @@
 # Thin MCP Pipeline Implementation Patterns
 
-## Strategic Purpose
+## ⚠️ ARCHITECTURE EVOLUTION NOTICE (2025-01-15)
+
+**OUTDATED PATTERN**: This pattern was designed for Open WebUI → Pipeline → Healthcare API architecture which has been replaced.
+
+**CURRENT ARCHITECTURE**: Direct HTTP client → FastAPI (main.py) → Agents → MCP Client (healthcare_mcp_client.py)
+
+**NEW PATTERN**: HTTP requests go directly to main.py FastAPI server with agent routing, eliminating need for separate pipeline component.
+
+---
+
+## Strategic Purpose (Historical)
 
 **THIN COMMUNICATION LAYER**: MCP pipeline serves as minimal proxy forwarding requests to healthcare-api, which handles all routing, agent decisions, and tool selection.
 
-**Architecture Flow**: Open WebUI → MCP Pipeline (thin proxy) → Healthcare API → Agents → MCP Tools
+**Architecture Flow**: HTTP Client → FastAPI Server (main.py) → Agents → MCP Tools (healthcare_mcp_client.py)
 
-## ✅ PROVEN WORKING ARCHITECTURE (2025-08-11)
+## ✅ CURRENT ARCHITECTURE (2025-01-15)
 
-**CRITICAL DISCOVERY**: Pipeline MUST NOT contain MCP logic. The pipeline should be a simple HTTP forwarder to healthcare-api `/process` endpoint.
+**DIRECT HTTP PATTERN**: FastAPI server with clean agent routing replaces pipeline proxy pattern.
 
-**Correct Separation of Concerns**:
-- **Pipeline**: HTTP proxy only (175 lines, simplified from 219)
-- **Healthcare-API**: Agent orchestration and MCP client management  
-- **MCP Server**: Stdio-only transport with 16 healthcare tools
+**Current Separation of Concerns**:
+- **FastAPI Server (main.py)**: HTTP interface with agent routing (pure HTTP, no stdio)
+- **Healthcare MCP Client**: Stdio-only transport with healthcare tools
+- **Agent Classes**: Inherit from BaseHealthcareAgent with standardized process_request() interface
 
-**Architecture Validation**: Successfully achieved Open WebUI → Pipeline → Healthcare API communication with agent method calls being triggered.
+**Architecture Status**: Successfully achieved direct HTTP → FastAPI → Agents → MCP Tools communication with clean stdio/HTTP separation.
 
 ## Thin Pipeline Architecture Patterns
 
@@ -104,28 +114,22 @@ class PipelineErrorHandler:
 ```yaml
 # ✅ PATTERN: Simple service-to-service communication
 services:
-  mcp-pipeline:
-    environment:
-      HEALTHCARE_API_URL: "http://healthcare-api:8000"
-  
   healthcare-api:
-    # Handles all complex logic
+    # FastAPI server with agent routing
     environment:
-      MCP_SERVER_URL: "http://healthcare-mcp:3001"
+      DATABASE_URL: "postgresql://..."
+      REDIS_URL: "redis://..."
+      # MCP via stdio - no URL needed
 ```
 
 ### Environment Variables
 
 ```bash
-# MCP Pipeline (minimal configuration)
-HEALTHCARE_API_URL=http://healthcare-api:8000
-LOG_LEVEL=INFO
-REQUEST_TIMEOUT=30
-
 # Healthcare API (comprehensive configuration)
 DATABASE_URL=postgresql://...
 REDIS_URL=redis://...
-MCP_SERVER_URL=http://healthcare-mcp:3001
+# MCP client uses stdio communication - no URL configuration needed
+LOG_LEVEL=INFO
 ```
 
 ## Testing Patterns

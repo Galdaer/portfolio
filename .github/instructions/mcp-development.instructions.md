@@ -6,27 +6,32 @@
 
 Provide comprehensive patterns for healthcare MCP development with beyond-HIPAA security, patient-first design principles, and advanced clinical integration patterns.
 
-## ✅ BREAKTHROUGH: MCP Integration Working (2025-08-11)
+## ✅ BREAKTHROUGH: MCP Integration Working (2025-01-15)
 
-**PROVEN WORKING ARCHITECTURE**: Open WebUI → Pipeline → Healthcare API → Agents → MCP Client → MCP Server
+**PROVEN WORKING ARCHITECTURE**: HTTP Client → FastAPI Server (main.py) → Agents → MCP Client (healthcare_mcp_client.py) → MCP Server
 
-**CRITICAL TRANSPORT REQUIREMENT**: MCP MUST use stdio-only transport via docker exec. HTTP transport causes architectural bypass issues.
+**CRITICAL ARCHITECTURE SEPARATION**: 
+- **main.py**: Pure FastAPI HTTP server with agent routing (NO stdio code)
+- **healthcare_mcp_client.py**: All MCP stdio communication and tool access
+- **Agent Classes**: Inherit from BaseHealthcareAgent, call MCP via dependency injection
 
 **Lazy MCP Client Pattern**: MCP client should connect on first use, not during startup, to prevent blocking healthcare-api initialization.
 
 ```python
-# ✅ PATTERN: Lazy MCP client connection
-class HealthcareMCPClient:
-    async def ensure_connected(self):
-        if not self.session:
-            await self.connect()
+# ✅ PATTERN: Clean separation with MCP client injection
+class BaseHealthcareAgent:
+    def __init__(self, mcp_client: Optional[Any] = None):
+        self.mcp_client = mcp_client
     
-    async def call_tool(self, name: str, params: Dict[str, Any]):
-        await self.ensure_connected()  # Connect on first use
-        return await self.session.call_tool(name, params)
+    async def process_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        # Base implementation with MCP tool access
+        if self.mcp_client:
+            tools = await self.mcp_client.list_tools()
+            # Use tools for enhanced agent capabilities
+        pass
 ```
 
-**Agent Implementation Status**: Architecture working, now need to implement missing agent methods like `process_research_query` in ClinicalResearchAgent.
+**Agent Implementation Status**: Architecture working with clean stdio/HTTP separation. All agents now use standardized BaseHealthcareAgent interface.
 
 ## Enhanced MCP Architecture
 

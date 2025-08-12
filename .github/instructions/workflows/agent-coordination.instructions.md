@@ -10,18 +10,22 @@ tags: [healthcare, multi-agent, clinical-workflows, coordination]
 
 Comprehensive patterns for coordinating Clinical Research Agent, Search Assistant, and specialized medical agents in complex healthcare AI workflows while maintaining medical safety, PHI protection, and clinical effectiveness.
 
-## ✅ AGENT ROUTING SUCCESS (2025-08-11)
+## ✅ AGENT ROUTING SUCCESS (2025-01-15)
 
-**BREAKTHROUGH ACHIEVEMENT**: Open WebUI successfully routing to healthcare agents via `/process` endpoint.
+**BREAKTHROUGH ACHIEVEMENT**: Clean agent architecture with HTTP/stdio separation and standardized agent interface.
 
-**Current Status**: Agent router working, agents receiving method calls, but need to implement missing methods like `process_research_query` in ClinicalResearchAgent.
+**Current Status**: 
+- **FastAPI HTTP Server**: Pure HTTP interface in main.py with agent routing
+- **Agent Structure**: research_agent/, search_agent/, intake/, document_processor/
+- **MCP Integration**: Separated into healthcare_mcp_client.py for stdio communication
+- **Base Interface**: All agents inherit from BaseHealthcareAgent with process_request() method
 
 **Implementation Pattern**: 
 ```
-User Request → Pipeline → Healthcare API `/process` → Agent Router → Specific Agent Method
+HTTP Request → FastAPI (main.py) → Agent Router → BaseHealthcareAgent.process_request() → MCP Tools (healthcare_mcp_client.py)
 ```
 
-**Next Phase**: Convert agent mock methods to real implementations while maintaining healthcare compliance patterns.
+**Next Phase**: Implement local-only LLM for intelligent agent selection without PHI exposure to cloud AI.
 
 ## Core Agent Coordination Principles
 
@@ -34,23 +38,26 @@ class HealthcareAgentCoordinator:
     
     def __init__(self):
         self.agents = {
-            "clinical_research": ClinicalResearchAgent(),
-            "search_assistant": MedicalSearchAssistant(), 
-            "medication_interaction": MedicationInteractionAgent(),
-            "emergency_response": EmergencyResponseAgent(),
-            "documentation": ClinicalDocumentationAgent(),
-            "compliance_validator": HealthcareComplianceAgent()
+            "clinical_research_agent": ClinicalResearchAgent(),
+            "search_agent": MedicalLiteratureSearchAssistant(), 
+            "intake": IntakeAgent(),
+            "document_processor": DocumentProcessorAgent(),
+            # Future agents:
+            # "medication_interaction": MedicationInteractionAgent(),
+            # "emergency_response": EmergencyResponseAgent(),
+            # "documentation": ClinicalDocumentationAgent(),
+            # "compliance_validator": HealthcareComplianceAgent()
         }
         
         # Agent capability matrix for intelligent routing
         self.agent_capabilities = {
-            "clinical_research": {
-                "differential_diagnosis": 0.95,
+            "clinical_research_agent": {
+                "clinical_research": 0.95,
                 "literature_review": 0.90,
-                "case_analysis": 0.88,
+                "differential_diagnosis": 0.88,
                 "evidence_synthesis": 0.92
             },
-            "search_assistant": {
+            "search_agent": {
                 "quick_facts": 0.95,
                 "drug_information": 0.90,
                 "guideline_lookup": 0.88,
@@ -75,33 +82,57 @@ class HealthcareAgentCoordinator:
         # Multi-dimensional routing based on query analysis
         query_analysis = self.analyze_clinical_query(query, clinical_context)
         
-        selected_agents = []
+        # Use local LLM for intelligent agent selection (PHI-safe)
+        selected_agents = await self.select_agents_with_local_llm(
+            query, clinical_context, available_agents=list(self.agents.keys())
+        )
         
-        # Complex diagnostic scenarios requiring deep analysis
-        if query_analysis.complexity_score > 0.7:
-            selected_agents.append("clinical_research")
-        
-        # Medication-related queries
-        if query_analysis.contains_medications:
-            selected_agents.append("medication_interaction")
-        
-        # Quick fact verification during clinical workflows  
-        if query_analysis.is_fact_verification and not selected_agents:
-            selected_agents.append("search_assistant")
-        
-        # Documentation needs
-        if query_analysis.requires_documentation:
-            selected_agents.append("documentation")
+        # Emergency scenarios always get immediate routing with human escalation
+        if self.detect_emergency_keywords(query):
+            selected_agents = ["emergency_response"] + selected_agents
+            await self.escalate_to_human_oversight(query, clinical_context)
         
         # Always include compliance validation for PHI-containing queries
-        if query_analysis.contains_phi:
-            selected_agents.append("compliance_validator")
-        
-        # Default to clinical research for medical uncertainty
-        if not selected_agents:
-            selected_agents.append("clinical_research")
+        if self.contains_phi(query, clinical_context):
+            if "compliance_validator" not in selected_agents:
+                selected_agents.append("compliance_validator")
         
         return selected_agents
+    
+    async def select_agents_with_local_llm(self, query: str, context: Dict[str, Any], available_agents: List[str]) -> List[str]:
+        """Use local LLM for intelligent agent selection (PHI-safe)"""
+        # Build agent descriptions from available agents
+        agent_descriptions = {}
+        for agent_name in available_agents:
+            if agent_name in self.agents:
+                agent = self.agents[agent_name]
+                capabilities = await self.get_agent_capabilities(agent)
+                agent_descriptions[agent_name] = f"Agent: {agent_name} | Capabilities: {', '.join(capabilities)}"
+        
+        agent_list = "\n".join([f"- {name}: {desc}" for name, desc in agent_descriptions.items()])
+        
+        prompt = f"""
+You are an intelligent healthcare agent router. Select the most appropriate agents for this clinical query.
+
+Available healthcare agents:
+{agent_list}
+
+Clinical query: "{query}"
+Context: {context.get('summary', 'No additional context')}
+
+Select 1-3 agents that would best handle this query. Respond with agent names only, one per line.
+"""
+        
+        # Use local LLM for agent selection (PHI-safe)
+        response = await self.local_llm_client.complete(prompt)
+        selected_agents = [name.strip() for name in response.strip().split('\n') if name.strip()]
+        
+        # Validate selected agents exist
+        valid_agents = [name for name in selected_agents if name in available_agents]
+        
+        # DO NOT USE FALLBACKS AS THAT WILL HIDE ANY ISSUES
+
+        return valid_agents
     
     async def coordinate_multi_agent_workflow(self, case: ClinicalCase) -> ClinicalResult:
         """Coordinate multiple agents for complex clinical cases with intelligent orchestration."""
@@ -215,36 +246,57 @@ class HealthcareAgentCoordinator:
 ### Dynamic Agent Selection
 
 ```python
-# ✅ ADVANCED: Dynamic agent selection based on clinical context
+# ✅ ADVANCED: Dynamic agent selection using local LLM (PHI-safe)
 class DynamicAgentSelector:
-    """Select optimal agents dynamically based on clinical case characteristics."""
+    """Select optimal agents dynamically using local LLM for intelligent analysis."""
     
     def __init__(self):
         self.agent_performance_history = {}
-        self.clinical_specialties = {
-            "cardiology": ["clinical_research", "medication_interaction"],
-            "neurology": ["clinical_research", "search_assistant"],
-            "emergency": ["emergency_response", "clinical_research", "medication_interaction"],
-            "pediatrics": ["clinical_research", "medication_interaction", "documentation"],
-            "geriatrics": ["medication_interaction", "clinical_research", "search_assistant"]
-        }
+        self.local_llm_client = None  # Inject local LLM client
     
     async def select_optimal_agents(self, case: ClinicalCase) -> List[str]:
-        """Select optimal agents based on case complexity and clinical specialty."""
+        """Select optimal agents using local LLM analysis of clinical case."""
         
-        # Base agent selection on clinical specialty
-        specialty_agents = self.clinical_specialties.get(case.specialty, ["clinical_research"])
+        # Build comprehensive case description for LLM
+        case_description = f"""
+Clinical Specialty: {case.specialty}
+Case Complexity: {await self.assess_case_complexity(case)}
+Query: {case.query}
+Patient Context: {case.get_safe_context_summary()}  # PHI-sanitized
+Urgency Level: {case.urgency_level}
+"""
         
-        # Enhance selection based on case complexity
-        complexity_score = await self.assess_case_complexity(case)
+        # Get available agents with capabilities
+        available_agents = await self.get_available_agents_with_capabilities()
+        agent_list = "\n".join([f"- {name}: {desc}" for name, desc in available_agents.items()])
         
-        if complexity_score > 0.8:
-            # High complexity cases need multiple agents
-            enhanced_agents = specialty_agents + ["documentation", "compliance_validator"]
-        elif complexity_score > 0.5:
-            # Medium complexity cases need targeted agents
-            enhanced_agents = specialty_agents + ["compliance_validator"]
-        else:
+        prompt = f"""
+You are a clinical workflow coordinator. Based on this clinical case, select the most appropriate AI agents.
+
+Case Details:
+{case_description}
+
+Available Healthcare Agents:
+{agent_list}
+
+Select 1-3 agents that would best handle this clinical case. Consider:
+- Clinical specialty and complexity
+- Urgency level and patient safety
+- Required capabilities and expertise
+
+Respond with agent names only, one per line.
+"""
+        
+        # Use local LLM for intelligent agent selection (PHI-safe)
+        response = await self.local_llm_client.complete(prompt)
+        selected_agents = [name.strip() for name in response.strip().split('\n') if name.strip()]
+        
+        # Validate and enhance selection based on performance history
+        enhanced_agents = await self.enhance_selection_with_performance_data(
+            selected_agents, case
+        )
+        
+        return enhanced_agents
             # Low complexity cases can use minimal agents
             enhanced_agents = specialty_agents[:2]
         

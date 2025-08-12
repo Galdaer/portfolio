@@ -130,7 +130,7 @@ class HealthcareWorkflowManager:
 # ✅ CORRECT: Multi-agent healthcare coordination
 class HealthcareAgentOrchestrator:
     def coordinate_intake_workflow(self, patient_request: Dict[str, Any]):
-        # Route through: intake → document_processor → research_assistant
+        # Route through: intake → document_processor → clinical_research_agent
         pass
     
     def handle_emergency_scenario(self, emergency_data: Dict[str, Any]):

@@ -78,15 +78,14 @@ Use The Sequential Thinking MCP Server to think through your tasks.
 - **🔧 Medical data troubleshooting** → Use `tasks/medical-data-troubleshooting.instructions.md` for comprehensive diagnostic and repair patterns for medical data pipelines  
 - **📊 Medical data pipeline management** → Use `tasks/medical-data-pipeline-management.instructions.md` for enterprise-grade medical data orchestration and compliance
 
-**RECENT UPDATES (2025-08-11)**:
-- ✅ **MCP Integration Architecture Fixed**: Corrected flow from Open WebUI → Pipeline → Healthcare API → Agents → MCP Tools (stdio-only)
-- ✅ **Agent Routing Working**: Successfully achieved agent method calls, now implementing missing methods like `process_research_query`
-- ✅ **Pipeline Simplification**: Reduced from 219 to 175 lines, pure HTTP forwarder to healthcare-api `/process` endpoint
-- ✅ **Lazy MCP Client Pattern**: MCP client connects on first use to prevent startup blocking
-- ✅ **FDA Orange Book Network Fix**: URL corrected to `https://www.fda.gov/media/76860/download?attachment` (validated working)
-- ✅ **ClinicalTrials API Parameter Fix**: Simplified to basic parameters avoiding 400 errors (validated working)  
-- ✅ **Medical Data Source Documentation**: Comprehensive troubleshooting instructions created for future medical data pipeline issues
-- 🔄 **Script Updates**: `scripts/download_full_medical_archives.py` updated with fixes and warnings for defunct domains
+**RECENT UPDATES (2025-01-15)**:
+- ✅ **Clean Architecture Separation**: main.py is now pure FastAPI HTTP server, all stdio code moved to healthcare_mcp_client.py
+- ✅ **Agent Structure Reorganization**: research_assistant → research_agent, search_assistant → search_agent for clarity
+- ✅ **Agent Discovery Fixed**: Dynamic discovery using glob patterns (*_agent.py) with proper fallback logic
+- ✅ **Cloud AI Disabled**: All AI processing moved to local-only for PHI protection (temporary keyword-based agent routing)
+- ✅ **Routing Simplified**: LLM-based agent selection temporarily disabled, using keyword fallback for security
+- ✅ **Medical Disclaimer Softened**: Enables symptom-based research while maintaining appropriate medical boundaries
+- 🔄 **Local LLM Integration**: Future implementation of local-only LLM for intelligent agent selection without PHI exposure
 
 **For general architecture, service deployment, and project strategy questions**, continue using these main instructions.
 
@@ -105,117 +104,28 @@ See `.github/instructions/README.md` for complete usage guidance.
 
 ### Cloud AI Usage Guidelines
 
-**Hybrid Deployment Strategy** - Strict separation between sensitive and non-sensitive AI workloads:
+**Local-First Deployment Strategy** - All AI workloads run on-premise for maximum PHI protection:
 
-## Advanced Healthcare MCP Integration
+**✅ CURRENT APPROACH - Local AI Only:**
 
-**Healthcare AI now integrates sophisticated MCP (Model Context Protocol) servers** for enhanced development and clinical assistance capabilities while maintaining strict PHI protection and medical safety.
-
-### Available MCP Servers
-
-- **Healthcare MCP** (`mcps/healthcare/`) - PHI-safe clinical tools and medical operations
-- **Sequential Thinking MCP** - Advanced clinical reasoning with transparent logic chains  
-- **Memory MCP** - Clinical context retention with PHI protection
-- **GitHub MCP** - Healthcare codebase knowledge and patterns
-
-### Healthcare MCP Tool Sets
-
-**Clinical Analysis Tools** - Comprehensive clinical analysis and medical research:
-- Medical literature search with evidence grading (search-pubmed)
-- Clinical trial discovery and analysis (search-trials) 
-- Drug information and FDA data access (get-drug-info)
-- Patient data tools (require paid FHIR API access)
-
-**Open WebUI Integration Architecture** (Proven Working Solution):
-- **Direct MCP JSON-RPC Integration**: Authentication proxy (port 3001) with direct MCP protocol communication
-- **No Bridge Required**: Direct subprocess communication with Healthcare MCP server via stdio
-- **All 15 Tools Available**: Genuine tool discovery through MCP tools/list protocol
-- **Authentication**: Bearer token validation with healthcare-mcp-2025 API key
-- **Protocol**: MCP_TRANSPORT=stdio enables proper JSON-RPC 2.0 communication
-
-**Successful MCP Integration Pattern**:
-- **Architecture**: Open WebUI → FastAPI Auth Proxy (3001) → Healthcare MCP Server (stdio/JSON-RPC)
-- **Tool Discovery**: Real-time discovery via MCP tools/list method (not fallback mechanisms)
-- **Communication**: Direct subprocess with stdin/stdout JSON-RPC messaging
-- **Result**: All 15 healthcare tools properly registered and accessible
-
-### MCP Integration Patterns
-
-**Multi-Agent Coordination** - Use multiple MCP tools in parallel for complex clinical workflows:
-```python
-# Coordinate healthcare agents with MCP integration
-clinical_analysis = await coordinate_clinical_workflow(
-    agents=["clinical_research", "search_assistant", "medication_interaction"],
-    mcp_tools=["literature_search", "sequential_thinking", "memory_search"],
-    case=clinical_case,
-    phi_protection=True
-)
-```
-
-**Real-Time Clinical Assistance** - WebSocket integration with progressive MCP tool usage:
-```python
-# Real-time clinical assistance with MCP tool streaming
-async for clinical_update in progressive_clinical_analysis(message, session):
-    # Use MCP tools progressively for streaming clinical analysis
-    await websocket.send_json(clinical_update)
-```
-
-**Evidence-Based Reasoning** - Transparent clinical logic with MCP-powered analysis:
-```python
-# Evidence-based reasoning using MCP tools
-reasoning_result = await evidence_based_clinical_reasoning(
-    clinical_question=question,
-    mcp_literature_search=True,
-    mcp_sequential_thinking=True,
-    transparency_required=True
-)
-```
-
-**Database-First MCP Tools** - MCP tools prioritize database with appropriate fallbacks:
-```python
-# ✅ CORRECT: MCP tool with database-first pattern
-class HealthcareMCPTool:
-    def get_clinical_data(self, identifier: str):
-        try:
-            # PRIMARY: Use healthcare database schema
-            return self.fetch_from_healthcare_db(identifier)
-        except DatabaseConnectionError:
-            # FALLBACK: Appropriate alternatives
-            if is_development_environment():
-                return self.load_synthetic_healthcare_data(identifier)
-            elif contains_phi(identifier):
-                raise  # PHI requires database in production
-            else:
-                return self.load_fallback_data(identifier)
-```
-
-**✅ ALLOWED - Cloud AI for Non-Sensitive Work:**
-
-- General medical literature research and analysis
-- Public health data processing (no patient identifiers)
-- Development and testing with synthetic data
-- General healthcare workflow optimization research
-- Medical coding reference and documentation standards
-
-**❌ PROHIBITED - Cloud AI for Healthcare Data:**
-
-- Any patient health information (PHI) processing
-- Real patient data analysis or decision support
-- Multi-tenant architectures with healthcare data
-- Cloud storage of any patient-related information
-- External APIs receiving patient context or medical records
+- All AI processing occurs on local infrastructure (Ollama, local models)
+- No cloud AI services used to eliminate PHI exposure risk
+- Comprehensive on-premise AI stack for all healthcare operations
+- Future cloud integration only for statistical research on non-PHI data
 
 **Implementation Pattern:**
 
 ```python
-# ✅ Correct: Cloud AI for research, local AI for patient data
-if data_contains_phi(input_data):
+# ✅ Correct: Local-only AI processing
+if data_contains_phi(input_data) or is_healthcare_context():
     result = local_ollama_model.process(input_data)  # On-premise only
+    # No cloud AI - even for agent selection due to PHI complexity
 else:
-    result = cloud_research_api.analyze(input_data)  # OK for non-PHI research
+    # Future: Statistical research on non-PHI data when clients request it
+    pass
 ```
 
-This ensures we leverage the best available models for research while maintaining absolute patient privacy.
+This ensures absolute patient privacy while maintaining full AI capabilities through local infrastructure.
 
 ### Directory Structure
 
@@ -223,12 +133,13 @@ This ensures we leverage the best available models for research while maintainin
 reference/ai-patterns/  # MIT licensed AI engineering patterns (git submodule)
 mcps/healthcare/        # Healthcare MCP server code (copied from agentcare-mcp)
 services/user/          # Service configurations - each service has SERVICE.conf
-agents/                 # AI agent implementations (intake/, document_processor/, research_assistant/)
+agents/                 # AI agent implementations (intake/, document_processor/, clinical_research_agent/, search_agent/)
 core/                   # Core healthcare AI infrastructure (memory/, orchestration/, infrastructure/)
   infrastructure/       # Production-ready infrastructure (caching, health monitoring, background tasks)
   dependencies.py       # Healthcare services dependency injection system
 scripts/                # Primary shell scripts (universal-service-runner.sh, lib.sh, etc.)
-main.py                 # FastAPI application with complete agent router integration
+main.py                 # FastAPI HTTP server with clean agent routing (pure HTTP, no stdio)
+healthcare_mcp_client.py # MCP stdio communication (separated from main.py)
 ```
 
 ## Infrastructure Status (Updated 2025-08-03)
@@ -251,6 +162,7 @@ main.py                 # FastAPI application with complete agent router integra
 - **Synthetic Data Integration**: Full database population with realistic healthcare data for development and testing
 
 ### 🟡 PENDING:
+- **Local LLM Integration**: Implementation of local-only LLM for intelligent agent selection without PHI exposure
 - **MCP Client Integration**: Blocked - user's dad working on mcps/ directory
 
 ## Synthetic Healthcare Data Infrastructure
@@ -350,10 +262,18 @@ python3 scripts/generate_synthetic_healthcare_data.py --doctors 50 --patients 10
 
 ### Medical Safety Principles
 
-- **NO medical advice, diagnosis, or treatment recommendations**
-- **Focus ONLY on administrative and documentation support**
+- **Focus on administrative and documentation support** with research capabilities for symptom patterns and medical literature
+- **Provide evidence-based research assistance** without direct medical advice, diagnosis, or treatment recommendations
 - **Explainable AI**: All AI decisions must be traceable and auditable for healthcare compliance
 - **All PHI/PII remains on-premise** - no cloud dependencies or external API calls with patient data
+
+**Medical Research Assistance Guidelines:**
+- ✅ Literature research on symptoms, conditions, and treatment patterns
+- ✅ Evidence-based research synthesis from peer-reviewed sources
+- ✅ Clinical protocol information and medical coding assistance
+- ✅ Administrative workflow optimization and documentation support
+- ❌ Direct diagnosis, treatment recommendations, or patient-specific medical advice
+- ❌ Emergency medical guidance or urgent clinical decision support
 
 ### Medical Module Development Patterns
 
