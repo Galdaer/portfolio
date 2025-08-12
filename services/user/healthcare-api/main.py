@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Intelluxe AI - Healthcare AI System Entry Point
+Intelluxe AI - Healthcare AI System Stdio Bridge
 
 Privacy-First Healthcare AI System built for on-premise clinical deployment.
 Focus: Administrative/documentation support, NOT medical advice.
@@ -10,17 +10,12 @@ It does not provide medical advice, diagnosis, or treatment recommendations.
 All medical decisions should be made by qualified healthcare professionals.
 """
 
+import asyncio
+import argparse
+import json
 import logging
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+import sys
 from pathlib import Path
-from typing import Any
-
-import uvicorn
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse, StreamingResponse
 
 from config.app import config
 from core.infrastructure.healthcare_logger import (
@@ -36,451 +31,292 @@ setup_healthcare_logging(log_level=config.log_level.upper())
 logger = get_healthcare_logger("main")
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifecycle management with healthcare logging"""
-    log_healthcare_event(
-        logger,
-        logging.INFO,
-        f"Starting {config.project_name}",
-        context={"application_startup": True, "project_name": config.project_name},
-        operation_type="application_lifecycle",
-    )
-
-    # Initialize core services
-    try:
-        # Initialize healthcare services (MCP, LLM, Database, Redis)
-        from core.dependencies import healthcare_services
-
-        await healthcare_services.initialize()
-        # Store healthcare services in app state for access by other components
-        app.state.healthcare_services = healthcare_services
-        log_healthcare_event(
-            logger,
-            logging.INFO,
-            "Healthcare services initialized successfully",
-            context={"services_initialized": True},
-            operation_type="service_initialization",
-        )
-
-        # Initialize memory manager
-        from core.memory import MemoryManager
-
-        app.state.memory_manager = MemoryManager()
-        await app.state.memory_manager.initialize()
-        log_healthcare_event(
-            logger,
-            logging.INFO,
-            "Memory manager initialized",
-            context={"memory_system": "initialized"},
-            operation_type="memory_initialization",
-        )
-
-        # Initialize model registry
-        from core.models import ModelRegistry
-
-        app.state.model_registry = ModelRegistry()
-        await app.state.model_registry.initialize()
-        log_healthcare_event(
-            logger,
-            logging.INFO,
-            "Model registry initialized",
-            context={"model_registry": "initialized"},
-            operation_type="model_initialization",
-        )
-
-        # Initialize tool registry
-        from core.tools import ToolRegistry
-
-        app.state.tool_registry = ToolRegistry()
-        # Pass the MCP client from healthcare services
-        mcp_client = app.state.healthcare_services.mcp_client
-        await app.state.tool_registry.initialize(mcp_client=mcp_client)
-        log_healthcare_event(
-            logger,
-            logging.INFO,
-            "Tool registry initialized",
-            context={"tool_registry": "initialized"},
-            operation_type="tool_initialization",
-        )
-
-        log_healthcare_event(
-            logger,
-            logging.INFO,
-            "All core services initialized successfully",
-            context={"startup_complete": True},
-            operation_type="application_startup",
-        )
-        yield
-
-    except Exception as e:
-        log_healthcare_event(
-            logger,
-            logging.ERROR,
-            f"Failed to initialize healthcare services: {e}",
-            context={"error": str(e), "startup_failed": True},
-            operation_type="initialization_error",
-        )
-        raise
-
-    finally:
-        # Cleanup on shutdown
-        log_healthcare_event(
-            logger,
-            logging.INFO,
-            f"Shutting down {config.project_name}",
-            context={"application_shutdown": True},
-            operation_type="application_lifecycle",
-        )
-        logger.info(f"Shutting down {config.project_name}")
-
-        # Cleanup resources
-        if hasattr(app.state, "memory_manager"):
-            await app.state.memory_manager.close()
-
-        # Cleanup healthcare services
-        from core.dependencies import healthcare_services
-
-        await healthcare_services.close()
-
-
-app = FastAPI(
-    title="Intelluxe AI - Healthcare Administrative Assistant",
-    description="""
-    ## Privacy-First Healthcare AI System
-
-    **Administrative and documentation support for healthcare professionals**
-
-    ### 🏥 MEDICAL DISCLAIMER
-    **This system provides administrative and documentation support only.**
-    - ❌ Does NOT provide medical advice, diagnosis, or treatment recommendations
-    - ❌ Does NOT replace qualified healthcare professional judgment
-    - ✅ Assists with documentation, scheduling, and administrative tasks
-    - ✅ All PHI/PII remains on-premise with no cloud dependencies
-
-    ### 🔒 HIPAA Compliance
-    - **Privacy-First Architecture**: All patient data remains on-premise
-    - **Audit Logging**: Complete audit trail for all healthcare access
-    - **Role-Based Access**: Secure authentication with healthcare role permissions
-    - **PHI Protection**: Runtime PHI detection and data leakage monitoring
-
-    ### 🤖 Available Healthcare Agents
-    - **Intake Agent**: Patient registration, appointment scheduling, insurance verification
-    - **Document Processor**: Medical document analysis and clinical note generation
-    - **Research Assistant**: Medical literature search and clinical research support
-
-    ### 📋 Authentication Required
-    Most endpoints require JWT authentication with appropriate healthcare role permissions.
-    Contact your system administrator for access credentials.
-
-    ### ⚕️ Healthcare Compliance
-    Built for on-premise deployment in clinical environments with comprehensive
-    HIPAA compliance, audit logging, and patient data protection.
-    """,
-    version="1.0.0",
-    lifespan=lifespan,
-    terms_of_service="For healthcare administrative use only. No medical advice provided.",
-    contact={
-        "name": "Intelluxe AI Healthcare Support",
-        "email": "support@intelluxe.ai",
-    },
-    license_info={
-        "name": "Healthcare Administrative License",
-        "identifier": "Healthcare-Admin-Only",
-    },
-)
-
-# Configure CORS for development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8080"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@app.get("/", response_class=HTMLResponse)
-async def root() -> str:
-    """Health check and system status"""
-    return """
-    <html>
-        <head><title>Intelluxe AI - Healthcare Assistant</title></head>
-        <body>
-            <h1>Intelluxe AI Healthcare Administrative Assistant</h1>
-            <p>Privacy-First Healthcare AI System</p>
-            <p>Status: <strong>Running</strong></p>
-            <p><a href="/docs">API Documentation</a></p>
-            <p><a href="/health">Health Check</a></p>
-        </body>
-    </html>
-    """
-
-
-@app.get("/health", tags=["health"])
-async def health_check() -> dict[str, Any]:
-    """
-    Comprehensive Healthcare System Health Check
-
-    Returns detailed health status for all healthcare system components:
-    - Database connectivity (PostgreSQL)
-    - Cache system (Redis)
-    - MCP server connectivity
-    - LLM availability
-    - Background task processing
-    - Memory usage and performance metrics
-
-    **Use Case**: System monitoring, deployment validation, troubleshooting
-    """
-    try:
-        from core.infrastructure.health_monitoring import healthcare_monitor
-
-        return await healthcare_monitor.comprehensive_health_check()
-
-    except Exception as e:
-        logger.exception(f"Health check failed: {e}")
-        raise HTTPException(status_code=500, detail="Health check failed")
-
-
-@app.get("/health/quick", tags=["health"])
-async def quick_health_check() -> dict[str, Any]:
-    """
-    Quick Healthcare System Status Check
-
-    Returns cached health status for rapid monitoring:
-    - Overall system status
-    - Critical component availability
-    - Cached performance metrics
-
-    **Use Case**: Load balancer health checks, rapid status monitoring
-    **Response Time**: < 100ms (cached results)
-    """
-    try:
-        from core.infrastructure.health_monitoring import healthcare_monitor
-
-        return await healthcare_monitor.quick_health_check()
-
-    except Exception as e:
-        logger.exception(f"Quick health check failed: {e}")
-        raise HTTPException(status_code=500, detail="Quick health check failed")
-
-
-# Custom OpenAPI schema with healthcare compliance information
-def custom_openapi() -> dict[str, Any]:
-    if app.openapi_schema:
-        return app.openapi_schema
-
-    openapi_schema = get_openapi(
-        title=app.title,
-        version=app.version,
-        description=app.description,
-        routes=app.routes,
-    )
-
-    # Add healthcare-specific security schemes
-    openapi_schema["components"]["securitySchemes"] = {
-        "BearerAuth": {
-            "type": "http",
-            "scheme": "bearer",
-            "bearerFormat": "JWT",
-            "description": "Healthcare JWT token with role-based permissions",
-        },
-    }
-
-    # Add healthcare compliance tags
-    openapi_schema["tags"] = [
-        {"name": "health", "description": "System health monitoring and status endpoints"},
-        {
-            "name": "intake",
-            "description": "Patient intake, registration, and appointment scheduling",
-        },
-        {
-            "name": "document",
-            "description": "Medical document processing and clinical note generation",
-        },
-        {
-            "name": "research",
-            "description": "Medical literature search and clinical research support",
-        },
-    ]
-
-    app.openapi_schema = openapi_schema
-    return app.openapi_schema
-
-
-app.openapi = custom_openapi  # type: ignore[method-assign]
-
-
-# Streaming endpoints for enhanced user experience
-@app.get("/stream/literature_search", tags=["streaming"])
-async def stream_literature_search(
-    query: str, max_results: int = 10, user_id: str = "demo_user", session_id: str = "demo_session",
-) -> StreamingResponse:
-    """
-    Stream Medical Literature Search Results
-
-    **Real-time streaming** of medical literature search progress and results.
-
-    **Stream Events:**
-    - Progress updates during database search
-    - Individual paper results as they arrive
-    - Citation formatting and relevance scoring
-    - Final completion with summary statistics
-
-    **Use Case:** Improve user experience during long literature searches
-    **Response Format:** Server-Sent Events (SSE)
-    """
-    from core.infrastructure.streaming import stream_medical_literature_search
-
-    return await stream_medical_literature_search(query, user_id, session_id, max_results)
-
-
-@app.get("/stream/ai_reasoning", tags=["streaming"])
-async def stream_ai_reasoning(
-    medical_query: str, user_id: str = "demo_user", session_id: str = "demo_session",
-) -> StreamingResponse:
-    """
-    Stream AI Reasoning Process
-
-    **Transparent AI decision-making** for healthcare queries with real-time reasoning steps.
-
-    **Stream Events:**
-    - Query analysis and medical context identification
-    - PHI detection and safety verification
-    - Step-by-step reasoning with confidence scores
-    - Final analysis with safety disclaimers
-
-    **Use Case:** Provide transparency in AI medical analysis
-    **Compliance:** Includes medical disclaimers and safety warnings
-    """
-    from core.infrastructure.streaming import stream_ai_reasoning
-
-    return await stream_ai_reasoning(medical_query, user_id, session_id)
-
-
-@app.get("/stream/document_processing", tags=["streaming"])
-async def stream_document_processing(
-    document_type: str = "clinical_note",
-    user_id: str = "demo_user",
-    session_id: str = "demo_session",
-) -> StreamingResponse:
-    """
-    Stream Medical Document Processing
-
-    **Real-time updates** during medical document analysis and processing.
-
-    **Stream Events:**
-    - Document structure analysis
-    - Medical entity extraction progress
-    - PHI detection and compliance checking
-    - Structured output generation
-
-    **Use Case:** Show progress during complex document processing
-    **Compliance:** PHI detection and HIPAA compliance verification
-    """
-    from core.infrastructure.streaming import stream_document_processing
-
-    return await stream_document_processing(document_type, user_id, session_id)
-
-
-@app.post("/process", tags=["pipeline"])
-async def process_pipeline_request(request: dict[str, Any]) -> dict[str, Any]:
-    """
-    Generic Pipeline Request Processor
+async def stdio_bridge():
+    """Stdio bridge to delegate requests to existing agents."""
+    logger.info("Starting healthcare-api stdio bridge")
     
-    This endpoint receives requests from the pipeline and routes them to appropriate
-    agents based on content analysis. The pipeline should forward all requests here
-    rather than trying to connect to MCP servers directly.
-    
-    **Architecture**: Pipeline → Main API → Agents → MCP Client → MCP Server
-    """
+    # Initialize agents dynamically
     try:
-        # Extract message content from various possible formats
-        message = ""
-        if "message" in request:
-            message = str(request["message"])
-        elif "messages" in request and request["messages"]:
-            last_msg = request["messages"][-1]
-            if isinstance(last_msg, dict) and "content" in last_msg:
-                message = str(last_msg["content"])
-        elif "query" in request:
-            message = str(request["query"])
-        else:
-            message = str(request.get("content", ""))
+        import importlib
+        import inspect
+        from pathlib import Path
+        from agents import BaseHealthcareAgent
+        from core.dependencies import HealthcareServices, get_mcp_client
         
-        if not message.strip():
-            return {
-                "status": "error",
-                "message": "No message content provided",
-                "data": None
+        # Initialize healthcare services
+        healthcare_services = HealthcareServices()
+        await healthcare_services.initialize()
+        
+        # Get real MCP client and LLM client from healthcare services
+        mcp_client = await get_mcp_client()
+        llm_client = healthcare_services.llm_client
+        
+        # Dynamically discover and load all healthcare agents
+        agents_dir = Path(__file__).parent / "agents"
+        discovered_agents = {}
+        
+        for agent_module_dir in agents_dir.iterdir():
+            if agent_module_dir.is_dir() and not agent_module_dir.name.startswith("__"):
+                # Look for agent files in each subdirectory
+                for agent_file in agent_module_dir.glob("*agent*.py"):
+                    if agent_file.name.startswith("__"):
+                        continue
+                        
+                    try:
+                        # Import the module dynamically
+                        module_path = f"agents.{agent_module_dir.name}.{agent_file.stem}"
+                        module = importlib.import_module(module_path)
+                        
+                        # Find all classes that inherit from BaseHealthcareAgent
+                        for name, obj in inspect.getmembers(module, inspect.isclass):
+                            if (issubclass(obj, BaseHealthcareAgent)
+                                and obj != BaseHealthcareAgent
+                                and hasattr(obj, '__module__')
+                                and obj.__module__ == module_path):
+                                
+                                # Instantiate the agent
+                                agent_instance = obj(mcp_client, llm_client)
+                                agent_name = getattr(agent_instance, 'agent_name', name.lower())
+                                discovered_agents[agent_name] = agent_instance
+                                logger.info(f"Discovered and loaded agent: {agent_name}")
+                                
+                    except Exception as e:
+                        logger.warning(f"Failed to load agent from {agent_file}: {e}")
+        
+        if not discovered_agents:
+            logger.warning("No agents discovered, falling back to manual imports")
+            # Fallback to manual imports if discovery fails
+            from agents.intake.intake_agent import HealthcareIntakeAgent
+            from agents.document_processor.document_processor import HealthcareDocumentProcessor
+            from agents.research_assistant.clinical_research_agent import ClinicalResearchAgent
+            
+            discovered_agents = {
+                "intake": HealthcareIntakeAgent(mcp_client, llm_client),
+                "document_processor": HealthcareDocumentProcessor(mcp_client, llm_client),
+                "research_assistant": ClinicalResearchAgent(mcp_client, llm_client)
             }
         
-        # Simple routing based on content (can be enhanced)
-        user_id = request.get("user_id", "pipeline_user")
-        session_id = request.get("session_id", "pipeline_session")
-        
-        # Route to research assistant for medical queries
-        from agents.research_assistant.clinical_research_agent import ClinicalResearchAgent
-        from core.dependencies import healthcare_services
-        
-        # Get services through dependency injection
-        services = healthcare_services
-        if not services._initialized:
-            await services.initialize()
-            
-        agent = ClinicalResearchAgent(
-            mcp_client=services.mcp_client,
-            llm_client=services.llm_client
-        )
-        
-        # Process through agent
-        result = await agent.process_research_query(
-            query=message,
-            user_id=user_id,
-            session_id=session_id
-        )
-        
-        return {
-            "status": "success",
-            "message": "Request processed successfully",
-            "data": result
-        }
+        logger.info(f"Healthcare agents initialized: {list(discovered_agents.keys())}")
         
     except Exception as e:
-        logger.error(f"Pipeline request processing error: {str(e)}")
-        return {
-            "status": "error",
-            "message": f"Processing failed: {str(e)}",
-            "data": None
-        }
-
-
-# Import and include agent routers
-try:
-    from agents.document_processor import router as document_router
-    from agents.intake import router as intake_router
-    from agents.research_assistant import router as research_router
-    from agents.transcription import router as transcription_router
-
-    app.include_router(intake_router, prefix="/agents/intake", tags=["intake"])
-    app.include_router(document_router, prefix="/agents/document", tags=["document"])
-    app.include_router(research_router, prefix="/agents/research", tags=["research"])
-    app.include_router(transcription_router, prefix="/agents/transcription", tags=["transcription"])
-
-    logger.info("Agent routers loaded successfully")
-except ImportError as e:
-    logger.warning(f"Agent routers not available: {e}")
+        logger.error(f"Failed to initialize agents: {e}")
+        return
+    
+    logger.info("Healthcare-api stdio bridge ready - waiting for requests")
+    
+    while True:
+        try:
+            # Read JSON-RPC request from stdin
+            line = sys.stdin.readline()
+            if not line:
+                # Don't exit on EOF - keep waiting for new connections
+                await asyncio.sleep(0.1)
+                continue
+                
+            request = json.loads(line.strip())
+            method = request.get("method", "")
+            params = request.get("params", {})
+            request_id = request.get("id")
+            
+            logger.info(f"Processing stdio request: method={method}, id={request_id}")
+            
+            # AI-powered intelligent routing - let AI decide everything
+            result = None
+            if method == "process_message":
+                # Extract message and context
+                message = params.get("message", "") if isinstance(params, dict) else str(params)
+                user_id = params.get("user_id", "stdio_user") if isinstance(params, dict) else "stdio_user"
+                session_id = params.get("session_id", "stdio_session") if isinstance(params, dict) else "stdio_session"
+                
+                # Use AI LLM to determine which agent and method to use
+                available_agents = list(discovered_agents.keys())
+                routing_prompt = f"""
+                Analyze this healthcare message and determine the best agent to handle it:
+                
+                Message: "{message}"
+                
+                Available agents: {available_agents}
+                
+                Agent capabilities:
+                - research_assistant: medical research, literature, clinical trials, drug info
+                - intake: patient intake, symptoms, medical history, triage
+                - document_processor: document processing, analysis, extraction
+                - insurance_verification: insurance verification, benefits, prior auth (if available)
+                
+                Respond with only the agent name (e.g., "research_assistant")
+                """
+                
+                try:
+                    # Get all available methods for all agents dynamically
+                    agent_methods = {}
+                    for agent_name, agent in discovered_agents.items():
+                        methods = [
+                            method for method in dir(agent)
+                            if callable(getattr(agent, method))
+                            and not method.startswith('_')
+                            and method not in ['log_agent_performance', 'initialize_agent', 'cleanup']
+                        ]
+                        agent_methods[agent_name] = methods
+                    
+                    # Use real LLM client for AI routing decisions
+                    routing_prompt = f"""
+                    Analyze this healthcare message and determine the best agent and method to handle it:
+                    
+                    Message: "{message}"
+                    
+                    Available agents and their methods: {agent_methods}
+                    
+                    Respond with only: agent_name.method_name (e.g., "research_assistant.process_research_query")
+                    """
+                    
+                    # Use healthcare-api's LLM client for routing decisions
+                    try:
+                        completion = await llm_client.chat(
+                            model="llama3.1:8b",
+                            messages=[
+                                {"role": "system", "content": "You are an AI routing assistant for healthcare agents. Respond with only the agent_name.method_name format."},
+                                {"role": "user", "content": routing_prompt}
+                            ],
+                            options={
+                                "temperature": 0.1,
+                                "num_predict": 50
+                            }
+                        )
+                        routing_decision = completion['message']['content'].strip()
+                        logger.info(f"AI routing decision: {routing_decision}")
+                    except Exception as e:
+                        logger.error(f"LLM routing failed: {e}, using fallback")
+                        routing_decision = f"{list(discovered_agents.keys())[0]}.process_request"
+                    
+                    # Parse agent and method from AI response
+                    if '.' in routing_decision:
+                        selected_agent_name, selected_method = routing_decision.split('.', 1)
+                    else:
+                        # Fallback: assume it's just agent name, use first available method
+                        selected_agent_name = routing_decision
+                        if selected_agent_name in agent_methods and agent_methods[selected_agent_name]:
+                            selected_method = agent_methods[selected_agent_name][0]
+                        else:
+                            selected_method = "process_request"  # Fallback method
+                    
+                    # Execute the AI's routing decision dynamically
+                    if selected_agent_name in discovered_agents:
+                        selected_agent = discovered_agents[selected_agent_name]
+                        
+                        if hasattr(selected_agent, selected_method):
+                            method_func = getattr(selected_agent, selected_method)
+                            
+                            # Dynamically determine method signature and call appropriately
+                            import inspect
+                            sig = inspect.signature(method_func)
+                            params_list = list(sig.parameters.keys())
+                            
+                            # Smart parameter mapping based on method signature
+                            if 'query' in params_list:
+                                result = await method_func(message, user_id, session_id)
+                            elif 'request' in params_list:
+                                result = await method_func({
+                                    "message": message,
+                                    "user_id": user_id,
+                                    "session_id": session_id
+                                })
+                            elif len(params_list) >= 3:  # Assume message, user_id, session_id
+                                result = await method_func(message, user_id, session_id)
+                            elif len(params_list) >= 1:  # Assume single parameter
+                                result = await method_func({
+                                    "message": message,
+                                    "user_id": user_id,
+                                    "session_id": session_id
+                                })
+                            else:
+                                result = await method_func()
+                        else:
+                            result = {"error": f"Agent {selected_agent_name} has no method {selected_method}"}
+                    else:
+                        # Fallback to first available agent and method
+                        fallback_agent_name = next(iter(discovered_agents.keys()))
+                        fallback_agent = discovered_agents[fallback_agent_name]
+                        fallback_method = agent_methods[fallback_agent_name][0] if agent_methods[fallback_agent_name] else "process_request"
+                        
+                        if hasattr(fallback_agent, fallback_method):
+                            method_func = getattr(fallback_agent, fallback_method)
+                            import inspect
+                            sig = inspect.signature(method_func)
+                            params_list = list(sig.parameters.keys())
+                            
+                            if 'query' in params_list or len(params_list) >= 3:
+                                result = await method_func(message, user_id, session_id)
+                            else:
+                                result = await method_func({
+                                    "message": message,
+                                    "user_id": user_id,
+                                    "session_id": session_id
+                                })
+                        else:
+                            result = {"error": "No compatible methods found"}
+                        
+                except Exception as e:
+                    logger.error(f"AI routing failed: {e}, falling back to first available agent")
+                    # Emergency fallback
+                    fallback_agent = next(iter(discovered_agents.values()))
+                    fallback_methods = [
+                        method for method in dir(fallback_agent)
+                        if callable(getattr(fallback_agent, method))
+                        and not method.startswith('_')
+                    ]
+                    
+                    if fallback_methods:
+                        fallback_method = fallback_methods[0]
+                        try:
+                            method_func = getattr(fallback_agent, fallback_method)
+                            result = await method_func({
+                                "message": message,
+                                "user_id": user_id,
+                                "session_id": session_id
+                            })
+                        except Exception:
+                            result = {"error": f"Complete routing failure: {str(e)}"}
+                    else:
+                        result = {"error": f"No methods available: {str(e)}"}
+            else:
+                result = {"error": f"Unknown method: {method}. Use 'process_message' for AI routing."}
+            
+            # Send JSON-RPC response to stdout
+            response = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": result
+            }
+            print(json.dumps(response), flush=True)
+            logger.info(f"Sent response for request {request_id}")
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in stdio request: {e}")
+            error_response = {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32700, "message": "Parse error"}
+            }
+            print(json.dumps(error_response), flush=True)
+            
+        except Exception as e:
+            logger.error(f"Error processing stdio request: {e}")
+            error_response = {
+                "jsonrpc": "2.0",
+                "id": request.get("id") if 'request' in locals() else None,
+                "error": {"code": -1, "message": str(e)}
+            }
+            print(json.dumps(error_response), flush=True)
 
 
 if __name__ == "__main__":
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Healthcare AI Stdio Bridge")
+    parser.add_argument("--stdio", action="store_true", help="Run as stdio bridge (default)")
+    args = parser.parse_args()
+
     # Ensure logs directory exists
     Path("logs").mkdir(exist_ok=True)
 
-    # Run the application
-    uvicorn.run(
-        "main:app",
-        host=config.host,
-        port=config.port,
-        reload=config.development_mode,
-        log_level=config.log_level.lower(),
-    )
+    # Always run as stdio bridge (no HTTP mode)
+    asyncio.run(stdio_bridge())

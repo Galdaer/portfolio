@@ -98,7 +98,10 @@ class ToolRegistry:
             return
         try:
             # Use MCP protocol method for tool discovery (not HTTP)
-            if hasattr(self.mcp_client, 'list_tools'):
+            if hasattr(self.mcp_client, 'get_available_tools'):
+                tools = await self.mcp_client.get_available_tools()
+                self._available_tools = tools
+            elif hasattr(self.mcp_client, 'list_tools'):
                 tools = await self.mcp_client.list_tools()
                 self._available_tools = tools
             elif hasattr(self.mcp_client, 'get_tools'):

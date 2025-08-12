@@ -1,15 +1,17 @@
-"""Healthcare Pipeline for Open WebUI ↔ Healthcare API communication
-================================================================
+"""Healthcare Pipeline with MCP stdio communication
+================================================
 
-CORRECT ARCHITECTURE: Simple format converter between Open WebUI and healthcare-api
+CORRECT ARCHITECTURE: The pipeline uses MCP stdio protocol to communicate with healthcare-api
+which then communicates with healthcare-mcp via stdio.
 
-Flow: Open WebUI (HTTP) → Pipeline → Healthcare-API (JSON-RPC stdin/stdout) → Healthcare-MCP (MCP protocol)
+Correct flow: Open WebUI → Pipeline (HTTP) → healthcare-api (stdio) → healthcare-mcp (stdio)
 
 RESPONSIBILITIES:
- - Convert Open WebUI requests to JSON-RPC format for healthcare-api
- - Handle stdio communication with healthcare-api container
- - Convert healthcare-api responses back to Open WebUI format
- - Basic timeout and error handling
+ - Accept chat requests from Open WebUI pipeline server via HTTP
+ - Forward them to healthcare-api via MCP stdio protocol
+ - Return the response transparently
+ - Provide basic timeout + connection error handling
+ - Log request lifecycle for observability (no PHI persistence)
 
 MEDICAL DISCLAIMER: Administrative/documentation support only; not medical
 advice, diagnosis, or treatment. All clinical decisions belong to licensed
@@ -25,8 +27,13 @@ from typing import Any, List, Dict
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
-# Direct subprocess communication for healthcare-api stdio bridge
-import subprocess
+# MCP imports for stdio communication
+try:
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+    MCP_AVAILABLE = True
+except ImportError:
+    MCP_AVAILABLE = False
 
 logger = logging.getLogger("mcp_pipeline")
 if not logger.handlers:  # Basic config only if root not configured
@@ -66,101 +73,100 @@ class ForwardResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Healthcare API Client for direct stdio communication
+# MCP Healthcare Client for stdio communication
 # ---------------------------------------------------------------------------
-class HealthcareAPIClient:
-    """Direct stdio client for healthcare-api container (not MCP protocol)"""
+class HealthcareMCPClient:
+    """MCP client for stdio communication with healthcare-api container"""
     
     def __init__(self):
-        # Connect to healthcare-api container via stdio using same pattern as healthcare-api → healthcare-mcp
-        self.process = None
+        if not MCP_AVAILABLE:
+            raise RuntimeError("MCP library not available")
+            
+        # Connect to healthcare-api container via stdio
+        command = "docker"
+        args = ["exec", "-i", "healthcare-api", "python", "-m", "main", "--stdio"]
+        env = {"MCP_TRANSPORT": "stdio"}
+        
+        self.params = StdioServerParameters(command=command, args=args, env=env)
+        self.client_cm = None
+        self.session = None
         
     async def connect(self):
-        """Connect to the healthcare-api via direct stdio"""
+        """Connect to the healthcare-api via stdio"""
         try:
-            logger.info("Connecting to healthcare-api via direct stdio")
+            logger.info("Connecting to healthcare-api via stdio")
             
-            # Use docker exec to connect to existing healthcare-api container via stdio
-            # This duplicates the successful pattern from healthcare-api → healthcare-mcp
-            self.process = await asyncio.create_subprocess_exec(
-                "docker", "exec", "-i", "healthcare-api", "python", "main.py", "--stdio",
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
+            # Create stdio client context manager
+            self.client_cm = stdio_client(self.params)
             
-            logger.info("Connected to healthcare-api via direct stdio")
+            # Enter the context manager to get streams
+            read_stream, write_stream = await self.client_cm.__aenter__()
+            
+            # Create ClientSession with the streams
+            self.session = ClientSession(read_stream, write_stream)
+            
+            # Initialize the session
+            await self.session.initialize()
+            logger.info("Connected to healthcare-api via stdio")
             
         except Exception as e:
             logger.error(f"Failed to connect to healthcare-api: {e}")
             raise
     
-    async def ensure_connection(self):
-        """Ensure we have a valid connection, reconnect if needed"""
-        if self.process is None or self.process.returncode is not None:
-            logger.info("Process not running, reconnecting...")
+    async def call_tool(self, tool_name: str, arguments: dict[str, Any] = None) -> dict[str, Any]:
+        """Call a tool via MCP stdio"""
+        if not self.session:
             await self.connect()
-    
-    async def send_request(self, method: str, params: dict[str, Any] = None) -> dict[str, Any]:
-        """Send JSON-RPC request to healthcare-api"""
-        await self.ensure_connection()
-        
-        request = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": method,
-            "params": params or {}
-        }
+            
+        args = arguments or {}
         
         try:
-            # Send request to healthcare-api via stdio
-            request_json = json.dumps(request) + "\n"
-            self.process.stdin.write(request_json.encode())
-            await self.process.stdin.drain()
-            
-            # Read response from healthcare-api
-            response_line = await self.process.stdout.readline()
-            response = json.loads(response_line.decode().strip())
-            
-            if "error" in response:
-                return {"status": "error", "error": response["error"]}
-            else:
-                return {"status": "success", "result": response.get("result")}
-                
+            result = await self.session.call_tool(tool_name, args)
+            return {"status": "success", "result": result}
         except Exception as e:
-            logger.error(f"Failed to send request to healthcare-api: {e}")
-            # Reset connection on error
-            self.process = None
+            logger.error(f"Failed to call tool {tool_name}: {e}")
             return {"status": "error", "error": str(e)}
     
     async def process_chat(self, message: str, user_id: str = None, session_id: str = None) -> dict[str, Any]:
         """Process chat message via healthcare-api"""
-        return await self.send_request("process_message", {
-            "message": message,
-            "user_id": user_id or "anonymous",
-            "session_id": session_id or "default"
-        })
+        try:
+            # Use the clinical research agent's process_research_query method
+            result = await self.call_tool("process_research_query", {
+                "query": message,
+                "user_id": user_id or "anonymous",
+                "session_id": session_id or "default"
+            })
+            return result
+        except Exception as e:
+            logger.error(f"Failed to process chat: {e}")
+            return {"status": "error", "error": str(e)}
     
     async def disconnect(self):
         """Disconnect from healthcare-api"""
         try:
-            if self.process and self.process.returncode is None:
-                self.process.terminate()
-                await self.process.wait()
+            if self.session:
+                await self.session.close()
+            if self.client_cm:
+                await self.client_cm.__aexit__(None, None, None)
         except Exception as e:
             logger.error(f"Error disconnecting: {e}")
         finally:
-            self.process = None
+            self.client_cm = None
+            self.session = None
 
 
 # ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
 class Pipeline:
-    """Direct stdio pipeline for healthcare-api communication"""
+    """MCP stdio pipeline for healthcare-api communication"""
 
     def __init__(self) -> None:
-        self.api_client = HealthcareAPIClient()
+        if not MCP_AVAILABLE:
+            logger.error("MCP library not available - cannot initialize pipeline")
+            raise RuntimeError("MCP library required for stdio communication")
+        
+        self.mcp_client = HealthcareMCPClient()
         timeout_raw = os.environ.get("PIPELINE_TIMEOUT_SECONDS", "30")
         try:
             self.timeout = float(timeout_raw)
@@ -203,9 +209,9 @@ class Pipeline:
             user_id = kwargs.get("user_id") or kwargs.get("__user", {}).get("id")
             session_id = kwargs.get("session_id")
 
-            # Process via direct stdio
+            # Process via MCP stdio
             result = await asyncio.wait_for(
-                self.api_client.process_chat(final_message, user_id, session_id),
+                self.mcp_client.process_chat(final_message, user_id, session_id),
                 timeout=self.timeout
             )
 
@@ -219,10 +225,10 @@ class Pipeline:
             if isinstance(response_data, dict):
                 # Look for common response fields
                 response_text = (
-                    response_data.get("response")
-                    or response_data.get("research_summary")
-                    or response_data.get("message")
-                    or str(response_data)
+                    response_data.get("response") or 
+                    response_data.get("research_summary") or
+                    response_data.get("message") or
+                    str(response_data)
                 )
             else:
                 response_text = str(response_data)
@@ -238,9 +244,12 @@ class Pipeline:
 
     async def on_startup(self):
         """Initialize pipeline on startup."""
-        logger.info("Healthcare pipeline starting - direct stdio communication with healthcare-api")
-        # Don't connect during startup - use lazy connection when needed
-        logger.info("Healthcare API Pipeline ready for stdio connections")
+        logger.info("Healthcare pipeline starting - MCP stdio communication with healthcare-api")
+        try:
+            await self.mcp_client.connect()
+            logger.info("Successfully connected to healthcare-api via stdio")
+        except Exception as e:
+            logger.error(f"Failed to connect to healthcare-api on startup: {e}")
 
 
 # Singleton instance

@@ -5,14 +5,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# System deps (only curl for diagnostics if needed)
+# System deps (curl for diagnostics, docker for container communication)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    docker.io \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
+# Create non-root user and add to docker group
 RUN groupadd -g 1001 intelluxe && \
     useradd -u 1000 -g 1001 -m -s /bin/bash pipeline
+
+# Add pipeline user to docker group for container communication
+RUN groupmod -g 984 docker && usermod -a -G docker pipeline
 
 # Install Python deps
 COPY requirements.txt .

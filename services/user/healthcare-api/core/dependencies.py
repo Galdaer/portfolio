@@ -81,12 +81,30 @@ class HealthcareServices:
             logger.warning("Using mock MCP client as fallback")
             self._mcp_client = self._create_mock_mcp_client()
 
+    def get_llm_client(self):
+        """Initialize Ollama client for healthcare-api routing decisions."""
+        try:
+            import ollama
+            # Use local Ollama instance
+            client = ollama.AsyncClient(host="http://ollama:11434")
+            return client
+        except ImportError:
+            logger.error("Failed to initialize LLM client: No module named 'ollama'")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM client: {e}")
+            return None
+
     async def _initialize_llm_client(self) -> None:
-        """LLM communication handled via MCP stdio protocol - no direct HTTP client needed"""
-        # For stdio MCP mode, we don't initialize HTTP ollama client
-        # All LLM requests go through MCP stdio protocol
-        self._llm_client = None
-        logger.info("LLM communication will use MCP stdio protocol")
+        """Initialize Ollama LLM client for healthcare routing."""
+        try:
+            self._llm_client = self.get_llm_client()
+            if self._llm_client is None:
+                raise Exception("Failed to create LLM client")
+            logger.info("LLM client initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM client: {e}")
+            self._llm_client = None
 
     async def _initialize_database_pool(self) -> None:
         """Initialize PostgreSQL connection pool - REQUIRED for healthcare operations"""

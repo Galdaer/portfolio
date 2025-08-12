@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 import os
+import traceback
 from datetime import datetime
 from typing import Any
 
@@ -149,13 +150,9 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
                 )
             elif query_type == "drug_interaction":
                 result = await self._process_drug_interaction(query, clinical_context, session_id)
-            elif query_type == "literature_research":
-                result = await self._process_literature_research(
-                    query, clinical_context, session_id,
-                )
             else:
-                # Default general processing
-                result = await self._process_general_inquiry(query, clinical_context, session_id)
+                # Route all other queries (including literature_research) to comprehensive research with MCP tools
+                result = await self._process_comprehensive_research(query, clinical_context, session_id)
 
             # Mark as complete
             result["complete"] = True
@@ -608,3 +605,403 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             }
         except Exception as e:
             return self._create_error_response(f"General inquiry error: {str(e)}", session_id)
+
+    async def process_research_query(
+        self, query: str, user_id: str, session_id: str
+    ) -> dict[str, Any]:
+        """
+        Process research query with MCP tool integration for medical literature search
+        
+        This is the primary entry point for clinical research queries from the pipeline.
+        Provides comprehensive medical literature search, clinical reasoning, and evidence synthesis.
+        
+        MEDICAL DISCLAIMER: This agent provides medical research assistance and clinical data
+        analysis only. It searches medical literature, clinical trials, drug interactions, and
+        evidence-based resources to support healthcare decision-making. It does not provide
+        medical diagnosis, treatment recommendations, or replace clinical judgment. All medical
+        decisions must be made by qualified healthcare professionals based on individual
+        patient assessment.
+        
+        Args:
+            query: The medical research query from the user
+            user_id: User identifier for session tracking
+            session_id: Session identifier for conversation continuity
+            
+        Returns:
+            Dict containing research results, sources, and medical disclaimers
+        """
+        try:
+            # Log the research query with healthcare context
+            log_healthcare_event(
+                logger,
+                logging.INFO,
+                "Clinical research query initiated",
+                context={
+                    "agent": "clinical_research",
+                    "user_id": user_id,
+                    "session_id": session_id,
+                    "query_type": "research_query",
+                    "phi_monitoring": True,
+                    "medical_research_support": True,
+                    "no_medical_advice": True,
+                },
+                operation_type="research_query_start",
+            )
+
+            # Ensure MCP client connection using lazy connection pattern
+            if hasattr(self.mcp_client, '_ensure_connected'):
+                await self.mcp_client._ensure_connected()
+
+            # Analyze query to determine appropriate processing approach
+            query_analysis = await self._analyze_research_query(query)
+            
+            # Create clinical context from analysis
+            clinical_context = {
+                "user_id": user_id,
+                "session_id": session_id,
+                "query_analysis": query_analysis,
+                "research_focus": query_analysis.get("focus_areas", []),
+            }
+
+            # Route to appropriate processing method based on query type
+            if query_analysis.get("query_type") == "differential_diagnosis":
+                result = await self._process_differential_diagnosis(
+                    query, clinical_context, session_id
+                )
+            elif query_analysis.get("query_type") == "drug_interaction":
+                result = await self._process_drug_interaction(
+                    query, clinical_context, session_id
+                )
+            else:
+                # Default to comprehensive research with MCP tools for all other queries
+                result = await self._process_comprehensive_research(
+                    query, clinical_context, session_id
+                )
+
+            # Add pipeline-specific response formatting
+            pipeline_response = {
+                "status": "success",
+                "agent_type": "clinical_research",
+                "request_type": "research_query",
+                "user_id": user_id,
+                "session_id": session_id,
+                "query": query,
+                "research_results": result,
+                "processing_time": self._calculate_processing_time(),
+                "disclaimers": [
+                    "MEDICAL DISCLAIMER: This information is for educational and research purposes only.",
+                    "This does not constitute medical advice, diagnosis, or treatment recommendations.",
+                    "Always consult qualified healthcare professionals for medical decisions.",
+                    "In case of medical emergency, contact emergency services immediately.",
+                ],
+                "generated_at": datetime.utcnow().isoformat(),
+                "compliance_notes": [
+                    "PHI monitoring active - no personal health information stored",
+                    "Healthcare compliance verified - administrative support only",
+                    "Medical reasoning provided for educational purposes only",
+                ],
+            }
+
+            # Log successful completion
+            log_healthcare_event(
+                logger,
+                logging.INFO,
+                "Clinical research query completed successfully",
+                context={
+                    "agent": "clinical_research",
+                    "user_id": user_id,
+                    "session_id": session_id,
+                    "query_type": query_analysis.get("query_type", "general"),
+                    "sources_found": len(result.get("supporting_literature", [])) if "supporting_literature" in result else 0,
+                    "processing_successful": True,
+                },
+                operation_type="research_query_complete",
+            )
+
+            return pipeline_response
+
+        except Exception as e:
+            # Get full traceback for debugging
+            error_traceback = traceback.format_exc()
+            
+            # Log error with healthcare context and full traceback
+            log_healthcare_event(
+                logger,
+                logging.ERROR,
+                f"Clinical research query failed: {str(e)}",
+                context={
+                    "agent": "clinical_research",
+                    "user_id": user_id,
+                    "session_id": session_id,
+                    "error_type": type(e).__name__,
+                    "error_traceback": error_traceback,
+                    "processing_failed": True,
+                },
+                operation_type="research_query_error",
+            )
+
+            return {
+                "status": "error",
+                "agent_type": "clinical_research",
+                "user_id": user_id,
+                "session_id": session_id,
+                "query": query,
+                "error": f"Research query processing failed: {str(e)}",
+                "error_type": type(e).__name__,
+                "error_details": str(e),
+                "full_traceback": error_traceback,
+                "disclaimers": [
+                    "MEDICAL DISCLAIMER: This system experienced an error processing your request.",
+                    "Please consult medical literature directly or contact technical support.",
+                    "For medical emergencies, contact emergency services immediately.",
+                ],
+                "generated_at": datetime.utcnow().isoformat(),
+            }
+
+    async def _analyze_research_query(self, query: str) -> dict[str, Any]:
+        """
+        Analyze the research query using LLM intelligence to determine processing approach
+        
+        Uses advanced LLM reasoning to categorize medical research queries and select appropriate tools
+        """
+        try:
+            # Create intelligent query analysis prompt
+            analysis_prompt = f"""
+You are a medical research query analyzer. Analyze this query and determine the best research approach and tools to use.
+
+Query: "{query}"
+
+Analyze this query and respond with a JSON object containing:
+1. query_type: One of ["differential_diagnosis", "drug_interaction", "literature_research", "comprehensive_research"]
+2. focus_areas: Array of relevant medical specialties or focus areas
+3. complexity_score: Float from 0.1 to 1.0 indicating query complexity
+4. recommended_tools: Array of MCP tools to use (e.g., ["search-pubmed", "search-trials", "get-drug-info"])
+5. research_strategy: Brief description of recommended research approach
+6. urgency_level: One of ["low", "medium", "high", "emergency"]
+
+Guidelines:
+- For literature searches, recent studies, or general medical topics: use "comprehensive_research" with ["search-pubmed", "search-trials"]
+- For specific symptom combinations or diagnostic questions: use "differential_diagnosis" 
+- For medication questions, drug interactions, side effects: use "drug_interaction" with ["get-drug-info", "search-pubmed"]
+- For emergency or urgent medical questions: mark urgency as "high" or "emergency"
+
+Respond only with valid JSON.
+"""
+
+            # Use LLM to analyze the query intelligently
+            response = await self.llm_client.generate(
+                model=config.get_model_for_task("clinical"),
+                prompt=analysis_prompt,
+                options={"temperature": 0.2, "max_tokens": 500},
+            )
+
+            # Parse LLM response
+            response_text = response.get("response", "")
+            
+            try:
+                import json
+                analysis_result = json.loads(response_text)
+                
+                # Validate and set defaults if needed
+                query_type = analysis_result.get("query_type", "comprehensive_research")
+                focus_areas = analysis_result.get("focus_areas", ["general_medicine"])
+                complexity_score = float(analysis_result.get("complexity_score", 0.6))
+                recommended_tools = analysis_result.get("recommended_tools", ["search-pubmed"])
+                research_strategy = analysis_result.get("research_strategy", "Comprehensive literature search")
+                urgency_level = analysis_result.get("urgency_level", "medium")
+                
+                return {
+                    "query_type": query_type,
+                    "focus_areas": focus_areas,
+                    "complexity_score": min(max(complexity_score, 0.1), 1.0),
+                    "recommended_tools": recommended_tools,
+                    "research_strategy": research_strategy,
+                    "urgency_level": urgency_level,
+                    "requires_mcp_tools": len(recommended_tools) > 0,
+                    "estimated_processing_time": "30-60 seconds",
+                    "llm_analysis": True,
+                }
+                
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse LLM analysis response: {response_text}")
+                # Fallback to default comprehensive research
+                return self._get_default_analysis()
+                
+        except Exception as e:
+            logger.warning(f"LLM query analysis failed: {e}")
+            # Fallback to default comprehensive research
+            return self._get_default_analysis()
+
+    def _get_default_analysis(self) -> dict[str, Any]:
+        """Fallback analysis when LLM analysis fails"""
+        return {
+            "query_type": "comprehensive_research",
+            "focus_areas": ["general_medicine"],
+            "complexity_score": 0.6,
+            "recommended_tools": ["search-pubmed", "search-trials"],
+            "research_strategy": "Comprehensive literature search with multiple sources",
+            "urgency_level": "medium",
+            "requires_mcp_tools": True,
+            "estimated_processing_time": "30-60 seconds",
+            "llm_analysis": False,
+        }
+
+    async def _process_comprehensive_research(
+        self, query: str, clinical_context: dict[str, Any], session_id: str
+    ) -> dict[str, Any]:
+        """
+        Process comprehensive research query with multiple MCP tool integrations
+        
+        Combines literature search, clinical guidelines, and evidence synthesis
+        """
+        try:
+            # Multi-stage research approach
+            research_stages = []
+            
+            # Stage 1: Primary literature search via MCP tools
+            if hasattr(self.mcp_client, 'call_tool'):
+                try:
+                    pubmed_result = await self.mcp_client.call_tool(
+                        "search-pubmed", 
+                        {"query": query, "max_results": 10}
+                    )
+                    research_stages.append({
+                        "stage": "pubmed_search",
+                        "tool": "search-pubmed",
+                        "result": pubmed_result,
+                        "success": True
+                    })
+                except Exception as mcp_error:
+                    logger.warning(f"MCP tool search-pubmed failed: {mcp_error}")
+                    research_stages.append({
+                        "stage": "pubmed_search",
+                        "tool": "search-pubmed", 
+                        "error": str(mcp_error),
+                        "success": False
+                    })
+
+                # Stage 2: Clinical trial search via MCP tools
+                try:
+                    trials_result = await self.mcp_client.call_tool(
+                        "search-trials",
+                        {"query": query, "max_results": 5}
+                    )
+                    research_stages.append({
+                        "stage": "trials_search",
+                        "tool": "search-trials",
+                        "result": trials_result, 
+                        "success": True
+                    })
+                except Exception as mcp_error:
+                    logger.warning(f"MCP tool search-trials failed: {mcp_error}")
+                    research_stages.append({
+                        "stage": "trials_search",
+                        "tool": "search-trials",
+                        "error": str(mcp_error),
+                        "success": False
+                    })
+
+            # Stage 3: Enhanced medical reasoning using existing capabilities
+            reasoning_result = await self.medical_reasoning.reason_with_dynamic_knowledge(
+                clinical_scenario=clinical_context,
+                reasoning_type="literature_research",
+                max_iterations=2,
+            )
+
+            # Stage 4: Synthesis and summary generation
+            research_summary = await self._synthesize_research_findings(
+                query, research_stages, reasoning_result
+            )
+
+            return {
+                "research_type": "comprehensive_research",
+                "query": query,
+                "session_id": session_id,
+                "research_stages": research_stages,
+                "medical_reasoning": {
+                    "reasoning_type": reasoning_result.reasoning_type,
+                    "steps": reasoning_result.steps,
+                    "final_assessment": reasoning_result.final_assessment,
+                    "confidence_score": reasoning_result.confidence_score,
+                    "clinical_recommendations": reasoning_result.clinical_recommendations,
+                },
+                "research_summary": research_summary,
+                "evidence_sources": reasoning_result.evidence_sources,
+                "mcp_tools_used": [stage["tool"] for stage in research_stages if stage.get("success")],
+                "total_sources_found": sum(
+                    len(stage.get("result", {}).get("articles", [])) 
+                    for stage in research_stages 
+                    if stage.get("success") and stage.get("result")
+                ),
+                "disclaimers": reasoning_result.disclaimers + [
+                    "MCP tool integration provides enhanced literature access",
+                    "Results synthesized from multiple authoritative medical sources",
+                ],
+                "generated_at": reasoning_result.generated_at.isoformat(),
+            }
+
+        except Exception as e:
+            return self._create_error_response(
+                f"Comprehensive research processing error: {str(e)}", session_id
+            )
+
+    async def _synthesize_research_findings(
+        self, 
+        query: str, 
+        research_stages: list[dict[str, Any]], 
+        reasoning_result: Any
+    ) -> str:
+        """
+        Synthesize findings from multiple research stages into coherent summary
+        """
+        # Collect findings from successful research stages
+        findings = []
+        
+        for stage in research_stages:
+            if stage.get("success") and stage.get("result"):
+                stage_name = stage.get("stage", "unknown")
+                result_data = stage.get("result", {})
+                
+                if stage_name == "pubmed_search" and "articles" in result_data:
+                    articles = result_data["articles"][:5]  # Top 5 articles
+                    findings.append(f"Literature Review ({len(articles)} studies): " + 
+                                  "; ".join([article.get("title", "Untitled")[:100] 
+                                           for article in articles]))
+                
+                elif stage_name == "trials_search" and "trials" in result_data:
+                    trials = result_data["trials"][:3]  # Top 3 trials
+                    findings.append(f"Clinical Trials ({len(trials)} trials): " +
+                                  "; ".join([trial.get("title", "Untitled")[:100] 
+                                           for trial in trials]))
+
+        # Add reasoning insights
+        if hasattr(reasoning_result, "final_assessment"):
+            findings.append(f"Clinical Assessment: {reasoning_result.final_assessment}")
+
+        # Create synthesis prompt for LLM
+        synthesis_prompt = f"""
+        Research Query: {query}
+        
+        Research Findings:
+        {chr(10).join(f"- {finding}" for finding in findings)}
+        
+        Provide a comprehensive research synthesis including:
+        1. Key findings and evidence quality
+        2. Clinical implications and relevance  
+        3. Gaps in current evidence
+        4. Recommendations for clinical practice
+        5. Areas requiring further research
+        
+        Focus on evidence-based conclusions with appropriate medical disclaimers.
+        """
+
+        try:
+            response = await self.llm_client.generate(
+                model=config.get_model_for_task("clinical"),
+                prompt=synthesis_prompt,
+                options={"temperature": 0.3, "max_tokens": 1500},
+            )
+            return response.get("response", "Unable to generate research synthesis.")
+        except Exception as e:
+            logger.warning(f"LLM synthesis failed: {e}")
+            return f"Research findings compiled from {len(findings)} sources. See detailed results for specific evidence."

@@ -1,16 +1,18 @@
 {
     "mcpServers": {
         "healthcare_server": {
-            "command": "node",
+            "command": "docker",
             "args": [
-                "--es-module-specifier-resolution=node",
-                "/app/healthcare-mcp/stdio_entry.js"
+                "exec",
+                "-i",
+                "healthcare-api",
+                "python",
+                "-m",
+                "main",
+                "--stdio"
             ],
             "env": {
-                "MCP_TRANSPORT": "stdio-only",
-                "FHIR_BASE_URL": "http://172.20.0.13:5432",
-                "PUBMED_API_KEY": "test",
-                "CLINICALTRIALS_API_KEY": "test"
+                "MCP_TRANSPORT": "stdio"
             }
         }
     }
