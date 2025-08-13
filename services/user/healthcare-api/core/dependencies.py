@@ -9,17 +9,20 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
+from dotenv import load_dotenv
 from core.config.models import MODEL_CONFIG
 
 import asyncpg
 from fastapi import Depends
+
+# Load environment variables from .env file
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 
 class DatabaseConnectionError(Exception):
     """Raised when database connection is unavailable for healthcare operations"""
-
 
 
 class HealthcareServices:
@@ -63,23 +66,12 @@ class HealthcareServices:
 
     async def _initialize_mcp_client(self) -> None:
         """Initialize MCP client for healthcare tools (lazy connection)"""
-        try:
-            from core.mcp.healthcare_mcp_client import HealthcareMCPClient
+        from core.mcp.healthcare_mcp_client import HealthcareMCPClient
 
-            # Initialize stdio-based MCP client but don't connect yet (lazy connection)
-            # Connection will happen on first use to avoid blocking startup
-            self._mcp_client = HealthcareMCPClient()
-            logger.info("MCP client initialized (lazy connection - will connect on first use)")
-
-        except ImportError:
-            # Fallback mock for development
-            logger.warning("MCP client not available, using mock")
-            self._mcp_client = self._create_mock_mcp_client()
-        except Exception as e:
-            logger.error(f"Failed to initialize MCP client: {e}")
-            # Use mock client as fallback
-            logger.warning("Using mock MCP client as fallback")
-            self._mcp_client = self._create_mock_mcp_client()
+        # Initialize stdio-based MCP client but don't connect yet (lazy connection)
+        # Connection will happen on first use to avoid blocking startup
+        self._mcp_client = HealthcareMCPClient()
+        logger.info("MCP client initialized (lazy connection - will connect on first use)")
 
     def get_llm_client(self):
         """Initialize Ollama client for healthcare-api routing decisions."""
@@ -111,7 +103,7 @@ class HealthcareServices:
         try:
             database_url = os.getenv(
                 "DATABASE_URL",
-                "postgresql://intelluxe:dev_password@localhost:5432/intelluxe",
+                "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe",
             )
 
             self._db_pool = await asyncpg.create_pool(
@@ -155,59 +147,6 @@ class HealthcareServices:
             logger.warning(f"Redis initialization failed: {e}")
             self._redis_client = None
 
-    def _create_mock_mcp_client(self) -> Any:
-        """Create simplified mock MCP client for development"""
-
-        class SimplifiedMockMCPClient:
-            """Simplified mock that implements expected interface without breaking"""
-            
-            async def call_healthcare_tool(
-                self, tool_name: str, params: dict[str, Any],
-            ) -> dict[str, Any]:
-                """Mock healthcare tool call"""
-                if tool_name == "search-pubmed":
-                    return {
-                        "tool": tool_name,
-                        "params": params,
-                        "articles": [
-                            {
-                                "title": f"Mock PubMed article for: {params.get('query', 'N/A')}",
-                                "abstract": "This is a mock response for development purposes.",
-                                "authors": ["Mock Author"],
-                                "journal": "Mock Journal",
-                                "year": "2024"
-                            }
-                        ],
-                        "mock": True,
-                    }
-                elif tool_name == "search-trials":
-                    return {
-                        "tool": tool_name,
-                        "params": params,
-                        "trials": [
-                            {
-                                "title": f"Mock clinical trial for: {params.get('condition', 'N/A')}",
-                                "status": "Recruiting",
-                                "phase": "Phase II",
-                                "location": "Mock Medical Center"
-                            }
-                        ],
-                        "mock": True,
-                    }
-                else:
-                    return {
-                        "tool": tool_name,
-                        "params": params,
-                        "result": f"Mock response for {tool_name}",
-                        "mock": True,
-                    }
-
-            # Add any other methods the real client might have
-            async def list_tools(self) -> list[str]:
-                return ["search-pubmed", "search-trials", "get-drug-info", "echo_test"]
-
-        return SimplifiedMockMCPClient()
-
     def _create_mock_llm_client(self) -> Any:
         """Mock LLM client removed - stdio MCP only"""
         return None
@@ -247,8 +186,20 @@ healthcare_services = HealthcareServices()
 
 # Dependency injection functions
 async def get_mcp_client() -> Any:
-    """Get MCP client for healthcare tools"""
-    return healthcare_services.mcp_client
+    """Get MCP client for healthcare tools - connects on first use"""
+    mcp_client = healthcare_services.mcp_client
+    
+    # Connect on first use if not already connected
+    if mcp_client and not mcp_client.session:
+        try:
+            logger.info("First MCP client access - attempting connection...")
+            await mcp_client.connect()
+            logger.info("MCP client connected successfully on first use")
+        except Exception as e:
+            logger.error(f"Failed to connect MCP client on first use: {e}")
+            # Return the client anyway - it will handle connection errors gracefully
+    
+    return mcp_client
 
 
 async def get_llm_client() -> Any:

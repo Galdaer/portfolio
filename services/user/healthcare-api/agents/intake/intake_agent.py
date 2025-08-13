@@ -172,6 +172,14 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
                 operation_type="intake_error",
             )
             return self._create_error_response(f"Intake processing failed: {str(e)}", session_id)
+        finally:
+            # Critical: Clean up MCP connection to prevent runaway tasks
+            try:
+                if hasattr(self.mcp_client, 'disconnect'):
+                    await self.mcp_client.disconnect()
+                    logger.debug("MCP client disconnected after intake processing")
+            except Exception as cleanup_error:
+                logger.warning(f"Error during MCP cleanup: {cleanup_error}")
 
     @healthcare_log_method(operation_type="patient_registration", phi_risk_level="high")
     async def _process_new_patient_registration(

@@ -22,15 +22,28 @@ class ModelRegistry:
         logger.info("Model registry initialized (placeholder)")
 
     async def get_available_models(self) -> list[dict[str, Any]]:
-        """Get available models"""
-        return [
-            {
-                "id": "healthcare_llm",
-                "name": "Healthcare LLM",
+        """Get available models - returns locally available Ollama models"""
+        if not self._initialized:
+            await self.initialize()
+            
+        # Get real Ollama models - no fallbacks to expose connection issues
+        import ollama
+        client = ollama.Client(host="http://ollama:11434")
+        models = client.list()
+        
+        available_models = []
+        for model in models.get('models', []):
+            available_models.append({
+                "id": model.get('name', 'unknown'),
+                "name": model.get('name', 'Unknown Model'),
                 "type": "text_generation",
                 "status": "available",
-            },
-        ]
+                "size": model.get('size', 0),
+                "modified_at": model.get('modified_at', ''),
+            })
+        
+        logger.info(f"Retrieved {len(available_models)} models from Ollama")
+        return available_models
 
     def log_performance(self, model_id: str, metrics: dict[str, Any]) -> None:
         """Log model performance metrics"""

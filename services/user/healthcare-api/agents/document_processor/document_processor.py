@@ -140,6 +140,14 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
         except Exception as e:
             logger.exception(f"Document processing error: {e}")
             return self._create_error_response(f"Document processing failed: {str(e)}", session_id)
+        finally:
+            # Critical: Clean up MCP connection to prevent runaway tasks
+            try:
+                if hasattr(self.mcp_client, 'disconnect'):
+                    await self.mcp_client.disconnect()
+                    logger.debug("MCP client disconnected after document processing")
+            except Exception as cleanup_error:
+                logger.warning(f"Error during MCP cleanup: {cleanup_error}")
 
     async def _process_soap_note(
         self, document_data: dict[str, Any], session_id: str,

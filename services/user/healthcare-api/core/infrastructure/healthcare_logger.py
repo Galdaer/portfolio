@@ -194,8 +194,26 @@ def setup_healthcare_logging(
 def _setup_specialized_loggers(log_dir: Path, formatter: HealthcareFormatter) -> None:
     """Setup specialized loggers for different healthcare components."""
 
-    # Agent-specific loggers
-    agent_loggers = ["intake", "document_processor", "research_assistant"]
+    # Dynamically discover agents like main.py does
+    import glob
+    import os
+    from pathlib import Path
+    
+    # Get agent directories dynamically
+    agents_dir = Path(__file__).parent.parent / "agents"
+    agent_loggers = []
+    
+    if agents_dir.exists():
+        # Look for agent directories with __init__.py files
+        for agent_path in glob.glob(str(agents_dir / "*" / "__init__.py")):
+            agent_name = Path(agent_path).parent.name
+            if not agent_name.startswith("_"):  # Skip private/utility directories
+                agent_loggers.append(agent_name)
+    
+    # Fallback to known agents if discovery fails
+    if not agent_loggers:
+        agent_loggers = ["intake", "document_processor", "research_assistant", "medical_search"]
+    
     for agent in agent_loggers:
         logger = logging.getLogger(f"healthcare.agent.{agent}")
 

@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from agents.search_agent.search_agent import MedicalLiteratureSearchAssistant
+from agents.medical_search_agent.medical_search_agent import MedicalLiteratureSearchAssistant
 from core.dependencies import get_llm_client, get_mcp_client
 
 logger = logging.getLogger(__name__)

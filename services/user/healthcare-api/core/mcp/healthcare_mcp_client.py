@@ -99,7 +99,9 @@ class HealthcareMCPClient:
 
     async def _ensure_connected(self) -> None:
         """Ensure MCP client is connected, connect if not already connected"""
-        if not self.session:
+        if not self.session or not self.client_cm:
+            # Clean up any partial connections before creating new one
+            await self.disconnect()
             await self.connect()
 
     async def call_tool(self, tool_name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -120,6 +122,21 @@ class HealthcareMCPClient:
             logger.error(f"Failed to call tool {tool_name}: {e}")
             return {"status": "error", "error": str(e)}
     
+    async def call_healthcare_tool(self, tool_name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Wrapper method for healthcare agent compatibility
+        Delegates to call_tool() but provides healthcare-specific interface
+        """
+        result = await self.call_tool(tool_name, arguments)
+        
+        # For healthcare agents, we want to return the result content directly
+        # rather than the wrapper with status/result structure
+        if result.get("status") == "success":
+            return result.get("result", {})
+        else:
+            # For errors, still return the error info but in expected format
+            return {"error": result.get("error", "Unknown error"), "status": "error"}
+    
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         """Get list of available tools"""
         await self._ensure_connected()
@@ -128,12 +145,11 @@ class HealthcareMCPClient:
     async def disconnect(self) -> None:
         """Disconnect from MCP server using context manager cleanup"""
         try:
-            if self.session:
-                await self.session.close()
-                logger.info("MCP session closed")
+            # Note: ClientSession doesn't have a close() method
+            # The context manager cleanup handles the session
             if self.client_cm:
                 await self.client_cm.__aexit__(None, None, None)
-                logger.info("MCP client disconnected")
+                logger.info("MCP client context manager exited")
         except Exception as e:
             logger.error(f"Error disconnecting from MCP server: {e}")
         finally:
