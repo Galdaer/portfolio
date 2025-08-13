@@ -18,7 +18,13 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # Load the SciSpacy model
-MODEL_NAME = os.environ.get("SPACY_MODEL", "en_core_sci_sm")
+# Using en_ner_bionlp13cg_md for comprehensive medical entity recognition
+# This model has 77.84% F1-score and provides 16 entity types:
+# AMINO_ACID, ANATOMICAL_SYSTEM, CANCER, CELL, CELLULAR_COMPONENT,
+# DEVELOPING_ANATOMICAL_STRUCTURE, GENE_OR_GENE_PRODUCT, IMMATERIAL_ANATOMICAL_ENTITY,
+# MULTI-TISSUE_STRUCTURE, ORGAN, ORGANISM, ORGANISM_SUBDIVISION,
+# ORGANISM_SUBSTANCE, PATHOLOGICAL_FORMATION, SIMPLE_CHEMICAL, TISSUE
+MODEL_NAME = os.environ.get("SPACY_MODEL", "en_ner_bionlp13cg_md")
 nlp = None
 
 
