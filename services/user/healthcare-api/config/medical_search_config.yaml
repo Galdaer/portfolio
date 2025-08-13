@@ -14,11 +14,12 @@ search_parameters:
 
   # Timeout settings (seconds)
   timeouts:
-    scispacy_request: 10 # SciSpacy entity extraction timeout
-    mcp_request: 10 # Individual MCP tool timeout (reduced for faster diagnosis)
-    search_request: 25 # Individual search operation timeout
-    total_search: 30 # Overall search operation timeout
-    database_query: 5 # Database query timeout
+  scispacy_request: 15 # SciSpacy entity extraction timeout
+  mcp_request: 45 # Individual MCP tool timeout (increased for stability)
+  search_request: 60 # Individual search operation timeout (agent step)
+  total_search: 75 # Overall search operation timeout
+  database_query: 5 # Database query timeout
+  max_concurrent_mcp: 2 # Limit concurrent MCP calls to reduce transport contention
 
   # Search query templates (technical formatting)
   query_templates:
