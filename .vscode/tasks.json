@@ -1,77 +1,105 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Run All Linting",
-      "group": "build",
-      "type": "shell",
-      "command": "make",
-      "args": ["lint"],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": false,
-        "panel": "shared",
-        "showReuseMessage": true,
-        "clear": false
-      },
-      "problemMatcher": ["$flake8", "$mypy-python", "$eslint-stylish"]
-    },
-    {
-      "label": "Quick Lint Check",
-      "group": "build",
-      "type": "shell",
-      "command": "bash",
-      "args": [
-        "-c",
-        "echo '🔍 Running quick lint check...' && flake8 --select=E9,F63,F7,F82 --show-source --statistics src/ && echo '✅ Quick lint passed'"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "presentation": {
-        "echo": false,
-        "reveal": "silent",
-        "focus": false,
-        "panel": "shared"
-      }
-    },
-    {
-      "label": "MyPy Type Check",
-      "group": "build",
-      "type": "shell",
-      "command": "mypy",
-      "args": ["."],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "panel": "shared"
-      },
-      "problemMatcher": "$python"
-    },
-    {
-      "label": "Auto-fix Linting Issues",
-      "group": "build",
-      "type": "shell",
-      "command": "bash",
-      "args": [
-        "-c",
-        "echo '🔧 Auto-fixing linting issues...' && black src/ tests/ && isort src/ tests/ && echo '✅ Auto-fix complete'"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "panel": "shared"
-      }
-    }
-  ]
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run All Linting",
+            "group": "build",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "lint"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [
+                "$flake8",
+                "$mypy-python",
+                "$eslint-stylish"
+            ]
+        },
+        {
+            "label": "MyPy (Healthcare API only)",
+            "group": "build",
+            "type": "shell",
+            "command": "mypy",
+            "args": [
+                "--config-file",
+                "mypy.ini",
+                "services/user/healthcare-api"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Quick Lint Check",
+            "group": "build",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Running quick lint check...' && flake8 --select=E9,F63,F7,F82 --show-source --statistics src/ && echo '✅ Quick lint passed'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": false,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "MyPy Type Check",
+            "group": "build",
+            "type": "shell",
+            "command": "mypy",
+            "args": [
+                "."
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Auto-fix Linting Issues",
+            "group": "build",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔧 Auto-fixing linting issues...' && black src/ tests/ && isort src/ tests/ && echo '✅ Auto-fix complete'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        }
+    ]
 }
