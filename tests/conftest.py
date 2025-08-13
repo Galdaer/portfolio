@@ -1,11 +1,18 @@
-"""
-Healthcare Testing Configuration
+"""Healthcare Testing Configuration
 
 Pytest configuration and test utilities for healthcare AI system testing.
 """
-
 import asyncio
 import logging
+import os
+import sys
+
+# Insert service healthcare-api root so 'core' package resolves under that path.
+SERVICE_CORE_PATH = os.path.join(os.getcwd(), "services", "user", "healthcare-api")
+if SERVICE_CORE_PATH not in sys.path:
+    sys.path.insert(0, SERVICE_CORE_PATH)
+
+# Imports deduplicated above
 from collections.abc import Generator
 from typing import Any
 
@@ -21,21 +28,8 @@ from tests.healthcare_integration_tests import (
     MockHealthcareMCP,
 )
 
-# Configure test logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
 
-
-@pytest.fixture(scope="session")
-def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
-    """Create event loop for async tests"""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 async def healthcare_app() -> FastAPI:
     """Create healthcare FastAPI app for testing"""
     from main import app
@@ -46,7 +40,7 @@ async def healthcare_app() -> FastAPI:
     return app
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 async def test_client(healthcare_app: FastAPI) -> TestClient:
     """Create test client for healthcare app"""
     return TestClient(healthcare_app)

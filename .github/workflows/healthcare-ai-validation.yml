@@ -529,7 +529,38 @@ jobs:
           timeout 10m python3 scripts/enhanced_healthcare_evaluation.py || echo "Evaluation completed with warnings"
           echo "✅ Enhanced healthcare AI evaluation complete using fresh data"
 
-  # Add other lightweight test jobs here...
+  # Observability tests (new job)
+  healthcare-observability-tests:
+    runs-on: self-hosted
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+      - name: Install minimal test dependencies
+        run: |
+          export PIP_CACHE_DIR="/home/intelluxe/.cache/pip"
+          mkdir -p "$PIP_CACHE_DIR"
+          python3 -m pip install --cache-dir "$PIP_CACHE_DIR" --upgrade-strategy only-if-needed \
+            fastapi[all] pytest redis pydantic aiohttp
+          if [ -f requirements-self-hosted.txt ]; then
+            python3 -m pip install --cache-dir "$PIP_CACHE_DIR" --upgrade-strategy only-if-needed -r requirements-self-hosted.txt || true
+          fi
+      - name: Run observability unit tests
+        env:
+          ENVIRONMENT: testing
+        run: |
+          echo "🧪 Running observability unit tests (health + metrics + timezone)..."
+          pytest -q \
+            tests/test_health_quick_cache.py \
+            tests/test_metrics_endpoint.py \
+            tests/test_timestamp_timezone.py \
+            tests/test_rate_limit_disabled_metrics.py \
+            tests/test_health_histogram_metrics.py \
+            tests/test_search_generic_vs_medical.py \
+            tests/test_no_datetime_utcnow.py
 
   # Final summary (unchanged)
   healthcare-compliance-summary:
