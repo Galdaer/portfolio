@@ -6,6 +6,52 @@ Specialized debugging guidance for healthcare AI systems with PHI protection and
 
 ## Healthcare-Specific Debugging Patterns
 
+### MCP Async Task Management Debugging (CRITICAL)
+
+**PROBLEM PATTERN**: MCP clients creating runaway async tasks causing CPU drain.
+
+**SYMPTOMS TO WATCH FOR**:
+- Terminal showing: `Task exception was never retrieved`
+- Error pattern: `RuntimeError('Attempted to exit cancel scope in a different task')`
+- `BrokenResourceError` in MCP STDIO communication
+- Accumulating Task-XX entries with cancel scope violations
+- High CPU usage from background async tasks
+
+**ROOT CAUSE**: Async context managers opened but never properly closed.
+
+**DEBUGGING APPROACH**:
+```python
+# ❌ PROBLEMATIC: Context managers without proper cleanup
+async def search_medical_data(query: str):
+    # Opens connection but may not close properly
+    async with mcp_client:
+        results = await mcp_client.search(query)
+        return results  # Connection may leak on exception
+
+# ✅ CORRECT: Explicit cleanup to prevent task accumulation
+async def search_medical_data(query: str):
+    try:
+        results = await mcp_client.search(query)
+        return results
+    except Exception as e:
+        logger.exception(f"Search error: {e}")
+        return {"error": str(e)}
+    finally:
+        # CRITICAL: Always cleanup MCP connections
+        try:
+            if hasattr(mcp_client, 'disconnect'):
+                await mcp_client.disconnect()
+                logger.debug("MCP client disconnected after search")
+        except Exception as cleanup_error:
+            logger.warning(f"Error during MCP cleanup: {cleanup_error}")
+```
+
+**DETECTION TECHNIQUE**: Monitor terminal selection for async task exceptions:
+```python
+# Check for runaway task patterns
+get_terminal_selection()  # Look for Task-XX exception patterns
+```
+
 ### Database-Backed Debugging (NEW APPROACH)
 
 **CRITICAL CHANGE**: Use database-backed synthetic data for debugging, not hardcoded PHI.

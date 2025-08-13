@@ -13,6 +13,55 @@ Performance patterns for healthcare AI systems emphasizing medical workflow effi
 
 ## Healthcare Performance Framework
 
+### Critical MCP Async Task Management (PERFORMANCE CRITICAL)
+
+**PROBLEM**: MCP clients creating runaway async tasks that consume CPU resources.
+
+**PERFORMANCE IMPACT**:
+- CPU usage spikes from accumulating background tasks
+- Memory leaks from unclosed async context managers
+- System responsiveness degradation affecting patient care
+
+**PREVENTION PATTERN**:
+```python
+# ✅ HIGH PERFORMANCE: Proper MCP task lifecycle management
+async def process_medical_request(request: dict) -> dict:
+    """Process medical request with optimal async cleanup."""
+    try:
+        # Perform medical processing
+        result = await mcp_client.process(request)
+        return {"success": True, "result": result}
+    except Exception as e:
+        logger.exception(f"Medical processing error: {e}")
+        return {"success": False, "error": str(e)}
+    finally:
+        # CRITICAL: Prevent task accumulation
+        try:
+            if hasattr(mcp_client, 'disconnect'):
+                await mcp_client.disconnect()
+                logger.debug("MCP connection cleaned up")
+        except Exception as cleanup_error:
+            logger.warning(f"MCP cleanup error: {cleanup_error}")
+
+# ✅ PATTERN: Agent-level cleanup in medical workflows
+class MedicalAgent:
+    async def _process_implementation(self, request: dict) -> dict:
+        try:
+            # Core medical processing logic
+            return await self._handle_medical_request(request)
+        finally:
+            # Always cleanup MCP connections
+            await self._cleanup_mcp_connections()
+    
+    async def _cleanup_mcp_connections(self):
+        """Prevent runaway async tasks in medical agents."""
+        try:
+            if self.mcp_client and hasattr(self.mcp_client, 'disconnect'):
+                await self.mcp_client.disconnect()
+        except Exception as e:
+            logger.warning(f"MCP cleanup error: {e}")
+```
+
 ### Medical Workflow Performance Optimization
 
 ```python

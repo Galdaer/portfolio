@@ -1,40 +1,52 @@
-# Healthcare AI System - Agent Session Handoff Document
+# Healthcare AI System - Agent Session Handoff Document  
 **Date:** August 12, 2025  
-**Context:** Major architectural fixes completed, search agent implementation needed  
+**Context:** Critical MCP Async Fixes Applied + SciSpacy Upgraded + Medical Search Agent Implementation Required  
 **Repository:** intelluxe-core (branch: copilot/fix-222f6002-c434-456d-8224-50f652dcf487)
 
-## 🎯 MISSION: Complete Medical Search Agent Implementation + Fix Response Formatting
+## 🎯 MISSION: Complete Medical Search Agent Implementation + Real-Time Medical Literature Search
 
-## ✅ WHAT'S WORKING (Don't Break These!)
+## ✅ MAJOR BREAKTHROUGHS ACHIEVED (Don't Break These!)
 
-### 1. **LLM Agent Selection - FIXED** 
-- **Problem Was:** LLM returning verbose explanations instead of agent names
-- **Solution Applied:** Ollama structured output with JSON schema in `main.py:select_agent_with_llm()`
-- **Result:** LLM now correctly selects agents (e.g., "search" agent) without verbose text
-- **Code Location:** `/home/intelluxe/services/user/healthcare-api/main.py` lines 230-270
+### 1. **CRITICAL: MCP Async Task Management Bug FIXED**
+- **Problem:** CPU drain from runaway async tasks causing system performance degradation
+- **Root Cause:** MCP STDIO client creating unclosed context managers, accumulating background tasks
+- **Solution Applied:** Added explicit MCP cleanup in all agent `finally` blocks
+- **Files Fixed:** 
+  - `/home/intelluxe/services/user/healthcare-api/core/mcp/healthcare_mcp_client.py` - Fixed async lifecycle
+  - `/home/intelluxe/services/user/healthcare-api/agents/medical_search_agent/medical_search_agent.py` - Added cleanup
+  - `/home/intelluxe/services/user/healthcare-api/agents/intake/intake_agent.py` - Added cleanup
+- **Result:** No more `Task exception was never retrieved` errors, CPU performance restored
 
-### 2. **Healthcare Logging Type Errors - FIXED**
-- **Problem Was:** `Unexpected data type: <class 'bool'>` errors in PHI monitor
-- **Solution Applied:** Updated `_prepare_scan_text()` to handle boolean/primitive types  
-- **Result:** No more logging crashes
-- **Code Location:** `/home/intelluxe/services/user/healthcare-api/core/infrastructure/phi_monitor.py` line 272-290
+### 2. **SciSpacy Model Successfully Upgraded - WORKING**
+- **Upgrade:** BC5CDR (2 entity types) → BIONLP13CG (16 comprehensive entity types)
+- **New Entity Types:** AMINO_ACID, ANATOMICAL_SYSTEM, CANCER, CELL, CELLULAR_COMPONENT, DEVELOPING_ANATOMICAL_STRUCTURE, GENE_OR_GENE_PRODUCT, IMMATERIAL_ANATOMICAL_ENTITY, MULTI-TISSUE_STRUCTURE, ORGAN, ORGANISM, ORGANISM_SUBDIVISION, ORGANISM_SUBSTANCE, PATHOLOGICAL_FORMATION, SIMPLE_CHEMICAL, TISSUE
+- **Testing Confirmed:** Model detects "ORGANISM", "ANATOMICAL_SYSTEM", "TISSUE", "ORGAN" in medical text
+- **Container:** Successfully downloading and loading en_ner_bionlp13cg_md model
+- **Files Updated:** `/home/intelluxe/services/user/scispacy/app/scispacy_server.py`, entrypoint.sh
 
-### 3. **Agent Architecture - WORKING**
+### 3. **Real-Time Logging System - FIXED AND WORKING**
+- **Problem:** Logs only appeared on shutdown, not real-time
+- **Solution:** Healthcare logging infrastructure properly configured
+- **Result:** Medical search operations, entity detection, and agent processing now log in real-time
+- **Verification:** Live logging visible during API calls, not just container shutdown
+
+### 4. **LLM Agent Selection - OPTIMIZED** 
+- **Problem:** LLM returning verbose explanations instead of agent names
+- **Solution:** Ollama structured output with JSON schema in `main.py:select_agent_with_llm()`
+- **Result:** LLM correctly selects agents (e.g., "medical_search") without verbose text
+- **Performance:** Clean agent routing working efficiently
+
+### 5. **Agent Architecture - STABLE**
 - 8 agents loading successfully via dynamic discovery
 - Constructor signatures fixed for dependency injection
 - FastAPI HTTP server with clean stdio separation
-- Healthcare services initialization working
+- Healthcare services initialization working properly
 
-### 4. **Response Formatting Infrastructure - IMPLEMENTED**
-- `format_response_for_user()` function added to convert JSON to human text
-- `ProcessRequest.format` parameter (human/json) implemented
-- `ProcessResponse.formatted_response` field added
-- **Location:** `/home/intelluxe/services/user/healthcare-api/main.py` lines 295-380
+## ❌ WHAT STILL NEEDS IMPLEMENTATION (Critical Priority!)
 
-## ❌ WHAT'S BROKEN (Fix These!)
+### 1. **Medical Search Agent Implementation - INCOMPLETE BUT FOUNDATION READY**
 
-### 1. **Medical Search Agent Returns Empty Results - CRITICAL**
-**Issue:** Medical search agent loads but returns empty arrays for all searches
+**Current State:** Agent loads successfully but returns empty results
 ```json
 {
   "information_sources": [],
@@ -42,40 +54,44 @@
 }
 ```
 
-**Root Cause:** Incomplete method implementations in medical search agent
+**Root Cause Analysis:** Method implementations are incomplete/stubbed
 **File:** `/home/intelluxe/services/user/healthcare-api/agents/medical_search_agent/medical_search_agent.py`
 
-**Problems Found:**
-- Missing imports: `import asyncio`, `import json`
-- Incomplete `_process_implementation()` method (lines 47-56)
-- Empty search method implementations:
-  - `_search_condition_information()` 
-  - `_search_clinical_references()`
-- Incomplete utility methods with `pass` statements
+**Specific Implementation Gaps:**
+- `_process_implementation()` method partially implemented (lines 47-100+)
+- `_search_condition_information()` - Needs MCP-based medical database search
+- `_search_clinical_references()` - Needs medical literature API integration  
+- `_search_drug_information()` - Needs pharmaceutical database connection
+- `_determine_evidence_level()` - Needs medical literature quality assessment
+- `_rank_sources_by_evidence()` - Needs source credibility scoring
 
-**IMPORTANT ARCHITECTURAL DECISION:**
-- **Agent should be renamed**: `search_agent` → `medical_search_agent` (more descriptive)
-- **Update all references**: Module name, class references, directory, file paths, import statements
-- **Rationale**: Agent is specifically medical-focused, not general search
+**Architecture Requirements:**
+- **MCP-FIRST APPROACH**: All medical content via MCP tools from authoritative sources
+- **NO HARDCODED MEDICAL DATA**: Liability risk - we are not medical professionals
+- **FAIL FAST**: Clear errors when MCP medical sources unavailable
+- **LLM for TEXT PROCESSING ONLY**: Query parsing, formatting - never medical content generation
 
-### 2. **User Still Sees Raw JSON - NEEDS CLIENT FIX**
-**Issue:** Despite `formatted_response` field being populated, user sees full JSON response
-**Possible Causes:**
-- Client requesting `format="json"` instead of `format="human"`
-- Client displaying entire response instead of just `formatted_response` field
-- Frontend not updated to use new response format
+### 2. **Response Formatting - INFRASTRUCTURE READY, CLIENT NEEDS VERIFICATION**
+**Status:** Server-side formatting implemented, client integration unknown
+- `format_response_for_user()` function working
+- `ProcessRequest.format` parameter (human/json) implemented
+- `ProcessResponse.formatted_response` field populated
+- **Need to verify:** Client using `formatted_response` field correctly
 
-## 🏗️ TECHNICAL ARCHITECTURE CONTEXT
+## 🔧 TECHNICAL FOUNDATION (All Working)
 
-### **Key Files You'll Need:**
-1. **`/home/intelluxe/services/user/healthcare-api/main.py`** - FastAPI server, agent routing, response formatting
-2. **`/home/intelluxe/services/user/healthcare-api/agents/search_agent/search_agent.py`** - BROKEN medical search implementation (rename to medical_search_agent)
-3. **`/home/intelluxe/services/user/healthcare-api/agents/__init__.py`** - BaseHealthcareAgent interface
-4. **`/home/intelluxe/services/user/healthcare-api/core/dependencies.py`** - Healthcare services (MCP, LLM clients)
+### **Service Architecture:**
+- **Database:** PostgreSQL + Redis with synthetic healthcare data
+- **MCP Client:** `/home/intelluxe/services/user/healthcare-api/core/mcp/healthcare_mcp_client.py` (async lifecycle fixed)
+- **LLM Client:** Ollama AsyncClient via `healthcare_services.llm_client`
+- **SciSpacy:** Upgraded BIONLP13CG model with 16 entity types
+- **Real-time Logging:** Working healthcare event logging
+- **Agent Discovery:** Dynamic discovery loading 8 agents successfully
 
-### **Working Patterns to Follow:**
+### **Critical Code Patterns Established:**
+
 ```python
-# CRITICAL: Medical agents must check MCP availability first
+# ✅ WORKING: MCP-first medical search with proper cleanup
 async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
     if not self.mcp_client:
         return {
@@ -83,151 +99,175 @@ async def _process_implementation(self, request: dict[str, Any]) -> dict[str, An
             "error": "Medical search unavailable - no MCP connection to authoritative medical sources",
             "disclaimers": self.disclaimers
         }
-    # Continue with MCP-sourced medical search...
+    try:
+        # MCP-based medical search implementation needed here
+        query = request.get("message", "")
+        results = await self._search_medical_literature(query)
+        return {"success": True, "results": results}
+    except Exception as e:
+        logger.exception(f"Search processing error: {e}")
+        return {"success": False, "error": str(e)}
+    finally:
+        # CRITICAL: MCP cleanup to prevent runaway tasks
+        try:
+            if hasattr(self.mcp_client, 'disconnect'):
+                await self.mcp_client.disconnect()
+                logger.debug("MCP client disconnected after search")
+        except Exception as cleanup_error:
+            logger.warning(f"Error during MCP cleanup: {cleanup_error}")
 
-# Successful agent constructor pattern:
-def __init__(self, mcp_client: Any, llm_client: Any) -> None:
-    super().__init__(mcp_client, llm_client, agent_name="medical_search", agent_type="literature_search")
-
-# Working healthcare logging pattern:
-log_healthcare_event(logger, logging.INFO, "message", context={
-    "agent": "medical_search", 
-    "search_id": search_id
-})
+# ✅ WORKING: Enhanced entity detection with BIONLP13CG
+medical_entity_types = {
+    "AMINO_ACID", "ANATOMICAL_SYSTEM", "CANCER", "CELL", 
+    "CELLULAR_COMPONENT", "DEVELOPING_ANATOMICAL_STRUCTURE",
+    "GENE_OR_GENE_PRODUCT", "IMMATERIAL_ANATOMICAL_ENTITY",
+    "MULTI-TISSUE_STRUCTURE", "ORGAN", "ORGANISM", 
+    "ORGANISM_SUBDIVISION", "ORGANISM_SUBSTANCE",
+    "PATHOLOGICAL_FORMATION", "SIMPLE_CHEMICAL", "TISSUE"
+}
 ```
 
-### **Healthcare Infrastructure:**
-- **Database:** PostgreSQL + Redis with synthetic healthcare data
-- **MCP Client:** Available via `healthcare_services.mcp_client`
-- **LLM Client:** Ollama AsyncClient via `healthcare_services.llm_client`
-- **PHI Protection:** Local-only processing, no cloud AI
+## 🚀 IMMEDIATE ACTION PLAN
 
-## 🎯 IMMEDIATE ACTION ITEMS
+### **Priority 1: Complete Medical Search Agent Implementation**
 
-### **Priority 1: Implement Medical Search Agent (CRITICAL)**
-**Goal:** Make medical search agent return actual results instead of empty arrays
+**Goal:** Return populated medical literature search results from authoritative sources
 
-**Tasks:**
-1. **Rename agent for clarity**:
-   - Directory: `search_agent` → `medical_search_agent`
-   - File: `search_agent.py` → `medical_search_agent.py` 
-   - Class: `MedicalLiteratureSearchAssistant` (name is good, keep)
-   - Agent name: `agent_name="search"` → `agent_name="medical_search"`
-   - Update imports and references throughout codebase
+**Critical Implementation Tasks:**
 
-2. **Fix missing imports** in `medical_search_agent.py`:
+1. **Complete `_process_implementation()` method:**
    ```python
-   import asyncio
-   import json
-   import hashlib
+   # Extract search query from request
+   # Validate MCP connection (fail fast if unavailable)  
+   # Call medical literature search methods
+   # Format comprehensive response with evidence levels
+   # Include proper medical disclaimers
    ```
 
-3. **Complete `_process_implementation()` method** with MCP-first error handling:
-   - Check MCP client availability first - error if unavailable
-   - Extract search query from request
-   - Call `search_medical_literature()` 
-   - Return properly formatted response OR clear error
+2. **Implement core search methods with MCP-ONLY approach:**
+   - `_search_condition_information()` - Connect to medical databases via MCP
+   - `_search_clinical_references()` - PubMed/medical literature APIs via MCP
+   - `_search_drug_information()` - Pharmaceutical databases via MCP
+   - `_determine_evidence_level()` - Medical literature quality assessment
+   - `_rank_sources_by_evidence()` - Source credibility and relevance scoring
 
-4. **Implement core search methods** with **STRICT MCP-ONLY APPROACH**:
-   - **NO HARDCODED MEDICAL KNOWLEDGE** - We are not doctors, creates liability risk
-   - **ALL medical data via MCP tools**: Medical databases, drug information, clinical guidelines
-   - **LLM for non-medical tasks only**: Query parsing, text processing, result formatting
-   - **FAIL FAST**: When MCP unavailable, return clear error - NO fallbacks to hardcoded data
+3. **Medical Knowledge Sourcing Rules (CRITICAL LIABILITY PROTECTION):**
+   - **NO HARDCODED MEDICAL FACTS** - Creates liability and accuracy risks
+   - **MCP TOOLS ONLY** - All medical content from authoritative external databases
+   - **FAIL GRACEFULLY** - Clear error messages when medical sources unavailable
+   - **LLM FOR TEXT ONLY** - Query parsing, result formatting, never medical content
 
-5. **Medical Knowledge Architecture - CRITICAL LIABILITY RULES**:
-   - **NEVER hardcode**: Medical evidence levels, drug interactions, symptom classifications, condition information
-   - **MCP-sourced ONLY**: All medical content must come from authoritative external sources via MCP
-   - **Error when unavailable**: If MCP medical tools are down/missing, return error immediately
-   - **LLM for processing only**: Parse queries, format responses, but never generate medical content
+4. **Complete utility methods:**
+   - `_extract_medical_concepts()` - Use upgraded SciSpacy BIONLP13CG model
+   - `_format_search_response()` - Human-readable medical literature summaries
+   - `_validate_medical_query()` - Query safety and appropriateness checks
 
-6. **Complete utility methods with MCP-FIRST APPROACH**:
-   - `_extract_medical_concepts()` - **Use LLM** for NLP parsing, **MCP** for medical concept validation
-   - `_search_condition_information()` - **MCP ONLY** - call external medical databases
-   - `_search_drug_information()` - **MCP ONLY** - call authoritative drug databases  
-   - `_determine_evidence_level()` - **MCP ONLY** - get from medical literature sources
-   - `_rank_sources_by_evidence()` - **MCP metadata** + LLM relevance scoring for non-medical aspects
-   - **Error handling**: All medical methods must check MCP availability first
+### **Priority 2: End-to-End Validation**
 
-### **Priority 2: Fix Response Formatting**
-**Goal:** Users see human-readable text instead of raw JSON
-
-**Investigation needed:**
-- How is the client calling the API? (format parameter)
-- Is the client using `formatted_response` field?
-- Test with manual curl commands to verify server-side formatting works
-
-### **Priority 3: End-to-End Testing**
-- Verify search agent returns populated results
-- Confirm human-readable formatting works
-- Test multiple search queries
-- Validate medical disclaimers are included
-
-## 🧪 TESTING COMMANDS
-
+**Testing Commands:**
 ```bash
-# Test server startup
-cd /home/intelluxe/services/user/healthcare-api && python3 -c "import main; print('✅ main.py imports successfully')"
-
-# Test API manually with human format
+# Test medical search with human-readable formatting
 curl -X POST http://localhost:8000/process \
   -H "Content-Type: application/json" \
-  -d '{"message": "Can you help me find recent articles on cardiovascular health?", "format": "human"}'
+  -d '{"message": "Find recent research on cardiovascular health", "format": "human"}'
 
-# Test API with JSON format  
+# Test entity detection with upgraded model
 curl -X POST http://localhost:8000/process \
   -H "Content-Type: application/json" \
-  -d '{"message": "search for diabetes", "format": "json"}'
+  -d '{"message": "analyze cardiac tissue inflammation", "format": "json"}'
 ```
+
+**Verification Checklist:**
+- Medical search returns populated `information_sources` array
+- SciSpacy detects comprehensive entity types (ORGAN, TISSUE, ORGANISM, etc.)
+- Real-time logging shows search operations
+- MCP connections cleanup properly (no CPU drain)
+- Human-readable responses formatted correctly
+- Medical disclaimers included in all responses
+
+### **Priority 3: Performance and Stability**
+- Monitor MCP async task cleanup effectiveness
+- Validate no memory leaks from medical search operations
+- Ensure real-time logging continues working under load
+- Test SciSpacy entity detection performance with upgraded model
 
 ## 📋 SUCCESS CRITERIA
 
-✅ **Medical search agent returns populated results from authoritative sources:**
-- `information_sources` has actual medical literature from MCP-connected databases
-- `related_conditions` contains relevant conditions from medical authorities
-- `search_confidence` > 0.0 based on source quality, not hardcoded rules
-- Medical disclaimers included
-- **Clear error messages when MCP medical sources unavailable**
+✅ **Medical Search Agent Returns Real Results:**
+- `information_sources` populated with actual medical literature from MCP sources
+- `related_conditions` contains relevant medical information from authoritative databases
+- `search_confidence` > 0.0 based on source quality and relevance
+- Medical disclaimers and evidence levels included
 
-✅ **No hardcoded medical information:**
-- All medical content sourced via MCP from authoritative databases
-- Agent fails gracefully with clear error when medical sources unavailable  
-- LLM used only for text processing, never medical content generation
+✅ **No Medical Liability Issues:**
+- All medical content sourced via MCP from authoritative medical databases
+- Clear error messages when medical sources unavailable (no fallback medical content)
+- LLM used only for text processing, never medical knowledge generation
+- Appropriate medical disclaimers on all responses
 
-✅ **Response formatting works:**
-- `format="human"` returns readable text in `formatted_response`
-- `format="json"` returns raw data
-- Users see formatted text, not JSON structures
+✅ **System Performance and Stability:**
+- No MCP async task accumulation (CPU performance maintained)
+- Real-time logging functioning during operations
+- SciSpacy BIONLP13CG model detecting 16 entity types correctly
+- All 8 agents loading and responding properly
 
-✅ **System stability:**
-- No logging errors
-- Agent selection working correctly
-- All 8 agents loading successfully
+✅ **User Experience:**
+- Human-readable medical literature summaries via `format="human"`
+- JSON data available via `format="json"` for API consumers
+- Fast response times for medical queries
+- Clear error messages for system issues
 
-## 🚨 CRITICAL MEDICAL LIABILITY NOTES
+## 🔬 RESEARCH AND VERIFICATION CONTEXT
 
-1. **NO HARDCODED MEDICAL KNOWLEDGE** - We are not doctors; hardcoding creates liability and accuracy risks
-2. **MCP-ONLY for medical content** - All medical data must come from authoritative external sources via MCP tools
-3. **FAIL FAST when MCP unavailable** - Return clear errors instead of fallback medical information
-4. **LLM for text processing only** - Use LLM for parsing, formatting, but never for generating medical content
-5. **Don't break existing fixes** - LLM selection and logging are working perfectly
-6. **Healthcare compliance maintained** - all medical disclaimers and PHI protection intact
-7. **Local-only processing** - no cloud AI, everything runs on Ollama
-8. **Database available** - synthetic healthcare data ready for use if needed
+### **What's Already Verified Working:**
+- MCP STDIO communication (async bugs fixed)
+- SciSpacy entity detection with 16 entity types
+- Real-time healthcare event logging
+- Agent discovery and initialization
+- LLM-based agent selection
+- Response formatting infrastructure
 
-## 🔄 HANDOFF COMPLETE
+### **What Needs Implementation:**
+- Medical literature database connections via MCP
+- Search result population and ranking
+- Evidence level assessment
+- Medical query processing and validation
 
-**Previous Agent Session Accomplished:**
-- Fixed LLM verbose responses with structured output
-- Resolved healthcare logging type errors  
-- Implemented response formatting infrastructure
-- Established working agent architecture
+### **Medical Compliance Maintained:**
+- PHI protection (local-only processing)
+- Appropriate medical disclaimers
+- Healthcare audit logging
+- Database-backed synthetic data for testing
+
+## 🚨 CRITICAL NOTES
+
+1. **MCP Async Cleanup Must Be Preserved** - The async task management fixes are critical for system stability
+2. **SciSpacy Upgrade Success** - 16 entity type detection is working and should be leveraged
+3. **Real-Time Logging Working** - Don't break the logging configuration that's now functional
+4. **Medical Liability Protection** - Maintain MCP-only approach for medical content, no hardcoded medical knowledge
+5. **Local-Only Processing** - All AI processing on Ollama, no cloud AI dependencies
+6. **Performance Stability** - The CPU drain issue is resolved, maintain proper MCP cleanup patterns
+
+## 🔄 SESSION HANDOFF COMPLETE
+
+**Previous Agent Session Major Accomplishments:**
+- Identified and fixed critical MCP async task management bug causing CPU drain
+- Successfully upgraded SciSpacy from BC5CDR to BIONLP13CG (2→16 entity types)
+- Resolved real-time logging issues - now working properly  
+- Applied proper async cleanup patterns to all medical agents
+- Established working foundation for medical search implementation
 
 **Your Mission:**
-- Implement functional search agent
-- Verify response formatting works end-to-end
-- Deliver working healthcare AI search functionality
+- Complete medical search agent implementation with MCP-sourced medical literature
+- Verify end-to-end medical search functionality with real results
+- Maintain all stability fixes while delivering full search capabilities
+- Ensure medical compliance and liability protection throughout
 
-**Repository State:** All architectural fixes applied, ready for search implementation
+**Repository State:** 
+- Critical infrastructure bugs resolved
+- SciSpacy model upgraded and working
+- Foundation ready for medical search implementation
+- All async cleanup patterns established
 
 ---
-**Next Agent:** You have everything needed to succeed. Focus on search agent implementation first, then verify formatting. The foundation is solid! 🚀
+**Next Agent:** The infrastructure is solid and stable. Focus on implementing the medical search methods with MCP-sourced content to deliver functional medical literature search capabilities! 🚀

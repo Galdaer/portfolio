@@ -6,6 +6,80 @@ Python patterns for healthcare AI systems with focus on medical compliance, PHI 
 
 ## Beyond-HIPAA Python Security Principles
 
+### SciSpacy Model Upgrade Patterns (Biomedical NLP)
+
+**PATTERN**: Upgrading biomedical NLP models while maintaining entity filtering compatibility.
+
+```python
+# ✅ SUCCESSFUL PATTERN: SciSpacy model upgrade from BC5CDR to BIONLP13CG
+class SciSpacyModelUpgrade:
+    """Patterns for upgrading biomedical NLP models."""
+    
+    # Entity type expansion: BC5CDR (2 types) → BIONLP13CG (16 types)
+    BIONLP13CG_ENTITY_TYPES = {
+        "AMINO_ACID", "ANATOMICAL_SYSTEM", "CANCER", "CELL", 
+        "CELLULAR_COMPONENT", "DEVELOPING_ANATOMICAL_STRUCTURE",
+        "GENE_OR_GENE_PRODUCT", "IMMATERIAL_ANATOMICAL_ENTITY",
+        "MULTI-TISSUE_STRUCTURE", "ORGAN", "ORGANISM", 
+        "ORGANISM_SUBDIVISION", "ORGANISM_SUBSTANCE",
+        "PATHOLOGICAL_FORMATION", "SIMPLE_CHEMICAL", "TISSUE"
+    }
+    
+    BC5CDR_ENTITY_TYPES = {"CHEMICAL", "DISEASE"}
+    
+    @staticmethod
+    def update_entity_filtering(old_entities: set, new_entities: set) -> set:
+        """Update entity filtering when upgrading models."""
+        # Validate new entity types are comprehensive
+        if len(new_entities) < len(old_entities):
+            raise ValueError("New model should have equal or more entity types")
+        
+        # Update medical entity filtering
+        medical_entity_types = {
+            ent for ent in new_entities 
+            if any(keyword in ent.lower() for keyword in [
+                'organ', 'tissue', 'cell', 'anatomical', 'organism', 
+                'chemical', 'disease', 'cancer', 'pathological'
+            ])
+        }
+        
+        return medical_entity_types
+
+# ✅ CONTAINER UPDATE PATTERN: Model downloading in entrypoint
+def update_container_model_download():
+    """Pattern for updating container model downloads."""
+    return '''
+    # entrypoint.sh pattern for model upgrades
+    echo "Downloading SciSpacy BIONLP13CG model..."
+    python -m spacy download en_ner_bionlp13cg_md
+    echo "Model download complete"
+    '''
+
+# ✅ SERVICE UPDATE PATTERN: Model loading in service
+class SciSpacyService:
+    def __init__(self):
+        # Model upgrade: en_ner_bc5cdr_md → en_ner_bionlp13cg_md
+        self.nlp = spacy.load("en_ner_bionlp13cg_md")
+        
+    def detect_entities(self, text: str) -> List[Dict[str, Any]]:
+        """Detect biomedical entities with upgraded model."""
+        doc = self.nlp(text)
+        entities = []
+        
+        for ent in doc.ents:
+            # Filter for medical relevance
+            if ent.label_ in self.BIONLP13CG_ENTITY_TYPES:
+                entities.append({
+                    "text": ent.text,
+                    "label": ent.label_,
+                    "start": ent.start_char,
+                    "end": ent.end_char,
+                    "confidence": getattr(ent, 'score', 0.0)
+                })
+        
+        return entities
+```
+
 ### Patient-First Python Standards
 - **Zero tolerance for PHI exposure**: No `# type: ignore` in healthcare modules (suppresses safety checks)
 - **Proactive type safety**: Enhanced type annotations beyond basic compliance
