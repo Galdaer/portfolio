@@ -237,28 +237,10 @@ export class HealthcareServer {
     async run() {
         const transport = new StdioServerTransport();
 
-        // Tee outgoing frames to a log file for stdio debugging
-        try {
-            const fs = await import('fs');
-            const logPath = '/app/logs/stdio_frames.log';
-            // Ensure directory exists
-            try { fs.mkdirSync('/app/logs', { recursive: true }); } catch (_) { /* ignore */ }
-            const originalWrite = (transport as any).writer?.write?.bind((transport as any).writer);
-            if (originalWrite) {
-                (transport as any).writer.write = (chunk: any) => {
-                    try {
-                        fs.appendFileSync(logPath, `OUT ${new Date().toISOString()} ${chunk.toString()}\n`);
-                    } catch (e) {
-                        console.error('[MCP][debug] Failed to append frame log', e);
-                    }
-                    return originalWrite(chunk);
-                };
-                console.error('[MCP][debug] Enabled stdio frame logging to', logPath);
-            } else {
-                console.error('[MCP][debug] Could not hook writer for frame logging');
-            }
-        } catch (e) {
-            console.error('[MCP][debug] Frame logging setup error', e);
+        // DISABLED: Frame logging corrupts stdio when index.js and stdio_entry.js both run
+        // Only stdio_entry.js should handle MCP stdio; index.js should not interfere
+        if (false) {
+            // ... frame logging disabled
         }
 
         await this.mcpServer.connect(transport);

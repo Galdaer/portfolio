@@ -15,22 +15,17 @@ async function main(): Promise<void> {
     console.info = divert('INFO');
     console.warn = divert('WARN');
 
-    // Extra guard: if any non-JSON sneaks to stdout, push it to stderr instead
-    const origWrite = process.stdout.write.bind(process.stdout) as (chunk: any, encoding?: any, cb?: any) => boolean;
-    process.stdout.write = ((chunk: any, encoding?: any, cb?: any) => {
-        try {
-            const s = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
-            // Allow JSON-RPC frames and whitespace; redirect everything else
-            const looksJson = /^[\s\u0000-\u001F]*[{\[]/.test(s);
-            if (!looksJson) {
-                return process.stderr.write(chunk as any, encoding as any, cb as any);
-            }
-        } catch {
-            // On parsing errors, be safe and redirect to stderr
-            return process.stderr.write(chunk as any, encoding as any, cb as any);
-        }
-        return origWrite(chunk, encoding, cb);
-    }) as any;
+    // IMPORTANT: Do not override process.stdout.write. The MCP SDK owns stdout for JSON-RPC framing.
+    // We only divert console.* to stderr and leave stdout pristine.
+
+
+    // Minimal stderr-only diagnostics to debug stdio handshake without touching stdout
+    process.on('uncaughtException', (err) => {
+        console.error('[stdio-entry][uncaughtException]', err);
+    });
+    process.on('unhandledRejection', (reason) => {
+        console.error('[stdio-entry][unhandledRejection]', reason);
+    });
 
     // Now it's safe to import runtime modules that might log at import-time
     const [{ Server }, { StdioServerTransport }, { CallToolRequestSchema, ListToolsRequestSchema }, { TOOL_DEFINITIONS }] = await Promise.all([
@@ -61,9 +56,13 @@ async function main(): Promise<void> {
         return { content: [{ type: 'text', text: `Tool ${name} invoked (stubbed)` }] };
     });
 
-    await server.connect(new StdioServerTransport());
-    console.error(`[stdio-entry][startup] STDIO server ready with ${TOOL_DEFINITIONS.length} tools.`);
-    process.stdin.resume();
+    console.error(`[stdio-entry][startup] STDIO server starting with ${TOOL_DEFINITIONS.length} tools...`);
+    // Block here until the stdio connection ends (correct MCP lifecycle)
+    try {
+        await server.connect(new StdioServerTransport());
+    } finally {
+        console.error('[stdio-entry][shutdown] stdio connection closed');
+    }
 }
 
 main().catch((e: unknown) => {

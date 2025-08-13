@@ -7,27 +7,11 @@
     // Wrap in an async IIFE to allow dynamic import without top-level await (compiled ESM acceptable)
     (async () => {
         try {
+            // DISABLED: Early stdio tap was consuming MCP frames meant for stdio_entry.js
+            // Only index.js runs as the main container process; MCP client execs stdio_entry.js separately
             const earlyTransportMode = process.env.MCP_TRANSPORT;
-            if (earlyTransportMode === 'stdio' || earlyTransportMode === 'stdio-only') {
-                const fsEarly = await import('fs');
-                const earlyLogDir = '/app/logs';
-                const earlyLogPath = `${earlyLogDir}/early_stdio_tap.log`;
-                try { (fsEarly as any).mkdirSync(earlyLogDir, { recursive: true }); } catch (_) { /* ignore */ }
-                let captured = 0;
-                const CAP_LIMIT = 1024; // capture up to 1KB for diagnostic
-                process.stdin.on('data', (chunk: Buffer) => {
-                    try {
-                        if (captured < CAP_LIMIT) {
-                            const slice = chunk.subarray(0, Math.min(chunk.length, CAP_LIMIT - captured));
-                            (fsEarly as any).appendFileSync(earlyLogPath, `IN ${new Date().toISOString()} ${slice.toString()}`);
-                            captured += slice.length;
-                            if (captured >= CAP_LIMIT) {
-                                (fsEarly as any).appendFileSync(earlyLogPath, '\n-- CAPTURE LIMIT REACHED --\n');
-                            }
-                        }
-                    } catch (e) { /* ignore */ }
-                });
-                (fsEarly as any).appendFileSync(earlyLogPath, `[early-tap] process start pid=${process.pid} mode=${earlyTransportMode}\n`);
+            if (false && (earlyTransportMode === 'stdio' || earlyTransportMode === 'stdio-only')) {
+                // ... early tap code disabled
             }
         } catch (e) {
             console.error('[early-tap][error]', e);
@@ -165,25 +149,11 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 // after HTTP vs stdio-only branching. Double run() caused two StdioServerTransport instances
 // and likely swallowed initialize frames from clients, resulting in zero discovered tools.
 
-// Lightweight raw frame logging (incoming + outgoing) for stdio modes to /app/logs/stdio_frames.log
-if (__transportMode === 'stdio' || __transportMode === 'stdio-only') {
-    try {
-        const fs = await import('fs');
-        const logDir = '/app/logs';
-        const logPath = `${logDir}/stdio_frames.log`;
-        try { fs.mkdirSync(logDir, { recursive: true }); } catch (_) { /* ignore */ }
-        const originalWrite = process.stdout.write.bind(process.stdout);
-        (process.stdout as any).write = (chunk: any, encoding?: any, cb?: any) => {
-            try { fs.appendFileSync(logPath, `OUT ${new Date().toISOString()} ${chunk.toString()}`); } catch (_) { /* ignore */ }
-            return originalWrite(chunk, encoding, cb);
-        };
-        process.stdin.on('data', (chunk) => {
-            try { fs.appendFileSync(logPath, `IN  ${new Date().toISOString()} ${chunk.toString()}`); } catch (_) { /* ignore */ }
-        });
-        console.error('[MCP][debug] Enabled raw stdio frame logging at /app/logs/stdio_frames.log');
-    } catch (e) {
-        console.error('[MCP][debug] Failed to enable raw stdio frame logging', e);
-    }
+// DISABLED: Frame logging was interfering with stdio_entry.js MCP sessions
+// When index.js runs as main process and stdio_entry.js is exec'd separately,
+// frame logging from index.js corrupts the stdio streams for stdio_entry.js
+if (false && (__transportMode === 'stdio' || __transportMode === 'stdio-only')) {
+    // ... frame logging disabled
 }
 
 // OpenAI Client Setup (if API key provided)

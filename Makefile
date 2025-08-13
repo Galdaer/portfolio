@@ -87,7 +87,21 @@
 	   update \
 	   update-deps \
 	   validate \
-	   venv
+	   venv \
+	   grafana \
+	   healthcare-api \
+	   healthcare-mcp \
+	   mcp-pipeline \
+	   medical-mirrors \
+	   n8n \
+	   ollama \
+	   ollama-webui \
+	   postgresql \
+	   redis \
+	   scispacy \
+	   traefik \
+	   wireguard \
+	   wyoming-whisper
 
 # Constants (matching bootstrap.sh)
 DEFAULT_UID := 1000
@@ -414,9 +428,61 @@ restore:
 	fi
 	./scripts/bootstrap.sh --restore-backup "$(BACKUP_FILE)"
 
-# MCP Server Build Commands
-mcp: mcp-build
-	@echo "✅ Healthcare MCP server build complete"
+# ---------------------------------------------------------------------------
+# Bootstrap-driven service restart shortcut
+# Sends two Enters (accept defaults) then the service number to restart.
+# ---------------------------------------------------------------------------
+BOOTSTRAP := ENVIRONMENT=$(or $(ENVIRONMENT),development) ./scripts/bootstrap.sh
+define BOOTSTRAP_RESTART
+	@echo "🔁  Restarting $(1) via bootstrap.sh (menu #$(2))"
+	@printf '\n\n$(2)\n' | $(BOOTSTRAP)
+endef
+
+# Single-command restarts for interactive services (14 entries)
+grafana:
+	$(call BOOTSTRAP_RESTART,grafana,1)
+
+healthcare-api:
+	$(call BOOTSTRAP_RESTART,healthcare-api,2)
+
+healthcare-mcp:
+	$(call BOOTSTRAP_RESTART,healthcare-mcp,3)
+
+mcp-pipeline:
+	$(call BOOTSTRAP_RESTART,mcp-pipeline,4)
+
+medical-mirrors:
+	$(call BOOTSTRAP_RESTART,medical-mirrors,5)
+
+n8n:
+	$(call BOOTSTRAP_RESTART,n8n,6)
+
+ollama:
+	$(call BOOTSTRAP_RESTART,ollama,7)
+
+ollama-webui:
+	$(call BOOTSTRAP_RESTART,ollama-webui,8)
+
+postgresql:
+	$(call BOOTSTRAP_RESTART,postgresql,9)
+
+redis:
+	$(call BOOTSTRAP_RESTART,redis,10)
+
+scispacy:
+	$(call BOOTSTRAP_RESTART,scispacy,11)
+
+traefik:
+	$(call BOOTSTRAP_RESTART,traefik,12)
+
+wireguard:
+	$(call BOOTSTRAP_RESTART,wireguard,13)
+
+wyoming-whisper:
+	$(call BOOTSTRAP_RESTART,wyoming-whisper,14)
+
+
+mcp: healthcare-mcp
 
 mcp-build:
 	@echo "🏗️  Building Healthcare MCP server Docker image"
@@ -435,9 +501,6 @@ mcp-clean:
 	@echo "✅ Healthcare MCP Docker cleanup complete"
 
 # MCP Pipeline Service Commands (Open WebUI Integration)
-mcp-pipeline: mcp-pipeline-build
-	@echo "✅ MCP Pipeline service build complete"
-
 mcp-pipeline-build:
 	@echo "🏗️  Building MCP Pipeline service Docker image"
 	@cd services/user/mcp-pipeline && docker build -t intelluxe/mcp-pipeline:latest .
@@ -474,19 +537,11 @@ mcp-pipeline-full-test: mcp-pipeline
 	  intelluxe/mcp-pipeline:latest bash -lc 'set -e; ./start_pipeline.sh & PID=$$!; for i in $$(seq 1 25); do sleep 1; curl -sf http://localhost:9099/health >/dev/null 2>&1 && break || true; done; echo "Health OK"; curl -s http://localhost:9099/tools | jq ".data | {count: length, sample: (.[0:3]|map(.id))}"; kill $$PID || true; wait $$PID 2>/dev/null || true'
 	@echo "✅  Full test complete"
 
-mcp-pipeline-run:
-	@echo "🚀  Starting MCP Pipeline service"
-	@./scripts/universal-service-runner.sh services/user/mcp-pipeline/mcp-pipeline.conf
-	@echo "✅ MCP Pipeline service started"
-
 mcp-pipeline-stop:
 	@echo "🛑  Stopping MCP Pipeline service"
 	@docker stop mcp-pipeline 2>/dev/null || echo "Container not running"
 	@docker rm mcp-pipeline 2>/dev/null || echo "Container not found"
 	@echo "✅ MCP Pipeline service stopped"
-
-mcp-pipeline-restart: mcp-pipeline-stop mcp-pipeline-run
-	@echo "🔄  MCP Pipeline service restarted"
 
 mcp-pipeline-logs:
 	@echo "📋  MCP Pipeline service logs (last 50 lines):"
@@ -506,9 +561,6 @@ mcp-pipeline-test:
 	@echo "✅  MCP Pipeline validation complete"
 
 # Healthcare API Service Commands
-healthcare-api: healthcare-api-build
-	@echo "✅ Healthcare API service build complete"
-
 healthcare-api-build:
 	@echo "🏗️  Building Healthcare API service Docker image"
 	@cd services/user/healthcare-api && docker build -t intelluxe/healthcare-api:latest .
@@ -525,19 +577,11 @@ healthcare-api-clean:
 	@docker system prune -f --filter "label=description=HIPAA-compliant Healthcare API with administrative support agents"
 	@echo "✅ Healthcare API Docker cleanup complete"
 
-healthcare-api-run:
-	@echo "🚀  Starting Healthcare API service"
-	@./scripts/universal-service-runner.sh services/user/healthcare-api/healthcare-api.conf
-	@echo "✅ Healthcare API service started"
-
 healthcare-api-stop:
 	@echo "🛑  Stopping Healthcare API service"
 	@docker stop healthcare-api 2>/dev/null || echo "Container not running"
 	@docker rm healthcare-api 2>/dev/null || echo "Container not found"
 	@echo "✅ Healthcare API service stopped"
-
-healthcare-api-restart: healthcare-api-stop healthcare-api-run
-	@echo "🔄  Healthcare API service restarted"
 
 healthcare-api-logs:
 	@echo "📋  Healthcare API service logs (last 50 lines):"
@@ -574,19 +618,6 @@ medical-mirrors-clean:
 	@docker system prune -f --filter "label=service=medical-mirrors"
 	@echo "✅ Medical Mirrors Docker cleanup complete"
 
-medical-mirrors-run:
-	@echo "🚀  Starting Medical Mirrors service container"
-	@docker run -d \
-		--name medical-mirrors \
-		--network intelluxe-net \
-		-p 8081:8080 \
-		-v $(PWD)/database/medical_complete:/app/data \
-		-v $(PWD)/logs:/app/logs \
-		-e PYTHONPATH=/app/src \
-		--restart unless-stopped \
-		intelluxe/medical-mirrors:latest
-	@echo "✅ Medical Mirrors service started on http://localhost:8081"
-
 medical-mirrors-logs:
 	@echo "📋  Viewing Medical Mirrors service logs"
 	@docker logs -f medical-mirrors
@@ -619,11 +650,6 @@ medical-mirrors-health:
 	else \
 		echo "   ❌ Container not running"; \
 	fi
-
-medical-mirrors-restart:
-	@echo "🔄  Restarting Medical Mirrors service"
-	@$(MAKE) medical-mirrors-stop
-	@$(MAKE) medical-mirrors-run
 
 medical-mirrors-update:
 	@echo "🔄  Updating all Medical Mirrors databases"
@@ -1062,15 +1088,15 @@ help:
 	@echo "   make data-clean     - Remove synthetic data"
 	@echo ""
 	@echo "🐳  MCP SERVER:"
-	@echo "   make mcp           - Build Healthcare MCP server Docker image"
+	@echo "   make mcp			 - Start Healthcare MCP server"
+	@echo "   make mcp-build           - Build Healthcare MCP server Docker image"
 	@echo "   make mcp-rebuild   - Rebuild MCP server (no cache)"
 	@echo "   make mcp-clean     - Clean MCP Docker artifacts"
 	@echo ""
 	@echo "🔌  MCP PIPELINE (Open WebUI Integration):"
-	@echo "   make mcp-pipeline         - Build MCP Pipeline service Docker image"
+	@echo "   make mcp-pipeline         - Start MCP Pipeline service"
+	@echo "   make mcp-pipeline-build       - Build MCP Pipeline service Docker image"
 	@echo "   make mcp-pipeline-rebuild - Rebuild MCP Pipeline (no cache)"
-	@echo "   make mcp-pipeline-run     - Start MCP Pipeline service"
-	@echo "   make mcp-pipeline-restart - Restart MCP Pipeline service"
 	@echo "   make mcp-pipeline-logs    - View MCP Pipeline logs"
 	@echo "   make mcp-pipeline-health  - Check MCP Pipeline health"
 	@echo "   make mcp-pipeline-status  - Show MCP Pipeline status"
@@ -1079,10 +1105,9 @@ help:
 	@echo "   make mcp-pipeline-full-test   - Run stdio + HTTP fallback pipeline test"
 	@echo ""
 	@echo "🏥  MEDICAL MIRRORS SERVICE:"
+	@echo "   make medical-mirrors         - Start Medical Mirrors service"
 	@echo "   make medical-mirrors-build   - Build Medical Mirrors Docker image"
 	@echo "   make medical-mirrors-rebuild - Rebuild Medical Mirrors (no cache)"
-	@echo "   make medical-mirrors-run     - Start Medical Mirrors container"
-	@echo "   make medical-mirrors-restart - Restart Medical Mirrors service"
 	@echo "   make medical-mirrors-logs    - View Medical Mirrors logs"
 	@echo "   make medical-mirrors-errors  - View Medical Mirrors ERRORS ONLY"
 	@echo "   make medical-mirrors-errors-summary - Concise error summary with counts"

@@ -22,40 +22,48 @@ class HealthcareMCPClient:
         except Exception as e:  # pragma: no cover
             raise RuntimeError(f"MCP library not available: {e}")
 
-        # Connect to existing healthcare-mcp container via stdio (docker exec)
-        command = server_command or "docker"
-        # Use a Node inline script to reroute console.log to stderr so banners/logs don't corrupt stdout JSON-RPC
-        inline = (
-            "(() => {"
-            "const origWrite = process.stdout.write.bind(process.stdout);"
-            "process.stdout.write = (chunk, ...args) => {"
-            "  try {"
-            "    const s = typeof chunk === 'string' ? chunk : chunk.toString();"
-            "    const t = s.trimStart();"
-            "    if (t.startsWith('{') || t.startsWith('[')) {"
-            "      return origWrite(chunk, ...args);"
-            "    } else {"
-            "      return process.stderr.write(chunk, ...args);"
-            "    }"
-            "  } catch (e) { return process.stderr.write(chunk, ...args); }"
-            "};"
-            "console.log = console.error;"
-            "process.env.MCP_TRANSPORT = process.env.MCP_TRANSPORT || 'stdio';"
-            "require('/app/build/stdio_entry.js');"
-            "})();"
-        )
-        args = ["exec", "-i", "healthcare-mcp", "node", "-e", inline]
-        env = {
-            "MCP_TRANSPORT": "stdio",
-            # Optional hints if server supports them (harmless if ignored)
-            "NO_COLOR": "1",
-            "LOG_LEVEL": "warn",
-            "MCP_SUPPRESS_BANNER": "1",
-        }
+        # EXPERIMENTAL: Run stdio_entry.js directly instead of via docker exec  
+        # This avoids potential docker exec stdio stream corruption issues
+        command = server_command or "bash"
+        if command == "bash":
+            # Copy stdio_entry.js to a temp location and run it directly
+            sh_cmd = """
+            set -e
+            # Copy the stdio entry from container to temp
+            docker cp healthcare-mcp:/app/build/stdio_entry.js /tmp/stdio_entry_temp.js 2>/dev/null
+            # Run it directly with proper env
+            export MCP_TRANSPORT=stdio-only
+            export NO_COLOR=1
+            node /tmp/stdio_entry_temp.js 2>/tmp/mcp_direct.err
+            """
+            args = ["-c", sh_cmd]
+        else:
+            # Fallback to original docker exec approach
+            sh_cmd = "node /app/build/stdio_entry.js 2> /app/logs/mcp_stdio_entry.err"
+            args = [
+                "exec",
+                "-i", 
+                "-u",
+                "node",
+                "-e",
+                "MCP_TRANSPORT=stdio-only",
+                "-e", 
+                "NO_COLOR=1",
+                "healthcare-mcp",
+                "sh",
+                "-c",
+                sh_cmd,
+            ]
+        # Environment variables here affect the docker CLI only; the actual server env is passed via -e above.
+        env = {"NO_COLOR": "1"}
 
         self.params = StdioServerParameters(command=command, args=args, env=env)
         # Compatibility attribute so existing code won't try to lazy-connect
         self.session = True  # truthy sentinel
+
+    async def _ensure_connected(self) -> None:
+        """Compatibility no-op: sessions are established per-call."""
+        await self.connect()
 
     async def connect(self) -> None:
         """No-op connect for compatibility (sessions are created per call)."""
