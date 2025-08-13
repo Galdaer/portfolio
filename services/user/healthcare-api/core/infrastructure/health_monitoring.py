@@ -6,7 +6,7 @@ Provides comprehensive health checks for all healthcare AI components
 import asyncio
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from config.app import config
@@ -38,6 +38,13 @@ class HealthcareSystemMonitor:
         self.health_check_timeout = 5.0  # seconds
         self.last_check_time: float = 0.0
         self.cached_status: dict[str, Any] = {}
+        self._status_value_map = {"healthy": 1, "degraded": 0, "error": 0, "critical": 0}
+        # Simple manual histogram for comprehensive health check durations (seconds)
+        # Buckets chosen to capture fast (<50ms) to slower (>5s) checks.
+        self._duration_buckets = [0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, float("inf")]
+        self._duration_bucket_counts = [0 for _ in self._duration_buckets]
+        self._duration_sum = 0.0
+        self._duration_count = 0
 
     async def comprehensive_health_check(self) -> dict[str, Any]:
         """
@@ -57,6 +64,7 @@ class HealthcareSystemMonitor:
             self._check_background_tasks_health(),
             self._check_memory_usage(),
             self._check_cache_performance(),
+            self._check_rate_limiting(),
         ]
 
         try:
@@ -65,7 +73,7 @@ class HealthcareSystemMonitor:
             # Process results
             health_status: dict[str, Any] = {
                 "overall_status": "healthy",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "check_duration_ms": round((time.time() - start_time) * 1000, 2),
                 "components": {
                     "database": results[0]
@@ -89,6 +97,9 @@ class HealthcareSystemMonitor:
                     "cache_performance": results[6]
                     if not isinstance(results[6], Exception)
                     else {"status": "error", "error": str(results[6])},
+                    "rate_limiting": results[7]
+                    if not isinstance(results[7], Exception)
+                    else {"status": "error", "error": str(results[7])},
                 },
             }
 
@@ -111,6 +122,15 @@ class HealthcareSystemMonitor:
             # Cache successful results
             self.last_check_time = time.time()
             self.cached_status = health_status
+            # Record latency in histogram (seconds)
+            duration_seconds = (time.time() - start_time)
+            self._duration_sum += duration_seconds
+            self._duration_count += 1
+            # Increment first bucket whose upper bound >= duration
+            for i, upper in enumerate(self._duration_buckets):
+                if duration_seconds <= upper:
+                    self._duration_bucket_counts[i] += 1
+                    break
 
             return health_status
 
@@ -118,7 +138,7 @@ class HealthcareSystemMonitor:
             logger.exception(f"Health check failed: {e}")
             return {
                 "overall_status": "critical",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "error": str(e),
                 "check_duration_ms": round((time.time() - start_time) * 1000, 2),
             }
@@ -356,6 +376,21 @@ class HealthcareSystemMonitor:
             logger.warning(f"Cache performance check failed: {e}")
             return {"status": "error", "error": str(e), "message": "Cache performance check failed"}
 
+    async def _check_rate_limiting(self) -> dict[str, Any]:
+        """Include rate limiting snapshot metrics."""
+        try:
+            from core.infrastructure.rate_limiting import get_healthcare_rate_limiter
+            limiter = get_healthcare_rate_limiter()
+            snapshot = limiter.snapshot_metrics()
+            return {
+                "status": "healthy",
+                "summary": snapshot.get("summary", {}),
+                "policy_version": snapshot.get("policy_version"),
+                "source": snapshot.get("source"),
+            }
+        except Exception as e:  # pragma: no cover
+            return {"status": "error", "error": str(e), "message": "Rate limiting snapshot failed"}
+
     async def quick_health_check(self) -> dict[str, Any]:
         """
         Quick health check (cached results if recent)
@@ -373,21 +408,12 @@ class HealthcareSystemMonitor:
 
         # Perform quick checks only
         try:
-            quick_tasks = [
-                self._check_database_health(),
-                self._check_redis_health(),
-            ]
-
+            quick_tasks = [self._check_database_health(), self._check_redis_health()]
             results = await asyncio.wait_for(
-                asyncio.gather(*quick_tasks, return_exceptions=True),
-                timeout=self.health_check_timeout,
+                asyncio.gather(*quick_tasks, return_exceptions=True), timeout=self.health_check_timeout
             )
-
             db_status = results[0] if not isinstance(results[0], Exception) else {"status": "error"}
-            redis_status = (
-                results[1] if not isinstance(results[1], Exception) else {"status": "error"}
-            )
-
+            redis_status = results[1] if not isinstance(results[1], Exception) else {"status": "error"}
             overall = "healthy"
             if (isinstance(db_status, dict) and db_status.get("status") == "critical") or (
                 isinstance(redis_status, dict) and redis_status.get("status") == "critical"
@@ -396,33 +422,73 @@ class HealthcareSystemMonitor:
             elif (
                 isinstance(db_status, dict) and db_status.get("status") in ["degraded", "error"]
             ) or (
-                isinstance(redis_status, dict)
-                and redis_status.get("status") in ["degraded", "error"]
+                isinstance(redis_status, dict) and redis_status.get("status") in ["degraded", "error"]
             ):
                 overall = "degraded"
-
             return {
                 "overall_status": overall,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "quick_check": True,
                 "database": db_status.get("status") if isinstance(db_status, dict) else "error",
                 "cache": redis_status.get("status") if isinstance(redis_status, dict) else "error",
             }
-
         except TimeoutError:
             return {
                 "overall_status": "critical",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "error": "Health check timeout",
                 "quick_check": True,
             }
         except Exception as e:
             return {
                 "overall_status": "critical",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "error": str(e),
                 "quick_check": True,
             }
+
+    def prometheus_lines(self) -> list[str]:
+        """Build Prometheus metric lines representing last cached health snapshot.
+
+        Uses cached comprehensive check to avoid heavy per-scrape work. Callers
+        should schedule periodic comprehensive checks (already done when scraped
+        via quick path earlier), or rely on /metrics performing a quick check separately.
+        """
+        lines: list[str] = []
+        snap = self.cached_status or {}
+        overall = snap.get("overall_status", "unknown")
+        lines.append("# HELP healthcare_overall_status Overall health status (1=healthy,0 otherwise)")
+        lines.append("# TYPE healthcare_overall_status gauge")
+        val = 1 if overall == "healthy" else 0
+        lines.append(f"healthcare_overall_status{{status=\"{overall}\"}} {val}")
+        components = snap.get("components", {})
+        if isinstance(components, dict):
+            lines.append("# HELP healthcare_component_status Component status (1=healthy,0 otherwise)")
+            lines.append("# TYPE healthcare_component_status gauge")
+            for name, data in components.items():
+                if isinstance(data, dict):
+                    status = data.get("status", "unknown")
+                    lines.append(
+                        f"healthcare_component_status{{component=\"{name}\",status=\"{status}\"}} {1 if status == 'healthy' else 0}"
+                    )
+        # Histogram exposition (Prometheus style) for comprehensive health check latency
+        if self._duration_count > 0:
+            lines.append("# HELP healthcare_health_check_duration_seconds Comprehensive health check duration")
+            lines.append("# TYPE healthcare_health_check_duration_seconds histogram")
+            cumulative = 0
+            for upper, count in zip(self._duration_buckets, self._duration_bucket_counts):
+                cumulative += count
+                le_label = "+Inf" if upper == float("inf") else ("{:.2f}".format(upper).rstrip("0").rstrip("."))
+                lines.append(
+                    f"healthcare_health_check_duration_seconds_bucket{{le=\"{le_label}\"}} {cumulative}"
+                )
+            lines.append(
+                f"healthcare_health_check_duration_seconds_sum {self._duration_sum}"
+            )
+            lines.append(
+                f"healthcare_health_check_duration_seconds_count {self._duration_count}"
+            )
+        return lines
 
 
 # Global health monitor instance

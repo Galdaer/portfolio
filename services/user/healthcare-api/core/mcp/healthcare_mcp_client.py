@@ -1,157 +1,161 @@
 """
 Healthcare MCP Client for stdio communication with healthcare-mcp server
-Uses official MCP Python client library for reliable stdio communication
+Stateless wrapper that opens a short-lived stdio session per call to avoid AnyIO
+cancel-scope issues on __aexit__ and to ensure clean shutdown without Ctrl+C.
+
+Logs are routed through the healthcare-compliant logger so they appear in logs/.
 """
-import asyncio
-import json
-import logging
 from typing import Any, Dict, List, Optional
 
-try:
-    from mcp import ClientSession, StdioServerParameters
-    from mcp.client.stdio import stdio_client
-    MCP_AVAILABLE = True
-except ImportError:
-    MCP_AVAILABLE = False
-    logging.warning("MCP library not available")
+from core.infrastructure.healthcare_logger import get_healthcare_logger
 
-logger = logging.getLogger(__name__)
+logger = get_healthcare_logger("infrastructure.mcp")
+
 
 class HealthcareMCPClient:
-    """MCP client for communicating with healthcare-mcp server via stdio using official MCP library"""
-    
+    """Lightweight MCP client using short-lived stdio sessions per request."""
+
     def __init__(self, server_command: Optional[str] = None):
-        """
-        Initialize MCP client using official MCP Python library
+        # Import here to keep symbols bound even if library isn't installed at import-time
+        try:
+            from mcp import StdioServerParameters  # type: ignore
+        except Exception as e:  # pragma: no cover
+            raise RuntimeError(f"MCP library not available: {e}")
 
-        Connect to the existing healthcare-mcp container via stdio, NOT spawning a new server.
-        """
-        if not MCP_AVAILABLE:
-            raise RuntimeError("MCP library not available")
-            
-        # Connect to existing healthcare-mcp container via stdio
-        # Use docker exec to connect to the existing stdio server, not spawn a new one
-        command = "docker"
-        args = ["exec", "-i", "healthcare-mcp", "node", "/app/build/stdio_entry.js"]
-        env = {"MCP_TRANSPORT": "stdio"}
-        
+        # Connect to existing healthcare-mcp container via stdio (docker exec)
+        command = server_command or "docker"
+        # Use a Node inline script to reroute console.log to stderr so banners/logs don't corrupt stdout JSON-RPC
+        inline = (
+            "(() => {"
+            "const origWrite = process.stdout.write.bind(process.stdout);"
+            "process.stdout.write = (chunk, ...args) => {"
+            "  try {"
+            "    const s = typeof chunk === 'string' ? chunk : chunk.toString();"
+            "    const t = s.trimStart();"
+            "    if (t.startsWith('{') || t.startsWith('[')) {"
+            "      return origWrite(chunk, ...args);"
+            "    } else {"
+            "      return process.stderr.write(chunk, ...args);"
+            "    }"
+            "  } catch (e) { return process.stderr.write(chunk, ...args); }"
+            "};"
+            "console.log = console.error;"
+            "process.env.MCP_TRANSPORT = process.env.MCP_TRANSPORT || 'stdio';"
+            "require('/app/build/stdio_entry.js');"
+            "})();"
+        )
+        args = ["exec", "-i", "healthcare-mcp", "node", "-e", inline]
+        env = {
+            "MCP_TRANSPORT": "stdio",
+            # Optional hints if server supports them (harmless if ignored)
+            "NO_COLOR": "1",
+            "LOG_LEVEL": "warn",
+            "MCP_SUPPRESS_BANNER": "1",
+        }
+
         self.params = StdioServerParameters(command=command, args=args, env=env)
-        self.client_cm: Optional[Any] = None
-        self.session: Optional[ClientSession] = None
-        self.tools: List[Dict[str, Any]] = []
-        
-    async def connect(self) -> None:
-        """Connect to the MCP server using official MCP client"""
-        try:
-            logger.info("Connecting to MCP server with official MCP client")
-            logger.info(f"Command: {self.params.command} {self.params.args}")
-            
-            # Create stdio client context manager - this returns read/write streams
-            logger.info("Creating stdio client context manager...")
-            self.client_cm = stdio_client(self.params)
-            
-            # Enter the context manager to get streams
-            logger.info("Entering context manager to get streams...")
-            read_stream, write_stream = await self.client_cm.__aenter__()
-            logger.info("Successfully got read/write streams")
-            
-            # Create ClientSession with the streams
-            logger.info("Creating ClientSession...")
-            self.session = ClientSession(read_stream, write_stream)
-            logger.info("ClientSession created successfully")
-            
-            # Initialize the session
-            await self.session.initialize()
-                
-            await self._discover_tools()
-            logger.info("MCP client connected successfully")
-            
-        except Exception as e:
-            logger.error(f"Failed to connect to MCP server: {e}")
-            raise
-    
-    async def _discover_tools(self) -> None:
-        """Discover tools using official MCP client session.list_tools()"""
-        try:
-            if not self.session:
-                raise RuntimeError("Session not initialized")
-                
-            # Use ClientSession.list_tools() method
-            tools_response = await self.session.list_tools()
-            
-            # Handle tools response - should have "tools" field with list
-            if hasattr(tools_response, 'tools'):
-                self.tools = tools_response.tools
-            elif isinstance(tools_response, dict) and 'tools' in tools_response:
-                self.tools = tools_response['tools']
-            else:
-                logger.warning(f"Unexpected tools response format: {type(tools_response)}")
-                self.tools = []
-                
-            logger.info(f"Discovered {len(self.tools)} tools via MCP session.list_tools()")
-            if self.tools:
-                tool_names = [getattr(tool, 'name', str(tool)) for tool in self.tools]
-                logger.info(f"Available tools: {tool_names}")
-                
-        except Exception as e:
-            logger.error(f"Failed to discover tools: {e}")
-            self.tools = []
+        # Compatibility attribute so existing code won't try to lazy-connect
+        self.session = True  # truthy sentinel
 
-    async def _ensure_connected(self) -> None:
-        """Ensure MCP client is connected, connect if not already connected"""
-        if not self.session or not self.client_cm:
-            # Clean up any partial connections before creating new one
-            await self.disconnect()
-            await self.connect()
+    async def connect(self) -> None:
+        """No-op connect for compatibility (sessions are created per call)."""
+        logger.info(
+            "MCP stateless client ready (per-call sessions)",
+            extra={
+                "healthcare_context": {
+                    "operation_type": "mcp_connect",
+                    "command": self.params.command,
+                    "args": self.params.args,
+                    "env_keys": sorted(list(getattr(self.params, "env", {}).keys())),
+                }
+            },
+        )
+
+    async def get_available_tools(self) -> List[Dict[str, Any]]:
+        """List available tools using a short-lived session with timeouts."""
+        import asyncio
+        logger.info("Listing MCP tools via short-lived session")
+        tools: List[Dict[str, Any]] = []
+        # Open, list, close in the same task to avoid cancel-scope issues
+        from mcp import ClientSession  # type: ignore
+        from mcp.client.stdio import stdio_client  # type: ignore
+        try:
+            async with stdio_client(self.params) as (read_stream, write_stream):
+                session = ClientSession(read_stream, write_stream)
+                # Guard initialization and list with timeouts to avoid hangs
+                await asyncio.wait_for(session.initialize(), timeout=45)
+                tools_response = await asyncio.wait_for(session.list_tools(), timeout=45)
+                if hasattr(tools_response, "tools"):
+                    tools = tools_response.tools  # type: ignore[assignment]
+                elif isinstance(tools_response, dict):
+                    tools = tools_response.get("tools", [])  # type: ignore[assignment]
+            logger.info(f"Discovered {len(tools)} MCP tools")
+        except asyncio.TimeoutError:
+            logger.error(
+                "Timeout while listing MCP tools (possible stdout banner contamination). Ensure the MCP stdio server does not print human-readable logs to stdout; use stderr for banners.",
+                extra={
+                    "healthcare_context": {
+                        "operation_type": "mcp_list_tools_timeout",
+                        "hint": "Move any 'STDIO server ready...' or startup banners to stderr when MCP_TRANSPORT=stdio",
+                    }
+                },
+            )
+        except Exception as e:  # pragma: no cover
+            logger.exception(
+                f"Error listing MCP tools: {e}",
+                extra={"healthcare_context": {"operation_type": "mcp_list_tools_error", "error": str(e)}},
+            )
+        return tools
 
     async def call_tool(self, tool_name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Call a tool using official MCP client session.call_tool()"""
-        await self._ensure_connected()
-        
-        if not self.session:
-            raise RuntimeError("Session not initialized")
-            
+        """Call a tool using a short-lived session and return a wrapped result."""
+        import asyncio
         args = arguments or {}
-        
+        logger.info(f"MCP call start: tool={tool_name} args_keys={list(args.keys())}")
         try:
-            # Use ClientSession.call_tool() method
-            result = await self.session.call_tool(tool_name, args)
+            from mcp import ClientSession  # type: ignore
+            from mcp.client.stdio import stdio_client  # type: ignore
+            async with stdio_client(self.params) as (read_stream, write_stream):
+                session = ClientSession(read_stream, write_stream)
+                await asyncio.wait_for(session.initialize(), timeout=45)
+                result = await asyncio.wait_for(session.call_tool(tool_name, args), timeout=60)
+            # After context closes cleanly, log a compact preview
+            preview = None
+            try:
+                if isinstance(result, dict):
+                    preview = {k: (len(v) if isinstance(v, list) else type(v).__name__) for k, v in result.items() if k in ("articles", "count", "status")}
+                else:
+                    preview = str(type(result))
+            except Exception:
+                preview = "unavailable"
+            logger.info(f"MCP call done: tool={tool_name} preview={preview}")
             return {"status": "success", "result": result}
-                
-        except Exception as e:
-            logger.error(f"Failed to call tool {tool_name}: {e}")
+        except asyncio.TimeoutError:
+            logger.error(
+                f"Timeout calling tool {tool_name} (possible stdout banner contamination). Ensure the MCP stdio server uses clean JSON on stdout and logs to stderr.",
+                extra={
+                    "healthcare_context": {
+                        "operation_type": "mcp_call_timeout",
+                        "tool": tool_name,
+                        "hint": "No human-readable logs on stdout in stdio mode",
+                    }
+                },
+            )
+            return {"status": "error", "error": "timeout"}
+        except Exception as e:  # pragma: no cover
+            logger.exception(
+                f"Failed to call tool {tool_name}: {e}",
+                extra={"healthcare_context": {"operation_type": "mcp_call_error", "tool": tool_name, "error": str(e)}},
+            )
             return {"status": "error", "error": str(e)}
-    
+
     async def call_healthcare_tool(self, tool_name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Wrapper method for healthcare agent compatibility
-        Delegates to call_tool() but provides healthcare-specific interface
-        """
+        """Healthcare convenience wrapper returning raw result or error payload."""
         result = await self.call_tool(tool_name, arguments)
-        
-        # For healthcare agents, we want to return the result content directly
-        # rather than the wrapper with status/result structure
         if result.get("status") == "success":
             return result.get("result", {})
-        else:
-            # For errors, still return the error info but in expected format
-            return {"error": result.get("error", "Unknown error"), "status": "error"}
-    
-    async def get_available_tools(self) -> List[Dict[str, Any]]:
-        """Get list of available tools"""
-        await self._ensure_connected()
-        return self.tools
-    
+        return {"error": result.get("error", "Unknown error"), "status": "error"}
+
     async def disconnect(self) -> None:
-        """Disconnect from MCP server using context manager cleanup"""
-        try:
-            # Note: ClientSession doesn't have a close() method
-            # The context manager cleanup handles the session
-            if self.client_cm:
-                await self.client_cm.__aexit__(None, None, None)
-                logger.info("MCP client context manager exited")
-        except Exception as e:
-            logger.error(f"Error disconnecting from MCP server: {e}")
-        finally:
-            self.client_cm = None
-            self.session = None
+        """No-op disconnect for compatibility (nothing persistent to close)."""
+        logger.info("MCP stateless client disconnect (no persistent session)")

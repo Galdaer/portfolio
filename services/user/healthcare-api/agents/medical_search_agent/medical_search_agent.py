@@ -8,11 +8,16 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
+import re
 
 from agents import BaseHealthcareAgent
 from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
+from core.infrastructure.agent_context import new_agent_context, AgentContext
+from core.infrastructure.agent_metrics import AgentMetricsStore
+from core.search import normalize_query_terms, calculate_recency_score, extract_source_links
+from core.medical import search_utils as medical_search_utils
 from config.medical_search_config_loader import MedicalSearchConfigLoader
 
 logger = get_healthcare_logger("agent.medical_search")
@@ -48,6 +53,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         super().__init__(mcp_client, llm_client, agent_name="medical_search", agent_type="literature_search")
         self.mcp_client = mcp_client
         self.llm_client = llm_client
+        self._metrics = AgentMetricsStore(agent_name="medical_search")
 
         # Debug logging for initialization
         logger.info("MedicalLiteratureSearchAssistant initialized")
@@ -72,7 +78,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         Processes search requests through the standard agent interface
         """
         logger.info(f"Medical search agent processing request: {request}")
-        
+        ctx: AgentContext = new_agent_context("medical_search", user_id=request.get("user_id"))
+        await self._metrics.incr("requests_total")
+      
         search_query = request.get("search_query", request.get("query", ""))
         search_context = request.get("search_context", {})
         
@@ -80,6 +88,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         
         if not search_query:
             logger.warning("No search query provided in request")
+            await self._metrics.incr("requests_error_missing_query")
             return {
                 "success": False,
                 "error": "Missing search query",
@@ -94,6 +103,8 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 search_context=search_context,
             )
             logger.info(f"Medical search completed successfully, found {len(search_result.information_sources)} sources")
+            await self._metrics.incr("requests_success")
+            await self._metrics.record_timing("request_ms", ctx.elapsed_ms)
             
             # Convert dataclass to dict for response
             return {
@@ -114,45 +125,42 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             
         except Exception as e:
             logger.exception(f"Search processing error: {e}")
+            await self._metrics.incr("requests_exception")
             return {
                 "success": False,
                 "error": str(e),
                 "agent_type": "search",
             }
         finally:
-            # Critical: Clean up MCP connection to prevent runaway tasks
-            try:
-                if hasattr(self.mcp_client, 'disconnect'):
-                    await self.mcp_client.disconnect()
-                    logger.debug("MCP client disconnected after search")
-            except Exception as cleanup_error:
-                logger.warning(f"Error during MCP cleanup: {cleanup_error}")
+            # MCP lifecycle is handled by application shutdown via HealthcareServices.cleanup()
+            pass
 
     async def _validate_medical_terms(self, concepts: list[str]) -> list[str]:
-        """Validate and expand medical terms using MCP reference sources"""
-        validated_concepts = []
-        
-        for concept in concepts:
-            try:
-                # For now, accept all SciSpacy-extracted terms as valid
-                # Future: Use MCP to validate against medical knowledge bases
-                # This is where your PubMed/FDA/ClinicalTrials MCPs would shine
-                
-                # Placeholder for MCP validation (implement when needed)
-                # validation_result = await self.mcp_client.call_healthcare_tool(
-                #     "validate_medical_term", {"term": concept}
-                # )
-                
-                # For now, include all concepts
-                validated_concepts.append(concept)
-                    
-            except Exception as e:
-                logger.debug(f"Term validation failed for '{concept}': {e}")
-                # Include concept anyway
-                validated_concepts.append(concept)
-        
-        # Remove empty strings and duplicates
-        return list(set(filter(None, validated_concepts)))
+        """Validate and normalize medical terms using basic heuristics.
+
+        Current filters:
+          - Strip whitespace, drop empty
+          - Min length 3
+          - Exclude pure numeric tokens
+          - Deduplicate case-insensitively (keep first occurrence for ordering)
+        Future: integrate MCP ontology validation (e.g., UMLS, MeSH).
+        """
+        seen: set[str] = set()
+        cleaned: list[str] = []
+        for raw in concepts:
+            term = (raw or "").strip()
+            if not term:
+                continue
+            if len(term) < 3:
+                continue
+            if all(ch.isdigit() for ch in term):
+                continue
+            key = term.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned.append(term)
+        return cleaned
 
     async def search_medical_literature(
         self, search_query: str, search_context: dict[str, Any] | None = None,
@@ -164,8 +172,8 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         logger.info(f"search_medical_literature called with query: '{search_query}'")
         
         try:
-            # Get configurable timeout for entire search operation
-            total_timeout = search_config.search_parameters.timeouts.get('total_search', 30)
+            # Get configurable timeout for entire search operation (aligned with config key 'search_request')
+            total_timeout = search_config.search_parameters.timeouts.get('search_request', 60)
             
             # Use asyncio.wait_for for overall timeout protection
             import asyncio
@@ -188,7 +196,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 search_confidence=0.0,
                 disclaimers=[f"Search request timed out after {total_timeout} seconds. Please try a more specific query."],
                 source_links=[],
-                generated_at=datetime.now()
+                generated_at=datetime.now(timezone.utc)
             )
         except Exception as e:
             logger.error(f"Medical literature search failed: {e}")
@@ -203,7 +211,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 search_confidence=0.0,
                 disclaimers=[f"Search failed: {str(e)}"],
                 source_links=[],
-                generated_at=datetime.now()
+                generated_at=datetime.now(timezone.utc)
             )
     
     async def _perform_literature_search(
@@ -242,7 +250,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                     search_confidence=0.0,
                     disclaimers=["This appears to be a system prompt. Please provide a medical research question instead."],
                     source_links=[],
-                    generated_at=datetime.now()
+                    generated_at=datetime.now(timezone.utc)
                 )
         
         logger.info(f"Processing legitimate medical search query: '{search_query}'")
@@ -291,11 +299,11 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         all_sources.extend(drug_info)
         all_sources.extend(clinical_refs)
 
-        # Rank by medical evidence quality and relevance
-        ranked_sources = self._rank_sources_by_evidence(all_sources, search_query)
+        # Rank by medical evidence quality and relevance (centralized util)
+        ranked_sources = medical_search_utils.rank_sources_by_evidence_and_relevance(all_sources, search_query)
 
         # Extract related conditions from literature (not diagnose them)
-        related_conditions = self._extract_literature_conditions(ranked_sources)
+        related_conditions = await self._extract_literature_conditions(ranked_sources)
 
         # Calculate search confidence (how well we found relevant info)
         search_confidence = self._calculate_search_confidence(ranked_sources, search_query)
@@ -313,8 +321,8 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             ],
             search_confidence=search_confidence,
             disclaimers=self.disclaimers,
-            source_links=self._extract_source_links(ranked_sources),
-            generated_at=datetime.utcnow(),
+            source_links=extract_source_links(ranked_sources),
+            generated_at=datetime.now(timezone.utc),
         )
 
     async def _search_condition_information(
@@ -377,7 +385,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 search_query = query_template.format(concept=concept)
                 
                 # Add timeout protection for MCP calls
-                mcp_timeout = search_config.search_parameters.timeouts.get('mcp_request', 15)
+                mcp_timeout = search_config.search_parameters.timeouts.get('mcp_request', 45)
                 
                 import asyncio
                 try:
@@ -462,7 +470,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 search_query = query_template.format(symptom=symptom)
                 
                 # Add timeout protection for MCP calls
-                mcp_timeout = search_config.search_parameters.timeouts.get('mcp_request', 15)
+                mcp_timeout = search_config.search_parameters.timeouts.get('mcp_request', 45)
                 
                 # Search for literature about symptom presentations using PubMed
                 # Medical search agent focuses on medical literature sources
@@ -527,7 +535,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         for drug_concept in medical_concepts:
             try:
                 # Add timeout protection for MCP calls
-                mcp_timeout = search_config.search_parameters.timeouts.get('mcp_request', 15)
+                mcp_timeout = search_config.search_parameters.timeouts.get('mcp_request', 45)
                 
                 # Search FDA drug database - focused medical source
                 import asyncio
@@ -596,7 +604,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         for concept in medical_concepts:
             try:
                 # Add timeout protection for MCP calls
-                mcp_timeout = search_config.search_parameters.timeouts.get('mcp_request', 15)
+                mcp_timeout = search_config.search_parameters.timeouts.get('mcp_request', 45)
                 
                 # Search for clinical guidelines - focused medical source
                 import asyncio
@@ -642,7 +650,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         logger.info(f"Total clinical reference sources found: {len(sources)}")
         return sources
 
-    def _extract_literature_conditions(self, sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    async def _extract_literature_conditions(self, sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Extract conditions mentioned in literature using SciSpacy (not diagnose them)
         Returns: List of conditions found in literature with context
@@ -664,8 +672,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 
             try:
                 # Use SciSpacy to extract medical entities from literature text
-                import asyncio
-                extracted_conditions = asyncio.run(self._extract_conditions_from_text(text_content))
+                extracted_conditions = await self._extract_conditions_from_text(text_content)
                 
                 for condition in extracted_conditions:
                     conditions.append(
@@ -697,79 +704,37 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
     async def _extract_conditions_from_text(self, text: str) -> list[str]:
         """Extract medical conditions from text using SciSpacy"""
         try:
+            # Use configurable timeout for SciSpacy requests
+            scispacy_timeout = search_config.search_parameters.timeouts.get('scispacy_request', 15)
             # Call SciSpacy service for biomedical entity extraction
             import aiohttp
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     "http://172.20.0.6:8001/analyze",  # SciSpacy service
                     json={"text": text},
-                    timeout=aiohttp.ClientTimeout(total=10)
+                    timeout=aiohttp.ClientTimeout(total=scispacy_timeout),
                 ) as response:
                     if response.status == 200:
                         result = await response.json()
-                        
+
                         # Extract only DISEASE entities as conditions
-                        conditions = []
+                        conditions: list[str] = []
                         for entity in result.get("entities", []):
                             if entity.get("label") == "DISEASE":
                                 condition_text = entity.get("text", "").strip()
                                 if condition_text and len(condition_text) > 2:  # Filter very short terms
                                     conditions.append(condition_text)
-                        
+
                         return list(set(conditions))  # Remove duplicates
                     else:
                         logger.warning(f"SciSpacy service returned status {response.status}")
                         return []
-                        
+
         except Exception as e:
             logger.warning(f"SciSpacy condition extraction failed: {e}")
             return []
 
-    def _rank_sources_by_evidence(
-        self, sources: list[dict[str, Any]], query: str,
-    ) -> list[dict[str, Any]]:
-        """
-        Rank sources by evidence quality and relevance, like a medical librarian would
-        """
-        # Use configurable evidence weights
-        evidence_weights = search_config.evidence_weights
-
-        scored_sources = []
-        query_terms = set(query.lower().split())
-
-        for source in sources:
-            # Base evidence score using configuration
-            evidence_level = source.get("evidence_level", "unknown")
-            base_score = evidence_weights.get(evidence_level, 1)
-
-            # Relevance score
-            source_text = " ".join(
-                [
-                    source.get("title", ""),
-                    source.get("abstract", ""),
-                    source.get("summary", ""),
-                ],
-            ).lower()
-
-            relevance_count = sum(1 for term in query_terms if term in source_text)
-            relevance_score = float(relevance_count) / len(query_terms) if query_terms else 0.0
-
-            # Recency bonus (recent = more relevant)
-            recency_score = self._calculate_recency_score(source.get("publication_date", ""))
-
-            # Final score
-            final_score = base_score + (relevance_score * 3) + recency_score
-
-            scored_sources.append(
-                {
-                    **source,
-                    "search_score": final_score,
-                    "relevance_score": relevance_score,
-                    "evidence_weight": base_score,
-                },
-            )
-
-        return sorted(scored_sources, key=lambda x: x.get("search_score", 0), reverse=True)
+    # _rank_sources_by_evidence removed in favor of centralized utilities in core.medical.search_utils
 
     def _calculate_search_confidence(self, sources: list[dict[str, Any]], query: str) -> float:
         """
@@ -816,13 +781,14 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             logger.info("Extracting medical entities via SciSpacy...")
             
             # Get configurable timeout
-            scispacy_timeout = search_config.search_parameters.timeouts.get('scispacy_request', 10)
+            scispacy_timeout = search_config.search_parameters.timeouts.get('scispacy_request', 15)
             
             # Call SciSpacy service for biomedical entity extraction
             import aiohttp
             async with aiohttp.ClientSession() as session:
+                # Request enrichment so we can prioritize certain biomedical categories if metadata available
                 async with session.post(
-                    "http://172.20.0.6:8001/analyze",  # SciSpacy service
+                    "http://172.20.0.6:8001/analyze?enrich=true",  # SciSpacy service
                     json={"text": search_query},
                     timeout=aiohttp.ClientTimeout(total=scispacy_timeout)
                 ) as response:
@@ -840,12 +806,24 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                             "MULTI-TISSUE_STRUCTURE", "ORGAN", "ORGANISM", "ORGANISM_SUBDIVISION",
                             "ORGANISM_SUBSTANCE", "PATHOLOGICAL_FORMATION", "SIMPLE_CHEMICAL", "TISSUE"
                         }
-                        medical_entities = []
+                        medical_entities: list[str] = []
+                        enriched_mode = result.get("enriched")
                         for entity in result.get("entities", []):
-                            if entity.get("label") in medical_entity_types:
-                                medical_entities.append(entity.get("text", ""))
+                            label = entity.get("label") or entity.get("type")
+                            text_val = entity.get("text", "")
+                            if not text_val:
+                                continue
+                            if label in medical_entity_types:
+                                # If enriched, optionally weight high-priority categories first
+                                if enriched_mode and entity.get("priority") == "high":
+                                    # Insert at front to ensure ordering preference
+                                    medical_entities.insert(0, text_val)
+                                else:
+                                    medical_entities.append(text_val)
                         
-                        logger.info(f"SciSpacy extracted {len(medical_entities)} medical entities: {medical_entities}")
+                        logger.info(
+                            f"SciSpacy extracted {len(medical_entities)} medical entities (enriched={enriched_mode}): {medical_entities}"
+                        )
                         
                         # Use LLM to understand query intent and craft search terms
                         llm_search_terms = await self._llm_craft_search_terms(search_query, medical_entities)
@@ -887,15 +865,39 @@ Return only the search terms, one per line, no explanations:"""
             )
             
             # Extract search terms from LLM response
-            llm_terms = []
+            llm_terms: list[str] = []
             if response and "message" in response and "content" in response["message"]:
                 content = response["message"]["content"].strip()
-                # Split by lines and clean up
-                terms = [term.strip() for term in content.split('\n') if term.strip()]
-                # Filter out explanatory text, keep only actual search terms
-                for term in terms:
-                    if len(term) < 50 and not term.startswith(('The ', 'Here ', 'Consider ', '- ')):
-                        llm_terms.append(term)
+                # Split by lines and apply stricter heuristics
+                lines = [ln.strip() for ln in content.split('\n') if ln.strip()]
+                bullet_re = re.compile(r"^\s*(?:\d+\.|[-*])\s*")
+                daterange_re = re.compile(r"\b(?:19|20)\d{2}\s*[-–]\s*(?:19|20)\d{2}\b|last\s+\d+\s+years", re.I)
+                bracket_filter_re = re.compile(r"\[(?:title|ti|abstract|ab|mesh|mh):[^\]]+\]", re.I)
+                noise_prefixes = ("The ", "Here ", "Consider ", "- ")
+                candidates: list[str] = []
+                for raw in lines:
+                    term = bullet_re.sub("", raw)
+                    term = bracket_filter_re.sub("", term)
+                    term = term.strip('\"\' ”“').strip()
+                    if not term or len(term) > 80:
+                        continue
+                    if term.startswith(noise_prefixes):
+                        continue
+                    if daterange_re.search(term):
+                        continue
+                    if not re.search(r"[A-Za-z]", term):
+                        continue
+                    if ":" in term and not re.search(r"\b(therapy|treatment|syndrome|disease|trial|review|guideline)\b", term, re.I):
+                        continue
+                    candidates.append(term)
+                # Deduplicate while preserving order
+                seen: set[str] = set()
+                for t in candidates:
+                    tl = t.lower()
+                    if tl in seen:
+                        continue
+                    seen.add(tl)
+                    llm_terms.append(t)
             
             logger.info(f"LLM crafted search terms: {llm_terms}")
             return llm_terms[:5]  # Limit to 5 terms
@@ -940,37 +942,6 @@ Return only the search terms, one per line, no explanations:"""
             return "review"
         return "unknown"
 
-    def _calculate_recency_score(self, publication_date: str) -> float:
-        """Calculate recency bonus for more recent publications"""
-        if not publication_date:
-            return 0.0
-
-        try:
-            # Extract year
-            year = int(publication_date[:4])
-            current_year = datetime.utcnow().year
-            years_old = current_year - year
-
-            # Recent publications get higher scores
-            if years_old <= 2:
-                return 1.0
-            if years_old <= 5:
-                return 0.5
-            if years_old <= 10:
-                return 0.2
-            return 0.0
-
-        except (ValueError, TypeError):
-            return 0.0
-
-    def _extract_source_links(self, sources: list[dict[str, Any]]) -> list[str]:
-        """Extract all source URLs for easy verification"""
-        links = []
-        for source in sources:
-            if "url" in source and source["url"]:
-                links.append(source["url"])
-        return list(set(links))  # Remove duplicates
-
     def _generate_search_id(self, query: str) -> str:
         """Generate unique search ID"""
-        return hashlib.md5(f"{query}{datetime.utcnow()}".encode()).hexdigest()[:12]
+        return hashlib.md5(f"{query}{datetime.now(timezone.utc)}".encode()).hexdigest()[:12]

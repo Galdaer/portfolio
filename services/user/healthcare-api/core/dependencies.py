@@ -171,6 +171,14 @@ class HealthcareServices:
         """Clean up all services"""
         logger.info("Closing healthcare services...")
 
+        # Gracefully disconnect MCP stdio client if present
+        try:
+            if self._mcp_client and hasattr(self._mcp_client, "disconnect"):
+                await self._mcp_client.disconnect()
+                logger.info("MCP client disconnected")
+        except Exception as e:
+            logger.warning(f"Error disconnecting MCP client: {e}")
+
         if self._db_pool:
             await self._db_pool.close()
 
@@ -178,6 +186,10 @@ class HealthcareServices:
             await self._redis_client.close()
 
         logger.info("Healthcare services closed")
+
+    # Back-compat: some call sites expect cleanup(); alias to close()
+    async def cleanup(self) -> None:
+        await self.close()
 
 
 # Global service instance

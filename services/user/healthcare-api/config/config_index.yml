@@ -1,0 +1,9 @@
+# Healthcare Config Index
+# Lists operational config YAML files for runtime loading. Root-level developer YAML is excluded.
+version: 1
+files:
+  - rate_limits.yml
+  - agent_settings.yml
+  - healthcare_settings.yml
+  - medical_search_config.yaml
+  - models.yml

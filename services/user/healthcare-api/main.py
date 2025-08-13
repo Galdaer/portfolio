@@ -11,6 +11,7 @@ All medical decisions should be made by qualified healthcare professionals.
 """
 
 import asyncio
+import os
 import importlib
 import inspect
 from contextlib import asynccontextmanager
@@ -21,6 +22,7 @@ from typing import Dict, Any, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn
+from fastapi.responses import PlainTextResponse
 
 from config.app import config
 from core.infrastructure.healthcare_logger import (
@@ -145,6 +147,40 @@ app = FastAPI(
 )
 
 
+@app.head("/warm")
+@app.get("/warm")
+async def warm() -> dict[str, Any]:
+    """Warm endpoint to preload critical resources.
+
+    Idempotent: safe to call multiple times. HEAD returns headers only.
+    Preloads: agent initialization (handled in lifespan), optionally triggers
+    lightweight LLM no-op prompt (skipped if unavailable) so first real
+    request is lower latency.
+    """
+    # Optionally perform a tiny no-op generation to warm local model
+    warmed_llm = False
+    try:
+        if llm_client and hasattr(llm_client, "generate"):
+            # Minimal, fast prompt; ignore output
+            await asyncio.wait_for(
+                llm_client.generate(
+                    model=ORCHESTRATOR_MODEL,
+                    prompt="warmup",  # tiny context
+                    stream=False,
+                ),
+                timeout=3.0,
+            )
+            warmed_llm = True
+    except Exception:
+        warmed_llm = False
+    return {
+        "status": "warm",
+        "agents": list(discovered_agents.keys()) if discovered_agents else [],
+        "llm_warmed": warmed_llm,
+        "policy_version": getattr(__import__("core.infrastructure.rate_limiting", fromlist=["RATE_LIMITS_POLICY_VERSION"]), "RATE_LIMITS_POLICY_VERSION", "unknown"),
+    }
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
@@ -153,6 +189,92 @@ async def health_check():
         "service": "healthcare-api",
         "agents": list(discovered_agents.keys()) if discovered_agents else []
     }
+
+
+@app.get("/admin/rate-limit/stats")
+async def rate_limit_stats():
+    """Return current in-memory rate limiting metrics snapshot.
+
+    NOTE: In-memory only; for multi-instance deployments aggregate via external metrics.
+    """
+    try:
+        from core.infrastructure.rate_limiting import get_healthcare_rate_limiter
+        limiter = get_healthcare_rate_limiter()
+        return limiter.snapshot_metrics()
+    except Exception as e:  # pragma: no cover
+        logger.error(f"Failed to render rate limit stats: {e}")
+        raise HTTPException(status_code=500, detail="metrics_unavailable")
+
+
+@app.get("/admin/rate-limit/metrics/raw")
+async def rate_limit_metrics_raw():
+    """Return raw counter map (internal diagnostic)."""
+    try:
+        from core.infrastructure.rate_limiting import RATE_LIMIT_METRICS
+        return {"metrics": RATE_LIMIT_METRICS}
+    except Exception as e:  # pragma: no cover
+        logger.error(f"Failed to fetch raw metrics: {e}")
+        raise HTTPException(status_code=500, detail="raw_metrics_unavailable")
+
+
+@app.get("/admin/health/full")
+async def full_health():
+    try:
+        from core.infrastructure.health_monitoring import healthcare_monitor
+        return await healthcare_monitor.comprehensive_health_check()
+    except Exception as e:  # pragma: no cover
+        logger.error(f"Full health check failed: {e}")
+        raise HTTPException(status_code=500, detail="health_check_failed")
+
+
+@app.get("/admin/health/quick")
+async def quick_health():
+    try:
+        from core.infrastructure.health_monitoring import healthcare_monitor
+        return await healthcare_monitor.quick_health_check()
+    except Exception as e:  # pragma: no cover
+        logger.error(f"Quick health check failed: {e}")
+        raise HTTPException(status_code=500, detail="quick_health_failed")
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def prometheus_metrics() -> str:
+    """Prometheus-style metrics exposition.
+
+    Text format (no dependencies). Safe to scrape. Lightweight aggregation only.
+    """
+    lines: list[str] = []
+    # Rate limiting metrics via helper
+    try:
+        from core.infrastructure.rate_limiting import get_healthcare_rate_limiter
+        limiter = get_healthcare_rate_limiter()
+        lines.extend(limiter.prometheus_lines())
+    except Exception as e:  # pragma: no cover
+        logger.debug(f"Rate limit metrics build failed: {e}")
+    # Health quick status
+    try:
+        from core.infrastructure.health_monitoring import healthcare_monitor
+        # Refresh cached snapshot opportunistically
+        await healthcare_monitor.quick_health_check()
+        lines.extend(healthcare_monitor.prometheus_lines())
+    except Exception as e:  # pragma: no cover
+        logger.debug(f"Health quick metrics failed: {e}")
+    # Optional instance label rewrite
+    inst = os.getenv("METRICS_INSTANCE") or os.getenv("HOSTNAME")
+    if inst:
+        rewritten: list[str] = []
+        for ln in lines:
+            if ln.startswith("healthcare_") and "{" in ln:
+                name, rest = ln.split("{", 1)
+                if rest.startswith("}"):
+                    # no existing labels
+                    rewritten.append(f"{name}{{instance=\"{inst}\"}}{rest[1:]}")
+                else:
+                    rewritten.append(f"{name}{{instance=\"{inst}\",{rest}")
+            else:
+                rewritten.append(ln)
+        lines = rewritten
+    return "\n".join(lines) + "\n"
 
 
 async def select_agent_with_llm(message: str, available_agents: dict, llm_client: Any) -> Any:
