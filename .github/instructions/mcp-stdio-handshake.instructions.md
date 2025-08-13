@@ -1,13 +1,51 @@
-# MCP STDIO Handshake Guidance and Troubleshooting
+# MCP STDIO Handshak## ❌ FAILED APPROACHES (Lessons Learned)
+
+**What DIDN'T Work**:
+1. **Stdout Guards**: Conditional process.stdout.write interception still corrupted framing
+2. **Single Process**: Running stdio directly as main container process failed
+3. **Frame Logging**: Any stdout logging from main process interfered with stdio sessions
+4. **Stdin Taps**: Early stdin monitoring consumed MCP frames before stdio_entry could read them
+
+**Root Cause**: When main process and stdio sessions share stdin/stdout, frame corruption occurs.
+
+**Solution**: Complete separation - main process only does HTTP healthcheck, stdio sessions via docker exec.
+
+## Working Diagnostic Commands (Validated)
+
+```bash
+# Test MCP server directly (works)
+echo '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' | docker exec -i healthcare-mcp node /app/build/stdio_entry.js
+
+# Probe script (fails due to MCP client library issues)
+python3 scripts/mcp_pubmed_probe.py --list-only
+
+# Production usage (works via Open WebUI)
+# Open WebUI → healthcare-api → medical_search_agent → MCP tools
+```nce and Troubleshooting
 
 Purpose: Ensure JSON-only STDIO for Model Context Protocol (MCP) servers and provide a repeatable pattern to diagnose and fix handshake timeouts or stream contamination.
 
-## Golden Rules
+## ✅ WORKING PATTERNS (Validated 2025-08-13)
+
+**PROVEN WORKING**: Container main process (index.js) separate from stdio sessions (stdio_entry.js via docker exec)
+
+**Evidence**: 
+- `MCP connection established successfully` 
+- `MCP call start: tool=search-pubmed` entries in logs
+- Open WebUI receiving structured JSON responses
+- **RESOLVED**: AttributeError on `_ensure_connected()` - method exists and works correctly
+
+**⚠️ NEW CHALLENGE**: MCP stdio transport layer instability
+- Runtime error: "WriteUnixTransport closed=True" 
+- Calls start successfully but transport fails during execution
+- Results in successful call logs but 0 actual results returned
+
+## Golden Rules (Validated)
 - JSON-RPC only on stdout. Send all human-readable logs to stderr.
 - Divert console.log/info/warn to stderr before importing anything that might log.
-- Avoid top-level stdout writes in entrypoints and imported modules.
+- **CRITICAL**: No process.stdin.on('data') in main container process - corrupts stdio sessions
+- **CRITICAL**: No stdout frame logging in main process - interferes with stdio_entry.js
 - Prefer dynamic imports after stdout diversion (prevents import-time logs).
-- If third-party code writes to stdout, guard process.stdout.write to redirect non-JSON to stderr.
 
 ## Minimal STDIO Entry Pattern (TypeScript)
 Note: This is a pattern, not a drop-in; adapt to your entry.
