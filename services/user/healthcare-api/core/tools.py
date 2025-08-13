@@ -25,28 +25,28 @@ class ToolRegistry:
         """Get available tools - queries MCP client for real tools"""
         if not self._initialized:
             await self.initialize()
-            
+
         # Get real tools from MCP client - no fallbacks to expose real errors
         from core.dependencies import get_mcp_client
         mcp_client = await get_mcp_client()
-        
+
         if not mcp_client:
             raise RuntimeError("MCP client not available - tool registry requires MCP connection")
-            
+
         mcp_tools = await mcp_client.get_available_tools()
-        
+
         # Convert MCP tools to our format
         available_tools = []
         for tool in mcp_tools:
             tool_info = {
-                "id": getattr(tool, 'name', str(tool)),
-                "name": getattr(tool, 'name', str(tool)),
+                "id": getattr(tool, "name", str(tool)),
+                "name": getattr(tool, "name", str(tool)),
                 "type": "healthcare_tool",
                 "status": "available",
-                "description": getattr(tool, 'description', ''),
+                "description": getattr(tool, "description", ""),
             }
             available_tools.append(tool_info)
-            
+
         logger.info(f"Retrieved {len(available_tools)} tools from MCP client")
         return available_tools
 

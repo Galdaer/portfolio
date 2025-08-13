@@ -9,10 +9,8 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from dotenv import load_dotenv
-from core.config.models import MODEL_CONFIG
-
 import asyncpg
+from dotenv import load_dotenv
 from fastapi import Depends
 
 # Load environment variables from .env file
@@ -200,7 +198,7 @@ healthcare_services = HealthcareServices()
 async def get_mcp_client() -> Any:
     """Get MCP client for healthcare tools - connects on first use"""
     mcp_client = healthcare_services.mcp_client
-    
+
     # Connect on first use if not already connected
     if mcp_client and not mcp_client.session:
         try:
@@ -210,7 +208,7 @@ async def get_mcp_client() -> Any:
         except Exception as e:
             logger.error(f"Failed to connect MCP client on first use: {e}")
             # Return the client anyway - it will handle connection errors gracefully
-    
+
     return mcp_client
 
 

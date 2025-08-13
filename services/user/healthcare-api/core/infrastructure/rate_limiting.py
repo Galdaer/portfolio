@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 try:
     import yaml  # type: ignore
@@ -272,8 +272,8 @@ def _load_external_rate_limits() -> dict[HealthcareRole, dict[RateLimitType, Rat
 
     try:
         with path.open("r", encoding="utf-8") as f:
-            data: Dict[str, Any] = yaml.safe_load(f) or {}
-        roles: Dict[str, Any] = data.get("roles", {})
+            data: dict[str, Any] = yaml.safe_load(f) or {}
+        roles: dict[str, Any] = data.get("roles", {})
         result: dict[HealthcareRole, dict[RateLimitType, RateLimitConfig]] = {}
         for role_name, limits in roles.items():
             try:
@@ -747,7 +747,7 @@ return {allowed, tokens, minute_count, hour_count, retry_after}
             lines.append("# TYPE healthcare_rate_limit_disabled gauge")
             lines.append("healthcare_rate_limit_disabled 1")
             lines.append(
-                f"healthcare_rate_limit_policy_info{{policy_version=\"{RATE_LIMITS_POLICY_VERSION}\",source=\"{RATE_LIMITS_SOURCE}\"}} 1"
+                f'healthcare_rate_limit_policy_info{{policy_version="{RATE_LIMITS_POLICY_VERSION}",source="{RATE_LIMITS_SOURCE}"}} 1',
             )
             return lines
         total_allowed = RATE_LIMIT_METRICS.get("allowed", 0)
@@ -755,17 +755,17 @@ return {allowed, tokens, minute_count, hour_count, retry_after}
         emergency = RATE_LIMIT_METRICS.get("emergency_bypass", 0)
         lines.append("# HELP healthcare_rate_limit_total Requests allowed/denied counters")
         lines.append("# TYPE healthcare_rate_limit_total counter")
-        lines.append(f"healthcare_rate_limit_total{{outcome=\"allowed\"}} {total_allowed}")
-        lines.append(f"healthcare_rate_limit_total{{outcome=\"denied\"}} {total_denied}")
-        lines.append(f"healthcare_rate_limit_total{{outcome=\"emergency_bypass\"}} {emergency}")
+        lines.append(f'healthcare_rate_limit_total{{outcome="allowed"}} {total_allowed}')
+        lines.append(f'healthcare_rate_limit_total{{outcome="denied"}} {total_denied}')
+        lines.append(f'healthcare_rate_limit_total{{outcome="emergency_bypass"}} {emergency}')
         for key, val in RATE_LIMIT_METRICS.items():
             if ":" in key and key.count(":") == 2:
                 role, rtype, outcome = key.split(":", 2)
                 lines.append(
-                    f"healthcare_rate_limit_breakdown_total{{role=\"{role}\",type=\"{rtype}\",outcome=\"{outcome}\"}} {val}"
+                    f'healthcare_rate_limit_breakdown_total{{role="{role}",type="{rtype}",outcome="{outcome}"}} {val}',
                 )
         lines.append(
-            f"healthcare_rate_limit_policy_info{{policy_version=\"{RATE_LIMITS_POLICY_VERSION}\",source=\"{RATE_LIMITS_SOURCE}\"}} 1"
+            f'healthcare_rate_limit_policy_info{{policy_version="{RATE_LIMITS_POLICY_VERSION}",source="{RATE_LIMITS_SOURCE}"}} 1',
         )
         # Active emergency bypass gauge
         active_bypass = sum(1 for _, exp in self.emergency_bypass_active.items() if exp > datetime.now())

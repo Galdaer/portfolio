@@ -2,8 +2,6 @@
 
 Pytest configuration and test utilities for healthcare AI system testing.
 """
-import asyncio
-import logging
 import os
 import sys
 
@@ -13,7 +11,6 @@ if SERVICE_CORE_PATH not in sys.path:
     sys.path.insert(0, SERVICE_CORE_PATH)
 
 # Imports deduplicated above
-from collections.abc import Generator
 from typing import Any
 
 import pytest

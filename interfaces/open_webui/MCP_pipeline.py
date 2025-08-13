@@ -6,13 +6,10 @@ This pipeline enables Open WebUI to communicate with MCP servers using the MCP p
 Place this file in your Open WebUI Pipelines directory.
 """
 
-import asyncio
 import json
 import logging
-import subprocess
-import time
-from typing import List, Union, Generator, Iterator, Dict, Any, Optional
-from contextlib import asynccontextmanager
+from collections.abc import Generator, Iterator
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -75,7 +72,7 @@ class Pipeline:
     async def load_mcp_config(self):
         """Load MCP server configurations"""
         try:
-            with open(self.valves.MCP_CONFIG_PATH, "r") as f:
+            with open(self.valves.MCP_CONFIG_PATH) as f:
                 config = json.load(f)
             self.servers = config.get("mcpServers", {})
             self.logger.info(f"Loaded configuration for {len(self.servers)} MCP servers")
@@ -114,7 +111,7 @@ class Pipeline:
         # Initialize the session
         await session.initialize()
 
-    def pipelines(self) -> List[dict]:
+    def pipelines(self) -> list[dict]:
         """Return available pipeline models"""
         return [
             {
@@ -130,8 +127,8 @@ class Pipeline:
         ]
 
     async def pipe(
-        self, user_message: str, model_id: str, messages: List[dict], body: dict
-    ) -> Union[str, Generator, Iterator]:
+        self, user_message: str, model_id: str, messages: list[dict], body: dict,
+    ) -> str | Generator | Iterator:
         """Main pipeline processing function"""
         self.logger.info(f"Processing request for model: {model_id}")
 
@@ -152,8 +149,7 @@ class Pipeline:
             # Determine if this requires tool usage
             if await self.should_use_tools(user_message):
                 return await self.process_with_tools(session, user_message, messages)
-            else:
-                return await self.process_simple_query(session, user_message)
+            return await self.process_simple_query(session, user_message)
 
         except Exception as e:
             self.logger.error(f"Error processing request: {e}")
@@ -163,12 +159,11 @@ class Pipeline:
         """Select appropriate MCP server based on model ID"""
         if "healthcare" in model_id.lower():
             return "healthcare_server"
-        elif self.valves.DEFAULT_MCP_SERVER in self.servers:
+        if self.valves.DEFAULT_MCP_SERVER in self.servers:
             return self.valves.DEFAULT_MCP_SERVER
-        elif self.servers:
+        if self.servers:
             return list(self.servers.keys())[0]
-        else:
-            return "healthcare_server"  # fallback
+        return "healthcare_server"  # fallback
 
     async def should_use_tools(self, message: str) -> bool:
         """Determine if the message requires tool usage"""
@@ -194,7 +189,7 @@ class Pipeline:
         return any(keyword in message_lower for keyword in tool_keywords)
 
     async def process_with_tools(
-        self, session: ClientSession, user_message: str, messages: List[dict]
+        self, session: ClientSession, user_message: str, messages: list[dict],
     ) -> str:
         """Process request that requires MCP tools"""
         try:
@@ -229,16 +224,16 @@ class Pipeline:
         """Process simple queries without tools"""
         return f"Healthcare MCP server received: {user_message}\n\nThis appears to be a general query. For healthcare-specific searches, try queries like:\n- 'Search PubMed for diabetes research'\n- 'Find clinical trials for cancer treatment'\n- 'Get FDA drug information for aspirin'"
 
-    def select_tool(self, message: str, available_tools: dict) -> Optional[str]:
+    def select_tool(self, message: str, available_tools: dict) -> str | None:
         """Select the most appropriate tool for the message"""
         message_lower = message.lower()
 
         # Healthcare-specific tool selection
         if any(word in message_lower for word in ["pubmed", "research", "study", "literature"]):
             return "search-pubmed" if "search-pubmed" in available_tools else None
-        elif any(word in message_lower for word in ["clinical trial", "trial", "study"]):
+        if any(word in message_lower for word in ["clinical trial", "trial", "study"]):
             return "search-trials" if "search-trials" in available_tools else None
-        elif any(word in message_lower for word in ["drug", "medication", "fda"]):
+        if any(word in message_lower for word in ["drug", "medication", "fda"]):
             return "get-drug-info" if "get-drug-info" in available_tools else None
 
         # Fallback to first available tool
@@ -250,10 +245,10 @@ class Pipeline:
         if tool_name == "search-pubmed":
             # Extract search terms for PubMed
             return {"query": message, "max_results": 10}
-        elif tool_name == "search-trials":
+        if tool_name == "search-trials":
             # Extract search terms for clinical trials
             return {"condition": message, "status": "recruiting"}
-        elif tool_name == "get-drug-info":
+        if tool_name == "get-drug-info":
             # Extract drug name
             words = message.split()
             drug_words = [
@@ -261,8 +256,7 @@ class Pipeline:
             ]
             drug_name = " ".join(drug_words) if drug_words else message
             return {"drug_name": drug_name}
-        else:
-            return {"query": message}
+        return {"query": message}
 
     def format_tool_response(self, tool_result: Any, tool_name: str) -> str:
         """Format the tool response for display"""
@@ -276,12 +270,10 @@ class Pipeline:
 
                 if hasattr(content, "text"):
                     return content.text
-                elif isinstance(content, str):
+                if isinstance(content, str):
                     return content
-                else:
-                    return str(content)
-            else:
-                return f"Tool {tool_name} completed successfully but returned no content"
+                return str(content)
+            return f"Tool {tool_name} completed successfully but returned no content"
 
         except Exception as e:
             self.logger.error(f"Error formatting response: {e}")

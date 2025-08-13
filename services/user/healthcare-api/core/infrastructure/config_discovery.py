@@ -17,9 +17,8 @@ The index file contains relative paths under its own directory.
 """
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Iterable, List, Optional
 import logging
+from pathlib import Path
 
 try:
     import yaml  # type: ignore
@@ -48,7 +47,7 @@ def load_config_index(index_path: str | None = None) -> list[str]:
         return []
 
 
-def find_config_file(filename: str, *, index_path: str | None = None, discovery_root: str = "config") -> Optional[str]:
+def find_config_file(filename: str, *, index_path: str | None = None, discovery_root: str = "config") -> str | None:
     # 1. Index lookup
     for p in load_config_index(index_path):
         if Path(p).name == filename and Path(p).exists():

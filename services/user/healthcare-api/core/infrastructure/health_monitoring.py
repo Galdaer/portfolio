@@ -6,10 +6,8 @@ Provides comprehensive health checks for all healthcare AI components
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
-
-from config.app import config
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +71,7 @@ class HealthcareSystemMonitor:
             # Process results
             health_status: dict[str, Any] = {
                 "overall_status": "healthy",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "check_duration_ms": round((time.time() - start_time) * 1000, 2),
                 "components": {
                     "database": results[0]
@@ -138,7 +136,7 @@ class HealthcareSystemMonitor:
             logger.exception(f"Health check failed: {e}")
             return {
                 "overall_status": "critical",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "error": str(e),
                 "check_duration_ms": round((time.time() - start_time) * 1000, 2),
             }
@@ -269,7 +267,7 @@ class HealthcareSystemMonitor:
 
             # For stdio MCP, we check MCP client health instead of direct LLM HTTP calls
             mcp_client = healthcare_services.mcp_client
-            
+
             if not mcp_client:
                 return {"status": "degraded", "message": "MCP client not initialized"}
 
@@ -280,20 +278,18 @@ class HealthcareSystemMonitor:
                     return {
                         "status": "healthy",
                         "message": "MCP stdio protocol operational",
-                        "protocol": "stdio"
+                        "protocol": "stdio",
                     }
-                else:
-                    return {
-                        "status": "degraded",
-                        "message": "MCP stdio connection not established",
-                        "protocol": "stdio"
-                    }
-            else:
                 return {
-                    "status": "healthy",
-                    "message": "MCP client available (stdio protocol)",
-                    "protocol": "stdio"
+                    "status": "degraded",
+                    "message": "MCP stdio connection not established",
+                    "protocol": "stdio",
                 }
+            return {
+                "status": "healthy",
+                "message": "MCP client available (stdio protocol)",
+                "protocol": "stdio",
+            }
 
         except Exception as e:
             logger.warning(f"MCP health check failed: {e}")
@@ -410,7 +406,7 @@ class HealthcareSystemMonitor:
         try:
             quick_tasks = [self._check_database_health(), self._check_redis_health()]
             results = await asyncio.wait_for(
-                asyncio.gather(*quick_tasks, return_exceptions=True), timeout=self.health_check_timeout
+                asyncio.gather(*quick_tasks, return_exceptions=True), timeout=self.health_check_timeout,
             )
             db_status = results[0] if not isinstance(results[0], Exception) else {"status": "error"}
             redis_status = results[1] if not isinstance(results[1], Exception) else {"status": "error"}
@@ -427,7 +423,7 @@ class HealthcareSystemMonitor:
                 overall = "degraded"
             return {
                 "overall_status": overall,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "quick_check": True,
                 "database": db_status.get("status") if isinstance(db_status, dict) else "error",
                 "cache": redis_status.get("status") if isinstance(redis_status, dict) else "error",
@@ -435,14 +431,14 @@ class HealthcareSystemMonitor:
         except TimeoutError:
             return {
                 "overall_status": "critical",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "error": "Health check timeout",
                 "quick_check": True,
             }
         except Exception as e:
             return {
                 "overall_status": "critical",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "error": str(e),
                 "quick_check": True,
             }
@@ -460,7 +456,7 @@ class HealthcareSystemMonitor:
         lines.append("# HELP healthcare_overall_status Overall health status (1=healthy,0 otherwise)")
         lines.append("# TYPE healthcare_overall_status gauge")
         val = 1 if overall == "healthy" else 0
-        lines.append(f"healthcare_overall_status{{status=\"{overall}\"}} {val}")
+        lines.append(f'healthcare_overall_status{{status="{overall}"}} {val}')
         components = snap.get("components", {})
         if isinstance(components, dict):
             lines.append("# HELP healthcare_component_status Component status (1=healthy,0 otherwise)")
@@ -469,24 +465,24 @@ class HealthcareSystemMonitor:
                 if isinstance(data, dict):
                     status = data.get("status", "unknown")
                     lines.append(
-                        f"healthcare_component_status{{component=\"{name}\",status=\"{status}\"}} {1 if status == 'healthy' else 0}"
+                        f'healthcare_component_status{{component="{name}",status="{status}"}} {1 if status == 'healthy' else 0}',
                     )
         # Histogram exposition (Prometheus style) for comprehensive health check latency
         if self._duration_count > 0:
             lines.append("# HELP healthcare_health_check_duration_seconds Comprehensive health check duration")
             lines.append("# TYPE healthcare_health_check_duration_seconds histogram")
             cumulative = 0
-            for upper, count in zip(self._duration_buckets, self._duration_bucket_counts):
+            for upper, count in zip(self._duration_buckets, self._duration_bucket_counts, strict=False):
                 cumulative += count
-                le_label = "+Inf" if upper == float("inf") else ("{:.2f}".format(upper).rstrip("0").rstrip("."))
+                le_label = "+Inf" if upper == float("inf") else (f"{upper:.2f}".rstrip("0").rstrip("."))
                 lines.append(
-                    f"healthcare_health_check_duration_seconds_bucket{{le=\"{le_label}\"}} {cumulative}"
+                    f'healthcare_health_check_duration_seconds_bucket{{le="{le_label}"}} {cumulative}',
                 )
             lines.append(
-                f"healthcare_health_check_duration_seconds_sum {self._duration_sum}"
+                f"healthcare_health_check_duration_seconds_sum {self._duration_sum}",
             )
             lines.append(
-                f"healthcare_health_check_duration_seconds_count {self._duration_count}"
+                f"healthcare_health_check_duration_seconds_count {self._duration_count}",
             )
         return lines
 

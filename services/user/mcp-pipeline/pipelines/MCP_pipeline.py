@@ -17,17 +17,16 @@ professionals.
 """
 
 from __future__ import annotations
+
 import asyncio
-import json
 import logging
 import os
-from typing import Any, List, Dict
-from fastapi import HTTPException
-from pydantic import BaseModel, Field
-import aiohttp
 
 # Direct subprocess communication for healthcare-api stdio bridge
-import subprocess
+from typing import Any
+
+import aiohttp
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger("mcp_pipeline")
 if not logger.handlers:  # Basic config only if root not configured
@@ -71,58 +70,57 @@ class ForwardResult(BaseModel):
 # ---------------------------------------------------------------------------
 class HealthcareAPIClient:
     """HTTP client for healthcare-api container communication"""
-    
+
     def __init__(self):
         # Simple HTTP client for container-to-container communication
         self.base_url = "http://healthcare-api:8000"
         self.session = None
-        
+
     async def connect(self):
         """Connect to the healthcare-api via HTTP"""
         try:
             logger.info("Connecting to healthcare-api via HTTP")
-            
+
             # Simple HTTP session for container-to-container communication
             self.session = aiohttp.ClientSession()
-            
+
             logger.info("Connected to healthcare-api via HTTP")
-            
+
         except Exception as e:
             logger.error(f"Failed to connect to healthcare-api: {e}")
             raise
-    
+
     async def ensure_connection(self):
         """Ensure we have a valid HTTP session"""
         if self.session is None or self.session.closed:
             logger.info("Session not available, reconnecting...")
             await self.connect()
-    
+
     async def send_request(self, endpoint: str, data: dict[str, Any] = None) -> dict[str, Any]:
         """Send HTTP request to healthcare-api"""
         await self.ensure_connection()
-        
+
         try:
             # Send HTTP POST request to healthcare-api
             async with self.session.post(f"{self.base_url}/{endpoint}", json=data or {}) as response:
                 if response.status == 200:
                     result = await response.json()
                     return {"status": "success", "result": result}
-                else:
-                    error_text = await response.text()
-                    return {"status": "error", "error": f"HTTP {response.status}: {error_text}"}
-                
+                error_text = await response.text()
+                return {"status": "error", "error": f"HTTP {response.status}: {error_text}"}
+
         except Exception as e:
             logger.error(f"Failed to send HTTP request to healthcare-api: {e}")
             return {"status": "error", "error": str(e)}
-    
+
     async def process_chat(self, message: str, user_id: str = None, session_id: str = None) -> dict[str, Any]:
         """Process chat message via healthcare-api HTTP endpoint"""
         return await self.send_request("process", {
             "message": message,
             "user_id": user_id or "anonymous",
-            "session_id": session_id or "default"
+            "session_id": session_id or "default",
         })
-    
+
     async def disconnect(self):
         """Disconnect from healthcare-api"""
         try:
@@ -165,7 +163,7 @@ class Pipeline:
                 message_text = " ".join(str(msg) for msg in user_message)
             else:
                 message_text = str(user_message)
-            
+
             # Create standardized message format
             if not messages:
                 final_message = message_text
@@ -187,14 +185,14 @@ class Pipeline:
             # Process via direct stdio
             result = await asyncio.wait_for(
                 self.api_client.process_chat(final_message, user_id, session_id),
-                timeout=self.timeout
+                timeout=self.timeout,
             )
 
             if result.get("status") == "error":
                 error_msg = result.get("error", "Unknown error")
                 logger.error(f"Pipeline error: {error_msg}")
                 return f"I'm having trouble processing your request. Error: {error_msg}"
-            
+
             # Extract the actual response from the result
             response_data = result.get("result", {})
             if isinstance(response_data, dict):
@@ -209,8 +207,8 @@ class Pipeline:
                 response_text = str(response_data)
 
             return response_text
-                        
-        except asyncio.TimeoutError:
+
+        except TimeoutError:
             logger.error("Pipeline timeout")
             return "I'm having trouble processing your request right now. The request timed out."
         except Exception as e:

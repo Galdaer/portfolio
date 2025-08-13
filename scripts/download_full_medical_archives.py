@@ -27,16 +27,16 @@ class FullMedicalDownloader:
     def __init__(self, config: DownloadConfig):
         self.config = config
         self.logger = self._setup_logging()
-        
+
         # Configure session with appropriate headers
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
         })
 
     def _setup_logging(self) -> logging.Logger:
@@ -151,7 +151,7 @@ class FullMedicalDownloader:
             # Simplified API parameters that work correctly (validated 2025-08-08)
             params = {
                 "pageSize": 1000,
-                "format": "json"
+                "format": "json",
                 # NOTE: Removed parameters that cause 400 Bad Request errors:
                 # - countTotal: not supported by this API endpoint
                 # - filter.overallStatus arrays don't work
@@ -248,14 +248,14 @@ class FullMedicalDownloader:
         # This base URL is defunct - DISABLING this download section
         self.logger.warning("FDA drug labels download DISABLED - download.fda.gov domain is defunct")
         self.logger.info("Alternative: Research FDA main site for drug label data sources")
-        
+
         # TODO: Find alternative FDA drug labels data source
         # Possible alternatives:
         # - https://dailymed.nlm.nih.gov/dailymed/
         # - https://www.accessdata.fda.gov/scripts/cder/daf/
         self.logger.info("Skipping FDA drug labels - domain no longer exists")
-        return  # Skip this entire download section
-        
+        return None  # Skip this entire download section
+
         # DISABLED CODE BELOW (keeping for reference):
         base_url = "https://download.fda.gov/Drugs/DrugsfDALabel/"  # DEFUNCT
 
@@ -287,12 +287,12 @@ class FullMedicalDownloader:
 
             try:
                 response = self.session.get(url, headers=headers, stream=True, allow_redirects=True, timeout=30)
-                
+
                 # Check for FDA apology/abuse detection pages
-                if 'apology' in response.url or 'abuse-detection' in response.url:
+                if "apology" in response.url or "abuse-detection" in response.url:
                     self.logger.error(f"FDA blocked request for {url} - redirected to: {response.url}")
                     return False
-                
+
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
                 if e.response.status_code == 416:
@@ -303,12 +303,12 @@ class FullMedicalDownloader:
                     resume_pos = 0
                     headers = {}
                     response = self.session.get(url, headers=headers, stream=True, allow_redirects=True, timeout=30)
-                    
+
                     # Check for FDA apology/abuse detection pages
-                    if 'apology' in response.url or 'abuse-detection' in response.url:
+                    if "apology" in response.url or "abuse-detection" in response.url:
                         self.logger.error(f"FDA blocked request for {url} - redirected to: {response.url}")
                         return False
-                    
+
                     response.raise_for_status()
                 else:
                     raise
@@ -331,38 +331,38 @@ class FullMedicalDownloader:
     def _download_pubmed_updates(self, pubmed_dir: Path) -> bool:
         """Download all PubMed update files (~2,000 files, ~100GB)"""
         self.logger.info("Downloading PubMed update files...")
-        
+
         updates_dir = pubmed_dir / "updates"
         updates_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Get list of all update files
         updates_url = "https://ftp.ncbi.nlm.nih.gov/pubmed/updatefiles/"
-        
+
         try:
             response = requests.get(updates_url)
             response.raise_for_status()
-            
+
             # Parse FTP directory listing to get all .xml.gz files
             update_files = self._parse_ftp_directory(response.text, ".xml.gz")
-            
+
             self.logger.info(f"Found {len(update_files)} update files to download")
-            
+
             # Download files in parallel
             with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
                 futures = []
                 for filename in update_files:
                     file_url = f"{updates_url}{filename}"
                     local_path = updates_dir / filename
-                    
+
                     future = executor.submit(self._download_file, file_url, local_path)
                     futures.append(future)
-                
+
                 # Wait for all downloads
                 success_count = sum(1 for future in futures if future.result())
-            
+
             self.logger.info(f"Downloaded {success_count}/{len(update_files)} update files")
             return success_count == len(update_files)
-            
+
         except Exception as e:
             self.logger.exception(f"Failed to download PubMed updates: {e}")
             return False
@@ -370,26 +370,26 @@ class FullMedicalDownloader:
     def _download_complete_orange_book(self, fda_dir: Path) -> bool:
         """Download complete FDA Orange Book data"""
         self.logger.info("Downloading complete FDA Orange Book...")
-        
+
         orange_dir = fda_dir / "orange_book"
         orange_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # FDA Orange Book download URL (corrected with attachment parameter)
         orange_book_url = "https://www.fda.gov/media/76860/download?attachment"
         local_path = orange_dir / "orange_book.zip"
-        
+
         try:
             success = self._download_file(orange_book_url, local_path)
-            
+
             if success:
                 # Extract the ZIP file
                 import zipfile
-                with zipfile.ZipFile(local_path, 'r') as zip_ref:
+                with zipfile.ZipFile(local_path, "r") as zip_ref:
                     zip_ref.extractall(orange_dir)
                 self.logger.info("Orange Book extracted successfully")
-                
+
             return success
-            
+
         except Exception as e:
             self.logger.exception(f"Failed to download Orange Book: {e}")
             return False
@@ -397,26 +397,26 @@ class FullMedicalDownloader:
     def _download_complete_ndc(self, fda_dir: Path) -> bool:
         """Download complete FDA NDC Directory"""
         self.logger.info("Downloading complete FDA NDC Directory...")
-        
+
         ndc_dir = fda_dir / "ndc_directory"
         ndc_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # FDA NDC Directory from openFDA
         ndc_url = "https://download.open.fda.gov/drug/ndc/drug-ndc-0001-of-0001.json.zip"
         local_path = ndc_dir / "ndc_directory.zip"
-        
+
         try:
             success = self._download_file(ndc_url, local_path)
-            
+
             if success:
                 # Extract the ZIP file
                 import zipfile
-                with zipfile.ZipFile(local_path, 'r') as zip_ref:
+                with zipfile.ZipFile(local_path, "r") as zip_ref:
                     zip_ref.extractall(ndc_dir)
                 self.logger.info("NDC Directory extracted successfully")
-                
+
             return success
-            
+
         except Exception as e:
             self.logger.exception(f"Failed to download NDC Directory: {e}")
             return False
@@ -424,26 +424,26 @@ class FullMedicalDownloader:
     def _download_complete_drugs_fda(self, fda_dir: Path) -> bool:
         """Download complete Drugs@FDA database"""
         self.logger.info("Downloading complete Drugs@FDA database...")
-        
+
         drugs_dir = fda_dir / "drugs_fda"
         drugs_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Drugs@FDA from openFDA
         drugs_url = "https://download.open.fda.gov/drug/drugsfda/drug-drugsfda-0001-of-0001.json.zip"
         local_path = drugs_dir / "drugs_fda.zip"
-        
+
         try:
             success = self._download_file(drugs_url, local_path)
-            
+
             if success:
                 # Extract the ZIP file
                 import zipfile
-                with zipfile.ZipFile(local_path, 'r') as zip_ref:
+                with zipfile.ZipFile(local_path, "r") as zip_ref:
                     zip_ref.extractall(drugs_dir)
                 self.logger.info("Drugs@FDA database extracted successfully")
-                
+
             return success
-            
+
         except Exception as e:
             self.logger.exception(f"Failed to download Drugs@FDA: {e}")
             return False

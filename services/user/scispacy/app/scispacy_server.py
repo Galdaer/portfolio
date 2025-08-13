@@ -3,17 +3,16 @@
 SciSpacy Server - REST API for biomedical text analysis
 """
 
+import hashlib
+import json
 import logging
 import os
 import sys
-from typing import Any, Dict, List, Optional, Tuple
-import json
 import time
-import hashlib
-from functools import lru_cache
-import yaml  # type: ignore
+from typing import Any
 
 import spacy
+import yaml  # type: ignore
 from flask import Flask, request
 
 # Configure logging
@@ -36,9 +35,9 @@ nlp = None
 # Entity Metadata Configuration
 # ------------------------------------------------------------
 METADATA_PATH = os.environ.get("METADATA_PATH")
-ENTITY_METADATA: Dict[str, Dict[str, Any]] = {}
-ENTITY_RELATIONSHIPS: Dict[str, List[str]] = {}
-_METADATA_HASH: Optional[str] = None
+ENTITY_METADATA: dict[str, dict[str, Any]] = {}
+ENTITY_RELATIONSHIPS: dict[str, list[str]] = {}
+_METADATA_HASH: str | None = None
 
 # ------------------------------------------------------------
 # Caching Controls
@@ -47,7 +46,7 @@ CACHE_ENABLED = os.environ.get("SCISPACY_CACHE", "true").lower() == "true"
 CACHE_MAXSIZE = int(os.environ.get("SCISPACY_CACHE_SIZE", 256))
 CACHE_TTL = int(os.environ.get("SCISPACY_CACHE_TTL", 300))  # seconds
 
-_cache_store: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+_cache_store: dict[str, tuple[float, dict[str, Any]]] = {}
 
 
 def _metadata_hash() -> str:
@@ -65,7 +64,7 @@ def _cache_key(text: str, enrich: bool) -> str:
     return hashlib.md5(f"{_metadata_hash()}|{int(enrich)}|{text}".encode()).hexdigest()
 
 
-def _cache_get(key: str) -> Optional[Dict[str, Any]]:
+def _cache_get(key: str) -> dict[str, Any] | None:
     if not CACHE_ENABLED:
         return None
     entry = _cache_store.get(key)
@@ -78,7 +77,7 @@ def _cache_get(key: str) -> Optional[Dict[str, Any]]:
     return value
 
 
-def _cache_put(key: str, value: Dict[str, Any]) -> None:
+def _cache_put(key: str, value: dict[str, Any]) -> None:
     if not CACHE_ENABLED:
         return
     if len(_cache_store) >= CACHE_MAXSIZE:
@@ -88,7 +87,7 @@ def _cache_put(key: str, value: Dict[str, Any]) -> None:
     _cache_store[key] = (time.time(), value)
 
 
-def _cache_stats() -> Dict[str, Any]:
+def _cache_stats() -> dict[str, Any]:
     return {
         "enabled": CACHE_ENABLED,
         "size": len(_cache_store),
@@ -111,8 +110,8 @@ def _load_external_metadata() -> None:
         logger.warning("METADATA_PATH '%s' does not exist", METADATA_PATH)
         return
     try:
-        with open(METADATA_PATH, "r", encoding="utf-8") as f:
-            if METADATA_PATH.endswith(('.yml', '.yaml')):
+        with open(METADATA_PATH, encoding="utf-8") as f:
+            if METADATA_PATH.endswith((".yml", ".yaml")):
                 data = yaml.safe_load(f)  # type: ignore[arg-type]
             else:
                 data = json.load(f)
@@ -140,7 +139,7 @@ def _high_priority_labels() -> set[str]:
     return {label for label, meta in ENTITY_METADATA.items() if meta.get("priority") == "high"}
 
 
-def enrich_entity(ent) -> Dict[str, Any]:  # type: ignore[no-untyped-def]
+def enrich_entity(ent) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     """Return enriched entity dictionary with metadata & context.
 
     The context window strategy: capture the sentence containing the entity plus
@@ -157,7 +156,7 @@ def enrich_entity(ent) -> Dict[str, Any]:  # type: ignore[no-untyped-def]
     end = min(ent.end_char + window, len(doc_text))
     char_window = doc_text[start:end]
 
-    enriched: Dict[str, Any] = {
+    enriched: dict[str, Any] = {
         "text": ent.text,
         "type": label,
         "category": base_meta.get("category", "unknown"),
@@ -178,7 +177,7 @@ def enrich_entity(ent) -> Dict[str, Any]:  # type: ignore[no-untyped-def]
     return enriched
 
 
-def build_clinical_summary(enriched_entities: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def build_clinical_summary(enriched_entities: list[dict[str, Any]]) -> dict[str, Any] | None:
     """Optional summary only if metadata supplies priority fields.
 
     Keeps server neutral: if no priority metadata present, return None.
@@ -202,14 +201,14 @@ def build_clinical_summary(enriched_entities: List[Dict[str, Any]]) -> Optional[
     }
 
 
-def group_entities_by_type(enriched_entities: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
+def group_entities_by_type(enriched_entities: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
     for e in enriched_entities:
         grouped.setdefault(e["type"], []).append(e)
     return grouped
 
 
-def filter_entities(enriched_entities: List[Dict[str, Any]], types: Optional[List[str]]) -> List[Dict[str, Any]]:
+def filter_entities(enriched_entities: list[dict[str, Any]], types: list[str] | None) -> list[dict[str, Any]]:
     if not types:
         return enriched_entities
     requested = {t.strip() for t in types if t.strip()}
@@ -322,7 +321,7 @@ def analyze() -> tuple[dict[str, Any], int]:
             entities_by_type = group_entities_by_type(enriched_entities)
             high_priority_entities = [e for e in enriched_entities if e.get("priority") == "high"]
             clinical_summary = build_clinical_summary(enriched_entities)
-            response: Dict[str, Any] = {
+            response: dict[str, Any] = {
                 "text": text,
                 "entities": enriched_entities,
                 "entities_by_type": entities_by_type,
@@ -338,30 +337,29 @@ def analyze() -> tuple[dict[str, Any], int]:
             }
             _cache_put(ck, response)
             return response, 200
-        else:
-            simple_entities = [
-                {
-                    "text": ent.text,
-                    "label": ent.label_,
-                    "start": ent.start_char,
-                    "end": ent.end_char,
-                    "description": spacy.explain(ent.label_) or ent.label_,
-                }
-                for ent in doc.ents
-            ]
-            response = {
-                "text": text,
-                "entities": simple_entities,
-                "entity_count": len(simple_entities),
-                "sentences": sentences,
-                "sentence_count": len(sentences),
-                "tokens": tokens,
-                "token_count": len(tokens),
-                "schema_version": 1,
-                "enriched": False,
+        simple_entities = [
+            {
+                "text": ent.text,
+                "label": ent.label_,
+                "start": ent.start_char,
+                "end": ent.end_char,
+                "description": spacy.explain(ent.label_) or ent.label_,
             }
-            _cache_put(ck, response)
-            return response, 200
+            for ent in doc.ents
+        ]
+        response = {
+            "text": text,
+            "entities": simple_entities,
+            "entity_count": len(simple_entities),
+            "sentences": sentences,
+            "sentence_count": len(sentences),
+            "tokens": tokens,
+            "token_count": len(tokens),
+            "schema_version": 1,
+            "enriched": False,
+        }
+        _cache_put(ck, response)
+        return response, 200
 
     except Exception as e:
         logger.exception(f"Error processing text: {e}")
@@ -369,7 +367,7 @@ def analyze() -> tuple[dict[str, Any], int]:
 
 
 @app.route("/extract-by-type", methods=["POST", "GET"])
-def extract_by_type() -> Tuple[Dict[str, Any], int]:
+def extract_by_type() -> tuple[dict[str, Any], int]:
     """Filtered extraction endpoint (requires enrichment metadata).
 
     If metadata not loaded or enrichment disabled, returns 400 to signal the caller
@@ -406,7 +404,7 @@ def extract_by_type() -> Tuple[Dict[str, Any], int]:
 
 
 @app.route("/metadata", methods=["GET"])
-def metadata_info() -> Tuple[Dict[str, Any], int]:
+def metadata_info() -> tuple[dict[str, Any], int]:
     """Expose currently loaded external metadata (no heavy computation)."""
     return {
         "entity_types": list(ENTITY_METADATA.keys()),
@@ -417,7 +415,7 @@ def metadata_info() -> Tuple[Dict[str, Any], int]:
 
 
 @app.route("/cache/stats", methods=["GET"])
-def cache_stats() -> Tuple[Dict[str, Any], int]:
+def cache_stats() -> tuple[dict[str, Any], int]:
     return _cache_stats(), 200
 
 

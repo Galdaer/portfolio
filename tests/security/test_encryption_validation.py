@@ -12,7 +12,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from src.security.database_factory import PostgresConnectionFactory  # noqa: E402
 from src.security.encryption_manager import HealthcareEncryptionManager  # noqa: E402
 

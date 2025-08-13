@@ -45,7 +45,7 @@ class ToolRegistry:
             # Use provided MCP client (from HealthcareServices)
             if mcp_client is not None:
                 self.mcp_client = mcp_client
-            
+
             # Test connection and discover tools
             await self._discover_tools()
             self._initialized = True
@@ -98,25 +98,25 @@ class ToolRegistry:
             return
         try:
             # Use MCP protocol method for tool discovery (not HTTP)
-            if hasattr(self.mcp_client, 'get_available_tools'):
+            if hasattr(self.mcp_client, "get_available_tools"):
                 tools = await self.mcp_client.get_available_tools()
                 self._available_tools = tools
-            elif hasattr(self.mcp_client, 'list_tools'):
+            elif hasattr(self.mcp_client, "list_tools"):
                 tools = await self.mcp_client.list_tools()
                 self._available_tools = tools
-            elif hasattr(self.mcp_client, 'get_tools'):
+            elif hasattr(self.mcp_client, "get_tools"):
                 tools = await self.mcp_client.get_tools()
                 self._available_tools = tools
             else:
                 # Fallback - assume client has tools method or attribute
                 logger.warning("MCP client doesn't have expected tool discovery methods")
                 self._available_tools = []
-                
+
             # Track version and capabilities if available
             for tool in self._available_tools:
-                name = tool.get("name") if isinstance(tool, dict) else getattr(tool, 'name', None)
-                version = tool.get("version", "unknown") if isinstance(tool, dict) else getattr(tool, 'version', "unknown")
-                capabilities = tool.get("capabilities", {}) if isinstance(tool, dict) else getattr(tool, 'capabilities', {})
+                name = tool.get("name") if isinstance(tool, dict) else getattr(tool, "name", None)
+                version = tool.get("version", "unknown") if isinstance(tool, dict) else getattr(tool, "version", "unknown")
+                capabilities = tool.get("capabilities", {}) if isinstance(tool, dict) else getattr(tool, "capabilities", {})
                 if name is not None:
                     self._tool_versions[name] = version
                     self._tool_capabilities[name] = capabilities
@@ -220,14 +220,14 @@ class ToolRegistry:
 
         try:
             # Use MCP protocol method for tool capabilities (not HTTP)
-            if hasattr(self.mcp_client, 'get_tool_schema'):
+            if hasattr(self.mcp_client, "get_tool_schema"):
                 capabilities = await self.mcp_client.get_tool_schema(tool_name)
-            elif hasattr(self.mcp_client, 'describe_tool'):
+            elif hasattr(self.mcp_client, "describe_tool"):
                 capabilities = await self.mcp_client.describe_tool(tool_name)
             else:
                 # Fallback to cached capabilities from discovery
                 capabilities = self._tool_capabilities.get(tool_name, {})
-            
+
             return capabilities
 
         except Exception as e:

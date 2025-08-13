@@ -1,5 +1,3 @@
-import os
-import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -37,8 +35,8 @@ def test_metrics_instance_label_injection(test_client: TestClient, monkeypatch):
     body = resp.text
     # Ensure instance label appears on health metric line with label set
     line = next(
-        (line_ for line_ in body.splitlines() if line_.startswith("healthcare_overall_status") and '{' in line_),
-        None
+        (line_ for line_ in body.splitlines() if line_.startswith("healthcare_overall_status") and "{" in line_),
+        None,
     )
     assert line is not None, "Expected labeled healthcare_overall_status line"
     assert 'instance="test-instance-1"' in line

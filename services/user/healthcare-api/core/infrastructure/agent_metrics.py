@@ -18,8 +18,8 @@ light aggregation layer so agents avoid duplicating counting logic.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime
+from typing import Any
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 
@@ -37,8 +37,8 @@ class AgentMetricsStore:
     def __init__(self, agent_name: str, redis_client: Any | None = None) -> None:
         self.agent_name = agent_name
         self.redis = redis_client
-        self._counters: Dict[str, int] = {}
-        self._timings: Dict[str, Dict[str, float]] = {}
+        self._counters: dict[str, int] = {}
+        self._timings: dict[str, dict[str, float]] = {}
         self._lock = asyncio.Lock()
         self._last_update: datetime | None = None
 
@@ -49,7 +49,7 @@ class AgentMetricsStore:
     async def incr(self, name: str, amount: int = 1) -> None:
         async with self._lock:
             self._counters[name] = self._counters.get(name, 0) + amount
-            self._last_update = datetime.now(timezone.utc)
+            self._last_update = datetime.now(UTC)
             if self.redis is not None:
                 try:
                     await self._redis_incr(name, amount)
@@ -61,14 +61,14 @@ class AgentMetricsStore:
             stat = self._timings.setdefault(name, {"total_ms": 0.0, "count": 0.0})
             stat["total_ms"] += float(duration_ms)
             stat["count"] += 1.0
-            self._last_update = datetime.now(timezone.utc)
+            self._last_update = datetime.now(UTC)
             if self.redis is not None:
                 try:
                     await self._redis_record_timing(name, duration_ms)
                 except Exception as e:  # pragma: no cover
                     logger.warning(f"Redis timing failed for {name}: {e}")
 
-    async def snapshot(self) -> Dict[str, Any]:
+    async def snapshot(self) -> dict[str, Any]:
         async with self._lock:
             timings_export = {}
             for key, stat in self._timings.items():

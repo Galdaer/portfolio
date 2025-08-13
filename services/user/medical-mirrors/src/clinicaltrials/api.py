@@ -9,9 +9,10 @@ from typing import Any
 
 from clinicaltrials.downloader import ClinicalTrialsDownloader
 from clinicaltrials.parser import ClinicalTrialsParser
-from database import ClinicalTrial, UpdateLog
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
+
+from database import ClinicalTrial, UpdateLog
 
 logger = logging.getLogger(__name__)
 

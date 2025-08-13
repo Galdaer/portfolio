@@ -1,8 +1,8 @@
 from .base_search_utils import (
-    normalize_query_terms,
+    basic_rank_sources,
     calculate_recency_score,
     extract_source_links,
-    basic_rank_sources,
+    normalize_query_terms,
 )
 
 __all__ = [

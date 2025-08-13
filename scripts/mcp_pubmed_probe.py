@@ -12,12 +12,11 @@ This is a non-production diagnostic helper.
 from __future__ import annotations
 
 import asyncio
-import os
-import sys
-from pathlib import Path
 import shutil
 import subprocess
+import sys
 import traceback
+from pathlib import Path
 
 
 def add_project_path() -> None:
@@ -30,7 +29,7 @@ def add_project_path() -> None:
 
 async def main() -> int:
     add_project_path()
-    from core.infrastructure.healthcare_logger import setup_healthcare_logging, logging
+    from core.infrastructure.healthcare_logger import logging, setup_healthcare_logging
     from core.mcp.healthcare_mcp_client import HealthcareMCPClient
 
     # Initialize logging to logs/
@@ -48,7 +47,7 @@ async def main() -> int:
         return 2
 
     try:
-        ps = subprocess.run([docker_path, "ps", "--format", "{{.Names}}"], capture_output=True, text=True, timeout=6)
+        ps = subprocess.run([docker_path, "ps", "--format", "{{.Names}}"], check=False, capture_output=True, text=True, timeout=6)
         names = ps.stdout.strip().splitlines() if ps.returncode == 0 else []
         if "healthcare-mcp" not in names:
             msg = "Container 'healthcare-mcp' is not running"
@@ -82,7 +81,7 @@ async def main() -> int:
         if len(names) == 0:
             print("No tools discovered; showing recent healthcare-mcp logs for diagnostics...")
             try:
-                out = subprocess.run([docker_path, "logs", "--since", "2m", "--tail", "200", "healthcare-mcp"], capture_output=True, text=True, timeout=8)
+                out = subprocess.run([docker_path, "logs", "--since", "2m", "--tail", "200", "healthcare-mcp"], check=False, capture_output=True, text=True, timeout=8)
                 print("---- healthcare-mcp recent logs ----")
                 print(out.stdout[-4000:])
                 if out.stderr:
@@ -103,13 +102,13 @@ async def main() -> int:
             if isinstance(res, dict):
                 preview = {k: (len(v) if isinstance(v, list) else type(v).__name__) for k, v in res.items() if k in ("articles", "count", "status")}
             print(f"RESULT PREVIEW: {preview}")
-    except asyncio.TimeoutError as e:
+    except TimeoutError as e:
         log.error("Probe timeout", extra={"healthcare_context": {"error": str(e)}})
         print("ERROR: Probe timed out while communicating with MCP.")
         traceback.print_exception(type(e), e, e.__traceback__)
         # Tail container logs for hints
         try:
-            out = subprocess.run([docker_path, "logs", "--since", "2m", "--tail", "200", "healthcare-mcp"], capture_output=True, text=True, timeout=8)
+            out = subprocess.run([docker_path, "logs", "--since", "2m", "--tail", "200", "healthcare-mcp"], check=False, capture_output=True, text=True, timeout=8)
             print("---- healthcare-mcp recent logs ----")
             print(out.stdout[-4000:])
             if out.stderr:
@@ -120,8 +119,8 @@ async def main() -> int:
     except BaseException as e:
         # Catch-all with rich diagnostics, including ExceptionGroup-like structures
         ctx = {"error": str(e), "type": type(e).__name__}
-        if hasattr(e, "exceptions") and isinstance(getattr(e, "exceptions"), list):
-            ctx["exception_count"] = str(len(getattr(e, "exceptions")))
+        if hasattr(e, "exceptions") and isinstance(e.exceptions, list):
+            ctx["exception_count"] = str(len(e.exceptions))
         log.error("Probe failed", extra={"healthcare_context": ctx})
         print(f"ERROR: {type(e).__name__}: {e}")
         traceback.print_exception(type(e), e, e.__traceback__)
@@ -133,7 +132,7 @@ async def main() -> int:
                 traceback.print_exception(type(ex), ex, ex.__traceback__)
         # Tail container logs for hints
         try:
-            out = subprocess.run([docker_path, "logs", "--since", "2m", "--tail", "200", "healthcare-mcp"], capture_output=True, text=True, timeout=8)
+            out = subprocess.run([docker_path, "logs", "--since", "2m", "--tail", "200", "healthcare-mcp"], check=False, capture_output=True, text=True, timeout=8)
             print("---- healthcare-mcp recent logs ----")
             print(out.stdout[-4000:])
             if out.stderr:

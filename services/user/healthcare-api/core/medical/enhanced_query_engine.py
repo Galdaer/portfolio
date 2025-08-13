@@ -19,6 +19,7 @@ from typing import Any
 from cachetools import TTLCache
 
 from config.app import config
+
 from .medical_response_validator import MedicalTrustScore
 
 

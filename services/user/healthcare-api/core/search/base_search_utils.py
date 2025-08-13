@@ -13,8 +13,9 @@ content domain correctness.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List
+from collections.abc import Iterable
+from datetime import UTC, datetime
+from typing import Any
 
 __all__ = [
     "normalize_query_terms",
@@ -36,7 +37,7 @@ def calculate_recency_score(publication_date: str | None) -> float:
         return 0.0
     try:
         year = int(publication_date[:4])
-        current_year = datetime.now(timezone.utc).year
+        current_year = datetime.now(UTC).year
         age = current_year - year
         if age <= 2:
             return 1.0
@@ -49,7 +50,7 @@ def calculate_recency_score(publication_date: str | None) -> float:
         return 0.0
 
 
-def extract_source_links(sources: Iterable[Dict[str, Any]]) -> list[str]:
+def extract_source_links(sources: Iterable[dict[str, Any]]) -> list[str]:
     urls: list[str] = []
     for s in sources:
         url = s.get("url")
@@ -64,13 +65,13 @@ def extract_source_links(sources: Iterable[Dict[str, Any]]) -> list[str]:
     return ordered
 
 
-def basic_rank_sources(sources: list[Dict[str, Any]], query: str) -> list[Dict[str, Any]]:
+def basic_rank_sources(sources: list[dict[str, Any]], query: str) -> list[dict[str, Any]]:
     """Generic ranking: recency + simple term overlap.
 
     Score = recency + (term_overlap_ratio * 2.0)
     """
     terms = normalize_query_terms(query)
-    ranked: list[Dict[str, Any]] = []
+    ranked: list[dict[str, Any]] = []
     for src in sources:
         recency = calculate_recency_score(src.get("publication_date") or src.get("date"))
         blob = " ".join([

@@ -35,10 +35,10 @@ class BaseHealthcareAgent(ABC):
     def __init__(self, mcp_client: Any = None, llm_client: Any = None, agent_name: str = None, agent_type: str = None):
         # Auto-derive agent name and type from class name if not provided
         if agent_name is None:
-            agent_name = self.__class__.__name__.lower().replace('agent', '').replace('healthcare', '')
+            agent_name = self.__class__.__name__.lower().replace("agent", "").replace("healthcare", "")
         if agent_type is None:
             agent_type = agent_name
-            
+
         self.agent_name = agent_name
         self.agent_type = agent_type
         self.mcp_client = mcp_client

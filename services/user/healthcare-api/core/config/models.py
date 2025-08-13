@@ -5,37 +5,38 @@ No medical advice, diagnosis, or treatment recommendations are provided.
 """
 
 import os
-from typing import Dict, Any, Optional
 from dataclasses import dataclass
+from typing import Any
+
 
 @dataclass
 class ModelConfig:
     """Configuration for AI models used in healthcare system"""
-    
+
     # Primary models for different use cases
     PRIMARY_CHAT_MODEL: str = "llama3.1:8b"
     PRIMARY_INSTRUCT_MODEL: str = "llama3.1:8b-instruct-q4_K_M"
     FALLBACK_MODEL: str = "llama3.1:8b"
-    
+
     # Specialized models for specific tasks
     MEDICAL_ANALYSIS_MODEL: str = "llama3.1:8b-instruct-q4_K_M"
     RESEARCH_MODEL: str = "llama3.1:8b-instruct-q4_K_M"
     VALIDATION_MODEL: str = "llama3.1:8b-instruct-q4_K_M"
     WORKFLOW_MODEL: str = "llama3.1:8b"
-    
+
     # Alternative models (when primary unavailable)
     ALTERNATIVE_MODELS: list = None
-    
+
     def __post_init__(self):
         if self.ALTERNATIVE_MODELS is None:
             self.ALTERNATIVE_MODELS = [
                 "mistral:7b-instruct-q4_K_M",
                 "llama3.1:8b",
-                "llama3:8b"
+                "llama3:8b",
             ]
-    
+
     @classmethod
-    def from_env(cls) -> 'ModelConfig':
+    def from_env(cls) -> "ModelConfig":
         """Create model config from environment variables"""
         return cls(
             PRIMARY_CHAT_MODEL=os.getenv("PRIMARY_CHAT_MODEL", "llama3.1:8b"),
@@ -46,7 +47,7 @@ class ModelConfig:
             VALIDATION_MODEL=os.getenv("VALIDATION_MODEL", "llama3.1:8b-instruct-q4_K_M"),
             WORKFLOW_MODEL=os.getenv("WORKFLOW_MODEL", "llama3.1:8b"),
         )
-    
+
     def get_model_for_task(self, task_type: str) -> str:
         """Get appropriate model for specific task type"""
         task_model_map = {
@@ -102,7 +103,7 @@ def get_alternative_models() -> list:
     return MODEL_CONFIG.ALTERNATIVE_MODELS.copy()
 
 # Model capabilities and settings
-MODEL_SETTINGS: Dict[str, Dict[str, Any]] = {
+MODEL_SETTINGS: dict[str, dict[str, Any]] = {
     "llama3.1:8b": {
         "max_tokens": 8192,
         "temperature": 0.7,
@@ -126,7 +127,7 @@ MODEL_SETTINGS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-def get_model_settings(model_name: str) -> Dict[str, Any]:
+def get_model_settings(model_name: str) -> dict[str, Any]:
     """Get settings for a specific model"""
     return MODEL_SETTINGS.get(model_name, {
         "max_tokens": 4096,

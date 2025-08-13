@@ -11,7 +11,6 @@ from typing import Any
 
 import uvicorn
 from clinicaltrials.api import ClinicalTrialsAPI
-from database import Base, get_database_url
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fda.api import FDAAPI
@@ -21,6 +20,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from config import Config
+from database import Base, get_database_url
 
 # Configure logging
 logging.basicConfig(

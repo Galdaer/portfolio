@@ -14,11 +14,10 @@ DISCLAIMER: This client logs only redacted summaries when PHI masking enabled.
 from __future__ import annotations
 
 import asyncio
-import json
 import math
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 
@@ -34,7 +33,7 @@ except Exception:  # pragma: no cover
 class HTTPRequestSpec:
     method: str
     url: str
-    headers: Dict[str, str] | None = None
+    headers: dict[str, str] | None = None
     json_body: Any | None = None
     timeout: float = 10.0
 
@@ -82,7 +81,7 @@ async def http_request(
     backoff_cap: float = 3.0,
     client: Any | None = None,
     mask_phi: bool = True,
-) -> tuple[int, Dict[str, Any] | str | None]:
+) -> tuple[int, dict[str, Any] | str | None]:
     """Execute HTTP request with basic retries.
 
     Returns tuple(status_code, json_or_text_body)
@@ -106,7 +105,7 @@ async def http_request(
                     timeout=spec.timeout,
                 )
                 content_type = response.headers.get("content-type", "")
-                parsed: Dict[str, Any] | str | None = None
+                parsed: dict[str, Any] | str | None = None
                 if "application/json" in content_type:
                     try:
                         parsed = response.json()

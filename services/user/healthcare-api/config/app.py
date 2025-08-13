@@ -4,10 +4,6 @@ Intelluxe AI Configuration Management
 Centralized configuration for the healthcare AI system.
 """
 
-import logging
-import os
-from pathlib import Path
-from typing import Dict, Any
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
@@ -33,7 +29,7 @@ class IntelluxeConfig(BaseSettings):
         default="secure_password_here", json_schema_extra={"env": "POSTGRES_PASSWORD"},
     )
     redis_password: str | None = Field(default=None, json_schema_extra={"env": "REDIS_PASSWORD"})
-    
+
     # Database host configuration
     postgres_host: str = Field(default="postgresql", json_schema_extra={"env": "POSTGRES_HOST"})
     redis_host: str = Field(default="redis", json_schema_extra={"env": "REDIS_HOST"})

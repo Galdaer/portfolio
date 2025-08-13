@@ -5,7 +5,7 @@ cancel-scope issues on __aexit__ and to ensure clean shutdown without Ctrl+C.
 
 Logs are routed through the healthcare-compliant logger so they appear in logs/.
 """
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 
@@ -15,14 +15,14 @@ logger = get_healthcare_logger("infrastructure.mcp")
 class HealthcareMCPClient:
     """Lightweight MCP client using short-lived stdio sessions per request."""
 
-    def __init__(self, server_command: Optional[str] = None):
+    def __init__(self, server_command: str | None = None):
         # Import here to keep symbols bound even if library isn't installed at import-time
         try:
             from mcp import StdioServerParameters  # type: ignore
         except Exception as e:  # pragma: no cover
             raise RuntimeError(f"MCP library not available: {e}")
 
-        # EXPERIMENTAL: Run stdio_entry.js directly instead of via docker exec  
+        # EXPERIMENTAL: Run stdio_entry.js directly instead of via docker exec
         # This avoids potential docker exec stdio stream corruption issues
         command = server_command or "bash"
         if command == "bash":
@@ -42,12 +42,12 @@ class HealthcareMCPClient:
             sh_cmd = "node /app/build/stdio_entry.js 2> /app/logs/mcp_stdio_entry.err"
             args = [
                 "exec",
-                "-i", 
+                "-i",
                 "-u",
                 "node",
                 "-e",
                 "MCP_TRANSPORT=stdio-only",
-                "-e", 
+                "-e",
                 "NO_COLOR=1",
                 "healthcare-mcp",
                 "sh",
@@ -75,15 +75,15 @@ class HealthcareMCPClient:
                     "command": self.params.command,
                     "args": self.params.args,
                     "env_keys": sorted(list(getattr(self.params, "env", {}).keys())),
-                }
+                },
             },
         )
 
-    async def get_available_tools(self) -> List[Dict[str, Any]]:
+    async def get_available_tools(self) -> list[dict[str, Any]]:
         """List available tools using a short-lived session with timeouts."""
         import asyncio
         logger.info("Listing MCP tools via short-lived session")
-        tools: List[Dict[str, Any]] = []
+        tools: list[dict[str, Any]] = []
         # Open, list, close in the same task to avoid cancel-scope issues
         from mcp import ClientSession  # type: ignore
         from mcp.client.stdio import stdio_client  # type: ignore
@@ -98,14 +98,14 @@ class HealthcareMCPClient:
                 elif isinstance(tools_response, dict):
                     tools = tools_response.get("tools", [])  # type: ignore[assignment]
             logger.info(f"Discovered {len(tools)} MCP tools")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(
                 "Timeout while listing MCP tools (possible stdout banner contamination). Ensure the MCP stdio server does not print human-readable logs to stdout; use stderr for banners.",
                 extra={
                     "healthcare_context": {
                         "operation_type": "mcp_list_tools_timeout",
                         "hint": "Move any 'STDIO server ready...' or startup banners to stderr when MCP_TRANSPORT=stdio",
-                    }
+                    },
                 },
             )
         except Exception as e:  # pragma: no cover
@@ -115,49 +115,69 @@ class HealthcareMCPClient:
             )
         return tools
 
-    async def call_tool(self, tool_name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def call_tool(self, tool_name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         """Call a tool using a short-lived session and return a wrapped result."""
         import asyncio
         args = arguments or {}
         logger.info(f"MCP call start: tool={tool_name} args_keys={list(args.keys())}")
-        try:
-            from mcp import ClientSession  # type: ignore
-            from mcp.client.stdio import stdio_client  # type: ignore
-            async with stdio_client(self.params) as (read_stream, write_stream):
-                session = ClientSession(read_stream, write_stream)
-                await asyncio.wait_for(session.initialize(), timeout=45)
-                result = await asyncio.wait_for(session.call_tool(tool_name, args), timeout=60)
-            # After context closes cleanly, log a compact preview
-            preview = None
-            try:
-                if isinstance(result, dict):
-                    preview = {k: (len(v) if isinstance(v, list) else type(v).__name__) for k, v in result.items() if k in ("articles", "count", "status")}
-                else:
-                    preview = str(type(result))
-            except Exception:
-                preview = "unavailable"
-            logger.info(f"MCP call done: tool={tool_name} preview={preview}")
-            return {"status": "success", "result": result}
-        except asyncio.TimeoutError:
-            logger.error(
-                f"Timeout calling tool {tool_name} (possible stdout banner contamination). Ensure the MCP stdio server uses clean JSON on stdout and logs to stderr.",
-                extra={
-                    "healthcare_context": {
-                        "operation_type": "mcp_call_timeout",
-                        "tool": tool_name,
-                        "hint": "No human-readable logs on stdout in stdio mode",
-                    }
-                },
-            )
-            return {"status": "error", "error": "timeout"}
-        except Exception as e:  # pragma: no cover
-            logger.exception(
-                f"Failed to call tool {tool_name}: {e}",
-                extra={"healthcare_context": {"operation_type": "mcp_call_error", "tool": tool_name, "error": str(e)}},
-            )
-            return {"status": "error", "error": str(e)}
 
-    async def call_healthcare_tool(self, tool_name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        max_retries = 3
+        last_exception = None
+
+        for attempt in range(max_retries):
+            try:
+                from mcp import ClientSession  # type: ignore
+                from mcp.client.stdio import stdio_client  # type: ignore
+                async with stdio_client(self.params) as (read_stream, write_stream):
+                    session = ClientSession(read_stream, write_stream)
+                    await asyncio.wait_for(session.initialize(), timeout=45)
+                    result = await asyncio.wait_for(session.call_tool(tool_name, args), timeout=90)  # Increased timeout
+
+                # After context closes cleanly, log a compact preview
+                preview = None
+                try:
+                    if isinstance(result, dict):
+                        preview = {k: (len(v) if isinstance(v, list) else type(v).__name__) for k, v in result.items() if k in ("articles", "count", "status")}
+                    else:
+                        preview = str(type(result))
+                except Exception:
+                    preview = "unavailable"
+
+                logger.info(f"MCP call done: tool={tool_name} preview={preview} attempt={attempt + 1}")
+                return {"status": "success", "result": result}
+
+            except TimeoutError as e:
+                last_exception = e
+                logger.error(
+                    f"Timeout calling tool {tool_name} on attempt {attempt + 1}/{max_retries}. Retrying...",
+                    extra={
+                        "healthcare_context": {
+                            "operation_type": "mcp_call_timeout",
+                            "tool": tool_name,
+                            "hint": "No human-readable logs on stdout in stdio mode",
+                            "attempt": attempt + 1,
+                        },
+                    },
+                )
+            except Exception as e:  # pragma: no cover
+                last_exception = e
+                # This will catch the WriteUnixTransport error
+                logger.exception(
+                    f"Failed to call tool {tool_name} on attempt {attempt + 1}/{max_retries}: {e}. Retrying...",
+                    extra={"healthcare_context": {"operation_type": "mcp_call_error", "tool": tool_name, "error": str(e), "attempt": attempt + 1}},
+                )
+
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2)  # Wait 2 seconds before retrying
+
+        logger.error(f"MCP call failed after {max_retries} attempts for tool {tool_name}.", extra={"healthcare_context": {"operation_type": "mcp_call_failed", "tool": tool_name, "final_error": str(last_exception)}})
+
+        if isinstance(last_exception, asyncio.TimeoutError):
+            return {"status": "error", "error": "timeout"}
+
+        return {"status": "error", "error": str(last_exception)}
+
+    async def call_healthcare_tool(self, tool_name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         """Healthcare convenience wrapper returning raw result or error payload."""
         result = await self.call_tool(tool_name, arguments)
         if result.get("status") == "success":

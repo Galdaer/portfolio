@@ -8,7 +8,6 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
-
 from src.security.environment_detector import Environment, EnvironmentDetector
 
 # Test constants for consistent error message validation

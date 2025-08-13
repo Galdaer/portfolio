@@ -4,9 +4,10 @@ Test script for Open WebUI MCP Integration via Pipelines
 Demonstrates the correct architecture for MCP integration
 """
 
-import json
-import aiohttp
 import asyncio
+import json
+
+import aiohttp
 
 
 async def test_mcp_tools_via_pipelines():
@@ -38,7 +39,7 @@ async def test_mcp_tools_via_pipelines():
                     print(f"✅ Found {len(pipelines)} pipelines:")
                     for pipeline in pipelines:
                         print(
-                            f"   - {pipeline.get('id', 'unknown')}: {pipeline.get('name', 'unnamed')}"
+                            f"   - {pipeline.get('id', 'unknown')}: {pipeline.get('name', 'unnamed')}",
                         )
                 else:
                     print(f"❌ Failed to list pipelines: {response.status}")
@@ -88,8 +89,8 @@ def create_healthcare_mcp_config():
                 "args": ["/app/build/index.js"],
                 "description": "Provides healthcare tools including PubMed search, clinical trials, and FDA drug information",
                 "env": {"MCP_TRANSPORT": "stdio"},
-            }
-        }
+            },
+        },
     }
 
     config_path = "/home/intelluxe/interfaces/open_webui/mcp_config.json"

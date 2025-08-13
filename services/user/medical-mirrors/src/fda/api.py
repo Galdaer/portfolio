@@ -7,11 +7,12 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from database import FDADrug, UpdateLog
 from fda.downloader import FDADownloader
 from fda.parser import FDAParser
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
+
+from database import FDADrug, UpdateLog
 
 logger = logging.getLogger(__name__)
 

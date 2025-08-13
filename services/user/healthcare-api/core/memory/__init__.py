@@ -51,7 +51,7 @@ class MemoryManager:
 
             # Initialize PostgreSQL connection pool
             import os
-            database_url = os.getenv('DATABASE_URL', config.postgres_url)
+            database_url = os.getenv("DATABASE_URL", config.postgres_url)
             logger.info(f"Attempting to connect to PostgreSQL with URL: {database_url}")
             self.postgres_pool = await asyncpg.create_pool(
                 database_url, min_size=2, max_size=10,

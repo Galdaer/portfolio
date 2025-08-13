@@ -1,7 +1,10 @@
 import pytest
 
+from core.medical.search_utils import (
+    determine_evidence_level,
+    rank_sources_by_evidence_and_relevance,
+)
 from core.search import basic_rank_sources
-from core.medical.search_utils import rank_sources_by_evidence_and_relevance, determine_evidence_level
 
 SAMPLE_SOURCES = [
     {

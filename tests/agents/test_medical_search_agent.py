@@ -1,7 +1,6 @@
+import asyncio
 import sys
 from pathlib import Path
-import asyncio
-import pytest
 
 # Add the healthcare-api service directory to import path
 SERVICE_DIR = Path(__file__).resolve().parents[2] / "services" / "user" / "healthcare-api"

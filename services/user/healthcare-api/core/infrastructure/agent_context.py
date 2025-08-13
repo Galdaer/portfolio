@@ -5,10 +5,10 @@ metrics can uniformly enrich events without per-agent duplication.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 import uuid
-from typing import Any, Dict, Optional
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Any
 
 
 @dataclass(slots=True)
@@ -17,11 +17,11 @@ class AgentContext:
     user_id: str | None
     agent_name: str
     start_time: datetime
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def elapsed_ms(self) -> float:
-        return (datetime.now(timezone.utc) - self.start_time).total_seconds() * 1000.0
+        return (datetime.now(UTC) - self.start_time).total_seconds() * 1000.0
 
 
 def new_agent_context(agent_name: str, user_id: str | None = None, **metadata: Any) -> AgentContext:
@@ -29,7 +29,7 @@ def new_agent_context(agent_name: str, user_id: str | None = None, **metadata: A
         trace_id=uuid.uuid4().hex,
         user_id=user_id,
         agent_name=agent_name,
-        start_time=datetime.now(timezone.utc),
+        start_time=datetime.now(UTC),
         metadata=metadata,
     )
 

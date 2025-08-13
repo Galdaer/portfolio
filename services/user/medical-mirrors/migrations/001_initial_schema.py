@@ -4,8 +4,9 @@ Database migrations for medical mirrors
 
 import logging
 
-from database import Base, get_database_url
 from sqlalchemy import create_engine, text
+
+from database import Base, get_database_url
 
 logger = logging.getLogger(__name__)
 

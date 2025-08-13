@@ -25,23 +25,23 @@ class ModelRegistry:
         """Get available models - returns locally available Ollama models"""
         if not self._initialized:
             await self.initialize()
-            
+
         # Get real Ollama models - no fallbacks to expose connection issues
         import ollama
         client = ollama.Client(host="http://ollama:11434")
         models = client.list()
-        
+
         available_models = []
-        for model in models.get('models', []):
+        for model in models.get("models", []):
             available_models.append({
-                "id": model.get('name', 'unknown'),
-                "name": model.get('name', 'Unknown Model'),
+                "id": model.get("name", "unknown"),
+                "name": model.get("name", "Unknown Model"),
                 "type": "text_generation",
                 "status": "available",
-                "size": model.get('size', 0),
-                "modified_at": model.get('modified_at', ''),
+                "size": model.get("size", 0),
+                "modified_at": model.get("modified_at", ""),
             })
-        
+
         logger.info(f"Retrieved {len(available_models)} models from Ollama")
         return available_models
 

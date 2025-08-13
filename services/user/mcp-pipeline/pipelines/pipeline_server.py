@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import uvicorn
 from fastapi import FastAPI
@@ -45,7 +45,7 @@ app.add_middleware(
 
 
 class InvokeRequest(BaseModel):
-    arguments: Optional[Dict[str, Any]] = None
+    arguments: dict[str, Any] | None = None
 
 
 @app.get("/health")
@@ -59,17 +59,16 @@ async def list_pipelines():
     """List available pipelines"""
     try:
         # Fallback for current simplified pipeline
-        if hasattr(pipeline, 'pipelines'):
+        if hasattr(pipeline, "pipelines"):
             return pipeline.pipelines()
-        else:
-            return [
-                {"id": "mcp-healthcare", "name": "MCP Healthcare", "description": "Healthcare tools via MCP"},
-                {"id": "mcp-general", "name": "MCP General", "description": "General purpose MCP tool access"},
-            ]
+        return [
+            {"id": "mcp-healthcare", "name": "MCP Healthcare", "description": "Healthcare tools via MCP"},
+            {"id": "mcp-general", "name": "MCP General", "description": "General purpose MCP tool access"},
+        ]
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"error": f"Failed to list pipelines: {str(e)}"}
+            content={"error": f"Failed to list pipelines: {str(e)}"},
         )
 
 
@@ -83,7 +82,7 @@ async def list_models():
         ]
         # Fallback pipelines list
         pipelines_data = []
-        if hasattr(pipeline, 'pipelines'):
+        if hasattr(pipeline, "pipelines"):
             pipelines_data = pipeline.pipelines()
         else:
             pipelines_data = [
@@ -99,10 +98,9 @@ async def list_models():
 async def list_tools():
     """List discovered MCP tools (dynamic)."""
     try:
-        if hasattr(pipeline, 'list_tools'):
+        if hasattr(pipeline, "list_tools"):
             return {"object": "list", "data": pipeline.list_tools()}
-        else:
-            return {"object": "list", "data": []}
+        return {"object": "list", "data": []}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -111,7 +109,7 @@ async def list_tools():
 async def get_tool(tool_id: str):
     """Return details for a single tool."""
     try:
-        if hasattr(pipeline, 'list_tools'):
+        if hasattr(pipeline, "list_tools"):
             tools = pipeline.list_tools()
             for t in tools:
                 if t["id"] == tool_id:
@@ -125,12 +123,11 @@ async def get_tool(tool_id: str):
 async def invoke_tool(tool_id: str, req: InvokeRequest):
     """Invoke a tool via MCP and return its result."""
     try:
-        if hasattr(pipeline, 'invoke_tool'):
+        if hasattr(pipeline, "invoke_tool"):
             arguments = req.arguments if req.arguments is not None else {}
             result = await pipeline.invoke_tool(tool_id, arguments)
             return {"object": "tool.invocation", "data": result}
-        else:
-            return JSONResponse(status_code=501, content={"error": "Tool invocation not available"})
+        return JSONResponse(status_code=501, content={"error": "Tool invocation not available"})
     except ValueError as ve:
         return JSONResponse(status_code=404, content={"error": str(ve)})
     except Exception as e:
@@ -148,7 +145,7 @@ async def chat_completions(request: dict):
         if not messages:
             return JSONResponse(
                 status_code=400,
-                content={"error": "No messages provided"}
+                content={"error": "No messages provided"},
             )
 
         # Get the last user message with defensive parsing
@@ -168,7 +165,7 @@ async def chat_completions(request: dict):
         if not user_message:
             return JSONResponse(
                 status_code=400,
-                content={"error": "No user message found"}
+                content={"error": "No user message found"},
             )
 
         # Process through pipeline.pipe() - the Open WebUI interface
@@ -176,7 +173,7 @@ async def chat_completions(request: dict):
             user_message=user_message,
             model_id=model,
             messages=messages,
-            body=request
+            body=request,
         )
 
         # Format response for Open WebUI
@@ -188,16 +185,16 @@ async def chat_completions(request: dict):
                 "index": 0,
                 "message": {
                     "role": "assistant",
-                    "content": str(response)
+                    "content": str(response),
                 },
-                "finish_reason": "stop"
-            }]
+                "finish_reason": "stop",
+            }],
         }
 
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"error": f"Pipeline processing failed: {str(e)}"}
+            content={"error": f"Pipeline processing failed: {str(e)}"},
         )
 
 
@@ -224,7 +221,7 @@ if __name__ == "__main__":  # pragma: no cover
     # Simple route listing for diagnostics at startup
     for r in app.router.routes:  # pragma: no cover debug logging only
         try:
-            methods = getattr(r, 'methods', []) or []
+            methods = getattr(r, "methods", []) or []
             print(f"[ROUTE] {','.join(methods)} {getattr(r, 'path', '?')}")
         except Exception:  # noqa: BLE001
             pass

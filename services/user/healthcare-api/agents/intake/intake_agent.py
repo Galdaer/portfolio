@@ -175,7 +175,7 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         finally:
             # Critical: Clean up MCP connection to prevent runaway tasks
             try:
-                if hasattr(self.mcp_client, 'disconnect'):
+                if hasattr(self.mcp_client, "disconnect"):
                     await self.mcp_client.disconnect()
                     logger.debug("MCP client disconnected after intake processing")
             except Exception as cleanup_error:

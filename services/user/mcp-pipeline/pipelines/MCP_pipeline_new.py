@@ -19,12 +19,12 @@ professionals.
 """
 
 from __future__ import annotations
+
 import asyncio
-import json
 import logging
 import os
-from typing import Any, List, Dict
-from fastapi import HTTPException
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 # MCP imports for stdio communication
@@ -77,56 +77,56 @@ class ForwardResult(BaseModel):
 # ---------------------------------------------------------------------------
 class HealthcareMCPClient:
     """MCP client for stdio communication with healthcare-api container"""
-    
+
     def __init__(self):
         if not MCP_AVAILABLE:
             raise RuntimeError("MCP library not available")
-            
+
         # Connect to healthcare-api container via stdio
         command = "docker"
         args = ["exec", "-i", "healthcare-api", "python", "-m", "main", "--stdio"]
         env = {"MCP_TRANSPORT": "stdio"}
-        
+
         self.params = StdioServerParameters(command=command, args=args, env=env)
         self.client_cm = None
         self.session = None
-        
+
     async def connect(self):
         """Connect to the healthcare-api via stdio"""
         try:
             logger.info("Connecting to healthcare-api via stdio")
-            
+
             # Create stdio client context manager
             self.client_cm = stdio_client(self.params)
-            
+
             # Enter the context manager to get streams
             read_stream, write_stream = await self.client_cm.__aenter__()
-            
+
             # Create ClientSession with the streams
             self.session = ClientSession(read_stream, write_stream)
-            
+
             # Initialize the session
             await self.session.initialize()
             logger.info("Connected to healthcare-api via stdio")
-            
+
         except Exception as e:
             logger.error(f"Failed to connect to healthcare-api: {e}")
             raise
-    
+
     async def call_tool(self, tool_name: str, arguments: dict[str, Any] = None) -> dict[str, Any]:
         """Call a tool via MCP stdio"""
         if not self.session:
             await self.connect()
-            
+
         args = arguments or {}
-        
+
         try:
             result = await self.session.call_tool(tool_name, args)
             return {"status": "success", "result": result}
         except Exception as e:
             logger.error(f"Failed to call tool {tool_name}: {e}")
             return {"status": "error", "error": str(e)}
-    
+
     async def process_chat(self, message: str, user_id: str = None, session_id: str = None) -> dict[str, Any]:
         """Process chat message via healthcare-api"""
         try:
@@ -134,13 +134,13 @@ class HealthcareMCPClient:
             result = await self.call_tool("process_research_query", {
                 "query": message,
                 "user_id": user_id or "anonymous",
-                "session_id": session_id or "default"
+                "session_id": session_id or "default",
             })
             return result
         except Exception as e:
             logger.error(f"Failed to process chat: {e}")
             return {"status": "error", "error": str(e)}
-    
+
     async def disconnect(self):
         """Disconnect from healthcare-api"""
         try:
@@ -165,7 +165,7 @@ class Pipeline:
         if not MCP_AVAILABLE:
             logger.error("MCP library not available - cannot initialize pipeline")
             raise RuntimeError("MCP library required for stdio communication")
-        
+
         self.mcp_client = HealthcareMCPClient()
         timeout_raw = os.environ.get("PIPELINE_TIMEOUT_SECONDS", "30")
         try:
@@ -190,7 +190,7 @@ class Pipeline:
                 message_text = " ".join(str(msg) for msg in user_message)
             else:
                 message_text = str(user_message)
-            
+
             # Create standardized message format
             if not messages:
                 final_message = message_text
@@ -212,20 +212,20 @@ class Pipeline:
             # Process via MCP stdio
             result = await asyncio.wait_for(
                 self.mcp_client.process_chat(final_message, user_id, session_id),
-                timeout=self.timeout
+                timeout=self.timeout,
             )
 
             if result.get("status") == "error":
                 error_msg = result.get("error", "Unknown error")
                 logger.error(f"Pipeline error: {error_msg}")
                 return f"I'm having trouble processing your request. Error: {error_msg}"
-            
+
             # Extract the actual response from the result
             response_data = result.get("result", {})
             if isinstance(response_data, dict):
                 # Look for common response fields
                 response_text = (
-                    response_data.get("response") or 
+                    response_data.get("response") or
                     response_data.get("research_summary") or
                     response_data.get("message") or
                     str(response_data)
@@ -234,8 +234,8 @@ class Pipeline:
                 response_text = str(response_data)
 
             return response_text
-                        
-        except asyncio.TimeoutError:
+
+        except TimeoutError:
             logger.error("Pipeline timeout")
             return "I'm having trouble processing your request right now. The request timed out."
         except Exception as e:

@@ -7,12 +7,13 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from database import PubMedArticle, UpdateLog
 from pubmed.downloader import PubMedDownloader
 from pubmed.parser_optimized import OptimizedPubMedParser
 from sqlalchemy import func, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
+
+from database import PubMedArticle, UpdateLog
 
 logger = logging.getLogger(__name__)
 

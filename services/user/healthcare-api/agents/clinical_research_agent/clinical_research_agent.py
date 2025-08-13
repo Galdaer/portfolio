@@ -607,7 +607,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             return self._create_error_response(f"General inquiry error: {str(e)}", session_id)
 
     async def process_research_query(
-        self, query: str, user_id: str, session_id: str
+        self, query: str, user_id: str, session_id: str,
     ) -> dict[str, Any]:
         """
         Process research query with MCP tool integration for medical literature search
@@ -649,12 +649,12 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             )
 
             # Ensure MCP client connection using lazy connection pattern
-            if hasattr(self.mcp_client, '_ensure_connected'):
+            if hasattr(self.mcp_client, "_ensure_connected"):
                 await self.mcp_client._ensure_connected()
 
             # Analyze query to determine appropriate processing approach
             query_analysis = await self._analyze_research_query(query)
-            
+
             # Create clinical context from analysis
             clinical_context = {
                 "user_id": user_id,
@@ -666,16 +666,16 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             # Route to appropriate processing method based on query type
             if query_analysis.get("query_type") == "differential_diagnosis":
                 result = await self._process_differential_diagnosis(
-                    query, clinical_context, session_id
+                    query, clinical_context, session_id,
                 )
             elif query_analysis.get("query_type") == "drug_interaction":
                 result = await self._process_drug_interaction(
-                    query, clinical_context, session_id
+                    query, clinical_context, session_id,
                 )
             else:
                 # Default to comprehensive research with MCP tools for all other queries
                 result = await self._process_comprehensive_research(
-                    query, clinical_context, session_id
+                    query, clinical_context, session_id,
                 )
 
             # Add pipeline-specific response formatting
@@ -723,7 +723,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         except Exception as e:
             # Get full traceback for debugging
             error_traceback = traceback.format_exc()
-            
+
             # Log error with healthcare context and full traceback
             log_healthcare_event(
                 logger,
@@ -797,11 +797,11 @@ Respond only with valid JSON.
 
             # Parse LLM response
             response_text = response.get("response", "")
-            
+
             try:
                 import json
                 analysis_result = json.loads(response_text)
-                
+
                 # Validate and set defaults if needed
                 query_type = analysis_result.get("query_type", "comprehensive_research")
                 focus_areas = analysis_result.get("focus_areas", ["general_medicine"])
@@ -809,7 +809,7 @@ Respond only with valid JSON.
                 recommended_tools = analysis_result.get("recommended_tools", ["search-pubmed"])
                 research_strategy = analysis_result.get("research_strategy", "Comprehensive literature search")
                 urgency_level = analysis_result.get("urgency_level", "medium")
-                
+
                 return {
                     "query_type": query_type,
                     "focus_areas": focus_areas,
@@ -821,12 +821,12 @@ Respond only with valid JSON.
                     "estimated_processing_time": "30-60 seconds",
                     "llm_analysis": True,
                 }
-                
+
             except json.JSONDecodeError:
                 logger.warning(f"Failed to parse LLM analysis response: {response_text}")
                 # Fallback to default comprehensive research
                 return self._get_default_analysis()
-                
+
         except Exception as e:
             logger.warning(f"LLM query analysis failed: {e}")
             # Fallback to default comprehensive research
@@ -847,7 +847,7 @@ Respond only with valid JSON.
         }
 
     async def _process_comprehensive_research(
-        self, query: str, clinical_context: dict[str, Any], session_id: str
+        self, query: str, clinical_context: dict[str, Any], session_id: str,
     ) -> dict[str, Any]:
         """
         Process comprehensive research query with multiple MCP tool integrations
@@ -857,40 +857,40 @@ Respond only with valid JSON.
         try:
             # Multi-stage research approach
             research_stages = []
-            
+
             # Stage 1: Primary literature search via MCP tools
-            if hasattr(self.mcp_client, 'call_tool'):
+            if hasattr(self.mcp_client, "call_tool"):
                 try:
                     pubmed_result = await self.mcp_client.call_tool(
-                        "search-pubmed", 
-                        {"query": query, "max_results": 10}
+                        "search-pubmed",
+                        {"query": query, "max_results": 10},
                     )
                     research_stages.append({
                         "stage": "pubmed_search",
                         "tool": "search-pubmed",
                         "result": pubmed_result,
-                        "success": True
+                        "success": True,
                     })
                 except Exception as mcp_error:
                     logger.warning(f"MCP tool search-pubmed failed: {mcp_error}")
                     research_stages.append({
                         "stage": "pubmed_search",
-                        "tool": "search-pubmed", 
+                        "tool": "search-pubmed",
                         "error": str(mcp_error),
-                        "success": False
+                        "success": False,
                     })
 
                 # Stage 2: Clinical trial search via MCP tools
                 try:
                     trials_result = await self.mcp_client.call_tool(
                         "search-trials",
-                        {"query": query, "max_results": 5}
+                        {"query": query, "max_results": 5},
                     )
                     research_stages.append({
                         "stage": "trials_search",
                         "tool": "search-trials",
-                        "result": trials_result, 
-                        "success": True
+                        "result": trials_result,
+                        "success": True,
                     })
                 except Exception as mcp_error:
                     logger.warning(f"MCP tool search-trials failed: {mcp_error}")
@@ -898,7 +898,7 @@ Respond only with valid JSON.
                         "stage": "trials_search",
                         "tool": "search-trials",
                         "error": str(mcp_error),
-                        "success": False
+                        "success": False,
                     })
 
             # Stage 3: Enhanced medical reasoning using existing capabilities
@@ -910,7 +910,7 @@ Respond only with valid JSON.
 
             # Stage 4: Synthesis and summary generation
             research_summary = await self._synthesize_research_findings(
-                query, research_stages, reasoning_result
+                query, research_stages, reasoning_result,
             )
 
             return {
@@ -929,8 +929,8 @@ Respond only with valid JSON.
                 "evidence_sources": reasoning_result.evidence_sources,
                 "mcp_tools_used": [stage["tool"] for stage in research_stages if stage.get("success")],
                 "total_sources_found": sum(
-                    len(stage.get("result", {}).get("articles", [])) 
-                    for stage in research_stages 
+                    len(stage.get("result", {}).get("articles", []))
+                    for stage in research_stages
                     if stage.get("success") and stage.get("result")
                 ),
                 "disclaimers": reasoning_result.disclaimers + [
@@ -942,36 +942,36 @@ Respond only with valid JSON.
 
         except Exception as e:
             return self._create_error_response(
-                f"Comprehensive research processing error: {str(e)}", session_id
+                f"Comprehensive research processing error: {str(e)}", session_id,
             )
 
     async def _synthesize_research_findings(
-        self, 
-        query: str, 
-        research_stages: list[dict[str, Any]], 
-        reasoning_result: Any
+        self,
+        query: str,
+        research_stages: list[dict[str, Any]],
+        reasoning_result: Any,
     ) -> str:
         """
         Synthesize findings from multiple research stages into coherent summary
         """
         # Collect findings from successful research stages
         findings = []
-        
+
         for stage in research_stages:
             if stage.get("success") and stage.get("result"):
                 stage_name = stage.get("stage", "unknown")
                 result_data = stage.get("result", {})
-                
+
                 if stage_name == "pubmed_search" and "articles" in result_data:
                     articles = result_data["articles"][:5]  # Top 5 articles
-                    findings.append(f"Literature Review ({len(articles)} studies): " + 
-                                  "; ".join([article.get("title", "Untitled")[:100] 
+                    findings.append(f"Literature Review ({len(articles)} studies): " +
+                                  "; ".join([article.get("title", "Untitled")[:100]
                                            for article in articles]))
-                
+
                 elif stage_name == "trials_search" and "trials" in result_data:
                     trials = result_data["trials"][:3]  # Top 3 trials
                     findings.append(f"Clinical Trials ({len(trials)} trials): " +
-                                  "; ".join([trial.get("title", "Untitled")[:100] 
+                                  "; ".join([trial.get("title", "Untitled")[:100]
                                            for trial in trials]))
 
         # Add reasoning insights
