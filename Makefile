@@ -47,6 +47,14 @@
 	   healthcare-api-health \
 	   healthcare-api-status \
 	   healthcare-api-test \
+	   scispacy-build \
+	   scispacy-rebuild \
+	   scispacy-clean \
+	   scispacy-stop \
+	   scispacy-logs \
+	   scispacy-health \
+	   scispacy-status \
+	   scispacy-test \
 	   medical-mirrors-build \
 	   medical-mirrors-rebuild \
 	   medical-mirrors-clean \
@@ -601,6 +609,52 @@ healthcare-api-test:
 	@curl -f http://172.20.0.16:8000/health 2>/dev/null && echo "✅ Healthcare API health check passed" || echo "❌ Healthcare API health check failed"
 	@echo "✅  Healthcare API validation complete"
 
+# SciSpacy Service Commands
+scispacy-build:
+	@echo "🧬  Building SciSpacy NLP service Docker image"
+	@cd services/user/scispacy && docker build -t intelluxe/scispacy:latest .
+	@echo "✅ SciSpacy Docker image built successfully"
+
+scispacy-rebuild:
+	@echo "🔄  Rebuilding SciSpacy NLP service (no cache)"
+	@cd services/user/scispacy && docker build --no-cache -t intelluxe/scispacy:latest .
+	@echo "✅ SciSpacy Docker image rebuilt successfully"
+
+scispacy-clean:
+	@echo "🧹  Cleaning up SciSpacy Docker artifacts"
+	@docker images intelluxe/scispacy -q | xargs -r docker rmi -f
+	@docker system prune -f --filter "label=description=SciSpacy Healthcare NLP Service"
+	@echo "✅ SciSpacy Docker cleanup complete"
+
+scispacy-stop:
+	@echo "🛑  Stopping SciSpacy NLP service"
+	@docker stop scispacy 2>/dev/null || echo "Container not running"
+	@docker rm scispacy 2>/dev/null || echo "Container not found"
+	@echo "✅ SciSpacy service stopped"
+
+scispacy-logs:
+	@echo "📋  SciSpacy NLP service logs (last 50 lines):"
+	@docker logs --tail 50 scispacy 2>/dev/null || echo "Container not found or not running"
+
+scispacy-health:
+	@echo "🧬  Checking SciSpacy NLP service health"
+	@curl -f http://172.20.0.6:8001/health 2>/dev/null && echo "✅ SciSpacy service is healthy" || echo "❌ SciSpacy service is unhealthy"
+
+scispacy-status:
+	@echo "📊  SciSpacy NLP service status:"
+	@docker ps --filter name=scispacy --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || echo "Container not found"
+
+scispacy-test:
+	@echo "🧪  Running SciSpacy NLP service validation"
+	@echo "   🧬 Testing model info endpoint..."
+	@curl -f http://172.20.0.6:8001/info 2>/dev/null && echo "✅ SciSpacy model info accessible" || echo "❌ SciSpacy model info not accessible"
+	@echo "   🧬 Testing entity analysis with medical text..."
+	@curl -s -X POST http://172.20.0.6:8001/analyze \
+		-H "Content-Type: application/json" \
+		-d '{"text": "Patient presents with chest pain and diabetes mellitus. Prescribed metformin and aspirin.", "enrich": true}' \
+		| jq '.entity_count' 2>/dev/null && echo "✅ SciSpacy entity analysis working" || echo "❌ SciSpacy entity analysis failed"
+	@echo "✅  SciSpacy validation complete"
+
 # Medical Mirrors Service Commands
 medical-mirrors-build:
 	@echo "🏗️  Building Medical Mirrors service Docker image"
@@ -1103,6 +1157,16 @@ help:
 	@echo "   make mcp-pipeline-clean   - Clean MCP Pipeline Docker artifacts"
 	@echo "   make mcp-pipeline-stdio-test  - Run stdio-only MCP pipeline tool discovery test"
 	@echo "   make mcp-pipeline-full-test   - Run stdio + HTTP fallback pipeline test"
+	@echo ""
+	@echo "🧬  SCISPACY NLP SERVICE:"
+	@echo "   make scispacy         - Start SciSpacy NLP service"
+	@echo "   make scispacy-build   - Build SciSpacy Docker image"
+	@echo "   make scispacy-rebuild - Rebuild SciSpacy (no cache)"
+	@echo "   make scispacy-logs    - View SciSpacy logs"
+	@echo "   make scispacy-health  - Check SciSpacy health"
+	@echo "   make scispacy-status  - Show SciSpacy status"
+	@echo "   make scispacy-test    - Test SciSpacy entity analysis"
+	@echo "   make scispacy-clean   - Clean SciSpacy Docker artifacts"
 	@echo ""
 	@echo "🏥  MEDICAL MIRRORS SERVICE:"
 	@echo "   make medical-mirrors         - Start Medical Mirrors service"
