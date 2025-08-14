@@ -226,7 +226,7 @@ class RedisHealthcareSessionTesting:
             "duration_seconds": 180,
             "messages_exchanged": 25,
             "tokens_used": 2500,
-            "model_used": "llama3.2:8b",
+            "model_used": "llama3.1:8b",
             "session_outcome": "completed"
         }
         

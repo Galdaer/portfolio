@@ -4,6 +4,12 @@ Purpose: Transform technical JSON medical search results into human-readable, co
 
 ## Core Principles
 
+**Intent-Based Response Formatting**: Different query intents trigger different response formats and source selections.
+
+**Multi-Source Query Patterns**: Configure source selection based on query intent - articles (PubMed focus), studies (PubMed + ClinicalTrials), treatments (all sources).
+
+**Configurable Response Templates**: YAML-driven templates for structured articles vs conversational summaries.
+
 **LLM + Utility Fallback**: Primary LLM-based conversational generation with utility-based fallback for reliability.
 
 **Medical Disclaimers Required**: All conversational responses must include appropriate healthcare disclaimers.
@@ -12,9 +18,218 @@ Purpose: Transform technical JSON medical search results into human-readable, co
 
 **User-Friendly Display**: Format for Open WebUI and similar interfaces with proper markdown and structure.
 
-## LLM + Utility Fallback Pattern
+## Intent-Based Query Classification
 
-### Primary LLM Strategy
+### Query Intent Architecture
+```python
+class QueryIntentClassifier:
+    def __init__(self, config_path: str):
+        self.patterns = self.load_query_patterns(config_path)
+    
+    def classify_query(self, query: str) -> QueryIntent:
+        """Classify user query to determine response format and sources"""
+        query_lower = query.lower()
+        
+        # Check for specific intent patterns
+        for intent_name, pattern_config in self.patterns.items():
+            if self.matches_pattern(query_lower, pattern_config["keywords"]):
+                return QueryIntent(
+                    intent=intent_name,
+                    response_format=pattern_config["response_format"],
+                    primary_sources=pattern_config["primary_sources"],
+                    max_results=pattern_config["max_results"],
+                    include_abstracts=pattern_config.get("include_abstracts", True)
+                )
+        
+        # Default to conversational information format
+        return QueryIntent.default_information()
+
+class QueryIntent:
+    intent: str
+    response_format: str  # "structured_articles" | "structured_studies" | "structured_treatments" | "conversational_summary"
+    primary_sources: List[str]  # ["pubmed"] | ["clinical_trials"] | ["fda_drugs"] | ["pubmed", "trials", "drugs"]
+    max_results: int
+    include_abstracts: bool
+```
+
+### Configuration-Driven Response Patterns
+```yaml
+# services/user/healthcare-api/config/medical_query_patterns.yaml
+query_patterns:
+  articles_request:
+    keywords: ["articles", "papers", "publications", "literature", "research papers"]
+    response_format: "structured_articles"
+    primary_sources: ["pubmed"]
+    max_results: 10
+    include_abstracts: true
+    template: "academic_article_list"
+    
+  studies_request:
+    keywords: ["studies", "clinical studies", "research studies", "trials"]
+    response_format: "structured_studies" 
+    primary_sources: ["pubmed", "clinical_trials"]
+    max_results: 8
+    include_abstracts: true
+    template: "mixed_studies_list"
+    
+  treatments_request:
+    keywords: ["treatments", "medications", "drugs", "therapies", "interventions"]
+    response_format: "structured_treatments"
+    primary_sources: ["pubmed", "clinical_trials", "fda_drugs"]
+    max_results: 12
+    include_abstracts: false
+    template: "treatment_options_list"
+    
+  clinical_trials_request:
+    keywords: ["clinical trials", "ongoing trials", "recruiting trials", "trial status"]
+    response_format: "structured_trials"
+    primary_sources: ["clinical_trials"]
+    max_results: 15
+    include_abstracts: false
+    template: "clinical_trials_list"
+    
+  drug_information_request:
+    keywords: ["drug information", "medication details", "pharmaceutical", "drug safety"]
+    response_format: "structured_drugs"
+    primary_sources: ["fda_drugs", "pubmed"]
+    max_results: 8
+    include_abstracts: true
+    template: "drug_information_list"
+    
+  information_request:
+    keywords: ["information", "recent", "latest", "updates", "overview", "summary"]
+    response_format: "conversational_summary"
+    primary_sources: ["pubmed", "clinical_trials", "fda_drugs"]
+    max_results: 15
+    include_abstracts: false
+    template: "conversational_overview"
+```
+
+## Response Format Templates
+
+### Template-Based Response Generation
+```python
+class ResponseTemplateManager:
+    def __init__(self, template_config: Dict[str, Any]):
+        self.templates = template_config
+    
+    def generate_response(
+        self, 
+        query_intent: QueryIntent, 
+        search_results: Dict[str, Any]
+    ) -> str:
+        """Generate response using appropriate template for intent"""
+        template_name = query_intent.template
+        template_func = getattr(self, f"format_{template_name}", self.format_conversational_overview)
+        return template_func(search_results, query_intent)
+```
+
+### Structured Articles Template (PubMed Focus)
+```python
+def format_academic_article_list(self, results: Dict[str, Any], intent: QueryIntent) -> str:
+    """Format for 'articles for cardiovascular health' queries"""
+    sources = results.get("information_sources", [])[:intent.max_results]
+    
+    response_parts = [
+        f"## 📚 Recent Articles on {extract_topic(results['search_query'])}",
+        ""
+    ]
+    
+    for i, source in enumerate(sources, 1):
+        if source.get("source_type") == "pubmed" and source.get("doi"):
+            response_parts.extend([
+                f"### {i}. {source.get('title', 'Untitled Article')} ",
+                f"**Authors:** {format_authors(source.get('authors', []))}",
+                f"**Journal:** *{source.get('journal', 'Unknown Journal')}* ({source.get('publication_date', 'Unknown Date')})",
+                f"**Abstract:** {truncate_text(source.get('summary', ''), 200)}",
+                f"**Link:** [Full Article]({source.get('url')})",
+                ""
+            ])
+    
+    response_parts.extend(get_medical_disclaimers())
+    return "\n".join(response_parts)
+```
+
+### Mixed Studies Template (PubMed + ClinicalTrials)
+```python
+def format_mixed_studies_list(self, results: Dict[str, Any], intent: QueryIntent) -> str:
+    """Format for 'studies on cardiovascular health' queries"""
+    sources = results.get("information_sources", [])[:intent.max_results]
+    
+    response_parts = [
+        f"## 🔬 Research Studies on {extract_topic(results['search_query'])}",
+        ""
+    ]
+    
+    # Group by source type
+    pubmed_studies = [s for s in sources if s.get("source_type") == "pubmed"]
+    clinical_trials = [s for s in sources if s.get("source_type") == "clinical_trial"]
+    
+    if pubmed_studies:
+        response_parts.extend([
+            "### 📖 Published Research Studies",
+            ""
+        ])
+        for study in pubmed_studies[:6]:
+            response_parts.extend(format_study_entry(study))
+    
+    if clinical_trials:
+        response_parts.extend([
+            "### 🏥 Clinical Trials",
+            ""
+        ])
+        for trial in clinical_trials[:6]:
+            response_parts.extend(format_trial_entry(trial))
+    
+    response_parts.extend(get_medical_disclaimers())
+    return "\n".join(response_parts)
+```
+
+### Treatment Options Template (All Sources)
+```python
+def format_treatment_options_list(self, results: Dict[str, Any], intent: QueryIntent) -> str:
+    """Format for 'treatments for cardiovascular health' queries"""
+    sources = results.get("information_sources", [])
+    drug_info = results.get("drug_information", [])
+    
+    response_parts = [
+        f"## 💊 Treatment Options for {extract_topic(results['search_query'])}",
+        ""
+    ]
+    
+    # Evidence-based treatments from literature
+    treatment_studies = [s for s in sources if "treatment" in s.get("title", "").lower()]
+    if treatment_studies:
+        response_parts.extend([
+            "### 📚 Evidence-Based Treatments",
+            ""
+        ])
+        for study in treatment_studies[:5]:
+            response_parts.extend(format_treatment_study(study))
+    
+    # Clinical trials for treatments
+    treatment_trials = [s for s in sources if s.get("source_type") == "clinical_trial"]
+    if treatment_trials:
+        response_parts.extend([
+            "### 🧪 Clinical Trials for New Treatments",
+            ""
+        ])
+        for trial in treatment_trials[:4]:
+            response_parts.extend(format_trial_entry(trial))
+    
+    # FDA-approved medications
+    if drug_info:
+        response_parts.extend([
+            "### 💊 FDA-Approved Medications",
+            ""
+        ])
+        for drug in drug_info[:5]:
+            response_parts.extend(format_drug_entry(drug))
+    
+    response_parts.extend(get_medical_disclaimers())
+    return "\n".join(response_parts)
+```
+
 ```python
 async def generate_conversational_response(
     search_results: Dict[str, Any], 

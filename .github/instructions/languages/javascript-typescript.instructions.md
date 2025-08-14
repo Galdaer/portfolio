@@ -423,3 +423,8 @@ export function healthcareSecurityMiddleware() {
 ---
 
 **Healthcare Compliance Note**: All JavaScript/TypeScript development must maintain the same PHI protection and audit standards as the Python infrastructure, with particular attention to browser security and data handling.
+
+## Lessons from 2025-08-14
+
+- UI rendering contract: backend agents must provide a `formatted_summary` string; frontends should prefer this when present.
+- Multi-agent UI: collect per-agent summaries with provenance and render the best available while showing partial failures non-blockingly.

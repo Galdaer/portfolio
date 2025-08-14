@@ -49,7 +49,42 @@ class MedicalSearchAgent:
 - Output: { information_sources: [], related_conditions: [], search_confidence: number, disclaimers: string[] } ✅ Working
 - Errors: { success: false, error: string } ✅ Working
 
-## 🎯 URL GENERATION & DATABASE SCHEMA AWARENESS
+## 🎯 INTENT-BASED MULTI-SOURCE STRATEGY
+
+**NEW ARCHITECTURE DECISION**: Query intent classification with configurable multi-source response patterns.
+
+**Query Intent Examples**:
+- **"articles for cardiovascular health"** → PubMed focus, structured article format (title, authors, abstract, DOI link)
+- **"studies on cardiovascular health"** → PubMed + ClinicalTrials, mixed studies format 
+- **"treatments for cardiovascular health"** → All sources (PubMed + ClinicalTrials + FDA), treatment options format
+- **"recent information on cardiovascular health"** → All sources, conversational summary format
+
+**Multi-Source Configuration Pattern**:
+```yaml
+# services/user/healthcare-api/config/medical_query_patterns.yaml
+query_patterns:
+  articles_request:
+    keywords: ["articles", "papers", "publications", "literature"]
+    primary_sources: ["pubmed"]
+    response_format: "structured_articles"
+    
+  studies_request:
+    keywords: ["studies", "clinical studies", "research studies", "trials"]
+    primary_sources: ["pubmed", "clinical_trials"]
+    response_format: "structured_studies"
+    
+  treatments_request:
+    keywords: ["treatments", "medications", "drugs", "therapies"]
+    primary_sources: ["pubmed", "clinical_trials", "fda_drugs"]
+    response_format: "structured_treatments"
+    
+  information_request:
+    keywords: ["information", "recent", "latest", "updates"]
+    primary_sources: ["pubmed", "clinical_trials", "fda_drugs"]
+    response_format: "conversational_summary"
+```
+
+**Shared Keywords Strategy**: Keywords like "studies" apply to both PubMed and ClinicalTrials with intelligent context-aware routing.
 
 **CRITICAL PATTERN**: Medical literature sources require data source-specific URL generation based on database schema fields.
 

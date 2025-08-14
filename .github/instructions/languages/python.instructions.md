@@ -424,4 +424,15 @@ class EmergencyAwareProcessor:
 - **Emergency Response**: <500ms response time for critical medical scenarios
 - **Human-in-the-Loop**: Automatic escalation for complex or emergency situations
 
----
+## Lessons from 2025-08-14 Medical Search Incident
+
+- Non-blocking metrics: wrap AgentMetricsStore calls in try/except to avoid blocking response formatting.
+- UI contract: agents that surface to Open WebUI must always populate `formatted_summary` with a human-readable fallback.
+- Type safety: prefer `Mapping[str, object]` for request payloads in agents; avoid `Dict[str, Any]` unless mutation is required.
+- Timeouts: wrap end-to-end async operations with `asyncio.wait_for` using config-driven timeouts.
+- Concurrency: gate MCP stdio calls via `asyncio.Semaphore` to avoid contention and taskgroup errors.
+- PHI stance: authorship metadata in literature results is not PHI; do not sanitize author names.
+
+### Tooling configuration notes
+- MyPy: enforce `warn-unused-ignores = True` and disallow `# type: ignore` in healthcare modules.
+- Ruff/Flake8: enable `E9,F63,F7,F82` gate in quick lint; pair with `black` and `isort` auto-fix tasks.

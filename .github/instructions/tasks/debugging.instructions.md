@@ -641,3 +641,10 @@ def debug_trace_healthcare_function(func):
 - [ ] Update test cases based on findings
 
 Remember: Healthcare debugging requires balancing technical insight with strict PHI protection and medical compliance standards.
+
+## Incident Addendum (2025-08-14)
+
+- Ensure `formatted_summary` is always populated by agents that render to UI.
+- Add DIAGNOSTIC logs immediately before/after formatting to pinpoint failures.
+- Wrap metrics and any telemetry in try/except so they never block formatting.
+- In multi-agent runs, keep successful agent outputs even if others fail; synthesis must be non-blocking.

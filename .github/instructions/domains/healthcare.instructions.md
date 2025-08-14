@@ -176,4 +176,16 @@ class ClinicalDecisionSupportAssistant:
 - **Validate all external API calls** for PHI safety before deployment
 - **Medical Safety**: Always redirect medical advice requests to healthcare professionals
 
+## Updated PHI Handling (2025-08-14)
+
+- Literature authorship and publication metadata are not PHI and should be preserved.
+- Error logs must not include patient identifiers; use DIAGNOSTIC markers and previews capped to 200 chars.
+- Minimum Necessary still applies to EHR data; not applicable to public literature metadata.
+
+## Medical Data Processing Patterns (2025-08-14)
+
+- Normalize literature sources with DOI/PMID/URL keys; deduplicate on that precedence.
+- Provide DOI link first, then PubMed link; include year, journal, and abstract snippet when present.
+- Always return a disclaimer and a readable summary even on timeouts or upstream errors.
+
 ---

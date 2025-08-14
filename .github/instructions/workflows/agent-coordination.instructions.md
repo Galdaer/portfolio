@@ -503,3 +503,10 @@ class HealthcareAgentLoadBalancer:
 - Maintain clinical context throughout real-time coordination
 
 Remember: Healthcare agent coordination must prioritize patient safety, maintain clinical accuracy, protect PHI throughout all agent interactions, and provide appropriate medical disclaimers for all coordinated clinical assistance.
+
+## Non-Blocking Multi-Agent Synthesis (2025-08-14)
+
+- Do not hide successful agent results if another agent fails.
+- Persist per-agent payloads and expose best available `formatted_summary` to the UI even when parallel agents error or time out.
+- Selection loops may pick multiple agents; agent failure must not clear previously gathered results.
+- Prefer result synthesis that treats missing/failed agents as partial signals, not blockers.
