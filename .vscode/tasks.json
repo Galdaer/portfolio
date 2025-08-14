@@ -1,204 +1,186 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "Run All Linting",
-			"group": "build",
-			"type": "shell",
-			"command": "make",
-			"args": [
-				"lint"
-			],
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"focus": false,
-				"panel": "shared",
-				"showReuseMessage": true,
-				"clear": false
-			},
-			"problemMatcher": [
-				"$flake8",
-				"$mypy-python",
-				"$eslint-stylish"
-			]
-		},
-		{
-			"label": "MyPy (Healthcare API only)",
-			"group": "build",
-			"type": "shell",
-			"command": "mypy",
-			"args": [
-				"--config-file",
-				"mypy.ini",
-				"services/user/healthcare-api"
-			],
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"panel": "shared"
-			},
-			"problemMatcher": "$python"
-		},
-		{
-			"label": "Quick Lint Check",
-			"group": "build",
-			"type": "shell",
-			"command": "bash",
-			"args": [
-				"-c",
-				"echo '🔍 Running quick lint check...' && flake8 --select=E9,F63,F7,F82 --show-source --statistics src/ && echo '✅ Quick lint passed'"
-			],
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"presentation": {
-				"echo": false,
-				"reveal": "silent",
-				"focus": false,
-				"panel": "shared"
-			}
-		},
-		{
-			"label": "MyPy Type Check",
-			"group": "build",
-			"type": "shell",
-			"command": "mypy",
-			"args": [
-				"."
-			],
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"panel": "shared"
-			},
-			"problemMatcher": "$python"
-		},
-		{
-			"label": "Auto-fix Linting Issues",
-			"group": "build",
-			"type": "shell",
-			"command": "bash",
-			"args": [
-				"-c",
-				"echo '🔧 Auto-fixing linting issues...' && black src/ tests/ && isort src/ tests/ && echo '✅ Auto-fix complete'"
-			],
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"panel": "shared"
-			}
-		},
-		{
-			"label": "Quick Lint Check",
-			"type": "shell",
-			"command": "bash",
-			"args": [
-				"-c",
-				"echo '🔍 Running quick lint check...' && flake8 --select=E9,F63,F7,F82 --show-source --statistics src/ && echo '✅ Quick lint passed'"
-			],
-			"group": "build"
-		}
-		,
-		{
-			"label": "Healthcare API Build",
-			"group": "build",
-			"type": "shell",
-			"command": "make",
-			"args": [
-				"healthcare-api-build"
-			],
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"panel": "shared"
-			}
-		},
-		{
-			"label": "Run Integration Smoke Tests",
-			"group": "test",
-			"type": "shell",
-			"command": "python3",
-			"args": [
-				"scripts/run_integration_tests.py"
-			],
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"panel": "shared"
-			}
-		},
-		{
-			"label": "Tail Healthcare Logs",
-			"group": "none",
-			"type": "shell",
-			"command": "bash",
-			"args": [
-				"-c",
-				"tail -n 200 -f logs/healthcare_system.log"
-			],
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"isBackground": true,
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"panel": "dedicated"
-			}
-		},
-		{
-			"label": "MCP Pipeline Health",
-			"group": "test",
-			"type": "shell",
-			"command": "make",
-			"args": [
-				"mcp-pipeline-health"
-			],
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"panel": "shared"
-			}
-		},
-		{
-			"label": "MCP Pipeline Logs",
-			"group": "none",
-			"type": "shell",
-			"command": "make",
-			"args": [
-				"mcp-pipeline-logs"
-			],
-			"options": {
-				"cwd": "${workspaceFolder}"
-			},
-			"isBackground": true,
-			"presentation": {
-				"echo": true,
-				"reveal": "always",
-				"panel": "shared"
-			}
-		}
-	]
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run All Linting",
+            "group": "build",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "lint"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": [
+                "$flake8",
+                "$mypy-python",
+                "$eslint-stylish"
+            ]
+        },
+        {
+            "label": "MyPy (Healthcare API only)",
+            "group": "build",
+            "type": "shell",
+            "command": "mypy",
+            "args": [
+                "--config-file",
+                "mypy.ini",
+                "services/user/healthcare-api"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Quick Lint Check",
+            "group": "build",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Running quick lint check...' && flake8 --select=E9,F63,F7,F82 --show-source --statistics src/ && echo '✅ Quick lint passed'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": false,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "MyPy Type Check",
+            "group": "build",
+            "type": "shell",
+            "command": "mypy",
+            "args": [
+                "."
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Auto-fix Linting Issues",
+            "group": "build",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔧 Auto-fixing linting issues...' && black src/ tests/ && isort src/ tests/ && echo '✅ Auto-fix complete'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Quick Lint Check",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Running quick lint check...' && flake8 --select=E9,F63,F7,F82 --show-source --statistics src/ && echo '✅ Quick lint passed'"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "Healthcare API Build",
+            "group": "build",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "healthcare-api-build"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Run Integration Smoke Tests",
+            "group": "test",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "scripts/run_integration_tests.py"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Tail Healthcare Logs",
+            "group": "none",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "tail -n 200 -f logs/healthcare_system.log"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "MCP Pipeline Logs",
+            "group": "none",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "mcp-pipeline-logs"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        }
+    ]
 }
