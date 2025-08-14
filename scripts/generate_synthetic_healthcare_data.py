@@ -508,7 +508,7 @@ class SyntheticHealthcareDataGenerator:
             "duration_seconds": random.randint(30, 1800),
             "messages_exchanged": random.randint(5, 50),
             "tokens_used": random.randint(500, 5000),
-            "model_used": random.choice(["llama3.2:3b", "llama3.2:8b", "qwen2.5:7b"]),
+            "model_used": random.choice(["llama3.1:3b", "llama3.1:8b", "qwen2.5:7b"]),
             "session_outcome": random.choice(["completed", "interrupted", "error", "timeout"]),
             "user_satisfaction": random.randint(1, 5),
             "cost_usd": round(random.uniform(0.01, 0.50), 3),

@@ -187,8 +187,9 @@ class MedicalAIAgent:
         Context: {context or 'None provided'}
         """
 
+        from core.config.models import get_instruct_model
         response = await self.ollama_client.generate(
-            model="llama3.1:8b-instruct-q4_K_M",
+            model=get_instruct_model(),
             prompt=medical_prompt,
             options={"temperature": 0.3, "max_tokens": 500}
         )

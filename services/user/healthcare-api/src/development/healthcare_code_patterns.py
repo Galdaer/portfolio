@@ -360,8 +360,9 @@ class MedicalAIAgent:
             # Generate medical analysis
             analysis_prompt = self._create_medical_analysis_prompt(symptoms, patient_context)
 
+            from core.config.models import get_instruct_model
             ai_response = await self.ollama_client.generate(
-                model="llama3.1:8b-instruct-q4_K_M",
+                model=get_instruct_model(),
                 prompt=analysis_prompt,
                 options={
                     "temperature": 0.2,  # Low temperature for medical accuracy
