@@ -18,6 +18,8 @@ Purpose: Transform technical JSON medical search results into human-readable, co
 
 **User-Friendly Display**: Format for Open WebUI and similar interfaces with proper markdown and structure.
 
+**Orchestrator Alignment**: Responses should populate `formatted_summary` for UI; agent provenance is added at API layer.
+
 ## Intent-Based Query Classification
 
 ### Query Intent Architecture
@@ -249,6 +251,9 @@ async def generate_conversational_response(
     
     # Fallback: Utility-based formatting
     return generate_conversational_summary(search_results, user_query)
+
+# Note: The healthcare-api orchestrator will add the agent provenance header
+# and prefer `formatted_summary` over other fields when present.
 ```
 
 ### Utility-Based Fallback

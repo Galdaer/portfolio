@@ -73,3 +73,11 @@ def validate_healthcare_input(data, required_fields):
 - Use shared logging and PHI monitoring infrastructure  
 - Follow consistent error handling and validation approaches
 - Maintain audit trails for all healthcare operations
+
+## Orchestrator Alignment (2025-08-14)
+
+- Single-agent routing per request using local LLM; no implicit helpers
+- Human responses include agent provenance header (API responsibility)
+- Base fallback handled in healthcare-api with safe, non-medical messaging
+- Honor timeouts from `services/user/healthcare-api/config/orchestrator.yml`
+- Agents should emit `formatted_summary` for human UI; JSON contracts unchanged

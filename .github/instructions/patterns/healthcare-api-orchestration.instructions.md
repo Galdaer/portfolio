@@ -1,8 +1,91 @@
-# Healthcare API MCP Integration Patterns
+# Healthcare API Orchestration Patterns (Updated 2025-08-14)
 
 ## Strategic Purpose
 
-**COMPREHENSIVE HEALTHCARE ROUTING**: Healthcare-api handles all routing, agent decisions, tool selection, and MCP integration while maintaining PHI protection and medical compliance.
+Move orchestration to a LangChain-powered router in healthcare-api, with MCP tools wrapped as LangChain tools, local-only LLMs (Ollama), and HIPAA-safe provenance in every response.
+
+## Current Architecture (Validated)
+
+- Orchestrator: LangChain AgentExecutor and routing chains
+- Tools: MCP tools exposed via StructuredTool wrappers
+- LLM: Local Ollama models only (no cloud)
+- Provenance: Always show agent headers in human responses
+- Config: Externalized in `services/user/healthcare-api/config/orchestrator.yml`
+
+## Key Patterns
+
+1) Single-container MCP, subprocess spawn
+- Use Python MCP client to spawn Node MCP server as a subprocess within the healthcare-api container.
+- Wrap MCP client calls in LangChain `StructuredTool` with error handling and timeouts.
+
+2) LangChain orchestration
+- Use `AgentExecutor` with a conservative `max_iterations` and timeouts from `orchestrator.yml`.
+- Prefer a single selected agent; optional parallel fan-out behind a config flag.
+
+3) Provenance and synthesis
+- Always include an agent header: "🤖 <Agent> Agent Response:" in human output.
+- Prefer content keys in this order: formatted_summary, formatted_response, response, research_summary, message.
+
+4) Fallback agent
+- Provide a base fallback response when no specialized agent fits or errors occur.
+- Keep fallback template in `orchestrator.yml`.
+
+## Do/Don't (Routing Contract)
+
+- Do select exactly one primary agent for each request using the local LLM router
+- Do respect `timeouts.per_agent_default` and `timeouts.per_agent_hard_cap`
+- Do include provenance headers in human responses when `provenance.show_agent_header=true`
+- Do return a base fallback when the selected agent errors or returns unsuccessful
+- Do prefer `formatted_summary` > `formatted_response` > `response` > `research_summary` > `message`
+- Don't run medical_search by default for every request (no implicit helpers)
+- Don't block user responses on metrics or logging
+- Don't synthesize or re-route in the pipeline; orchestration lives in healthcare-api
+
+## Config Map (services/user/healthcare-api/config/orchestrator.yml)
+
+- selection:
+    - enabled: bool - enable LLM-based routing
+    - enable_fallback: bool - use base fallback on failure
+    - allow_parallel_helpers: bool - disabled by default; optional fan-out later
+- timeouts:
+    - router_selection: int seconds for agent selection
+    - per_agent_default: int seconds soft timeout
+    - per_agent_hard_cap: int seconds hard cap
+- provenance:
+    - show_agent_header: bool - include agent header in human format
+    - include_metadata: bool - append request_id/source links when available
+- synthesis:
+    - prefer: list[str] - field precedence when converting to human text
+    - agent_priority: list[str] - tie-break preference order
+    - header_prefix: str - UI header prefix
+- fallback:
+    - agent_name: str - logical name of fallback agent
+    - message_template: str - safe, non-medical template with {user_message}
+
+## Acceptance Checklist
+
+- Router picks a single agent; no always-on medical_search
+- Human responses show agent provenance header
+- Base fallback returns safe message with disclaimers
+- Timeouts are honored from orchestrator.yml
+- JSON responses unchanged; human responses prefer formatted fields
+
+## Compliance Requirements
+
+- Local-only LLMs via Ollama; no cloud calls.
+- PHI protection in memory/logs; redact before logging.
+- Medical disclaimers included in responses from research agents.
+
+## Files of Interest
+
+- `services/user/healthcare-api/config/orchestrator.yml` (timeouts, provenance, routing)
+- `services/user/healthcare-api/main.py` (router endpoint integration)
+- `services/user/healthcare-api/core/langchain/` (agents, tools, orchestrator)
+
+## Migration Notes
+
+- Thin MCP pipeline is legacy; new work centers on API-level orchestration.
+- Agents can remain as is; introduce LangChain wrappers incrementally per agent.
 
 **Architecture Role**: Receives requests from thin MCP pipeline and orchestrates complete healthcare AI workflows.
 

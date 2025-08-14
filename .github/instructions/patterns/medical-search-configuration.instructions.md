@@ -158,6 +158,12 @@ class HealthcareQueryClassifier:
         """Calculate match score for query against keyword pattern"""
         matches = sum(1 for keyword in keywords if keyword in query)
         return matches / len(keywords) if keywords else 0
+
+## Orchestrator Alignment Note
+
+- Medical search should run only when selected by the router
+- Agents must populate `formatted_summary` for human UI consumption
+- Provenance headers are added by healthcare-api based on `agent_name`
 ```
 
 ### Configuration-Driven Source Selection

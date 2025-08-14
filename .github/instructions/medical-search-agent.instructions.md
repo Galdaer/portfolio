@@ -38,15 +38,24 @@ class MedicalSearchAgent:
 
 **Current Issue**: MCP calls succeed but stdio transport layer unstable - timeouts result in empty responses.
 
+## Orchestrator Contract (Required)
+
+- Provide `formatted_summary` on success (UI relies on it)
+- Do not block returning results on metrics/logging; collect asynchronously
+- Include `agent_name` in result payloads when available for provenance header
+- Return `{ success: false, error: str }` on failure; orchestrator handles base fallback
+- Avoid running for every request; only run when selected by router
+
 ## Core Principles (Validated)
 - MCP-first: All medical content comes from MCP tools (PubMed, clinical databases). ✅ Working
 - LLM for text only: Use LLM for parsing/formatting, never for medical knowledge. ✅ Implemented  
 - Fail fast: If MCP tools unavailable, return clear error with disclaimers. ✅ Working
 - Logging and metrics: Use healthcare_logger with trace_id; collect counters where helpful. ✅ Working
+ - Provenance: Expect API to add agent header in human responses; populate `agent_name`
 
 ## Minimal Contract (Implemented)
 - Input: { message: str, format: 'human' | 'json' } ✅ Working
-- Output: { information_sources: [], related_conditions: [], search_confidence: number, disclaimers: string[] } ✅ Working
+- Output: { formatted_summary: str, information_sources: [], related_conditions: [], search_confidence: number, disclaimers: string[], agent_name?: 'medical_search' } ✅ Working
 - Errors: { success: false, error: string } ✅ Working
 
 ## 🎯 INTENT-BASED MULTI-SOURCE STRATEGY
@@ -140,9 +149,9 @@ def generate_conversational_summary(search_results: Dict[str, Any]) -> str:
 
 **SYMPTOM**: Open WebUI shows raw JSON instead of formatted medical literature summaries.
 
-**ROOT CAUSE**: Missing conversational response formatting in medical search agent output.
+**ROOT CAUSE**: Missing conversational response formatting in agent output and/or UI not prioritizing `formatted_summary`.
 
-**SOLUTION PATTERN**: Implement conversational response generation with proper medical disclaimer integration.
+**SOLUTION PATTERN**: Implement conversational response generation that populates `formatted_summary` and keeps raw fields for JSON responses.
 
 ## Implementation Steps
 1. Validation
@@ -159,8 +168,9 @@ def generate_conversational_summary(search_results: Dict[str, Any]) -> str:
    - _determine_evidence_level(item): prioritize systematic reviews, RCTs; de-prioritize editorials.
    - _rank_sources_by_evidence(items): combine relevance + evidence.
 6. Response
-   - Aggregate, dedupe sources; compute search_confidence from source quality and agreement.
-   - Include medical disclaimers always.
+  - Aggregate, dedupe sources; compute search_confidence from source quality and agreement.
+  - Include medical disclaimers always.
+  - Populate `formatted_summary` with readable synthesis; keep underlying JSON intact
 
 ## Testing Strategy
 - Unit tests
@@ -169,6 +179,7 @@ def generate_conversational_summary(search_results: Dict[str, Any]) -> str:
 - Integration tests
   - Probe MCP for tools, perform a short PubMed search, assert non-empty results.
   - Error path when MCP unavailable returns clear message, no medical content.
+  - Human response contains provenance header when served through API
 - Logging tests
   - Ensure no PHI in logs; include trace_id, timings.
 

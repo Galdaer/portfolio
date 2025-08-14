@@ -18,7 +18,7 @@
 
 ## ✅ CURRENT ARCHITECTURE (2025-01-15)
 
-**DIRECT HTTP PATTERN**: FastAPI server with clean agent routing replaces pipeline proxy pattern.
+**DIRECT HTTP PATTERN**: FastAPI server with clean agent routing replaces pipeline proxy pattern. The pipeline must not make routing or synthesis decisions.
 
 **Current Separation of Concerns**:
 - **FastAPI Server (main.py)**: HTTP interface with agent routing (pure HTTP, no stdio)
@@ -99,6 +99,7 @@ class PipelineErrorHandler:
 - Call MCP tools directly
 - Implement complex business logic
 - Handle patient data processing
+ - Perform synthesis or provenance formatting (handled in healthcare-api)
 
 ### Healthcare-API Responsibilities:
 - All routing and agent selection
@@ -158,6 +159,7 @@ def test_timeout_handling():
 - Remove agent selection logic
 - Remove MCP tool invocation
 - Keep only HTTP forwarding
+ - Ensure `format=human` is forwarded so healthcare-api can add provenance headers
 
 ### Phase 2: Simplify Dependencies
 - Remove unnecessary MCP imports

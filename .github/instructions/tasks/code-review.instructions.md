@@ -48,4 +48,25 @@ Code review guidance for healthcare AI systems emphasizing medical compliance, P
 - **Audit logging**: Verify proper logging for compliance requirements
 - **Access control**: Review role-based permissions and authentication
 - **Data minimization**: Check that only necessary data is processed
+ 
+## Orchestrator Alignment Checklist (2025-08-14)
+
+- Routing
+	- [ ] Exactly one agent selected per request (no implicit helpers)
+	- [ ] No always-on medical_search; invoked only when selected
+- Provenance
+	- [ ] Human responses include agent provenance header when enabled
+	- [ ] Agent payloads include `agent_name` when available
+- Fallback
+	- [ ] Base fallback path returns safe, non-medical response with disclaimers
+	- [ ] No business logic in pipeline; fallback handled by healthcare-api
+- Timeouts & Resilience
+	- [ ] `timeouts.per_agent_default` respected; `per_agent_hard_cap` enforced
+	- [ ] Metrics/logging are non-blocking
+- Formatting & Contracts
+	- [ ] Agents prefer `formatted_summary` for human UI
+	- [ ] JSON contracts unchanged; human formatting added at API layer
+- Configuration
+	- [ ] `services/user/healthcare-api/config/orchestrator.yml` is the source of truth
+	- [ ] PRs document any changes to routing/timeouts/provenance/fallback keys
 ````

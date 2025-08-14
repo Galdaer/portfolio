@@ -39,6 +39,27 @@ class HealthcareTestFramework:
         
         return synthetic_patient
 
+# ✅ PATTERN: Orchestrator-level tests (provenance + fallback)
+class OrchestratorBehaviorTests:
+    def test_provenance_header_present(self, test_client):
+        # When format=human, response includes agent header
+        resp = test_client.post('/process', json={'message': 'find articles on hypertension', 'format': 'human'})
+        txt = resp.json().get('formatted_response') or ''
+        assert txt.startswith('🤖 ')
+
+    def test_base_fallback_when_agent_fails(self, mock_router_failure, test_client):
+        # Simulate agent failure; API should return base fallback message
+        resp = test_client.post('/process', json={'message': 'trigger failure', 'format': 'human'})
+        data = resp.json()
+        assert data['status'] == 'success'
+        assert 'base' in (data.get('result', {}).get('agent_name') or '')
+        assert 'not medical advice' in (data.get('formatted_response') or data.get('response') or '').lower()
+
+    def test_timeout_respected(self, slow_agent_selected, test_client, orchestrator_config):
+        # Ensure per_agent_default timeout is enforced
+        resp = test_client.post('/process', json={'message': 'slow op', 'format': 'json'})
+        assert resp.status_code == 200
+
 # ✅ PATTERN: Emergency scenario testing
 class EmergencyScenarioTesting:
     def test_emergency_response_times(self):

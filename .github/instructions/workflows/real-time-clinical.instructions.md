@@ -77,6 +77,8 @@ class RealTimeClinicalAssistant:
                     # Progressive clinical analysis with streaming updates
                     async for clinical_update in self.progressive_clinical_analysis(message, session):
                         await websocket.send_json(clinical_update)
+                    # Orchestrator note: Route messages to a single selected agent when escalating to API
+                    # Provenance headers are added by healthcare-api in human responses
                     
                     # Log all clinical interactions for compliance
                     await session.log_clinical_interaction(message, phi_detected=phi_scan_result.contains_phi)

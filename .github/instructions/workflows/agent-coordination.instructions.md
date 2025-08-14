@@ -130,7 +130,8 @@ Select 1-3 agents that would best handle this query. Respond with agent names on
         # Validate selected agents exist
         valid_agents = [name for name in selected_agents if name in available_agents]
         
-        # DO NOT USE FALLBACKS AS THAT WILL HIDE ANY ISSUES
+    # Do not hide selection issues here; selection errors should surface.
+    # Fallback, if any, is handled centrally by healthcare-api orchestrator.
 
         return valid_agents
     
@@ -288,7 +289,7 @@ Respond with agent names only, one per line.
 """
         
         # Use local LLM for intelligent agent selection (PHI-safe)
-        response = await self.local_llm_client.complete(prompt)
+    response = await self.local_llm_client.complete(prompt)  # Local-only, PHI-safe
         selected_agents = [name.strip() for name in response.strip().split('\n') if name.strip()]
         
         # Validate and enhance selection based on performance history
@@ -394,10 +395,11 @@ class RealTimeClinicalCoordinator:
         # Initialize agent coordination for real-time workflow
         coordinator = await self.initialize_real_time_coordination(case)
         
-        try:
+    try:
             async for message in websocket.iter_text():
                 # Parse clinical message with PHI protection
                 clinical_message = await self.parse_clinical_message(message)
+        # Orchestration note: Real-time workflows should still route via single-agent selection when possible.
                 
                 # Determine which agents should respond to this message
                 responsive_agents = await coordinator.select_responsive_agents(clinical_message)

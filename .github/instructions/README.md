@@ -215,3 +215,14 @@ This structured approach provides:
 - ✅ **Modern development practices** automatically applied
 - ✅ **Team knowledge sharing** through documented patterns
 - ✅ **Scalable AI assistance** as the healthcare system grows
+
+## Orchestrator Alignment (2025-08-14)
+
+To keep all instructions consistent with current routing behavior:
+
+- Routing: Single-agent selection per request; no implicit always-on helpers
+- Provenance: Human responses include agent header when enabled
+- Fallback: Base fallback handled by healthcare-api; pipeline must not synthesize
+- Timeouts: Use `services/user/healthcare-api/config/orchestrator.yml` for `router_selection`, `per_agent_default`, `per_agent_hard_cap`
+- Formatting: Agents populate `formatted_summary`; API prefers it for human responses
+- Pipeline Scope: Forward requests only (include `format=human`), no routing/synthesis
