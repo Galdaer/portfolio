@@ -72,8 +72,18 @@ def load_orchestrator_config() -> dict[str, Any]:
     cfg_path = Path(__file__).parent / "config" / "orchestrator.yml"
     defaults: dict[str, Any] = {
         "selection": {"enabled": True, "enable_fallback": True, "allow_parallel_helpers": False},
-        "timeouts": {"router_selection": 5, "per_agent_default": 30, "per_agent_hard_cap": 90},
+        "timeouts": {
+            "router_selection": 5,
+            "per_agent_default": 30,
+            "per_agent_hard_cap": 90,
+            "tool_max_retries": 2,
+            "tool_retry_base_delay": 0.2,
+        },
         "provenance": {"show_agent_header": True, "include_metadata": True},
+        "routing": {
+            "always_run_medical_search": True,
+            "presearch_max_results": 5,
+        },
         "synthesis": {
             "prefer": ["formatted_summary", "formatted_response", "response", "research_summary", "message"],
             "agent_priority": ["medical_search", "clinical_research", "document_processor", "intake"],
@@ -139,6 +149,9 @@ async def initialize_agents():
                     "per_agent_default": float(timeouts.get("per_agent_default", 30)),
                     "per_agent_hard_cap": float(timeouts.get("per_agent_hard_cap", 90)),
                 },
+                always_run_medical_search=bool(orch_cfg.get("routing", {}).get("always_run_medical_search", True)),
+                presearch_max_results=int(orch_cfg.get("routing", {}).get("presearch_max_results", 5)),
+                citations_max_display=int(orch_cfg.get("langchain", {}).get("citations_max_display", 10)),
             )
             logger.info("LangChain orchestrator initialized (default)")
         except Exception as e:

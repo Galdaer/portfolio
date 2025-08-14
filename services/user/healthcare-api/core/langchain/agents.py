@@ -32,13 +32,17 @@ class HealthcareLangChainAgent:
         show_agent_header: bool = True,
         per_agent_default_timeout: float = 30.0,
         per_agent_hard_cap: float = 90.0,
+        tool_max_retries: int = 2,
+        tool_retry_base_delay: float = 0.2,
     ) -> None:
         self.show_agent_header = show_agent_header
         self.per_agent_default_timeout = per_agent_default_timeout
         self.per_agent_hard_cap = per_agent_hard_cap
 
         # Tools
-        self.tools = create_mcp_tools(mcp_client)
+        self.tools = create_mcp_tools(
+            mcp_client, max_retries=int(tool_max_retries), retry_base_delay=float(tool_retry_base_delay)
+        )
 
         # Prompt
         prompt = ChatPromptTemplate.from_messages(

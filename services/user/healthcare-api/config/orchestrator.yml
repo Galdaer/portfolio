@@ -19,6 +19,9 @@ timeouts:
   per_agent_default: 30
   # Strict upper bound for any single agent (seconds)
   per_agent_hard_cap: 90
+  # Tool retry/backoff
+  tool_max_retries: 2
+  tool_retry_base_delay: 0.2
 
 provenance:
   # Always show the agent header in formatted responses
@@ -64,6 +67,7 @@ langchain:
   routing:
     default_agent: "medical_search"
     router_model: "llama3.1:8b"
+  citations_max_display: 10
   memory:
     type: "conversation_summary_buffer"
     max_tokens: 2000
@@ -71,3 +75,9 @@ langchain:
     handle_errors: true
     return_direct: false
     max_retries: 2
+
+# Router behaviors (presearch)
+routing:
+  always_run_medical_search: true
+  presearch_max_results: 5
+

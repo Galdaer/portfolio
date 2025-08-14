@@ -12,6 +12,8 @@ Notes:
 from __future__ import annotations
 
 from typing import Any, Callable, List, Optional
+import asyncio
+import time
 
 from pydantic import BaseModel, Field
 from langchain.tools import StructuredTool
@@ -44,57 +46,77 @@ class DrugInfoInput(BaseModel):
     drug_name: str = Field(description="Drug name to lookup")
 
 
-def _safe_tool_wrapper(tool_name: str, fn: Callable[..., Any]) -> Callable[..., Any]:
+def _safe_tool_wrapper(
+    tool_name: str,
+    fn: Callable[..., Any],
+    *,
+    max_retries: int = 2,
+    base_delay: float = 0.2,
+) -> Callable[..., Any]:
     """Wrap tool functions with PHI-safe error handling and logging.
 
     Returns an async or sync callable that mirrors the wrapped function.
     """
 
     async def _aw(*args: Any, **kwargs: Any) -> Any:  # async wrapper
-        try:
-            return await fn(*args, **kwargs)  # type: ignore[misc]
-        except Exception:
-            logger.error(
-                f"Tool error ({tool_name})",  # keep message generic
-                extra={
-                    "healthcare_context": {
-                        "operation_type": "tool_error",
-                        "tool": tool_name,
+        attempt = 0
+        while True:
+            try:
+                return await fn(*args, **kwargs)  # type: ignore[misc]
+            except Exception:
+                attempt += 1
+                if attempt > max_retries:
+                    logger.error(
+                        f"Tool error ({tool_name})",
+                        extra={
+                            "healthcare_context": {
+                                "operation_type": "tool_error",
+                                "tool": tool_name,
+                                "status": "degraded",
+                                "retries": attempt - 1,
+                            }
+                        },
+                    )
+                    return {
+                        "error": "Tool temporarily unavailable",
+                        "fallback": "Using cached medical data",
                         "status": "degraded",
                     }
-                },
-            )
-            return {
-                "error": "Tool temporarily unavailable",
-                "fallback": "Using cached medical data",
-                "status": "degraded",
-            }
+                await asyncio.sleep(base_delay * attempt)
 
     def _sw(*args: Any, **kwargs: Any) -> Any:  # sync wrapper
-        try:
-            return fn(*args, **kwargs)
-        except Exception:
-            logger.error(
-                f"Tool error ({tool_name})",
-                extra={
-                    "healthcare_context": {
-                        "operation_type": "tool_error",
-                        "tool": tool_name,
+        attempt = 0
+        while True:
+            try:
+                return fn(*args, **kwargs)
+            except Exception:
+                attempt += 1
+                if attempt > max_retries:
+                    logger.error(
+                        f"Tool error ({tool_name})",
+                        extra={
+                            "healthcare_context": {
+                                "operation_type": "tool_error",
+                                "tool": tool_name,
+                                "status": "degraded",
+                                "retries": attempt - 1,
+                            }
+                        },
+                    )
+                    return {
+                        "error": "Tool temporarily unavailable",
+                        "fallback": "Using cached medical data",
                         "status": "degraded",
                     }
-                },
-            )
-            return {
-                "error": "Tool temporarily unavailable",
-                "fallback": "Using cached medical data",
-                "status": "degraded",
-            }
+                time.sleep(base_delay * attempt)
 
     # Preserve async nature when wrapping
     return _aw if callable(getattr(fn, "__await__", None)) else _sw
 
 
-def create_mcp_tools(mcp_client: Any) -> List[StructuredTool]:
+def create_mcp_tools(
+    mcp_client: Any, *, max_retries: int = 2, retry_base_delay: float = 0.2
+) -> List[StructuredTool]:
     """Create LangChain StructuredTool list backed by the MCP client.
 
     The provided client must implement `call_tool(name: str, arguments: dict)`.
@@ -117,7 +139,9 @@ def create_mcp_tools(mcp_client: Any) -> List[StructuredTool]:
 
     tools: List[StructuredTool] = [
         StructuredTool.from_function(
-            func=_safe_tool_wrapper("search_medical_literature", _pubmed_search),
+            func=_safe_tool_wrapper(
+                "search_medical_literature", _pubmed_search, max_retries=max_retries, base_delay=retry_base_delay
+            ),
             name="search_medical_literature",
             description="Search PubMed for peer-reviewed medical literature",
             args_schema=PubMedSearchInput,
@@ -125,7 +149,9 @@ def create_mcp_tools(mcp_client: Any) -> List[StructuredTool]:
             handle_tool_error=True,
         ),
         StructuredTool.from_function(
-            func=_safe_tool_wrapper("search_clinical_trials", _clinical_trials),
+            func=_safe_tool_wrapper(
+                "search_clinical_trials", _clinical_trials, max_retries=max_retries, base_delay=retry_base_delay
+            ),
             name="search_clinical_trials",
             description="Search for clinical trials (e.g., recruiting)",
             args_schema=ClinicalTrialsInput,
@@ -133,7 +159,9 @@ def create_mcp_tools(mcp_client: Any) -> List[StructuredTool]:
             handle_tool_error=True,
         ),
         StructuredTool.from_function(
-            func=_safe_tool_wrapper("get_drug_information", _drug_info),
+            func=_safe_tool_wrapper(
+                "get_drug_information", _drug_info, max_retries=max_retries, base_delay=retry_base_delay
+            ),
             name="get_drug_information",
             description="Get FDA drug information and warnings",
             args_schema=DrugInfoInput,
