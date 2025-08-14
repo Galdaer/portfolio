@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { Client } from 'pg';
 import { CacheManager } from "../../utils/Cache.js";
 
 export interface ClinicalTrial {
@@ -17,82 +18,151 @@ interface ClinicalTrialsResponse {
 
 export class ClinicalTrials {
     private readonly baseUrl = 'https://clinicaltrials.gov/api/v2/studies';
-    private readonly localMirrorUrl = 'http://172.20.0.20:8080/trials';
     private readonly apiKey?: string;
-    private useLocalMirror: boolean = true;
 
     constructor(apiKey?: string) {
         this.apiKey = apiKey;
-        // Check environment for local mirror preference
-        this.useLocalMirror = process.env.USE_LOCAL_MEDICAL_MIRRORS !== 'false';
     }
 
     async getTrials(args: any, cache: CacheManager) {
         const { condition, location } = args;
+        const maxResults = Math.max(1, Math.min(100, Number(args?.maxResults ?? 25)));
         const cacheKey = cache.createKey('trials', { condition, location });
 
         const trials = await cache.getOrFetch(
             cacheKey,
-            () => this.searchTrials(condition, location)
+            () => this.searchTrials(condition, location, maxResults)
         );
 
         return {
             content: [{
                 type: 'text',
-                text: JSON.stringify(trials, null, 2)
+                text: JSON.stringify({ results: trials })
             }]
         };
     }
 
     // Add search method for direct calls
     async search(params: any): Promise<ClinicalTrial[]> {
-        return this.searchTrials(params.condition, params.location);
+        const maxResults = Math.max(1, Math.min(100, Number(params?.maxResults ?? 25)));
+        return this.searchTrials(params.condition, params.location, maxResults);
     }
 
-    async searchTrials(condition: string, location?: string): Promise<ClinicalTrial[]> {
+    async searchTrials(condition: string, location?: string, maxResults: number = 25): Promise<ClinicalTrial[]> {
         try {
-            // Try local mirror first
-            if (this.useLocalMirror) {
-                try {
-                    console.log('Attempting to use local ClinicalTrials mirror');
-                    return await this.searchLocalMirror(condition, location);
-                } catch (localError) {
-                    console.warn('Local ClinicalTrials mirror failed, falling back to external API:', localError);
-                    // Fall through to external API
-                }
+            // DATABASE-FIRST: Prefer local Postgres mirror
+            try {
+                console.log('Searching local PostgreSQL database for ClinicalTrials studies');
+                const dbResults = await this.searchDatabase(condition, location, maxResults);
+                // Optionally kick off background external validation
+                this.validateExternalAPI(condition, location).catch(err => console.warn('Background ClinicalTrials external API validation failed:', err));
+                console.log(`Database returned ${dbResults.length} trials, background external validation started`);
+                return dbResults;
+            } catch (dbError) {
+                console.warn('ClinicalTrials DB search failed, falling back to external API:', dbError);
+                // As a conservative fallback, use external API
+                return await this.searchExternalAPI(condition, location);
             }
-
-            console.log('Using external ClinicalTrials API');
-            return await this.searchExternalAPI(condition, location);
         } catch (error) {
             console.error('ClinicalTrials search failed:', error);
             throw error;
         }
     }
 
-    private async searchLocalMirror(condition: string, location?: string): Promise<ClinicalTrial[]> {
-        const params = new URLSearchParams();
-        if (condition) params.append('condition', condition);
-        if (location) params.append('location', location);
-        params.append('max_results', '10');
+    /**
+     * Background validation of external ClinicalTrials API connectivity
+     */
+    private async validateExternalAPI(condition: string, location?: string): Promise<void> {
+        const timeout = 10000; // 10 second timeout for background checks
 
-        const response = await fetch(`${this.localMirrorUrl}/search?${params.toString()}`);
+        try {
+            console.log('[BACKGROUND] Testing external ClinicalTrials API connectivity...');
 
-        if (!response.ok) {
-            throw new Error(`Local mirror responded with ${response.status}`);
+            const externalPromise = Promise.race([
+                this.searchExternalAPI(condition, location),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('External ClinicalTrials API timeout')), timeout)
+                )
+            ]);
+
+            const externalResults = await externalPromise;
+            console.log(`[BACKGROUND] ✅ External ClinicalTrials API healthy - returned ${externalResults.length} trials`);
+
+        } catch (externalError) {
+            console.warn(`[BACKGROUND] ⚠️  External ClinicalTrials API failed: ${externalError instanceof Error ? externalError.message : 'Unknown error'}`);
+        }
+    }
+
+    private async searchDatabase(condition: string, location?: string, maxResults: number = 25): Promise<ClinicalTrial[]> {
+        // Prefer single DATABASE_URL; fall back to discrete vars WITHOUT secrets defaults.
+        const databaseUrl = process.env.DATABASE_URL?.trim();
+
+        let client: Client;
+        if (databaseUrl && databaseUrl.length > 0) {
+            client = new Client({ connectionString: databaseUrl });
+        } else {
+            const host = process.env.POSTGRES_HOST;
+            const portVal = process.env.POSTGRES_PORT;
+            const user = process.env.POSTGRES_USER;
+            const password = process.env.POSTGRES_PASSWORD;
+            const database = process.env.DATABASE_NAME;
+
+            if (!host || !user || !password || !database) {
+                throw new Error("Database configuration missing. Provide DATABASE_URL or POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, DATABASE_NAME in environment.");
+            }
+
+            const port = portVal ? parseInt(portVal, 10) : 5432;
+            client = new Client({ host, port, user, password, database });
         }
 
-        const data = await response.json() as { content: Array<{ text: string }> };
-        const trials = JSON.parse(data.content[0].text);
+        const table = process.env.CLINICAL_TRIALS_TABLE || 'clinical_trials';
 
-        return trials.map((trial: any) => ({
-            nctId: trial.nctId || '',
-            title: trial.title || '',
-            status: trial.status || '',
-            phase: trial.phase || '',
-            conditions: trial.conditions || [],
-            locations: trial.locations || [],
-            lastUpdated: trial.startDate || ''
+        await client.connect();
+
+        // Build flexible search across common fields; location filter optional
+        const params: any[] = [];
+        let idx = 1;
+        const likeCond = `%${condition}%`;
+        params.push(likeCond);
+
+        let where = `(title ILIKE $${idx} OR COALESCE(conditions::text,'') ILIKE $${idx})`;
+
+        if (location && location.trim()) {
+            idx += 1;
+            params.push(`%${location}%`);
+            where += ` AND (COALESCE(locations::text,'') ILIKE $${idx})`;
+        }
+
+        idx += 1;
+        params.push(maxResults);
+
+        const query = `
+            SELECT 
+                COALESCE(nct_id, nctid) AS nct_id,
+                title,
+                COALESCE(status, overall_status) AS status,
+                phase,
+                conditions,
+                locations,
+                COALESCE(last_updated, last_update_post_date) AS last_updated
+            FROM ${table}
+            WHERE ${where}
+            ORDER BY COALESCE(last_updated, last_update_post_date) DESC NULLS LAST
+            LIMIT $${idx}
+        `;
+
+        const result = await client.query(query, params);
+
+        await client.end();
+
+        return result.rows.map((row: any) => ({
+            nctId: row.nct_id || '',
+            title: row.title || '',
+            status: row.status || '',
+            phase: row.phase || '',
+            conditions: Array.isArray(row.conditions) ? row.conditions : (row.conditions ? [row.conditions] : []),
+            locations: Array.isArray(row.locations) ? row.locations : (row.locations ? [row.locations] : []),
+            lastUpdated: row.last_updated || ''
         }));
     }
 

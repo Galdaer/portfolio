@@ -89,12 +89,13 @@ const authConfig: AuthConfig = {
     authorizePath: process.env.OAUTH_AUTHORIZE_PATH || '/authorize',
     authorizationMethod: (process.env.OAUTH_AUTHORIZATION_METHOD as "body" | "header") || "body",
     audience: process.env.OAUTH_AUDIENCE || 'not-configured',
-    callbackURL: process.env.OAUTH_CALLBACK_URL || 'http://localhost:3456/oauth/callback',
+    callbackURL: process.env.OAUTH_CALLBACK_URL || (() => { console.error('[MCP][warn] OAUTH_CALLBACK_URL not set; using localhost dev fallback'); return 'http://localhost:3456/oauth/callback'; })(),
     scopes: process.env.OAUTH_SCOPES || 'read',
     callbackPort: parseInt(process.env.OAUTH_CALLBACK_PORT || '3456', 10)
 };
 
-const FHIR_BASE_URL = process.env.FHIR_BASE_URL || 'http://172.20.0.13:5432';
+// Prefer env-only for FHIR endpoint; if missing, warn and use localhost dev default
+const FHIR_BASE_URL = process.env.FHIR_BASE_URL || (() => { console.error('[MCP][warn] FHIR_BASE_URL not set; using localhost dev fallback'); return 'http://localhost:8080/fhir'; })();
 const PUBMED_API_KEY = process.env.PUBMED_API_KEY || 'test';
 const TRIALS_API_KEY = process.env.TRIALS_API_KEY || process.env.CLINICALTRIALS_API_KEY || 'test';
 const FDA_API_KEY = process.env.FDA_API_KEY || 'test';
@@ -137,7 +138,15 @@ const healthcareServer = new HealthcareServer(
     PUBMED_API_KEY,
     TRIALS_API_KEY,
     FDA_API_KEY,
-    process.env.OLLAMA_API_URL || "http://host.docker.internal:11434",
+    // Ollama: prefer OLLAMA_URL env; warn and fallback to localhost if missing
+    (() => {
+        const url = process.env.OLLAMA_URL || process.env.OLLAMA_API_URL;
+        if (!url) {
+            console.error('[MCP][warn] OLLAMA_URL not set; using http://localhost:11434');
+            return 'http://localhost:11434';
+        }
+        return url;
+    })(),
     process.env.OLLAMA_MODEL || "llama-3"
 );
 
@@ -389,15 +398,20 @@ function makeRoutingDecision(
     };
 }
 
-// CORS configuration for Open WebUI
+// CORS configuration for Open WebUI (env-overridable)
+const defaultOrigins = [
+    'http://localhost:1000',
+    'http://127.0.0.1:1000',
+    'http://host.docker.internal:1000'
+];
+const extraOrigins = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+const allowedOrigins = [...new Set([...defaultOrigins, ...extraOrigins])];
+
 app.use(cors({
-    origin: [
-        'http://localhost:1000',           // Open WebUI external
-        'http://172.20.0.11:8080',        // Open WebUI container internal  
-        'http://172.20.0.11:1000',        // Open WebUI container external
-        'http://127.0.0.1:1000',          // Open WebUI local
-        'http://host.docker.internal:1000' // Docker host access
-    ],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept']

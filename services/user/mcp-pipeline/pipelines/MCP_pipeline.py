@@ -194,17 +194,41 @@ class Pipeline:
                 return f"I'm having trouble processing your request. Error: {error_msg}"
 
             # Extract the actual response from the result
+            # Prioritize human-readable, formatted content with a stable header
             response_data = result.get("result", {})
+
             if isinstance(response_data, dict):
-                # Look for common response fields
-                response_text = (
-                    response_data.get("response")
-                    or response_data.get("research_summary")
-                    or response_data.get("message")
-                    or str(response_data)
-                )
+                # Some healthcare-api responses nest the useful payload under 'result'
+                inner_data = response_data.get("result") if isinstance(response_data.get("result"), dict) else None
+                payload = inner_data or response_data
+
+                # Prefer the explicit formatted_summary when present
+                formatted_summary = payload.get("formatted_summary", "")
+
+                # Optional: short header banner often returned separately
+                # It can live at the top-level of the healthcare-api response_data
+                header_source = response_data.get("formatted_response", "") or payload.get("response", "")
+                header = ""
+                if header_source and "🤖 **Medical Search Agent Response:**" in header_source:
+                    header = "🤖 **Medical Search Agent Response:**\n\n"
+
+                if formatted_summary:
+                    response_text = header + formatted_summary
+                else:
+                    # Fallbacks in descending preference
+                    response_text = (
+                        header_source
+                        or payload.get("research_summary")
+                        or payload.get("content")
+                        or payload.get("message")
+                        or "No results found"
+                    )
             else:
                 response_text = str(response_data)
+            
+            # Final fallback
+            if not response_text or response_text == "{}":
+                response_text = "I processed your request but didn't get a clear response. Please try rephrasing your question."
 
             return response_text
 

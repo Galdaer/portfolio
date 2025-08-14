@@ -209,7 +209,7 @@ export const TOOL_DEFINITIONS = [
     },
     {
         name: 'search-pubmed',
-        description: 'Search PubMed for medical literature',
+        description: 'Search PubMed for peer‑reviewed biomedical articles. Use for literature searches (reviews, RCTs, meta‑analyses). Not for clinical trial registry or FDA drug labels.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -221,19 +221,20 @@ export const TOOL_DEFINITIONS = [
     },
     {
         name: 'search-trials',
-        description: 'Search ClinicalTrials.gov for relevant studies',
+        description: 'Search ClinicalTrials.gov for clinical studies. Use when the user asks about trials, phases, recruiting status or NCT IDs. Not for journal articles.',
         inputSchema: {
             type: 'object',
             properties: {
                 condition: { type: 'string' },
-                location: { type: 'string' }
+                location: { type: 'string' },
+                maxResults: { type: 'number', description: 'Maximum number of trials to return (default 25)' }
             },
             required: ['condition']
         }
     },
     {
         name: 'get-drug-info',
-        description: 'Get Drug details by a generic name',
+        description: 'Get FDA drug product/label info by generic name. Use for regulatory/label details (NDC, manufacturer, ingredients). Not for literature or clinical trials.',
         inputSchema: {
             type: 'object',
             properties: {

@@ -8,9 +8,13 @@ import hashlib
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from pathlib import Path
+from typing import Dict, List, Optional, cast, Awaitable, Mapping, Any
+
+import yaml
 
 from agents import BaseHealthcareAgent
+from core.config.models import get_primary_model, get_instruct_model
 from config.medical_search_config_loader import MedicalSearchConfigLoader
 from core.infrastructure.agent_context import AgentContext, new_agent_context
 from core.infrastructure.agent_metrics import AgentMetricsStore
@@ -32,10 +36,10 @@ class MedicalSearchResult:
 
     search_id: str
     search_query: str
-    information_sources: list[dict[str, Any]]
-    related_conditions: list[dict[str, Any]]  # From literature, not diagnosed
-    drug_information: list[dict[str, Any]]
-    clinical_references: list[dict[str, Any]]
+    information_sources: list[dict[str, object]]
+    related_conditions: list[dict[str, object]]  # From literature, not diagnosed
+    drug_information: list[dict[str, object]]
+    clinical_references: list[dict[str, object]]
     search_confidence: float
     disclaimers: list[str]
     source_links: list[str]
@@ -48,7 +52,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
     Acts like a sophisticated medical Google, not a diagnostic tool
     """
 
-    def __init__(self, mcp_client: Any, llm_client: Any) -> None:
+    def __init__(self, mcp_client: object, llm_client: object) -> None:
         super().__init__(mcp_client, llm_client, agent_name="medical_search", agent_type="literature_search")
         self.mcp_client = mcp_client
         self.llm_client = llm_client
@@ -89,23 +93,49 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         import asyncio as _asyncio  # local alias to avoid name shadowing
         self._mcp_sem = _asyncio.Semaphore(max(1, int(max_concurrent)))
 
-    async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
+        # Load intent configuration (YAML) once
+        self._intent_config: dict[str, object] = {}
+        try:
+            self._intent_config = self._load_intent_config()
+            logger.info("Loaded medical_query_patterns.yaml for intent classification")
+        except Exception as e:
+            logger.warning(f"Failed to load intent config: {e}")
+
+    async def _process_implementation(self, request: Mapping[str, object]) -> dict[str, object]:
         """
         Required implementation for BaseHealthcareAgent
         Processes search requests through the standard agent interface
         """
         logger.info(f"Medical search agent processing request: {request}")
-        ctx: AgentContext = new_agent_context("medical_search", user_id=request.get("user_id"))
-        await self._metrics.incr("requests_total")
+        user_id_val = request.get("user_id")
+        ctx: AgentContext = new_agent_context(
+            "medical_search",
+            user_id=str(user_id_val) if isinstance(user_id_val, (str, int)) else None,
+        )
+        
+        # Record metrics (non-blocking)
+        try:
+            await self._metrics.incr("requests_total")
+        except Exception as metrics_error:
+            logger.warning(f"Failed to record metrics: {metrics_error}")
 
-        search_query = request.get("search_query", request.get("query", ""))
-        search_context = request.get("search_context", {})
+        sq1 = request.get("search_query")
+        sq2 = request.get("query")
+        search_query = str(sq1) if isinstance(sq1, (str, int)) else (str(sq2) if isinstance(sq2, (str, int)) else "")
+        sc_val = request.get("search_context")
+        search_context: dict[str, object] = sc_val if isinstance(sc_val, dict) else {}
 
         logger.info(f"Extracted search query: '{search_query}', context: {search_context}")
 
         if not search_query:
             logger.warning("No search query provided in request")
-            await self._metrics.incr("requests_error_missing_query")
+            
+            # Record metrics (non-blocking)
+            try:
+                await self._metrics.incr("requests_error_missing_query")
+            except Exception as metrics_error:
+                logger.warning(f"Failed to record error metrics: {metrics_error}")
+                
             return {
                 "success": False,
                 "error": "Missing search query",
@@ -113,26 +143,52 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             }
 
         try:
-            # Perform the literature search
+            # Perform the literature search (intent-aware)
             logger.info(f"Starting medical literature search for: '{search_query}'")
+
+            # Classify query intent using YAML patterns
+            intent_key, intent_cfg = self._classify_query_intent(search_query)
+            logger.info(f"Classified query intent as '{intent_key}'")
+
+            merged_ctx: dict[str, object] = {}
+            merged_ctx.update(search_context)
+            merged_ctx["intent"] = intent_key
+            merged_ctx["intent_cfg"] = intent_cfg
             search_result = await self.search_medical_literature(
                 search_query=search_query,
-                search_context=search_context,
+                search_context=merged_ctx,
             )
-            logger.info(f"Medical search completed successfully, found {len(search_result.information_sources)} sources")
-            await self._metrics.incr("requests_success")
-            await self._metrics.record_timing("request_ms", ctx.elapsed_ms)
-
-            # Convert dataclass to dict for response and include a formatted summary
-            formatted_summary = medical_search_utils.format_medical_search_response(
-                search_results=search_result.information_sources,
-                query=search_query,
-                related_conditions=search_result.related_conditions,
-                max_items=8,
-                disclaimers=search_result.disclaimers,
+            logger.info(
+                f"Medical search completed successfully, found {len(search_result.information_sources)} sources"
             )
+            
+            # Record metrics (non-blocking)
+            try:
+                await self._metrics.incr("requests_success")
+                await self._metrics.record_timing("request_ms", ctx.elapsed_ms)
+            except Exception as metrics_error:
+                logger.warning(f"Failed to record metrics: {metrics_error}")
 
-            return {
+            # Intent-specific response formatting with fallback
+            logger.info("DIAGNOSTIC: Starting response formatting...")
+            try:
+                formatted_summary = self._format_response_by_intent(
+                    intent_key=intent_key,
+                    intent_cfg=intent_cfg,
+                    search_result=search_result,
+                    original_query=search_query,
+                )
+                logger.info("DIAGNOSTIC: Response formatting completed successfully")
+            except Exception as format_error:
+                logger.error(f"DIAGNOSTIC: Response formatting failed: {format_error}", exc_info=True)
+                # Fallback to basic summary
+                formatted_summary = f"Found {len(search_result.information_sources)} medical literature sources for '{search_query}'"
+
+            logger.info(f"DIAGNOSTIC: formatted_summary length: {len(formatted_summary) if formatted_summary else 0}")
+            logger.info(f"DIAGNOSTIC: formatted_summary preview: {formatted_summary[:200] if formatted_summary else 'EMPTY'}")
+            logger.info(f"DIAGNOSTIC: intent_key: {intent_key}, template: {intent_cfg.get('template', 'NOT_SET') if intent_cfg else 'NO_CFG'}")
+
+            response_dict = {
                 "success": True,
                 "search_id": search_result.search_id,
                 "search_query": search_result.search_query,
@@ -146,12 +202,24 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 "generated_at": search_result.generated_at.isoformat(),
                 "total_sources": len(search_result.information_sources),
                 "agent_type": "search",
+                "intent": intent_key,
                 "formatted_summary": formatted_summary,
             }
 
+            logger.info(f"DIAGNOSTIC: Final response keys: {list(response_dict.keys())}")
+            logger.info(f"DIAGNOSTIC: Response success: {response_dict['success']}, total_sources: {response_dict['total_sources']}")
+
+            return response_dict
+
         except Exception as e:
             logger.exception(f"Search processing error: {e}")
-            await self._metrics.incr("requests_exception")
+            
+            # Record metrics (non-blocking)
+            try:
+                await self._metrics.incr("requests_exception")
+            except Exception as metrics_error:
+                logger.warning(f"Failed to record exception metrics: {metrics_error}")
+                
             return {
                 "success": False,
                 "error": str(e),
@@ -189,7 +257,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         return cleaned
 
     async def search_medical_literature(
-        self, search_query: str, search_context: dict[str, Any] | None = None,
+        self,
+        search_query: str,
+        search_context: dict[str, object] | None = None,
     ) -> MedicalSearchResult:
         """
         Search medical literature like a medical librarian would
@@ -248,7 +318,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             )
 
     async def _perform_literature_search(
-        self, search_query: str, search_context: dict[str, Any] | None = None,
+        self, search_query: str, search_context: dict[str, object] | None = None,
     ) -> MedicalSearchResult:
         """Core literature search logic with prompt injection detection"""
 
@@ -291,25 +361,64 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         search_id = self._generate_search_id(search_query)
         logger.info(f"Generated search ID: {search_id}")
 
-        # Parse search query for medical concepts using SciSpacy
-        logger.info("Extracting medical concepts from query...")
-        medical_concepts = await self._extract_medical_concepts(search_query)
-        logger.info(f"SciSpacy extracted concepts: {medical_concepts}")
+        # Extract simple medical terms from the original query
+        logger.info("Extracting medical terms from original query...")
+        try:
+            medical_concepts = await self._extract_simple_medical_terms(search_query)
+            if not medical_concepts:
+                medical_concepts = [search_query]
+        except Exception:
+            medical_concepts = [search_query]
+        logger.info(f"Using medical terms: {medical_concepts}")
 
-        # Validate and expand concepts using MCP knowledge bases
-        logger.info("Validating medical concepts with MCP knowledge bases...")
+        # Validate the concepts
         validated_concepts = await self._validate_medical_terms(medical_concepts)
-        logger.info(f"MCP validated concepts: {validated_concepts}")
+        logger.info(f"Validated medical terms: {validated_concepts}")
 
-        # Parallel search across medical databases using validated concepts
-        search_tasks = [
-            self._search_condition_information(validated_concepts),
-            self._search_symptom_literature(validated_concepts),
-            self._search_drug_information(validated_concepts),
-            self._search_clinical_references(validated_concepts),
-        ]
+        # Intent-aware source selection
+        include_sources: list[str] = []
+        if search_context and isinstance(search_context, dict):
+            icfg = search_context.get("intent_cfg") or {}
+            if isinstance(icfg, dict):
+                is_val = icfg.get("include_sources", [])
+                if isinstance(is_val, list):
+                    include_sources = [str(s) for s in is_val if isinstance(s, str)]
 
-        search_results = await asyncio.gather(*search_tasks, return_exceptions=True)
+        # Default: articles request goes to PubMed only unless user hints trials/drugs
+        if not include_sources:
+            include_sources = ["pubmed"]
+
+        # Build search tasks based on selected sources (cap parallelism and avoid duplicates)
+        search_tasks: list[Awaitable[list[dict[str, object]]]] = []
+        if "pubmed" in include_sources:
+            search_tasks.append(self._search_condition_information(validated_concepts))
+            search_tasks.append(self._search_symptom_literature(validated_concepts))
+        else:
+            # Placeholders for merging later
+            async def _empty() -> list[dict[str, object]]:
+                return []
+            search_tasks.append(_empty())
+            search_tasks.append(_empty())
+
+        if "fda_drugs" in include_sources:
+            search_tasks.append(self._search_drug_information(validated_concepts))
+        else:
+            async def _empty2() -> list[dict[str, object]]:
+                return []
+            search_tasks.append(_empty2())
+
+        if "clinical_trials" in include_sources:
+            search_tasks.append(self._search_clinical_references(validated_concepts))
+        else:
+            async def _empty3() -> list[dict[str, object]]:
+                return []
+            search_tasks.append(_empty3())
+
+        # Execute selected tasks; avoid calling unnecessary tools
+        search_results = await asyncio.gather(
+            *cast(List[Awaitable[list[dict[str, object]]]], search_tasks),
+            return_exceptions=True,
+        )
 
         # Process results - ensure we only get lists, not exceptions
         condition_info = search_results[0] if not isinstance(search_results[0], Exception) else []
@@ -325,15 +434,26 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         drug_info = drug_info if isinstance(drug_info, list) else []
         clinical_refs = clinical_refs if isinstance(clinical_refs, list) else []
 
-        # Combine all information sources
-        all_sources: list[dict[str, Any]] = []
+        # Combine all information sources and dedupe by DOI/PMID/URL
+        all_sources: list[dict[str, object]] = []
         all_sources.extend(condition_info)
         all_sources.extend(symptom_literature)
         all_sources.extend(drug_info)
         all_sources.extend(clinical_refs)
 
+        # Deduplicate
+        seen_keys: set[str] = set()
+        deduped_sources: list[dict[str, object]] = []
+        for s in all_sources:
+            val = s.get("doi") or s.get("pmid") or s.get("url") or s.get("title") or ""
+            key = str(val).strip().lower()
+            if not key or key in seen_keys:
+                continue
+            seen_keys.add(key)
+            deduped_sources.append(s)
+
         # Rank by medical evidence quality and relevance (centralized util)
-        ranked_sources = medical_search_utils.rank_sources_by_evidence_and_relevance(all_sources, search_query)
+        ranked_sources = medical_search_utils.rank_sources_by_evidence_and_relevance(deduped_sources, search_query)
 
         # Extract related conditions from literature (not diagnose them)
         related_conditions = await self._extract_literature_conditions(ranked_sources)
@@ -358,9 +478,190 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             generated_at=datetime.now(UTC),
         )
 
+    # ------------------------
+    # Intent configuration & formatting
+    # ------------------------
+    def _load_intent_config(self) -> dict[str, object]:
+        """Load YAML-based intent patterns from config directory."""
+        # agents/medical_search_agent/ -> up two levels to healthcare-api/, then config/
+        base_dir = Path(__file__).resolve().parents[2]  # Up 2 levels to healthcare-api root
+        cfg_path = base_dir / "config" / "medical_query_patterns.yaml"
+        logger.info(f"DIAGNOSTIC: Looking for intent config at: {cfg_path}")
+        if not cfg_path.exists():
+            logger.warning(f"DIAGNOSTIC: Intent config file not found at {cfg_path}")
+            return {}
+        
+        with cfg_path.open("r", encoding="utf-8") as f:
+            config_data = yaml.safe_load(f) or {}
+            logger.info(f"DIAGNOSTIC: Loaded intent config with keys: {list(config_data.keys()) if isinstance(config_data, dict) else 'NOT_DICT'}")
+            return config_data
+
+    def _classify_query_intent(self, query: str) -> tuple[str, dict[str, object]]:
+        """Simple keyword-based classifier per YAML patterns with default fallback."""
+        patterns = (self._intent_config.get("query_patterns") or {}) if isinstance(self._intent_config, dict) else {}
+        if not isinstance(patterns, dict):
+            patterns = {}
+        ql = (query or "").lower()
+        best_key = "information_request"
+        best_score = 0
+        best_cfg: dict[str, object] = {}
+        for key, cfg in patterns.items():
+            kws = cfg.get("keywords", []) if isinstance(cfg, dict) else []
+            if not isinstance(kws, list):
+                continue
+            score = sum(1 for kw in kws if isinstance(kw, str) and kw.lower() in ql)
+            if score > best_score:
+                best_key = key
+                best_score = score
+                best_cfg = cfg if isinstance(cfg, dict) else {}
+        if not best_cfg:
+            best_cfg = patterns.get(best_key, {}) if isinstance(patterns.get(best_key), dict) else {}
+        return best_key, best_cfg
+
+    def _format_response_by_intent(
+        self,
+        intent_key: str,
+        intent_cfg: dict[str, object],
+        search_result: "MedicalSearchResult",
+        original_query: str,
+    ) -> str:
+        """Format human-readable response using template from YAML config."""
+        template = (intent_cfg or {}).get("template", "conversational_overview")
+
+        try:
+            if template == "academic_article_list":
+                # PubMed-focused structured list
+                pubmed = [s for s in search_result.information_sources if s.get("source_type") in ["condition_information", "symptom_literature"]]
+                max_items = int((cast(dict[str, object], self._intent_config.get("response_templates", {})).get("academic_article_list", {}) or {}).get("max_items", 10))
+                include_abstracts = bool((cast(dict[str, object], self._intent_config.get("response_templates", {})).get("academic_article_list", {}) or {}).get("include_abstracts", True))
+                lines: List[str] = [f"Academic articles for: {original_query}", ""]
+                for i, src in enumerate(pubmed[:max_items], 1):
+                    fmt = format_source_for_display(src)
+                    title = cast(str, src.get("title", "Untitled"))
+                    lines.append(f"{i}. {title}")
+                    cit = cast(str, fmt.get("citation", ""))
+                    if cit:
+                        lines.append(f"   {cit}")
+                    lines.append(f"   {cast(str, fmt['url'])}")
+                    if include_abstracts:
+                        abstract = cast(str, src.get("abstract", src.get("content", "")))
+                        if abstract:
+                            lines.append(f"   {abstract[:400]}...")
+                    lines.append("")
+                lines.append("\n" + "\n".join(search_result.disclaimers))
+                return "\n".join(lines)
+
+            if template == "mixed_studies_list":
+                pubmed = [s for s in search_result.information_sources if s.get("source_type") in ["condition_information", "symptom_literature"]]
+                trials = [s for s in search_result.information_sources if "trial" in s.get("source_type", "") or s.get("source_type") == "clinical_guideline"]
+                rt_cfg = cast(dict[str, object], self._intent_config.get("response_templates", {})).get("mixed_studies_list", {}) or {}
+                max_pubmed = int(cast(dict[str, object], rt_cfg).get("max_pubmed", 6))
+                max_trials = int(cast(dict[str, object], rt_cfg).get("max_trials", 4))
+                lines = [f"Studies relevant to: {original_query}", "", "Research Articles:"]
+                for i, src in enumerate(pubmed[:max_pubmed], 1):
+                    fmt = format_source_for_display(src)
+                    lines.append(f"- {cast(str, src.get('title', 'Untitled'))} — {cast(str, fmt.get('citation', ''))}")
+                    lines.append(f"  {cast(str, fmt['url'])}")
+                lines.append("\nClinical Trials / Guidelines:")
+                for i, src in enumerate(trials[:max_trials], 1):
+                    fmt = format_source_for_display(src)
+                    title = cast(str, src.get("title", "Unnamed study"))
+                    status = cast(str, fmt.get("status_display", ""))
+                    phase = cast(str, fmt.get("phase_display", ""))
+                    meta_line = " ".join([p for p in [status, phase] if p])
+                    lines.append(f"- {title}{(' — ' + meta_line) if meta_line else ''}")
+                    lines.append(f"  {cast(str, fmt['url'])}")
+                lines.append("\n" + "\n".join(search_result.disclaimers))
+                return "\n".join(lines)
+
+            if template == "treatment_options_list":
+                pubmed = [s for s in search_result.information_sources if s.get("source_type") in ["condition_information", "symptom_literature"]]
+                trials = [s for s in search_result.information_sources if "trial" in s.get("source_type", "") or s.get("source_type") == "clinical_guideline"]
+                drugs = [s for s in search_result.information_sources if s.get("source_type") == "drug_info"]
+                rt_cfg = cast(dict[str, object], self._intent_config.get("response_templates", {})).get("treatment_options_list", {}) or {}
+                max_pubmed = int(cast(dict[str, object], rt_cfg).get("max_pubmed", 4))
+                max_trials = int(cast(dict[str, object], rt_cfg).get("max_trials", 3))
+                max_drugs = int(cast(dict[str, object], rt_cfg).get("max_drugs", 3))
+                lines = [f"Treatment-related information for: {original_query}", "", "Evidence from Literature:"]
+                for i, src in enumerate(pubmed[:max_pubmed], 1):
+                    fmt = format_source_for_display(src)
+                    lines.append(f"- {cast(str, src.get('title', 'Untitled'))} — {cast(str, fmt.get('citation', ''))}")
+                    lines.append(f"  {cast(str, fmt['url'])}")
+                lines.append("\nRelevant Clinical Trials:")
+                for i, src in enumerate(trials[:max_trials], 1):
+                    fmt = format_source_for_display(src)
+                    lines.append(f"- {cast(str, src.get('title', 'Unnamed study'))} — {cast(str, fmt.get('status_display', ''))} {cast(str, fmt.get('phase_display', ''))}")
+                    lines.append(f"  {cast(str, fmt['url'])}")
+                lines.append("\nDrug Information:")
+                for i, src in enumerate(drugs[:max_drugs], 1):
+                    fmt = format_source_for_display(src)
+                    dn = cast(str, src.get('drug_name', src.get('generic_name', 'Unknown drug')))
+                    lines.append(f"- {dn}")
+                    man = cast(str, fmt.get('manufacturer_display', ''))
+                    if man:
+                        lines.append(f"  {man}")
+                    appr = cast(str, fmt.get('approval_display', ''))
+                    if appr:
+                        lines.append(f"  {appr}")
+                    lines.append(f"  {cast(str, fmt['url'])}")
+                lines.append("\n" + "\n".join(search_result.disclaimers))
+                return "\n".join(lines)
+
+            if template == "clinical_trials_list":
+                trials = [s for s in search_result.information_sources if "trial" in s.get("source_type", "") or s.get("source_type") == "clinical_guideline"]
+                max_trials = int((cast(dict[str, object], self._intent_config.get("response_templates", {})).get("clinical_trials_list", {}) or {}).get("max_trials", 10))
+                lines = [f"Clinical trials for: {original_query}", ""]
+                for i, src in enumerate(trials[:max_trials], 1):
+                    fmt = format_source_for_display(src)
+                    title = cast(str, src.get("title", "Unnamed study"))
+                    status = cast(str, fmt.get("status_display", ""))
+                    phase = cast(str, fmt.get("phase_display", ""))
+                    meta_line = " ".join([p for p in [status, phase] if p])
+                    lines.append(f"{i}. {title}{(' — ' + meta_line) if meta_line else ''}")
+                    lines.append(f"   {cast(str, fmt['url'])}")
+                    lines.append("")
+                lines.append("\n" + "\n".join(search_result.disclaimers))
+                return "\n".join(lines)
+
+            if template == "drug_information_list":
+                drugs = [s for s in search_result.information_sources if s.get("source_type") == "drug_info"]
+                max_drugs = int((cast(dict[str, object], self._intent_config.get("response_templates", {})).get("drug_information_list", {}) or {}).get("max_drugs", 10))
+                lines = [f"Drug information related to: {original_query}", ""]
+                for i, src in enumerate(drugs[:max_drugs], 1):
+                    fmt = format_source_for_display(src)
+                    dn = cast(str, src.get('drug_name', src.get('generic_name', 'Unknown drug')))
+                    lines.append(f"{i}. {dn}")
+                    man = cast(str, fmt.get('manufacturer_display', ''))
+                    if man:
+                        lines.append(f"   {man}")
+                    appr = cast(str, fmt.get('approval_display', ''))
+                    if appr:
+                        lines.append(f"   {appr}")
+                    lines.append(f"   {cast(str, fmt['url'])}")
+                    lines.append("")
+                lines.append("\n" + "\n".join(search_result.disclaimers))
+                return "\n".join(lines)
+
+            # Default conversational overview using utility (LLM primary handled elsewhere)
+            return cast(str, generate_conversational_summary(search_result.information_sources, original_query))
+
+        except Exception as e:
+            logger.warning(f"Intent formatting failed ({template}): {e}")
+            # Fallback to minimal, clean summary without preface
+            try:
+                return generate_conversational_summary(search_result.information_sources, original_query)
+            except Exception:
+                # Last resort: extremely simple list
+                items = []
+                for i, s in enumerate(search_result.information_sources[:8], 1):
+                    title = str(s.get("title", "Untitled")).strip()
+                    url = str(s.get("url", "")).strip()
+                    items.append(f"{i}. {title}{(' — ' + url) if url else ''}")
+                return "\n".join(items) if items else "No literature found."
+
     async def _search_condition_information(
         self, medical_concepts: list[str],
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         """
         Search for condition information using database-first approach
         Returns: Information about conditions, not diagnostic recommendations
@@ -449,8 +750,22 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                         )
                     # Raw result debugging
                     logger.info(f"Raw MCP result for concept '{concept}': type={type(literature_results).__name__} keys={list(literature_results.keys()) if isinstance(literature_results, dict) else 'n/a'}")
+                    
+                    # CRITICAL DEBUG: Log the exact raw response
+                    import json
+                    logger.error(f"CRITICAL DEBUG - Full MCP response: {json.dumps(literature_results, indent=2)}")
+                    
                     if isinstance(literature_results, dict) and "content" in literature_results:
                         logger.info(f"MCP content field type: {type(literature_results['content']).__name__}")
+                        if literature_results['content'] and isinstance(literature_results['content'][0], dict):
+                            first_content = literature_results['content'][0]
+                            logger.info(f"First content keys: {list(first_content.keys())}")
+                            if 'text' in first_content:
+                                text_preview = first_content['text'][:200] if len(first_content['text']) > 200 else first_content['text']
+                                logger.info(f"Text content preview: {text_preview}")
+                                
+                                # CRITICAL DEBUG: Log the exact text content
+                                logger.error(f"CRITICAL DEBUG - Full text content: {first_content['text']}")
 
                     parsed_articles = medical_search_utils.parse_mcp_search_results(literature_results)
                     logger.info(f"MCP call completed successfully, parsed {len(parsed_articles)} articles for '{concept}'")
@@ -499,7 +814,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         logger.info(f"Total condition information sources found: {len(sources)}")
         return sources
 
-    async def _search_symptom_literature(self, medical_concepts: list[str]) -> list[dict[str, Any]]:
+    async def _search_symptom_literature(self, medical_concepts: list[str]) -> list[dict[str, object]]:
         """
         Search literature about symptoms and their associations
         Returns: Literature about what symptoms are associated with, not diagnoses
@@ -586,7 +901,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         logger.info(f"Total symptom literature sources found: {len(sources)}")
         return sources
 
-    async def _search_drug_information(self, medical_concepts: list[str]) -> list[dict[str, Any]]:
+    async def _search_drug_information(self, medical_concepts: list[str]) -> list[dict[str, object]]:
         """
         Search for drug information and interactions
         Returns: Official drug information, not prescribing advice
@@ -679,7 +994,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
     async def _search_clinical_references(
         self, medical_concepts: list[str],
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         """
         Search clinical practice guidelines and reference materials
         Returns: Reference information for clinical context
@@ -751,12 +1066,12 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         logger.info(f"Total clinical reference sources found: {len(sources)}")
         return sources
 
-    async def _extract_literature_conditions(self, sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    async def _extract_literature_conditions(self, sources: list[dict[str, object]]) -> list[dict[str, object]]:
         """
         Extract conditions mentioned in literature using SciSpacy (not diagnose them)
         Returns: List of conditions found in literature with context
         """
-        conditions: list[dict[str, Any]] = []
+        conditions: list[dict[str, object]] = []
 
         for source in sources:
             # Extract conditions mentioned in abstracts/summaries using SciSpacy
@@ -794,7 +1109,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 continue
 
         # Remove duplicates and limit results
-        unique_conditions: dict[str, dict[str, Any]] = {}
+        unique_conditions: dict[str, dict[str, object]] = {}
         for condition_dict in conditions:
             key = condition_dict["condition_name"].lower()
             if key not in unique_conditions:
@@ -840,7 +1155,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
     # _rank_sources_by_evidence removed in favor of centralized utilities in core.medical.search_utils
 
-    def _calculate_search_confidence(self, sources: list[dict[str, Any]], query: str) -> float:
+    def _calculate_search_confidence(self, sources: list[dict[str, object]], query: str) -> float:
         """
         Calculate how confident we are that we found good information (not diagnostic confidence)
         """
@@ -879,7 +1194,59 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
         return min(search_confidence, 1.0)
 
-    async def _extract_medical_concepts(self, search_query: str) -> list[str]:
+    async def _extract_simple_medical_terms(self, search_query: str) -> list[str]:
+        """Extract medical terms by simply cleaning the original query"""
+        # Remove common question words and phrases
+        question_words = {
+            "can", "you", "help", "me", "find", "search", "for", "about", "on",
+            "recent", "latest", "new", "current", "show", "get", "give", "provide",
+            "articles", "studies", "research", "papers", "information", "data",
+            "trials", "medications", "medicines", "drugs", "treatments"
+        }
+        
+        # Clean the query
+        cleaned = search_query.lower()
+        
+        # Remove common prefixes
+        prefixes_to_remove = [
+            "can you help me find recent articles on",
+            "can you help me find articles on",
+            "help me find recent articles on",
+            "find me recent articles on",
+            "search for recent articles on",
+            "find recent research on",
+            "show me recent research on",
+            "i need information about",
+            "tell me about",
+            "what can you tell me about"
+        ]
+        
+        for prefix in prefixes_to_remove:
+            if cleaned.startswith(prefix):
+                cleaned = cleaned[len(prefix):].strip()
+                break
+        
+        # Remove question marks and extra punctuation
+        cleaned = cleaned.replace("?", "").replace(".", "").strip()
+        
+        # Split into words and filter out question words
+        words = [word.strip() for word in cleaned.split() if word.strip()]
+        medical_words = [word for word in words if word.lower() not in question_words]
+        
+        # Join back into phrases and also include individual important terms
+        search_terms = []
+        
+        # Always include the cleaned original query if it's meaningful
+        if len(" ".join(medical_words)) > 3:
+            search_terms.append(" ".join(medical_words))
+        
+        # Include individual medical terms that are meaningful
+        for word in medical_words:
+            if len(word) > 3 and word not in search_terms:
+                search_terms.append(word)
+        
+        logger.info(f"Simple extraction from '{search_query}' -> {search_terms}")
+        return search_terms
         """Extract medical concepts using SciSpacy entities + LLM query understanding"""
         try:
             logger.info("Extracting medical entities via SciSpacy...")
@@ -933,20 +1300,27 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                             f"SciSpacy extracted {len(medical_entities)} medical entities (enriched={enriched_mode}): {medical_entities}",
                         )
 
-                        # Use LLM to understand query intent and craft search terms
+                        # Use LLM to understand query intent and craft search terms (as backup)
                         llm_search_terms = await self._llm_craft_search_terms(search_query, medical_entities)
 
-                        # Always include the original user query as a search term (cleaned)
-                        original_cleaned = search_query.replace("Can you help me find recent articles on", "").replace("?", "").strip()
+                        # PRIORITY 1: Extract professional medical terms from original query
+                        professional_terms = self._extract_professional_medical_terms(search_query)
+                        
+                        # PRIORITY 2: Always include the original user query as a search term (cleaned)
+                        original_cleaned = search_query.replace("Find me recent research on", "").replace("Can you help me find recent articles on", "").replace("?", "").strip()
                         if len(original_cleaned) > 5:  # Only if meaningful
                             original_search_terms = [original_cleaned]
                         else:
                             original_search_terms = []
 
-                        # Combine all approaches: original query + entities + LLM terms
-                        all_concepts = original_search_terms + medical_entities + llm_search_terms
+                        # PRIORITY 3: SciSpacy entities as supplementary terms
+                        # PRIORITY 4: LLM terms as fallback (often converts professional to lay terms)
+
+                        # Combine in priority order: professional terms + original query + entities + LLM terms
+                        all_concepts = professional_terms + original_search_terms + medical_entities + llm_search_terms
                         unique_concepts = list(dict.fromkeys(all_concepts))  # Preserve order, remove duplicates
 
+                        logger.info(f"Professional medical terms: {professional_terms}")
                         logger.info(f"Combined medical concepts: {unique_concepts}")
                         return unique_concepts
                     logger.warning(f"SciSpacy service returned status {response.status}")
@@ -957,24 +1331,23 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             raise Exception(f"Medical entity extraction failed: {e}")
 
     async def _llm_craft_search_terms(self, original_query: str, medical_entities: list[str]) -> list[str]:
-        """Use LLM to understand query intent and craft appropriate PubMed search terms"""
+        """Use LLM to understand query intent and craft simple search terms"""
         try:
-            # Create a prompt for the LLM to understand the query and suggest search terms
+            # Create a prompt for the LLM to understand the query and suggest SIMPLE search terms
             prompt = f"""Given this medical query: "{original_query}"
             
 Medical entities found: {medical_entities}
 
-Craft 3-5 precise PubMed search terms that would find relevant medical literature.
-Consider:
-- The user's intent (recent articles, specific conditions, treatments, etc.)
-- Broader medical concepts that might not be detected as entities
-- Synonyms and related terms that researchers would use
+Generate 3-5 SIMPLE search terms that would find relevant medical articles.
+Use only plain English terms - NO brackets, NO MeSH terms, NO complex syntax.
+Use simple terms like "heart disease prevention" not "(Heart Disease[mesh]) AND Prevention".
+For multiple concepts, use simple OR combinations like "cardiovascular health OR heart health".
 
-Return only the search terms, one per line, no explanations:"""
+Return only the simple search terms, one per line, no explanations:"""
 
             # Call local LLM for search term generation
             response = await self.llm_client.chat(
-                model="llama3.1:8b",
+                model=get_primary_model(),
                 messages=[{"role": "user", "content": prompt}],
             )
 
@@ -1023,7 +1396,59 @@ Return only the search terms, one per line, no explanations:"""
                         if len(word) > 3 and word.lower() not in ["help", "find", "articles", "recent"]]
             return keywords[:3]
 
-    def _calculate_concept_relevance(self, concept: str, article: dict[str, Any]) -> float:
+    def _extract_professional_medical_terms(self, query: str) -> list[str]:
+        """Extract professional medical terminology from the query text"""
+        # Professional medical terms that should be preserved exactly as written
+        professional_medical_terms = [
+            "cardiovascular", "cardiology", "cardiothoracic", "cardiac", "myocardial",
+            "hypertension", "hypotension", "atherosclerosis", "thrombosis", "embolism",
+            "diabetes", "diabetic", "endocrine", "metabolic", "obesity", "hyperlipidemia",
+            "oncology", "neoplasm", "carcinoma", "malignancy", "chemotherapy", "radiotherapy",
+            "neurology", "neurological", "alzheimer", "parkinson", "dementia", "stroke",
+            "pulmonary", "respiratory", "pneumonia", "asthma", "copd", "bronchitis",
+            "gastroenterology", "hepatology", "nephrology", "renal", "dialysis",
+            "orthopedic", "musculoskeletal", "rheumatoid", "arthritis", "osteoporosis",
+            "dermatology", "immunology", "infectious", "antimicrobial", "antibiotic",
+            "pharmaceutical", "pharmacology", "clinical trial", "randomized", "systematic review",
+            "meta-analysis", "epidemiology", "biomarker", "pathology", "diagnosis", "prognosis",
+            "prevention", "treatment", "therapy", "intervention", "rehabilitation"
+        ]
+        
+        # Extract terms that appear in the query
+        query_lower = query.lower()
+        found_terms = []
+        
+        # Look for professional terms
+        for term in professional_medical_terms:
+            if term in query_lower:
+                # Extract the term with its original context (preserve case and surrounding words)
+                import re
+                pattern = rf'\b\w*{re.escape(term)}\w*\b'
+                matches = re.findall(pattern, query, re.IGNORECASE)
+                found_terms.extend(matches)
+        
+        # Also look for compound medical phrases
+        medical_phrases = [
+            "cardiovascular health", "heart disease", "disease prevention", "risk factors",
+            "blood pressure", "clinical trial", "systematic review", "meta analysis",
+            "randomized controlled", "evidence based", "peer reviewed"
+        ]
+        
+        for phrase in medical_phrases:
+            if phrase in query_lower:
+                # Find the exact phrase with original capitalization
+                import re
+                pattern = rf'\b{re.escape(phrase)}\b'
+                match = re.search(pattern, query, re.IGNORECASE)
+                if match:
+                    found_terms.append(match.group())
+        
+        # Remove duplicates while preserving order
+        unique_terms = list(dict.fromkeys(found_terms))
+        logger.info(f"Professional medical terms extracted: {unique_terms}")
+        return unique_terms
+
+    def _calculate_concept_relevance(self, concept: str, article: dict[str, object]) -> float:
         """Calculate how relevant an article is to a medical concept"""
         article_text = " ".join([article.get("title", ""), article.get("abstract", "")]).lower()
 
@@ -1039,7 +1464,7 @@ Return only the search terms, one per line, no explanations:"""
 
         return matches / len(concept_words) if concept_words else 0.0
 
-    def _determine_evidence_level(self, article: dict[str, Any]) -> str:
+    def _determine_evidence_level(self, article: dict[str, object]) -> str:
         """Determine evidence level from article metadata"""
         pub_type = article.get("publication_type", "").lower()
         title = article.get("title", "").lower()
@@ -1082,9 +1507,10 @@ Return only the search terms, one per line, no explanations:"""
                 source_type = source.get('source_type', 'unknown')
                 
                 if source_type in ['condition_information', 'symptom_literature'] and source.get('pmid'):
-                    # PubMed articles with proper links
+                    # PubMed articles with proper links (prefer DOI when available)
                     pmid = source.get('pmid', '')
-                    pubmed_url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else source.get('url', '')
+                    fmt = format_source_for_display(source)
+                    url = fmt.get('url', source.get('url', ''))
                     
                     pubmed_articles.append({
                         'title': source.get('title', 'Unknown'),
@@ -1093,7 +1519,7 @@ Return only the search terms, one per line, no explanations:"""
                         'date': source.get('publication_date', 'Unknown'),
                         'abstract': source.get('content', source.get('abstract', 'No summary available'))[:300],
                         'pmid': pmid,
-                        'url': pubmed_url
+                        'url': url
                     })
                 
                 elif source_type == 'clinical_guideline':
@@ -1126,6 +1552,17 @@ Return only the search terms, one per line, no explanations:"""
                         'source': source.get('source', 'Unknown'),
                         'url': source.get('url', '')
                     })
+
+            # Prepare related conditions string for the prompt
+            rc_names: list[str] = []
+            for rc in search_result.related_conditions[:5]:
+                if isinstance(rc, dict):
+                    name = rc.get('condition_name') or rc.get('name') or rc.get('condition') or ''
+                    if name:
+                        rc_names.append(str(name))
+                elif isinstance(rc, str):
+                    rc_names.append(rc)
+            related_conditions_display = ", ".join(rc_names) if rc_names else "None identified"
 
             # Create comprehensive LLM prompt for all source types
             conversation_prompt = f"""
@@ -1164,13 +1601,13 @@ ADDITIONAL SOURCES ({len(other_sources)} found):
                 for source in other_sources[:3]
             ]) if other_sources else "None found") + f"""
 
-Related conditions mentioned: {', '.join(search_result.related_conditions[:5]) if search_result.related_conditions else 'None identified'}
+Related conditions mentioned: {related_conditions_display}
 
 Create a helpful, conversational response that synthesizes this research:
 """            # Generate response using local LLM
             if self.llm_client:
                 response = await self.llm_client.chat(
-                    model="llama3.1:8b",
+                    model=get_instruct_model(),
                     messages=[{
                         "role": "user",
                         "content": conversation_prompt
@@ -1196,18 +1633,26 @@ Create a helpful, conversational response that synthesizes this research:
             return self._create_fallback_response(search_result, original_query)
 
     def _create_fallback_response(self, search_result: MedicalSearchResult, original_query: str) -> str:
-        """Create a basic formatted response when LLM is unavailable."""
-        response = f"# Research Results for: {original_query}\n\n"
-        response += f"I found {len(search_result.information_sources)} relevant medical articles:\n\n"
-        
-        for i, source in enumerate(search_result.information_sources[:5], 1):
-            response += f"**{i}. {source.get('title', 'Unknown Title')}**\n"
-            response += f"Authors: {', '.join(source.get('authors', ['Unknown']))}\n"
-            response += f"Journal: {source.get('journal', 'Unknown')} ({source.get('publication_date', 'Unknown')})\n"
-            if source.get('content'):
-                response += f"Summary: {source.get('content')[:200]}...\n"
-            response += f"PMID: {source.get('pmid', 'N/A')}\n\n"
-        
-        response += "\n**Medical Disclaimer**: This information is for educational purposes only and is not medical advice. Always consult your healthcare provider for questions about a medical condition."
-        
-        return response
+        """Create a concise, preface-free response when LLM is unavailable."""
+        lines: list[str] = []
+        for i, source in enumerate(search_result.information_sources[:8], 1):
+            try:
+                fmt = format_source_for_display(source)
+            except Exception:
+                fmt = {"url": source.get("url", "")}
+            title = str(source.get('title', 'Untitled')).strip()
+            citation = str(fmt.get('citation', ''))
+            url = str(fmt.get('url', source.get('url', '')))
+            header = f"{i}. {title}"
+            if citation:
+                header += f" — {citation}"
+            lines.append(header)
+            if url:
+                lines.append(f"   {url}")
+            abstract = str(source.get('abstract', source.get('content', ''))).strip()
+            if abstract:
+                snippet = abstract if len(abstract) <= 400 else abstract[:400].rstrip() + "..."
+                lines.append(f"   {snippet}")
+            lines.append("")
+        lines.append("**Medical Disclaimer**: This information is for educational purposes only and is not medical advice. Always consult your healthcare provider for questions about a medical condition.")
+        return "\n".join(lines).rstrip()

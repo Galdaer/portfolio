@@ -26,8 +26,8 @@ export class HealthcareServer {
         pubmedAPIKey?: string,
         trialsAPIKey?: string,
         fdaAPIKey?: string,
-        ollamaApiUrl: string = "http://172.20.0.10:11434",
-        ollamaModel: string = "llama3"
+        ollamaApiUrl: string = process.env.OLLAMA_URL || "http://ollama:11434",
+        ollamaModel: string = (process.env.OLLAMA_MODEL || "llama3.1:8b")
     ) {
         this.mcpServer = mcpServer;
         this.fhirClient = new FhirClient(fhirURL);

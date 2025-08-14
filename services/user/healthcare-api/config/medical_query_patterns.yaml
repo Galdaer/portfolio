@@ -1,0 +1,72 @@
+# Intent-based query patterns and response templates for medical search
+
+query_patterns:
+  articles_request:
+    keywords: ["article", "articles", "paper", "papers", "review", "journal"]
+    include_sources: ["pubmed"]
+    template: academic_article_list
+  studies_request:
+    keywords: ["study", "studies", "research", "evidence"]
+    include_sources: ["pubmed", "clinical_trials"]
+    template: mixed_studies_list
+  treatments_request:
+    keywords:
+      [
+        "treatment",
+        "treatments",
+        "therapy",
+        "therapies",
+        "management",
+        "options",
+      ]
+    include_sources: ["pubmed", "clinical_trials", "fda_drugs"]
+    template: treatment_options_list
+  clinical_trials_request:
+    keywords:
+      ["clinical trial", "clinical trials", "nct", "recruiting", "phase"]
+    include_sources: ["clinical_trials"]
+    template: clinical_trials_list
+  drug_information_request:
+    keywords:
+      [
+        "drug",
+        "medication",
+        "medications",
+        "dosage",
+        "ndc",
+        "side effect",
+        "side effects",
+      ]
+    include_sources: ["fda_drugs"]
+    template: drug_information_list
+  information_request:
+    keywords:
+      [
+        "info",
+        "information",
+        "overview",
+        "about",
+        "recent information",
+        "summary",
+      ]
+    include_sources: ["pubmed", "clinical_trials", "fda_drugs"]
+    template: conversational_overview
+
+response_templates:
+  academic_article_list:
+    max_items: 10
+    include_abstracts: true
+  mixed_studies_list:
+    max_pubmed: 6
+    max_trials: 4
+  treatment_options_list:
+    max_pubmed: 4
+    max_trials: 3
+    max_drugs: 3
+  clinical_trials_list:
+    max_trials: 10
+  drug_information_list:
+    max_drugs: 10
+  conversational_overview:
+    source_attribution: true
+    max_each: 5

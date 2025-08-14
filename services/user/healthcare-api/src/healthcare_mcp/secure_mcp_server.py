@@ -778,8 +778,9 @@ class HealthcareMCPServer:
             Provide accurate, general medical information only.
             """
 
+            from core.config.models import get_instruct_model
             payload = {
-                "model": "llama3.1:8b-instruct-q4_K_M",
+                "model": get_instruct_model(),
                 "prompt": prompt,
                 "stream": False,
                 "options": {"temperature": 0.7, "max_tokens": 500},

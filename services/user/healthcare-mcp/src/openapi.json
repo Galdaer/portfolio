@@ -7,7 +7,7 @@
     },
     "servers": [
         {
-            "url": "http://172.20.0.12:3000",
+            "url": "http://localhost:3000",
             "description": "Healthcare MCP Server"
         }
     ],

@@ -1,0 +1,154 @@
+# PHI Detection Configuration
+# Customize patterns for different healthcare environments and compliance requirements
+
+# Risk thresholds and behavior
+risk_settings:
+  enable_synthetic_detection: true
+  default_risk_level: "medium"
+  critical_threshold: 3 # Number of PHI types that trigger critical alert
+
+# Context-based exemptions (case-insensitive matching)
+exemptions:
+  medical_literature:
+    - "medical_literature"
+    - "pubmed"
+    - "external_search"
+    - "academic_paper"
+    - "journal_article"
+    - "literature_search"
+    - "research_paper"
+    - "clinical_trial"
+    - "peer_reviewed"
+
+  system_operations:
+    - "system_diagnostic"
+    - "health_check"
+    - "monitoring"
+    - "audit_test"
+
+# PHI field names that indicate sensitive data (case-insensitive)
+phi_field_names:
+  - "ssn"
+  - "social_security_number"
+  - "social_security"
+  - "phone"
+  - "phone_number"
+  - "telephone"
+  - "mobile"
+  - "email"
+  - "email_address"
+  - "patient_id"
+  - "patient_identifier"
+  - "medical_record_number"
+  - "mrn"
+  - "insurance_id"
+  - "insurance_number"
+  - "policy_number"
+  - "date_of_birth"
+  - "dob"
+  - "birth_date"
+  - "first_name"
+  - "last_name"
+  - "full_name"
+  - "patient_name"
+  - "address"
+  - "home_address"
+  - "street_address"
+  - "zip_code"
+  - "postal_code"
+
+# Risk level mappings
+risk_mappings:
+  high_risk_types:
+    - "ssn"
+    - "medical_record_number"
+    - "insurance_id"
+
+  medium_risk_types:
+    - "phone"
+    - "email"
+    - "date_of_birth"
+    - "patient_names"
+
+  low_risk_types:
+    - "patient_id" # Often anonymized
+
+# Customizable recommendations by risk level
+recommendations:
+  critical:
+    - "IMMEDIATE ACTION REQUIRED: Critical PHI detected"
+    - "Encrypt or remove PHI before processing"
+    - "Review data handling procedures"
+    - "Consider using anonymized/hashed identifiers"
+
+  high:
+    - "HIGH PRIORITY: Multiple PHI types detected"
+    - "Apply data minimization principles"
+    - "Use hashed identifiers for logging"
+    - "Verify necessity of PHI for operation"
+
+  medium:
+    - "MEDIUM PRIORITY: PHI detected"
+    - "Consider anonymization for non-essential operations"
+    - "Ensure proper audit logging"
+
+  low:
+    - "LOW PRIORITY: Minimal PHI detected"
+    - "Monitor for data context expansion"
+
+# PHI detection patterns (regex patterns)
+patterns:
+  ssn:
+    - "\\b\\d{3}-\\d{2}-\\d{4}\\b" # Standard SSN format
+    - "\\b\\d{9}\\b" # 9-digit SSN without separators
+    - "\\bSSN\\s*:?\\s*\\d{3}[-\\s]\\d{2}[-\\s]\\d{4}\\b" # SSN with label
+
+  phone:
+    - "\\b\\(\\d{3}\\)\\s*\\d{3}-\\d{4}\\b" # (123) 456-7890
+    - "\\b\\d{3}-\\d{3}-\\d{4}\\b" # 123-456-7890
+    - "\\b\\d{3}\\.\\d{3}\\.\\d{4}\\b" # 123.456.7890
+    - "\\b\\d{10}\\b" # 1234567890
+    - "\\b1[-\\s]?\\d{3}[-\\s]?\\d{3}[-\\s]?\\d{4}\\b" # 1-123-456-7890
+
+  email:
+    - "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b"
+
+  medical_record_number:
+    - "\\bMRN\\s*:?\\s*[A-Z0-9]{6,}\\b"
+    - "\\bMedical\\s+Record\\s+Number\\s*:?\\s*[A-Z0-9]{6,}\\b"
+    - "\\b[A-Z]{2}\\d{6,10}\\b" # Pattern like AB1234567
+
+  patient_id:
+    - "\\bpatient[-_]?id\\s*:?\\s*[A-Z0-9]{3,}\\b"
+    - "\\bPT[-_]?\\d{3,}\\b" # PT123, PT_123
+    - "\\bPATIENT[-_]?\\d{3,}\\b"
+
+  insurance_id:
+    - "\\binsurance[-_]?id\\s*:?\\s*[A-Z0-9]{6,}\\b"
+    - "\\bpolicy[-_]?number\\s*:?\\s*[A-Z0-9]{6,}\\b"
+    - "\\bmember[-_]?id\\s*:?\\s*[A-Z0-9]{6,}\\b"
+
+  date_of_birth:
+    - "\\b\\d{1,2}/\\d{1,2}/\\d{4}\\b" # MM/DD/YYYY
+    - "\\b\\d{1,2}-\\d{1,2}-\\d{4}\\b" # MM-DD-YYYY
+    - "\\b\\d{4}-\\d{1,2}-\\d{1,2}\\b" # YYYY-MM-DD
+    - "\\bDOB\\s*:?\\s*\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}\\b" # DOB: MM/DD/YYYY
+    - "\\bdate\\s+of\\s+birth\\s*:?\\s*\\d{1,2}[/-]\\d{1,2}[/-]\\d{4}\\b"
+
+  # Pattern for names with medical context (more restrictive to avoid academic authors)
+  patient_names:
+    - "\\b(patient|mr\\.|mrs\\.|ms\\.)\\s+[A-Z][a-z]+\\s+[A-Z][a-z]+" # Only with patient context
+    - "\\b(my patient|this patient|the patient).*\\b[A-Z][a-z]+\\s+[A-Z][a-z]+"
+
+# Synthetic data patterns that should NOT trigger PHI alerts
+synthetic_patterns:
+  - "\\bPAT\\d{3}\\b" # PAT001, PAT002, etc.
+  - "\\bPROV\\d{3}\\b" # PROV001, PROV002, etc.
+  - "\\bENC\\d{3}\\b" # ENC001, ENC002, etc.
+  - "\\bTEST[-_]?PATIENT\\b" # TEST_PATIENT, TEST-PATIENT
+  - "\\bSYNTHETIC[-_]?DATA\\b" # SYNTHETIC_DATA, SYNTHETIC-DATA
+  - "\\b555-\\d{3}-\\d{4}\\b" # 555 phone numbers (reserved for testing)
+  - "\\bexample\\.com\\b" # Example.com emails
+  - "\\btest\\.com\\b" # Test.com emails
+  - "\\b123-45-6789\\b" # Common test SSN
+  - "\\b000-00-0000\\b" # Invalid SSN for testing

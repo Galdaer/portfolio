@@ -130,8 +130,29 @@ def parse_mcp_search_results(raw_mcp_result: dict[str, Any]) -> list[dict[str, A
 
     # Common containers across tools
     containers: list = []
+    # First, unwrap MCP content if present
+    content = raw_mcp_result.get("content")
+    if isinstance(content, list) and content:
+        first = content[0]
+        if isinstance(first, dict):
+            if "json" in first and isinstance(first["json"], dict):
+                raw = first["json"]
+            elif "text" in first and isinstance(first["text"], str):
+                # Try to parse text if it looks like JSON
+                try:
+                    import json as _json
+                    raw = _json.loads(first["text"]) if first["text"].strip().startswith("{") else {}
+                except Exception:
+                    raw = {}
+            else:
+                raw = {}
+        else:
+            raw = {}
+    else:
+        raw = raw_mcp_result
+
     for key in ("articles", "items", "results", "records", "content"):
-        val = raw_mcp_result.get(key)
+        val = raw.get(key)
         if isinstance(val, list):
             containers = val
             break

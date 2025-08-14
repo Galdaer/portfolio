@@ -1,9 +1,28 @@
 """Medical search utilities for data source-specific URL generation and formatting."""
 
-from typing import Any, Dict, List
+from typing import Mapping
+import re
+
+# Load configurable parameters (e.g., list limits) without creating cycles
+try:
+    from config.medical_search_config_loader import MedicalSearchConfigLoader  # type: ignore
+    _cfg_loader = MedicalSearchConfigLoader()
+    _search_cfg = _cfg_loader.load_config()
+except Exception:  # pragma: no cover - fallback if config loader unavailable
+    _cfg_loader = None
+    _search_cfg = None
 
 
-def generate_source_url(source: Dict[str, Any]) -> str:
+def _as_str(val: object | None) -> str:
+    """Coerce possibly non-string values to string safely."""
+    if val is None:
+        return ""
+    if isinstance(val, str):
+        return val
+    return str(val)
+
+
+def generate_source_url(source: Mapping[str, object]) -> str:
     """
     Generate appropriate URLs for different medical data sources.
 
@@ -12,34 +31,36 @@ def generate_source_url(source: Dict[str, Any]) -> str:
     - Clinical Trials: ClinicalTrials.gov study links
     - FDA Drugs: DailyMed or FDA database links
     """
-    source_type = source.get("source_type", "").lower()
+    source_type = _as_str(source.get("source_type")).lower()
 
-    if source_type in ["condition_information", "symptom_literature"] and source.get("source", "").startswith("PubMed"):
+    if source_type in ["condition_information", "symptom_literature"] and _as_str(source.get("source")).startswith("PubMed"):
         # PubMed articles - prefer DOI links to actual journals
-        doi = source.get("doi", "").strip()
-        pmid = source.get("pmid", "").strip()
+        doi = _as_str(source.get("doi")).strip()
+        pmid = _as_str(source.get("pmid")).strip()
 
         if doi and doi.lower() != "no doi":
             # DOI link goes to actual journal
-            return f"https://doi.org/{doi}"
+            doi_url = _normalize_doi_url(doi)
+            if doi_url:
+                return doi_url
         elif pmid:
             # Fallback to PubMed abstract page
             return f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
         else:
-            return source.get("url", "#")
+            return _as_str(source.get("url")) or "#"
 
     elif source_type == "clinical_guideline" or "trial" in source_type:
         # Clinical trials
-        nct_id = source.get("nct_id", "").strip()
+        nct_id = _as_str(source.get("nct_id")).strip()
         if nct_id:
             return f"https://clinicaltrials.gov/study/{nct_id}"
         else:
-            return source.get("url", "#")
+            return _as_str(source.get("url")) or "#"
 
     elif source_type == "drug_info":
         # FDA drug information
-        ndc = source.get("ndc", "").strip()
-        generic_name = source.get("drug_name", source.get("generic_name", "")).strip()
+        ndc = _as_str(source.get("ndc")).strip()
+        generic_name = _as_str(source.get("drug_name", source.get("generic_name", ""))).strip()
 
         if ndc:
             # DailyMed for drug labels (more user-friendly than raw FDA database)
@@ -48,36 +69,37 @@ def generate_source_url(source: Dict[str, Any]) -> str:
             # DailyMed search by name
             return f"https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query={generic_name.replace(' ', '+')}"
         else:
-            return source.get("url", "https://dailymed.nlm.nih.gov/dailymed/")
+            return _as_str(source.get("url")) or "https://dailymed.nlm.nih.gov/dailymed/"
 
     else:
         # Fallback to source URL or database indicator
-        return source.get("url", "#database_record")
+        return _as_str(source.get("url")) or "#database_record"
 
 
-def format_source_for_display(source: Dict[str, Any]) -> Dict[str, Any]:
+def format_source_for_display(source: Mapping[str, object]) -> dict[str, object]:
     """
     Format a source for user-friendly display with proper URLs and metadata.
     """
-    formatted = source.copy()
+    formatted: dict[str, object] = dict(source)
 
     # Generate proper URL
     formatted["url"] = generate_source_url(source)
 
     # Add source type-specific formatting
-    source_type = source.get("source_type", "")
+    source_type = _as_str(source.get("source_type"))
 
     if source_type in ["condition_information", "symptom_literature"]:
         # PubMed articles
-        authors = source.get("authors", [])
-        if authors and isinstance(authors, list):
-            formatted["authors_display"] = ", ".join(authors[:3]) + (" et al." if len(authors) > 3 else "")
+        authors_val = source.get("authors", [])
+        authors_list = [str(a) for a in authors_val] if isinstance(authors_val, list) else []
+        if authors_list:
+            formatted["authors_display"] = ", ".join(authors_list[:3]) + (" et al." if len(authors_list) > 3 else "")
         else:
             formatted["authors_display"] = "Authors not listed"
 
         # Journal with date
-        journal = source.get("journal", "")
-        pub_date = source.get("publication_date", source.get("pubDate", ""))
+        journal = _as_str(source.get("journal"))
+        pub_date = _as_str(source.get("publication_date", source.get("pubDate", "")))
         if journal and pub_date:
             formatted["citation"] = f"{journal} ({pub_date})"
         elif journal:
@@ -89,9 +111,9 @@ def format_source_for_display(source: Dict[str, Any]) -> Dict[str, Any]:
 
     elif source_type == "clinical_guideline" or "trial" in source_type:
         # Clinical trials
-        nct_id = source.get("nct_id", "")
-        status = source.get("status", "")
-        phase = source.get("phase", "")
+        nct_id = _as_str(source.get("nct_id"))
+        status = _as_str(source.get("status"))
+        phase = _as_str(source.get("phase"))
 
         if nct_id:
             formatted["identifier"] = f"NCT ID: {nct_id}"
@@ -102,8 +124,8 @@ def format_source_for_display(source: Dict[str, Any]) -> Dict[str, Any]:
 
     elif source_type == "drug_info":
         # FDA drugs
-        manufacturer = source.get("manufacturer", "")
-        approval_date = source.get("fda_approval", source.get("approval_date", ""))
+        manufacturer = _as_str(source.get("manufacturer"))
+        approval_date = _as_str(source.get("fda_approval", source.get("approval_date", "")))
 
         if manufacturer:
             formatted["manufacturer_display"] = f"Manufacturer: {manufacturer}"
@@ -113,80 +135,117 @@ def format_source_for_display(source: Dict[str, Any]) -> Dict[str, Any]:
     return formatted
 
 
-def generate_conversational_summary(sources: List[Dict[str, Any]], query: str) -> str:
+def generate_conversational_summary(sources: list[dict[str, object]], query: str) -> str:
     """
-    Generate a conversational summary of search results.
+    Generate a concise, minimal list of sources without extra preface or headers.
+    Includes clean DOI/PubMed links and short abstract snippets when available.
     """
+    # Import logger here to avoid circular imports
+    try:
+        from core.infrastructure.healthcare_logger import get_healthcare_logger
+        logger = get_healthcare_logger("conversational_summary")
+        logger.info(f"DIAGNOSTIC: generate_conversational_summary called with {len(sources) if sources else 0} sources for query: '{query}'")
+    except Exception:
+        logger = None
+    
     if not sources:
-        return f"I couldn't find any medical literature specifically about '{query}'. You might want to try rephrasing your search or using different medical terms."
+        if logger:
+            logger.info("DIAGNOSTIC: No sources provided, returning 'No literature found.'")
+        return "No literature found."
 
-    summary_parts = []
-    summary_parts.append(f"I found {len(sources)} relevant medical sources about '{query}':\n")
+    # Deduplicate by doi/pmid/url/title to avoid double-counting
+    seen: set[str] = set()
+    unique: list[dict[str, object]] = []
+    for s in sources:
+        key = _as_str(s.get("doi") or s.get("pmid") or s.get("url") or s.get("title")).strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        unique.append(s)
 
-    # Group by source type
-    pubmed_sources = [s for s in sources if s.get("source_type") in ["condition_information", "symptom_literature"]]
-    trial_sources = [s for s in sources if "trial" in s.get("source_type", "")]
-    drug_sources = [s for s in sources if s.get("source_type") == "drug_info"]
+    if logger:
+        logger.info(f"DIAGNOSTIC: After deduplication, {len(unique)} unique sources")
 
-    # PubMed literature
-    if pubmed_sources:
-        summary_parts.append(f"\n**📚 Medical Literature ({len(pubmed_sources)} articles):**")
-        for i, source in enumerate(pubmed_sources[:5]):  # Top 5
-            formatted = format_source_for_display(source)
-            title = source.get("title", "Untitled article")
-            url = formatted["url"]
-            citation = formatted.get("citation", "")
+    lines: list[str] = []
 
-            if url.startswith("https://doi.org/"):
-                link_text = "📄 Read full article"
-            else:
-                link_text = "📄 View abstract"
+    # Determine display limit from config; fallback to 10
+    display_limit = 10
+    try:
+        # Prefer a dedicated summary/display limit if present
+        sp = getattr(_search_cfg, "search_parameters", None)
+        # Some configs might include a general 'display_limit'
+        maybe_display_limit = None
+        if isinstance(sp, object):
+            # If the dataclass has a dict for max_results, we can piggyback on a sensible default
+            mr = getattr(sp, "max_results", {})
+            if isinstance(mr, dict):
+                # Use condition_info as a reasonable global default if no explicit key
+                maybe_display_limit = (
+                    mr.get("summary_display_limit")
+                    or mr.get("display_limit")
+                    or mr.get("condition_info")
+                )
+        if isinstance(maybe_display_limit, int) and maybe_display_limit > 0:
+            display_limit = maybe_display_limit
+    except Exception:
+        display_limit = 10
 
-            summary_parts.append(f"{i+1}. **{title}**")
-            if citation:
-                summary_parts.append(f"   *{citation}*")
-            summary_parts.append(f"   [{link_text}]({url})")
+    if logger:
+        logger.info(f"DIAGNOSTIC: Using display_limit: {display_limit}")
 
-            # Brief abstract if available
-            abstract = source.get("abstract", source.get("content", ""))
-            if abstract and len(abstract) > 100:
-                summary_parts.append(f"   {abstract[:200]}...")
-            summary_parts.append("")
+    # Show top N items in order provided (already ranked upstream)
+    for i, source in enumerate(unique[:display_limit], 1):
+        formatted = format_source_for_display(source)
+        title = _as_str(source.get("title") or "Untitled article").strip()
+        url = _as_str(formatted.get("url"))
+        citation = _as_str(formatted.get("citation", ""))
 
-    # Clinical trials
-    if trial_sources:
-        summary_parts.append(f"\n**🔬 Clinical Trials ({len(trial_sources)} studies):**")
-        for i, source in enumerate(trial_sources[:3]):  # Top 3
-            formatted = format_source_for_display(source)
-            title = source.get("title", "Unnamed study")
-            url = formatted["url"]
+        header = f"{i}. {title}"
+        if citation:
+            header += f" — {citation}"
+        lines.append(header)
+        if url:
+            lines.append(f"   {url}")
 
-            summary_parts.append(f"{i+1}. **{title}**")
-            if formatted.get("status_display"):
-                summary_parts.append(f"   {formatted['status_display']}")
-            if formatted.get("phase_display"):
-                summary_parts.append(f"   {formatted['phase_display']}")
-            summary_parts.append(f"   [🔬 View study details]({url})")
-            summary_parts.append("")
+        # Brief abstract if available
+        abstract = _as_str(source.get("abstract", source.get("content", ""))).strip()
+        if abstract:
+            snippet = abstract if len(abstract) <= 500 else abstract[:500].rstrip() + "..."
+            lines.append(f"   {snippet}")
+        lines.append("")
 
-    # FDA drug information
-    if drug_sources:
-        summary_parts.append(f"\n**💊 FDA Drug Information ({len(drug_sources)} drugs):**")
-        for i, source in enumerate(drug_sources[:3]):  # Top 3
-            formatted = format_source_for_display(source)
-            drug_name = source.get("drug_name", source.get("name", "Unknown drug"))
-            url = formatted["url"]
+    result = "\n".join(lines).rstrip()
+    if logger:
+        logger.info(f"DIAGNOSTIC: Generated summary length: {len(result)}, preview: {result[:200] if result else 'EMPTY'}")
+    
+    return result
 
-            summary_parts.append(f"{i+1}. **{drug_name}**")
-            if formatted.get("manufacturer_display"):
-                summary_parts.append(f"   {formatted['manufacturer_display']}")
-            if formatted.get("approval_display"):
-                summary_parts.append(f"   {formatted['approval_display']}")
-            summary_parts.append(f"   [💊 View drug information]({url})")
-            summary_parts.append("")
 
-    # Medical disclaimer
-    summary_parts.append("\n---")
-    summary_parts.append("**⚠️ Medical Disclaimer:** This information is for educational purposes only and is not medical advice. Always consult with a qualified healthcare professional for medical concerns.")
+def _normalize_doi_url(doi_raw: str) -> str:
+    """Return a clean https://doi.org/<id> URL from various DOI formats.
 
-    return "\n".join(summary_parts)
+    Accepts values like:
+    - "10.1000/xyz"
+    - "doi: 10.1000/xyz"
+    - "https://doi.org/10.1000/xyz"
+    - mixed elocation strings containing a DOI
+    """
+    if not doi_raw:
+        return ""
+    s = doi_raw.strip()
+    # If it's already a DOI URL, normalize and return
+    if s.lower().startswith("https://doi.org/"):
+        # Extract the DOI part after the domain to de-duplicate
+        part = s[len("https://doi.org/") :].lstrip("/")
+        return f"https://doi.org/{part}"
+
+    # Extract a DOI pattern if present anywhere in the string
+    m = re.search(r"(10\.\d{4,9}/\S+)", s, flags=re.IGNORECASE)
+    if m:
+        return f"https://doi.org/{m.group(1)}"
+
+    # Remove common prefixes like 'doi:' and spaces
+    s = re.sub(r"^\s*(doi\s*:?)\s*", "", s, flags=re.IGNORECASE)
+    if s:
+        return f"https://doi.org/{s}"
+    return ""

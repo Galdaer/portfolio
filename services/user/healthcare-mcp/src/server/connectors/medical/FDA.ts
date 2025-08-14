@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { Client } from 'pg';
 import { CacheManager } from "../../utils/Cache.js";
 
 export interface Generics {
@@ -19,9 +20,8 @@ export class FDA {
     private readonly rateLimitWindow = 60000; // 1 minute
     private readonly maxRequestsPerMinute = 240;
     private readonly baseUrl = 'https://api.fda.gov/drug/ndc.json';
-    private readonly localMirrorUrl = 'http://172.20.0.20:8080/fda';
     private readonly apiKey?: string;
-    private useLocalMirror: boolean = true;
+    // No mirror HTTP. Database is the mirror.
 
     private isRateLimited(): boolean {
         const now = Date.now();
@@ -35,8 +35,6 @@ export class FDA {
 
     constructor(apiKey?: string) {
         this.apiKey = apiKey;
-        // Check environment for local mirror preference
-        this.useLocalMirror = process.env.USE_LOCAL_MEDICAL_MIRRORS !== 'false';
     }
 
     async getDrug(args: any, cache: CacheManager) {
@@ -51,7 +49,7 @@ export class FDA {
         return {
             content: [{
                 type: 'text',
-                text: JSON.stringify(drug, null, 2)
+                text: JSON.stringify({ results: drug })
             }]
         };
     }
@@ -68,45 +66,94 @@ export class FDA {
 
     async searchGenericName(genericName: string): Promise<Generics[]> {
         try {
-            // Try local mirror first
-            if (this.useLocalMirror) {
-                try {
-                    console.log('Attempting to use local FDA mirror');
-                    return await this.searchLocalMirror(genericName);
-                } catch (localError) {
-                    console.warn('Local FDA mirror failed, falling back to external API:', localError);
-                    // Fall through to external API
-                }
+            // DATABASE-FIRST: Try local Postgres mirror first, then external API; background test external only
+            try {
+                const dbResults = await this.searchDatabase(genericName, 25);
+                this.validateExternalAPI(genericName).catch(err => console.warn('Background FDA external API validation failed:', err));
+                return dbResults;
+            } catch (dbError) {
+                console.warn('FDA DB search failed, falling back to external API:', dbError);
+                return await this.searchExternalAPI(genericName);
             }
-
-            console.log('Using external FDA API');
-            return await this.searchExternalAPI(genericName);
         } catch (error) {
             console.error('FDA search failed:', error);
             throw error;
         }
     }
 
-    private async searchLocalMirror(genericName: string): Promise<Generics[]> {
-        const params = new URLSearchParams();
-        if (genericName) params.append('generic_name', genericName);
-        params.append('max_results', '10');
+    /**
+     * Background validation of external FDA API connectivity
+     */
+    private async validateExternalAPI(genericName: string): Promise<void> {
+        const timeout = 10000; // 10 second timeout for background checks
 
-        const response = await fetch(`${this.localMirrorUrl}/search?${params.toString()}`);
+        try {
+            console.log('[BACKGROUND] Testing external FDA API connectivity...');
 
-        if (!response.ok) {
-            throw new Error(`Local mirror responded with ${response.status}`);
+            const externalPromise = Promise.race([
+                this.searchExternalAPI(genericName),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('External FDA API timeout')), timeout)
+                )
+            ]);
+
+            const externalResults = await externalPromise;
+            console.log(`[BACKGROUND] ✅ External FDA API healthy - returned ${externalResults.length} drugs`);
+
+        } catch (externalError) {
+            console.warn(`[BACKGROUND] ⚠️  External FDA API failed: ${externalError instanceof Error ? externalError.message : 'Unknown error'}`);
+        }
+    }
+
+    private async searchDatabase(genericName: string, maxResults: number): Promise<Generics[]> {
+        // Prefer single DATABASE_URL; fall back to discrete vars WITHOUT secrets defaults.
+        const databaseUrl = process.env.DATABASE_URL?.trim();
+
+        let client: Client;
+        if (databaseUrl && databaseUrl.length > 0) {
+            client = new Client({ connectionString: databaseUrl });
+        } else {
+            const host = process.env.POSTGRES_HOST;
+            const portVal = process.env.POSTGRES_PORT;
+            const user = process.env.POSTGRES_USER;
+            const password = process.env.POSTGRES_PASSWORD;
+            const database = process.env.DATABASE_NAME;
+
+            if (!host || !user || !password || !database) {
+                throw new Error("Database configuration missing. Provide DATABASE_URL or POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, DATABASE_NAME in environment.");
+            }
+
+            const port = portVal ? parseInt(portVal, 10) : 5432;
+            client = new Client({ host, port, user, password, database });
         }
 
-        const data = await response.json() as { content: Array<{ text: string }> };
-        const drugs = JSON.parse(data.content[0].text);
+        const table = process.env.FDA_DRUGS_TABLE || 'fda_drugs';
 
-        return drugs.map((drug: any) => ({
-            ndc: drug.ndc || '',
-            name: drug.name || '',
-            label: drug.brandName || drug.name || '',
-            brand: drug.brandName || '',
-            ingredients: drug.ingredients || []
+        await client.connect();
+
+        const params: any[] = [`%${genericName}%`, maxResults];
+        const query = `
+            SELECT 
+                COALESCE(ndc, product_ndc) AS ndc,
+                COALESCE(generic_name, generic) AS name,
+                COALESCE(brand_name, labeler_name) AS label,
+                COALESCE(brand_name, labeler_name) AS brand,
+                COALESCE(active_ingredients, substances) AS ingredients
+            FROM ${table}
+            WHERE COALESCE(generic_name, generic) ILIKE $1
+            ORDER BY ndc ASC
+            LIMIT $2
+        `;
+
+        const result = await client.query(query, params);
+        await client.end();
+
+        return result.rows.map((row: any) => ({
+            ndc: row.ndc || '',
+            name: row.name || '',
+            label: row.label || '',
+            brand: row.brand || '',
+            ingredients: Array.isArray(row.ingredients) ? row.ingredients : (row.ingredients ? [row.ingredients] : [])
         }));
     }
 

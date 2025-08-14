@@ -17,6 +17,7 @@ from enum import Enum
 from typing import Any
 
 from .healthcare_logger import get_healthcare_logger, log_phi_alert
+from config.phi_detection_config_loader import phi_config
 
 
 class PHIRiskLevel(Enum):
@@ -82,93 +83,6 @@ class PHIMonitor:
     runtime data pipeline monitoring and compliance validation.
     """
 
-    # Comprehensive PHI detection patterns
-    PHI_PATTERNS = {
-        PHIType.SSN: [
-            r"\b\d{3}-\d{2}-\d{4}\b",  # Standard SSN format
-            r"\b\d{9}\b",  # 9-digit SSN without separators
-            r"\bSSN\s*:?\s*\d{3}[-\s]\d{2}[-\s]\d{4}\b",  # SSN with label
-        ],
-        PHIType.PHONE: [
-            r"\b\(\d{3}\)\s*\d{3}-\d{4}\b",  # (123) 456-7890
-            r"\b\d{3}-\d{3}-\d{4}\b",  # 123-456-7890
-            r"\b\d{3}\.\d{3}\.\d{4}\b",  # 123.456.7890
-            r"\b\d{10}\b",  # 1234567890
-            r"\b1[-\s]?\d{3}[-\s]?\d{3}[-\s]?\d{4}\b",  # 1-123-456-7890
-        ],
-        PHIType.EMAIL: [
-            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
-        ],
-        PHIType.MEDICAL_RECORD_NUMBER: [
-            r"\bMRN\s*:?\s*[A-Z0-9]{6,}\b",
-            r"\bMedical\s+Record\s+Number\s*:?\s*[A-Z0-9]{6,}\b",
-            r"\b[A-Z]{2}\d{6,10}\b",  # Pattern like AB1234567
-        ],
-        PHIType.PATIENT_ID: [
-            r"\bpatient[-_]?id\s*:?\s*[A-Z0-9]{3,}\b",
-            r"\bPT[-_]?\d{3,}\b",  # PT123, PT_123
-            r"\bPATIENT[-_]?\d{3,}\b",
-        ],
-        PHIType.INSURANCE_ID: [
-            r"\binsurance[-_]?id\s*:?\s*[A-Z0-9]{6,}\b",
-            r"\bpolicy[-_]?number\s*:?\s*[A-Z0-9]{6,}\b",
-            r"\bmember[-_]?id\s*:?\s*[A-Z0-9]{6,}\b",
-        ],
-        PHIType.DATE_OF_BIRTH: [
-            r"\b\d{1,2}/\d{1,2}/\d{4}\b",  # MM/DD/YYYY
-            r"\b\d{1,2}-\d{1,2}-\d{4}\b",  # MM-DD-YYYY
-            r"\b\d{4}-\d{1,2}-\d{1,2}\b",  # YYYY-MM-DD
-            r"\bDOB\s*:?\s*\d{1,2}[/-]\d{1,2}[/-]\d{4}\b",  # DOB: MM/DD/YYYY
-            r"\bdate\s+of\s+birth\s*:?\s*\d{1,2}[/-]\d{1,2}[/-]\d{4}\b",
-        ],
-    }
-
-    # Synthetic data patterns that should NOT trigger PHI alerts
-    SYNTHETIC_PATTERNS = [
-        r"\bPAT\d{3}\b",  # PAT001, PAT002, etc.
-        r"\bPROV\d{3}\b",  # PROV001, PROV002, etc.
-        r"\bENC\d{3}\b",  # ENC001, ENC002, etc.
-        r"\bTEST[-_]?PATIENT\b",  # TEST_PATIENT, TEST-PATIENT
-        r"\bSYNTHETIC[-_]?DATA\b",  # SYNTHETIC_DATA, SYNTHETIC-DATA
-        r"\b555-\d{3}-\d{4}\b",  # 555 phone numbers (reserved for testing)
-        r"\bexample\.com\b",  # Example.com emails
-        r"\btest\.com\b",  # Test.com emails
-        r"\b123-45-6789\b",  # Common test SSN
-        r"\b000-00-0000\b",  # Invalid SSN for testing
-    ]
-
-    # PHI field names that indicate sensitive data
-    PHI_FIELD_NAMES = {
-        "ssn",
-        "social_security_number",
-        "social_security",
-        "phone",
-        "phone_number",
-        "telephone",
-        "mobile",
-        "email",
-        "email_address",
-        "patient_id",
-        "patient_identifier",
-        "medical_record_number",
-        "mrn",
-        "insurance_id",
-        "insurance_number",
-        "policy_number",
-        "date_of_birth",
-        "dob",
-        "birth_date",
-        "first_name",
-        "last_name",
-        "full_name",
-        "patient_name",
-        "address",
-        "home_address",
-        "street_address",
-        "zip_code",
-        "postal_code",
-    }
-
     def __init__(self, enable_synthetic_detection: bool = True):
         """
         Initialize PHI monitor.
@@ -178,7 +92,10 @@ class PHIMonitor:
         """
         self.logger = get_healthcare_logger("phi_monitor")
         self.enable_synthetic_detection = enable_synthetic_detection
-        self._compiled_patterns = self._compile_patterns()
+        
+        # Load configuration from YAML files
+        self._load_configuration()
+        
         self._detection_stats = {
             "total_scans": 0,
             "phi_detections": 0,
@@ -186,12 +103,39 @@ class PHIMonitor:
             "false_positives": 0,
         }
 
-    def _compile_patterns(self) -> dict[PHIType, list[re.Pattern]]:
-        """Compile regex patterns for performance."""
-        compiled = {}
-        for phi_type, patterns in self.PHI_PATTERNS.items():
-            compiled[phi_type] = [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
-        return compiled
+    def _load_configuration(self) -> None:
+        """Load PHI detection configuration from config files."""
+        try:
+            # Get compiled patterns from config
+            self._compiled_patterns = phi_config.get_compiled_patterns()
+            
+            # Get other config settings
+            self._risk_settings = phi_config.get_risk_settings()
+            self._synthetic_patterns = phi_config.get_synthetic_patterns()
+            self._phi_field_names = phi_config.get_phi_field_names()
+            self._risk_mappings = phi_config.get_risk_mappings()
+            self._recommendations_config = phi_config.get_recommendations()
+            
+            # Update instance settings from config
+            if not hasattr(self, 'enable_synthetic_detection'):
+                self.enable_synthetic_detection = self._risk_settings.get("enable_synthetic_detection", True)
+            
+            self.logger.info("PHI detection configuration loaded successfully")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to load PHI configuration: {e}")
+            # Use basic fallback patterns
+            self._compiled_patterns = {}
+            self._synthetic_patterns = []
+            self._phi_field_names = set()
+            self._risk_mappings = {"high_risk_types": [], "medium_risk_types": [], "low_risk_types": []}
+            self._recommendations_config = {}
+
+    def reload_configuration(self) -> None:
+        """Reload PHI detection configuration (useful for runtime updates)."""
+        phi_config.reload_config()
+        self._load_configuration()
+        self.logger.info("PHI detection configuration reloaded")
 
     def scan_for_phi(
         self, data: str | dict[str, Any] | list[Any], context: str | None = None,
@@ -206,6 +150,15 @@ class PHIMonitor:
         Returns:
             PHIDetectionResult with detection details
         """
+        # MEDICAL LITERATURE EXEMPTION: Check config-based exemptions
+        if context and phi_config.is_exempted_context(context):
+            return PHIDetectionResult(
+                phi_detected=False,
+                phi_types=[],
+                risk_level=PHIRiskLevel.NONE,
+                detection_details={"exemption": "configured_exemption", "context": context},
+                recommendations=["Context exempted from PHI detection by configuration"],
+            )
         self._detection_stats["total_scans"] += 1
 
         # Convert data to scannable text
@@ -295,7 +248,7 @@ class PHIMonitor:
         if not self.enable_synthetic_detection:
             return False
 
-        return any(re.search(pattern, text, re.IGNORECASE) for pattern in self.SYNTHETIC_PATTERNS)
+        return any(pattern.search(text) for pattern in self._synthetic_patterns)
 
     def _scan_field_names(self, data: str | dict[str, Any] | list[Any]) -> list[str]:
         """Scan for PHI field names in data structure."""
@@ -303,11 +256,11 @@ class PHIMonitor:
 
         if isinstance(data, dict):
             for key in data:
-                if isinstance(key, str) and key.lower() in self.PHI_FIELD_NAMES:
+                if isinstance(key, str) and key.lower() in self._phi_field_names:
                     phi_fields.append(key)
         elif isinstance(data, str):
             # Check if the string contains field-like patterns
-            for field_name in self.PHI_FIELD_NAMES:
+            for field_name in self._phi_field_names:
                 pattern = rf"\b{re.escape(field_name)}\s*[:=]"
                 if re.search(pattern, data, re.IGNORECASE):
                     phi_fields.append(field_name)
@@ -317,60 +270,51 @@ class PHIMonitor:
     def _calculate_risk_level(
         self, detected_types: list[PHIType], phi_fields: list[str],
     ) -> PHIRiskLevel:
-        """Calculate risk level based on detected PHI types."""
+        """Calculate risk level based on detected PHI types and config mappings."""
         if not detected_types and not phi_fields:
             return PHIRiskLevel.NONE
 
-        # High-risk PHI types
-        high_risk_types = {PHIType.SSN, PHIType.MEDICAL_RECORD_NUMBER, PHIType.INSURANCE_ID}
-        medium_risk_types = {PHIType.PHONE, PHIType.EMAIL, PHIType.DATE_OF_BIRTH}
-
-        if any(phi_type in high_risk_types for phi_type in detected_types):
+        # Convert PHIType enums to strings for comparison with config
+        detected_type_names = [phi_type.value for phi_type in detected_types]
+        
+        # Get risk mappings from config
+        high_risk_types = set(self._risk_mappings.get("high_risk_types", []))
+        medium_risk_types = set(self._risk_mappings.get("medium_risk_types", []))
+        
+        # Check for high-risk PHI types
+        if any(phi_type in high_risk_types for phi_type in detected_type_names):
             return PHIRiskLevel.CRITICAL
-        if len(detected_types) >= 3:  # Multiple PHI types
+        
+        # Check for multiple PHI types (critical threshold from config)
+        critical_threshold = self._risk_settings.get("critical_threshold", 3)
+        if len(detected_types) >= critical_threshold:
             return PHIRiskLevel.HIGH
-        if any(phi_type in medium_risk_types for phi_type in detected_types):
+        
+        # Check for medium-risk PHI types
+        if any(phi_type in medium_risk_types for phi_type in detected_type_names):
             return PHIRiskLevel.MEDIUM
+        
         return PHIRiskLevel.LOW
 
     def _generate_recommendations(
         self, detected_types: list[PHIType], risk_level: PHIRiskLevel,
     ) -> list[str]:
-        """Generate recommendations based on detection results."""
-        recommendations = []
-
-        if risk_level == PHIRiskLevel.CRITICAL:
-            recommendations.extend(
-                [
-                    "IMMEDIATE ACTION REQUIRED: Critical PHI detected",
-                    "Encrypt or remove PHI before processing",
-                    "Review data handling procedures",
-                    "Consider using anonymized/hashed identifiers",
-                ],
-            )
-        elif risk_level == PHIRiskLevel.HIGH:
-            recommendations.extend(
-                [
-                    "HIGH PRIORITY: Multiple PHI types detected",
-                    "Apply data minimization principles",
-                    "Use hashed identifiers for logging",
-                    "Verify necessity of PHI for operation",
-                ],
-            )
-        elif risk_level == PHIRiskLevel.MEDIUM:
-            recommendations.extend(
-                [
-                    "MEDIUM PRIORITY: PHI detected",
-                    "Consider anonymization for non-essential operations",
-                    "Ensure proper audit logging",
-                ],
-            )
-        elif risk_level == PHIRiskLevel.LOW:
-            recommendations.extend(
-                ["LOW PRIORITY: Minimal PHI detected", "Monitor for data context expansion"],
-            )
-
-        return recommendations
+        """Generate recommendations based on detection results and config."""
+        # Get recommendations from config
+        risk_level_key = risk_level.value.lower()
+        if risk_level_key in self._recommendations_config:
+            return self._recommendations_config[risk_level_key].copy()
+        
+        # Fallback recommendations if config is missing
+        fallback_recommendations = {
+            "critical": ["IMMEDIATE ACTION REQUIRED: Critical PHI detected"],
+            "high": ["HIGH PRIORITY: Multiple PHI types detected"],
+            "medium": ["MEDIUM PRIORITY: PHI detected"],
+            "low": ["LOW PRIORITY: Minimal PHI detected"],
+            "none": []
+        }
+        
+        return fallback_recommendations.get(risk_level_key, [])
 
     def _log_phi_detection(self, result: PHIDetectionResult, context: str | None) -> None:
         """Log PHI detection with appropriate severity."""
@@ -443,12 +387,13 @@ class PHIMonitor:
         """
         return hashlib.sha256(patient_id.encode()).hexdigest()[:8]
 
-    def sanitize_for_logging(self, data: dict[str, Any]) -> dict[str, Any]:
+    def sanitize_for_logging(self, data: dict[str, Any], context: str | None = None) -> dict[str, Any]:
         """
         Sanitize data for secure logging by removing or hashing PHI.
 
         Args:
             data: Data to sanitize
+            context: Context for PHI detection (e.g., 'medical_literature')
 
         Returns:
             Sanitized data safe for logging
@@ -456,15 +401,15 @@ class PHIMonitor:
         sanitized = {}
 
         for key, value in data.items():
-            if isinstance(key, str) and key.lower() in self.PHI_FIELD_NAMES:
+            if isinstance(key, str) and key.lower() in self._phi_field_names:
                 # Hash PHI fields
                 if isinstance(value, str):
                     sanitized[f"{key}_hash"] = self.create_patient_hash(value)
                 else:
                     sanitized[f"{key}_hash"] = "[HASHED]"
             else:
-                # Check value for PHI content
-                result = self.scan_for_phi(value)
+                # Check value for PHI content, passing context
+                result = self.scan_for_phi(value, context)
                 if result.phi_detected and result.risk_level != PHIRiskLevel.LOW:
                     sanitized[key] = "[PHI_SANITIZED]"
                 else:
@@ -528,17 +473,18 @@ def scan_for_phi(data: Any, context: str | None = None) -> bool:
     return result.phi_detected
 
 
-def sanitize_healthcare_data(data: dict[str, Any]) -> dict[str, Any]:
+def sanitize_healthcare_data(data: dict[str, Any], context: str | None = None) -> dict[str, Any]:
     """
     Sanitize healthcare data for safe logging.
 
     Args:
         data: Healthcare data to sanitize
+        context: Context for PHI detection (e.g., 'medical_literature')
 
     Returns:
         Sanitized data safe for logging
     """
-    return phi_monitor.sanitize_for_logging(data)
+    return phi_monitor.sanitize_for_logging(data, context)
 
 
 def create_patient_hash(patient_id: str) -> str:

@@ -24,6 +24,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from config.app import config
+from core.config.models import get_primary_model
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     setup_healthcare_logging,
@@ -35,8 +36,8 @@ setup_healthcare_logging(log_level=config.log_level.upper())
 # Get healthcare logger for main application
 logger = get_healthcare_logger(__name__)
 
-# Healthcare AI orchestration configuration
-ORCHESTRATOR_MODEL = "llama3.1:8b"
+# Healthcare AI orchestration configuration (centralized)
+ORCHESTRATOR_MODEL = get_primary_model()
 
 # HTTP Request/Response models
 class ProcessRequest(BaseModel):
@@ -49,6 +50,8 @@ class ProcessResponse(BaseModel):
     status: str
     result: dict[str, Any] | None = None
     error: str | None = None
+    # Back-compat for older pipelines expecting a 'response' string
+    response: str | None = None
     formatted_response: str | None = None  # Human-readable response
 
 # Global variables for agent management
@@ -531,6 +534,7 @@ async def process_message(request: ProcessRequest) -> ProcessResponse:
                 return ProcessResponse(
                     status="success",
                     result=result,
+                    response=formatted_text,
                     formatted_response=formatted_text,
                 )
             # Return raw JSON for API consumers
@@ -544,6 +548,7 @@ async def process_message(request: ProcessRequest) -> ProcessResponse:
                 return ProcessResponse(
                     status="error",
                     error=error_msg,
+                    response=f"❌ **Error:** {error_msg}",
                     formatted_response=f"❌ **Error:** {error_msg}",
                 )
             return ProcessResponse(status="error", error=error_msg)
@@ -559,6 +564,7 @@ async def process_message(request: ProcessRequest) -> ProcessResponse:
             return ProcessResponse(
                 status="error",
                 error=error_msg,
+                response=f"❌ **System Error:** {error_msg}",
                 formatted_response=f"❌ **System Error:** {error_msg}",
             )
         return ProcessResponse(status="error", error=error_msg)

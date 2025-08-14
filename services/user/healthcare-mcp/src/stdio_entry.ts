@@ -18,6 +18,17 @@ async function main(): Promise<void> {
     // IMPORTANT: Do not override process.stdout.write. The MCP SDK owns stdout for JSON-RPC framing.
     // We only divert console.* to stderr and leave stdout pristine.
 
+    // Load environment variables from .env early so all MCP modules can rely on process.env
+    try {
+        const dotenv = await import('dotenv');
+        if (dotenv?.config) {
+            dotenv.config();
+            console.error('[LOG:OUT] Loaded .env into process.env for MCP stdio entry');
+        }
+    } catch (e) {
+        console.error('[LOG:WARN] dotenv not available or failed to load .env:', e);
+    }
+
 
     // Minimal stderr-only diagnostics to debug stdio handshake without touching stdout
     process.on('uncaughtException', (err) => {

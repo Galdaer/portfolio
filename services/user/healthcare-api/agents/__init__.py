@@ -217,7 +217,7 @@ class BaseHealthcareAgent(ABC):
                     "message": safety_check["message"],
                     "request_id": request_id,
                 }
-                await self._log_interaction("safety_violation", request_id, response)
+                await self._log_interaction("safety_violation", request_id, response, None)
                 return response
 
             # Process the request
@@ -225,8 +225,12 @@ class BaseHealthcareAgent(ABC):
             response["request_id"] = request_id
             response["agent_name"] = self.agent_name
 
-            # Log the response
-            await self._log_interaction("response", request_id, response)
+            # Log the response with appropriate context for PHI detection
+            context = None
+            if "medical_search" in self.agent_name or "literature" in self.agent_name:
+                context = "medical_literature"
+            
+            await self._log_interaction("response", request_id, response, context)
 
             return response
 
@@ -238,7 +242,7 @@ class BaseHealthcareAgent(ABC):
                 "agent_name": self.agent_name,
             }
 
-            await self._log_interaction("error", request_id, error_response)
+            await self._log_interaction("error", request_id, error_response, None)
             self.logger.exception(f"Request {request_id} failed: {e}")
 
             return error_response
@@ -285,12 +289,18 @@ class BaseHealthcareAgent(ABC):
         return {"safe": True}
 
     async def _log_interaction(
-        self, interaction_type: str, request_id: str, data: dict[str, Any],
+        self, interaction_type: str, request_id: str, data: dict[str, Any], context: str | None = None,
     ) -> None:
         """Log agent interaction for audit purposes with PHI protection"""
         try:
-            # Sanitize data for PHI protection
-            sanitized_data = sanitize_healthcare_data(data)
+            # Use provided context or determine context for PHI detection
+            if context is None:
+                if self.agent_name in ["medical_search", "medical_search_agent"] or "search" in self.agent_type:
+                    # Medical literature search results should not have author names treated as PHI
+                    context = "medical_literature"
+            
+            # Sanitize data for PHI protection with context
+            sanitized_data = sanitize_healthcare_data(data, context)
 
             log_entry = {
                 "interaction_type": interaction_type,

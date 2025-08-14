@@ -37,17 +37,15 @@ interface PubMedSummaryResponse {
 
 export class PubMed {
     private readonly baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
-    private readonly localMirrorUrl = 'http://172.20.0.20:8080/pubmed';
     private readonly apiKey?: string;
-    private useLocalMirror: boolean = true;
+    // No mirror HTTP. Database is the mirror.
 
     constructor(apiKey?: string) {
         // Only set apiKey if it's a real key
         this.apiKey = apiKey && apiKey !== 'optional_for_higher_rate_limits' ? apiKey : undefined;
-        // Check environment for local mirror preference
-        this.useLocalMirror = process.env.USE_LOCAL_MEDICAL_MIRRORS !== 'false';
     } async getArticles(args: any, cache: CacheManager) {
-        const { query, maxResults = 25 } = args;
+        const { query } = args;
+        const maxResults = Math.max(1, Math.min(100, Number(args?.maxResults ?? 25)));
         const cacheKey = cache.createKey('pubmed', { query, maxResults });
 
         try {
@@ -63,18 +61,23 @@ export class PubMed {
             const response = {
                 content: [{
                     type: 'text',
-                    text: `Found ${articles.length} medical articles:\n\n` +
-                        articles.map((article, i) =>
-                            `${i + 1}. **${article.title}**\n` +
-                            `   Authors: ${article.authors.join(', ')}\n` +
-                            `   Journal: ${article.journal} (${article.pubDate})\n` +
-                            `   PMID: ${article.pmid}\n\n`
-                        ).join('') +
-                        "\n**Medical Disclaimer**: This information is for educational purposes only."
+                    text: JSON.stringify({
+                        articles: articles.map(a => ({
+                            title: a.title,
+                            authors: a.authors,
+                            journal: a.journal,
+                            publication_date: a.pubDate,
+                            doi: a.doi,
+                            abstract: a.abstract,
+                            pmid: a.pmid
+                        }))
+                    })
                 }]
             };
 
-            console.log('PubMed response prepared, content length:', response.content[0].text.length);
+            // Log the number of articles prepared in the text content
+            const parsedContent = JSON.parse((response.content[0] as any).text);
+            console.log('PubMed response prepared, articles:', parsedContent.articles.length);
             return response;
         } catch (error) {
             console.error('PubMed API error:', error);
@@ -98,24 +101,21 @@ export class PubMed {
                 throw new Error('PubMed search failed: Query string is empty or invalid.');
             }
 
-            // Use database search first (since user has local PubMed data)
+            // DATABASE-FIRST: Return database results immediately, test external APIs in background
             try {
                 console.log('Searching local PostgreSQL database for PubMed articles');
-                return await this.searchDatabase(query, maxResults);
+                const dbResults = await this.searchDatabase(query, maxResults);
+
+                // Start background validation of external API (don't await)
+                this.validateExternalSources(query, maxResults).catch(error => {
+                    console.warn('Background external API validation failed:', error);
+                });
+
+                console.log(`Database returned ${dbResults.length} articles, background external validation started`);
+                return dbResults;
+
             } catch (dbError) {
-                console.warn('Database search failed, trying mirror/external:', dbError);
-
-                // Try local mirror second
-                if (this.useLocalMirror) {
-                    try {
-                        console.log('Attempting to use local PubMed mirror');
-                        return await this.searchLocalMirror(query, maxResults);
-                    } catch (localError) {
-                        console.warn('Local PubMed mirror failed, falling back to external API:', localError);
-                        // Fall through to external API
-                    }
-                }
-
+                console.warn('Database search failed, falling back to external API:', dbError);
                 console.log('Using external PubMed API');
                 return await this.searchExternalAPI(query, maxResults);
             }
@@ -125,55 +125,112 @@ export class PubMed {
         }
     }
 
-    private async searchLocalMirror(query: string, maxResults: number): Promise<PubMedArticle[]> {
-        const response = await fetch(`${this.localMirrorUrl}/search?query=${encodeURIComponent(query)}&max_results=${maxResults}`);
+    /**
+     * Background validation of external API connectivity
+     * Tests external sources without blocking the main search response
+     */
+    private async validateExternalSources(query: string, maxResults: number): Promise<void> {
+        const timeout = 10000; // 10 second timeout for background checks
 
-        if (!response.ok) {
-            throw new Error(`Local mirror responded with ${response.status}`);
+        try {
+            console.log('[BACKGROUND] Testing external PubMed API connectivity...');
+
+            // Test external API with timeout
+            const externalPromise = Promise.race([
+                this.searchExternalAPI(query, Math.min(maxResults, 5)), // Test with fewer results
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('External API timeout')), timeout)
+                )
+            ]);
+
+            const externalResults = await externalPromise;
+            console.log(`[BACKGROUND] ✅ External PubMed API healthy - returned ${externalResults.length} articles`);
+
+        } catch (externalError) {
+            console.warn(`[BACKGROUND] ⚠️  External PubMed API failed: ${externalError instanceof Error ? externalError.message : 'Unknown error'}`);
         }
 
-        const data = await response.json() as { content: Array<{ text: string }> };
-        const articles = JSON.parse(data.content[0].text);
-
-        return articles.map((article: any) => ({
-            title: article.title || '',
-            authors: article.authors || [],
-            journal: article.journal || '',
-            pubDate: article.pubDate || '',
-            doi: article.doi || '',
-            abstract: article.abstract || '',
-            pmid: article.pmid || ''
-        }));
+        // No local mirror HTTP; database is the mirror
     }
 
     private async searchDatabase(query: string, maxResults: number): Promise<PubMedArticle[]> {
         try {
             // Create a new connection for each query (simple approach)
-            const client = new Client({
-                host: process.env.POSTGRES_HOST || '172.20.0.13',
-                port: parseInt(process.env.POSTGRES_PORT || '5432'),
-                user: process.env.POSTGRES_USER || 'intelluxe',
-                password: process.env.POSTGRES_PASSWORD || 'secure_password',
-                database: process.env.DATABASE_NAME || 'intelluxe'
-            });
+            // Prefer single DATABASE_URL; fall back to discrete vars WITHOUT secrets defaults.
+            const databaseUrl = process.env.DATABASE_URL?.trim();
+
+            let client: Client;
+            if (databaseUrl && databaseUrl.length > 0) {
+                client = new Client({ connectionString: databaseUrl });
+            } else {
+                const host = process.env.POSTGRES_HOST;
+                const portVal = process.env.POSTGRES_PORT;
+                const user = process.env.POSTGRES_USER;
+                const password = process.env.POSTGRES_PASSWORD;
+                const database = process.env.DATABASE_NAME;
+
+                // Validate required env when DATABASE_URL is not provided
+                if (!host || !user || !password || !database) {
+                    throw new Error(
+                        "Database configuration missing. Provide DATABASE_URL or POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, DATABASE_NAME in environment."
+                    );
+                }
+
+                const port = portVal ? parseInt(portVal, 10) : 5432; // 5432 default is non-secret
+                client = new Client({ host, port, user, password, database });
+            }
 
             await client.connect();
 
-            // Search the pubmed_articles table
-            const searchQuery = `
-                SELECT pmid, title, journal, pub_date, abstract, authors
-                FROM pubmed_articles 
-                WHERE title ILIKE $1 
-                   OR abstract ILIKE $1 
-                   OR journal ILIKE $1
-                ORDER BY pub_date DESC
-                LIMIT $2
-            `;
+            // Parse query for boolean OR logic
+            const orTerms = query.split(/\s+OR\s+/i).map(term => term.trim()).filter(term => term.length > 0);
 
-            const searchTerm = `%${query}%`;
-            console.log(`Executing database search for: "${query}" (limit: ${maxResults})`);
+            let searchQuery: string;
+            let searchParams: any[];
 
-            const result = await client.query(searchQuery, [searchTerm, maxResults]);
+            if (orTerms.length > 1) {
+                // Handle OR logic: search for any of the terms
+                console.log(`Executing OR search for terms: ${orTerms.join(', ')}`);
+
+                const conditions = orTerms.map((_, index) => {
+                    const paramIndex = index * 3;
+                    return `(title ILIKE $${paramIndex + 1} OR abstract ILIKE $${paramIndex + 2} OR journal ILIKE $${paramIndex + 3})`;
+                }).join(' OR ');
+
+                searchQuery = `
+                    SELECT DISTINCT pmid, title, journal, pub_date, abstract, authors
+                    FROM pubmed_articles 
+                    WHERE ${conditions}
+                    ORDER BY pub_date DESC
+                    LIMIT $${orTerms.length * 3 + 1}
+                `;
+
+                searchParams = [];
+                orTerms.forEach(term => {
+                    const searchTerm = `%${term}%`;
+                    searchParams.push(searchTerm, searchTerm, searchTerm);
+                });
+                searchParams.push(maxResults);
+
+            } else {
+                // Standard single-term search
+                console.log(`Executing single-term search for: "${query}"`);
+
+                searchQuery = `
+                    SELECT pmid, title, journal, pub_date, abstract, authors
+                    FROM pubmed_articles 
+                    WHERE title ILIKE $1 
+                       OR abstract ILIKE $1 
+                       OR journal ILIKE $1
+                    ORDER BY pub_date DESC
+                    LIMIT $2
+                `;
+
+                const searchTerm = `%${query}%`;
+                searchParams = [searchTerm, maxResults];
+            }
+
+            const result = await client.query(searchQuery, searchParams);
 
             console.log(`Database search returned ${result.rows.length} articles`);
 

@@ -78,13 +78,15 @@ async def search_medical_literature(
                 request.search_query
             )
 
-        # Return conversational response for better user experience
+        # Return only the conversational response and minimal metadata
         return {
             "response": conversational_response,
-            "search_id": search_result.search_id,
-            "total_sources": len(search_result.information_sources),
-            "search_confidence": search_result.search_confidence,
-            "generated_at": search_result.generated_at.isoformat(),
+            "meta": {
+                "search_id": search_result.search_id,
+                "total_sources": len(search_result.information_sources),
+                "search_confidence": search_result.search_confidence,
+                "generated_at": search_result.generated_at.isoformat(),
+            }
         }
 
     except Exception as e:
