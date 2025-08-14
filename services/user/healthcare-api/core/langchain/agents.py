@@ -12,9 +12,10 @@ from typing import Any, Dict, Optional
 import os as _os
 
 from langchain.agents import AgentExecutor, create_structured_chat_agent
-from langchain.memory import ConversationSummaryBufferMemory
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.language_models import BaseChatModel
+from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.runnables import RunnableConfig
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 from core.langchain.tools import create_mcp_tools
@@ -161,14 +162,6 @@ class HealthcareLangChainAgent:
             llm=self.llm, tools=self.tools, prompt=prompt
         )
 
-        # Lightweight conversation memory for context preservation
-        self.memory = ConversationSummaryBufferMemory(
-            llm=self.llm,
-            max_token_limit=memory_max_token_limit,
-            return_messages=True,
-            memory_key="chat_history",
-        )
-
         # Configure AgentExecutor with proper structured chat settings
         self.executor = AgentExecutor(
             agent=agent,
@@ -178,11 +171,10 @@ class HealthcareLangChainAgent:
             early_stopping_method="generate",
             handle_parsing_errors=True,
             return_intermediate_steps=True,
-            memory=self.memory,
         )
 
         # Internal debug callback for detailed tracing
-        class _LangchainAgentDebugCallback:
+        class _LangchainAgentDebugCallback(BaseCallbackHandler):
             def __init__(self, enabled: bool = False) -> None:
                 self.enabled = enabled
 
@@ -294,9 +286,24 @@ class HealthcareLangChainAgent:
     async def process(self, query: str, *, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Process a query with tool access and provenance metadata."""
         try:
-            # Prepare input for AgentExecutor - only pass the input query
-            # The AgentExecutor manages agent_scratchpad and chat_history automatically
-            input_data = {"input": query}
+            # Prepare input for AgentExecutor
+            # The AgentExecutor manages agent_scratchpad automatically; do NOT pass it.
+            # We will manually pass chat_history as a list of BaseMessages if memory exists.
+            chat_history = []
+            try:
+                mem = getattr(self, "memory", None)
+                if mem is not None:
+                    chat_mem = getattr(mem, "chat_memory", None)
+                    if chat_mem is not None:
+                        msgs = getattr(chat_mem, "messages", [])
+                        # Ensure it's a list before passing through
+                        if isinstance(msgs, list):
+                            chat_history = list(msgs)
+            except Exception:
+                # If anything goes wrong, fall back to empty history to avoid type issues
+                chat_history = []
+
+            input_data = {"input": query, "chat_history": chat_history}
             
             if self.verbose:
                 try:
@@ -319,13 +326,29 @@ class HealthcareLangChainAgent:
                 # since our prompt doesn't expect a context variable
                 pass
             
-            # Let AgentExecutor manage agent_scratchpad and chat_history automatically
-            callbacks = [self._debug_callback] if self.verbose else None
-            result = await self.executor.ainvoke(input_data, config={"callbacks": callbacks} if callbacks else None)
+            # Let AgentExecutor manage agent_scratchpad automatically (from intermediate_steps)
+            callbacks: Optional[list[BaseCallbackHandler]] = [self._debug_callback] if self.verbose else None
+            config: Optional[RunnableConfig] = {"callbacks": callbacks} if callbacks else None
+            result = await self.executor.ainvoke(input_data, config=config)
             agent_name = "medical_search"  # default label until router is added
             formatted = result.get("output", "")
             if self.show_agent_header:
                 formatted = f"🤖 {agent_name.replace('_', ' ').title()} Agent Response:\n\n" + formatted
+
+            # Manually update memory transcript after successful execution (if available)
+            try:
+                mem = getattr(self, "memory", None)
+                if mem is not None:
+                    chat_mem = getattr(mem, "chat_memory", None)
+                    if chat_mem is not None:
+                        # Safely record the exchange as plain strings
+                        if hasattr(chat_mem, "add_user_message"):
+                            chat_mem.add_user_message(query)
+                        if formatted and hasattr(chat_mem, "add_ai_message"):
+                            chat_mem.add_ai_message(formatted)
+            except Exception:
+                # Non-fatal if memory update fails
+                pass
 
             logger.info(f"LangChain agent processing successful. Output length: {len(formatted)}")
             return {
