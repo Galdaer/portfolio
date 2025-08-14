@@ -28,6 +28,38 @@ class HealthcareOrchestrator:
     
     async def coordinate_agents(self, primary_agent: str, request: Dict[str, Any]) -> Any:
         """Coordinate multiple agents for complex workflows"""
+```
+
+### Single-Container MCP Integration (2025-08-13)
+
+**PROVEN ARCHITECTURE**: Healthcare-API container includes both FastAPI application and MCP server for reliable stdio communication.
+
+**Implementation Pattern**:
+```python
+# ✅ PATTERN: Combined container MCP integration
+class HealthcareAPIWithMCP:
+    def __init__(self):
+        # MCP server runs as subprocess within same container
+        self.mcp_client = HealthcareMCPClient()
+        
+    async def process_agent_request(self, request_type: str, data: dict):
+        # 1. Select appropriate agent
+        agent = self.select_agent(request_type)
+        
+        # 2. Agent calls MCP tools via subprocess
+        agent_result = await agent.process(data, mcp_client=self.mcp_client)
+        
+        # 3. Return processed result
+        return agent_result
+```
+
+**Service Configuration (.conf Pattern)**:
+```bash
+# healthcare-api.conf - Single container with MCP
+image=intelluxe/healthcare-api:latest
+env=MCP_SERVER_INCLUDED=true,MCP_SERVER_PATH=/app/mcp-server/build/index.js
+# No separate MCP container needed
+```
         # Multi-agent coordination with MCP tool integration
         pass
 ```

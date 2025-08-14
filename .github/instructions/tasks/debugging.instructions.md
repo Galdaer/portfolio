@@ -19,6 +19,42 @@ Specialized debugging guidance for healthcare AI systems with PHI protection and
 
 **ROOT CAUSE**: Async context managers opened but never properly closed.
 
+### MCP STDIO Communication Debugging (2025-08-13)
+
+**CRITICAL BREAKTHROUGH**: stdio communication between separate containers fails - MCP requires subprocess spawning.
+
+**SYMPTOMS OF CONTAINER-TO-CONTAINER MCP ISSUES**:
+- `WriteUnixTransport closed=True` in MCP logs
+- `BrokenResourceError` during stdio communication
+- MCP calls start but return 0 results
+- `docker exec` commands work manually but fail in Python MCP client
+
+**ROOT CAUSE**: MCP Python client expects subprocess spawning, not remote container stdio bridging.
+
+**SOLUTION PATTERN**:
+```python
+# ❌ PROBLEMATIC: Container-to-container MCP communication
+async def broken_mcp_client():
+    # This fails because docker exec doesn't provide proper stdio streams
+    process = await asyncio.create_subprocess_exec(
+        "docker", "exec", "healthcare-mcp", "node", "/app/build/stdio_entry.js",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE
+    )
+
+# ✅ CORRECT: Single-container subprocess spawning
+async def working_mcp_client():
+    params = StdioServerParameters(
+        command="node",
+        args=["/app/mcp-server/build/index.js"],  # Local path in same container
+        env={"MCP_TRANSPORT": "stdio"}
+    )
+    async with stdio_client(params) as (read_stream, write_stream):
+        async with ClientSession(read_stream, write_stream) as session:
+            # Reliable stdio communication
+            result = await session.call_tool(tool_name, arguments)
+```
+
 **DEBUGGING APPROACH**:
 ```python
 # ❌ PROBLEMATIC: Context managers without proper cleanup

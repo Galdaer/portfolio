@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from agents.medical_search_agent.medical_search_agent import MedicalLiteratureSearchAssistant
 from core.dependencies import get_llm_client, get_mcp_client
+from core.medical.url_utils import generate_conversational_summary
 
 logger = logging.getLogger(__name__)
 
@@ -63,19 +64,27 @@ async def search_medical_literature(
             search_context=request.search_context,
         )
 
-        # Convert dataclass to dict for JSON response
+        # Generate conversational response using LLM
+        try:
+            conversational_response = await search_assistant.generate_conversational_response(
+                search_result=search_result,
+                original_query=request.search_query
+            )
+        except Exception as llm_error:
+            logger.warning(f"LLM conversational response failed, using utility fallback: {llm_error}")
+            # Fallback to utility-based conversational summary
+            conversational_response = generate_conversational_summary(
+                search_result.information_sources,
+                request.search_query
+            )
+
+        # Return conversational response for better user experience
         return {
+            "response": conversational_response,
             "search_id": search_result.search_id,
-            "search_query": search_result.search_query,
-            "information_sources": search_result.information_sources,
-            "related_conditions": search_result.related_conditions,
-            "drug_information": search_result.drug_information,
-            "clinical_references": search_result.clinical_references,
-            "search_confidence": search_result.search_confidence,
-            "disclaimers": search_result.disclaimers,
-            "source_links": search_result.source_links,
-            "generated_at": search_result.generated_at.isoformat(),
             "total_sources": len(search_result.information_sources),
+            "search_confidence": search_result.search_confidence,
+            "generated_at": search_result.generated_at.isoformat(),
         }
 
     except Exception as e:

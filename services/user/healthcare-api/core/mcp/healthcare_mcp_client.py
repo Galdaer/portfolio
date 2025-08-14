@@ -22,40 +22,66 @@ class HealthcareMCPClient:
         except Exception as e:  # pragma: no cover
             raise RuntimeError(f"MCP library not available: {e}")
 
-        # EXPERIMENTAL: Run stdio_entry.js directly instead of via docker exec
-        # This avoids potential docker exec stdio stream corruption issues
-        command = server_command or "bash"
-        if command == "bash":
-            # Copy stdio_entry.js to a temp location and run it directly
-            sh_cmd = """
-            set -e
-            # Copy the stdio entry from container to temp
-            docker cp healthcare-mcp:/app/build/stdio_entry.js /tmp/stdio_entry_temp.js 2>/dev/null
-            # Run it directly with proper env
-            export MCP_TRANSPORT=stdio-only
-            export NO_COLOR=1
-            node /tmp/stdio_entry_temp.js 2>/tmp/mcp_direct.err
-            """
-            args = ["-c", sh_cmd]
+        # NEW: Use subprocess spawning for single-container architecture
+        import os
+        mcp_server_path = os.getenv("MCP_SERVER_PATH", "/app/mcp-server/build/index.js")
+        
+        # Check if we're in combined container mode
+        if os.path.exists(mcp_server_path):
+            # Single container: spawn MCP server as subprocess
+            logger.info(f"Using single-container MCP server at {mcp_server_path}")
+            command = "node"
+            args = [mcp_server_path]
+            
+            # Use the same environment variables as the original healthcare-mcp.conf
+            env = {
+                "MCP_TRANSPORT": "stdio-only",
+                "NO_COLOR": "1",
+                "FHIR_BASE_URL": os.getenv("FHIR_BASE_URL", "http://172.20.0.13:5432"),
+                "PUBMED_API_KEY": os.getenv("PUBMED_API_KEY", "test"),
+                "CLINICALTRIALS_API_KEY": os.getenv("CLINICALTRIALS_API_KEY", "test"),
+                # Inherit additional environment variables from container
+                "POSTGRES_HOST": os.getenv("POSTGRES_HOST", "postgresql"),
+                "REDIS_HOST": os.getenv("REDIS_HOST", "redis"),
+                "ENVIRONMENT": os.getenv("ENVIRONMENT", "development"),
+                "LOG_LEVEL": os.getenv("LOG_LEVEL", "info")
+            }
+            logger.info(f"MCP environment configured with API keys and service URLs: {list(env.keys())}")
         else:
-            # Fallback to original docker exec approach
-            sh_cmd = "node /app/build/stdio_entry.js 2> /app/logs/mcp_stdio_entry.err"
-            args = [
-                "exec",
-                "-i",
-                "-u",
-                "node",
-                "-e",
-                "MCP_TRANSPORT=stdio-only",
-                "-e",
-                "NO_COLOR=1",
-                "healthcare-mcp",
-                "sh",
-                "-c",
-                sh_cmd,
-            ]
-        # Environment variables here affect the docker CLI only; the actual server env is passed via -e above.
-        env = {"NO_COLOR": "1"}
+            # Fallback to docker exec for backwards compatibility
+            logger.warning("MCP server not found locally, falling back to docker exec")
+            mode = (server_command or "docker").strip().lower()
+            if mode in {"host", "host-node", "node", "bash"}:
+                # Only use host-node direct mode if explicitly requested
+                command = "bash"
+                sh_cmd = """
+                set -e
+                docker cp healthcare-mcp:/app/build/stdio_entry.js /tmp/stdio_entry_temp.js 2>/dev/null || true
+                export MCP_TRANSPORT=stdio-only
+                export NO_COLOR=1
+                node /tmp/stdio_entry_temp.js 2>/tmp/mcp_direct.err
+                """
+                args = ["-c", sh_cmd]
+                env = {"NO_COLOR": "1"}
+            else:
+                # Real server inside docker container
+                command = "docker"
+                sh_cmd = "node /app/build/stdio_entry.js 2> /app/logs/mcp_stdio_entry.err"
+                args = [
+                    "exec",
+                    "-i",
+                    "-u",
+                    "node",
+                    "-e",
+                    "MCP_TRANSPORT=stdio-only",
+                    "-e",
+                    "NO_COLOR=1",
+                    "healthcare-mcp",
+                    "sh",
+                    "-c",
+                    sh_cmd,
+                ]
+                env = {"NO_COLOR": "1"}
 
         self.params = StdioServerParameters(command=command, args=args, env=env)
         # Compatibility attribute so existing code won't try to lazy-connect
@@ -118,20 +144,138 @@ class HealthcareMCPClient:
     async def call_tool(self, tool_name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
         """Call a tool using a short-lived session and return a wrapped result."""
         import asyncio
+        import subprocess
+        import tempfile
+        import os
         args = arguments or {}
         logger.info(f"MCP call start: tool={tool_name} args_keys={list(args.keys())}")
+
+        # CRITICAL DEBUG: Check our environment and paths
+        logger.info(f"Current working directory: {os.getcwd()}")
+        logger.info(f"Environment PATH: {os.environ.get('PATH', 'NOT_SET')}")
+        logger.info("Node.js availability check...")
+        
+        # Test Node.js availability
+        try:
+            node_test = subprocess.run(["node", "--version"], capture_output=True, text=True, timeout=10)
+            logger.info(f"Node.js version: {node_test.stdout.strip()}")
+            if node_test.returncode != 0:
+                logger.error(f"Node.js test failed with return code {node_test.returncode}")
+                logger.error(f"Node.js stderr: {node_test.stderr}")
+        except Exception as e:
+            logger.error(f"Node.js not available: {e}")
+            
+        # Test MCP server file existence
+        mcp_server_path = os.getenv("MCP_SERVER_PATH", "/app/mcp-server/build/index.js")
+        logger.info(f"Checking MCP server at: {mcp_server_path}")
+        if os.path.exists(mcp_server_path):
+            logger.info(f"MCP server file exists, size: {os.path.getsize(mcp_server_path)} bytes")
+            try:
+                with open(mcp_server_path, 'r') as f:
+                    first_line = f.readline().strip()
+                    logger.info(f"MCP server first line: {first_line}")
+            except Exception as e:
+                logger.error(f"Cannot read MCP server file: {e}")
+        else:
+            logger.error(f"MCP server file not found at {mcp_server_path}")
+            # List the directory contents
+            try:
+                parent_dir = os.path.dirname(mcp_server_path)
+                if os.path.exists(parent_dir):
+                    contents = os.listdir(parent_dir)
+                    logger.info(f"Contents of {parent_dir}: {contents}")
+                else:
+                    logger.error(f"Parent directory {parent_dir} does not exist")
+            except Exception as e:
+                logger.error(f"Cannot list directory: {e}")
 
         max_retries = 3
         last_exception = None
 
         for attempt in range(max_retries):
+            logger.info(f"MCP attempt {attempt + 1}/{max_retries}: command='{self.params.command}' args={self.params.args}")
+            logger.info(f"MCP environment variables: {self.params.env}")
+            
+            # Test basic subprocess startup
+            test_process = None
+            try:
+                logger.info(f"Testing subprocess spawn: {self.params.command} {' '.join(self.params.args)}")
+                
+                # Build full environment
+                full_env = {**os.environ, **(self.params.env or {})}
+                logger.info(f"Full environment for subprocess: {list(full_env.keys())}")
+                
+                test_process = subprocess.Popen(
+                    [self.params.command] + self.params.args,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    env=full_env,
+                    text=True,
+                    cwd=os.getcwd()
+                )
+                
+                logger.info(f"Subprocess PID: {test_process.pid}")
+                
+                # Give it 3 seconds to start and check status
+                await asyncio.sleep(3)
+                return_code = test_process.poll()
+                
+                if return_code is not None:
+                    # Process exited - capture output
+                    try:
+                        stdout, stderr = test_process.communicate(timeout=10)
+                        logger.error(f"MCP subprocess exited with code {return_code}")
+                        logger.error(f"MCP stdout: {stdout[:1000]}...")  # First 1000 chars
+                        logger.error(f"MCP stderr: {stderr[:1000]}...")  # First 1000 chars
+                    except subprocess.TimeoutExpired:
+                        logger.error("Failed to get subprocess output (timeout)")
+                        test_process.kill()
+                else:
+                    logger.info("MCP subprocess started successfully and is running")
+                    # Kill the test process
+                    test_process.terminate()
+                    try:
+                        test_process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        test_process.kill()
+                        
+            except Exception as e:
+                logger.error(f"Failed to test subprocess startup: {e}")
+                import traceback
+                logger.error(f"Subprocess startup traceback: {traceback.format_exc()}")
+            finally:
+                if test_process and test_process.poll() is None:
+                    try:
+                        test_process.terminate()
+                        test_process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        try:
+                            test_process.kill()
+                        except Exception:
+                            pass
+
             try:
                 from mcp import ClientSession  # type: ignore
                 from mcp.client.stdio import stdio_client  # type: ignore
+                
+                logger.info(f"Starting MCP stdio client with env: {self.params.env}")
                 async with stdio_client(self.params) as (read_stream, write_stream):
+                    logger.info("MCP stdio streams established")
                     session = ClientSession(read_stream, write_stream)
+                    logger.info("MCP session created, initializing...")
                     await asyncio.wait_for(session.initialize(), timeout=45)
-                    result = await asyncio.wait_for(session.call_tool(tool_name, args), timeout=90)  # Increased timeout
+                    logger.info(f"MCP session initialized, calling tool {tool_name} with args: {args}")
+                    result = await asyncio.wait_for(session.call_tool(tool_name, args), timeout=90)
+                    logger.info(f"MCP tool call completed, result type: {type(result)}")
+                    
+                    # Log result details
+                    if isinstance(result, dict):
+                        logger.info(f"MCP result keys: {list(result.keys())}")
+                        if 'error' in result:
+                            logger.error(f"MCP tool returned error: {result.get('error')}")
+                    else:
+                        logger.info(f"MCP result: {str(result)[:200]}...")  # First 200 chars
 
                 # After context closes cleanly, log a compact preview
                 preview = None

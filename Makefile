@@ -563,12 +563,12 @@ mcp-pipeline-test:
 # Healthcare API Service Commands
 healthcare-api-build:
 	@echo "🏗️  Building Healthcare API service Docker image"
-	@cd services/user/healthcare-api && docker build -t intelluxe/healthcare-api:latest .
+	@cd services/user && docker build -f healthcare-api/Dockerfile -t intelluxe/healthcare-api:latest .
 	@echo "✅ Healthcare API Docker image built successfully"
 
 healthcare-api-rebuild:
 	@echo "🔄  Rebuilding Healthcare API service (no cache)"
-	@cd services/user/healthcare-api && docker build --no-cache -t intelluxe/healthcare-api:latest .
+	@cd services/user && docker build --no-cache -f healthcare-api/Dockerfile -t intelluxe/healthcare-api:latest .
 	@echo "✅ Healthcare API Docker image rebuilt successfully"
 
 healthcare-api-clean:

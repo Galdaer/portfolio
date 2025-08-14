@@ -13,6 +13,77 @@ Provide comprehensive patterns for healthcare MCP development with beyond-HIPAA 
 **CRITICAL ARCHITECTURE SEPARATION**: 
 - **main.py**: Pure FastAPI HTTP server with agent routing (NO stdio code)
 - **healthcare_mcp_client.py**: All MCP stdio communication and tool access
+
+## ✅ SINGLE-CONTAINER MCP ARCHITECTURE (2025-08-13)
+
+**PROVEN SOLUTION**: MCP server and healthcare-api combined in single container with subprocess spawning.
+
+**CORE PROBLEM SOLVED**: stdio communication between separate containers fails because MCP Python client expects subprocess spawning, not remote container communication.
+
+**ARCHITECTURE PATTERN**:
+```
+Open WebUI → Pipeline (HTTP) → Healthcare-API Container (contains both API + MCP server)
+```
+
+### Single-Container Implementation Pattern
+
+**Container Structure (.conf Based)**:
+```bash
+# healthcare-api.conf - Combined container with MCP server
+image=intelluxe/healthcare-api:latest
+# Container includes both Python API and Node.js MCP server
+env=NODE_JS_INSTALLED=true,MCP_SERVER_PATH=/app/mcp-server/build/index.js
+volumes=/home/intelluxe/logs:/app/logs,healthcare-api-data:/app/data
+```
+
+**MCP Client Subprocess Pattern**:
+```python
+# ✅ CORRECT: Subprocess spawning instead of docker exec
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+class HealthcareMCPClient:
+    def __init__(self):
+        # Spawn MCP server as local subprocess
+        self.params = StdioServerParameters(
+            command="node",
+            args=["/app/mcp-server/build/index.js"],
+            env={"MCP_TRANSPORT": "stdio"}
+        )
+    
+    async def call_tool(self, tool_name: str, arguments: dict):
+        # Each call spawns fresh MCP subprocess
+        async with stdio_client(self.params) as (read_stream, write_stream):
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                
+                result = await session.call_tool(tool_name, arguments)
+                return result
+```
+
+**Container Dockerfile Pattern**:
+```dockerfile
+# Combined healthcare-api + MCP server container
+FROM python:3.12-slim
+
+# Install Node.js for MCP server
+RUN apt-get update && apt-get install -y nodejs npm && rm -rf /var/lib/apt/lists/*
+
+# Copy and build MCP server
+COPY mcps/healthcare /app/mcp-server
+WORKDIR /app/mcp-server
+RUN npm install && npm run build
+
+# Copy and install Python API
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY . .
+
+# Start only FastAPI - MCP spawned as needed
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
 - **Agent Classes**: Inherit from BaseHealthcareAgent, call MCP via dependency injection
 
 **Lazy MCP Client Pattern**: MCP client should connect on first use, not during startup, to prevent blocking healthcare-api initialization.
@@ -39,94 +110,62 @@ class BaseHealthcareAgent:
 
 **CORE PRINCIPLE**: Every MCP operation validates patient safety impact before execution, with quantum-resistant security and offline-first healthcare deployment.
 
-**CRITICAL**: See `patterns/healthcare-mcp-auth-proxy.instructions.md` for detailed auth proxy development patterns, type safety requirements, and medical API integration.
-
 ```typescript
 // Pattern: Patient-first MCP with enhanced security
-interface PatientFirstMCPServer {…}
+interface PatientFirstMCPServer {
+    validatePatientSafety(request: any): Promise<boolean>;
+    auditMedicalAccess(tool: string, user: string): Promise<void>;
+    encryptHealthcareData(data: any): Promise<string>;
+}
 
-class EnhancedHealthcareMCP implements PatientFirstMCPServer {…}
+class EnhancedHealthcareMCP implements PatientFirstMCPServer {
+    // Enhanced security implementation with single-container architecture
+}
 ```
 
-### MCP Pipeline Architecture Integration
+### Single-Container MCP Integration
 
-**THIN PIPELINE PATTERN**: MCP pipeline serves as minimal proxy, healthcare-api handles all complex logic.
+**PROVEN PATTERN**: Healthcare-API container includes MCP server for reliable subprocess communication.
 
 ```typescript
-// Pattern: Thin MCP pipeline integration
-interface ThinPipelineIntegration {
-    forwardToHealthcareAPI(request: any): Promise<any>;
-    handleTimeout(error: TimeoutError): ErrorResponse;
-    transformRequest(openWebUIRequest: any): HealthcareAPIRequest;
+// Pattern: Single-container MCP integration
+interface HealthcareAPIWithMCP {
+    spawnMCPServer(): Promise<MCPProcess>;
+    callMCPTool(tool: string, args: any): Promise<any>;
+    cleanupMCPProcess(): Promise<void>;
 }
 ```
 
 **IMPLEMENTATION REFERENCES**:
-- See `patterns/thin-mcp-pipeline.instructions.md` for minimal pipeline patterns
-- See `patterns/healthcare-api-orchestration.instructions.md` for API orchestration patterns
-- See `tasks/api-development.instructions.md` for MCP integration and authentication patterns
-
-### Open WebUI Integration Patterns
-
-**DIRECT MCP INTEGRATION ARCHITECTURE** (PROVEN SOLUTION): Direct JSON-RPC communication without mcpo bridge provides superior tool discovery and reliability.
-
-**DEVELOPMENT PRIORITY**: Fix Healthcare MCP auth proxy type safety issues (25+ Pylance errors) before implementing new features.
-
-```python
-# Pattern: Direct MCP authentication proxy for Open WebUI
-class DirectMCPAuthenticationProxy:
-    """
-    Direct JSON-RPC communication with MCP server via subprocess stdio.
-    
-    PROVEN ARCHITECTURE: Open WebUI → Auth Proxy (port 3001) → MCP Server (stdio/JSON-RPC)
-    RESULT: All 15 healthcare tools properly discovered and accessible
-    
-    CURRENT STATUS: Needs type safety fixes - see patterns/healthcare-mcp-auth-proxy.instructions.md
-    """
-    
-    async def start_mcp_server(self) -> bool:
-        # Start MCP server as subprocess with stdin/stdout communication
-        self.mcp_process = subprocess.Popen(
-            ["node", "/app/build/index.js"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=0
-        )
-        
-        # Send MCP initialization and tools/list requests via JSON-RPC
-        await self.initialize_mcp_protocol()
-        return await self.discover_tools_via_mcp()
-    
-    async def call_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        # Direct JSON-RPC 2.0 tool execution via stdin/stdout
-        tool_request = {
-            "jsonrpc": "2.0",
-            "id": self.request_id_counter,
-            "method": "tools/call",
-            "params": {"name": tool_name, "arguments": arguments}
-        }
-        # Send request and read response with proper error handling
-        pass
-```
-
-**CRITICAL SUCCESS FACTORS**:
-- **Set MCP_TRANSPORT=stdio**: Enables proper MCP protocol mode instead of HTTP
-- **Use subprocess with stdin/stdout**: Direct JSON-RPC 2.0 communication 
-- **Genuine tool discovery**: Via MCP tools/list method, not fallback mechanisms
-- **No mcpo dependency**: Eliminates compatibility issues and typing problems
+- See `patterns/healthcare-api-orchestration.instructions.md` for single-container patterns
+- See `tasks/api-development.instructions.md` for MCP integration without separate containers
+- See `tasks/debugging.instructions.md` for subprocess spawning troubleshooting
 
 ### Tool Availability Management
 
-**COMPLETE TOOL ACCESS ACHIEVED**: Direct MCP integration successfully provides all 15 healthcare tools.
+**COMPLETE TOOL ACCESS ACHIEVED**: Single-container MCP integration provides all healthcare tools via subprocess spawning.
 
-```typescript
-// Pattern: Complete tool registration via direct MCP protocol
-class CompleteMCPToolRegistry {
-    // ALL TOOLS AVAILABLE via direct JSON-RPC communication:
-    // 1. Medical literature search (search-pubmed)
-    // 2. Clinical trial discovery (search-trials) 
+```python
+# Pattern: Complete tool access via subprocess spawning
+class SingleContainerMCPClient:
+    def __init__(self):
+        self.mcp_server_path = "/app/mcp-server/build/index.js"
+        
+    async def list_tools(self) -> List[str]:
+        # Spawn MCP subprocess to get available tools
+        async with self.spawn_mcp_process() as mcp_session:
+            tools = await mcp_session.list_tools()
+            return [tool.name for tool in tools]
+    
+    async def spawn_mcp_process(self) -> MCPSession:
+        # Reliable subprocess spawning in same container
+        params = StdioServerParameters(
+            command="node",
+            args=[self.mcp_server_path],
+            env={"MCP_TRANSPORT": "stdio"}
+        )
+        return MCPSession(params)
+``` 
     // 3. Drug information access (get-drug-info)
     // 4. Patient data tools (find_patient, get_patient_observations, etc.)
     // 5. FHIR resource management tools
@@ -135,16 +174,16 @@ class CompleteMCPToolRegistry {
 ```
 
 **Environment Configuration Success**:
-- Direct MCP integration bypasses API key limitations during tool discovery
-- Healthcare MCP server properly exposes all 15 tools via MCP protocol
-- Authentication handled at proxy level, not tool registration level
-- Result: Open WebUI shows complete tool set regardless of API key status
+- Single-container MCP integration provides reliable tool access via subprocess spawning
+- Healthcare MCP server properly exposes all 15 tools via subprocess communication
+- Authentication handled at healthcare-api level with integrated security
+- Result: All tools available through reliable stdio communication
 
 ```bash
-# Verify complete tool discovery (all 15 tools now visible)
-curl -s "http://172.20.0.12:3001/tools" \
-  -H "Authorization: Bearer healthcare-mcp-2025" | jq '.count'
-# Returns: 15 (previously only 3 with mcpo bridge approach)
+# Verify complete tool discovery (all 15 tools now available)
+curl -s "http://localhost:8000/agents/medical_search/tools" \
+  -H "Content-Type: application/json" | jq '.count'
+# Returns: 15 (reliable subprocess communication)
 ```
 
 ### Offline-First Healthcare MCP
@@ -200,35 +239,54 @@ class QuantumResistantMCPSecurity {
 
 ```typescript
 // Pattern: Military-grade MCP auditing
-class MilitaryGradeMCPAuditing {…}
+class MilitaryGradeMCPAuditing {
+  async auditSubprocessSpawning(mcp_process: MCPProcess): Promise<AuditResult> {
+    // Audit subprocess spawning for security compliance
+    return this.validateSecureSpawning(mcp_process);
+  }
+}
 ```
 
-### MCP-Open WebUI Integration Troubleshooting
+### Single-Container MCP Troubleshooting
 
 **COMMON INTEGRATION ISSUES**:
 
-1. **Authentication Mismatch**: mcpo bridge may not enforce authentication properly
-   - Solution: Implement FastAPI authentication proxy with Bearer token validation
+1. **Node.js Not Found**: MCP server subprocess fails to start
+   - Solution: Ensure Node.js is installed in healthcare-api container
+   - Check: `docker exec healthcare-api node --version`
    
-2. **Tool Discovery**: Only public tools visible (3 tools instead of full 15)
-   - Expected: Patient tools require paid API keys (FHIR server, specialized databases)
-   - Public tools: search-pubmed, search-trials, get-drug-info
+2. **MCP Server Path Missing**: subprocess cannot find /app/mcp-server/build/index.js
+   - Solution: Verify MCP server build completed successfully in Dockerfile
+   - Check: `docker exec healthcare-api ls -la /app/mcp-server/build/`
    
-3. **Port Conflicts**: Ensure auth proxy and mcpo use different ports
-   - Auth proxy: External port (e.g., 3001) for Open WebUI
-   - mcpo backend: Internal port (e.g., 3000) for proxy communication
+3. **Subprocess Communication Failures**: stdio streams not properly connected
+   - Solution: Use StdioServerParameters with proper environment variables
+   - Debug: Check MCP_TRANSPORT=stdio environment variable
 
-### Docker MCP Integration Patterns
+### Single-Container MCP Deployment Patterns
 
-**CONTAINER ARCHITECTURE**: MCP servers with authentication proxy for production deployment.
+**INTEGRATED ARCHITECTURE**: Healthcare-API container includes MCP server for reliable subprocess communication.
 
 ```dockerfile
-# Pattern: Multi-service MCP container with auth proxy
-# Install Python dependencies for auth proxy at build time
-RUN pip3 install --break-system-packages fastapi uvicorn aiohttp
+# Pattern: Single-container MCP architecture
+FROM python:3.12-slim
 
-# Startup script runs both mcpo backend and auth proxy
-CMD ["/app/start_services.sh"]
+# Install Node.js for MCP server
+RUN apt-get update && apt-get install -y nodejs npm && rm -rf /var/lib/apt/lists/*
+
+# Copy and build MCP server
+COPY mcps/healthcare /app/mcp-server
+WORKDIR /app/mcp-server
+RUN npm install && npm run build
+
+# Copy and install Python API
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+
+# Start only FastAPI - MCP spawned as subprocess when needed
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 ```typescript

@@ -63,13 +63,14 @@ class HealthcareServices:
             raise
 
     async def _initialize_mcp_client(self) -> None:
-        """Initialize MCP client for healthcare tools (lazy connection)"""
-        from core.mcp.healthcare_mcp_client import HealthcareMCPClient
+        """Initialize Direct MCP client for healthcare tools (per-call sessions)"""
+        from core.mcp.direct_mcp_client import DirectMCPClient
 
-        # Initialize stdio-based MCP client but don't connect yet (lazy connection)
-        # Connection will happen on first use to avoid blocking startup
-        self._mcp_client = HealthcareMCPClient()
-        logger.info("MCP client initialized (lazy connection - will connect on first use)")
+        # Initialize direct JSON-RPC MCP client using subprocess spawning
+        # Following handoff document recommendations for reliable stdio communication
+        self._mcp_client = DirectMCPClient()
+        await self._mcp_client.connect()
+        logger.info("Direct MCP client initialized successfully (per-call sessions)")
 
     def get_llm_client(self):
         """Initialize Ollama client for healthcare-api routing decisions."""
@@ -196,18 +197,14 @@ healthcare_services = HealthcareServices()
 
 # Dependency injection functions
 async def get_mcp_client() -> Any:
-    """Get MCP client for healthcare tools - connects on first use"""
+    """Get Direct MCP client for healthcare tools - ready for immediate use"""
     mcp_client = healthcare_services.mcp_client
 
-    # Connect on first use if not already connected
-    if mcp_client and not mcp_client.session:
-        try:
-            logger.info("First MCP client access - attempting connection...")
-            await mcp_client.connect()
-            logger.info("MCP client connected successfully on first use")
-        except Exception as e:
-            logger.error(f"Failed to connect MCP client on first use: {e}")
-            # Return the client anyway - it will handle connection errors gracefully
+    # Direct MCP client is always ready (no persistent session)
+    if mcp_client:
+        logger.debug("Returning Direct MCP client for tool calls")
+    else:
+        logger.warning("MCP client not available - service may not be initialized")
 
     return mcp_client
 

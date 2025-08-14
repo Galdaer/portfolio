@@ -1,4 +1,20 @@
-# MCP STDIO Handshak## ❌ FAILED APPROACHES (Lessons Learned)
+# MCP STDIO Handshake and Troubleshooting
+
+## ⚠️ ARCHITECTURE EVOLUTION NOTICE (2025-08-13)
+
+**OUTDATED APPROACH**: This pattern documents docker exec MCP communication which has been replaced by single-container architecture.
+
+**CURRENT ARCHITECTURE**: Healthcare-API container includes MCP server for subprocess spawning communication.
+
+**NEW PATTERN**: MCP server runs as subprocess within healthcare-api container, eliminating docker exec stdio issues.
+
+---
+
+## Historical Documentation (docker exec approach)
+
+Purpose: Ensure JSON-only STDIO for Model Context Protocol (MCP) servers and provide a repeatable pattern to diagnose and fix handshake timeouts or stream contamination.
+
+## ❌ FAILED APPROACHES (Lessons Learned)
 
 **What DIDN'T Work**:
 1. **Stdout Guards**: Conditional process.stdout.write interception still corrupted framing

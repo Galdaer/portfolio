@@ -35,6 +35,20 @@ async function main(): Promise<void> {
         import('./server/constants/tools.js'),
     ]);
 
+    // Import medical connectors for orchestrator tool
+    const [{ PubMed }, { ClinicalTrials }, { FDA }, { CacheManager }] = await Promise.all([
+        import('./server/connectors/medical/PubMed.js'),
+        import('./server/connectors/medical/ClinicalTrials.js'),
+        import('./server/connectors/medical/FDA.js'),
+        import('./server/utils/Cache.js'),
+    ]);
+
+    // Initialize cache and medical connectors
+    const cache = new CacheManager();
+    const pubmed = new PubMed(process.env.PUBMED_API_KEY);
+    const clinicalTrials = new ClinicalTrials(process.env.CLINICALTRIALS_API_KEY);
+    const fda = new FDA(process.env.FDA_API_KEY);
+
     const server = new Server({ name: 'healthcare-mcp', version: '1.0.0' }, {
         capabilities: { tools: { listChanged: true }, resources: {}, prompts: {}, logging: {} },
     });
@@ -46,14 +60,57 @@ async function main(): Promise<void> {
 
     server.setRequestHandler(CallToolRequestSchema, async (req: any) => {
         const name = req.params?.name;
-        if (name === 'echo_test') {
+        const args = req.params?.arguments || {};
+
+        console.error(`[stdio-entry][tool-call] Tool: ${name}, Args: ${JSON.stringify(args)}`);
+
+        try {
+            if (name === 'echo_test') {
+                return {
+                    content: [
+                        { type: 'text', text: JSON.stringify({ echoed: args.text || null, ts: new Date().toISOString() }) },
+                    ],
+                };
+            }
+
+            // Handle individual tool calls  
+            if (name === 'search-pubmed') {
+                return await pubmed.getArticles(args, cache);
+            }
+
+            if (name === 'search-trials') {
+                return await clinicalTrials.getTrials(args, cache);
+            }
+
+            if (name === 'get-drug-info') {
+                return await fda.getDrug(args, cache);
+            }
+
+            // Unknown tool
+            console.error(`[stdio-entry][tool-call] Unknown tool: ${name}`);
             return {
-                content: [
-                    { type: 'text', text: JSON.stringify({ echoed: req.params?.arguments?.text || null, ts: new Date().toISOString() }) },
-                ],
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        error: `Tool ${name} not implemented`,
+                        available_tools: TOOL_DEFINITIONS.map(t => t.name)
+                    })
+                }]
+            };
+
+        } catch (error) {
+            console.error(`[stdio-entry][tool-call] Error in tool ${name}: ${error}`);
+            return {
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        error: `Tool execution failed: ${error}`,
+                        tool: name,
+                        timestamp: new Date().toISOString()
+                    })
+                }]
             };
         }
-        return { content: [{ type: 'text', text: `Tool ${name} invoked (stubbed)` }] };
     });
 
     console.error(`[stdio-entry][startup] STDIO server starting with ${TOOL_DEFINITIONS.length} tools...`);

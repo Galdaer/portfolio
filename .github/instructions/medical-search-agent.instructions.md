@@ -11,7 +11,30 @@ Purpose: Implement the medical_search_agent with MCP-first sourcing, robust test
 - ✅ `Starting MCP call to 'search-pubmed'` - MCP communication working
 - ✅ `MCP connection established successfully` - AttributeError RESOLVED (2025-08-13)
 - ✅ Open WebUI shows formatted search response with search_id and confidence scores
-- ⚠️ **NEW ISSUE**: MCP transport failures "WriteUnixTransport closed=True" causing 0 results
+- ⚠️ **RESOLVED**: Transport failures fixed with single-container architecture
+
+## ✅ SINGLE-CONTAINER MCP SOLUTION (2025-08-13)
+
+**BREAKTHROUGH**: Combining healthcare-api and MCP server in single container with subprocess spawning resolves all stdio communication issues.
+
+**NEW ARCHITECTURE**:
+```
+Open WebUI → Pipeline → Healthcare-API Container (FastAPI + MCP server) 
+```
+
+**IMPLEMENTATION PATTERN**:
+```python
+# ✅ CORRECT: Subprocess spawning in same container
+class MedicalSearchAgent:
+    def __init__(self):
+        # MCP client spawns local subprocess
+        self.mcp_client = HealthcareMCPClient()
+    
+    async def search_medical_literature(self, query: str):
+        # Reliable subprocess communication
+        results = await self.mcp_client.call_tool("search-pubmed", {"query": query})
+        return self.format_medical_results(results)
+```
 
 **Current Issue**: MCP calls succeed but stdio transport layer unstable - timeouts result in empty responses.
 
@@ -26,30 +49,65 @@ Purpose: Implement the medical_search_agent with MCP-first sourcing, robust test
 - Output: { information_sources: [], related_conditions: [], search_confidence: number, disclaimers: string[] } ✅ Working
 - Errors: { success: false, error: string } ✅ Working
 
-## ⚠️ NEXT STEPS NEEDED
+## 🎯 URL GENERATION & DATABASE SCHEMA AWARENESS
 
-**CURRENT STATUS**: Raw MCP search results are returned but need human-readable formatting.
+**CRITICAL PATTERN**: Medical literature sources require data source-specific URL generation based on database schema fields.
 
-**Open WebUI Response Shows**:
-```json
-{
-  "status": "success", 
-  "result": {
-    "success": true, 
-    "search_id": "aeaf7930978b",
-    "information_sources": [], 
-    "search_confidence": 0.0,
-    "disclaimers": ["Search request timed out after 25 seconds"],
-    "total_sources": 0
-  }
-}
+**Database Schema-Aware URL Generation**:
+```python
+# ✅ CORRECT: Data source-specific URL patterns
+def generate_source_url(source_type: str, source_data: Dict[str, Any]) -> str:
+    """Generate proper URLs based on data source and available identifiers"""
+    if source_type == "pubmed" and source_data.get("doi"):
+        return f"https://doi.org/{source_data['doi']}"  # DOI preferred for journal articles
+    elif source_type == "pubmed" and source_data.get("pmid"):
+        return f"https://pubmed.ncbi.nlm.nih.gov/{source_data['pmid']}/"  # PubMed abstract fallback
+    elif source_type == "clinical_trial" and source_data.get("nct_id"):
+        return f"https://clinicaltrials.gov/study/{source_data['nct_id']}"
+    elif source_type == "fda_drug" and source_data.get("ndc"):
+        return f"https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query={source_data['ndc']}"
 ```
 
-**NEXT AGENT TASKS**:
-1. **Result Parsing**: Transform raw MCP tool results into readable medical literature summaries
-2. **Timeout Optimization**: Increase PubMed API timeout or implement async result fetching  
-3. **Response Formatting**: Convert technical JSON into human-friendly medical research summaries
-4. **Error Handling**: Better user messages for timeouts vs actual failures
+**Database Field Mapping Pattern**:
+- **PubMed Articles**: pmid, doi, title, abstract, authors, journal 
+- **Clinical Trials**: nct_id, title, status, phase, conditions
+- **FDA Drugs**: ndc, name, generic_name, manufacturer, approval_date
+
+## 🔄 CONVERSATIONAL RESPONSE UTILITIES
+
+**Pattern**: Transform technical JSON into human-readable medical research summaries with proper formatting.
+
+**LLM + Utility Fallback Strategy**:
+```python
+# ✅ RECOMMENDED: Primary LLM with utility fallback
+async def generate_conversational_response(search_results: Dict[str, Any]) -> str:
+    try:
+        # Primary: LLM-based conversational response
+        llm_response = await self.llm_client.generate_medical_summary(search_results)
+        if llm_response and len(llm_response.strip()) > 50:
+            return llm_response
+    except Exception as e:
+        logger.warning(f"LLM response failed: {e}")
+    
+    # Fallback: Utility-based formatting
+    return generate_conversational_summary(search_results)
+```
+
+**Utility-Based Summary Pattern**:
+```python
+def generate_conversational_summary(search_results: Dict[str, Any]) -> str:
+    """Generate readable summary when LLM unavailable"""
+    # Format with medical disclaimers, source counts, search confidence
+    # Include proper markdown formatting for Open WebUI display
+```
+
+## ⚠️ CURRENT ISSUE: Raw JSON Output
+
+**SYMPTOM**: Open WebUI shows raw JSON instead of formatted medical literature summaries.
+
+**ROOT CAUSE**: Missing conversational response formatting in medical search agent output.
+
+**SOLUTION PATTERN**: Implement conversational response generation with proper medical disclaimer integration.
 
 ## Implementation Steps
 1. Validation

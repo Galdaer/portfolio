@@ -47,7 +47,7 @@ export class PubMed {
         // Check environment for local mirror preference
         this.useLocalMirror = process.env.USE_LOCAL_MEDICAL_MIRRORS !== 'false';
     } async getArticles(args: any, cache: CacheManager) {
-        const { query, maxResults = 10 } = args;
+        const { query, maxResults = 25 } = args;
         const cacheKey = cache.createKey('pubmed', { query, maxResults });
 
         try {
@@ -63,7 +63,14 @@ export class PubMed {
             const response = {
                 content: [{
                     type: 'text',
-                    text: JSON.stringify(articles, null, 2)
+                    text: `Found ${articles.length} medical articles:\n\n` +
+                        articles.map((article, i) =>
+                            `${i + 1}. **${article.title}**\n` +
+                            `   Authors: ${article.authors.join(', ')}\n` +
+                            `   Journal: ${article.journal} (${article.pubDate})\n` +
+                            `   PMID: ${article.pmid}\n\n`
+                        ).join('') +
+                        "\n**Medical Disclaimer**: This information is for educational purposes only."
                 }]
             };
 
@@ -81,11 +88,11 @@ export class PubMed {
         }
     }
 
-    async search(query: string, maxResults: number = 10): Promise<PubMedArticle[]> {
+    async search(query: string, maxResults: number = 25): Promise<PubMedArticle[]> {
         return this.searchArticles(query, maxResults);
     }
 
-    async searchArticles(query: string, maxResults: number = 10): Promise<PubMedArticle[]> {
+    async searchArticles(query: string, maxResults: number = 25): Promise<PubMedArticle[]> {
         try {
             if (!query || typeof query !== 'string' || query.trim().length === 0) {
                 throw new Error('PubMed search failed: Query string is empty or invalid.');

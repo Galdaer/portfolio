@@ -10,11 +10,13 @@ LABEL security="hardened-healthcare"
 RUN groupadd -g 1001 intelluxe && \
     useradd -u 1000 -g 1001 -m -s /bin/bash api
 
-# Security hardening - update packages and install required tools including Docker
+# Security hardening - update packages and install Node.js + required tools including Docker
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     curl \
     ca-certificates \
     docker.io \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
 # Add api user to docker group for container communication
@@ -22,16 +24,24 @@ RUN groupmod -g 984 docker && usermod -a -G docker api
 
 WORKDIR /app
 
+# Copy and build MCP server first
+COPY --chown=api:intelluxe healthcare-mcp /app/mcp-server
+WORKDIR /app/mcp-server
+RUN npm install && npm run build
+
+# Return to app directory for Python API
+WORKDIR /app
+
 # Copy healthcare-api specific requirements
 # Copy requirements (specific to healthcare-api)
-COPY --chown=api:intelluxe requirements.txt ./requirements.txt
+COPY --chown=api:intelluxe healthcare-api/requirements.txt ./requirements.txt
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy healthcare-api source code
-COPY --chown=api:intelluxe . ./
+COPY --chown=api:intelluxe healthcare-api/ ./
 
 # Create logs directory
 RUN mkdir -p /app/logs && chown -R api:intelluxe /app/logs
