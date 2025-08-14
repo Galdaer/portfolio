@@ -189,3 +189,14 @@ class ClinicalDecisionSupportAssistant:
 - Always return a disclaimer and a readable summary even on timeouts or upstream errors.
 
 ---
+
+## Agent Output Contract (2025-08-14)
+
+- UI-facing agents must always set `formatted_summary`. On internal failure, set a minimal, safe fallback string.
+- Metrics and logging must never block output; wrap in try/except and proceed.
+
+## MCP Runtime Guidance (2025-08-14)
+
+- Prefer running MCP servers as subprocesses within the same container as the healthcare API to avoid stdio transport issues.
+- Avoid cross-container stdio; it is prone to `Broken pipe` and `WriteUnixTransport closed=True` under load.
+- Use short-lived MCP sessions per call and clean up in `finally`.

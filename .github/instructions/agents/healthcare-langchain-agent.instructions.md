@@ -12,6 +12,8 @@ Patterns for building and operating the healthcare LangChain agent with local-on
 ## Validated Pattern (LangChain 0.3.x)
 - Use `create_structured_chat_agent(llm, tools, prompt)` and `AgentExecutor`.
 - Prompt variables required: `tools`, `tool_names`, `input`, `agent_scratchpad`.
+- Do NOT attach memory to `AgentExecutor` for structured chat. The agent manages its own `agent_scratchpad` from `intermediate_steps`.
+- Only pass `{ "input": query }` to `ainvoke()`; never include `agent_scratchpad` in inputs.
 - Prompt shape:
   - system: rules + JSON examples; escape JSON braces with `{{` and `}}`.
   - MessagesPlaceholder("chat_history", optional=True)
@@ -42,6 +44,49 @@ executor = AgentExecutor(
 - Must be a list of BaseMessages. Never inject a string in `{agent_scratchpad}`.
 - Let AgentExecutor populate from `intermediate_steps`.
 
+## Memory and Chat History
+- Avoid passing `memory` to `AgentExecutor` for structured chat agents; it can inject strings where BaseMessages are expected.
+- If you must preserve history, handle it manually in the call site by passing a `chat_history` MessagesPlaceholder in the prompt and supplying a list of BaseMessages. Do not pass summaries/strings.
+
+## Tool contract (sync wrappers over async)
+- LangChain tools must return strings (not dicts). Wrap async MCP calls in a sync wrapper.
+
+Pattern:
+
+```
+from langchain.tools import StructuredTool
+import asyncio, json
+
+def to_sync(tool_name: str, fn, retries: int = 2):
+  def _wrap(*args, **kwargs):
+    for attempt in range(retries + 1):
+      try:
+        if asyncio.iscoroutinefunction(fn):
+          try:
+            asyncio.get_running_loop()
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as ex:
+              return_str = ex.submit(asyncio.run, fn(*args, **kwargs)).result()
+          except RuntimeError:
+            return_str = asyncio.run(fn(*args, **kwargs))
+        else:
+          return_str = fn(*args, **kwargs)
+        return json.dumps(return_str, indent=2) if isinstance(return_str, dict) else str(return_str)
+      except Exception as e:
+        if attempt >= retries:
+          return f"Tool error: {e}"
+    return ""
+  return _wrap
+
+tools = [
+  StructuredTool.from_function(
+  func=to_sync("search_medical_literature", lambda q: ...),
+  name="search_medical_literature",
+  description="Search medical literature",
+  )
+]
+```
+
 ## Model configuration (Ollama)
 - Default to `llama3.1:8b` from `services/user/healthcare-api/config/models.yml` under `primary_models.healthcare_llm`.
 - Honor `OLLAMA_BASE_URL` (default http://localhost:11434) and context size via `num_ctx`.
@@ -50,10 +95,16 @@ executor = AgentExecutor(
 ## MCP tools integration
 - Public tools (e.g., PubMed) must bypass OAuth; no patientId required.
 - Normalize tool names (hyphen vs underscore) consistently both in tool registration and usage.
+- On transport errors like `BrokenPipeError`/`WriteUnixTransport closed=True`:
+  - Recreate the MCP client per-call (short-lived sessions).
+  - Retry with small backoff (e.g., 100–300ms) and low attempt count (2–3).
+  - Limit concurrency (Semaphore 1–2) to reduce stdio contention.
+  - Ensure the MCP server runs in-process/subprocess within the same container to avoid cross-container stdio issues.
 
 ## Troubleshooting
 - INVALID_PROMPT_INPUT complaining about `"action"` → escape JSON braces with `{{` and `}}` in system examples.
 - `agent_scratchpad should be a list of base messages` → add `MessagesPlaceholder("agent_scratchpad")` and remove string usage.
+- If still failing in structured chat, temporarily switch to ReAct agent to validate tool plumbing while you correct prompt variables.
 - Ollama connection errors → confirm service reachable on `OLLAMA_BASE_URL`, correct model pulled (`ollama pull llama3.1:8b`).
 - MCP tool failures → verify server starts in same container and tool names match normalization.
 

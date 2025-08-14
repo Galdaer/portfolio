@@ -111,5 +111,94 @@
 			],
 			"group": "build"
 		}
+		,
+		{
+			"label": "Healthcare API Build",
+			"group": "build",
+			"type": "shell",
+			"command": "make",
+			"args": [
+				"healthcare-api-build"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Run Integration Smoke Tests",
+			"group": "test",
+			"type": "shell",
+			"command": "python3",
+			"args": [
+				"scripts/run_integration_tests.py"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Tail Healthcare Logs",
+			"group": "none",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-c",
+				"tail -n 200 -f logs/healthcare_system.log"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"isBackground": true,
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"panel": "dedicated"
+			}
+		},
+		{
+			"label": "MCP Pipeline Health",
+			"group": "test",
+			"type": "shell",
+			"command": "make",
+			"args": [
+				"mcp-pipeline-health"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "MCP Pipeline Logs",
+			"group": "none",
+			"type": "shell",
+			"command": "make",
+			"args": [
+				"mcp-pipeline-logs"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"isBackground": true,
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"panel": "shared"
+			}
+		}
 	]
 }
