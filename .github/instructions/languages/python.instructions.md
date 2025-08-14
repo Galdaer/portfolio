@@ -2,7 +2,39 @@
 
 ## Purpose
 
-Python patterns for healthcare AI systems with focus on medical compliance, PHI protection, and beyond-HIPAA security standards that prioritize patient safety and privacy.
+Python patterns for healthcare AI systems focused on medical compliance, PHI protection, and safety.
+
+## Core Rules (Enforced Here)
+- No network calls on import. Initialize clients lazily in functions/constructors.
+- Strict typing. Prefer precise types over Any; avoid `# type: ignore` in healthcare modules.
+- Deterministic imports. Avoid duplicate imports and circulars; use TYPE_CHECKING for heavy deps.
+- PHI-safe logging. Never log raw PHI or full prompts/responses from LLMs.
+
+## Typing patterns
+```python
+from typing import TYPE_CHECKING, Optional, Any
+
+if TYPE_CHECKING:
+    from some_heavy_lib import HeavyType
+else:
+    HeavyType = Any
+```
+
+## Import hygiene
+- Group: stdlib, third-party, internal (isort can enforce).
+- Keep import side effects out; raise in functions, not at module import.
+
+## Error handling
+- Return user-friendly messages; keep raw tracebacks out of user-visible paths.
+- Use sentinel return types or Result objects when practical.
+
+## LLM integration (local only)
+- Use `src/local_llm/ollama_client` helpers for ChatOllama.
+- Respect `OLLAMA_BASE_URL`; default to `http://localhost:11434`.
+
+## Testing & linting
+- Run quick lint for syntax errors; run mypy selectively on `services/user/healthcare-api`.
+- Prefer unit tests that avoid PHI and network.
 
 ## Beyond-HIPAA Python Security Principles
 

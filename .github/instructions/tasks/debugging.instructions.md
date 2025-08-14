@@ -55,6 +55,30 @@ async def working_mcp_client():
             result = await session.call_tool(tool_name, arguments)
 ```
 
+### LangChain Structured Chat Prompt Debugging (2025-08-14)
+
+**SYMPTOMS**:
+- `INVALID_PROMPT_INPUT` complaining about missing variables like `'\n  "action"'`.
+- `variable agent_scratchpad should be a list of base messages, got str`.
+
+**ROOT CAUSES**:
+- Unescaped JSON braces in `ChatPromptTemplate` system message examples.
+- Using a string for `agent_scratchpad` instead of `MessagesPlaceholder`.
+
+**FIX PATTERN**:
+```python
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "... tools: {tools} ... Valid action values: {tool_names} ... Example: ```\n{{\n  \"action\": $TOOL_NAME,\n  \"action_input\": $INPUT\n}}\n``` ..."),
+    MessagesPlaceholder("chat_history", optional=True),
+    ("human", "{input}"),
+    MessagesPlaceholder("agent_scratchpad"),
+])
+```
+
+**EXECUTOR SETTINGS**:
+- `return_intermediate_steps=True`, `handle_parsing_errors=True`.
+- Let AgentExecutor populate `agent_scratchpad` from `intermediate_steps`.
+
 **DEBUGGING APPROACH**:
 ```python
 # ❌ PROBLEMATIC: Context managers without proper cleanup
