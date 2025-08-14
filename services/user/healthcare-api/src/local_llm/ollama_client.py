@@ -30,6 +30,7 @@ class OllamaConfig:
     temperature: float = 0.0
     seed: Optional[int] = 0
     num_ctx: Optional[int] = None
+    timeout: float = 30.0  # Add timeout to config
 
     def validate(self) -> None:
         if not self.model or not isinstance(self.model, str):
@@ -38,26 +39,38 @@ class OllamaConfig:
             raise ValueError("base_url must be a string or None")
         if not (0.0 <= float(self.temperature) <= 2.0):
             raise ValueError("temperature must be between 0.0 and 2.0")
+        if not (1.0 <= float(self.timeout) <= 300.0):
+            raise ValueError("timeout must be between 1.0 and 300.0 seconds")
         # seed and num_ctx can be None; no further validation required here
 
 
-def build_chat_model(cfg: OllamaConfig) -> BaseChatModel:
-    """Create a ChatOllama with safe defaults; no network call here.
+def build_chat_model(config: OllamaConfig) -> BaseChatModel:
+    """Build a ChatOllama instance for LangChain integration.
 
-    Returns a BaseChatModel to keep the public contract generic.
+    Args:
+        config: Validated Ollama configuration
+
+    Returns:
+        ChatOllama instance configured for local-only operation
+
+    Note:
+        This function creates the model but does NOT make network calls.
+        Actual inference happens only when the model is invoked.
     """
-    cfg.validate()
-    params: dict[str, object] = {}
-    if cfg.num_ctx is not None:
-        params["num_ctx"] = int(cfg.num_ctx)
+    # Ensure we have a valid base URL
+    base_url = config.base_url or "http://localhost:11434"
 
+    # Create ChatOllama with proper configuration
     return ChatOllama(
-        model=cfg.model,
-        base_url=cfg.base_url,
-        temperature=float(cfg.temperature),
-        seed=cfg.seed,
-        # Pass-through extra model params when provided
-        **params,
+        model=config.model,
+        base_url=base_url,
+        temperature=config.temperature,
+        timeout=config.timeout,
+        # Add connection configuration
+        num_ctx=config.num_ctx or 4096,  # Context window size
+        seed=config.seed,
+        # Connection retry settings
+        request_timeout=config.timeout,  # Request timeout
     )
 
 

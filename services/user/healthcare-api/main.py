@@ -147,7 +147,6 @@ async def initialize_agents():
             langchain_orchestrator = LangChainOrchestrator(
                 mcp_client=healthcare_services.mcp_client,
                 chat_model=chat_model,
-                show_agent_header=bool(orch_cfg.get("provenance", {}).get("show_agent_header", True)),
                 timeouts={
                     "per_agent_default": float(timeouts.get("per_agent_default", 30)),
                     "per_agent_hard_cap": float(timeouts.get("per_agent_hard_cap", 90)),

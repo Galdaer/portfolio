@@ -44,19 +44,23 @@ export class ToolHandler {
     };
 
     private handleCall = async (request: any) => {
-        // Tools that don't require FHIR authentication
-        const noAuthTools = ["search-pubmed", "search-trials", "get-drug-info", "echo_test"];
+        // Normalize tool name: treat underscores and hyphens equivalently
+        const rawName = request?.params?.name ?? "";
+        const name = String(rawName).replace(/_/g, "-");
 
-        if (noAuthTools.includes(request.params?.name)) {
+        // Tools that don't require FHIR authentication
+        const noAuthTools = ["search-pubmed", "search-trials", "get-drug-info", "echo-test"];
+
+        if (noAuthTools.includes(name)) {
             // Handle non-auth tools directly
-            switch (request.params.name) {
+            switch (name) {
                 case "search-pubmed":
                     return await this.pubmedApi.getArticles(request.params.arguments, this.cache);
                 case "search-trials":
                     return await this.trialsApi.getTrials(request.params.arguments, this.cache);
                 case "get-drug-info":
                     return await this.fdaApi.getDrug(request.params.arguments, this.cache);
-                case "echo_test":
+                case "echo-test":
                     return {
                         content: [{
                             type: 'text',
@@ -67,12 +71,22 @@ export class ToolHandler {
                         }]
                     };
                 default:
-                    throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
+                    throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
             }
         }
 
         // For patient-specific tools, require patientId
-        if (request.params?.name != "find_patient") {
+        const publicTools = [
+            "find-patient",
+            "search-pubmed",
+            "search-clinical-trials",
+            "search-trials",
+            "get-drug-info",
+            "search-fda-drugs"
+        ];
+        // Normalize arguments for underscore inputs as well
+        const normalizedForAuthCheck = name;
+        if (!publicTools.includes(normalizedForAuthCheck)) {
             if (!request.params?.arguments?.patientId) {
                 throw new McpError(ErrorCode.InvalidParams, "patientId is required");
             }
@@ -94,41 +108,41 @@ export class ToolHandler {
                 const access_token = await this.auth.ensureValidToken();
                 this.fhirClient.setAccessToken(access_token);
 
-                switch (request.params.name) {
+                switch (name) {
                     case "clinical_query":
                         return await this.handleClinicalQuery(request.params.arguments);
-                    case "find_patient":
+                    case "find-patient":
                         return await this.fhirClient.findPatient(request.params.arguments);
-                    case "get_patient_observations":
+                    case "get-patient-observations":
                         return await this.fhirClient.getPatientObservations(request.params.arguments);
-                    case "get_patient_conditions":
+                    case "get-patient-conditions":
                         return await this.fhirClient.getPatientConditions(request.params.arguments);
-                    case "get_patient_medications":
+                    case "get-patient-medications":
                         return await this.fhirClient.getPatientMedications(request.params.arguments);
-                    case "get_patient_encounters":
+                    case "get-patient-encounters":
                         return await this.fhirClient.getPatientEncounters(request.params.arguments);
-                    case "get_patient_allergies":
+                    case "get-patient-allergies":
                         return await this.fhirClient.getPatientAllergies(request.params.arguments);
-                    case "get_patient_procedures":
+                    case "get-patient-procedures":
                         return await this.fhirClient.getPatientProcedures(request.params.arguments);
-                    case "get_patient_careteam":
+                    case "get-patient-careteam":
                         return await this.fhirClient.getPatientCareTeam(request.params.arguments);
-                    case "get_patient_careplans":
+                    case "get-patient-careplans":
                         return await this.fhirClient.getPatientCarePlans(request.params.arguments);
-                    case "get_vital_signs":
+                    case "get-vital-signs":
                         return await this.fhirClient.getPatientVitalSigns(request.params.arguments);
-                    case "get_lab_results":
+                    case "get-lab-results":
                         return await this.fhirClient.getPatientLabResults(request.params.arguments);
-                    case "get_medications_history":
+                    case "get-medications-history":
                         return await this.fhirClient.getMedicationHistory(request.params.arguments);
-                    case "get_appointments":
+                    case "get-appointments":
                         return await this.fhirClient.getPatientAppointments(request.params.arguments);
                     default:
-                        throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
+                        throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
                 }
             });
         } catch (error) {
-            console.error(`[ToolHandler] Auth error for tool ${request.params.name}:`, error);
+            console.error(`[ToolHandler] Auth error for tool ${name}:`, error);
             if (error instanceof McpError) {
                 throw error;
             }
