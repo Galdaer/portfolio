@@ -11,8 +11,8 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 import os as _os
 
-from langchain.agents import AgentExecutor, create_structured_chat_agent
-from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain.agents import AgentExecutor, create_react_agent
+from langchain.prompts import PromptTemplate
 from langchain_core.language_models import BaseChatModel
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.runnables import RunnableConfig
@@ -117,59 +117,38 @@ class HealthcareLangChainAgent:
             mcp_client, max_retries=int(tool_max_retries), retry_base_delay=float(tool_retry_base_delay)
         )
 
-        # Prompt following LangChain structured chat agent format (per official docs)
-        prompt = ChatPromptTemplate.from_messages([
-            (
-                "system",
-                (
-                    "Respond to the human as helpfully and accurately as possible. You have access to the following tools:\n"
-                    "{tools}\n\n"
-                    "Use a json blob to specify a tool by providing an action key (tool name) and an action_input key (tool input).\n\n"
-                    "Valid \"action\" values: \"Final Answer\" or {tool_names}\n\n"
-                    "Provide only ONE action per $JSON_BLOB, as shown:\n"
-                    "```\n"
-                    "{{\n"
-                    "  \"action\": $TOOL_NAME,\n"
-                    "  \"action_input\": $INPUT\n"
-                    "}}\n"
-                    "```\n\n"
-                    "Follow this format:\n"
-                    "Question: input question to answer\n"
-                    "Thought: consider previous and subsequent steps\n"
-                    "Action:\n"
-                    "```\n"
-                    "$JSON_BLOB\n"
-                    "```\n"
-                    "Observation: action result\n"
-                    "... (repeat Thought/Action/Observation N times)\n"
-                    "Thought: I know what to respond\n"
-                    "Action:\n"
-                    "```\n"
-                    "{{\n"
-                    "  \"action\": \"Final Answer\",\n"
-                    "  \"action_input\": \"Final response to human\"\n"
-                    "}}\n"
-                    "```\n\n"
-                    "Begin! Reminder to ALWAYS respond with a valid json blob of a single action. Use tools if necessary. Respond directly if appropriate. Format is Action:```$JSON_BLOB```then Observation"
-                ),
-            ),
-            MessagesPlaceholder(variable_name="chat_history", optional=True),
-            ("human", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad"),
-        ])
+        # ReAct prompt template (solves agent_scratchpad issues)
+        prompt = PromptTemplate.from_template("""Answer the following medical questions as best you can. You have access to the following healthcare tools:
 
-        agent = create_structured_chat_agent(
+{tools}
+
+Use the following format:
+
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
+
+Begin!
+
+Question: {input}
+Thought: {agent_scratchpad}""")
+
+        agent = create_react_agent(
             llm=self.llm, tools=self.tools, prompt=prompt
         )
 
-        # Configure AgentExecutor with proper structured chat settings
+        # Configure AgentExecutor with ReAct agent and parsing error handling
         self.executor = AgentExecutor(
             agent=agent,
             tools=self.tools,
             verbose=True,  # Enable for debugging
             max_iterations=5,  # Increase iterations for tool usage
-            early_stopping_method="generate",
-            handle_parsing_errors=True,
+            handle_parsing_errors=True,  # Critical: Handle LLM output parsing errors
             return_intermediate_steps=True,
         )
 
@@ -286,24 +265,9 @@ class HealthcareLangChainAgent:
     async def process(self, query: str, *, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Process a query with tool access and provenance metadata."""
         try:
-            # Prepare input for AgentExecutor
-            # The AgentExecutor manages agent_scratchpad automatically; do NOT pass it.
-            # We will manually pass chat_history as a list of BaseMessages if memory exists.
-            chat_history = []
-            try:
-                mem = getattr(self, "memory", None)
-                if mem is not None:
-                    chat_mem = getattr(mem, "chat_memory", None)
-                    if chat_mem is not None:
-                        msgs = getattr(chat_mem, "messages", [])
-                        # Ensure it's a list before passing through
-                        if isinstance(msgs, list):
-                            chat_history = list(msgs)
-            except Exception:
-                # If anything goes wrong, fall back to empty history to avoid type issues
-                chat_history = []
-
-            input_data = {"input": query, "chat_history": chat_history}
+            # CRITICAL: Only pass 'input' - no other keys
+            # AgentExecutor handles agent_scratchpad internally
+            input_data = {"input": query}
             
             if self.verbose:
                 try:
@@ -312,43 +276,20 @@ class HealthcareLangChainAgent:
                         extra={
                             "healthcare_context": {
                                 "keys": list(input_data.keys()),
-                                "types": {k: type(v).__name__ for k, v in input_data.items()},
+                                "input_type": type(input_data["input"]).__name__,
                             }
                         },
                     )
                 except Exception:
                     pass
             
-            # If context is provided, we could incorporate it into the query itself
-            # but avoid passing extra keys that aren't in the prompt template
-            if context and isinstance(context, dict) and context:
-                # For now, we'll keep context separate from the LangChain execution
-                # since our prompt doesn't expect a context variable
-                pass
+            # Execute without any callbacks or config initially to isolate issues
+            result = await self.executor.ainvoke(input_data)
             
-            # Let AgentExecutor manage agent_scratchpad automatically (from intermediate_steps)
-            callbacks: Optional[list[BaseCallbackHandler]] = [self._debug_callback] if self.verbose else None
-            config: Optional[RunnableConfig] = {"callbacks": callbacks} if callbacks else None
-            result = await self.executor.ainvoke(input_data, config=config)
             agent_name = "medical_search"  # default label until router is added
             formatted = result.get("output", "")
             if self.show_agent_header:
                 formatted = f"🤖 {agent_name.replace('_', ' ').title()} Agent Response:\n\n" + formatted
-
-            # Manually update memory transcript after successful execution (if available)
-            try:
-                mem = getattr(self, "memory", None)
-                if mem is not None:
-                    chat_mem = getattr(mem, "chat_memory", None)
-                    if chat_mem is not None:
-                        # Safely record the exchange as plain strings
-                        if hasattr(chat_mem, "add_user_message"):
-                            chat_mem.add_user_message(query)
-                        if formatted and hasattr(chat_mem, "add_ai_message"):
-                            chat_mem.add_ai_message(formatted)
-            except Exception:
-                # Non-fatal if memory update fails
-                pass
 
             logger.info(f"LangChain agent processing successful. Output length: {len(formatted)}")
             return {

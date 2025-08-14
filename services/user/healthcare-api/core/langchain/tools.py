@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, List, Optional
 import asyncio
+import json
 import time
 
 from pydantic import BaseModel, Field
@@ -52,17 +53,41 @@ def _safe_tool_wrapper(
     *,
     max_retries: int = 2,
     base_delay: float = 0.2,
-) -> Callable[..., Any]:
+) -> Callable[..., str]:
     """Wrap tool functions with PHI-safe error handling and logging.
 
-    Returns an async or sync callable that mirrors the wrapped function.
+    For LangChain compatibility, always returns a sync function that returns strings.
+    Async functions are executed using asyncio.run().
     """
 
-    async def _aw(*args: Any, **kwargs: Any) -> Any:  # async wrapper
+    def _sync_wrapper(*args: Any, **kwargs: Any) -> str:
+        """Sync wrapper that handles both sync and async functions."""
         attempt = 0
         while True:
             try:
-                return await fn(*args, **kwargs)  # type: ignore[misc]
+                # Check if function is async using proper detection
+                if asyncio.iscoroutinefunction(fn):
+                    # This is an async function - run it with asyncio
+                    try:
+                        # Check if we're in an async context
+                        asyncio.get_running_loop()
+                        # If we're in an async context, use thread executor
+                        import concurrent.futures
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            future = executor.submit(asyncio.run, fn(*args, **kwargs))
+                            result = future.result()
+                    except RuntimeError:
+                        # No running loop, we can use asyncio.run directly
+                        result = asyncio.run(fn(*args, **kwargs))
+                else:
+                    # This is a sync function
+                    result = fn(*args, **kwargs)
+                
+                # Ensure we always return a string
+                if isinstance(result, dict):
+                    return json.dumps(result, indent=2)
+                return str(result)
+                
             except Exception:
                 attempt += 1
                 if attempt > max_retries:
@@ -77,41 +102,14 @@ def _safe_tool_wrapper(
                             }
                         },
                     )
-                    return {
+                    return json.dumps({
                         "error": "Tool temporarily unavailable",
                         "fallback": "Using cached medical data",
                         "status": "degraded",
-                    }
-                await asyncio.sleep(base_delay * attempt)
-
-    def _sw(*args: Any, **kwargs: Any) -> Any:  # sync wrapper
-        attempt = 0
-        while True:
-            try:
-                return fn(*args, **kwargs)
-            except Exception:
-                attempt += 1
-                if attempt > max_retries:
-                    logger.error(
-                        f"Tool error ({tool_name})",
-                        extra={
-                            "healthcare_context": {
-                                "operation_type": "tool_error",
-                                "tool": tool_name,
-                                "status": "degraded",
-                                "retries": attempt - 1,
-                            }
-                        },
-                    )
-                    return {
-                        "error": "Tool temporarily unavailable",
-                        "fallback": "Using cached medical data",
-                        "status": "degraded",
-                    }
+                    }, indent=2)
                 time.sleep(base_delay * attempt)
 
-    # Preserve async nature when wrapping
-    return _aw if callable(getattr(fn, "__await__", None)) else _sw
+    return _sync_wrapper
 
 
 def create_mcp_tools(
@@ -122,49 +120,79 @@ def create_mcp_tools(
     The provided client must implement `call_tool(name: str, arguments: dict)`.
     """
 
-    async def _pubmed_search(query: str, max_results: int = 10) -> dict[str, Any]:
+    async def _pubmed_search(query: str, max_results: int = 10) -> str:
         """Call MCP PubMed search using normalized hyphenated tool name.
 
         Primary: "search-pubmed" (normalized)
         Fallback: "search_pubmed" (legacy underscore)
         """
         try:
-            return await mcp_client.call_tool(
+            result = await mcp_client.call_tool(
                 "search-pubmed", {"query": query, "max_results": max_results}
             )
-        except Exception:
+            # CRITICAL: Always return a string, not a dict
+            if isinstance(result, dict):
+                return json.dumps(result, indent=2)
+            return str(result)
+        except Exception as e:
             # Best-effort fallback for environments still exposing underscore tool names
-            return await mcp_client.call_tool(
-                "search_pubmed", {"query": query, "max_results": max_results}
-            )
+            try:
+                result = await mcp_client.call_tool(
+                    "search_pubmed", {"query": query, "max_results": max_results}
+                )
+                if isinstance(result, dict):
+                    return json.dumps(result, indent=2)
+                return str(result)
+            except Exception:
+                return f"Tool error: {str(e)}"
 
     async def _clinical_trials(
         condition: str, status: Optional[str] = "recruiting"
-    ) -> dict[str, Any]:
+    ) -> str:
         """Call MCP Clinical Trials search with normalized tool name.
 
         Primary: "search-trials"
         Fallback: "search_clinical_trials"
         """
         try:
-            return await mcp_client.call_tool(
+            result = await mcp_client.call_tool(
                 "search-trials", {"condition": condition, "status": status}
             )
-        except Exception:
-            return await mcp_client.call_tool(
-                "search_clinical_trials", {"condition": condition, "status": status}
-            )
+            # CRITICAL: Always return a string, not a dict
+            if isinstance(result, dict):
+                return json.dumps(result, indent=2)
+            return str(result)
+        except Exception as e:
+            try:
+                result = await mcp_client.call_tool(
+                    "search_clinical_trials", {"condition": condition, "status": status}
+                )
+                if isinstance(result, dict):
+                    return json.dumps(result, indent=2)
+                return str(result)
+            except Exception:
+                return f"Tool error: {str(e)}"
 
-    async def _drug_info(drug_name: str) -> dict[str, Any]:
+    async def _drug_info(drug_name: str) -> str:
         """Call MCP Drug Info with normalized tool name.
 
         Primary: "get-drug-info"
         Fallback: "get_drug_info"
         """
         try:
-            return await mcp_client.call_tool("get-drug-info", {"drug_name": drug_name})
-        except Exception:
-            return await mcp_client.call_tool("get_drug_info", {"drug_name": drug_name})
+            result = await mcp_client.call_tool("get-drug-info", {"drug_name": drug_name})
+            # CRITICAL: Always return a string, not a dict
+            if isinstance(result, dict):
+                return json.dumps(result, indent=2)
+            return str(result)
+        except Exception as e:
+            try:
+                result = await mcp_client.call_tool("get_drug_info", {"drug_name": drug_name})
+                if isinstance(result, dict):
+                    return json.dumps(result, indent=2)
+                return str(result)
+            except Exception:
+                return f"Tool error: {str(e)}"
 
     tools: List[StructuredTool] = [
         StructuredTool.from_function(
