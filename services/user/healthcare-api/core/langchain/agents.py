@@ -9,6 +9,7 @@ lightweight and runtime-safe for PHI.
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
+import os as _os
 
 from langchain.agents import AgentExecutor, create_structured_chat_agent
 from langchain.memory import ConversationSummaryBufferMemory
@@ -49,7 +50,8 @@ class HealthcareLangChainAgent:
             tool_retry_base_delay: Base delay between tool retries
         """
         self.mcp_client = mcp_client
-        self.verbose = verbose
+        # Enable verbose when requested explicitly or via environment toggle
+        self.verbose = verbose or _os.getenv("HEALTHCARE_AGENT_DEBUG", "").lower() in {"1", "true", "yes"}
         self.max_iterations = max_iterations
         self.tool_max_retries = tool_max_retries
         self.tool_retry_base_delay = tool_retry_base_delay
@@ -57,7 +59,6 @@ class HealthcareLangChainAgent:
         # Build or use provided LLM using proper configuration system
         from src.local_llm.ollama_client import OllamaConfig, build_chat_model
         import yaml
-        import os
         from pathlib import Path
 
         # If caller supplied a chat_model directly, prefer it
@@ -95,7 +96,7 @@ class HealthcareLangChainAgent:
             config = OllamaConfig(
                 model=model or default_model,
                 temperature=default_temperature,
-                base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+                base_url=_os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
                 num_ctx=4096  # Context window size
             )
 
@@ -180,14 +181,147 @@ class HealthcareLangChainAgent:
             memory=self.memory,
         )
 
+        # Internal debug callback for detailed tracing
+        class _LangchainAgentDebugCallback:
+            def __init__(self, enabled: bool = False) -> None:
+                self.enabled = enabled
+
+            # LLM callbacks
+            def on_llm_start(self, serialized, prompts, **kwargs):
+                if not self.enabled:
+                    return
+                try:
+                    logger.debug(
+                        "LLM start",
+                        extra={
+                            "healthcare_context": {
+                                "prompts_count": len(prompts) if isinstance(prompts, list) else 1,
+                                "prompt_preview": (prompts[0][:200] if isinstance(prompts, list) and prompts else str(prompts)[:200]),
+                            }
+                        },
+                    )
+                except Exception:
+                    pass
+
+            def on_llm_end(self, response, **kwargs):
+                if not self.enabled:
+                    return
+                try:
+                    txt = getattr(response, "content", "") or str(response)
+                    logger.debug(
+                        "LLM end",
+                        extra={"healthcare_context": {"response_preview": str(txt)[:200]}},
+                    )
+                except Exception:
+                    pass
+
+            def on_llm_error(self, error, **kwargs):
+                try:
+                    logger.error("LLM error", extra={"healthcare_context": {"error": str(error)}})
+                except Exception:
+                    pass
+
+            # Tool callbacks
+            def on_tool_start(self, serialized, input_str, **kwargs):
+                if not self.enabled:
+                    return
+                try:
+                    name = None
+                    try:
+                        name = (serialized or {}).get("name")
+                    except Exception:
+                        name = None
+                    logger.debug(
+                        "Tool start",
+                        extra={
+                            "healthcare_context": {
+                                "name": name,
+                                "input_preview": str(input_str)[:200],
+                            }
+                        },
+                    )
+                except Exception:
+                    pass
+
+            def on_tool_end(self, output, **kwargs):
+                if not self.enabled:
+                    return
+                try:
+                    logger.debug(
+                        "Tool end",
+                        extra={"healthcare_context": {"output_preview": str(output)[:200]}},
+                    )
+                except Exception:
+                    pass
+
+            def on_tool_error(self, error, **kwargs):
+                try:
+                    logger.error("Tool error", extra={"healthcare_context": {"error": str(error)}})
+                except Exception:
+                    pass
+
+            # Chain callbacks
+            def on_chain_start(self, serialized, inputs, **kwargs):
+                if not self.enabled:
+                    return
+                try:
+                    logger.debug(
+                        "Chain start",
+                        extra={"healthcare_context": {"inputs_keys": list(inputs.keys()) if isinstance(inputs, dict) else []}},
+                    )
+                except Exception:
+                    pass
+
+            def on_chain_end(self, outputs, **kwargs):
+                if not self.enabled:
+                    return
+                try:
+                    logger.debug(
+                        "Chain end",
+                        extra={"healthcare_context": {"outputs_keys": list(outputs.keys()) if isinstance(outputs, dict) else []}},
+                    )
+                except Exception:
+                    pass
+
+            def on_chain_error(self, error, **kwargs):
+                try:
+                    logger.error("Chain error", extra={"healthcare_context": {"error": str(error)}})
+                except Exception:
+                    pass
+
+        self._debug_callback = _LangchainAgentDebugCallback(enabled=self.verbose)
+
     async def process(self, query: str, *, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Process a query with tool access and provenance metadata."""
         try:
-            # Let AgentExecutor manage agent_scratchpad internally from intermediate_steps
-            result = await self.executor.ainvoke({
-                "input": query,
-                "context": context or {},
-            })
+            # Prepare input for AgentExecutor - only pass the input query
+            # The AgentExecutor manages agent_scratchpad and chat_history automatically
+            input_data = {"input": query}
+            
+            if self.verbose:
+                try:
+                    logger.debug(
+                        "AgentExecutor input prepared",
+                        extra={
+                            "healthcare_context": {
+                                "keys": list(input_data.keys()),
+                                "types": {k: type(v).__name__ for k, v in input_data.items()},
+                            }
+                        },
+                    )
+                except Exception:
+                    pass
+            
+            # If context is provided, we could incorporate it into the query itself
+            # but avoid passing extra keys that aren't in the prompt template
+            if context and isinstance(context, dict) and context:
+                # For now, we'll keep context separate from the LangChain execution
+                # since our prompt doesn't expect a context variable
+                pass
+            
+            # Let AgentExecutor manage agent_scratchpad and chat_history automatically
+            callbacks = [self._debug_callback] if self.verbose else None
+            result = await self.executor.ainvoke(input_data, config={"callbacks": callbacks} if callbacks else None)
             agent_name = "medical_search"  # default label until router is added
             formatted = result.get("output", "")
             if self.show_agent_header:
@@ -201,11 +335,57 @@ class HealthcareLangChainAgent:
                 "agent_name": agent_name,
             }
         except Exception as e:
-            logger.error(f"LangChain agent processing failed: {e}")
+            # Rich error with stack and input typing to isolate prompt var issues
+            import traceback
+            import sys
+            import linecache
+
+            tb = e.__traceback__
+            frames = []
+            while tb is not None:
+                frame = tb.tb_frame
+                lineno = tb.tb_lineno
+                filename = frame.f_code.co_filename
+                funcname = frame.f_code.co_name
+                line = linecache.getline(filename, lineno).rstrip("\n")
+                frames.append({
+                    "file": filename,
+                    "line": lineno,
+                    "function": funcname,
+                    "code": line,
+                })
+                tb = tb.tb_next
+
+            # Prefer the deepest in-repo frame for faster pinpointing
+            repo_root_indicator = "/home/intelluxe/"
+            chosen = None
+            for fr in reversed(frames):
+                if repo_root_indicator in fr["file"]:
+                    chosen = fr
+                    break
+            if chosen is None and frames:
+                chosen = frames[-1]
+
+            error_details = {
+                "message": str(e),
+                "type": type(e).__name__,
+                "frame": chosen,
+                "stack": traceback.format_exc(),
+            }
+
+            try:
+                logger.error(
+                    "LangChain agent processing failed",
+                    extra={"healthcare_context": error_details},
+                )
+            except Exception:
+                logger.error(f"LangChain agent processing failed: {e}")
+
             return {
                 "success": False,
-                "formatted_summary": f"Agent processing error: {str(e)}",
+                "formatted_summary": f"Agent processing error: {error_details['message']}",
                 "intermediate_steps": [],
                 "agent_name": "medical_search",
-                "error": str(e),
+                "error": error_details["message"],
+                "error_details": error_details,
             }

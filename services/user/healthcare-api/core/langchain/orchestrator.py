@@ -179,10 +179,18 @@ class LangChainOrchestrator:
                     "agents_used": []
                 }
             else:
+                # If the agent provided structured error_details, surface them
+                error_details = None
+                try:
+                    if isinstance(e, Exception) and hasattr(e, "__dict__"):
+                        error_details = getattr(e, "error_details", None)
+                except Exception:
+                    pass
                 return {
                     "success": False,
                     "formatted_summary": f"I encountered an issue processing your request: {error_msg}",
                     "error": error_msg,
+                    "error_details": error_details,
                     "agent_name": "orchestrator",
                     "agents_used": []
                 }

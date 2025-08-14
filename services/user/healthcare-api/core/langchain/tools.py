@@ -123,19 +123,48 @@ def create_mcp_tools(
     """
 
     async def _pubmed_search(query: str, max_results: int = 10) -> dict[str, Any]:
-        return await mcp_client.call_tool(
-            "search_pubmed", {"query": query, "max_results": max_results}
-        )
+        """Call MCP PubMed search using normalized hyphenated tool name.
+
+        Primary: "search-pubmed" (normalized)
+        Fallback: "search_pubmed" (legacy underscore)
+        """
+        try:
+            return await mcp_client.call_tool(
+                "search-pubmed", {"query": query, "max_results": max_results}
+            )
+        except Exception:
+            # Best-effort fallback for environments still exposing underscore tool names
+            return await mcp_client.call_tool(
+                "search_pubmed", {"query": query, "max_results": max_results}
+            )
 
     async def _clinical_trials(
         condition: str, status: Optional[str] = "recruiting"
     ) -> dict[str, Any]:
-        return await mcp_client.call_tool(
-            "search_clinical_trials", {"condition": condition, "status": status}
-        )
+        """Call MCP Clinical Trials search with normalized tool name.
+
+        Primary: "search-trials"
+        Fallback: "search_clinical_trials"
+        """
+        try:
+            return await mcp_client.call_tool(
+                "search-trials", {"condition": condition, "status": status}
+            )
+        except Exception:
+            return await mcp_client.call_tool(
+                "search_clinical_trials", {"condition": condition, "status": status}
+            )
 
     async def _drug_info(drug_name: str) -> dict[str, Any]:
-        return await mcp_client.call_tool("get_drug_info", {"drug_name": drug_name})
+        """Call MCP Drug Info with normalized tool name.
+
+        Primary: "get-drug-info"
+        Fallback: "get_drug_info"
+        """
+        try:
+            return await mcp_client.call_tool("get-drug-info", {"drug_name": drug_name})
+        except Exception:
+            return await mcp_client.call_tool("get_drug_info", {"drug_name": drug_name})
 
     tools: List[StructuredTool] = [
         StructuredTool.from_function(
