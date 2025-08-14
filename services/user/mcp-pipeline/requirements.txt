@@ -7,3 +7,10 @@ mcp==1.12.4
 
 # MCP library needed for stdio communication with healthcare-api
 # Updated FastAPI to latest version compatible with MCP's starlette requirement
+
+# LangChain + Ollama for local MCP pipeline components
+langchain==0.3.27
+langchain-community==0.3.27
+langchain-core==0.3.72
+langchain-text-splitters==0.3.9
+langchain-ollama==0.3.6

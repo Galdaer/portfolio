@@ -1,0 +1,57 @@
+# Orchestrator Configuration (agent routing + synthesis)
+# Externalize routing/timeout/fallback to be client-configurable.
+
+version: 1
+
+selection:
+  # Route with local LLM using agent names + descriptions
+  enabled: true
+  model: "router" # logical name resolved via models.yml, not a hard binding
+  # When true, also run a safety fallback agent if the selected agent fails
+  enable_fallback: true
+  # Disable any implicit always-on agents; only run what router selects
+  allow_parallel_helpers: false # set true to fan-out later if desired
+
+timeouts:
+  # Global router decision timeout (seconds)
+  router_selection: 5
+  # Default agent execution timeout when not overridden by agent-specific config
+  per_agent_default: 30
+  # Strict upper bound for any single agent (seconds)
+  per_agent_hard_cap: 90
+
+provenance:
+  # Always show the agent header in formatted responses
+  show_agent_header: true
+  # Include request_id/source links when present from the agent
+  include_metadata: true
+
+synthesis:
+  # Merge rule when multiple agent outputs are available
+  prefer:
+    - formatted_summary
+    - formatted_response
+    - response
+    - research_summary
+    - message
+  # When multiple candidates exist, prioritize these agents first
+  agent_priority:
+    - medical_search
+    - clinical_research
+    - document_processor
+    - intake
+  # Prefix used for agent headers in UI
+  header_prefix: "🤖 "
+
+fallback:
+  # Fallback agent logical name
+  agent_name: "base"
+  # Minimal behavior: reflect the request and acknowledge unsupported intent
+  message_template: |
+    I couldn't find a specialized agent to handle this request yet. Here's a basic response powered by the base model.
+
+    Request: "{user_message}"
+
+    What you can do:
+    - Rephrase your request with more specifics
+    - Or tell us you'd like an agent for this capability

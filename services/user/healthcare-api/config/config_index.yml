@@ -7,3 +7,4 @@ files:
   - healthcare_settings.yml
   - medical_search_config.yaml
   - models.yml
+  - orchestrator.yml

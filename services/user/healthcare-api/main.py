@@ -14,6 +14,8 @@ import asyncio
 import importlib
 import inspect
 import os
+import json
+from functools import lru_cache
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -58,6 +60,48 @@ class ProcessResponse(BaseModel):
 discovered_agents = {}
 healthcare_services = None
 llm_client = None
+
+
+# -------------------------
+# Orchestrator configuration
+# -------------------------
+@lru_cache(maxsize=1)
+def load_orchestrator_config() -> dict[str, Any]:
+    """Load orchestrator.yml with safe defaults."""
+    cfg_path = Path(__file__).parent / "config" / "orchestrator.yml"
+    defaults: dict[str, Any] = {
+        "selection": {"enabled": True, "enable_fallback": True, "allow_parallel_helpers": False},
+        "timeouts": {"router_selection": 5, "per_agent_default": 30, "per_agent_hard_cap": 90},
+        "provenance": {"show_agent_header": True, "include_metadata": True},
+        "synthesis": {
+            "prefer": ["formatted_summary", "formatted_response", "response", "research_summary", "message"],
+            "agent_priority": ["medical_search", "clinical_research", "document_processor", "intake"],
+            "header_prefix": "🤖 ",
+        },
+        "fallback": {"agent_name": "base", "message_template": "I couldn't find a specialized agent to handle this request yet.\n\nRequest: \"{user_message}\""},
+    }
+    try:
+        import yaml  # type: ignore
+        if cfg_path.exists():
+            with cfg_path.open("r", encoding="utf-8") as f:
+                loaded = yaml.safe_load(f) or {}
+            # shallow-merge with defaults
+            for k, v in defaults.items():
+                if k not in loaded or not isinstance(loaded[k], dict):
+                    loaded[k] = v
+                else:
+                    merged = v.copy()
+                    merged.update(loaded[k])
+                    loaded[k] = merged
+            return loaded
+    except Exception as e:  # pragma: no cover
+        logger.warning(f"Failed to load orchestrator config: {e}")
+    return defaults
+
+
+def _build_agent_header(agent_name: str) -> str:
+    pretty = agent_name.replace("_", " ").title()
+    return f"🤖 **{pretty} Agent Response:**\n\n"
 
 
 async def initialize_agents():
@@ -400,6 +444,38 @@ You must respond with a JSON object containing only the agent name. Do not inclu
         raise  # Don't mask LLM issues with fallbacks
 
 
+async def _call_agent_safely(agent: Any, request_data: dict[str, Any], timeout_s: float) -> tuple[dict[str, Any] | None, str | None]:
+    """Call an agent with timeout and exception safety. Returns (result, error)."""
+    try:
+        result = await asyncio.wait_for(agent.process_request(request_data), timeout=timeout_s)
+        return result, None
+    except Exception as e:
+        return None, str(e)
+
+
+async def _run_base_fallback(user_message: str) -> dict[str, Any]:
+    """Generate a minimal, safe fallback response using the base model without medical advice."""
+    orch = load_orchestrator_config()
+    tmpl = orch.get("fallback", {}).get("message_template", "")
+    msg = tmpl.format(user_message=user_message)
+    # Build a conservative summary with disclaimers
+    summary_lines = [
+        msg,
+        "",
+        "Disclaimers:",
+        "- This system provides administrative/documentation support only and is not medical advice.",
+        "- For medical concerns, consult a licensed healthcare professional.",
+    ]
+    formatted = "\n".join(summary_lines)
+    return {
+        "success": True,
+        "agent_name": orch.get("fallback", {}).get("agent_name", "base"),
+        "agent_type": "base",
+        "message": msg,
+        "formatted_summary": formatted,
+    }
+
+
 def format_response_for_user(result: dict[str, Any], agent_name: str = None) -> str:
     """
     Convert agent JSON response to human-readable text for web UI users
@@ -508,6 +584,8 @@ async def process_message(request: ProcessRequest) -> ProcessResponse:
         if not llm_client:
             return ProcessResponse(status="error", error="LLM client not available")
 
+        orch = load_orchestrator_config()
+
         # Let LLM choose the appropriate agent based on message content
         selected_agent = await select_agent_with_llm(request.message, discovered_agents, llm_client)
 
@@ -516,7 +594,7 @@ async def process_message(request: ProcessRequest) -> ProcessResponse:
             logger.error(f"Agent {getattr(selected_agent, 'agent_name', 'unknown')} missing process_request method")
             return ProcessResponse(status="error", error="Agent missing required interface")
 
-        # Call the standard process_request method with a dict parameter
+        # Standard request payload for agents
         request_data = {
             "message": request.message,
             "query": request.message,  # Some agents may expect 'query' instead of 'message'
@@ -524,26 +602,39 @@ async def process_message(request: ProcessRequest) -> ProcessResponse:
             "session_id": request.session_id,
         }
 
+        # Primary call with safe timeout and base fallback
         try:
-            result = await selected_agent.process_request(request_data)
+            timeout_s = float(orch.get("timeouts", {}).get("per_agent_default", 30))
+            hard_cap = float(orch.get("timeouts", {}).get("per_agent_hard_cap", 90))
+            timeout_s = min(max(1.0, timeout_s), hard_cap)
 
-            # Format response based on user preference
+            result, err = await _call_agent_safely(selected_agent, request_data, timeout_s)
+
+            enable_fallback = bool(orch.get("selection", {}).get("enable_fallback", True))
+            if err or not isinstance(result, dict) or (result.get("success") is False and enable_fallback):
+                logger.warning(f"Primary agent failed or returned unsuccessful result, falling back. Error: {err}")
+                result = await _run_base_fallback(request.message)
+                agent_name_for_header = result.get("agent_name", "base")
+            else:
+                agent_name_for_header = getattr(selected_agent, "agent_name", "unknown")
+
             if request.format == "human":
-                # Convert JSON to human-readable format
-                formatted_text = format_response_for_user(result, getattr(selected_agent, "agent_name", "unknown"))
-                return ProcessResponse(
-                    status="success",
-                    result=result,
-                    response=formatted_text,
-                    formatted_response=formatted_text,
-                )
-            # Return raw JSON for API consumers
+                preferred_keys = orch.get("synthesis", {}).get("prefer", [
+                    "formatted_summary", "formatted_response", "response", "research_summary", "message",
+                ])
+                payload = result or {}
+                text = next((payload.get(k) for k in preferred_keys if isinstance(payload.get(k), str) and payload.get(k)), None)
+                if not text:
+                    text = json.dumps(payload) if payload else "Operation completed."
+                header = _build_agent_header(agent_name_for_header) if orch.get("provenance", {}).get("show_agent_header", True) else ""
+                formatted_text = f"{header}{text}"
+                return ProcessResponse(status="success", result=result, response=formatted_text, formatted_response=formatted_text)
+
             return ProcessResponse(status="success", result=result)
 
         except Exception as e:
             logger.error(f"Error calling agent process_request: {e}")
             error_msg = f"Agent processing error: {str(e)}"
-
             if request.format == "human":
                 return ProcessResponse(
                     status="error",
@@ -557,9 +648,7 @@ async def process_message(request: ProcessRequest) -> ProcessResponse:
         logger.error(f"Error processing HTTP request: {e}")
         error_msg = str(e)
 
-        # Try to get format from request, default to human for errors
         format_type = getattr(request, "format", "human")
-
         if format_type == "human":
             return ProcessResponse(
                 status="error",

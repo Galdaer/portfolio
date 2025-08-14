@@ -248,11 +248,8 @@ deps:
 	else \
 		echo "    🖥️  Development mode - will use requirements.txt (all packages)"; \
 	fi
-	@# Generate lockfiles first if they don't exist or requirements.in is newer
-	@if [ ! -f requirements.txt ] || [ requirements.in -nt requirements.txt ]; then \
-		echo "🔒  Generating lockfiles from requirements.in..."; \
-		python3 scripts/generate-requirements.py; \
-	fi
+	@# NOTE: Lockfile generation via scripts/generate-requirements.py is deprecated.
+	@#       Requirements are now edited directly per-environment. Skipping generation.
 	@# Install formatting tools for git hooks (CI-safe)
 	@echo "🎨  Installing formatting tools for pre-commit hooks..."
 	@if command -v npm >/dev/null 2>&1 && [ -z "$$CI" ]; then \
@@ -265,8 +262,33 @@ deps:
 	else \
 		echo "⚠️  go not available or CI environment - skipping shfmt (shell script formatting)"; \
 	fi
-	@# Smart dependency installation with comprehensive fallbacks
+	@# Prefer local virtualenv if present; otherwise smart fallbacks (uv -> pip)
 	@echo "🔍  Determining best installation method..."
+	@USE_VENV=false; \
+	if [ -d ".venv" ] && [ -x ".venv/bin/pip" ]; then \
+		echo "   ✓ Detected .venv - will install into local virtualenv"; \
+		USE_VENV=true; \
+	else \
+		echo "   ✗ No local .venv detected"; \
+	fi; \
+	REQUIREMENTS_FILE="requirements.txt"; \
+	if [ "$$CI" = "1" ] && [ -f "requirements-ci.txt" ]; then \
+		REQUIREMENTS_FILE="requirements-ci.txt"; \
+	fi; \
+	if [ "$$USE_VENV" = "true" ]; then \
+		echo "🚀  Installing into .venv using pip..."; \
+		.venv/bin/pip install --upgrade pip setuptools wheel >/dev/null 2>&1 || true; \
+		.venv/bin/pip install ruff pyright pytest pytest-asyncio yamllint >/dev/null 2>&1 || true; \
+		echo "   � Installing $$REQUIREMENTS_FILE into .venv..."; \
+		if .venv/bin/pip install -r "$$REQUIREMENTS_FILE"; then \
+			echo "   ✓ Requirements installed into .venv"; \
+		else \
+			echo "   ⚠️  .venv installation failed - you may need to recreate the venv"; \
+		fi; \
+		printf "✅  All development dependencies installed successfully\n"; \
+		exit 0; \
+	fi
+	@# Smart dependency installation with comprehensive fallbacks
 	@UV_AVAILABLE=false; \
 	if command -v uv >/dev/null 2>&1; then \
 		echo "   ✓ uv command found"; \
@@ -298,10 +320,6 @@ deps:
 			fi; \
 		fi; \
 		if [ "$$UV_AVAILABLE" = "true" ]; then \
-			REQUIREMENTS_FILE="requirements.txt"; \
-			if [ "$$CI" = "1" ] && [ -f "requirements-ci.txt" ]; then \
-				REQUIREMENTS_FILE="requirements-ci.txt"; \
-			fi; \
 			if [ "$$CI" = "1" ]; then \
 				echo "   📋 Installing $$REQUIREMENTS_FILE via uv (user mode)..."; \
 				if timeout 120 uv pip install --user -r "$$REQUIREMENTS_FILE" 2>/dev/null; then \
@@ -333,10 +351,6 @@ deps:
 		else \
 			echo "   ⚠️  pip installation failed - trying apt packages"; \
 			sudo apt-get install -y python3-pytest python3-yaml || true; \
-		fi; \
-		REQUIREMENTS_FILE="requirements.txt"; \
-		if [ "$$CI" = "1" ] && [ -f "requirements-ci.txt" ]; then \
-			REQUIREMENTS_FILE="requirements-ci.txt"; \
 		fi; \
 		if [ -f "$$REQUIREMENTS_FILE" ]; then \
 			echo "   📋 Installing $$REQUIREMENTS_FILE via pip..."; \
