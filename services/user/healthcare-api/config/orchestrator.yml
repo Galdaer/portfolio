@@ -55,3 +55,19 @@ fallback:
     What you can do:
     - Rephrase your request with more specifics
     - Or tell us you'd like an agent for this capability
+
+# LangChain-specific settings
+langchain:
+  verbose: true
+  max_iterations: 3
+  early_stopping_method: "generate"
+  routing:
+    default_agent: "medical_search"
+    router_model: "llama3.1:8b"
+  memory:
+    type: "conversation_summary_buffer"
+    max_tokens: 2000
+  tools:
+    handle_errors: true
+    return_direct: false
+    max_retries: 2

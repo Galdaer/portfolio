@@ -60,6 +60,7 @@ class ProcessResponse(BaseModel):
 discovered_agents = {}
 healthcare_services = None
 llm_client = None
+langchain_orchestrator = None  # primary orchestrator (LangChain)
 
 
 # -------------------------
@@ -106,7 +107,7 @@ def _build_agent_header(agent_name: str) -> str:
 
 async def initialize_agents():
     """Initialize AI agents for HTTP processing"""
-    global discovered_agents, healthcare_services, llm_client
+    global discovered_agents, healthcare_services, llm_client, langchain_orchestrator
 
     try:
         # Initialize healthcare services
@@ -116,6 +117,32 @@ async def initialize_agents():
 
         # Get LLM client
         llm_client = healthcare_services.llm_client
+
+        # Initialize LangChain orchestrator as the default router
+        try:
+            from core.langchain.orchestrator import LangChainOrchestrator
+            from local_llm.ollama_client import OllamaConfig, build_chat_model
+
+            orch_cfg = load_orchestrator_config()
+            timeouts = orch_cfg.get("timeouts", {}) if isinstance(orch_cfg, dict) else {}
+            base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            model_name = getattr(ORCHESTRATOR_MODEL, "model", None) or ORCHESTRATOR_MODEL
+
+            chat_model = build_chat_model(
+                OllamaConfig(model=str(model_name), base_url=base_url, temperature=0.0)
+            )
+            langchain_orchestrator = LangChainOrchestrator(
+                mcp_client=healthcare_services.mcp_client,
+                chat_model=chat_model,
+                show_agent_header=bool(orch_cfg.get("provenance", {}).get("show_agent_header", True)),
+                timeouts={
+                    "per_agent_default": float(timeouts.get("per_agent_default", 30)),
+                    "per_agent_hard_cap": float(timeouts.get("per_agent_hard_cap", 90)),
+                },
+            )
+            logger.info("LangChain orchestrator initialized (default)")
+        except Exception as e:
+            logger.error(f"Failed to initialize LangChain orchestrator: {e}")
 
         # Dynamic agent discovery
         from agents import BaseHealthcareAgent
@@ -577,6 +604,23 @@ def format_response_for_user(result: dict[str, Any], agent_name: str = None) -> 
 async def process_message(request: ProcessRequest) -> ProcessResponse:
     """Process message via AI agents"""
     try:
+        # Default path: LangChain orchestrator
+        if not langchain_orchestrator:
+            return ProcessResponse(status="error", error="LangChain orchestrator unavailable")
+        try:
+            result = await langchain_orchestrator.process(request.message)
+            if request.format == "human":
+                formatted = result.get("formatted_summary", "") or "Operation completed."
+                return ProcessResponse(status="success", result=result, response=formatted, formatted_response=formatted)
+            return ProcessResponse(status="success", result=result)
+        except Exception as e:
+            logger.error(f"LangChain orchestrator error: {e}")
+            fb = langchain_orchestrator.get_fallback_response() if langchain_orchestrator else {"formatted_summary": "Unavailable"}
+            if request.format == "human":
+                formatted = fb.get("formatted_summary", "")
+                return ProcessResponse(status="error", error="orchestrator_error", response=formatted, formatted_response=formatted)
+            return ProcessResponse(status="error", error="orchestrator_error", result=fb)
+
         # Ensure agents are initialized
         if not discovered_agents:
             return ProcessResponse(status="error", error="No agents available")
