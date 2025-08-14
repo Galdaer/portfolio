@@ -45,7 +45,13 @@ class LangChainOrchestrator:
             tool_retry_base_delay=float((timeouts.get("tool_retry_base_delay", 0.2))),
         )
 
-    async def process(self, query: str, *, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def process(
+        self,
+        query: str,
+        *,
+        context: Optional[Dict[str, Any]] = None,
+        show_sources: Optional[bool] = None,
+    ) -> Dict[str, Any]:
         try:
             # Optional presearch to guarantee medical_search coverage
             pre_citations: List[Dict[str, Any]] = []
@@ -75,20 +81,22 @@ class LangChainOrchestrator:
                 citations = self._merge_citations(pre_citations, citations)
             if citations:
                 result["citations"] = citations
-                # Append a human-readable sources section
-                formatted = result.get("formatted_summary", "") or ""
-                lines = [formatted, "\n\nSources:"]
-                for c in citations[: self.citations_max_display]:
-                    title = c.get("title") or c.get("name") or c.get("id") or "Source"
-                    url = c.get("url") or c.get("link") or ""
-                    src = c.get("source") or ""
-                    bullet = f"- {title}"
-                    if src:
-                        bullet += f" ({src})"
-                    if url:
-                        bullet += f": {url}"
-                    lines.append(bullet)
-                result["formatted_summary"] = "\n".join(lines).strip()
+                # Append a human-readable sources section when enabled
+                display_sources = True if show_sources is None else bool(show_sources)
+                if display_sources:
+                    formatted = result.get("formatted_summary", "") or ""
+                    lines = [formatted, "\n\nSources:"]
+                    for c in citations[: self.citations_max_display]:
+                        title = c.get("title") or c.get("name") or c.get("id") or "Source"
+                        url = c.get("url") or c.get("link") or ""
+                        src = c.get("source") or ""
+                        bullet = f"- {title}"
+                        if src:
+                            bullet += f" ({src})"
+                        if url:
+                            bullet += f": {url}"
+                        lines.append(bullet)
+                    result["formatted_summary"] = "\n".join(lines).strip()
 
             return result
         except Exception as e:  # pragma: no cover - defensive

@@ -47,6 +47,9 @@ class ProcessRequest(BaseModel):
     user_id: str = "anonymous"
     session_id: str = "default"
     format: str = "human"  # "human" for readable text, "json" for raw JSON
+    # Optional per-request toggle to include a human-readable "Sources" section
+    # Citations remain in result["citations"] regardless of this flag
+    show_sources: bool | None = None
 
 class ProcessResponse(BaseModel):
     status: str
@@ -131,7 +134,7 @@ async def initialize_agents():
         # Initialize LangChain orchestrator as the default router
         try:
             from core.langchain.orchestrator import LangChainOrchestrator
-            from local_llm.ollama_client import OllamaConfig, build_chat_model
+            from src.local_llm.ollama_client import OllamaConfig, build_chat_model
 
             orch_cfg = load_orchestrator_config()
             timeouts = orch_cfg.get("timeouts", {}) if isinstance(orch_cfg, dict) else {}
@@ -615,13 +618,21 @@ def format_response_for_user(result: dict[str, Any], agent_name: str = None) -> 
 
 @app.post("/process", response_model=ProcessResponse)
 async def process_message(request: ProcessRequest) -> ProcessResponse:
-    """Process message via AI agents"""
+    """Process message via AI agents.
+
+    Parameters
+    - show_sources: When false, hides the human-readable "Sources" section in the
+        formatted response (citations still returned in result["citations"]).
+    """
     try:
         # Default path: LangChain orchestrator
         if not langchain_orchestrator:
             return ProcessResponse(status="error", error="LangChain orchestrator unavailable")
         try:
-            result = await langchain_orchestrator.process(request.message)
+            result = await langchain_orchestrator.process(
+                request.message,
+                show_sources=request.show_sources,
+            )
             if request.format == "human":
                 formatted = result.get("formatted_summary", "") or "Operation completed."
                 return ProcessResponse(status="success", result=result, response=formatted, formatted_response=formatted)

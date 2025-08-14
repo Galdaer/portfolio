@@ -80,4 +80,3 @@ langchain:
 routing:
   always_run_medical_search: true
   presearch_max_results: 5
-

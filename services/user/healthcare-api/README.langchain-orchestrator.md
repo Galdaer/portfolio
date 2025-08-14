@@ -22,3 +22,6 @@ Edit `config/orchestrator.yml` to tune behavior. Defaults are applied if keys ar
 Notes
 - The agent currently defaults to the label `medical_search` and will expand to multi-agent routing in future iterations.
 - No cloud AI is used; ensure Ollama is accessible (default http://localhost:11434) or set `OLLAMA_BASE_URL`.
+
+OpenAPI/UI
+- The `/process` endpoint accepts `show_sources: bool | null` per request. When `false`, the human-readable "Sources" section is omitted from `formatted_response`, while `result.citations` still contains structured citations.
