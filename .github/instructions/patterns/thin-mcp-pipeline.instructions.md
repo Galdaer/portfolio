@@ -1,33 +1,30 @@
-# Thin MCP Pipeline Implementation Patterns
+# ⚠️ DEPRECATED: Thin MCP Pipeline Implementation Patterns
 
-## ⚠️ ARCHITECTURE EVOLUTION NOTICE (2025-01-15)
+## 🚨 DEPRECATED FILE - SCHEDULED FOR REMOVAL 🚨
 
-**OUTDATED PATTERN**: This pattern was designed for Open WebUI → Pipeline → Healthcare API architecture which has been replaced.
+**DEPRECATED DATE**: 2025-01-15  
+**REASON**: Architecture evolved from Pipeline → Direct FastAPI routing
+**REPLACEMENT**: Direct HTTP → FastAPI (main.py) → Agent routing → MCP tools
 
-**CURRENT ARCHITECTURE**: Direct HTTP client → FastAPI (main.py) → Agents → MCP Client (healthcare_mcp_client.py)
-
-**NEW PATTERN**: HTTP requests go directly to main.py FastAPI server with agent routing, eliminating need for separate pipeline component.
+**MIGRATION COMPLETE**: System now uses `/home/intelluxe/.github/instructions/agents/langchain-orchestrator.instructions.md` for current patterns.
 
 ---
 
-## Strategic Purpose (Historical)
+## Legacy Documentation (For Historical Reference Only)
 
-**THIN COMMUNICATION LAYER**: MCP pipeline serves as minimal proxy forwarding requests to healthcare-api, which handles all routing, agent decisions, and tool selection.
+**OLD PATTERN**: HTTP Client → Open WebUI → Pipeline → Healthcare API  
+**NEW PATTERN**: HTTP Client → FastAPI (main.py) → Agent routing → MCP tools
 
-**Implementation Flow**: HTTP Client → FastAPI Server (main.py) → Agents → MCP Tools (healthcare_mcp_client.py)
+**NOTE**: This file contains historical pipeline patterns that are no longer used in current architecture. All patterns have been migrated to agent-based routing with LangChain orchestrator.
 
-## ✅ CURRENT ARCHITECTURE (2025-01-15)
+**ACTIVE PATTERNS**: See consolidated instructions in:
+- `agents/langchain-orchestrator.instructions.md` - Current agent coordination patterns
+- `mcp-development.instructions.md` - Container-in-container MCP architecture
+- `domains/healthcare.instructions.md` - Healthcare agent framework
 
-**DIRECT HTTP PATTERN**: FastAPI server with clean agent routing replaces pipeline proxy pattern. The pipeline must not make routing or synthesis decisions.
+---
 
-**Current Separation of Concerns**:
-- **FastAPI Server (main.py)**: HTTP interface with agent routing (pure HTTP, no stdio)
-- **Healthcare MCP Client**: Stdio-only transport with healthcare tools
-- **Agent Classes**: Inherit from BaseHealthcareAgent with standardized process_request() interface
-
-**Implementation Status**: Successfully achieved direct HTTP → FastAPI → Agents → MCP Tools communication with clean stdio/HTTP separation.
-
-## Thin Pipeline Implementation Patterns
+## ⚠️ Historical Content Below (Do Not Use) ⚠️
 
 ### Minimal Proxy Implementation
 

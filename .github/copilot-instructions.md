@@ -22,7 +22,33 @@ Use The Sequential Thinking MCP Server to think through your tasks.
 **Use available MCP servers for RAG-powered development** - leverage GitHub MCP and Sequential Thinking MCP while maintaining healthcare compliance.
 **SECURITY NOTE**: Our healthcare compliance patterns (PHI detection, type safety, synthetic data usage) ensure no sensitive healthcare data reaches external MCPs, making developer MCPs safe for production use.
 
+## CRITICAL ARCHITECTURE UNDERSTANDING
+
+**MCP SERVER ARCHITECTURE - READ THIS FIRST**:
+- The healthcare-api container is the MAIN container
+- The MCP server is BUILT INSIDE the healthcare-api container at `/app/mcp-server/build/stdio_entry.js`
+- The healthcare-api communicates with MCP via STDIO (not HTTP, not separate container)
+- Open WebUI connects to healthcare-api via HTTP endpoints (port 8000)
+- When testing from HOST machine: MCP server binary doesn't exist, only exists inside container
+- NEVER test MCP connectivity from host - it will always fail because the binary is container-only
+- NEVER assume MCP is a separate container or HTTP service
+- Database runs in separate postgresql container, accessible from both host and healthcare-api container
+
+**TESTING PRINCIPLES**:
+- Database tests: Can run from host (has network access to postgresql container)
+- MCP tests: Must run inside healthcare-api container OR mock/skip when binary unavailable
+- Infrastructure tests: Mark as xfail when testing from host environment
+- Import tests: Can run from host with proper sys.path
+
+**INSTRUCTION FILE CLEANUP (2025-01-15)**:
+- **REMOVED**: Redundant LangChain instruction files (langchain-healthcare.instructions.md, healthcare-langchain-agent.instructions.md)
+- **DEPRECATED**: Pipeline patterns (thin-mcp-pipeline.instructions.md, mcp-stdio-handshake.instructions.md) 
+- **CONSOLIDATED**: All LangChain patterns in agents/langchain-orchestrator.instructions.md
+- **FIXED**: All docker exec patterns replaced with proper container-in-container approach
+
 ## Default Playbook: MyPy Blocking Errors (Use Tasks)
+
+When asked to fix blocking MyPy errors in `services/user/healthcare-api/`, follow this exact sequence. Do not analyze first—act:
 
 When asked to fix blocking MyPy errors in `services/user/healthcare-api/`, follow this exact sequence. Do not analyze first—act:
 

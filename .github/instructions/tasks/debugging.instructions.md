@@ -2,6 +2,65 @@
 
 ## Healthcare-Specific Debugging Patterns
 
+### LangChain Agent Orchestrator Debugging (2025-01-15) **[NEW CRITICAL PATTERN]**
+
+**PROBLEM PATTERN**: LangChain orchestrator bypassing existing healthcare agents, causing missing agent-specific logging and functionality.
+
+**SYMPTOMS TO WATCH FOR**:
+- Medical queries working but no logs in `agent_medical_search.log`
+- LangChain calling MCP tools directly instead of routing through agents
+- Missing agent-specific processing and disclaimers
+- Log pattern: `Calling MCP tool: search-pubmed` without agent initialization logs
+
+**ROOT CAUSE**: LangChain orchestrator configured with direct MCP tools instead of agent adapters.
+
+**DEBUGGING STEPS**:
+1. **Check Agent Logging**:
+   ```bash
+   # Should see agent activity for medical queries
+   tail -f logs/agent_medical_search.log
+   tail -f logs/healthcare_system.log | grep "agent"
+   ```
+
+2. **Verify Agent Discovery**:
+   ```python
+   # In container
+   python3 -c "
+   import sys; sys.path.append('.')
+   from main import discovered_agents
+   print('Available agents:', list(discovered_agents.keys()))
+   print('Medical search agent:', 'medical_search' in discovered_agents)
+   "
+   ```
+
+3. **Check LangChain Tool Registration**:
+   ```python
+   # Verify what tools LangChain is using
+   from core.langchain.orchestrator import orchestrator
+   tools = orchestrator.agent_executor.tools
+   print('LangChain tools:', [tool.name for tool in tools])
+   # Should see agent_* tools, not raw MCP tools
+   ```
+
+**SOLUTION PATTERN - Agent Adapter Implementation**:
+```python
+# Create thin adapters that preserve existing agent functionality
+def create_agent_tool(agent, name):
+    @tool(name=f"{name}_agent")
+    async def agent_wrapper(request: str) -> str:
+        # Route through existing agent - preserves logging
+        parsed_request = json.loads(request) if request.startswith('{') else {"query": request}
+        result = await agent.process_request(parsed_request)
+        return json.dumps(result, default=str)
+    return agent_wrapper
+
+# Replace direct MCP tools with agent adapters
+class HealthcareLangChainOrchestrator:
+    def __init__(self, discovered_agents):
+        self.tools = [create_agent_tool(agent, name) for name, agent in discovered_agents.items()]
+        self.chain = create_orchestration_chain(self.tools)
+```
+
 ### PHI Detection False Positive Debugging (2025-08-15) **[CRITICAL PRIORITY]**
 
 **PROBLEM PATTERN**: PHI detection system incorrectly flagging normal medical queries as containing PHI, causing over-sanitization.

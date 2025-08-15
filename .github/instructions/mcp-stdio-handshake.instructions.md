@@ -1,16 +1,29 @@
-# MCP STDIO Handshake and Troubleshooting
+# ⚠️ DEPRECATED: MCP STDIO Handshake and Troubleshooting
 
-## ⚠️ ARCHITECTURE EVOLUTION NOTICE (2025-08-13)
+## 🚨 DEPRECATED FILE - HISTORICAL REFERENCE ONLY 🚨
 
-**OUTDATED APPROACH**: This pattern documents docker exec MCP communication which has been replaced by single-container architecture.
+**DEPRECATED DATE**: 2025-01-15  
+**REASON**: Docker exec MCP communication replaced by single-container subprocess architecture  
+**REPLACEMENT**: MCP server runs as subprocess within healthcare-api container
 
-**CURRENT ARCHITECTURE**: Healthcare-API container includes MCP server for subprocess spawning communication.
-
-**NEW PATTERN**: MCP server runs as subprocess within healthcare-api container, eliminating docker exec stdio issues.
+**CURRENT ARCHITECTURE**: See `/home/intelluxe/.github/instructions/mcp-development.instructions.md` for current patterns.
 
 ---
 
-## Historical Documentation (docker exec approach)
+## ⚠️ Historical Documentation Below (Do Not Use) ⚠️
+
+**OLD PATTERN**: docker exec + stdio handshake between containers  
+**NEW PATTERN**: subprocess spawning within healthcare-api container  
+
+This file contains obsolete docker exec patterns that caused stdio frame corruption issues. Current implementation uses direct subprocess communication which eliminates these issues entirely.
+
+**ACTIVE PATTERNS**: See:
+- `mcp-development.instructions.md` - Current MCP subprocess patterns
+- `agents/langchain-orchestrator.instructions.md` - LangChain MCP integration
+
+---
+
+## Legacy Content (For Historical Reference Only)
 
 Purpose: Ensure JSON-only STDIO for Model Context Protocol (MCP) servers and provide a repeatable pattern to diagnose and fix handshake timeouts or stream contamination.
 

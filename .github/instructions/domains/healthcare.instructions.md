@@ -4,6 +4,57 @@
 
 ## Healthcare Infrastructure Integration Patterns (Updated 2025-01-15)
 
+### LangChain Agent Orchestrator with Existing Agent Adapters
+
+```python
+# CRITICAL PATTERN: Thin adapter pattern preserves existing agents
+# LangChain acts as orchestrator, not replacement for existing healthcare agents
+
+from langchain.tools import tool
+from typing import Dict, Any
+import json
+
+class HealthcareLangChainOrchestrator:
+    """Orchestrator that coordinates existing healthcare agents through thin adapters."""
+    
+    def __init__(self, discovered_agents: Dict[str, Any]):
+        # Create thin wrappers for each existing agent - NO CODE DUPLICATION
+        self.tools = []
+        for agent_name, agent_instance in discovered_agents.items():
+            self.tools.append(create_agent_tool(agent_instance, agent_name))
+        
+        # LangChain uses these tools to coordinate workflow
+        self.chain = create_orchestration_chain(self.tools)
+
+def create_agent_tool(agent, name):
+    """Create LangChain tool from existing agent - preserves agent logging."""
+    
+    @tool(name=f"{name}_agent")
+    async def agent_wrapper(request: str) -> str:
+        # Parse LangChain's string input to agent's expected format
+        try:
+            parsed_request = json.loads(request)
+        except json.JSONDecodeError:
+            parsed_request = {"query": request}  # Simple fallback
+        
+        # Call EXISTING agent's EXISTING method - preserves agent-specific logging
+        result = await agent.process_request(parsed_request)
+        
+        # Return in format LangChain expects
+        return json.dumps(result, default=str)
+    
+    return agent_wrapper
+
+# Agent routing pattern - DON'T bypass existing agents
+async def route_medical_query(query: str, orchestrator: HealthcareLangChainOrchestrator):
+    """Route medical queries through proper agents, not direct MCP tools."""
+    # LangChain decides which agents to use
+    # Medical queries go to medical_search_agent (logs to agent_medical_search.log)
+    # Intake queries go to intake_agent
+    # Complex queries can use multiple agents
+    return await orchestrator.process(query)
+```
+
 ### MCP Integration with Container Architecture
 
 ```python

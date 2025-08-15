@@ -1,38 +1,99 @@
-# MCP Development Instructions
+# MCP Development Instructions (Updated 2025-01-15)
 
-## ✅ BREAKTHROUGH: MCP Integration Working (2025-01-15)
+## CRITICAL: MCP Server Architecture - STOP MAKING MISTAKES
 
-**PROVEN WORKING ARCHITECTURE**: HTTP Client → FastAPI Server (main.py) → Agents → MCP Client (healthcare_mcp_client.py) → MCP Server
-
-**CRITICAL ARCHITECTURE SEPARATION**: 
-- **main.py**: Pure FastAPI HTTP server with agent routing (NO stdio code)
-- **healthcare_mcp_client.py**: All MCP stdio communication and tool access
-
-## ✅ SINGLE-CONTAINER MCP ARCHITECTURE (2025-08-13)
-
-**PROVEN SOLUTION**: MCP server and healthcare-api combined in single container with subprocess spawning.
-
-**CORE PROBLEM SOLVED**: stdio communication between separate containers fails because MCP Python client expects subprocess spawning, not remote container communication.
+**THE MCP SERVER IS NOT A SEPARATE CONTAINER**
+- MCP server is built INSIDE the healthcare-api container at `/app/mcp-server/build/stdio_entry.js`
+- Healthcare-api communicates with MCP via STDIO JSON-RPC protocol
+- Open WebUI → HTTP → healthcare-api → STDIO → MCP server (all within same container)
+- NO separate MCP container, NO HTTP to MCP, NO network calls to MCP
 
 **ARCHITECTURE PATTERN**:
 ```
-Open WebUI → Pipeline (HTTP) → Healthcare-API Container (contains both API + MCP server)
+Open WebUI (external)
+    ↓ HTTP (port 8000)
+healthcare-api container
+    ├── Python FastAPI server (main.py)
+    ├── DirectMCPClient (STDIO communication)
+    └── MCP server (/app/mcp-server/build/stdio_entry.js)
 ```
 
-### Single-Container Implementation Pattern
+## Database Integration Fixes (2025-01-15)
 
-**Container Structure (.conf Based)**:
-```bash
-# healthcare-api.conf - Combined container with MCP server
-image=intelluxe/healthcare-api:latest
-# Container includes both Python API and Node.js MCP server
-env=NODE_JS_INSTALLED=true,MCP_SERVER_PATH=/app/mcp-server/build/index.js
-volumes=/home/intelluxe/logs:/app/logs,healthcare-api-data:/app/data
+**PROBLEM**: Database searches failing with `'str' object has no attribute 'isoformat'` error.
+
+**ROOT CAUSE**: Date fields from PostgreSQL can be either datetime objects or strings, but code assumed datetime objects.
+
+**SOLUTION PATTERN**:
+```python
+# File: core/database/medical_db.py
+# Handle mixed date types from database
+def safe_date_format(date_obj):
+    """Handle both datetime objects and strings from database."""
+    if date_obj:
+        if hasattr(date_obj, 'isoformat'):
+            return date_obj.isoformat()
+        else:
+            return str(date_obj)
+    return ""
+
+# Apply in database queries
+for row in rows:
+    article = {
+        "pmid": row[0],
+        "title": row[1] or "",
+        "pub_date": safe_date_format(row[5]),  # Safe date handling
+        # ... other fields
+    }
 ```
+
+**FILES AFFECTED**:
+- `services/user/healthcare-api/core/database/medical_db.py` (lines 65-85, 130-155)
+
+## ToolRegistry Initialization Fixes (2025-01-15)
+
+**PROBLEM**: ToolRegistry initialization deferred, causing "Database not available" errors.
+
+**ROOT CAUSE**: Async initialization happening in background, not completing before tools were needed.
+
+**SOLUTION PATTERN**:
+```python
+# File: core/langchain/healthcare_tools.py
+from core.async_utils import safe_async_call
+
+async def initialize_tool_registry(client):
+    """Force ToolRegistry initialization instead of deferring."""
+    logger.info("🔄 Initializing ToolRegistry with MCP client...")
+    
+    # CRITICAL: Force initialization, don't defer
+    await safe_async_call(tool_registry.initialize, client)
+    
+    if not tool_registry._initialized:
+        raise RuntimeError("ToolRegistry failed to initialize")
+    
+    logger.info("✅ ToolRegistry initialized successfully")
+    return tool_registry
+```
+
+**FILES AFFECTED**:
+- `services/user/healthcare-api/core/langchain/healthcare_tools.py` (line ~45)
+
+## Testing MCP Integration - ENVIRONMENT AWARENESS REQUIRED
+
+**From HOST environment**:
+- MCP server binary does NOT exist on host filesystem
+- Always mark MCP tests as `pytest.xfail()` when MCP server path not found
+- Test imports and tool creation logic, not actual MCP calls
+- NEVER assume MCP calls will work from host
+
+**Inside healthcare-api container**:
+- MCP server binary exists at `/app/mcp-server/build/stdio_entry.js`
+- Full MCP integration testing possible
+- MCP communication uses STDIO subprocess, not docker exec
 
 **MCP Client Subprocess Pattern**:
 ```python
-# ✅ CORRECT: Subprocess spawning instead of docker exec
+# ✅ CORRECT: Subprocess spawning for MCP communication
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
@@ -684,12 +745,12 @@ class MilitaryGradeMCPAuditing {
 **COMMON INTEGRATION ISSUES**:
 
 1. **Node.js Not Found**: MCP server subprocess fails to start
-   - Solution: Ensure Node.js is installed in healthcare-api container
-   - Check: `docker exec healthcare-api node --version`
+   - Solution: Ensure Node.js is installed in healthcare-api container during build
+   - Debug: Node.js availability is tested during container startup
    
 2. **MCP Server Path Missing**: subprocess cannot find /app/mcp-server/build/index.js
    - Solution: Verify MCP server build completed successfully in Dockerfile
-   - Check: `docker exec healthcare-api ls -la /app/mcp-server/build/`
+   - Debug: Path detection is handled by DirectMCPClient environment detection
    
 3. **Subprocess Communication Failures**: stdio streams not properly connected
    - Solution: Use StdioServerParameters with proper environment variables
