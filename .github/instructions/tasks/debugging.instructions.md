@@ -2,6 +2,117 @@
 
 ## Healthcare-Specific Debugging Patterns
 
+### PHI Detection False Positive Debugging (2025-08-15) **[CRITICAL PRIORITY]**
+
+**PROBLEM PATTERN**: PHI detection system incorrectly flagging normal medical queries as containing PHI, causing over-sanitization.
+
+**SYMPTOMS TO WATCH FOR**:
+- Normal medical terms being masked with asterisks (`*****`)
+- Log entries: `🛡️ PHI detected in request message 0, types: ['name']`
+- Medical queries about conditions being treated as containing names
+- User interface showing masked responses for legitimate medical content
+
+**ROOT CAUSE**: Presidio PHI detection patterns too broad, medical terminology triggering name/person entity detection.
+
+**DEBUGGING STEPS**:
+1. **Check PHI Detection Logs**:
+   ```bash
+   tail -f logs/healthcare_system.log | grep "PHI detected"
+   tail -f logs/phi_monitoring.log
+   ```
+
+2. **Test PHI Detection in Isolation**:
+   ```python
+   from core.phi_sanitizer import PHISanitizer
+   sanitizer = PHISanitizer()
+   result = sanitizer.detect_phi("cardiovascular health")
+   print(f"PHI detected: {result.has_phi}")
+   print(f"Entity types: {[e.entity_type for e in result.entities]}")
+   ```
+
+3. **Examine PHI Configuration**:
+   ```bash
+   cat config/phi_detection_config.yaml
+   # Check for overly broad name patterns
+   ```
+
+4. **Test with Medical vs Personal Content**:
+   ```python
+   # Should NOT be flagged as PHI
+   medical_queries = ["diabetes symptoms", "cardiovascular health", "cancer treatment"]
+   
+   # SHOULD be flagged as PHI  
+   phi_content = ["Patient John Smith", "DOB: 01/01/1980", "SSN: 123-45-6789"]
+   ```
+
+**SOLUTION PATTERN**:
+```yaml
+# ❌ PROBLEMATIC: Too broad name detection
+entities:
+  - name: PERSON
+    patterns:
+      - "[A-Z][a-z]+ [A-Z][a-z]+"  # Catches "cardiovascular health"
+
+# ✅ CORRECT: More specific patterns with medical exclusions  
+entities:
+  - name: PERSON
+    patterns:
+      - "(?<!medical |disease |condition |health )[A-Z][a-z]+ [A-Z][a-z]+"
+    exclusions:
+      - medical_terms.txt
+```
+
+**FILES TO CHECK**:
+- `core/phi_sanitizer.py` - PHI detection logic  
+- `src/healthcare_mcp/phi_detection.py` - Presidio configuration
+- `main.py` lines 749, 802 - Request/response sanitization
+- `config/phi_detection_config.yaml` - PHI detection patterns
+
+### Enhanced Medical Query Engine Integration Debugging (2025-08-15)
+
+**PROBLEM PATTERN**: Enhanced Medical Query Engine integration causing type errors or interface mismatches.
+
+**SYMPTOMS TO WATCH FOR**:
+- Import errors for `EnhancedMedicalQueryEngine` or `QueryType`
+- Type mismatches between `MedicalQueryResult` and `MedicalSearchResult`
+- Agent initialization failures with enhanced engine
+- Intent classification not mapping to QueryType correctly
+
+**DEBUGGING STEPS**:
+1. **Test Enhanced Engine Integration**:
+   ```bash
+   cd /home/intelluxe && python3 tests/test_enhanced_medical_query_engine_integration.py
+   ```
+
+2. **Check Import Paths**:
+   ```python
+   from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType
+   from agents.medical_search_agent.medical_search_agent import MedicalLiteratureSearchAssistant
+   ```
+
+3. **Verify Agent Enhanced Engine Initialization**:
+   ```python
+   agent = MedicalLiteratureSearchAssistant(mcp_client, llm_client)
+   print(f"Enhanced engine: {hasattr(agent, '_enhanced_query_engine')}")
+   print(f"Type: {type(agent._enhanced_query_engine) if hasattr(agent, '_enhanced_query_engine') else 'Missing'}")
+   ```
+
+**SOLUTION PATTERN**:
+```python
+# ✅ CORRECT: Enhanced engine initialization in agent constructor
+def __init__(self, mcp_client: object, llm_client: object) -> None:
+    super().__init__(mcp_client, llm_client, agent_name="medical_search", agent_type="literature_search")
+    
+    # Initialize Enhanced Medical Query Engine for Phase 2 capabilities
+    self._enhanced_query_engine = EnhancedMedicalQueryEngine(mcp_client, llm_client)
+    logger.info("Enhanced Medical Query Engine initialized for sophisticated medical search")
+```
+
+**FILES TO CHECK**:
+- `agents/medical_search_agent/medical_search_agent.py` - Agent integration
+- `core/medical/enhanced_query_engine.py` - Enhanced engine implementation
+- `tests/test_enhanced_medical_query_engine_integration.py` - Integration validation
+
 ### Ollama LangChain Connection Debugging (2025-08-15)
 
 **PROBLEM PATTERN**: LangChain agents failing with "All connection attempts failed" when connecting to Ollama.

@@ -26,6 +26,44 @@
             ]
         },
         {
+            "label": "Auto-Format All Code",
+            "group": "build",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔧 Auto-formatting all code...' && echo 'Running Ruff format on Python files...' && ruff format . && echo 'Running Ruff fix on Python files...' && ruff check --fix . && echo 'Running Prettier on JS/TS/JSON files...' && npx prettier --write '**/*.{js,ts,json,md}' --ignore-path .gitignore && echo '✅ All code formatted'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Fast Format (Ruff Only)",
+            "group": "build",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '⚡ Fast formatting with Ruff...' && ruff format . && ruff check --fix . && echo '✅ Python formatting complete'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": false,
+                "reveal": "silent",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "MyPy (Healthcare API only)",
             "group": "build",
             "type": "shell",
@@ -46,26 +84,7 @@
             "problemMatcher": "$python"
         },
         {
-            "label": "Quick Lint Check",
-            "group": "build",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "echo '🔍 Running quick lint check...' && flake8 --select=E9,F63,F7,F82 --show-source --statistics src/ && echo '✅ Quick lint passed'"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "presentation": {
-                "echo": false,
-                "reveal": "silent",
-                "focus": false,
-                "panel": "shared"
-            }
-        },
-        {
-            "label": "MyPy Type Check",
+            "label": "MyPy Type Check (Full)",
             "group": "build",
             "type": "shell",
             "command": "mypy",
@@ -83,13 +102,52 @@
             "problemMatcher": "$python"
         },
         {
-            "label": "Auto-fix Linting Issues",
+            "label": "Quick Type Check",
             "group": "build",
             "type": "shell",
             "command": "bash",
             "args": [
                 "-c",
-                "echo '🔧 Auto-fixing linting issues...' && black src/ tests/ && isort src/ tests/ && echo '✅ Auto-fix complete'"
+                "echo '🔍 Running quick type check (Healthcare API only)...' && mypy --config-file mypy.ini services/user/healthcare-api"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": false,
+                "reveal": "silent",
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Quick Lint Check",
+            "group": "build",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Running quick lint check...' && ruff check services/user/healthcare-api --select=E9,F63,F7,F82 && echo '✅ Quick lint passed'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": false,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Fix All Issues (Format + Lint + Type)",
+            "group": "build",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔧 Comprehensive fix: formatting, linting, and type checking...' && echo '1. Formatting code...' && ruff format . && ruff check --fix . && echo '2. Running type check...' && mypy --config-file mypy.ini services/user/healthcare-api && echo '3. Final lint check...' && ruff check services/user/healthcare-api && echo '✅ All issues fixed'"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -97,8 +155,49 @@
             "presentation": {
                 "echo": true,
                 "reveal": "always",
-                "panel": "shared"
-            }
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Auto-Setup Dependencies",
+            "group": "build",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "deps"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Healthcare Stack Validation",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '� Comprehensive Healthcare Stack Validation...' && echo '1. Testing Ollama...' && curl -sf http://172.20.0.10:11434/api/version >/dev/null && echo '✅ Ollama OK' || echo '❌ Ollama FAILED' && echo '2. Testing Healthcare API...' && curl -sf http://localhost:8000/health >/dev/null && echo '✅ API OK' || echo '❌ API FAILED' && echo '3. Testing MCP Tools...' && cd services/user/healthcare-api && python3 -c \"import asyncio; from core.mcp.direct_mcp_client import DirectMCPClient; asyncio.run(DirectMCPClient().health_check())\" && echo '✅ MCP OK' && echo '4. Testing Infrastructure Integration...' && python3 -c \"from core.tools import tool_registry; from src.healthcare_mcp.phi_detection import sanitize_for_compliance; from agents import BaseHealthcareAgent; print('✅ All infrastructure components available')\" && echo '🎉 Healthcare stack validation complete'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": "$python"
         },
         {
             "label": "Test LangChain Agent Fix",
@@ -531,6 +630,241 @@
             },
             "presentation": {
                 "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test Infrastructure Integration",
+            "group": "test",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "tests/test_infrastructure_integration.py"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test E2E Infrastructure Integration",
+            "group": "test",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "tests/test_e2e_infrastructure_integration.py"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test Enhanced Medical Query Engine Integration",
+            "group": "test",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "tests/test_enhanced_medical_query_engine_integration.py"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": "$python",
+            "dependsOrder": "sequence"
+        },
+        {
+            "label": "Run All Tests",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🧪 Running all healthcare tests...' && python3 -m pytest tests/ -v --tb=short"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Quick Development Cycle",
+            "group": "build",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '⚡ Quick development cycle: format → type check → test...' && echo '1. Formatting...' && ruff format services/user/healthcare-api && ruff check --fix services/user/healthcare-api && echo '2. Type checking...' && mypy --config-file mypy.ini services/user/healthcare-api && echo '3. Quick tests...' && python3 tests/test_infrastructure_integration.py && echo '✅ Development cycle complete'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Debug Healthcare Components",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Debugging Healthcare Components...' && cd services/user/healthcare-api && echo '1. Testing BaseHealthcareAgent...' && python3 -c \"from agents import BaseHealthcareAgent; agent = BaseHealthcareAgent(agent_name='debug_agent'); print('✅ BaseHealthcareAgent:', type(agent))\" && echo '2. Testing LangChain Integration...' && python3 -c \"from core.langchain.agents import HealthcareLangChainAgent; from core.mcp.direct_mcp_client import DirectMCPClient; agent = HealthcareLangChainAgent(DirectMCPClient()); print('✅ LangChain Integration:', type(agent))\" && echo '3. Testing ToolRegistry...' && python3 -c \"from core.tools import tool_registry; import asyncio; asyncio.run(tool_registry.health_check()); print('✅ ToolRegistry functional')\" && echo '4. Testing PHI Detection...' && python3 -c \"from src.healthcare_mcp.phi_detection import sanitize_for_compliance; print('✅ PHI Detection available')\" && echo '🎉 All components functional'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Auto Fix MyPy Errors",
+            "group": "build",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔧 Auto-fixing MyPy errors...' && echo 'Step 1: Format code first...' && ruff format services/user/healthcare-api && ruff check --fix services/user/healthcare-api && echo 'Step 2: Run MyPy and show remaining errors...' && mypy --config-file mypy.ini services/user/healthcare-api || echo 'MyPy errors found - manual intervention may be needed' && echo 'Step 3: Re-run after potential fixes...' && mypy --config-file mypy.ini services/user/healthcare-api && echo '✅ MyPy validation complete'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Validate All Healthcare Integration",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🏥 Healthcare Integration Validation Pipeline...' && echo '1. Code Quality Check...' && ruff format services/user/healthcare-api && ruff check services/user/healthcare-api && echo '2. Type Safety Check...' && mypy --config-file mypy.ini services/user/healthcare-api && echo '3. Infrastructure Test...' && python3 tests/test_infrastructure_integration.py && echo '4. End-to-End Test...' && python3 tests/test_e2e_infrastructure_integration.py && echo '5. Component Health Check...' && cd services/user/healthcare-api && python3 -c \"from core.tools import tool_registry; from agents import BaseHealthcareAgent; from core.langchain.agents import HealthcareLangChainAgent; from core.mcp.direct_mcp_client import DirectMCPClient; print('✅ All imports successful')\" && echo '🎉 Healthcare integration fully validated'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true,
+                "clear": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Quick Safety Check",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🛡️ Quick Safety Check...' && echo 'Checking for potential issues before committing...' && echo '1. Format check...' && ruff format --check services/user/healthcare-api && echo '2. Lint check...' && ruff check services/user/healthcare-api && echo '3. Import test...' && cd services/user/healthcare-api && python3 -c \"import sys; sys.path.append('.'); from core.langchain.agents import HealthcareLangChainAgent; print('✅ Key imports working')\" && echo '✅ Safety check passed - safe to proceed'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": false,
+                "reveal": "silent",
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Debug PHI Detection False Positives",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🛡️ Debugging PHI Detection False Positives...' && cd services/user/healthcare-api && echo '1. Testing medical queries that should NOT be flagged...' && python3 -c \"from src.healthcare_mcp.phi_detection import sanitize_for_compliance; test_queries = ['cardiovascular health', 'diabetes symptoms', 'cancer treatment', 'hypertension management']; print('Testing medical queries:'); [print(f'Query: {q} -> PHI detected: {sanitize_for_compliance({\\\"content\\\": q})}') for q in test_queries]\" && echo '2. Testing personal data that SHOULD be flagged...' && python3 -c \"from src.healthcare_mcp.phi_detection import sanitize_for_compliance; phi_data = ['Patient John Smith', 'DOB: 01/01/1980', 'SSN: 123-45-6789']; print('Testing PHI data:'); [print(f'Data: {d} -> PHI detected: {sanitize_for_compliance({\\\"content\\\": d})}') for d in phi_data]\" && echo '3. Checking recent PHI detection logs...' && tail -20 ../../logs/healthcare_system.log | grep -i 'phi' && echo '✅ PHI detection analysis complete'"
+            ],
+            "group": "test",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Fix PHI Detection Configuration",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔧 Fixing PHI Detection Configuration...' && echo 'Step 1: Backing up current PHI configuration...' && cp src/healthcare_mcp/phi_detection.py src/healthcare_mcp/phi_detection.py.backup.$(date +%Y%m%d_%H%M%S) && echo 'Step 2: Analyzing current Presidio patterns...' && cd services/user/healthcare-api && python3 -c \"from presidio_analyzer import AnalyzerEngine; analyzer = AnalyzerEngine(); entities = analyzer.get_supported_entities(); print('Supported entities:', entities); from presidio_analyzer.predefined_recognizers import SpacyRecognizer; spacy_rec = SpacyRecognizer(); print('Spacy entities:', spacy_rec.supported_entities)\" && echo 'Step 3: Testing refined PHI patterns...' && echo 'Manual intervention required - check .github/instructions/tasks/debugging.instructions.md for solution patterns' && echo '✅ PHI configuration analysis complete'"
+            ],
+            "group": "build",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Validate PHI Detection Fix",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '✅ Validating PHI Detection Fix...' && echo '1. Testing medical terminology (should pass)...' && cd services/user/healthcare-api && python3 -c \"from src.healthcare_mcp.phi_detection import sanitize_for_compliance; medical_terms = ['cardiovascular health', 'diabetes management', 'oncology treatment', 'neurological symptoms', 'respiratory therapy']; all_passed = True; print('Medical terminology test:'); [print(f'✅ {term}: {\\\"PASS\\\" if not sanitize_for_compliance({\\\"content\\\": term}).get(\\\"sanitized\\\", False) else \\\"FAIL - INCORRECTLY FLAGGED\\\"}') or setattr(locals(), 'all_passed', False) for term in medical_terms if sanitize_for_compliance({\\\"content\\\": term}).get(\\\"sanitized\\\", False)]; print(f'Overall medical terms test: {\\\"✅ PASS\\\" if locals().get(\\\"all_passed\\\", True) else \\\"❌ FAIL\\\"}')\" && echo '2. Testing actual PHI (should be blocked)...' && python3 -c \"from src.healthcare_mcp.phi_detection import sanitize_for_compliance; phi_examples = ['Patient John Doe', 'SSN: 123-45-6789', 'DOB: 01/01/1980', 'Phone: 555-123-4567']; phi_blocked = True; print('PHI blocking test:'); [print(f'🛡️ {phi}: {\\\"PASS\\\" if sanitize_for_compliance({\\\"content\\\": phi}).get(\\\"sanitized\\\", False) else \\\"FAIL - NOT BLOCKED\\\"}') or setattr(locals(), 'phi_blocked', False) for phi in phi_examples if not sanitize_for_compliance({\\\"content\\\": phi}).get(\\\"sanitized\\\", False)]; print(f'Overall PHI blocking test: {\\\"✅ PASS\\\" if locals().get(\\\"phi_blocked\\\", True) else \\\"❌ FAIL\\\"}')\" && echo '3. Testing system integration...' && curl -s -X POST http://localhost:8000/v1/chat/completions -H 'Content-Type: application/json' -d '{\\\"model\\\":\\\"healthcare\\\",\\\"messages\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"What are the symptoms of cardiovascular disease?\\\"}]}' | head -100 && echo '✅ PHI detection validation complete'"
+            ],
+            "group": "test",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
                 "panel": "shared"
             },
             "problemMatcher": "$python"

@@ -4,7 +4,7 @@ mode: agent
 
 # Session Initialization from last session
 
-I'm continuing development on a healthcare AI multi-agent system. Please review the document attached then help me continue the work.
+I'm continuing development on a healthcare AI multi-agent system. Please review the document attached then help me continue the work. Please use todo lists to keep track of your work and sequential thinking mcp to think more deeply about the problem space.
 
 ## Critical Context to Absorb:
 1. **Read the attached document carefully** - especially the "DON'T BREAK THESE" and "CRITICAL WARNINGS" sections
