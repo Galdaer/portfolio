@@ -2,40 +2,109 @@
 
 **WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
 
-## Healthcare Infrastructure Integration Patterns
+## Healthcare Infrastructure Integration Patterns (Updated 2025-01-15)
+
+### MCP Integration with Container Architecture
 
 ```python
 # BaseHealthcareAgent inheritance for LangChain agents
 from agents import BaseHealthcareAgent
+from core.mcp.direct_mcp_client import DirectMCPClient
 
 class HealthcareLangChainAgent(BaseHealthcareAgent):
-    def __init__(self, mcp_client, **kwargs):
+    def __init__(self, mcp_client: DirectMCPClient, **kwargs):
         super().__init__(mcp_client=mcp_client, agent_name="langchain_medical")
+        
+        # CRITICAL: Configure for medical query complexity
+        self.max_iterations = 10  # Increased for medical searches
+        self.timeout = 120  # 2 minutes for comprehensive medical queries
+        
         # Inherits healthcare logging, PHI monitoring, database connectivity
 
-# ToolRegistry integration pattern
-from core.tools import tool_registry
-
+# Container-aware MCP tool calling
 async def call_healthcare_tool(tool_name: str, parameters: dict) -> dict:
-    """Replace direct MCP calls with ToolRegistry for health checking and performance tracking"""
+    """Healthcare tool calling with container architecture awareness."""
+    from core.tools import tool_registry
+    
     try:
+        # Use ToolRegistry with MCP container integration
+        await tool_registry.initialize()
         result = await tool_registry.call_tool(tool_name, parameters)
         return result
+    except FileNotFoundError as e:
+        if "MCP server not found" in str(e):
+            # Expected in host environment without MCP server
+            logger.warning(f"MCP unavailable in host environment: {tool_name}")
+            return {"error": "Medical database temporarily unavailable"}
+        raise
     except Exception as e:
         logger.error(f"ToolRegistry call failed for {tool_name}: {e}")
-        # Graceful fallback to direct MCP if needed
-        return await direct_mcp_fallback(tool_name, parameters)
+        return {"error": f"Tool execution failed: {type(e).__name__}"}
 
-# PHI Detection integration pattern
+# PHI Detection integration with medical content awareness
 from src.healthcare_mcp.phi_detection import sanitize_for_compliance
 
 def sanitize_medical_request(request_data: dict) -> dict:
-    """Automatic HIPAA compliance for all medical queries"""
+    """HIPAA-compliant sanitization that preserves medical terminology."""
     return sanitize_for_compliance(request_data)
 
 def sanitize_medical_response(response_data: dict) -> dict:
-    """Automatic PHI sanitization for all responses"""
+    """PHI sanitization for responses while preserving medical education content."""
     return sanitize_for_compliance(response_data)
+```
+
+### Open WebUI Medical Query Routing
+
+```python
+class MedicalQueryRouter:
+    """Routes medical queries to appropriate healthcare agents."""
+    
+    def __init__(self, healthcare_agent):
+        self.healthcare_agent = healthcare_agent
+        self.medical_indicators = [
+            "symptoms", "treatment", "medication", "diagnosis", 
+            "disease", "condition", "therapy", "clinical",
+            "pubmed", "research", "studies", "trials"
+        ]
+    
+    async def route_query(self, query: str, user_context: dict = None) -> dict:
+        """Route query to medical agent if medical content detected."""
+        
+        if self._is_medical_query(query):
+            # Route to healthcare agent with proper configuration
+            try:
+                result = await self.healthcare_agent.process(query)
+                
+                # Add medical disclaimers
+                if result.get("success"):
+                    result["medical_disclaimer"] = self._get_medical_disclaimer()
+                    result["agent_type"] = "medical_search"
+                
+                return result
+                
+            except Exception as e:
+                if "iteration limit" in str(e):
+                    return {
+                        "error": "Medical query too complex",
+                        "suggestion": "Please break down your question into smaller parts",
+                        "medical_disclaimer": self._get_medical_disclaimer()
+                    }
+                raise
+        else:
+            # Route to general agent
+            return await self._process_general_query(query)
+    
+    def _is_medical_query(self, query: str) -> bool:
+        """Detect if query requires medical agent processing."""
+        query_lower = query.lower()
+        return any(indicator in query_lower for indicator in self.medical_indicators)
+    
+    def _get_medical_disclaimer(self) -> str:
+        """Standard medical disclaimer for all responses."""
+        return (
+            "This information is for educational purposes only. "
+            "Always consult with qualified healthcare professionals for medical advice."
+        )
 ```
 
 ## Medical Safety Patterns

@@ -2,6 +2,121 @@
 
 **WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
 
+## Container-Aware Testing (2025-01-15) **[NEW PATTERN]**
+
+### MCP Container Architecture Testing
+
+**CRITICAL**: Tests must work in both container and host environments without requiring MCP server running on host.
+
+```python
+import pytest
+from pathlib import Path
+from unittest.mock import patch, MagicMock
+from core.mcp.direct_mcp_client import DirectMCPClient
+
+@pytest.mark.asyncio
+async def test_mcp_container_architecture_awareness():
+    """Test MCP client adapts to container vs host environment."""
+    client = DirectMCPClient()
+    
+    # Test environment detection
+    detected_path = client._detect_mcp_server_path()
+    
+    if detected_path:
+        # Container/development environment with MCP server
+        assert Path(detected_path).exists()
+        tools = await client.get_available_tools()
+        assert len(tools) > 0
+    else:
+        # Host environment without MCP server - test graceful degradation
+        with pytest.raises(FileNotFoundError, match="MCP server not found"):
+            await client.call_tool("search-pubmed", {"query": "test"})
+
+@pytest.mark.asyncio  
+async def test_mcp_graceful_degradation():
+    """Test MCP client graceful degradation when server unavailable."""
+    with patch('pathlib.Path.exists', return_value=False):
+        client = DirectMCPClient()
+        
+        # Should fail with clear error message
+        with pytest.raises(FileNotFoundError) as exc_info:
+            await client.call_tool("test-tool", {})
+        
+        error_msg = str(exc_info.value)
+        assert "MCP server not found" in error_msg
+        assert "make setup" in error_msg or "expected paths" in error_msg
+
+# Container environment mocking for host testing
+@pytest.fixture
+def mock_container_environment():
+    """Mock container environment for testing."""
+    with patch('core.mcp.direct_mcp_client.DirectMCPClient._is_container_environment', return_value=True):
+        with patch('pathlib.Path.exists') as mock_exists:
+            # Mock container MCP server exists
+            mock_exists.side_effect = lambda path: "/app/mcp-server" in str(path)
+            yield
+
+@pytest.mark.asyncio
+async def test_container_mcp_integration(mock_container_environment):
+    """Test MCP integration in mocked container environment."""
+    client = DirectMCPClient()
+    
+    # Mock subprocess for MCP server interaction
+    with patch('asyncio.create_subprocess_exec') as mock_subprocess:
+        mock_process = MagicMock()
+        mock_process.stdin.write = MagicMock()
+        mock_process.stdout.readline = MagicMock(return_value=b'{"result": "test"}\n')
+        mock_subprocess.return_value = mock_process
+        
+        # Should not raise FileNotFoundError in container environment
+        # (Implementation details would be mocked)
+        detected_path = client._detect_mcp_server_path()
+        assert detected_path and "/app/mcp-server" in detected_path
+```
+
+### Architecture-Aware Integration Testing
+
+```python
+@pytest.mark.integration
+class TestHealthcareInfrastructureIntegration:
+    """Integration tests that adapt to environment architecture."""
+    
+    async def test_full_stack_integration(self):
+        """Test full healthcare stack with architecture awareness."""
+        from core.tools import tool_registry
+        from agents import BaseHealthcareAgent
+        from src.healthcare_mcp.phi_detection import sanitize_for_compliance
+        
+        # 1. Test infrastructure components exist
+        assert tool_registry is not None
+        assert BaseHealthcareAgent is not None
+        assert sanitize_for_compliance is not None
+        
+        # 2. Test MCP integration with environment awareness
+        try:
+            await tool_registry.initialize()
+            result = await tool_registry.call_tool('search-pubmed', {'query': 'test'})
+            assert result is not None
+            integration_working = True
+        except FileNotFoundError:
+            # Expected in host environment without MCP server
+            integration_working = False
+        
+        # 3. Test PHI detection works regardless of MCP
+        phi_result = sanitize_for_compliance({'content': 'test medical query'})
+        assert 'sanitized' in phi_result
+        
+        # 4. Test agent framework works regardless of MCP
+        agent = BaseHealthcareAgent(agent_name='test_agent')
+        assert agent.agent_name == 'test_agent'
+        
+        return {
+            'mcp_integration': integration_working,
+            'phi_detection': True,
+            'agent_framework': True
+        }
+```
+
 ## Synthetic Data Testing
 
 ```python

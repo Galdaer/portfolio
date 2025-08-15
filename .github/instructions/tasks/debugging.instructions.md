@@ -256,6 +256,148 @@ class MCPSessionPool:
 - `services/user/healthcare-mcp/src/server/HealthcareServer.ts` (MCP server config)
 - Any Docker compose files or environment configuration
 
+### MCP Container Architecture Debugging (2025-01-15) **[CRITICAL UPDATE]**
+
+**PROBLEM PATTERN**: MCP "broken pipe" errors resolved through container architecture understanding.
+
+**KEY ARCHITECTURAL INSIGHT**: MCP server runs INSIDE healthcare-api container, not as separate service.
+
+**CONTAINER ARCHITECTURE**:
+```
+Healthcare API Container:
+├── Python Healthcare API (FastAPI)
+├── DirectMCP Client (Python)
+└── MCP Server (/app/mcp-server/build/stdio_entry.js) ← RUNS HERE
+```
+
+**RESOLVED ISSUE PATTERN**:
+```python
+# ❌ OLD BROKEN PATTERN: Expecting MCP on host
+mcp_server_path = "/home/intelluxe/mcp-server/build/index.js"  # Host path (broken)
+
+# ✅ WORKING PATTERN: Container-aware path detection
+def _detect_mcp_server_path(self) -> Optional[str]:
+    """Detect MCP server path for container vs host environment."""
+    container_paths = [
+        "/app/mcp-server/build/stdio_entry.js",  # Container path
+        "/app/build/index.js"  # Alternative container path
+    ]
+    host_paths = [
+        "/home/intelluxe/services/user/healthcare-mcp/build/index.js",
+        "/home/intelluxe/mcp-server/build/index.js"
+    ]
+    
+    # Try container paths first (production environment)
+    for path in container_paths + host_paths:
+        if Path(path).exists():
+            return path
+    return None
+```
+
+**DEBUGGING STEPS FOR MCP ISSUES**:
+1. **Verify MCP server location**:
+   ```bash
+   # In container environment
+   ls -la /app/mcp-server/build/
+   # In host environment  
+   ls -la /home/intelluxe/services/user/healthcare-mcp/build/
+   ```
+
+2. **Test container vs host detection**:
+   ```python
+   from core.mcp.direct_mcp_client import DirectMCPClient
+   client = DirectMCPClient()
+   print(f"Detected MCP path: {client._detect_mcp_server_path()}")
+   ```
+
+3. **Check environment-aware error messages**:
+   ```python
+   # ✅ Clear error messages (not broken pipes)
+   if not mcp_server_path:
+       if self._is_container_environment():
+           raise FileNotFoundError("MCP server not found in container at expected paths")
+       else:
+           raise FileNotFoundError("MCP server not found on host - run 'make setup'")
+   ```
+
+**CONTAINER-AWARE TESTING PATTERN**:
+```python
+# ✅ Tests that work in both environments
+@pytest.mark.asyncio
+async def test_mcp_container_architecture():
+    """Test MCP client with container architecture awareness."""
+    client = DirectMCPClient()
+    
+    # Test graceful degradation on host (no MCP server)
+    if not client._detect_mcp_server_path():
+        # Host environment - should fail gracefully
+        with pytest.raises(FileNotFoundError, match="MCP server not found"):
+            await client.call_tool("search-pubmed", {"query": "test"})
+    else:
+        # Container environment - should work
+        tools = await client.get_available_tools()
+        assert len(tools) > 0
+```
+
+**FILES AFFECTED**:
+- `core/mcp/direct_mcp_client.py` - Container path detection
+- `tests/test_container_architecture_integration.py` - Architecture-aware tests
+
+### Open WebUI Agent Iteration Debugging (2025-01-15) **[NEW ISSUE]**
+
+**PROBLEM PATTERN**: Medical queries through Open WebUI fail with "Agent stopped due to iteration limit or time limit".
+
+**SYMPTOMS TO WATCH FOR**:
+- MCP tools work correctly (successful search-pubmed calls)
+- PHI detection working (sanitizing requests)
+- Agent initialization successful
+- Agent processing hits timeout/iteration limits
+- Logs show: `[Medical Search Agent] Agent stopped due to iteration limit or time limit`
+
+**ROOT CAUSE**: LangChain agent configuration has overly restrictive iteration/timeout limits for medical queries.
+
+**DEBUGGING STEPS**:
+1. **Verify MCP layer works**:
+   ```python
+   # This should work (MCP infrastructure)
+   client = DirectMCPClient()
+   result = await client.call_tool('search-pubmed', {'query': 'diabetes'})
+   print(f"MCP working: {result}")
+   ```
+
+2. **Check agent timeout configuration**:
+   ```python
+   # Look for iteration/timeout settings
+   grep -r "max_iterations" services/user/healthcare-api/
+   grep -r "timeout" services/user/healthcare-api/core/langchain/
+   ```
+
+3. **Test agent directly (bypass Open WebUI)**:
+   ```bash
+   curl -X POST http://localhost:8000/v1/chat/completions \
+     -H "Content-Type: application/json" \
+     -d '{"model":"healthcare","messages":[{"role":"user","content":"What are diabetes symptoms?"}]}'
+   ```
+
+**SOLUTION AREAS TO INVESTIGATE**:
+- LangChain agent `max_iterations` settings
+- Agent timeout configurations
+- Open WebUI integration timeout handling
+- Medical query complexity requiring more processing time
+
+**LOG ANALYSIS PATTERN**:
+```bash
+# Check agent activity vs timeout
+tail -f logs/agent_medical_search.log | grep -E "(initialized|stopped|timeout|iteration)"
+tail -f logs/healthcare_system.log | grep -E "(mcp|agent|timeout)"
+```
+
+**CONFIGURATION FILES TO CHECK**:
+- `agents/medical_search_agent/medical_search_agent.py`
+- `core/langchain/agents.py`
+- `core/langchain/orchestrator.py`
+- Agent configuration YAML files
+
 ### MCP Async Task Management Debugging (CRITICAL)
 
 **PROBLEM PATTERN**: MCP clients creating runaway async tasks causing CPU drain.
