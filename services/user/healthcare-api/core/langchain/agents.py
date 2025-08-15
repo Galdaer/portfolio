@@ -19,11 +19,12 @@ from langchain_core.runnables import RunnableConfig
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 from core.langchain.healthcare_tools import create_healthcare_tools
+from agents import BaseHealthcareAgent
 
 logger = get_healthcare_logger("core.langchain.agents")
 
 
-class HealthcareLangChainAgent:
+class HealthcareLangChainAgent(BaseHealthcareAgent):
     """LangChain-powered healthcare agent with configurable behavior."""
 
     def __init__(
@@ -51,8 +52,14 @@ class HealthcareLangChainAgent:
             tool_max_retries: Maximum retries for tool calls
             tool_retry_base_delay: Base delay between tool retries
         """
-        self.mcp_client = mcp_client
-        # Enable verbose when requested explicitly or via environment toggle
+        # PHASE 1.3 BASEHEALTHCAREAGENT INTEGRATION: Initialize healthcare framework
+        super().__init__(
+            mcp_client=mcp_client,
+            agent_name="langchain_healthcare",
+            agent_type="langchain_medical"
+        )
+        
+        # LangChain-specific configuration
         self.verbose = verbose or _os.getenv("HEALTHCARE_AGENT_DEBUG", "").lower() in {"1", "true", "yes"}
         self.max_iterations = max_iterations
         self.tool_max_retries = tool_max_retries
@@ -347,4 +354,46 @@ class HealthcareLangChainAgent:
                 "agent_name": "medical_search",
                 "error": error_details["message"],
                 "error_details": error_details,
+            }
+
+    async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
+        """
+        BaseHealthcareAgent abstract method implementation for LangChain agent
+        
+        Processes healthcare requests through LangChain agent workflow
+        """
+        try:
+            # Extract message from request
+            message = request.get("message", "")
+            if not message:
+                return {
+                    "success": False,
+                    "error": "No message provided in request",
+                    "agent_name": self.agent_name
+                }
+            
+            # Process through LangChain agent
+            result = await self.process_query(message)
+            
+            # Convert to BaseHealthcareAgent expected format
+            if isinstance(result, dict) and result.get("success", True):
+                return {
+                    "success": True,
+                    "response": result.get("formatted_summary", str(result)),
+                    "agent_name": self.agent_name,
+                    "details": result
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": result.get("error", "Unknown error"),
+                    "agent_name": self.agent_name
+                }
+                
+        except Exception as e:
+            self.logger.error(f"LangChain agent _process_implementation error: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "agent_name": self.agent_name
             }

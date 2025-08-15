@@ -70,10 +70,23 @@ class ToolRegistry:
             return {"status": "not_initialized"}
 
         try:
-            # Test MCP server connection
-            response = await self.mcp_client.get("/health")
+            # Test MCP server connection - adapt to different client interfaces
+            if hasattr(self.mcp_client, 'get'):
+                # HTTP client interface
+                response = await self.mcp_client.get("/health")
+                mcp_connected = response.status_code == 200
+            elif hasattr(self.mcp_client, 'call_tool'):
+                # DirectMCPClient stdio interface - test with a simple tool call
+                try:
+                    await self.mcp_client.call_tool("search-pubmed", {"query": "test", "max_results": 1})
+                    mcp_connected = True
+                except Exception:
+                    mcp_connected = False
+            else:
+                # Unknown client type
+                mcp_connected = False
 
-            if response.status_code == 200:
+            if mcp_connected:
                 return {
                     "status": "healthy",
                     "mcp_connected": True,
@@ -83,7 +96,7 @@ class ToolRegistry:
             return {
                 "status": "unhealthy",
                 "mcp_connected": False,
-                "error": f"HTTP {response.status_code}",
+                "error": "MCP connection failed",
             }
 
         except Exception as e:
@@ -153,12 +166,22 @@ class ToolRegistry:
             if self.mcp_client is None:
                 raise RuntimeError("MCP client is not initialized")
 
-            payload = {"tool": tool_name, "parameters": parameters}
+            # Adapt to different client interfaces
+            if hasattr(self.mcp_client, 'post'):
+                # HTTP client interface
+                payload = {"tool": tool_name, "parameters": parameters}
+                response = await self.mcp_client.post("/execute", json=payload)
+                response.raise_for_status()
+                result: dict[str, Any] = response.json()
+            elif hasattr(self.mcp_client, 'call_tool'):
+                # DirectMCPClient stdio interface
+                result = await self.mcp_client.call_tool(tool_name, parameters)
+                # Ensure result is a dict
+                if not isinstance(result, dict):
+                    result = {"result": result}
+            else:
+                raise RuntimeError(f"Unsupported MCP client type: {type(self.mcp_client)}")
 
-            response = await self.mcp_client.post("/execute", json=payload)
-            response.raise_for_status()
-
-            result: dict[str, Any] = response.json()
             return result
 
         except Exception as e:

@@ -18,6 +18,7 @@ import json
 from pydantic import BaseModel, Field
 from langchain.tools import StructuredTool
 from core.infrastructure.healthcare_logger import get_healthcare_logger
+from core.tools import tool_registry
 
 logger = get_healthcare_logger("core.langchain.healthcare_tools")
 
@@ -62,6 +63,13 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
     Returns:
         List of StructuredTool instances prioritizing healthcare agents
     """
+    
+    # Initialize ToolRegistry with MCP client for robust tool management
+    try:
+        asyncio.run(tool_registry.initialize(mcp_client))
+        logger.info("✅ ToolRegistry initialized successfully")
+    except Exception as e:
+        logger.warning(f"⚠️ ToolRegistry initialization failed, using direct MCP fallback: {e}")
     
     tools: List[StructuredTool] = []
     
@@ -134,16 +142,28 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
     
     # MCP fallback tools (direct MCP access)
     def _fallback_pubmed_search(client: Any, query: str, max_results: int = 10) -> str:
-        """Fallback PubMed search using direct MCP call."""
+        """Fallback PubMed search using ToolRegistry or direct MCP call."""
         try:
-            logger.info(f"🔄 MCP fallback - PubMed search: {query[:50]}...")
-            result = asyncio.run(client.call_tool("search-pubmed", {
-                "query": query,
-                "max_results": max_results
-            }))
+            logger.info(f"🔄 ToolRegistry fallback - PubMed search: {query[:50]}...")
+            
+            # Try ToolRegistry first (robust tool management)
+            if tool_registry._initialized:
+                result = asyncio.run(tool_registry.execute_tool("search-pubmed", {
+                    "query": query,
+                    "max_results": max_results
+                }))
+                logger.info("✅ Used ToolRegistry for PubMed search")
+            else:
+                # Fallback to direct MCP call if ToolRegistry unavailable
+                logger.warning("⚠️ ToolRegistry not available, using direct MCP")
+                result = asyncio.run(client.call_tool("search-pubmed", {
+                    "query": query,
+                    "max_results": max_results
+                }))
+                
             return json.dumps(result, indent=2) if result else "No results found"
         except Exception as e:
-            logger.error(f"MCP PubMed search error: {e}")
+            logger.error(f"PubMed search error: {e}")
             return f"Search error: {str(e)}"
 
     def pubmed_search_fallback(query: str, max_results: int = 10) -> str:
@@ -154,10 +174,22 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
         """Search clinical trials database."""
         try:
             logger.info(f"🔍 Clinical trials search: {query[:50]}...")
-            result = asyncio.run(mcp_client.call_tool("search-clinical-trials", {
-                "query": query,
-                "max_results": max_results
-            }))
+            
+            # Try ToolRegistry first (robust tool management)
+            if tool_registry._initialized:
+                result = asyncio.run(tool_registry.execute_tool("search-clinical-trials", {
+                    "query": query,
+                    "max_results": max_results
+                }))
+                logger.info("✅ Used ToolRegistry for clinical trials search")
+            else:
+                # Fallback to direct MCP call if ToolRegistry unavailable
+                logger.warning("⚠️ ToolRegistry not available, using direct MCP")
+                result = asyncio.run(mcp_client.call_tool("search-clinical-trials", {
+                    "query": query,
+                    "max_results": max_results
+                }))
+                
             return json.dumps(result, indent=2) if result else "No clinical trials found"
         except Exception as e:
             logger.error(f"Clinical trials search error: {e}")
@@ -167,9 +199,20 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
         """Look up drug information and interactions."""
         try:
             logger.info(f"🔍 Drug info lookup: {drug_name}")
-            result = asyncio.run(mcp_client.call_tool("get-drug-info", {
-                "drug_name": drug_name
-            }))
+            
+            # Try ToolRegistry first (robust tool management)
+            if tool_registry._initialized:
+                result = asyncio.run(tool_registry.execute_tool("get-drug-info", {
+                    "drug_name": drug_name
+                }))
+                logger.info("✅ Used ToolRegistry for drug information lookup")
+            else:
+                # Fallback to direct MCP call if ToolRegistry unavailable
+                logger.warning("⚠️ ToolRegistry not available, using direct MCP")
+                result = asyncio.run(mcp_client.call_tool("get-drug-info", {
+                    "drug_name": drug_name
+                }))
+                
             return json.dumps(result, indent=2) if result else f"No information found for {drug_name}"
         except Exception as e:
             logger.error(f"Drug info lookup error: {e}")

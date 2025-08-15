@@ -32,6 +32,7 @@ from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     setup_healthcare_logging,
 )
+from core.phi_sanitizer import sanitize_request_data, sanitize_response_data
 
 # Setup healthcare-compliant logging infrastructure
 setup_healthcare_logging(log_level=config.log_level.upper())
@@ -741,11 +742,16 @@ async def invoke_tool(tool_id: str, req: InvokeRequest):
 
 @app.post("/v1/chat/completions")
 async def chat_completions(request: ChatCompletionsRequest):
-    """Handle OpenAI-style chat completions for Open WebUI"""
+    """Handle OpenAI-style chat completions for Open WebUI with HIPAA compliance"""
     try:
-        # Extract the last user message
+        # PHASE 1.2 PHI DETECTION: Sanitize incoming request for HIPAA compliance
+        request_dict = request.dict()
+        sanitized_request = sanitize_request_data(request_dict)
+        logger.info("🛡️ Request sanitized for HIPAA compliance")
+        
+        # Extract the last user message (from sanitized request)
         user_message = ""
-        for message in reversed(request.messages):
+        for message in reversed(sanitized_request.get("messages", [])):
             if message.get("role") == "user":
                 user_message = message.get("content", "")
                 break
@@ -792,8 +798,12 @@ async def chat_completions(request: ChatCompletionsRequest):
             }
         }
         
-        logger.info(f"OpenAI chat completion processed: {user_message[:100]}")
-        return openai_response
+        # PHASE 1.2 PHI DETECTION: Sanitize outgoing response for HIPAA compliance
+        sanitized_response = sanitize_response_data(openai_response)
+        logger.info("🛡️ Response sanitized for HIPAA compliance")
+        
+        logger.info(f"OpenAI chat completion processed with PHI protection: {user_message[:100]}")
+        return sanitized_response
         
     except Exception as e:
         logger.error(f"Chat completion error: {e}")
