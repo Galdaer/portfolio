@@ -1029,7 +1029,7 @@ class ComplianceMonitor:
     
     def __init__(self):
         self.db_conn = psycopg2.connect(
-            "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
+            "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
         )
         self.compliance_rules = ComplianceRuleEngine()
         
@@ -2150,7 +2150,7 @@ class PersonalizationService:
     
     def __init__(self):
         self.db_conn = psycopg2.connect(
-            "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
+            "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
         )
         self.preference_manager = PreferenceManager()
         self.privacy_guard = PrivacyGuard()
@@ -2199,7 +2199,7 @@ class PreferenceManager:
     
     def __init__(self):
         self.db_conn = psycopg2.connect(
-            "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
+            "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
         )
     
     def _get_default_preferences(self) -> Dict[str, Any]:

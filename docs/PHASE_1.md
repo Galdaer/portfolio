@@ -2541,7 +2541,7 @@ class EnhancedMemoryManager:
             host='localhost', port=6379, decode_responses=True
         )
         self.db_conn = psycopg2.connect(
-            "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
+            "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
         )
 
     async def store_session_context(self,
@@ -4148,7 +4148,7 @@ class HealthcareMetricsCollector:
 
     def __init__(self):
         self.db_conn = psycopg2.connect(
-            "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
+            "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
         )
 
     async def record_transcription_metrics(self, session_id: str, doctor_id: str,

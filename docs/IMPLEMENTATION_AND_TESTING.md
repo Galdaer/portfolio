@@ -18,7 +18,7 @@
 ✓ Ollama AI: http://172.20.0.10:11434
 ✓ Healthcare-MCP: http://localhost:3000
 ✓ Health Monitor: http://localhost:8080
-✓ PostgreSQL: localhost:5432
+✓ PostgreSQL: 172.20.0.13:5432
 ✓ Redis: localhost:6379
 ```
 
