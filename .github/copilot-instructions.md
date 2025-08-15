@@ -22,6 +22,59 @@ Use The Sequential Thinking MCP Server to think through your tasks.
 
 **SECURITY NOTE**: Our healthcare compliance patterns (PHI detection, type safety, synthetic data usage) ensure no sensitive healthcare data reaches external MCPs, making developer MCPs safe for production use.
 
+## Agent Loop Guard (Action-First Enforcement)
+
+To eliminate repetitive "I'll analyze…" loops and ensure progress:
+
+- Hard timebox: At most one sentence of analysis, then act.
+- First 60 seconds: run a baseline check using an existing task (prefer VS Code tasks in this workspace) and report the results.
+- Use the todo list tool: keep a short checklist; mark ONE item in-progress; complete it before moving on.
+- Checkpoint after 3–5 tool calls or after editing >3 files: share key results and the next concrete action.
+
+Forbidden behaviors (auto-correct by acting instead):
+- Repeating “I’ll analyze/explore the repo” without running any checks.
+- Restating the same plan multiple times without deltas.
+- Asking to proceed when you can run an existing task yourself.
+
+Recovery rule if you detect repetition: immediately execute the Default Playbook that matches the problem (below) and continue.
+
+## Default Playbook: MyPy Blocking Errors (Use Tasks)
+
+When asked to fix blocking MyPy errors in `services/user/healthcare-api/`, follow this exact sequence. Do not analyze first—act:
+
+1) Baseline via tasks (pick the most targeted first)
+- Run task: “MyPy (Healthcare API only)”
+- If unavailable or after fixes, run task: “MyPy Type Check”
+- Optional quick lint: Run task: “Quick Lint Check”
+
+2) Prioritized fixes (apply in this order, iterate in small batches)
+- Import errors (fictitious/broken paths)
+- Name errors (undefined symbols)
+- Attribute errors (missing methods/properties)
+- Return type mismatches (function contracts)
+- Assignment/type incompatibilities
+
+3) Validate progress frequently
+- After 15–20 errors fixed or after 2–3 edits, re-run the same MyPy task and record remaining error count.
+- Keep going until zero blocking errors or you hit a genuine architectural blocker.
+
+4) Progress cadence and stop conditions
+- Cadence: run a MyPy task at least every 3–5 edits; post a compact checkpoint (PASS/FAIL + count).
+- Stop only when: (a) zero blocking MyPy errors, or (b) an architectural decision is required (document the exact failing messages and file/line).
+
+5) Guardrails (healthcare-safe)
+- Never remove medical variables just to silence errors—implement or type them properly.
+- Avoid `# type: ignore` in healthcare modules; prefer precise types and Optional checks.
+- Maintain agent/MCP functionality—fix imports and types without disabling features.
+
+Minimal commands are already encapsulated as VS Code tasks in this workspace. Prefer tasks over ad-hoc shell commands.
+
+## Instruction Hierarchy Clarification (No Analysis-First)
+
+- Specialized instruction files under `.github/instructions/**` are implementation-only. Ignore any guidance that suggests “analyze first” or encourages broad exploration.
+- This file (copilot-instructions.md) governs workflow. If you detect conflicting guidance elsewhere, follow the action-first rules here.
+- When uncertain, choose the smallest safe change that moves the task forward and validate via the appropriate task.
+
 ## Coding Agent Environment Setup
 
 **CRITICAL - DEPENDENCY MANAGEMENT**: 
