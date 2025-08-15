@@ -177,10 +177,10 @@ class PHIMonitor:
             )
 
         # Perform PHI detection
-        detected_phi_types = []
+        detected_phi_types: list[PHIType] = []
         detection_details: dict[str, Any] = {"matches": {}, "context": context}
 
-        for phi_type, patterns in self._compiled_patterns.items():
+        for phi_type_str, patterns in self._compiled_patterns.items():
             matches = []
             for pattern in patterns:
                 found_matches = pattern.findall(scan_text)
@@ -188,8 +188,15 @@ class PHIMonitor:
                     matches.extend(found_matches)
 
             if matches:
-                detected_phi_types.append(phi_type)
-                detection_details["matches"][str(phi_type)] = len(matches)
+                # Convert string to PHIType enum if possible
+                try:
+                    phi_type = PHIType(phi_type_str)
+                    detected_phi_types.append(phi_type)
+                    detection_details["matches"][str(phi_type)] = len(matches)
+                except ValueError:
+                    # If conversion fails, log and skip
+                    self.logger.warning(f"Unknown PHI type: {phi_type_str}")
+                    continue
 
         # Check field names for PHI indicators
         phi_field_matches = self._scan_field_names(data)

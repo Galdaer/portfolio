@@ -97,7 +97,7 @@ class HealthcareLangChainAgent:
             config = OllamaConfig(
                 model=model or default_model,
                 temperature=default_temperature,
-                base_url=_os.getenv("OLLAMA_URL", _os.getenv("OLLAMA_URL", "http://ollama:11434")),
+                base_url=_os.getenv("OLLAMA_URL", "http://localhost:11434"),
                 num_ctx=4096  # Context window size
             )
 
@@ -288,9 +288,10 @@ class HealthcareLangChainAgent:
             import traceback
             import sys
             import linecache
+            from typing import Any, Dict, List, Optional
 
             tb = e.__traceback__
-            frames = []
+            frames: List[Dict[str, Any]] = []
             while tb is not None:
                 frame = tb.tb_frame
                 lineno = tb.tb_lineno
@@ -307,7 +308,7 @@ class HealthcareLangChainAgent:
 
             # Prefer the deepest in-repo frame for faster pinpointing
             repo_root_indicator = "/home/intelluxe/"
-            chosen = None
+            chosen: Optional[Dict[str, Any]] = None
             for fr in reversed(frames):
                 if repo_root_indicator in fr["file"]:
                     chosen = fr

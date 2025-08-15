@@ -160,7 +160,7 @@ class HealthcareMCPClient:
         from mcp import ClientSession  # type: ignore
         from mcp.client.stdio import stdio_client  # type: ignore
         try:
-            async with stdio_client(self.params) as (read_stream, write_stream):
+            async with stdio_client("node", self.mcp_server_path) as (read_stream, write_stream):
                 session = ClientSession(read_stream, write_stream)
                 # Guard initialization and list with timeouts to avoid hangs
                 await asyncio.wait_for(session.initialize(), timeout=45)

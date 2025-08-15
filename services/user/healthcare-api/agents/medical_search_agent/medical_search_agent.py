@@ -532,12 +532,25 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             if template == "academic_article_list":
                 # PubMed-focused structured list
                 pubmed = [s for s in search_result.information_sources if s.get("source_type") in ["condition_information", "symptom_literature"]]
-                max_items = int((cast(dict[str, object], self._intent_config.get("response_templates", {})).get("academic_article_list", {}) or {}).get("max_items", 10))
-                include_abstracts = bool((cast(dict[str, object], self._intent_config.get("response_templates", {})).get("academic_article_list", {}) or {}).get("include_abstracts", True))
+                
+                # Safe config access with proper defaults
+                response_templates = self._intent_config.get("response_templates", {})
+                if isinstance(response_templates, dict):
+                    article_config = response_templates.get("academic_article_list", {})
+                    if isinstance(article_config, dict):
+                        max_items = int(article_config.get("max_items", 10))
+                        include_abstracts = bool(article_config.get("include_abstracts", True))
+                    else:
+                        max_items = 10
+                        include_abstracts = True
+                else:
+                    max_items = 10
+                    include_abstracts = True
+                    
                 lines: List[str] = [f"Academic articles for: {original_query}", ""]
                 for i, src in enumerate(pubmed[:max_items], 1):
                     fmt = format_source_for_display(src)
-                    title = cast(str, src.get("title", "Untitled"))
+                    title = str(src.get("title", "Untitled"))
                     lines.append(f"{i}. {title}")
                     cit = cast(str, fmt.get("citation", ""))
                     if cit:

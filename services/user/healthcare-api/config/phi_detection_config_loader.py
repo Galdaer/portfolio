@@ -26,9 +26,11 @@ class PHIDetectionConfigLoader:
             config_path: Path to PHI detection config file. If None, uses default.
         """
         if config_path is None:
-            config_path = Path(__file__).parent / "phi_detection_config.yaml"
+            config_path_obj = Path(__file__).parent / "phi_detection_config.yaml"
+        else:
+            config_path_obj = Path(config_path)
         
-        self.config_path = Path(config_path)
+        self.config_path = config_path_obj
         self._config: Optional[Dict[str, Any]] = None
         self._compiled_patterns: Optional[Dict[str, List[re.Pattern]]] = None
     

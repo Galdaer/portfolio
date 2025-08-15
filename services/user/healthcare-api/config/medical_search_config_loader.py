@@ -38,14 +38,16 @@ class MedicalSearchConfig:
 class MedicalSearchConfigLoader:
     """Loads medical search configuration from YAML with defaults"""
 
-    def __init__(self, config_path: str = None):
+    def __init__(self, config_path: str | None = None):
         if config_path is None:
             # Default to config file in same directory as this module
             config_dir = Path(__file__).parent
-            config_path = config_dir / "medical_search_config.yaml"
+            resolved_path = config_dir / "medical_search_config.yaml"
+        else:
+            resolved_path = Path(config_path)
 
-        self.config_path = Path(config_path)
-        self._config = None
+        self.config_path = resolved_path
+        self._config: MedicalSearchConfig | None = None
 
     def load_config(self) -> MedicalSearchConfig:
         """Load configuration from YAML file with fallback to defaults"""
