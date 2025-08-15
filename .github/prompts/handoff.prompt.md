@@ -140,6 +140,7 @@ Cross-reference all changes: Ensure instruction updates align with handoff docum
 Verify no contradictions: Check that all guidance is consistent across files
 Validate healthcare compliance: Confirm all patterns maintain HIPAA compliance
 Test instruction clarity: Ensure another developer could follow the guidance
+DO NOT CREATE A FILE FOR THIS just verify for yourself
 Important Notes:
 Focus on preserving hard-won knowledge from debugging sessions
 Document patterns that save time, not obvious implementations
