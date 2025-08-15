@@ -1,6 +1,8 @@
 ````instructions
 # Healthcare AI Code Review Instructions
 
+**WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
+
 ## Purpose
 
 Code review guidance for healthcare AI systems emphasizing medical compliance, PHI protection, and healthcare-specific patterns.

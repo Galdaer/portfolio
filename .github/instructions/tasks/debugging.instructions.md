@@ -327,23 +327,11 @@ def debug_ehr_integration(ehr_response: Dict[str, Any], transaction_id: str):
         logger.warning(f"Missing EHR fields: {missing_fields}")
 ```
 
-## Debugging Workflow
+## Healthcare Debugging Implementation Patterns
 
-### Step 1: Reproduce Safely
+**WORKFLOW CONTROL**: All debugging workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
 
-1. Use synthetic test data only
-2. Never use production PHI for debugging
-3. Sanitize logs before sharing
-4. Use anonymized patient references
-
-### Step 2: Isolate Healthcare Components
-
-1. Test medical logic separately from PHI handling
-2. Validate SOAP note structure without content interpretation
-3. Check compliance patterns independently
-4. Test EHR integration with mock data
-
-### Step 3: Validate Medical Compliance
+### Healthcare-Safe Debugging Patterns
 
 ```python
 def validate_debugging_compliance():

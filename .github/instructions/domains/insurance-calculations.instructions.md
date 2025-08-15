@@ -1,5 +1,7 @@
 # Advanced Insurance Calculations for Healthcare AI
 
+**WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
+
 ## Purpose
 
 Comprehensive insurance calculation patterns supporting percentage copays, deductible tracking, cost prediction, and complex coverage scenarios for accurate patient cost estimates.
@@ -97,16 +99,16 @@ class InsuranceCoverageCalculator:
     ) -> 'CostEstimate':
         """Calculate exact patient cost for a procedure"""
         
-        # Step 1: Determine service category
+        # Determine service category
         service_category = self.categorize_cpt_code(cpt_code)
         
-        # Step 2: Check deductible status
+        # Check deductible status
         deductible_status = self.calculate_deductible_status(patient_coverage)
         
-        # Step 3: Apply appropriate copay structure
+        # Apply appropriate copay structure
         copay_structure = patient_coverage.get_copay_for_service(service_category)
         
-        # Step 4: Calculate patient responsibility
+        # Calculate patient responsibility
         if deductible_status.remaining > 0:
             patient_cost = self.calculate_with_deductible(
                 billed_amount, deductible_status, copay_structure
@@ -116,7 +118,7 @@ class InsuranceCoverageCalculator:
                 billed_amount, copay_structure
             )
         
-        # Step 5: Apply out-of-pocket maximums
+        # Apply out-of-pocket maximums
         final_cost = self.apply_oop_maximum(patient_cost, patient_coverage)
         
         return CostEstimate(

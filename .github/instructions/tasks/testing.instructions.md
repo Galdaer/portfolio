@@ -1,5 +1,7 @@
 # Healthcare AI Testing Instructions
 
+**WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
+
 ## Purpose
 
 Testing patterns for healthcare AI systems emphasizing PHI-safe testing, medical compliance validation, and beyond-HIPAA security standards with patient-first design principles.

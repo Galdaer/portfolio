@@ -6,6 +6,8 @@ tags: [healthcare, real-time, websockets, clinical-assistance, streaming]
 
 # Real-Time Clinical Assistance Instructions
 
+**WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
+
 ## Purpose
 
 Comprehensive patterns for implementing real-time healthcare AI assistance using WebSocket connections, progressive analysis streaming, and clinical workflow integration while maintaining PHI protection and medical safety.
@@ -97,7 +99,7 @@ class RealTimeClinicalAssistant:
     async def progressive_clinical_analysis(self, clinical_input: str, session: ClinicalSession) -> AsyncGenerator[Dict[str, Any], None]:
         """Provide progressive clinical analysis with streaming updates and safety validation."""
         
-        # Step 1: Immediate emergency detection and safety check
+        # Immediate emergency detection and safety check
         emergency_result = await self.detect_emergency_patterns(clinical_input)
         if emergency_result.is_emergency:
             yield {
@@ -113,7 +115,7 @@ class RealTimeClinicalAssistant:
             # Stop processing for emergency scenarios
             return
         
-        # Step 2: Clinical entity extraction with medical context preservation
+        # Clinical entity extraction with medical context preservation
         yield {
             "type": "processing_update",
             "content": "Analyzing clinical information...",
@@ -132,7 +134,7 @@ class RealTimeClinicalAssistant:
             "timestamp": datetime.now().isoformat()
         }
         
-        # Step 3: Clinical literature search with evidence grading
+        # Clinical literature search with evidence grading
         if entities.get('conditions') or entities.get('symptoms'):
             yield {
                 "type": "processing_update", 
@@ -155,7 +157,7 @@ class RealTimeClinicalAssistant:
         else:
             literature_findings = []
         
-        # Step 4: Clinical reasoning and differential analysis
+        # Clinical reasoning and differential analysis
         if entities.get('symptoms') and len(entities['symptoms']) > 1:
             yield {
                 "type": "processing_update",
@@ -178,7 +180,7 @@ class RealTimeClinicalAssistant:
         else:
             clinical_reasoning = None
         
-        # Step 5: Final clinical synthesis with comprehensive disclaimers
+        # Final clinical synthesis with comprehensive disclaimers
         clinical_synthesis = await self.synthesize_clinical_information(
             entities=entities,
             literature_findings=literature_findings,
@@ -202,7 +204,7 @@ class RealTimeClinicalAssistant:
             "timestamp": datetime.now().isoformat()
         }
         
-        # Step 6: Store analysis in session memory for context continuity
+        # Store analysis in session memory for context continuity
         await session.store_clinical_analysis(clinical_synthesis)
 ```
 

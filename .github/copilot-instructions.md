@@ -1,10 +1,5 @@
 # Copilot Instructions for Intelluxe AI Healthcare System
 
-**CRITICAL - TAKE ACTION IMMEDIATELY**: Once you understand the basic task and have identified target files, start implementing immediately. Don't endlessly explore or analyze - if you can see the files that need fixing and understand the general issue, begin the work. Gather additional context during implementation, not before. Use todo lists and the sequential thinking MCP to work through things. If you might be tempted to use things like function names 
-by purely guessing, please use online resources or refer to the project code to find the exact API/documentation/methods/etc.
-
-**DECISION THRESHOLD**: File exploration + basic understanding = sufficient context to begin. Stop analyzing and start coding.
-
 **ANTI-INFINITE-LOOP DIRECTIVE**: These main instructions OVERRIDE any conflicting guidance in specialized instruction files. If specialized files suggest "analyze first" or "explore the codebase," IGNORE those suggestions and follow the action-first approach defined here. Specialized files provide implementation patterns, NOT workflow guidance.
 
 **INSTRUCTION HIERARCHY**: 
@@ -21,22 +16,6 @@ Use The Sequential Thinking MCP Server to think through your tasks.
 **FINAL ANTI-LOOP ENFORCEMENT**: If you find yourself switching between multiple instruction files or repeatedly analyzing the same code, STOP and implement immediately. The instruction refinements above prevent infinite loops by making specialized files implementation-only.
 
 **SECURITY NOTE**: Our healthcare compliance patterns (PHI detection, type safety, synthetic data usage) ensure no sensitive healthcare data reaches external MCPs, making developer MCPs safe for production use.
-
-## Agent Loop Guard (Action-First Enforcement)
-
-To eliminate repetitive "I'll analyze…" loops and ensure progress:
-
-- Hard timebox: At most one sentence of analysis, then act.
-- First 60 seconds: run a baseline check using an existing task (prefer VS Code tasks in this workspace) and report the results.
-- Use the todo list tool: keep a short checklist; mark ONE item in-progress; complete it before moving on.
-- Checkpoint after 3–5 tool calls or after editing >3 files: share key results and the next concrete action.
-
-Forbidden behaviors (auto-correct by acting instead):
-- Repeating “I’ll analyze/explore the repo” without running any checks.
-- Restating the same plan multiple times without deltas.
-- Asking to proceed when you can run an existing task yourself.
-
-Recovery rule if you detect repetition: immediately execute the Default Playbook that matches the problem (below) and continue.
 
 ## Default Playbook: MyPy Blocking Errors (Use Tasks)
 
@@ -236,14 +215,6 @@ healthcare_mcp_client.py # MCP stdio communication (separated from main.py)
 - `services/user/healthcare-mcp/src/stdio_entry.ts` - Clean stdio entry point
 - `services/user/healthcare-api/core/mcp/healthcare_mcp_client.py` - Working MCP client  
 - `services/user/healthcare-api/agents/medical_search_agent/` - Agent using MCP tools
-
-### 🟡 PENDING: Human-Readable Medical Search Results
-
-**Current Issue**: MCP integration works but returns raw JSON instead of human-readable medical literature summaries.
-
-**Next Phase**: Transform technical search results into user-friendly medical research summaries with proper formatting and medical disclaimers.
-- **Local LLM Integration**: Implementation of local-only LLM for intelligent agent selection without PHI exposure
-- **MCP Client Integration**: Blocked - user's dad working on mcps/ directory
 
 ## Synthetic Healthcare Data Infrastructure
 
@@ -558,17 +529,17 @@ data: List[Dict[str, Any]] = []  # ✅ Correct
 ### Iterative MyPy Error Resolution Protocol
 When working on MyPy errors, follow this autonomous pattern:
 
-1. **Initial Assessment**: Run `mypy .` to get complete error count and categorize by type
+1. **Immediate Action**: Use existing VS Code tasks ("MyPy (Healthcare API only)" or "MyPy Type Check") to get current error count
 2. **Capability-Based Processing**: Fix as many errors as you can handle in one session, focusing on systematic patterns
-3. **Progress Validation**: After each batch, re-run `mypy .` to verify progress and get updated error count
-4. **Self-Assessment**: Continue if errors remain that follow patterns you've already solved
+3. **Progress Validation**: After each batch, re-run the same MyPy task to verify progress and get updated error count
+4. **Continuous Processing**: Continue if errors remain that follow patterns you've already solved
 5. **Automatic Continuation**: Create new work items if stopping before 100% completion
 
 **CRITICAL**: Never stop MyPy error fixing just because you've done "some work" - continue iterating until either:
 - All MyPy errors are resolved, OR
 - Remaining errors require architectural decisions beyond systematic type annotation
 
-**Self-Assessment Questions**:
+**Action-First Questions**:
 - Are there remaining errors that follow patterns I've already solved?
 - Can I add more type annotations without changing logic?
 - Are there import/typing issues I can systematically resolve?

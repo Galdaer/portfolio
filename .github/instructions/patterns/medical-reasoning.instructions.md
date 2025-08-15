@@ -6,6 +6,8 @@ tags: [healthcare, clinical-reasoning, evidence-based, medical-diagnosis, transp
 
 # Medical Reasoning Implementation Instructions
 
+**WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
+
 ## Purpose
 
 Comprehensive patterns for implementing transparent clinical reasoning in healthcare AI systems, including evidence-based analysis, differential diagnosis generation, and clinical decision support with appropriate medical disclaimers and uncertainty quantification.
@@ -70,7 +72,7 @@ class ClinicalReasoningEngine:
             timestamp=datetime.now()
         )
         
-        # Step 1: Clinical presentation analysis with systematic review
+        # Clinical presentation analysis with systematic review
         reasoning_chain.add_step(
             step_id="clinical_presentation_analysis",
             description="Systematic analysis of clinical presentation",
@@ -93,7 +95,7 @@ class ClinicalReasoningEngine:
             confidence_metrics=clinical_entities.get("extraction_confidence", {})
         )
         
-        # Step 2: Differential diagnosis generation with evidence scoring
+        # Differential diagnosis generation with evidence scoring
         differential_diagnoses = await self.generate_evidence_based_differential(
             clinical_entities=clinical_entities,
             patient_demographics=patient_history.get("demographics", {}),
@@ -109,7 +111,7 @@ class ClinicalReasoningEngine:
             evidence_summary=self.summarize_differential_evidence(differential_diagnoses)
         )
         
-        # Step 3: Evidence evaluation for each diagnostic possibility
+        # Evidence evaluation for each diagnostic possibility
         evidence_evaluations = {}
         for diagnosis in differential_diagnoses:
             evidence_eval = await self.evaluate_diagnostic_evidence(
@@ -130,7 +132,7 @@ class ClinicalReasoningEngine:
                 clinical_significance=evidence_eval.clinical_significance
             )
         
-        # Step 4: Diagnostic likelihood assessment with uncertainty quantification
+        # Diagnostic likelihood assessment with uncertainty quantification
         likelihood_assessment = await self.assess_diagnostic_likelihoods(
             differential_diagnoses=differential_diagnoses,
             evidence_evaluations=evidence_evaluations,
@@ -145,7 +147,7 @@ class ClinicalReasoningEngine:
             statistical_confidence=likelihood_assessment.get("confidence_intervals", {})
         )
         
-        # Step 5: Clinical recommendations with evidence grading
+        # Clinical recommendations with evidence grading
         clinical_recommendations = await self.generate_evidence_based_recommendations(
             differential_diagnoses=differential_diagnoses,
             evidence_evaluations=evidence_evaluations,
