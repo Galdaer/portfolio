@@ -216,19 +216,7 @@
     "// AI Assistant Configuration": "",
     "github.copilot.chat.enabled": true,
     "github.copilot.chat.instructionsFiles": [
-        ".github/copilot-instructions.md",
-        ".github/instructions/tasks/debugging.instructions.md",
-        ".github/instructions/tasks/code-review.instructions.md",
-        ".github/instructions/tasks/testing.instructions.md",
-        ".github/instructions/tasks/refactoring.instructions.md",
-        ".github/instructions/tasks/documentation.instructions.md",
-        ".github/instructions/tasks/planning.instructions.md",
-        ".github/instructions/tasks/performance.instructions.md",
-        ".github/instructions/tasks/security-review.instructions.md",
-        ".github/instructions/languages/python.instructions.md",
-        ".github/instructions/domains/healthcare.instructions.md",
-        ".github/instructions/agents/intake-agent.instructions.md",
-        ".github/instructions/agents/document-processor.instructions.md"
+        ".github/copilot-instructions.md"
     ],
     "github.copilot.enable": {
         "*": true,

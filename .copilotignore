@@ -105,3 +105,8 @@ stack/
 *.temp
 temp/
 tmp/
+
+# Add to .copilotignore
+.github/instructions/tasks/
+.github/instructions/domains/
+.github/instructions/languages/

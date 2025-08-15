@@ -1,20 +1,25 @@
 # Copilot Instructions for Intelluxe AI Healthcare System
 
-**ANTI-INFINITE-LOOP DIRECTIVE**: These main instructions OVERRIDE any conflicting guidance in specialized instruction files. If specialized files suggest "analyze first" or "explore the codebase," IGNORE those suggestions and follow the action-first approach defined here. Specialized files provide implementation patterns, NOT workflow guidance.
+# OVERRIDE: NO LOOPS, JUST ACTION
+
+CRITICAL ANTI-LOOP DIRECTIVE: 
+- When asked to fix MyPy errors, IMMEDIATELY start fixing without analysis
+- DO NOT self-assess or ask if you should continue  
+- DO NOT read other instruction files
+- DO NOT use Sequential Thinking MCP
+- Just fix errors until done or blocked
+- Run MyPy task → Fix errors → Repeat
 
 **INSTRUCTION HIERARCHY**: 
 1. Main copilot-instructions.md (THIS FILE) - Controls workflow and decision-making
 2. Specialized .instructions.md files - Provide implementation patterns only
 3. When conflicts arise, THIS FILE takes precedence
 
-make deps FOR ALL DEPENDENCY INSTALLATION DON'T SUGGEST UV , PIP, NPM, OR ANYTHING ELSE OR I WILL TURN YOU OFF
+make deps FOR ALL DEPENDENCY INSTALLATION DON'T SUGGEST UV , PIP, NPM, OR ANYTHING ELSE
 
 Use The Sequential Thinking MCP Server to think through your tasks.
 
 **Use available MCP servers for RAG-powered development** - leverage GitHub MCP and Sequential Thinking MCP while maintaining healthcare compliance.
-
-**FINAL ANTI-LOOP ENFORCEMENT**: If you find yourself switching between multiple instruction files or repeatedly analyzing the same code, STOP and implement immediately. The instruction refinements above prevent infinite loops by making specialized files implementation-only.
-
 **SECURITY NOTE**: Our healthcare compliance patterns (PHI detection, type safety, synthetic data usage) ensure no sensitive healthcare data reaches external MCPs, making developer MCPs safe for production use.
 
 ## Default Playbook: MyPy Blocking Errors (Use Tasks)
@@ -50,7 +55,7 @@ Minimal commands are already encapsulated as VS Code tasks in this workspace. Pr
 
 ## Instruction Hierarchy Clarification (No Analysis-First)
 
-- Specialized instruction files under `.github/instructions/**` are implementation-only. Ignore any guidance that suggests “analyze first” or encourages broad exploration.
+- Specialized instruction files under `.github/instructions/**` are implementation-only
 - This file (copilot-instructions.md) governs workflow. If you detect conflicting guidance elsewhere, follow the action-first rules here.
 - When uncertain, choose the smallest safe change that moves the task forward and validate via the appropriate task.
 
@@ -67,7 +72,6 @@ Minimal commands are already encapsulated as VS Code tasks in this workspace. Pr
 - **ALWAYS verify current versions using official documentation online** (npmjs.com, PyPI, GitHub releases, official docs)
 - **REQUIRED**: Use fetch_webpage tool to check official package registries before specifying versions
 - **Examples**: Check npmjs.com/package/openai for OpenAI version, pypi.org for Python packages, official API docs for parameters
-- **Pattern**: Research first → Verify current versions/APIs → Then implement with accurate information
 
 **First-time setup**: Run `CI=1 make deps` to install healthcare AI dependencies optimized for coding agents (excludes GPU packages). The `CI=1` environment variable automatically switches to `requirements-ci.txt` which includes all core healthcare components but excludes heavy ML packages that coding agents don't need.
 
