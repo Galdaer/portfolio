@@ -26,7 +26,7 @@ export class HealthcareServer {
         pubmedAPIKey?: string,
         trialsAPIKey?: string,
         fdaAPIKey?: string,
-        ollamaApiUrl: string = process.env.OLLAMA_URL || "http://localhost:11434",
+        ollamaApiUrl: string = process.env.OLLAMA_URL || "http://172.20.0.10:11434",
         ollamaModel: string = (process.env.OLLAMA_MODEL || "llama3.1:8b")
     ) {
         this.mcpServer = mcpServer;

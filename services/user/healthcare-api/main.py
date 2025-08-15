@@ -22,7 +22,8 @@ from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from config.app import config
@@ -58,6 +59,17 @@ class ProcessResponse(BaseModel):
     # Back-compat for older pipelines expecting a 'response' string
     response: str | None = None
     formatted_response: str | None = None  # Human-readable response
+
+# Open WebUI compatible models
+class ChatCompletionsRequest(BaseModel):
+    model: str
+    messages: list[dict[str, str]]
+    temperature: float = 0.7
+    max_tokens: int | None = None
+    stream: bool = False
+
+class InvokeRequest(BaseModel):
+    arguments: dict[str, Any] | None = None
 
 # Global variables for agent management
 discovered_agents = {}
@@ -138,7 +150,7 @@ async def initialize_agents():
 
             orch_cfg = load_orchestrator_config()
             timeouts = orch_cfg.get("timeouts", {}) if isinstance(orch_cfg, dict) else {}
-            base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            base_url = os.getenv("OLLAMA_BASE_URL", "http://172.20.0.10:11434")
             model_name = getattr(ORCHESTRATOR_MODEL, "model", None) or ORCHESTRATOR_MODEL
 
             chat_model = build_chat_model(
@@ -231,6 +243,15 @@ app = FastAPI(
     description="Healthcare AI system for administrative support",
     version="1.0.0",
     lifespan=lifespan,
+)
+
+# Enable CORS for Open WebUI integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -613,6 +634,174 @@ def format_response_for_user(result: dict[str, Any], agent_name: str = None) -> 
     if isinstance(result, list):
         return f"📋 Returned {len(result)} items: " + ", ".join(str(item)[:50] for item in result[:3])
     return f"✅ Operation completed. Result: {str(result)[:200]}"
+
+
+# Open WebUI compatible endpoints
+@app.get("/pipelines")
+async def list_pipelines():
+    """List available pipelines for Open WebUI"""
+    try:
+        return [
+            {"id": "healthcare", "name": "Healthcare AI", "description": "Healthcare AI with medical literature search"},
+            {"id": "medical-search", "name": "Medical Search", "description": "Medical literature search and clinical information"},
+        ]
+    except Exception as e:
+        logger.error(f"Failed to list pipelines: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to list pipelines: {str(e)}"},
+        )
+
+
+@app.get("/models")
+async def list_models():
+    """Return OpenAI-style models list for Open WebUI compatibility"""
+    try:
+        models = [
+            {"id": "healthcare", "name": "Healthcare AI", "owned_by": "intelluxe"},
+            {"id": "medical-search", "name": "Medical Search", "owned_by": "intelluxe"},
+        ]
+        pipelines_data = [
+            {"id": "healthcare", "name": "Healthcare AI", "description": "Healthcare AI with medical literature search"},
+            {"id": "medical-search", "name": "Medical Search", "description": "Medical literature search and clinical information"},
+        ]
+        return {"object": "list", "data": models, "pipelines": pipelines_data}
+    except Exception as e:
+        logger.error(f"Failed to list models: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/tools")
+async def list_tools():
+    """List available MCP tools"""
+    try:
+        # Return discovered agents as tools
+        tools = []
+        for name, agent in discovered_agents.items():
+            tools.append({
+                "id": name,
+                "name": name.replace("_", " ").title(),
+                "description": f"Healthcare agent: {name}",
+                "type": "agent"
+            })
+        return {"object": "list", "data": tools}
+    except Exception as e:
+        logger.error(f"Failed to list tools: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/tools/{tool_id}")
+async def get_tool(tool_id: str):
+    """Return details for a single tool"""
+    try:
+        if tool_id in discovered_agents:
+            agent = discovered_agents[tool_id]
+            return {
+                "id": tool_id,
+                "name": tool_id.replace("_", " ").title(),
+                "description": f"Healthcare agent: {tool_id}",
+                "type": "agent",
+                "agent_name": getattr(agent, "agent_name", tool_id),
+                "agent_type": getattr(agent, "agent_type", "healthcare")
+            }
+        return JSONResponse(status_code=404, content={"error": "Tool not found"})
+    except Exception as e:
+        logger.error(f"Failed to get tool {tool_id}: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/tools/{tool_id}/invoke")
+async def invoke_tool(tool_id: str, req: InvokeRequest):
+    """Invoke a tool (agent) directly"""
+    try:
+        if tool_id not in discovered_agents:
+            return JSONResponse(status_code=404, content={"error": "Tool not found"})
+        
+        agent = discovered_agents[tool_id]
+        args = req.arguments or {}
+        
+        # Convert arguments to process_request format
+        request_data = {
+            "message": args.get("message", args.get("query", "")),
+            "query": args.get("query", args.get("message", "")),
+            "user_id": args.get("user_id", "anonymous"),
+            "session_id": args.get("session_id", "default"),
+        }
+        
+        result = await agent.process_request(request_data)
+        return {"status": "success", "result": result}
+        
+    except ValueError as ve:
+        logger.error(f"Tool invocation validation error: {ve}")
+        return JSONResponse(status_code=400, content={"error": str(ve)})
+    except Exception as e:
+        logger.error(f"Tool invocation error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/v1/chat/completions")
+async def chat_completions(request: ChatCompletionsRequest):
+    """Handle OpenAI-style chat completions for Open WebUI"""
+    try:
+        # Extract the last user message
+        user_message = ""
+        for message in reversed(request.messages):
+            if message.get("role") == "user":
+                user_message = message.get("content", "")
+                break
+        
+        if not user_message:
+            return JSONResponse(status_code=400, content={"error": "No user message found"})
+        
+        # Process through our healthcare system
+        process_request = ProcessRequest(
+            message=user_message,
+            user_id="openwebui",
+            session_id="openwebui_session",
+            format="human"
+        )
+        
+        # Use the existing process logic
+        result = await process_message(process_request)
+        
+        if result.status == "error":
+            return JSONResponse(status_code=500, content={"error": result.error})
+        
+        # Convert to OpenAI format
+        response_content = result.formatted_response or result.response or "Operation completed"
+        
+        openai_response = {
+            "id": "chatcmpl-healthcare",
+            "object": "chat.completion",
+            "created": int(asyncio.get_event_loop().time()),
+            "model": request.model,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": response_content
+                    },
+                    "finish_reason": "stop"
+                }
+            ],
+            "usage": {
+                "prompt_tokens": len(user_message.split()),
+                "completion_tokens": len(response_content.split()),
+                "total_tokens": len(user_message.split()) + len(response_content.split())
+            }
+        }
+        
+        logger.info(f"OpenAI chat completion processed: {user_message[:100]}")
+        return openai_response
+        
+    except Exception as e:
+        logger.error(f"Chat completion error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# Add the same route without /v1 prefix for Open WebUI compatibility
+app.add_api_route("/chat/completions", chat_completions, methods=["POST"])
 
 
 @app.post("/process", response_model=ProcessResponse)

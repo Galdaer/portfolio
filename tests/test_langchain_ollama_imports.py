@@ -24,7 +24,7 @@ from local_llm.ollama_client import (  # type: ignore  # noqa: E402
 
 def test_imports_only() -> None:
     # Ensure dataclass constructs and the builder returns a BaseChatModel
-    cfg = OllamaConfig(model="llama3.1:8b", base_url="http://ollama:11434")
+    cfg = OllamaConfig(model="llama3.1:8b", base_url="http://172.20.0.10:11434")
     model = build_chat_model(cfg)
     # Do not invoke network; just assert the object has expected attributes
     assert hasattr(model, "invoke") or hasattr(model, "generate")

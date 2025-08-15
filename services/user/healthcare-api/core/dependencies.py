@@ -76,8 +76,8 @@ class HealthcareServices:
         """Initialize Ollama client for healthcare-api routing decisions."""
         try:
             import ollama
-            # Use local Ollama instance
-            client = ollama.AsyncClient(host="http://ollama:11434")
+            # Use local Ollama instance with static IP
+            client = ollama.AsyncClient(host="http://172.20.0.10:11434")
             return client
         except ImportError:
             logger.error("Failed to initialize LLM client: No module named 'ollama'")

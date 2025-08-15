@@ -4661,7 +4661,7 @@ class RealtimeMedicalAssistant:
         # Load SciSpacy model for medical NER
         self.nlp = spacy.load("en_ner_bc5cdr_md")
         self.redis_client = redis.Redis(host='redis', port=6379, decode_responses=True)
-        self.ollama_client = httpx.AsyncClient(base_url="http://localhost:11434")
+        self.ollama_client = httpx.AsyncClient(base_url="http://172.20.0.10:11434")
         
         # Medical entity tracking
         self.session_entities = {}

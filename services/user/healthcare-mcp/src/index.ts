@@ -142,8 +142,8 @@ const healthcareServer = new HealthcareServer(
     (() => {
         const url = process.env.OLLAMA_URL || process.env.OLLAMA_API_URL;
         if (!url) {
-            console.error('[MCP][warn] OLLAMA_URL not set; using http://localhost:11434');
-            return 'http://localhost:11434';
+            console.error('[MCP][warn] OLLAMA_URL not set; using http://172.20.0.10:11434');
+            return 'http://172.20.0.10:11434';
         }
         return url;
     })(),

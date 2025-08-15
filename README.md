@@ -137,7 +137,7 @@ Create `.env` from `.env.example`:
 
 ```bash
 # Core Services
-OLLAMA_HOST=http://localhost:11434
+OLLAMA_HOST=http://172.20.0.10:11434
 POSTGRES_PASSWORD=secure_password_here
 REDIS_PASSWORD=another_secure_password
 
@@ -213,7 +213,7 @@ cp .env.example .env
 
 ```bash
 # Check services are running
-curl http://localhost:11434/api/tags  # Ollama
+curl http://172.20.0.10:11434/api/tags  # Ollama
 curl http://localhost:3000           # Grafana
 curl http://localhost:9090           # Prometheus
 

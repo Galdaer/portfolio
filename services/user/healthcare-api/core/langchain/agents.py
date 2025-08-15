@@ -18,7 +18,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.runnables import RunnableConfig
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
-from core.langchain.tools import create_mcp_tools
+from core.langchain.healthcare_tools import create_healthcare_tools
 
 logger = get_healthcare_logger("core.langchain.agents")
 
@@ -33,10 +33,11 @@ class HealthcareLangChainAgent:
         model: Optional[str] = None,
         temperature: float = 0.1,
         verbose: bool = False,
-        max_iterations: int = 3,
+        max_iterations: int = 8,
         memory_max_token_limit: int = 2000,
         tool_max_retries: int = 2,
-        tool_retry_base_delay: float = 0.5
+        tool_retry_base_delay: float = 0.5,
+        agent_manager: Optional[Any] = None
     ):
         """Initialize the healthcare LangChain agent.
 
@@ -97,7 +98,7 @@ class HealthcareLangChainAgent:
             config = OllamaConfig(
                 model=model or default_model,
                 temperature=default_temperature,
-                base_url=_os.getenv("OLLAMA_URL", "http://localhost:11434"),
+                base_url=_os.getenv("OLLAMA_URL", "http://172.20.0.10:11434"),
                 num_ctx=4096  # Context window size
             )
 
@@ -112,12 +113,12 @@ class HealthcareLangChainAgent:
         self.per_agent_default_timeout = 30.0
         self.per_agent_hard_cap = 90.0
 
-        # Tools
-        self.tools = create_mcp_tools(
-            mcp_client, max_retries=int(tool_max_retries), retry_base_delay=float(tool_retry_base_delay)
-        )
-
-        # ReAct prompt template (solves agent_scratchpad issues)
+        # Tools - Agent-first architecture
+        self.tools = create_healthcare_tools(
+            mcp_client,
+            agent_manager,
+            max_retries=int(tool_max_retries)
+        )        # ReAct prompt template (solves agent_scratchpad issues)
         # Use official ReAct prompt from hub per handoff document
         from langchain import hub
         prompt = hub.pull("hwchase17/react")
@@ -131,7 +132,7 @@ class HealthcareLangChainAgent:
             agent=agent,
             tools=self.tools,
             verbose=True,  # Enable for debugging
-            max_iterations=5,  # Increase iterations for tool usage
+            max_iterations=max_iterations,  # Use dynamic iterations parameter
             handle_parsing_errors="Check your output and make sure it conforms!",  # Specific error message per handoff
             return_intermediate_steps=True,
             # NO memory parameter per handoff document

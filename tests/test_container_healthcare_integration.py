@@ -52,7 +52,7 @@ class ContainerHealthcareTest:
             result = subprocess.run([
                 "docker", "run", "--rm", "--network", "host",
                 self.image_name,
-                "curl", "-s", "http://localhost:11434/api/version"
+                "curl", "-s", "http://172.20.0.10:11434/api/version"
             ], capture_output=True, text=True, timeout=30)
             
             if result.returncode == 0:

@@ -96,7 +96,7 @@ class TestHealthcareLangChainAgent:
         
         try:
             # Check if Ollama environment variables are set
-            ollama_url = os.getenv("OLLAMA_URL") or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            ollama_url = os.getenv("OLLAMA_URL") or os.getenv("OLLAMA_BASE_URL", "http://172.20.0.10:11434")
             print(f"Using Ollama URL: {ollama_url}")
             
             # Initialize agent if not already done

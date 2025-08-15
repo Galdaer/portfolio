@@ -206,7 +206,7 @@ FORM_TEMPLATE = """
   {% endfor %}
 </table>
 <h2>Quick Healthcare AI Links</h2>
-<p><a href="http://localhost:11434" target="_blank">🧠 Ollama API (Local LLM)</a></p>
+<p><a href="http://172.20.0.10:11434" target="_blank">🧠 Ollama API (Local LLM)</a></p>
 <p><a href="http://localhost:3000" target="_blank">🏥 Healthcare-MCP Dashboard</a></p>
 <p><a href="http://localhost:5678" target="_blank">🔄 n8n Workflow Editor</a></p>
 <p><a href="http://localhost:{{ grafana_port }}" target="_blank">📊 Grafana Monitoring</a></p>

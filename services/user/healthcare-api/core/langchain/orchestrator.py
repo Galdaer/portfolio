@@ -26,7 +26,8 @@ class LangChainOrchestrator:
         model: Optional[str] = None,
         temperature: float = 0.1,
         verbose: bool = False,
-        max_iterations: int = 3,
+        max_orchestrator_iterations: int = 3,  # Orchestrator-level agent calls
+        max_agent_iterations: int = 8,          # Agent-internal tool iterations
         memory_max_token_limit: int = 2000,
         always_run_medical_search: bool = True,
         presearch_max_results: int = 5,
@@ -36,6 +37,7 @@ class LangChainOrchestrator:
         show_sources_default: bool = True,
         timeouts: Optional[Dict[str, float]] = None,
         show_agent_header: Optional[bool] = None,
+        agent_manager: Optional[Any] = None,
     ):
         """Initialize the LangChain orchestrator for healthcare queries.
 
@@ -44,7 +46,8 @@ class LangChainOrchestrator:
             model: Ollama model name
             temperature: LLM temperature for response generation
             verbose: Enable verbose logging
-            max_iterations: Maximum agent iterations
+            max_orchestrator_iterations: Maximum orchestrator-level agent calls
+            max_agent_iterations: Maximum agent-internal tool iterations
             memory_max_token_limit: Maximum tokens for conversation memory
             always_run_medical_search: Always run medical search presearch
             presearch_max_results: Maximum results for presearch
@@ -56,6 +59,7 @@ class LangChainOrchestrator:
         self.mcp_client = mcp_client
         self.always_run_medical_search = always_run_medical_search
         self.presearch_max_results = presearch_max_results
+        self.max_orchestrator_iterations = max_orchestrator_iterations
         self.citations_max_display = citations_max_display
         self.show_sources_default = show_sources_default
 
@@ -66,10 +70,11 @@ class LangChainOrchestrator:
             model=model,
             temperature=temperature,
             verbose=verbose,
-            max_iterations=max_iterations,
+            max_iterations=max_agent_iterations,  # Agent can use more internal iterations
             memory_max_token_limit=memory_max_token_limit,
             tool_max_retries=tool_max_retries,
             tool_retry_base_delay=tool_retry_base_delay,
+            agent_manager=agent_manager,
         )
 
         # Apply optional runtime settings

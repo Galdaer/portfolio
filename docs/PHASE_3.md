@@ -3205,7 +3205,7 @@ class TreeOfThoughtProcessor:
     """
 
     def __init__(self):
-        self.ollama_client = httpx.AsyncClient(base_url="http://localhost:11434")
+        self.ollama_client = httpx.AsyncClient(base_url="http://172.20.0.10:11434")
         self.max_paths = 5
         self.evaluation_criteria = [
             PathEvaluationCriteria.EFFECTIVENESS,
@@ -3425,7 +3425,7 @@ class EnhancedMajorityVotingProcessor:
             'mistral:7b-instruct-q4_K_M',
             'meditron:7b'  # Medical-specific model
         ]
-        self.ollama_client = httpx.AsyncClient(base_url="http://localhost:11434")
+        self.ollama_client = httpx.AsyncClient(base_url="http://172.20.0.10:11434")
 
     async def process_with_enhanced_voting(self,
                                          input_data: Dict[str, Any],
@@ -4779,7 +4779,7 @@ health_check() {
     echo "🏥 Running comprehensive health checks..."
 
     local services=(
-        "http://localhost:11434/api/version:Ollama"
+        "http://172.20.0.10:11434/api/version:Ollama"
         "http://localhost:3000/health:Healthcare-MCP"
         "http://localhost:8003/health:Insurance-Verification"
         "http://localhost:8004/health:Billing-Engine"
@@ -5502,7 +5502,7 @@ class AILoadBalancer:
             allocated_cpu_cores=4,
             allocated_ram_gb=16,
             reasoning_resources={"model_endpoint": "http://reasoning:8080"},
-            model_endpoints={"llm": "http://ollama:11434"}
+            model_endpoints={"llm": "http://172.20.0.10:11434"}
         )
 
 # Exception classes
@@ -5740,7 +5740,7 @@ services:
           cpus: "4.0"
     runtime: nvidia # Enable if GPU available
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "curl", "-f", "http://172.20.0.10:11434/api/tags"]
       interval: 60s
       timeout: 30s
       retries: 3
@@ -6207,7 +6207,7 @@ monitor_healthcare_performance() {
 
     # LLM processing performance
     echo "LLM Response Times:"
-    curl -s http://localhost:11434/api/tags | jq '.models[] | {name: .name, size: .size}'
+    curl -s http://172.20.0.10:11434/api/tags | jq '.models[] | {name: .name, size: .size}'
 
     # Database performance
     echo -e "\nDatabase Performance:"
@@ -7043,7 +7043,7 @@ enterprise_compliance = EnterpriseComplianceMonitor({})
 image="intelluxe/advanced-ai:latest"
 port="8008:8008"
 description="Advanced AI reasoning service with Chain of Thought and Tree of Thought capabilities"
-env="POSTGRES_URL=postgresql://intelluxe_user:${POSTGRES_PASSWORD}@postgres:5432/intelluxe,REDIS_URL=redis://redis:6379/0,OLLAMA_URL=http://ollama:11434,HIPAA_COMPLIANCE=enabled,REASONING_MODE=enhanced,CHAIN_OF_THOUGHT=enabled,TREE_OF_THOUGHT=enabled,MAJORITY_VOTING=enabled"
+env="POSTGRES_URL=postgresql://intelluxe_user:${POSTGRES_PASSWORD}@postgres:5432/intelluxe,REDIS_URL=redis://redis:6379/0,OLLAMA_URL=http://172.20.0.10:11434,HIPAA_COMPLIANCE=enabled,REASONING_MODE=enhanced,CHAIN_OF_THOUGHT=enabled,TREE_OF_THOUGHT=enabled,MAJORITY_VOTING=enabled"
 volumes="./logs:/app/logs,./config/ai:/app/config:ro,./data/models:/app/models"
 network_mode="intelluxe-net"
 restart_policy="unless-stopped"
@@ -7062,7 +7062,7 @@ tmpfs="/tmp,/app/temp"
 image="intelluxe/realtime-assistant:latest"
 port="8009:8009"
 description="Real-time medical assistant with transcription and entity extraction"
-env="POSTGRES_URL=postgresql://intelluxe_user:${POSTGRES_PASSWORD}@postgres:5432/intelluxe,REDIS_URL=redis://redis:6379/1,OLLAMA_URL=http://ollama:11434,WHISPER_MODEL=medium,MEDICAL_NER=enabled,PHI_DETECTION=enabled,REAL_TIME_PROCESSING=enabled"
+env="POSTGRES_URL=postgresql://intelluxe_user:${POSTGRES_PASSWORD}@postgres:5432/intelluxe,REDIS_URL=redis://redis:6379/1,OLLAMA_URL=http://172.20.0.10:11434,WHISPER_MODEL=medium,MEDICAL_NER=enabled,PHI_DETECTION=enabled,REAL_TIME_PROCESSING=enabled"
 volumes="./logs:/app/logs,./config/assistant:/app/config:ro,./data/audio:/app/audio,./data/transcripts:/app/transcripts"
 network_mode="intelluxe-net"
 restart_policy="unless-stopped"
@@ -7776,7 +7776,7 @@ class AILoadBalancer:
             allocated_cpu_cores=4,
             allocated_ram_gb=16,
             reasoning_resources={"model_endpoint": "http://reasoning:8080"},
-            model_endpoints={"llm": "http://ollama:11434"}
+            model_endpoints={"llm": "http://172.20.0.10:11434"}
         )
 
 # Exception classes
@@ -8014,7 +8014,7 @@ services:
           cpus: "4.0"
     runtime: nvidia # Enable if GPU available
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "curl", "-f", "http://172.20.0.10:11434/api/tags"]
       interval: 60s
       timeout: 30s
       retries: 3
@@ -8537,7 +8537,7 @@ monitor_healthcare_performance() {
 
     # LLM processing performance
     echo "LLM Response Times:"
-    curl -s http://localhost:11434/api/tags | jq '.models[] | {name: .name, size: .size}'
+    curl -s http://172.20.0.10:11434/api/tags | jq '.models[] | {name: .name, size: .size}'
 
     # Database performance
     echo -e "\nDatabase Performance:"
@@ -9694,7 +9694,7 @@ enterprise_compliance = EnterpriseComplianceMonitor({})
 image="intelluxe/advanced-ai:latest"
 port="8008:8008"
 description="Advanced AI reasoning service with Chain of Thought and Tree of Thought capabilities"
-env="POSTGRES_URL=postgresql://intelluxe_user:${POSTGRES_PASSWORD}@postgres:5432/intelluxe,REDIS_URL=redis://redis:6379/0,OLLAMA_URL=http://ollama:11434,HIPAA_COMPLIANCE=enabled,REASONING_MODE=enhanced,CHAIN_OF_THOUGHT=enabled,TREE_OF_THOUGHT=enabled,MAJORITY_VOTING=enabled"
+env="POSTGRES_URL=postgresql://intelluxe_user:${POSTGRES_PASSWORD}@postgres:5432/intelluxe,REDIS_URL=redis://redis:6379/0,OLLAMA_URL=http://172.20.0.10:11434,HIPAA_COMPLIANCE=enabled,REASONING_MODE=enhanced,CHAIN_OF_THOUGHT=enabled,TREE_OF_THOUGHT=enabled,MAJORITY_VOTING=enabled"
 volumes="./logs:/app/logs,./config/ai:/app/config:ro,./data/models:/app/models"
 network_mode="intelluxe-net"
 restart_policy="unless-stopped"
@@ -9713,7 +9713,7 @@ tmpfs="/tmp,/app/temp"
 image="intelluxe/realtime-assistant:latest"
 port="8009:8009"
 description="Real-time medical assistant with transcription and entity extraction"
-env="POSTGRES_URL=postgresql://intelluxe_user:${POSTGRES_PASSWORD}@postgres:5432/intelluxe,REDIS_URL=redis://redis:6379/1,OLLAMA_URL=http://ollama:11434,WHISPER_MODEL=medium,MEDICAL_NER=enabled,PHI_DETECTION=enabled,REAL_TIME_PROCESSING=enabled"
+env="POSTGRES_URL=postgresql://intelluxe_user:${POSTGRES_PASSWORD}@postgres:5432/intelluxe,REDIS_URL=redis://redis:6379/1,OLLAMA_URL=http://172.20.0.10:11434,WHISPER_MODEL=medium,MEDICAL_NER=enabled,PHI_DETECTION=enabled,REAL_TIME_PROCESSING=enabled"
 volumes="./logs:/app/logs,./config/assistant:/app/config:ro,./data/audio:/app/audio,./data/transcripts:/app/transcripts"
 network_mode="intelluxe-net"
 restart_policy="unless-stopped"

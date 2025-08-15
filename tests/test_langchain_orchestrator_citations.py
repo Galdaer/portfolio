@@ -49,7 +49,7 @@ async def test_orchestrator_appends_citations():
             }
 
     model = build_chat_model(
-        OllamaConfig(model="llama3.1:8b", base_url="http://localhost:11434", temperature=0.0)
+        OllamaConfig(model="llama3.1:8b", base_url="http://172.20.0.10:11434", temperature=0.0)
     )
     orch = LangChainOrchestrator(mcp_client=DummyMCP(), chat_model=model)
     # inject dummy agent to control output

@@ -48,7 +48,7 @@ async def test_orchestrator_hides_sources_when_flag_false():
             }
 
     model = build_chat_model(
-        OllamaConfig(model="llama3.1:8b", base_url="http://localhost:11434", temperature=0.0)
+        OllamaConfig(model="llama3.1:8b", base_url="http://172.20.0.10:11434", temperature=0.0)
     )
     orch = LangChainOrchestrator(mcp_client=DummyMCP(), chat_model=model)
     orch.agent = DummyAgent()

@@ -28,7 +28,7 @@ class ModelRegistry:
 
         # Get real Ollama models - no fallbacks to expose connection issues
         import ollama
-        client = ollama.Client(host="http://ollama:11434")
+        client = ollama.Client(host="http://172.20.0.10:11434")
         models = client.list()
 
         available_models = []

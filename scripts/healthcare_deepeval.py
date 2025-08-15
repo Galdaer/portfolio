@@ -39,10 +39,10 @@ try:
 
     # Configure DeepEval to use local Ollama model
     ollama_model = OllamaModel(
-        model="qwen2.5:7b-instruct-q4_K_M", base_url="http://localhost:11434",
+        model="qwen2.5:7b-instruct-q4_K_M", base_url="http://172.20.0.10:11434",
     )
     print("🤖 Using Ollama model: qwen2.5:7b-instruct-q4_K_M")
-    print("🔗 Ollama endpoint: http://localhost:11434")
+    print("🔗 Ollama endpoint: http://172.20.0.10:11434")
 
     # Basic healthcare AI test cases with all required fields for comprehensive metrics
     test_cases = [

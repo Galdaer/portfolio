@@ -30,7 +30,7 @@ async def test_ollama_connectivity():
     try:
         import httpx
         async with httpx.AsyncClient() as client:
-            response = await client.get("http://localhost:11434/api/version", timeout=10.0)
+            response = await client.get("http://172.20.0.10:11434/api/version", timeout=10.0)
             if response.status_code == 200:
                 version_data = response.json()
                 print(f"   ✅ Ollama running: {version_data.get('version', 'unknown')}")
@@ -105,7 +105,7 @@ async def test_simple_llm_query(agent):
         
         llm = ChatOllama(
             model="llama3.1:8b",
-            base_url="http://localhost:11434",
+            base_url="http://172.20.0.10:11434",
             temperature=0.1
         )
         

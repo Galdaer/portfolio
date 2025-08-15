@@ -176,7 +176,7 @@ multicast_relay=false                 # Bridge multicast between Docker network 
 # volumes=ollama-models:/root/.ollama
 # gpu_support=true
 # environment=OLLAMA_HOST=0.0.0.0
-# health_check=curl -f http://localhost:11434/api/tags
+# health_check=curl -f http://172.20.0.10:11434/api/tags
 # description=Local LLM inference server
 
 # AGENTCARE-MCP SERVICE:

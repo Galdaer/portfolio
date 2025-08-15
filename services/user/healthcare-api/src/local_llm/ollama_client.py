@@ -26,7 +26,7 @@ from langchain_ollama import ChatOllama
 @dataclass(frozen=True)
 class OllamaConfig:
     model: str
-    base_url: Optional[str] = None  # e.g., "http://ollama:11434"
+    base_url: Optional[str] = None  # e.g., "http://172.20.0.10:11434"
     temperature: float = 0.0
     seed: Optional[int] = 0
     num_ctx: Optional[int] = None
@@ -58,7 +58,7 @@ def build_chat_model(config: OllamaConfig) -> BaseChatModel:
         Actual inference happens only when the model is invoked.
     """
     # Ensure we have a valid base URL
-    base_url = config.base_url or "http://localhost:11434"
+    base_url = config.base_url or "http://172.20.0.10:11434"
 
     # Create ChatOllama with proper configuration
     return ChatOllama(

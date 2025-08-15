@@ -21,7 +21,7 @@ def test_healthcare_agent_import_only():
             return {"status": "success", "content": {"ok": True}}
 
     # Build a chat model instance without forcing any network calls
-    model = build_chat_model(OllamaConfig(model="llama3.1:8b", base_url="http://localhost:11434", temperature=0.0))
+    model = build_chat_model(OllamaConfig(model="llama3.1:8b", base_url="http://172.20.0.10:11434", temperature=0.0))
     agent = HealthcareLangChainAgent(DummyMCP(), model)
     # executor and tools should be present
     assert hasattr(agent, "executor")

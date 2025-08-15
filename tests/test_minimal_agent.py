@@ -26,7 +26,7 @@ async def test_minimal_agent():
         llm = ChatOllama(
             model="llama3.1:8b",
             temperature=0.7,
-            base_url="http://localhost:11434"
+            base_url="http://172.20.0.10:11434"
         )
         
         # Minimal tools - just mock tools to avoid MCP issues

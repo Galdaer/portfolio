@@ -448,7 +448,7 @@ jobs:
         ./scripts/universal-service-runner.sh start healthcare-mcp
 
         # Wait for services to be ready
-        timeout 60 bash -c 'until curl -f http://localhost:11434/api/tags; do sleep 2; done'
+        timeout 60 bash -c 'until curl -f http://172.20.0.10:11434/api/tags; do sleep 2; done'
 
     - name: Run Comprehensive Healthcare Evaluation
       env:
@@ -2458,7 +2458,7 @@ class MedicalHybridRetriever:
         # Initialize medical-optimized embeddings
         self.medical_embeddings = OllamaEmbeddings(
             model="llama3.1",  # Using local Ollama deployment
-            base_url="http://localhost:11434"
+            base_url="http://172.20.0.10:11434"
         )
 
         # Setup vector store with medical document partitioning
@@ -4800,7 +4800,7 @@ class TestPhase1HealthcareIntegration:
         """Test all services are running via universal service runner"""
 
         services_to_check = [
-            'http://localhost:11434/api/version',  # Ollama
+            'http://172.20.0.10:11434/api/version',  # Ollama
             'http://localhost:3000/health',        # Healthcare-MCP
             'http://localhost:8001/health',        # WhisperLive
         ]
@@ -4987,7 +4987,7 @@ if __name__ == "__main__":
 image="intelluxe/real-time-assistant:latest"
 port="8009:8009"
 description="Real-time clinical AI assistant with live transcription integration"
-env="WHISPER_ENDPOINT=http://whisperlive:8000,OLLAMA_ENDPOINT=http://ollama:11434"
+env="WHISPER_ENDPOINT=http://whisperlive:8000,OLLAMA_ENDPOINT=http://172.20.0.10:11434"
 volumes="./session-data:/app/sessions:rw"
 network_mode="intelluxe-net"
 restart_policy="unless-stopped"
