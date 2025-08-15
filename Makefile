@@ -2,6 +2,7 @@
 	   auto-repair \
 	   backup \
 	   clean-cache \
+	   clean-docker \
 	   data-clean \
 	   data-generate \
 	   data-generate-large \
@@ -382,6 +383,16 @@ clean-cache:
 		echo "   ⚠️  pip3 not found - skipping pip cache cleanup"; \
 	fi
 	@echo "✅  Package manager cache cleanup complete"
+
+clean-docker:
+	@echo "🐳  Cleaning Docker data to free disk space"
+	@echo "   📊 Current Docker disk usage:"
+	@docker system df 2>/dev/null || echo "   ⚠️  Docker not available"
+	@echo "   🧹 Removing all unused Docker data..."
+	@docker system prune -a --volumes -f 2>/dev/null || echo "   ⚠️  Docker cleanup failed - check if Docker is running"
+	@echo "   📊 Docker disk usage after cleanup:"
+	@docker system df 2>/dev/null || echo "   ⚠️  Docker not available"
+	@echo "✅  Docker cleanup complete"
 
 update:
 	@echo "🔄  Running healthcare AI system update and upgrade"
@@ -1131,6 +1142,7 @@ help:
 	@echo "   make deps           - Install all healthcare AI dependencies (CI-aware)"
 	@echo "   make update-deps    - Update dependencies to latest versions"
 	@echo "   make clean-cache    - Clean package manager caches"
+	@echo "   make clean-docker   - Clean Docker data (images, containers, volumes)"
 	@echo ""
 	@echo "🔧  SETUP & INSTALLATION:"
 	@echo "   make install        - Install systemd services and create system users"
