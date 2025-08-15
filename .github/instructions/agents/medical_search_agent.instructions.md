@@ -14,15 +14,6 @@ Patterns and guardrails for the `medical_search` agent to reliably turn MCP-sour
 - Wrap metrics calls (incr/record_timing) with try/except and continue.
 - Defer any best-effort telemetry to the very end or make it fire-and-forget.
 
-## MCP transport resilience (Broken pipe)
-- Symptoms: `Broken pipe`, `WriteUnixTransport closed=True`, successful MCP logs but 0 results.
-- Causes: stdio contention, long-lived client reuse, cross-container stdio.
-- Pattern:
-    - Use per-call MCP sessions (connect → call_tool → disconnect in finally).
-    - Add 2–3 retries with 100–300ms backoff.
-    - Limit concurrent MCP calls with a small Semaphore (1–2).
-    - Prefer in-container subprocess stdio over docker-exec between containers.
-
 ## Resilient formatting pipeline
 1) Classify intent via YAML patterns.
 2) Execute literature search with bounded concurrency (Semaphore) and overall timeout (asyncio.wait_for).

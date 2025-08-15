@@ -10,6 +10,65 @@ Python patterns for healthcare AI systems focused on medical compliance, PHI pro
 - Deterministic imports. Avoid duplicate imports and circulars; use TYPE_CHECKING for heavy deps.
 - PHI-safe logging. Never log raw PHI or full prompts/responses from LLMs.
 
+## Critical Fixes Applied This Session
+
+### LangChain Agent Scratchpad Fix
+**CRITICAL**: LangChain structured chat agents in 0.3.x have a scratchpad typing issue.
+
+```python
+# ❌ BROKEN PATTERN: ConversationSummaryBufferMemory with AgentExecutor
+self.executor = AgentExecutor(
+    agent=agent,
+    tools=self.tools,
+    memory=self.memory,  # CAUSES: "agent_scratchpad should be a list of base messages, got str"
+    return_intermediate_steps=True
+)
+
+# ✅ WORKING PATTERN: Use ReAct agent without memory
+from langchain.agents import create_react_agent
+
+prompt = hub.pull("hwchase17/react")
+agent = create_react_agent(llm=self.llm, tools=self.tools, prompt=prompt)
+self.executor = AgentExecutor(
+    agent=agent,
+    tools=self.tools,
+    verbose=True,
+    return_intermediate_steps=True,
+    # NO memory parameter - prevents scratchpad conflicts
+)
+
+# Only pass {"input": query} to ainvoke()
+result = await self.executor.ainvoke({"input": query})
+```
+
+### Async/Sync Tool Compatibility
+**CRITICAL**: LangChain tools must be sync functions returning strings.
+
+```python
+# ✅ WORKING PATTERN: Sync wrapper for async MCP tools
+def _safe_tool_wrapper(tool_name: str, fn: Callable[..., Any]) -> Callable[..., str]:
+    def _sync_wrapper(*args, **kwargs) -> str:
+        if asyncio.iscoroutinefunction(fn):
+            try:
+                asyncio.get_running_loop()
+                # In async context - use thread executor
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, fn(*args, **kwargs))
+                    result = future.result()
+            except RuntimeError:
+                # No running loop - use asyncio.run directly
+                result = asyncio.run(fn(*args, **kwargs))
+        else:
+            result = fn(*args, **kwargs)
+        
+        # Always return string for LangChain compatibility
+        if isinstance(result, dict):
+            return json.dumps(result, indent=2)
+        return str(result)
+    return _sync_wrapper
+```
+
 ## Typing patterns
 ```python
 from typing import TYPE_CHECKING, Optional, Any

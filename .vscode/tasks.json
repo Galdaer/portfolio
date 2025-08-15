@@ -21,8 +21,7 @@
                 "clear": false
             },
             "problemMatcher": [
-                "$flake8",
-                "$mypy-python",
+                "$python",
                 "$eslint-stylish"
             ]
         },
@@ -102,17 +101,44 @@
             }
         },
         {
-            "label": "Quick Lint Check",
+            "label": "Test LangChain Agent Fix",
+            "group": "test",
             "type": "shell",
-            "command": "bash",
+            "command": "python3",
             "args": [
-                "-c",
-                "echo '🔍 Running quick lint check...' && flake8 --select=E9,F63,F7,F82 --show-source --statistics src/ && echo '✅ Quick lint passed'"
+                "test_langchain_fix.py"
             ],
-            "group": "build"
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": "$python"
         },
         {
-            "label": "Healthcare API Build",
+            "label": "Debug MCP Connection",
+            "group": "test",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "-c",
+                "import asyncio; from core.mcp.direct_mcp_client import DirectMCPClient; asyncio.run(DirectMCPClient().debug_connection())"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/services/user/healthcare-api"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Build Healthcare API",
             "group": "build",
             "type": "shell",
             "command": "make",
@@ -143,44 +169,18 @@
                 "echo": true,
                 "reveal": "always",
                 "panel": "shared"
-            }
+            },
+            "problemMatcher": "$python"
         },
         {
-            "label": "Tail Healthcare Logs",
-            "group": "none",
+            "label": "Quick Lint Check",
             "type": "shell",
             "command": "bash",
             "args": [
                 "-c",
-                "tail -n 200 -f logs/healthcare_system.log"
+                "echo '🔍 Running quick lint check...' && flake8 --select=E9,F63,F7,F82 --show-source --statistics src/ && echo '✅ Quick lint passed'"
             ],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "isBackground": true,
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "panel": "dedicated"
-            }
-        },
-        {
-            "label": "MCP Pipeline Logs",
-            "group": "none",
-            "type": "shell",
-            "command": "make",
-            "args": [
-                "mcp-pipeline-logs"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "isBackground": true,
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "panel": "shared"
-            }
+            "group": "build"
         }
     ]
 }

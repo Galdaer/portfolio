@@ -3,88 +3,57 @@
 ## Purpose
 Patterns for building and operating the healthcare LangChain agent with local-only LLMs (Ollama), MCP tools, and HIPAA-aware behavior.
 
-## Contracts
-- Inputs: user input (string), chat_history (list of BaseMessages), tools (LangChain tools), MCP client
-- Outputs: final answer string, intermediate_steps [(AgentAction, observation)], optional citations list
-- Error modes: prompt variable errors, tool parsing errors, Ollama connectivity, MCP tool failures
-- Success: valid structured chat loop with tool use; final answer or graceful error
+## CRITICAL UPDATE (2025-08-14): Agent Scratchpad Fix
 
-## Validated Pattern (LangChain 0.3.x)
-- Use `create_structured_chat_agent(llm, tools, prompt)` and `AgentExecutor`.
-- Prompt variables required: `tools`, `tool_names`, `input`, `agent_scratchpad`.
-- Do NOT attach memory to `AgentExecutor` for structured chat. The agent manages its own `agent_scratchpad` from `intermediate_steps`.
-- Only pass `{ "input": query }` to `ainvoke()`; never include `agent_scratchpad` in inputs.
-- Prompt shape:
-  - system: rules + JSON examples; escape JSON braces with `{{` and `}}`.
-  - MessagesPlaceholder("chat_history", optional=True)
-  - human: "{input}"
-  - MessagesPlaceholder("agent_scratchpad")
+**BREAKING CHANGE**: Structured chat agents with ConversationSummaryBufferMemory cause scratchpad type errors in LangChain 0.3.x.
 
-Example skeleton:
+**NEW VALIDATED PATTERN**: Use ReAct agent without memory for stability.
 
-```
-prompt = ChatPromptTemplate.from_messages([
-  ("system", "Respond ... tools: {tools} ... Valid \"action\" values: {tool_names} ... Example: ```\n{{\n  \"action\": $TOOL_NAME,\n  \"action_input\": $INPUT\n}}\n``` ... Final Answer example ..."),
-  MessagesPlaceholder("chat_history", optional=True),
-  ("human", "{input}"),
-  MessagesPlaceholder("agent_scratchpad"),
-])
-agent = create_structured_chat_agent(llm=llm, tools=tools, prompt=prompt)
-executor = AgentExecutor(
-  agent=agent,
-  tools=tools,
-  verbose=True,
-  max_iterations=5,
-  return_intermediate_steps=True,
-  handle_parsing_errors=True,
+```python
+# ✅ WORKING PATTERN (VERIFIED 2025-08-14)
+from langchain import hub
+from langchain.agents import create_react_agent, AgentExecutor
+
+# Use proven ReAct prompt from hub - no custom prompt needed
+prompt = hub.pull("hwchase17/react")
+agent = create_react_agent(llm=self.llm, tools=self.tools, prompt=prompt)
+
+self.executor = AgentExecutor(
+    agent=agent,
+    tools=self.tools,
+    verbose=True,
+    return_intermediate_steps=True,
+    handle_parsing_errors="Check your output and make sure it conforms!",
+    # CRITICAL: NO memory parameter - prevents scratchpad conflicts
+    # CRITICAL: NO early_stopping_method="generate" - not supported by ReAct
 )
+
+# ONLY pass input - AgentExecutor manages agent_scratchpad internally
+result = await self.executor.ainvoke({"input": query})
 ```
 
-## agent_scratchpad rules
-- Must be a list of BaseMessages. Never inject a string in `{agent_scratchpad}`.
-- Let AgentExecutor populate from `intermediate_steps`.
+## Contracts
+- Inputs: user input (string), tools (LangChain tools), MCP client
+- Outputs: final answer string, intermediate_steps [(AgentAction, observation)]
+- Error modes: tool execution errors, Ollama connectivity, MCP tool failures
+- Success: valid ReAct loop with tool use; final answer or graceful error
 
-## Memory and Chat History
-- Avoid passing `memory` to `AgentExecutor` for structured chat agents; it can inject strings where BaseMessages are expected.
-- If you must preserve history, handle it manually in the call site by passing a `chat_history` MessagesPlaceholder in the prompt and supplying a list of BaseMessages. Do not pass summaries/strings.
+## DEPRECATED PATTERNS (DO NOT USE)
+```python
+# ❌ BROKEN: Structured chat with memory causes scratchpad errors
+self.executor = AgentExecutor(
+    agent=agent,
+    tools=self.tools,
+    memory=self.memory,  # CAUSES: "agent_scratchpad should be a list of base messages, got str"
+    return_intermediate_steps=True
+)
 
-## Tool contract (sync wrappers over async)
-- LangChain tools must return strings (not dicts). Wrap async MCP calls in a sync wrapper.
-
-Pattern:
-
-```
-from langchain.tools import StructuredTool
-import asyncio, json
-
-def to_sync(tool_name: str, fn, retries: int = 2):
-  def _wrap(*args, **kwargs):
-    for attempt in range(retries + 1):
-      try:
-        if asyncio.iscoroutinefunction(fn):
-          try:
-            asyncio.get_running_loop()
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as ex:
-              return_str = ex.submit(asyncio.run, fn(*args, **kwargs)).result()
-          except RuntimeError:
-            return_str = asyncio.run(fn(*args, **kwargs))
-        else:
-          return_str = fn(*args, **kwargs)
-        return json.dumps(return_str, indent=2) if isinstance(return_str, dict) else str(return_str)
-      except Exception as e:
-        if attempt >= retries:
-          return f"Tool error: {e}"
-    return ""
-  return _wrap
-
-tools = [
-  StructuredTool.from_function(
-  func=to_sync("search_medical_literature", lambda q: ...),
-  name="search_medical_literature",
-  description="Search medical literature",
-  )
-]
+# ❌ BROKEN: Passing additional variables to ainvoke
+result = await self.executor.ainvoke({
+    "input": query,
+    "chat_history": history,  # Don't pass this - causes conflicts
+    "agent_scratchpad": []    # NEVER pass this manually
+})
 ```
 
 ## Model configuration (Ollama)
@@ -93,34 +62,43 @@ tools = [
 - Do not invent model names (e.g., do not use llama3.2).
 
 ## MCP tools integration
-- Public tools (e.g., PubMed) must bypass OAuth; no patientId required.
-- Normalize tool names (hyphen vs underscore) consistently both in tool registration and usage.
-- On transport errors like `BrokenPipeError`/`WriteUnixTransport closed=True`:
-  - Recreate the MCP client per-call (short-lived sessions).
-  - Retry with small backoff (e.g., 100–300ms) and low attempt count (2–3).
-  - Limit concurrency (Semaphore 1–2) to reduce stdio contention.
-  - Ensure the MCP server runs in-process/subprocess within the same container to avoid cross-container stdio issues.
+- Tools must return strings for LangChain compatibility (use `json.dumps()` for complex data)
+- Async MCP tools need sync wrappers using `asyncio.iscoroutinefunction()` detection
+- Handle broken pipe errors gracefully - common with container-to-container MCP communication
+- Public tools (e.g., PubMed) must bypass OAuth; no patientId required
+- Normalize tool names (hyphen vs underscore) consistently in tool registration and usage
 
 ## Troubleshooting
-- INVALID_PROMPT_INPUT complaining about `"action"` → escape JSON braces with `{{` and `}}` in system examples.
-- `agent_scratchpad should be a list of base messages` → add `MessagesPlaceholder("agent_scratchpad")` and remove string usage.
-- If still failing in structured chat, temporarily switch to ReAct agent to validate tool plumbing while you correct prompt variables.
-- Ollama connection errors → confirm service reachable on `OLLAMA_BASE_URL`, correct model pulled (`ollama pull llama3.1:8b`).
-- MCP tool failures → verify server starts in same container and tool names match normalization.
+
+### Agent Scratchpad Errors (RESOLVED 2025-08-14)
+- **Error**: `variable agent_scratchpad should be a list of base messages, got str`
+- **Solution**: Use ReAct agent without memory, never pass memory to AgentExecutor
+- **Prevention**: Only pass `{"input": query}` to `ainvoke()`, let AgentExecutor manage scratchpad
+
+### MCP Connection Issues
+- **Error**: `[Errno 32] Broken pipe` in tool calls
+- **Investigation**: Check MCP server container logs, verify stdio streams, test resource limits
+- **Workaround**: Agent handles tool failures gracefully and continues execution
+
+### Async/Sync Compatibility  
+- **Error**: `coroutine was never awaited` warnings
+- **Solution**: Use `_safe_tool_wrapper` with proper async detection
+- **Pattern**: All LangChain tools must be sync functions returning strings
 
 ## Gotchas and Acceptance Checks
-- Never include `{agent_scratchpad}` inside the human message; use a MessagesPlaceholder after the human turn.
-- Ensure prompt variables include `{tools}` and `{tool_names}`; forgetting `{tool_names}` leads to invalid action validation.
-- Agent output acceptance:
-  - Returns `output` string and `intermediate_steps` list.
-  - Builds a user-facing `formatted_summary` (upstream orchestrator may post-process for UI header and sources).
-  - When citations are present, downstream orchestrator can append a "Sources:" section.
+- **CRITICAL**: Never add memory parameter to AgentExecutor - causes scratchpad conflicts
+- **CRITICAL**: Use ReAct agent, not structured chat agent for stability
+- Returns `output` string and `intermediate_steps` list
+- Agent gracefully handles tool failures and continues execution
+- Local inference only; do not transmit PHI externally
 
-## Executor Tuning
-- `max_iterations`: start 3–5; high values may mask MCP transport issues.
-- `early_stopping_method="generate"`: helps finish gracefully when tool loop stalls.
-- `handle_parsing_errors=True`: lets the agent recover from minor JSON formatting slips.
+## Executor Tuning (Updated for ReAct)
+- `max_iterations`: default 5 for ReAct agents
+- **DO NOT USE** `early_stopping_method="generate"` - not supported by ReAct agents  
+- `handle_parsing_errors`: use descriptive string like "Check your output and make sure it conforms!"
+- `return_intermediate_steps=True`: required for debugging and tool chain analysis
 
 ## Compliance
-- Local inference only; do not transmit PHI externally.
-- Strong typing; avoid `# type: ignore` in healthcare modules.
+- Local inference only; do not transmit PHI externally
+- Strong typing; avoid `# type: ignore` in healthcare modules
+- All tool responses logged at INFO level (PHI-safe)

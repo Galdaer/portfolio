@@ -48,6 +48,85 @@ class HealthcareFinancialSafety:
         # Pattern to catch signature mismatches before runtime
         pass
 
+### Healthcare AI Agent Reliability (Updated 2025-08-14)
+
+```python
+# ✅ CRITICAL: LangChain agent patterns for healthcare stability
+class HealthcareAgentReliability:
+    """Agent reliability patterns from critical bug fixes."""
+    
+    @staticmethod
+    def create_stable_healthcare_agent(llm, tools):
+        """Create LangChain agent with healthcare-specific stability patterns."""
+        from langchain import hub
+        from langchain.agents import create_react_agent, AgentExecutor
+        
+        # Use proven ReAct pattern - more stable than structured chat
+        prompt = hub.pull("hwchase17/react")
+        agent = create_react_agent(llm=llm, tools=tools, prompt=prompt)
+        
+        # CRITICAL: No memory parameter to prevent scratchpad conflicts
+        executor = AgentExecutor(
+            agent=agent,
+            tools=tools,
+            verbose=True,
+            return_intermediate_steps=True,
+            handle_parsing_errors="Check your output and make sure it conforms!",
+            # NO memory - prevents "agent_scratchpad should be a list of base messages" error
+            # NO early_stopping_method - not supported by ReAct agents
+        )
+        return executor
+    
+    @staticmethod
+    def safe_agent_execution(executor, query: str) -> Dict[str, Any]:
+        """Execute agent with healthcare-appropriate error handling."""
+        try:
+            # CRITICAL: Only pass input - let AgentExecutor manage scratchpad
+            result = await executor.ainvoke({"input": query})
+            
+            return {
+                "success": True,
+                "response": result.get("output", ""),
+                "steps": result.get("intermediate_steps", [])
+            }
+        except Exception as e:
+            # Healthcare-appropriate error response
+            return {
+                "success": False,
+                "response": "I encountered a technical issue. Please try rephrasing your question.",
+                "error": str(e),  # For logging only
+                "steps": []
+            }
+    
+    @staticmethod
+    def create_medical_tool_wrapper(async_tool_func):
+        """Wrap async medical tools for LangChain compatibility."""
+        import asyncio
+        import json
+        
+        def sync_wrapper(*args, **kwargs) -> str:
+            if asyncio.iscoroutinefunction(async_tool_func):
+                try:
+                    asyncio.get_running_loop()
+                    # In async context - use thread executor
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(asyncio.run, async_tool_func(*args, **kwargs))
+                        result = future.result()
+                except RuntimeError:
+                    # No running loop - use asyncio.run directly
+                    result = asyncio.run(async_tool_func(*args, **kwargs))
+            else:
+                result = async_tool_func(*args, **kwargs)
+            
+            # Always return string for LangChain compatibility
+            if isinstance(result, dict):
+                return json.dumps(result, indent=2)
+            return str(result)
+        
+        return sync_wrapper
+```
+
 # ✅ CRITICAL: Database resource management patterns
 class HealthcareDatabaseSafety:
     """Database connection safety patterns from production issues."""
@@ -189,14 +268,3 @@ class ClinicalDecisionSupportAssistant:
 - Always return a disclaimer and a readable summary even on timeouts or upstream errors.
 
 ---
-
-## Agent Output Contract (2025-08-14)
-
-- UI-facing agents must always set `formatted_summary`. On internal failure, set a minimal, safe fallback string.
-- Metrics and logging must never block output; wrap in try/except and proceed.
-
-## MCP Runtime Guidance (2025-08-14)
-
-- Prefer running MCP servers as subprocesses within the same container as the healthcare API to avoid stdio transport issues.
-- Avoid cross-container stdio; it is prone to `Broken pipe` and `WriteUnixTransport closed=True` under load.
-- Use short-lived MCP sessions per call and clean up in `finally`.

@@ -55,29 +55,76 @@ async def working_mcp_client():
             result = await session.call_tool(tool_name, arguments)
 ```
 
-### LangChain Structured Chat Prompt Debugging (2025-08-14)
+### LangChain Agent Scratchpad Debugging (2025-08-14) - CRITICAL FIX
+
+**PROBLEM**: `variable agent_scratchpad should be a list of base messages, got str`
 
 **SYMPTOMS**:
-- `INVALID_PROMPT_INPUT` complaining about missing variables like `'\n  "action"'`.
-- `variable agent_scratchpad should be a list of base messages, got str`.
+- Error occurs in `AgentExecutor.ainvoke()` around line 319 in agents.py
+- Agent initialization succeeds but processing fails
+- Error specifically mentions string instead of BaseMessages list
 
-**ROOT CAUSES**:
-- Unescaped JSON braces in `ChatPromptTemplate` system message examples.
-- Using a string for `agent_scratchpad` instead of `MessagesPlaceholder`.
+**ROOT CAUSE ANALYSIS**:
+1. ConversationSummaryBufferMemory injects string summaries where BaseMessages expected
+2. Structured chat agent expects MessagesPlaceholder("agent_scratchpad") as BaseMessages list
+3. Memory conflicts with agent's internal scratchpad management
 
-**FIX PATTERN**:
+**COMPLETE FIX PATTERN**:
 ```python
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "... tools: {tools} ... Valid action values: {tool_names} ... Example: ```\n{{\n  \"action\": $TOOL_NAME,\n  \"action_input\": $INPUT\n}}\n``` ..."),
-    MessagesPlaceholder("chat_history", optional=True),
-    ("human", "{input}"),
-    MessagesPlaceholder("agent_scratchpad"),
-])
+# ❌ BROKEN: Using memory with AgentExecutor
+self.executor = AgentExecutor(
+    agent=agent,
+    tools=self.tools,
+    memory=self.memory,  # CAUSES SCRATCHPAD CONFLICT
+    return_intermediate_steps=True
+)
+
+# ✅ WORKING: Switch to ReAct agent without memory
+from langchain import hub
+from langchain.agents import create_react_agent
+
+# Use standard ReAct prompt from hub
+prompt = hub.pull("hwchase17/react")
+agent = create_react_agent(llm=self.llm, tools=self.tools, prompt=prompt)
+
+self.executor = AgentExecutor(
+    agent=agent,
+    tools=self.tools,
+    verbose=True,
+    return_intermediate_steps=True,
+    handle_parsing_errors="Check your output and make sure it conforms!"
+    # NO memory parameter - prevents conflicts
+)
+
+# CRITICAL: Only pass {"input": query} to ainvoke()
+result = await self.executor.ainvoke({"input": query})
 ```
 
-**EXECUTOR SETTINGS**:
-- `return_intermediate_steps=True`, `handle_parsing_errors=True`.
-- Let AgentExecutor populate `agent_scratchpad` from `intermediate_steps`.
+**KEY DEBUGGING INSIGHTS**:
+- Never pass `agent_scratchpad` manually - AgentExecutor manages it from intermediate_steps
+- ReAct agents are more stable than structured chat in LangChain 0.3.x  
+- Tools must return strings, not dicts (use json.dumps for complex data)
+- Async tools need proper sync wrappers using `asyncio.iscoroutinefunction()`
+
+**MCP Broken Pipe Investigation Pattern**:
+```python
+# When you see "[Errno 32] Broken pipe" in MCP calls:
+
+# 1. Check MCP server is running and accessible
+async def debug_mcp_connection():
+    try:
+        # Test basic connectivity first
+        result = await mcp_client.list_tools()
+        logger.info(f"MCP tools available: {len(result)}")
+        
+        # Then test specific tool
+        result = await mcp_client.call_tool("search-pubmed", {"query": "test"})
+        logger.info("MCP tool call successful")
+        
+    except Exception as e:
+        logger.error(f"MCP connection issue: {e}")
+        # Check: Is MCP server running? Network connectivity? Resource limits?
+```
 
 **DEBUGGING APPROACH**:
 ```python

@@ -97,7 +97,7 @@ class HealthcareLangChainAgent:
             config = OllamaConfig(
                 model=model or default_model,
                 temperature=default_temperature,
-                base_url=_os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+                base_url=_os.getenv("OLLAMA_URL", _os.getenv("OLLAMA_URL", "http://ollama:11434")),
                 num_ctx=4096  # Context window size
             )
 
@@ -118,25 +118,9 @@ class HealthcareLangChainAgent:
         )
 
         # ReAct prompt template (solves agent_scratchpad issues)
-        prompt = PromptTemplate.from_template("""Answer the following medical questions as best you can. You have access to the following healthcare tools:
-
-{tools}
-
-Use the following format:
-
-Question: the input question you must answer
-Thought: you should always think about what to do
-Action: the action to take, should be one of [{tool_names}]
-Action Input: the input to the action
-Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I now know the final answer
-Final Answer: the final answer to the original input question
-
-Begin!
-
-Question: {input}
-Thought: {agent_scratchpad}""")
+        # Use official ReAct prompt from hub per handoff document
+        from langchain import hub
+        prompt = hub.pull("hwchase17/react")
 
         agent = create_react_agent(
             llm=self.llm, tools=self.tools, prompt=prompt
@@ -148,8 +132,9 @@ Thought: {agent_scratchpad}""")
             tools=self.tools,
             verbose=True,  # Enable for debugging
             max_iterations=5,  # Increase iterations for tool usage
-            handle_parsing_errors=True,  # Critical: Handle LLM output parsing errors
+            handle_parsing_errors="Check your output and make sure it conforms!",  # Specific error message per handoff
             return_intermediate_steps=True,
+            # NO memory parameter per handoff document
         )
 
         # Internal debug callback for detailed tracing
@@ -342,8 +327,16 @@ Thought: {agent_scratchpad}""")
                     "LangChain agent processing failed",
                     extra={"healthcare_context": error_details},
                 )
+                # Also log the full error details directly for debugging
+                logger.error(f"DETAILED ERROR: {error_details['message']}")
+                logger.error(f"ERROR TYPE: {error_details['type']}")
+                if chosen:
+                    logger.error(f"ERROR LOCATION: {chosen['file']}:{chosen['line']} in {chosen['function']}()")
+                    logger.error(f"ERROR CODE: {chosen['code']}")
+                logger.error(f"FULL STACK TRACE:\n{error_details['stack']}")
             except Exception:
                 logger.error(f"LangChain agent processing failed: {e}")
+                logger.error(f"FALLBACK STACK TRACE:\n{traceback.format_exc()}")
 
             return {
                 "success": False,
