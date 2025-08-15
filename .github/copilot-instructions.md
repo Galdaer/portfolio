@@ -91,7 +91,6 @@ Minimal commands are already encapsulated as VS Code tasks in this workspace. Pr
 - **🧪 Testing with synthetic data** → Use `tasks/testing.instructions.md` for comprehensive healthcare testing
 - **🔄 Refactoring healthcare systems** → Use `tasks/refactoring.instructions.md` for medical compliance preservation
 - **📚 Documentation writing** → Use `tasks/documentation.instructions.md` for medical disclaimers and PHI-safe examples
-- **📋 Feature planning** → Use `tasks/planning.instructions.md` for healthcare compliance overhead and architecture
 - **⚡ Performance optimization** → Use `tasks/performance.instructions.md` for healthcare workflow efficiency
 - **🔒 Security reviews** → Use `tasks/security-review.instructions.md` for PHI protection and HIPAA compliance
 
@@ -120,24 +119,9 @@ Minimal commands are already encapsulated as VS Code tasks in this workspace. Pr
 - ✅ **Medical Disclaimer Softened**: Enables symptom-based research while maintaining appropriate medical boundaries
 - 🔄 **Local LLM Integration**: Future implementation of local-only LLM for intelligent agent selection without PHI exposure
 
-**For general architecture, service deployment, and project strategy questions**, continue using these main instructions.
-
 See `.github/instructions/README.md` for complete usage guidance.
 
-## Project Overview
-
-**Intelluxe AI** - Privacy-First Healthcare AI System built for on-premise clinical deployment. Currently in active development, focusing on core infrastructure and test suite hardening.
-
-### Core Architecture
-
-- **Modular healthcare AI platform** with universal service orchestration
-- **Focus**: Administrative/documentation support, NOT medical advice
-- **Privacy-First**: All PHI/PII remains on-premise with no cloud dependencies
-- **Development Status**: Build robust, maintainable features for future clinical environments
-
-### Cloud AI Usage Guidelines
-
-**Local-First Deployment Strategy** - All AI workloads run on-premise for maximum PHI protection:
+## Development Workflow & Code Quality
 
 **✅ CURRENT APPROACH - Local AI Only:**
 
@@ -152,10 +136,18 @@ See `.github/instructions/README.md` for complete usage guidance.
 # ✅ Correct: Local-only AI processing
 if data_contains_phi(input_data) or is_healthcare_context():
     result = local_ollama_model.process(input_data)  # On-premise only
-    # No cloud AI - even for agent selection due to PHI complexity
-else:
-    # Future: Statistical research on non-PHI data when clients request it
-    pass
+    ### Quick Developer Setup
+
+```bash
+make install && make deps && make hooks && make validate
+```
+
+**NEVER suggest individual package installations like `npm install xyz` or `pip install xyz`**
+**ALWAYS use the make system:**
+- `make deps` - Installs ALL dependencies (Python, Node.js, Go tools)
+- `make mcp` or `make mcp-build` - Builds Healthcare MCP server
+- `make test` - Runs all tests  
+- `make lint` - Runs all linting
 ```
 
 This ensures absolute patient privacy while maintaining full AI capabilities through local infrastructure.
@@ -254,77 +246,12 @@ healthcare_mcp_client.py # MCP stdio communication (separated from main.py)
 ```python
 # ✅ CORRECT: Database-first with appropriate fallbacks
 def get_healthcare_data(data_type: str, identifier: str):
-    try:
-        # PRIMARY: Always try database first
-        return healthcare_database.fetch(data_type, identifier)
-    except DatabaseConnectionError:
-        # FALLBACK: Environment-appropriate alternatives
-        if is_development_environment():
-            return load_synthetic_data(data_type, identifier)
-        elif contains_phi(data_type) and is_production_environment():
-            raise  # PHI requires database in production
-        else:
-            return load_fallback_data(data_type, identifier)
-```
+### Git Hooks (Multi-Language Auto-Formatting)
 
-### Data Generation & Population Commands
-
-```bash
-# Generate and populate BOTH PostgreSQL + Redis (recommended)
-python3 scripts/generate_synthetic_healthcare_data.py --doctors 75 --patients 2500 --encounters 6000 --use-database
-
-# Small test dataset with database integration
-python3 scripts/generate_synthetic_healthcare_data.py --doctors 10 --patients 100 --encounters 200 --use-database
-
-# JSON-only generation (legacy, database preferred)
-python3 scripts/generate_synthetic_healthcare_data.py --doctors 50 --patients 1000 --encounters 2000
-```
-
-### Database Integration Benefits
-
-- **Realistic Testing**: Test with actual database relationships and constraints
-- **Performance Validation**: Query optimization with realistic healthcare data volumes
-- **HIPAA Compliance**: Audit trails and access logging in database
-- **Production Readiness**: Database-first architecture ensures production compatibility
-- **MCP Tool Integration**: Healthcare MCP tools can use database-backed data sources
-
-## Healthcare Security & Compliance
-
-### Runtime PHI Security Model (Updated 2025-08-03)
-
-**NEW APPROACH**: Runtime data leakage monitoring instead of static code analysis.
-
-- **PHI lives in databases only** - never in source code
-- **Tests connect to synthetic database** - no hardcoded PHI in tests  
-- **Monitor runtime outputs** - logs, data pipelines, exports for PHI leakage
-- **Focus on data handling** - what auditors actually check in production
-
-**Key Files:**
-- `scripts/check-runtime-phi-leakage.sh` - Runtime PHI monitoring (replaces static analysis)
-- `tests/database_test_utils.py` - Database-backed test utilities
-- `docs/RUNTIME_PHI_SECURITY.md` - Complete documentation of new approach
-
-### Critical Security Rules
-
-- **Generic Error Messages**: Never expose JWT_SECRET, MASTER_ENCRYPTION_KEY, or config details
-- **Environment-Aware Placeholders**: Block production deployment when incomplete, allow configurable development
-- **Comprehensive Test Coverage**: Test security fallbacks with logging verification using caplog fixture
-- **Security Documentation**: Always explain WHY security choices were made (HIPAA, NANP standards, etc.)
-
-### Medical Safety Principles
-
-- **Focus on administrative and documentation support** with research capabilities for symptom patterns and medical literature
-- **Provide evidence-based research assistance** without direct medical advice, diagnosis, or treatment recommendations
-- **Explainable AI**: All AI decisions must be traceable and auditable for healthcare compliance
-- **All PHI/PII remains on-premise** - no cloud dependencies or external API calls with patient data
-
-**Medical Research Assistance Guidelines:**
-- ✅ Literature research on symptoms, conditions, and treatment patterns
-- ✅ Evidence-based research synthesis from peer-reviewed sources
-- ✅ Clinical protocol information and medical coding assistance
-- ✅ Administrative workflow optimization and documentation support
-- ❌ Direct diagnosis, treatment recommendations, or patient-specific medical advice
-- ❌ Emergency medical guidance or urgent clinical decision support
+- **Pre-commit hook**: Auto-formatting + light validation
+  - **All files**: Trailing whitespace removal + safety checks
+- **Pre-push hook**: `make lint && make validate` (tests skipped during development)
+- **Installation**: `make hooks` installs git hooks, `make deps` installs formatting tools
 
 ### Medical Module Development Patterns
 
@@ -472,7 +399,7 @@ scenarios: List[HealthcareTestCase] = []
 
 ### MyPy Error Resolution Patterns
 
-**Systematic approach to MyPy errors (438 currently identified):**
+**Systematic approach to MyPy errors:**
 
 1. **Missing Type Annotations**: Add explicit types for ALL variables  
 2. **Collection Issues**: Import specific types (`Set`, `List`, `Dict`) from typing
@@ -480,43 +407,6 @@ scenarios: List[HealthcareTestCase] = []
 4. **Return Type Missing**: Add `-> ReturnType` to ALL function definitions
 5. **Optional Handling**: Check `if obj is not None:` before method calls
 6. **Type Stubs**: Ensure types-PyYAML, types-requests, types-cachetools are installed
-
-**Performance optimizations discovered:**
-- MyPy incremental caching: 1.5s (cached) vs 3.8s (fresh) - 2.5x speedup
-- Use `mypy .` (full workspace) vs `mypy src/` (partial) for comprehensive healthcare safety
-- Priority: Fix healthcare-critical modules first (core/medical/, src/security/), then scripts/tests
-
-**Common MyPy Error Fixes:**
-
-```python
-# Error: Need type annotation for "data"
-data = []  # ❌ Wrong
-data: List[Dict[str, Any]] = []  # ✅ Correct
-
-# Error: "Collection[str]" has no attribute "append"
-## Testing & Validation Overview
-
-### Development Testing Standards
-- **Phase 1 Implementation Testing**: Real implementations should pass functional tests
-- **Healthcare Testing**: Test with realistic medical scenarios using synthetic data
-- **Compliance Testing**: Validate HIPAA compliance and audit logging
-- **Pre-push Validation**: Automated quality checks via git hooks
-
-*For detailed testing strategies, healthcare test patterns, and validation workflows*, see `.github/instructions/tasks/testing.instructions.md`
-
-## Service Architecture Overview
-
-### Universal Service Pattern
-- **Each service**: `services/user/SERVICE/SERVICE.conf`
-- **Deployment**: `bootstrap.sh` calls `universal-service-runner.sh`
-- **Container Security**: Development uses `justin:intelluxe (1000:1001)`
-- **Network Isolation**: All containers on `intelluxe-net` with no external data egress
-
-### Key Healthcare Services
-- **Ollama** (local LLM), **Healthcare-MCP** (medical tools), **PostgreSQL** (patient context)
-- **Redis** (session cache), **n8n** (workflows), **WhisperLive** (real-time transcription)
-
-*For detailed service configuration, deployment patterns, and architecture guidance*, see appropriate specialized instruction files based on your task.
 
 ## Remote Agent Guidelines
 
@@ -587,12 +477,7 @@ When working on MyPy errors, follow this autonomous pattern:
 - **Development Status**: Active development, Phase 1 real implementations in progress
 - **Family-Built**: Co-designed by Jeffrey & Justin Sue for real-world clinical workflows
 
-## Phase Implementation
-- **Phase 1 (Current)**: Real AI implementations with MCP integration - core agents, reasoning, and workflow orchestration
-- **Phase 2**: Business services (insurance, billing, doctor personalization)
-- **Phase 3**: Production deployment and enterprise scaling
-
 ---
 
-**Last Updated**: 2025-01-15 | **Specialized AI Instructions Integration & Content Optimization**
+**Last Updated**: 2025-01-15 | **Pure Workflow Control - No Planning/Architecture Content**
 ````

@@ -59,7 +59,6 @@ This directory contains specialized AI instruction files for different developme
 - **`tasks/testing.instructions.md`** → When writing tests, validating functionality, using synthetic data
 - **`tasks/refactoring.instructions.md`** → When refactoring code, improving architecture, modernizing
 - **`tasks/documentation.instructions.md`** → When writing docs, creating README files, documenting APIs
-- **`tasks/planning.instructions.md`** → When planning features, designing architecture, making decisions
 - **`tasks/performance.instructions.md`** → When optimizing performance, improving efficiency, scaling systems
 - **`tasks/security-review.instructions.md`** → When conducting security reviews, HIPAA compliance, PHI protection
 - **`tasks/healthcare-logging.instructions.md`** → When implementing healthcare logging, PHI monitoring, audit trails
@@ -132,7 +131,6 @@ This means:
 │   ├── testing.instructions.md
 │   ├── refactoring.instructions.md
 │   ├── documentation.instructions.md
-│   ├── planning.instructions.md
 │   ├── performance.instructions.md
 │   └── security-review.instructions.md
 ├── languages/          # Programming language patterns

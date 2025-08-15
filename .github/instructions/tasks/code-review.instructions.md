@@ -33,19 +33,7 @@ Code review guidance for healthcare AI systems emphasizing medical compliance, P
 - **Constants**: Consolidate magic numbers into shared constants
 - **Patterns**: Identify repeated code patterns that should be abstracted
 
-### Security Review Patterns
-- **API key exposure**: Check for hardcoded credentials or API keys
-- **CORS configuration**: Verify CORS settings are production-appropriate
-- **Input validation**: Ensure proper sanitization of user inputs
-- **Error messages**: Check that errors don't expose sensitive information
-
-### Performance Considerations
-- **Database queries**: Review for N+1 query problems
-- **Memory usage**: Check for potential memory leaks in long-running processes
-- **Async patterns**: Verify proper async/await usage
-- **Caching**: Look for opportunities to cache expensive operations
-
-### Healthcare-Specific Patterns
+### Healthcare-Specific Code Review
 - **Synthetic data usage**: Ensure test data is synthetic, not real patient data
 - **Audit logging**: Verify proper logging for compliance requirements
 - **Access control**: Review role-based permissions and authentication
