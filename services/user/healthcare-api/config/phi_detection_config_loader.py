@@ -136,6 +136,30 @@ class PHIDetectionConfigLoader:
         
         return any(exemption in context_lower for exemption in exemption_contexts)
     
+    def get_medical_literature_patterns(self) -> Dict[str, List[str]]:
+        """Get medical literature detection patterns."""
+        config = self.load_config()
+        return config.get("medical_literature_patterns", {
+            "research_citations": [],
+            "medical_terminology": [],
+            "patient_specific_exclusions": []
+        })
+    
+    def get_compiled_medical_literature_patterns(self) -> Dict[str, List[re.Pattern]]:
+        """Get compiled medical literature patterns for efficient matching."""
+        patterns = self.get_medical_literature_patterns()
+        compiled: Dict[str, List[re.Pattern]] = {}
+        
+        for category, pattern_list in patterns.items():
+            compiled[category] = []
+            for pattern in pattern_list:
+                try:
+                    compiled[category].append(re.compile(pattern, re.IGNORECASE))
+                except re.error as e:
+                    logger.warning(f"Invalid pattern in {category}: {pattern} - {e}")
+        
+        return compiled
+
     def reload_config(self) -> None:
         """Reload configuration from file (useful for runtime updates)."""
         self._config = None

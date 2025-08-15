@@ -227,7 +227,7 @@ class SyntheticHealthcareDataGenerator:
         # PostgreSQL connection - REQUIRED
         try:
             self.db_conn = psycopg2.connect(
-                "postgresql://intelluxe:secure_password@localhost:5432/intelluxe",
+                "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe",
             )
             print("✅ Connected to PostgreSQL")
         except Exception as e:

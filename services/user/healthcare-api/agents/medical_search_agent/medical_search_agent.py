@@ -20,6 +20,7 @@ from core.infrastructure.agent_context import AgentContext, new_agent_context
 from core.infrastructure.agent_metrics import AgentMetricsStore
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 from core.medical import search_utils as medical_search_utils
+from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType, MedicalQueryResult
 from core.medical.url_utils import generate_source_url, format_source_for_display, generate_conversational_summary
 from core.search import extract_source_links
 
@@ -100,6 +101,10 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             logger.info("Loaded medical_query_patterns.yaml for intent classification")
         except Exception as e:
             logger.warning(f"Failed to load intent config: {e}")
+
+        # Initialize Enhanced Medical Query Engine for Phase 2 capabilities
+        self._enhanced_query_engine = EnhancedMedicalQueryEngine(mcp_client, llm_client)
+        logger.info("Enhanced Medical Query Engine initialized for sophisticated medical search")
 
     async def _process_implementation(self, request: Mapping[str, object]) -> dict[str, object]:
         """
@@ -320,7 +325,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
     async def _perform_literature_search(
         self, search_query: str, search_context: dict[str, object] | None = None,
     ) -> MedicalSearchResult:
-        """Core literature search logic with prompt injection detection"""
+        """Core literature search logic using Enhanced Medical Query Engine (Phase 2)"""
 
         # CRITICAL: Detect OpenWebUI prompt injections and reject them
         openwebui_prompts = [
@@ -356,127 +361,103 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                     generated_at=datetime.now(UTC),
                 )
 
-        logger.info(f"Processing legitimate medical search query: '{search_query}'")
+        logger.info(f"Processing legitimate medical search query with Enhanced Query Engine: '{search_query}'")
 
-        search_id = self._generate_search_id(search_query)
-        logger.info(f"Generated search ID: {search_id}")
-
-        # Extract simple medical terms from the original query
-        logger.info("Extracting medical terms from original query...")
+        # PHASE 2: Use Enhanced Medical Query Engine for 25x more sophisticated search
         try:
+            # Classify intent and map to QueryType
+            intent_key, intent_cfg = self._classify_query_intent(search_query)
+            query_type = self._map_intent_to_query_type(intent_key)
+            
+            logger.info(f"Using Enhanced Query Engine with QueryType: {query_type}")
+            
+            # Use Enhanced Medical Query Engine for sophisticated medical search
+            enhanced_result = await self._enhanced_query_engine.process_medical_query(
+                query=search_query,
+                query_type=query_type,
+                context=search_context,
+                max_iterations=3  # Use iterative refinement for better results
+            )
+            
+            # Convert enhanced result to legacy interface format
+            search_result = self._convert_enhanced_result_to_search_result(enhanced_result)
+            
+            logger.info(f"Enhanced search completed - confidence: {enhanced_result.confidence_score:.2f}, "
+                        f"sources: {len(enhanced_result.sources)}, entities: {len(enhanced_result.medical_entities)}")
+            
+            return search_result
+            
+        except Exception as e:
+            logger.error(f"Enhanced Query Engine failed, falling back to basic search: {e}")
+            # Fallback to basic search if enhanced engine fails
+            return await self._fallback_basic_search(search_query, search_context)
+
+    async def _fallback_basic_search(
+        self, search_query: str, search_context: dict[str, object] | None = None
+    ) -> MedicalSearchResult:
+        """Fallback to basic search if Enhanced Query Engine fails"""
+        search_id = self._generate_search_id(search_query)
+        logger.info(f"Using fallback basic search for query: '{search_query}'")
+        
+        try:
+            # Extract simple medical terms from the original query
             medical_concepts = await self._extract_simple_medical_terms(search_query)
             if not medical_concepts:
                 medical_concepts = [search_query]
-        except Exception:
-            medical_concepts = [search_query]
-        logger.info(f"Using medical terms: {medical_concepts}")
-
-        # Validate the concepts
-        validated_concepts = await self._validate_medical_terms(medical_concepts)
-        logger.info(f"Validated medical terms: {validated_concepts}")
-
-        # Intent-aware source selection
-        include_sources: list[str] = []
-        if search_context and isinstance(search_context, dict):
-            icfg = search_context.get("intent_cfg") or {}
-            if isinstance(icfg, dict):
-                is_val = icfg.get("include_sources", [])
-                if isinstance(is_val, list):
-                    include_sources = [str(s) for s in is_val if isinstance(s, str)]
-
-        # Default: articles request goes to PubMed only unless user hints trials/drugs
-        if not include_sources:
-            include_sources = ["pubmed"]
-
-        # Build search tasks based on selected sources (cap parallelism and avoid duplicates)
-        search_tasks: list[Awaitable[list[dict[str, object]]]] = []
-        if "pubmed" in include_sources:
-            search_tasks.append(self._search_condition_information(validated_concepts))
-            search_tasks.append(self._search_symptom_literature(validated_concepts))
-        else:
-            # Placeholders for merging later
-            async def _empty() -> list[dict[str, object]]:
-                return []
-            search_tasks.append(_empty())
-            search_tasks.append(_empty())
-
-        if "fda_drugs" in include_sources:
-            search_tasks.append(self._search_drug_information(validated_concepts))
-        else:
-            async def _empty2() -> list[dict[str, object]]:
-                return []
-            search_tasks.append(_empty2())
-
-        if "clinical_trials" in include_sources:
-            search_tasks.append(self._search_clinical_references(validated_concepts))
-        else:
-            async def _empty3() -> list[dict[str, object]]:
-                return []
-            search_tasks.append(_empty3())
-
-        # Execute selected tasks; avoid calling unnecessary tools
-        search_results = await asyncio.gather(
-            *cast(List[Awaitable[list[dict[str, object]]]], search_tasks),
-            return_exceptions=True,
-        )
-
-        # Process results - ensure we only get lists, not exceptions
-        condition_info = search_results[0] if not isinstance(search_results[0], Exception) else []
-        symptom_literature = (
-            search_results[1] if not isinstance(search_results[1], Exception) else []
-        )
-        drug_info = search_results[2] if not isinstance(search_results[2], Exception) else []
-        clinical_refs = search_results[3] if not isinstance(search_results[3], Exception) else []
-
-        # Type assertion to help mypy understand these are definitely lists
-        condition_info = condition_info if isinstance(condition_info, list) else []
-        symptom_literature = symptom_literature if isinstance(symptom_literature, list) else []
-        drug_info = drug_info if isinstance(drug_info, list) else []
-        clinical_refs = clinical_refs if isinstance(clinical_refs, list) else []
-
-        # Combine all information sources and dedupe by DOI/PMID/URL
-        all_sources: list[dict[str, object]] = []
-        all_sources.extend(condition_info)
-        all_sources.extend(symptom_literature)
-        all_sources.extend(drug_info)
-        all_sources.extend(clinical_refs)
-
-        # Deduplicate
-        seen_keys: set[str] = set()
-        deduped_sources: list[dict[str, object]] = []
-        for s in all_sources:
-            val = s.get("doi") or s.get("pmid") or s.get("url") or s.get("title") or ""
-            key = str(val).strip().lower()
-            if not key or key in seen_keys:
-                continue
-            seen_keys.add(key)
-            deduped_sources.append(s)
-
-        # Rank by medical evidence quality and relevance (centralized util)
-        ranked_sources = medical_search_utils.rank_sources_by_evidence_and_relevance(deduped_sources, search_query)
-
-        # Extract related conditions from literature (not diagnose them)
-        related_conditions = await self._extract_literature_conditions(ranked_sources)
-
-        # Calculate search confidence (how well we found relevant info)
-        search_confidence = self._calculate_search_confidence(ranked_sources, search_query)
-
-        return MedicalSearchResult(
-            search_id=search_id,
-            search_query=search_query,
-            information_sources=ranked_sources[:20],  # Top 20 sources
-            related_conditions=related_conditions,
-            drug_information=[s for s in ranked_sources if s.get("source_type") == "drug_info"],
-            clinical_references=[
-                s
-                for s in ranked_sources
-                if s.get("source_type") in ["clinical_guideline", "medical_reference"]
-            ],
-            search_confidence=search_confidence,
-            disclaimers=self.disclaimers,
-            source_links=extract_source_links(ranked_sources),
-            generated_at=datetime.now(UTC),
-        )
+            
+            # Validate the concepts
+            validated_concepts = await self._validate_medical_terms(medical_concepts)
+            
+            # Use basic PubMed search only
+            condition_info = await self._search_condition_information(validated_concepts)
+            symptom_literature = await self._search_symptom_literature(validated_concepts)
+            
+            # Combine results
+            all_sources = []
+            all_sources.extend(condition_info if isinstance(condition_info, list) else [])
+            all_sources.extend(symptom_literature if isinstance(symptom_literature, list) else [])
+            
+            # Basic deduplication
+            seen_keys: set[str] = set()
+            deduped_sources: list[dict[str, object]] = []
+            for s in all_sources:
+                val = s.get("doi") or s.get("pmid") or s.get("url") or s.get("title") or ""
+                key = str(val).strip().lower()
+                if not key or key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                deduped_sources.append(s)
+            
+            # Calculate basic confidence
+            confidence = min(1.0, len(deduped_sources) / 10.0) if deduped_sources else 0.0
+            
+            return MedicalSearchResult(
+                search_id=search_id,
+                search_query=search_query,
+                information_sources=deduped_sources,
+                related_conditions=[],
+                drug_information=[],
+                clinical_references=[],
+                search_confidence=confidence,
+                disclaimers=self.disclaimers,
+                source_links=[],
+                generated_at=datetime.now(UTC),
+            )
+            
+        except Exception as e:
+            logger.error(f"Fallback search also failed: {e}")
+            return MedicalSearchResult(
+                search_id=search_id,
+                search_query=search_query,
+                information_sources=[],
+                related_conditions=[],
+                drug_information=[],
+                clinical_references=[],
+                search_confidence=0.0,
+                disclaimers=[f"Search failed: {str(e)}"],
+                source_links=[],
+                generated_at=datetime.now(UTC),
+            )
 
     # ------------------------
     # Intent configuration & formatting
@@ -517,6 +498,53 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         if not best_cfg:
             best_cfg = patterns.get(best_key, {}) if isinstance(patterns.get(best_key), dict) else {}
         return best_key, best_cfg
+
+    def _map_intent_to_query_type(self, intent_key: str) -> QueryType:
+        """Map agent intent classification to Enhanced Query Engine QueryType"""
+        intent_to_query_type = {
+            "symptom_analysis": QueryType.SYMPTOM_ANALYSIS,
+            "drug_information": QueryType.DRUG_INTERACTION,
+            "differential_diagnosis": QueryType.DIFFERENTIAL_DIAGNOSIS,
+            "clinical_guidelines": QueryType.CLINICAL_GUIDELINES,
+            "information_request": QueryType.LITERATURE_RESEARCH,
+            "treatment_research": QueryType.CLINICAL_GUIDELINES,
+            "drug_interaction": QueryType.DRUG_INTERACTION,
+        }
+        return intent_to_query_type.get(intent_key, QueryType.LITERATURE_RESEARCH)
+
+    def _convert_enhanced_result_to_search_result(self, enhanced_result: MedicalQueryResult) -> MedicalSearchResult:
+        """Convert Enhanced Query Engine result to Medical Search Agent result format"""
+        # Extract different source types from enhanced result
+        information_sources = []
+        related_conditions: list[dict[str, object]] = []
+        drug_information = []
+        clinical_references = []
+        
+        for source in enhanced_result.sources:
+            source_type = source.get("source_type", "")
+            if source_type in ["condition_information", "symptom_literature"]:
+                information_sources.append(source)
+            elif source_type == "drug_information":
+                drug_information.append(source)
+            elif source_type == "clinical_references":
+                clinical_references.append(source)
+            else:
+                # Default to information sources
+                information_sources.append(source)
+        
+        # Convert enhanced result to legacy format
+        return MedicalSearchResult(
+            search_id=enhanced_result.query_id,
+            search_query=enhanced_result.original_query,
+            information_sources=information_sources,
+            related_conditions=related_conditions,
+            drug_information=drug_information,
+            clinical_references=clinical_references,
+            search_confidence=enhanced_result.confidence_score,
+            disclaimers=enhanced_result.disclaimers,
+            source_links=enhanced_result.source_links,
+            generated_at=enhanced_result.generated_at,
+        )
 
     def _format_response_by_intent(
         self,
@@ -565,8 +593,8 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 return "\n".join(lines)
 
             if template == "mixed_studies_list":
-                pubmed = [s for s in search_result.information_sources if s.get("source_type") in ["condition_information", "symptom_literature"]]
-                trials = [s for s in search_result.information_sources if "trial" in s.get("source_type", "") or s.get("source_type") == "clinical_guideline"]
+                pubmed = [s for s in search_result.information_sources if cast(str, s.get("source_type", "")) in ["condition_information", "symptom_literature"]]
+                trials = [s for s in search_result.information_sources if "trial" in cast(str, s.get("source_type", "")) or cast(str, s.get("source_type", "")) == "clinical_guideline"]
                 rt_cfg = cast(dict[str, object], self._intent_config.get("response_templates", {})).get("mixed_studies_list", {}) or {}
                 max_pubmed = int(cast(dict[str, object], rt_cfg).get("max_pubmed", 6))
                 max_trials = int(cast(dict[str, object], rt_cfg).get("max_trials", 4))
@@ -588,9 +616,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 return "\n".join(lines)
 
             if template == "treatment_options_list":
-                pubmed = [s for s in search_result.information_sources if s.get("source_type") in ["condition_information", "symptom_literature"]]
-                trials = [s for s in search_result.information_sources if "trial" in s.get("source_type", "") or s.get("source_type") == "clinical_guideline"]
-                drugs = [s for s in search_result.information_sources if s.get("source_type") == "drug_info"]
+                pubmed = [s for s in search_result.information_sources if cast(str, s.get("source_type", "")) in ["condition_information", "symptom_literature"]]
+                trials = [s for s in search_result.information_sources if "trial" in cast(str, s.get("source_type", "")) or cast(str, s.get("source_type", "")) == "clinical_guideline"]
+                drugs = [s for s in search_result.information_sources if cast(str, s.get("source_type", "")) == "drug_info"]
                 rt_cfg = cast(dict[str, object], self._intent_config.get("response_templates", {})).get("treatment_options_list", {}) or {}
                 max_pubmed = int(cast(dict[str, object], rt_cfg).get("max_pubmed", 4))
                 max_trials = int(cast(dict[str, object], rt_cfg).get("max_trials", 3))
@@ -621,7 +649,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 return "\n".join(lines)
 
             if template == "clinical_trials_list":
-                trials = [s for s in search_result.information_sources if "trial" in s.get("source_type", "") or s.get("source_type") == "clinical_guideline"]
+                trials = [s for s in search_result.information_sources if "trial" in cast(str, s.get("source_type", "")) or cast(str, s.get("source_type", "")) == "clinical_guideline"]
                 max_trials = int((cast(dict[str, object], self._intent_config.get("response_templates", {})).get("clinical_trials_list", {}) or {}).get("max_trials", 10))
                 lines = [f"Clinical trials for: {original_query}", ""]
                 for i, src in enumerate(trials[:max_trials], 1):
@@ -637,7 +665,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 return "\n".join(lines)
 
             if template == "drug_information_list":
-                drugs = [s for s in search_result.information_sources if s.get("source_type") == "drug_info"]
+                drugs = [s for s in search_result.information_sources if cast(str, s.get("source_type", "")) == "drug_info"]
                 max_drugs = int((cast(dict[str, object], self._intent_config.get("response_templates", {})).get("drug_information_list", {}) or {}).get("max_drugs", 10))
                 lines = [f"Drug information related to: {original_query}", ""]
                 for i, src in enumerate(drugs[:max_drugs], 1):

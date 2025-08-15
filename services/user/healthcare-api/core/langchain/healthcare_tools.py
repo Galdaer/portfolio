@@ -11,12 +11,21 @@ Architecture:
 """
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any, List, Callable
 import asyncio
 import json
 
 from pydantic import BaseModel, Field
 from langchain.tools import StructuredTool
+
+# Optional database import - gracefully handle missing dependencies
+try:
+    from core.database.medical_db import get_medical_db
+    DATABASE_AVAILABLE = True
+except ImportError:
+    DATABASE_AVAILABLE = False
+    get_medical_db = None
+
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 from core.tools import tool_registry
 
@@ -142,9 +151,23 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
     
     # MCP fallback tools (direct MCP access)
     def _fallback_pubmed_search(client: Any, query: str, max_results: int = 10) -> str:
-        """Fallback PubMed search using ToolRegistry or direct MCP call."""
+        """Database-first PubMed search with external API fallback."""
         try:
-            logger.info(f"🔄 ToolRegistry fallback - PubMed search: {query[:50]}...")
+            # STEP 1: Try local database first (if available)
+            logger.info(f"🗃️ Searching local PubMed database first: {query[:50]}...")
+            
+            if DATABASE_AVAILABLE and get_medical_db:
+                medical_db = get_medical_db()
+                local_results = medical_db.search_pubmed_local(query, max_results)
+                
+                if local_results:
+                    logger.info(f"✅ Found {len(local_results)} articles in local database")
+                    return json.dumps({"results": local_results, "source": "local_database"})
+            else:
+                logger.info("🔄 Database not available, using external API only")
+            
+            # STEP 2: If no local results, fallback to external API
+            logger.warning(f"📡 No local results found, using external PubMed API: {query[:50]}...")
             
             # Try ToolRegistry first (robust tool management)
             if tool_registry._initialized:
@@ -152,7 +175,7 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
                     "query": query,
                     "max_results": max_results
                 }))
-                logger.info("✅ Used ToolRegistry for PubMed search")
+                logger.info("✅ Used ToolRegistry for external PubMed search")
             else:
                 # Fallback to direct MCP call if ToolRegistry unavailable
                 logger.warning("⚠️ ToolRegistry not available, using direct MCP")
@@ -171,9 +194,42 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
         return _fallback_pubmed_search(mcp_client, query, max_results)
 
     def clinical_trials_search(query: str, max_results: int = 5) -> str:
-        """Search clinical trials database."""
+        """Database-first clinical trials search with external API fallback."""
         try:
-            logger.info(f"🔍 Clinical trials search: {query[:50]}...")
+            # STEP 1: Try local database first (if available)
+            if DATABASE_AVAILABLE:
+                logger.info(f"🗃️ Searching local clinical trials database first: {query[:50]}...")
+                medical_db = get_medical_db()
+                local_results = medical_db.search_clinical_trials_local(query, max_results)
+            else:
+                logger.info(f"📡 Database not available, using external Clinical Trials API directly: {query[:50]}...")
+                local_results = None
+            
+            if local_results:
+                logger.info(f"✅ Found {len(local_results)} trials in local database")
+                # For external APIs, just do a health check
+                try:
+                    if tool_registry._initialized:
+                        # Quick health check on external API (1 result only)
+                        asyncio.run(tool_registry.execute_tool("search-clinical-trials", {
+                            "query": "health",
+                            "max_results": 1
+                        }))
+                        logger.info("✅ External Clinical Trials API health check passed")
+                    else:
+                        logger.info("ℹ️ ToolRegistry not available, skipping health check")
+                except Exception as e:
+                    logger.warning(f"⚠️ External Clinical Trials API health check failed: {e}")
+                
+                return json.dumps({
+                    "results": local_results,
+                    "source": "local_database",
+                    "total_found": len(local_results),
+                    "external_api_status": "health_check_completed"
+                }, indent=2)
+            
+            # STEP 2: If no local results, fallback to external API
+            logger.warning(f"📡 No local results found, using external Clinical Trials API: {query[:50]}...")
             
             # Try ToolRegistry first (robust tool management)
             if tool_registry._initialized:
@@ -196,9 +252,41 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
             return f"Clinical trials search error: {str(e)}"
 
     def drug_information_lookup(drug_name: str) -> str:
-        """Look up drug information and interactions."""
+        """Database-first drug information lookup with external API fallback."""
         try:
-            logger.info(f"🔍 Drug info lookup: {drug_name}")
+            # STEP 1: Try local database first (if available)
+            if DATABASE_AVAILABLE:
+                logger.info(f"🗃️ Searching local FDA drugs database first: {drug_name}")
+                medical_db = get_medical_db()
+                local_results = medical_db.search_fda_drugs_local(drug_name, max_results=5)
+            else:
+                logger.info(f"📡 Database not available, using external Drug Info API directly: {drug_name}")
+                local_results = None
+            
+            if local_results:
+                logger.info(f"✅ Found {len(local_results)} drugs in local database")
+                # For external APIs, just do a health check
+                try:
+                    if tool_registry._initialized:
+                        # Quick health check on external API
+                        asyncio.run(tool_registry.execute_tool("get-drug-info", {
+                            "drug_name": "aspirin"  # Common drug for health check
+                        }))
+                        logger.info("✅ External Drug Info API health check passed")
+                    else:
+                        logger.info("ℹ️ ToolRegistry not available, skipping health check")
+                except Exception as e:
+                    logger.warning(f"⚠️ External Drug Info API health check failed: {e}")
+                
+                return json.dumps({
+                    "results": local_results,
+                    "source": "local_database",
+                    "total_found": len(local_results),
+                    "external_api_status": "health_check_completed"
+                }, indent=2)
+            
+            # STEP 2: If no local results, fallback to external API
+            logger.warning(f"📡 No local results found, using external Drug Info API: {drug_name}")
             
             # Try ToolRegistry first (robust tool management)
             if tool_registry._initialized:
@@ -215,8 +303,22 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
                 
             return json.dumps(result, indent=2) if result else f"No information found for {drug_name}"
         except Exception as e:
-            logger.error(f"Drug info lookup error: {e}")
-            return f"Drug information error: {str(e)}"
+            logger.error(f"Drug information lookup error: {e}")
+            return f"Drug information lookup error: {str(e)}"
+
+    def check_database_status() -> str:
+        """Check status of local medical database tables."""
+        try:
+            logger.info("🔍 Checking medical database status...")
+            medical_db = get_medical_db()
+            status = medical_db.get_database_status()
+            
+            logger.info(f"✅ Database status checked: {status.get('database_available', False)}")
+            return json.dumps(status, indent=2)
+            
+        except Exception as e:
+            logger.error(f"Database status check error: {e}")
+            return f"Database status check error: {str(e)}"
 
     # Add MCP fallback tools
     tools.extend([
@@ -237,6 +339,11 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
             name="get_drug_information",
             description="Get detailed drug information including interactions and side effects.",
             args_schema=DrugInfoInput,
+        ),
+        StructuredTool.from_function(
+            func=check_database_status,
+            name="check_medical_database_status",
+            description="Check status and availability of local medical database tables (PubMed, clinical trials, FDA drugs).",
         ),
     ])
     

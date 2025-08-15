@@ -34,7 +34,7 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
         model: Optional[str] = None,
         temperature: float = 0.1,
         verbose: bool = False,
-        max_iterations: int = 8,
+        max_iterations: int = 20,
         memory_max_token_limit: int = 2000,
         tool_max_retries: int = 2,
         tool_retry_base_delay: float = 0.5,
@@ -373,7 +373,7 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
                 }
             
             # Process through LangChain agent
-            result = await self.process_query(message)
+            result = await self.process(message)
             
             # Convert to BaseHealthcareAgent expected format
             if isinstance(result, dict) and result.get("success", True):

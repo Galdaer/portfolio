@@ -27,7 +27,7 @@ class LangChainOrchestrator:
         temperature: float = 0.1,
         verbose: bool = False,
         max_orchestrator_iterations: int = 3,  # Orchestrator-level agent calls
-        max_agent_iterations: int = 8,          # Agent-internal tool iterations
+        max_agent_iterations: int = 20,          # Agent-internal tool iterations
         memory_max_token_limit: int = 2000,
         always_run_medical_search: bool = True,
         presearch_max_results: int = 5,

@@ -25,18 +25,22 @@ class IntelluxeConfig(BaseSettings):
 
     # Database configuration
     database_name: str = Field(default="intelluxe", json_schema_extra={"env": "DATABASE_NAME"})
+    database_url: str | None = Field(default=None, json_schema_extra={"env": "DATABASE_URL"})
     postgres_password: str = Field(
         default="secure_password_here", json_schema_extra={"env": "POSTGRES_PASSWORD"},
     )
     redis_password: str | None = Field(default=None, json_schema_extra={"env": "REDIS_PASSWORD"})
 
-    # Database host configuration
-    postgres_host: str = Field(default="postgresql", json_schema_extra={"env": "POSTGRES_HOST"})
-    redis_host: str = Field(default="redis", json_schema_extra={"env": "REDIS_HOST"})
+    # Database host configuration (fallback if DATABASE_URL not provided)
+    postgres_host: str = Field(default="172.20.0.13", json_schema_extra={"env": "POSTGRES_HOST"})
+    redis_host: str = Field(default="172.20.0.14", json_schema_extra={"env": "REDIS_HOST"})
 
     # Database URLs
     @property
     def postgres_url(self) -> str:
+        # Use DATABASE_URL from .env if provided, otherwise build from components
+        if self.database_url:
+            return self.database_url
         return f"postgresql://intelluxe:{self.postgres_password}@{self.postgres_host}:5432/{self.database_name}"
 
     @property

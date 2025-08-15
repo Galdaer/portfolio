@@ -74,7 +74,7 @@ class SyntheticHealthcareData:
         """Initialize database connection to synthetic healthcare data."""
         self.db_url = db_url or os.getenv(
             "HEALTHCARE_DB_URL",
-            "postgresql://intelluxe:secure_password@localhost:5432/intelluxe",
+            "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe",
         )
         self.connection = None
         self.async_pool = None

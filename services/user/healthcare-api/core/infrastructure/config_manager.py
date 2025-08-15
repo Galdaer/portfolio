@@ -63,7 +63,7 @@ class DatabaseConfig(BaseModel):
     """Database configuration for healthcare data"""
 
     postgres_url: str = Field(
-        default="postgresql://localhost:5432/intelluxe", description="PostgreSQL URL",
+        default="postgresql://172.20.0.13:5432/intelluxe", description="PostgreSQL URL",
     )
     max_connections: int = Field(default=20, description="Maximum database connections")
     connection_timeout_seconds: int = Field(default=30, description="Connection timeout")
@@ -135,10 +135,10 @@ class HealthcareConfigManager:
                 database_config["postgres_url"] = os.getenv(
                     "DATABASE_URL",
                     config_data.get("database", {}).get(
-                        "postgres_url", "postgresql://localhost:5432/intelluxe",
+                        "postgres_url", "postgresql://172.20.0.13:5432/intelluxe",
                     )
                     if isinstance(config_data.get("database"), dict)
-                    else "postgresql://localhost:5432/intelluxe",
+                    else "postgresql://172.20.0.13:5432/intelluxe",
                 )
             cache_config = config_data.setdefault("cache", {})
             if isinstance(cache_config, dict):

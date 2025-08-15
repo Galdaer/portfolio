@@ -6,7 +6,7 @@ This is the agent-first architecture where queries go through domain experts.
 """
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any, List, Callable
 import asyncio
 import json
 
@@ -176,7 +176,7 @@ def create_agent_tools(agent_manager) -> List[StructuredTool]:
             logger.error(f"Clinical research agent error: {e}")
             return f"Clinical research query error: {str(e)}"
 
-    def _safe_agent_wrapper(func_name: str, func: callable, max_retries: int = 1, base_delay: float = 0.5):
+    def _safe_agent_wrapper(func_name: str, func: Callable, max_retries: int = 1, base_delay: float = 0.5):
         """Wrapper for agent function calls with error handling and retries."""
         async def wrapper(*args, **kwargs):
             last_exception = None

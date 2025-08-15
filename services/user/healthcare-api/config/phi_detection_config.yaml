@@ -141,6 +141,37 @@ patterns:
     - "\\b(my patient|this patient|the patient).*\\b[A-Z][a-z]+\\s+[A-Z][a-z]+"
 
 # Synthetic data patterns that should NOT trigger PHI alerts
+# Medical literature and research detection patterns
+medical_literature_patterns:
+  research_citations:
+    - "\\bet al\\.?\\s" # Citation patterns like "Smith et al."
+    - "Dr\\.\\s+[A-Z][a-z]+" # Dr. titles in citations
+    - "[A-Z][a-z]+\\s+et\\s+al" # Author et al patterns
+    - "published\\s+in|journal\\s+of|study\\s+by" # Research language
+    - "according\\s+to\\s+[A-Z][a-z]+" # "according to Smith"
+    - "research\\s+by\\s+[A-Z][a-z]+" # "research by Anderson"
+    - "[A-Z][a-z]+\\s+and\\s+colleagues" # "Smith and colleagues"
+    - "[A-Z][a-z]+\\s+et\\s+al\\.?\\s*\\(\\d{4}\\)" # "Smith et al. (2023)"
+    - "[A-Z][a-z]+\\s*,\\s*[A-Z][a-z]+\\s*et\\s+al" # "Smith, Jones et al"
+    - "authored\\s+by|conducted\\s+by|led\\s+by" # Research attribution
+
+  medical_terminology:
+    - "\\b(cardiovascular|cardiac|heart)\\s+(health|disease|symptoms|treatment)"
+    - "\\b(diabetes|diabetic)\\s+(symptoms|treatment|management|complications)"
+    - "\\b(cancer|oncology|tumor|malignant)\\s+(treatment|therapy|symptoms)"
+    - "\\b(hypertension|blood\\s+pressure)\\s+(management|treatment|medication)"
+    - "\\b(respiratory|pulmonary)\\s+(therapy|treatment|disease)"
+    - "\\b(neurological|neurology)\\s+(symptoms|disorders|treatment)"
+    - "\\bmedicine|medical|clinical|therapeutic|diagnosis|prognosis\\b"
+    - "\\bsymptoms|treatment|therapy|medication|dosage|side\\s+effects\\b"
+
+  patient_specific_exclusions:
+    - "\\bpatient\\s+[A-Z][a-z]+" # "Patient Smith"
+    - "\\b[A-Z][a-z]+\\s+is\\s+a\\s+\\d+(-year-old|\\s+year\\s+old)" # "John is a 45-year-old"
+    - "\\b(mr|mrs|ms)\\.\\s+[A-Z][a-z]+" # "Mr. Johnson"
+    - "\\b[A-Z][a-z]+\\s+(was\\s+)?(admitted|diagnosed|treated)" # "Smith was admitted"
+
+# Synthetic data patterns that should NOT trigger PHI alerts
 synthetic_patterns:
   - "\\bPAT\\d{3}\\b" # PAT001, PAT002, etc.
   - "\\bPROV\\d{3}\\b" # PROV001, PROV002, etc.

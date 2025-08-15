@@ -29,7 +29,7 @@ cache:
 
 # Database Configuration
 database:
-  postgres_url: "postgresql://intelluxe:secure_password@postgresql:5432/intelluxe"
+  postgres_url: "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
   max_connections: 20 # Connection pool size
   connection_timeout_seconds: 30 # Connection timeout
   query_timeout_seconds: 60 # Query timeout for complex medical queries

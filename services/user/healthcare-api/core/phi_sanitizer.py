@@ -7,10 +7,13 @@ for the healthcare AI system Open WebUI endpoints.
 
 import json
 import logging
+import re
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from src.healthcare_mcp.phi_detection import PHIDetector
 from core.infrastructure.healthcare_logger import get_healthcare_logger
+from config.phi_detection_config_loader import phi_config
 
 logger = get_healthcare_logger("core.phi_sanitizer")
 
@@ -29,6 +32,47 @@ def get_phi_detector() -> PHIDetector:
             _phi_detector = PHIDetector(use_presidio=False)
             logger.info("✅ PHI detector initialized with basic patterns")
     return _phi_detector
+
+
+def _is_external_medical_content(content: str) -> bool:
+    """
+    Determine if content is external medical/research content that should bypass PHI detection
+    
+    Uses configuration-based exemptions like phi_monitor for consistency.
+    
+    Args:
+        content: Content string to analyze
+        
+    Returns:
+        True if content appears to be external medical research/citation content or general medical terminology
+    """
+    # Use configuration-based exemptions for medical literature context
+    if phi_config.is_exempted_context("medical_literature"):
+        # Get patterns from configuration instead of hardcoding
+        compiled_patterns = phi_config.get_compiled_medical_literature_patterns()
+        
+        # Check for research patterns first
+        if "research_citations" in compiled_patterns:
+            for pattern in compiled_patterns["research_citations"]:
+                if pattern.search(content):
+                    logger.debug(f"🔬 Research pattern detected: {pattern.pattern}")
+                    return True
+        
+        # Check if content contains patient-specific language that should still be flagged
+        if "patient_specific_exclusions" in compiled_patterns:
+            for pattern in compiled_patterns["patient_specific_exclusions"]:
+                if pattern.search(content):
+                    logger.debug(f"🏥 Patient-specific pattern detected: {pattern.pattern}")
+                    return False
+        
+        # If it's just medical terminology without patient context, exempt it
+        if "medical_terminology" in compiled_patterns:
+            for pattern in compiled_patterns["medical_terminology"]:
+                if pattern.search(content):
+                    logger.debug(f"🏥 Medical terminology detected: {pattern.pattern}")
+                    return True
+    
+    return False
 
 
 def sanitize_request_data(request_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -51,6 +95,11 @@ def sanitize_request_data(request_data: Dict[str, Any]) -> Dict[str, Any]:
                 if isinstance(message, dict) and "content" in message:
                     content = message["content"]
                     if isinstance(content, str):
+                        # Skip PHI detection for external medical content (research citations)
+                        if _is_external_medical_content(content):
+                            logger.info(f"🔬 External medical content detected, skipping PHI sanitization: {content[:50]}...")
+                            continue
+                            
                         result = detector.detect_phi_sync(content)
                         if result.phi_detected:
                             sanitized_data["messages"][i]["content"] = result.masked_text
@@ -58,10 +107,14 @@ def sanitize_request_data(request_data: Dict[str, Any]) -> Dict[str, Any]:
         
         # Sanitize top-level message field (if present)
         if "message" in sanitized_data and isinstance(sanitized_data["message"], str):
-            result = detector.detect_phi_sync(sanitized_data["message"])
-            if result.phi_detected:
-                sanitized_data["message"] = result.masked_text
-                logger.warning(f"🛡️ PHI detected in request message, types: {result.phi_types}")
+            # Skip PHI detection for external medical content
+            if not _is_external_medical_content(sanitized_data["message"]):
+                result = detector.detect_phi_sync(sanitized_data["message"])
+                if result.phi_detected:
+                    sanitized_data["message"] = result.masked_text
+                    logger.warning(f"🛡️ PHI detected in request message, types: {result.phi_types}")
+            else:
+                logger.info("🔬 External medical content detected, skipping PHI sanitization")
                 
         return sanitized_data
         
@@ -93,6 +146,11 @@ def sanitize_response_data(response_data: Dict[str, Any]) -> Dict[str, Any]:
                     if isinstance(message, dict) and "content" in message:
                         content = message["content"]
                         if isinstance(content, str):
+                            # Skip PHI detection for external medical content (research citations)
+                            if _is_external_medical_content(content):
+                                logger.info(f"🔬 External medical content detected in response, skipping PHI sanitization: {content[:50]}...")
+                                continue
+                                
                             result = detector.detect_phi_sync(content)
                             if result.phi_detected:
                                 sanitized_data["choices"][i]["message"]["content"] = result.masked_text
@@ -100,10 +158,14 @@ def sanitize_response_data(response_data: Dict[str, Any]) -> Dict[str, Any]:
         
         # Sanitize top-level response content (if present)
         if "response" in sanitized_data and isinstance(sanitized_data["response"], str):
-            result = detector.detect_phi_sync(sanitized_data["response"])
-            if result.phi_detected:
-                sanitized_data["response"] = result.masked_text
-                logger.warning(f"🛡️ PHI detected in response, types: {result.phi_types}")
+            # Skip PHI detection for external medical content
+            if not _is_external_medical_content(sanitized_data["response"]):
+                result = detector.detect_phi_sync(sanitized_data["response"])
+                if result.phi_detected:
+                    sanitized_data["response"] = result.masked_text
+                    logger.warning(f"🛡️ PHI detected in response, types: {result.phi_types}")
+            else:
+                logger.info("🔬 External medical content detected in response, skipping PHI sanitization")
                 
         return sanitized_data
         
@@ -152,7 +214,7 @@ def log_phi_incident(data_type: str, phi_types: list[str], details: str = ""):
             "event": "phi_detection",
             "data_type": data_type,
             "phi_types": phi_types,
-            "timestamp": logger.extra.get("timestamp", "unknown"),
+            "timestamp": datetime.now().isoformat(),
             "details": details,
             "action": "masked_and_logged"
         }
