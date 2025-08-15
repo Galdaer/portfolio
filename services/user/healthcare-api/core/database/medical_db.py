@@ -64,13 +64,23 @@ class MedicalDatabaseAccess:
                 
                 articles = []
                 for row in rows:
+                    # Handle pub_date - could be datetime object or string
+                    pub_date = row[5]
+                    if pub_date:
+                        if hasattr(pub_date, 'isoformat'):
+                            pub_date_str = pub_date.isoformat()
+                        else:
+                            pub_date_str = str(pub_date)
+                    else:
+                        pub_date_str = ""
+                    
                     article = {
                         "pmid": row[0],
                         "title": row[1] or "",
                         "abstract": row[2] or "",
                         "authors": row[3] or [],
                         "journal": row[4] or "",
-                        "pub_date": row[5].isoformat() if row[5] else "",
+                        "pub_date": pub_date_str,
                         "doi": row[6] or "",
                         "mesh_terms": row[7] or [],
                         "rank": float(row[8]) if row[8] else 0.0,
@@ -122,6 +132,25 @@ class MedicalDatabaseAccess:
                 
                 trials = []
                 for row in rows:
+                    # Handle dates - could be datetime objects or strings
+                    start_date = row[8]
+                    if start_date:
+                        if hasattr(start_date, 'isoformat'):
+                            start_date_str = start_date.isoformat()
+                        else:
+                            start_date_str = str(start_date)
+                    else:
+                        start_date_str = ""
+                        
+                    completion_date = row[9]
+                    if completion_date:
+                        if hasattr(completion_date, 'isoformat'):
+                            completion_date_str = completion_date.isoformat()
+                        else:
+                            completion_date_str = str(completion_date)
+                    else:
+                        completion_date_str = ""
+                    
                     trial = {
                         "nct_id": row[0] or "",
                         "title": row[1] or "",
@@ -131,8 +160,8 @@ class MedicalDatabaseAccess:
                         "phase": row[5] or "",
                         "enrollment": row[6] or 0,
                         "status": row[7] or "",
-                        "start_date": row[8].isoformat() if row[8] else "",
-                        "completion_date": row[9].isoformat() if row[9] else "",
+                        "start_date": start_date_str,
+                        "completion_date": completion_date_str,
                         "sponsor_name": row[10] or "",
                         "location_countries": row[11] or [],
                         "source": "local_clinical_trials"

@@ -27,7 +27,7 @@ class IntelluxeConfig(BaseSettings):
     database_name: str = Field(default="intelluxe", json_schema_extra={"env": "DATABASE_NAME"})
     database_url: str | None = Field(default=None, json_schema_extra={"env": "DATABASE_URL"})
     postgres_password: str = Field(
-        default="secure_password_here", json_schema_extra={"env": "POSTGRES_PASSWORD"},
+        default="secure_password", json_schema_extra={"env": "POSTGRES_PASSWORD"},
     )
     redis_password: str | None = Field(default=None, json_schema_extra={"env": "REDIS_PASSWORD"})
 

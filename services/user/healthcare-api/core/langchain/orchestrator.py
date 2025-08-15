@@ -7,6 +7,8 @@ parallel helpers can be added in subsequent iterations.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+import yaml
 
 from langchain_core.language_models import BaseChatModel
 
@@ -56,21 +58,57 @@ class LangChainOrchestrator:
             tool_retry_base_delay: Base delay between tool retries
             show_sources_default: Default value for showing sources
         """
+        # Load YAML configuration and prefer it over provided defaults/env when present
+        cfg = self._load_orchestrator_config()
+
+        # Resolve runtime settings with precedence: YAML config > provided args (defaults) > env handled by agent
+        resolved_verbose = bool(cfg.get("langchain", {}).get("verbose", verbose)) if isinstance(cfg, dict) else verbose
+        resolved_always_run_medical_search = bool(cfg.get("routing", {}).get("always_run_medical_search", always_run_medical_search)) if isinstance(cfg, dict) else always_run_medical_search
+        resolved_presearch_max_results = int(cfg.get("routing", {}).get("presearch_max_results", presearch_max_results)) if isinstance(cfg, dict) else presearch_max_results
+        resolved_show_agent_header = cfg.get("provenance", {}).get("show_agent_header") if isinstance(cfg, dict) else show_agent_header
+
+        # Timeouts and tool retry settings
+        cfg_timeouts: Dict[str, float] | None = None
+        if isinstance(cfg, dict) and isinstance(cfg.get("timeouts"), dict):
+            tmo = cfg.get("timeouts", {})
+            cfg_timeouts = {}
+            for k in ("router_selection", "per_agent_default", "per_agent_hard_cap"):
+                if k in tmo and tmo[k] is not None:
+                    try:
+                        cfg_timeouts[k] = float(tmo[k])
+                    except Exception:
+                        pass
+            # Override tool retry knobs if present
+            try:
+                tool_max_retries = int(tmo.get("tool_max_retries", tool_max_retries))
+            except Exception:
+                pass
+            try:
+                tool_retry_base_delay = float(tmo.get("tool_retry_base_delay", tool_retry_base_delay))
+            except Exception:
+                pass
+
         self.mcp_client = mcp_client
-        self.always_run_medical_search = always_run_medical_search
-        self.presearch_max_results = presearch_max_results
+        self.always_run_medical_search = resolved_always_run_medical_search
+        self.presearch_max_results = resolved_presearch_max_results
         self.max_orchestrator_iterations = max_orchestrator_iterations
         self.citations_max_display = citations_max_display
         self.show_sources_default = show_sources_default
 
+        # Environment overrides for iteration/timeouts
+        import os as _os
+        try:
+            env_agent_iters = int(_os.getenv("HEALTHCARE_AGENT_MAX_ITERATIONS", str(max_agent_iterations)))
+        except ValueError:
+            env_agent_iters = max_agent_iterations
         # Initialize the LangChain agent with correct parameters
         self.agent = HealthcareLangChainAgent(
             mcp_client=mcp_client,
             chat_model=chat_model,
             model=model,
             temperature=temperature,
-            verbose=verbose,
-            max_iterations=max_agent_iterations,  # Agent can use more internal iterations
+            verbose=resolved_verbose,
+            max_iterations=env_agent_iters,  # Agent can use more internal iterations (env-aware)
             memory_max_token_limit=memory_max_token_limit,
             tool_max_retries=tool_max_retries,
             tool_retry_base_delay=tool_retry_base_delay,
@@ -78,20 +116,58 @@ class LangChainOrchestrator:
         )
 
         # Apply optional runtime settings
-        if show_agent_header is not None:
+        # Prefer YAML provenance.show_agent_header when present, else use explicit param if provided
+        effective_show_header = (
+            resolved_show_agent_header if resolved_show_agent_header is not None else show_agent_header
+        )
+        if effective_show_header is not None:
             try:
-                setattr(self.agent, "show_agent_header", bool(show_agent_header))
+                setattr(self.agent, "show_agent_header", bool(effective_show_header))
             except Exception:
                 pass
-        if isinstance(timeouts, dict):
+
+        # Apply timeouts: YAML first, then explicit param dict
+        applied_timeouts = (
+            cfg_timeouts if cfg_timeouts is not None else (timeouts if isinstance(timeouts, dict) else None)
+        )
+        if isinstance(applied_timeouts, dict):
             try:
-                if "per_agent_default" in timeouts:
-                    setattr(self.agent, "per_agent_default_timeout", float(timeouts["per_agent_default"]))
-                if "per_agent_hard_cap" in timeouts:
-                    setattr(self.agent, "per_agent_hard_cap", float(timeouts["per_agent_hard_cap"]))
+                if "per_agent_default" in applied_timeouts:
+                    setattr(self.agent, "per_agent_default_timeout", float(applied_timeouts["per_agent_default"]))
+                if "per_agent_hard_cap" in applied_timeouts:
+                    setattr(self.agent, "per_agent_hard_cap", float(applied_timeouts["per_agent_hard_cap"]))
             except Exception:
                 # Best-effort; keep defaults if casting fails
                 pass
+
+        # Apply environment timeouts if provided (as a fallback when 'timeouts' not passed)
+        try:
+            import os as _os
+            env_default = _os.getenv("HEALTHCARE_AGENT_TIMEOUT_DEFAULT")
+            env_hardcap = _os.getenv("HEALTHCARE_AGENT_TIMEOUT_HARDCAP")
+            if env_default:
+                setattr(self.agent, "per_agent_default_timeout", float(env_default))
+            if env_hardcap:
+                setattr(self.agent, "per_agent_hard_cap", float(env_hardcap))
+        except Exception:
+            pass
+
+    def _load_orchestrator_config(self) -> Dict[str, Any]:
+        """Load orchestrator YAML config if available.
+
+        Returns an empty dict when not found or on error.
+        """
+        try:
+            cfg_dir = Path(__file__).parent.parent.parent / "config"
+            path = cfg_dir / "orchestrator.yml"
+            if path.exists():
+                with open(path, "r") as f:
+                    data = yaml.safe_load(f) or {}
+                    if isinstance(data, dict):
+                        return data
+        except Exception:
+            pass
+        return {}
 
     async def process(
         self,

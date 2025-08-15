@@ -144,42 +144,14 @@ async def initialize_agents():
         # Get LLM client
         llm_client = healthcare_services.llm_client
 
-        # Initialize LangChain orchestrator as the default router
-        try:
-            from core.langchain.orchestrator import LangChainOrchestrator
-            from src.local_llm.ollama_client import OllamaConfig, build_chat_model
-
-            orch_cfg = load_orchestrator_config()
-            timeouts = orch_cfg.get("timeouts", {}) if isinstance(orch_cfg, dict) else {}
-            base_url = os.getenv("OLLAMA_BASE_URL", "http://172.20.0.10:11434")
-            model_name = getattr(ORCHESTRATOR_MODEL, "model", None) or ORCHESTRATOR_MODEL
-
-            chat_model = build_chat_model(
-                OllamaConfig(model=str(model_name), base_url=base_url, temperature=0.0)
-            )
-            langchain_orchestrator = LangChainOrchestrator(
-                mcp_client=healthcare_services.mcp_client,
-                chat_model=chat_model,
-                timeouts={
-                    "per_agent_default": float(timeouts.get("per_agent_default", 30)),
-                    "per_agent_hard_cap": float(timeouts.get("per_agent_hard_cap", 90)),
-                },
-                always_run_medical_search=bool(orch_cfg.get("routing", {}).get("always_run_medical_search", True)),
-                presearch_max_results=int(orch_cfg.get("routing", {}).get("presearch_max_results", 5)),
-                citations_max_display=int(orch_cfg.get("langchain", {}).get("citations_max_display", 10)),
-            )
-            logger.info("LangChain orchestrator initialized (default)")
-        except Exception as e:
-            logger.error(f"Failed to initialize LangChain orchestrator: {e}")
-
-        # Dynamic agent discovery
+        # Dynamic agent discovery first
         from agents import BaseHealthcareAgent
 
         agents_dir = Path(__file__).parent / "agents"
         discovered_agents = {}
 
         for agent_dir in agents_dir.iterdir():
-            if not agent_dir.is_dir() or agent_dir.name.startswith("."):
+            if not agent_dir.is_dir() or agent_dir.name.startswith("__"):
                 continue
 
             # Look for agent files with flexible pattern matching
@@ -219,6 +191,49 @@ async def initialize_agents():
             logger.error("No agents discovered! Check agent directory structure and imports.")
         else:
             logger.info(f"AI agents initialized: {list(discovered_agents.keys())}")
+
+        # Initialize LangChain orchestrator as the default router (after agent discovery)
+        try:
+            from core.langchain.orchestrator import LangChainOrchestrator
+            from src.local_llm.ollama_client import OllamaConfig, build_chat_model
+
+            orch_cfg = load_orchestrator_config()
+            timeouts = orch_cfg.get("timeouts", {}) if isinstance(orch_cfg, dict) else {}
+            base_url = os.getenv("OLLAMA_BASE_URL", "http://172.20.0.10:11434")
+            model_name = getattr(ORCHESTRATOR_MODEL, "model", None) or ORCHESTRATOR_MODEL
+
+            chat_model = build_chat_model(
+                OllamaConfig(model=str(model_name), base_url=base_url, temperature=0.0)
+            )
+            
+            # Create a simple agent manager for discovered_agents
+            class SimpleAgentManager:
+                def __init__(self, agents_dict):
+                    self.agents = agents_dict
+                
+                def get_agent(self, name):
+                    return self.agents.get(name)
+                
+                def list_agents(self):
+                    return list(self.agents.keys())
+            
+            agent_manager = SimpleAgentManager(discovered_agents)
+            
+            langchain_orchestrator = LangChainOrchestrator(
+                mcp_client=healthcare_services.mcp_client,
+                chat_model=chat_model,
+                timeouts={
+                    "per_agent_default": float(timeouts.get("per_agent_default", 30)),
+                    "per_agent_hard_cap": float(timeouts.get("per_agent_hard_cap", 90)),
+                },
+                always_run_medical_search=bool(orch_cfg.get("routing", {}).get("always_run_medical_search", True)),
+                presearch_max_results=int(orch_cfg.get("routing", {}).get("presearch_max_results", 5)),
+                citations_max_display=int(orch_cfg.get("langchain", {}).get("citations_max_display", 10)),
+                agent_manager=agent_manager,
+            )
+            logger.info("LangChain orchestrator initialized (default)")
+        except Exception as e:
+            logger.error(f"Failed to initialize LangChain orchestrator: {e}")
 
     except Exception as e:
         logger.error(f"Failed to initialize agents: {e}")

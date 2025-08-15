@@ -16,9 +16,9 @@ timeouts:
   # Global router decision timeout (seconds)
   router_selection: 5
   # Default agent execution timeout when not overridden by agent-specific config
-  per_agent_default: 30
+  per_agent_default: 45
   # Strict upper bound for any single agent (seconds)
-  per_agent_hard_cap: 90
+  per_agent_hard_cap: 120
   # Tool retry/backoff
   tool_max_retries: 2
   tool_retry_base_delay: 0.2

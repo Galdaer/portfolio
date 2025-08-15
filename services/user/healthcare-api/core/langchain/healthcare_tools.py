@@ -18,18 +18,23 @@ import json
 from pydantic import BaseModel, Field
 from langchain.tools import StructuredTool
 
-# Optional database import - gracefully handle missing dependencies
-try:
-    from core.database.medical_db import get_medical_db
-    DATABASE_AVAILABLE = True
-except ImportError:
-    DATABASE_AVAILABLE = False
-    get_medical_db = None
-
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 from core.tools import tool_registry
 
 logger = get_healthcare_logger("core.langchain.healthcare_tools")
+
+# Optional database import - gracefully handle missing dependencies
+try:
+    from core.database.medical_db import get_medical_db
+    # Test database connection on import
+    db_instance = get_medical_db()
+    status = db_instance.get_database_status()
+    DATABASE_AVAILABLE = status.get("database_available", False)
+    logger.info(f"🔗 Database availability: {DATABASE_AVAILABLE}")
+except Exception as e:
+    logger.warning(f"🔄 Database not available, will use external APIs only: {e}")
+    DATABASE_AVAILABLE = False
+    get_medical_db = None
 
 
 def safe_async_call(coro):
@@ -110,15 +115,18 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
     """
     
     # Initialize ToolRegistry with MCP client for robust tool management
-    # Note: ToolRegistry initialization deferred to avoid asyncio.run() in sync context
+    # Force initialization in sync context using background task
     try:
         # Check if ToolRegistry is already initialized
         if not tool_registry._initialized:
-            logger.info("🔄 ToolRegistry initialization deferred - will use direct MCP fallback")
+            logger.info("🔄 Initializing ToolRegistry with MCP client...")
+            # Initialize ToolRegistry synchronously using safe_async_call
+            safe_async_call(tool_registry.initialize(mcp_client))
+            logger.info("✅ ToolRegistry initialized successfully")
         else:
             logger.info("✅ ToolRegistry already initialized")
     except Exception as e:
-        logger.warning(f"⚠️ ToolRegistry check failed, using direct MCP fallback: {e}")
+        logger.warning(f"⚠️ ToolRegistry initialization failed, using direct MCP fallback: {e}")
     
     tools: List[StructuredTool] = []
     
@@ -132,21 +140,23 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
             Routes to the specialized medical search agent.
             """
             try:
+                logger.info(f"🔍 LangChain tool routing medical search to agent: {query[:100]}")
                 # Get medical search agent (only fully implemented agent)
                 agent = agent_manager.get_agent("medical_search")
                 if agent and hasattr(agent, 'process_query'):
-                    logger.info(f"🔍 Routing medical search to agent: {query[:100]}")
+                    logger.info(f"✅ Found medical search agent, processing query: {query[:50]}...")
                     # Use safe_async_call to handle event loop properly
                     result = safe_async_call(agent.process_query(query))
+                    logger.info(f"✅ Medical search agent completed, result length: {len(str(result))}")
                     if isinstance(result, dict):
                         return json.dumps(result, indent=2)
                     return str(result)
                 else:
                     # Fallback to MCP if agent not available
-                    logger.warning("Medical search agent not available, falling back to MCP")
+                    logger.warning(f"❌ Medical search agent not available (agent={agent}), falling back to MCP")
                     return _fallback_pubmed_search(mcp_client, query)
             except Exception as e:
-                logger.error(f"Medical search agent error: {e}")
+                logger.error(f"❌ Medical search agent error: {e}")
                 return _fallback_pubmed_search(mcp_client, query)
 
         def healthcare_query_router(query: str) -> str:

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 import os as _os
+from pathlib import Path
+import yaml
 
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.prompts import PromptTemplate
@@ -59,16 +61,50 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
             agent_type="langchain_medical"
         )
         
-        # LangChain-specific configuration
+        # LangChain-specific configuration with YAML-first precedence
         self.verbose = verbose or _os.getenv("HEALTHCARE_AGENT_DEBUG", "").lower() in {"1", "true", "yes"}
-        self.max_iterations = max_iterations
+
+        def _load_yaml(path: Path) -> Dict[str, Any]:
+            try:
+                if path.exists():
+                    with open(path, "r") as f:
+                        data = yaml.safe_load(f) or {}
+                        if isinstance(data, dict):
+                            return data
+            except Exception:
+                pass
+            return {}
+
+        config_dir = Path(__file__).parent.parent.parent / "config"
+        agent_cfg = _load_yaml(config_dir / "agent_settings.yml")
+        orch_cfg = _load_yaml(config_dir / "orchestrator.yml")
+
+        # Resolve iterations: YAML > ENV > constructor default
+        yaml_max_iter = None
+        try:
+            # Prefer query_engine.enhanced_medical_query.max_iterations when present
+            qe = agent_cfg.get("query_engine", {}).get("enhanced_medical_query", {}) if agent_cfg else {}
+            if isinstance(qe, dict) and qe.get("max_iterations") is not None:
+                yaml_max_iter = int(qe.get("max_iterations"))
+            else:
+                # Fallback to a general clinical_research limit if defined
+                cr = agent_cfg.get("agent_limits", {}).get("clinical_research", {}) if agent_cfg else {}
+                if isinstance(cr, dict) and cr.get("max_iterations") is not None:
+                    yaml_max_iter = int(cr.get("max_iterations"))
+        except Exception:
+            yaml_max_iter = None
+
+        try:
+            env_max_iter = int(_os.getenv("HEALTHCARE_AGENT_MAX_ITERATIONS", str(max_iterations)))
+        except ValueError:
+            env_max_iter = max_iterations
+
+        self.max_iterations = int(yaml_max_iter if yaml_max_iter is not None else env_max_iter)
         self.tool_max_retries = tool_max_retries
         self.tool_retry_base_delay = tool_retry_base_delay
 
         # Build or use provided LLM using proper configuration system
         from src.local_llm.ollama_client import OllamaConfig, build_chat_model
-        import yaml
-        from pathlib import Path
 
         # If caller supplied a chat_model directly, prefer it
         provided_llm: Optional[BaseChatModel] = chat_model
@@ -79,8 +115,8 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
 
         if provided_llm is None:
             # Load model configuration from config files
-            config_dir = Path(__file__).parent.parent.parent / "config"
-            models_config_path = config_dir / "models.yml"
+            config_dir2 = Path(__file__).parent.parent.parent / "config"
+            models_config_path = config_dir2 / "models.yml"
 
             # Default model from config
             default_model = "llama3.1:8b"
@@ -92,12 +128,12 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
                         models_config = yaml.safe_load(f)
 
                     # Use healthcare LLM from config
-                    default_model = models_config.get('primary_models', {}).get('healthcare_llm', 'llama3.1:8b')
+                    default_model = models_config.get('primary_models', {}).get('healthcare_llm', default_model)
 
                     # Use healthcare reasoning parameters if available
                     reasoning_params = models_config.get('model_parameters', {}).get('healthcare_reasoning', {})
-                    if reasoning_params:
-                        default_temperature = reasoning_params.get('temperature', temperature)
+                    if isinstance(reasoning_params, dict):
+                        default_temperature = reasoning_params.get('temperature', default_temperature)
             except Exception as e:
                 logger.warning(f"Could not load models config, using defaults: {e}")
 
@@ -117,15 +153,23 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
             logger.info("Initialized LangChain agent with provided chat_model instance")
 
         self.show_agent_header = True
-        self.per_agent_default_timeout = 30.0
-        self.per_agent_hard_cap = 90.0
+        # Default timeouts, can be tuned via env for clinical searches
+        try:
+            self.per_agent_default_timeout = float(_os.getenv("HEALTHCARE_AGENT_TIMEOUT_DEFAULT", "30"))
+        except ValueError:
+            self.per_agent_default_timeout = 30.0
+        try:
+            self.per_agent_hard_cap = float(_os.getenv("HEALTHCARE_AGENT_TIMEOUT_HARDCAP", "90"))
+        except ValueError:
+            self.per_agent_hard_cap = 90.0
 
         # Tools - Agent-first architecture
         self.tools = create_healthcare_tools(
             mcp_client,
             agent_manager,
             max_retries=int(tool_max_retries)
-        )        # ReAct prompt template (solves agent_scratchpad issues)
+        )
+        # ReAct prompt template (solves agent_scratchpad issues)
         # Use official ReAct prompt from hub per handoff document
         from langchain import hub
         prompt = hub.pull("hwchase17/react")
@@ -135,11 +179,28 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
         )
 
         # Configure AgentExecutor with ReAct agent and parsing error handling
+        # Optional max execution time for AgentExecutor (seconds). 0 disables.
+        max_exec_time: Optional[float]
+        # YAML-first: orchestrator timeouts.per_agent_hard_cap, else ENV, else None
+        try:
+            yaml_hard_cap = None
+            if isinstance(orch_cfg, dict):
+                tmo2 = orch_cfg.get("timeouts", {})
+                if isinstance(tmo2, dict) and tmo2.get("per_agent_hard_cap") is not None:
+                    yaml_hard_cap = float(tmo2.get("per_agent_hard_cap"))
+            max_exec_env = float(_os.getenv("HEALTHCARE_AGENT_MAX_EXECUTION_SEC", "0"))
+            max_exec_time = (
+                yaml_hard_cap if (yaml_hard_cap is not None and yaml_hard_cap > 0) else (max_exec_env if max_exec_env > 0 else None)
+            )
+        except Exception:
+            max_exec_time = None
+
         self.executor = AgentExecutor(
             agent=agent,
             tools=self.tools,
             verbose=True,  # Enable for debugging
-            max_iterations=max_iterations,  # Use dynamic iterations parameter
+            max_iterations=self.max_iterations,  # Use dynamic iterations parameter (env-aware)
+            max_execution_time=max_exec_time,     # Optional wall-clock limit
             handle_parsing_errors="Check your output and make sure it conforms!",  # Specific error message per handoff
             return_intermediate_steps=True,
             # NO memory parameter per handoff document

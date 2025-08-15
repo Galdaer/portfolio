@@ -11,6 +11,7 @@ httpx
 PyJWT[crypto]
 mcp==1.12.4
 asyncpg
+psycopg2-binary
 sqlalchemy
 redis[hiredis]==5.2.1
 cryptography

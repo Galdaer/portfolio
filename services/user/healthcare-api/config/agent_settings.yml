@@ -6,7 +6,7 @@ agent_limits:
   clinical_research:
     max_steps: 100 # Complex research needs more attempts
     timeout_seconds: 300
-    max_iterations: 3 # For iterative reasoning processes
+  max_iterations: 10 # For iterative reasoning processes (raised to avoid premature stops)
     llm_settings:
       temperature: 0.3 # Balance creativity and consistency
       max_tokens: 1000 # Comprehensive medical responses
@@ -30,7 +30,7 @@ agent_limits:
 # Query engine specific settings
 query_engine:
   enhanced_medical_query:
-    max_iterations: 3 # Default for medical queries
+  max_iterations: 10 # Default for medical queries (raised to avoid iteration-limit halts)
     cache_ttl_seconds: 1800 # 30 minutes
     llm_settings:
       temperature: 0.3
