@@ -1,12 +1,8 @@
 # JavaScript/TypeScript Healthcare Instructions
 
-## Purpose
-
-Modern JavaScript and TypeScript development patterns for healthcare AI systems, emphasizing type safety, healthcare compliance, and integration with existing Python infrastructure.
-
 ## TypeScript-First Development
 
-### Healthcare Type Safety Framework
+### Healthcare Type Safety Patterns
 
 ```typescript
 // ✅ CRITICAL: Healthcare data type definitions

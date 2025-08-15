@@ -1,10 +1,6 @@
 # Healthcare API Orchestration Patterns (Updated 2025-08-14)
 
-## Strategic Purpose
-
-Move orchestration to a LangChain-powered router in healthcare-api, with MCP tools wrapped as LangChain tools, local-only LLMs (Ollama), and HIPAA-safe provenance in every response.
-
-## Current Architecture (Validated)
+## Current Implementation (Validated)
 
 - Orchestrator: LangChain AgentExecutor and routing chains
 - Tools: MCP tools exposed via StructuredTool wrappers
@@ -87,9 +83,9 @@ Move orchestration to a LangChain-powered router in healthcare-api, with MCP too
 - Thin MCP pipeline is legacy; new work centers on API-level orchestration.
 - Agents can remain as is; introduce LangChain wrappers incrementally per agent.
 
-**Architecture Role**: Receives requests from thin MCP pipeline and orchestrates complete healthcare AI workflows.
+**Implementation Role**: Receives requests from thin MCP pipeline and orchestrates complete healthcare AI workflows.
 
-## Healthcare API Architecture Patterns
+## Healthcare API Implementation Patterns
 
 ### Agent Orchestration Hub
 

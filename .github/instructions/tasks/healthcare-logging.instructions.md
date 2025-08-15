@@ -1,10 +1,6 @@
 ````instructions
 # Healthcare AI Logging Instructions
 
-## Purpose
-
-Guidance for implementing healthcare-compliant logging with PHI protection and HIPAA compliance.
-
 ## Healthcare Logging Principles
 
 ### PHI Protection in Logs

@@ -14,7 +14,7 @@
 
 **THIN COMMUNICATION LAYER**: MCP pipeline serves as minimal proxy forwarding requests to healthcare-api, which handles all routing, agent decisions, and tool selection.
 
-**Architecture Flow**: HTTP Client → FastAPI Server (main.py) → Agents → MCP Tools (healthcare_mcp_client.py)
+**Implementation Flow**: HTTP Client → FastAPI Server (main.py) → Agents → MCP Tools (healthcare_mcp_client.py)
 
 ## ✅ CURRENT ARCHITECTURE (2025-01-15)
 
@@ -25,9 +25,9 @@
 - **Healthcare MCP Client**: Stdio-only transport with healthcare tools
 - **Agent Classes**: Inherit from BaseHealthcareAgent with standardized process_request() interface
 
-**Architecture Status**: Successfully achieved direct HTTP → FastAPI → Agents → MCP Tools communication with clean stdio/HTTP separation.
+**Implementation Status**: Successfully achieved direct HTTP → FastAPI → Agents → MCP Tools communication with clean stdio/HTTP separation.
 
-## Thin Pipeline Architecture Patterns
+## Thin Pipeline Implementation Patterns
 
 ### Minimal Proxy Implementation
 

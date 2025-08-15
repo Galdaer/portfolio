@@ -1,10 +1,6 @@
 # SQL Healthcare Instructions
 
-## Purpose
-
-SQL development patterns for healthcare AI systems, emphasizing PHI protection, HIPAA compliance, and secure database operations with synthetic vs. production data handling.
-
-## Healthcare Database Architecture
+## Healthcare Database Implementation
 
 ### PHI-Safe Database Design
 

@@ -1,9 +1,5 @@
 # Healthcare API Development Instructions
 
-## Purpose
-
-FastAPI patterns for healthcare systems with HIPAA compliance, PHI protection, and medical data validation.
-
 ## FastAPI Healthcare Foundation
 
 ### 1. Healthcare FastAPI Application Structure

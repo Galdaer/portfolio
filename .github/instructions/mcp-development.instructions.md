@@ -1,11 +1,5 @@
 # MCP Development Instructions
 
-## Strategic Purpose
-
-**PATIENT-FIRST MCP ARCHITECTURE**: Develop Model Context Protocol servers with quantum-resistant security, offline-first deployment, and military-grade healthcare compliance that prioritizes patient safety over development convenience.
-
-Provide comprehensive patterns for healthcare MCP development with beyond-HIPAA security, patient-first design principles, and advanced clinical integration patterns.
-
 ## ✅ BREAKTHROUGH: MCP Integration Working (2025-01-15)
 
 **PROVEN WORKING ARCHITECTURE**: HTTP Client → FastAPI Server (main.py) → Agents → MCP Client (healthcare_mcp_client.py) → MCP Server
@@ -102,9 +96,9 @@ class BaseHealthcareAgent:
         pass
 ```
 
-**Agent Implementation Status**: Architecture working with clean stdio/HTTP separation. All agents now use standardized BaseHealthcareAgent interface.
+**Agent Implementation Status**: Implementation working with clean stdio/HTTP separation. All agents now use standardized BaseHealthcareAgent interface.
 
-## Enhanced MCP Architecture
+## MCP Implementation Patterns
 
 ### Patient-First MCP Design Principles
 
@@ -306,7 +300,7 @@ class MilitaryGradeMCPAudit {
 }
 ```
 
-## Advanced Healthcare MCP Tools
+## Healthcare MCP Tools
 
 ### Clinical Reasoning MCP Tools
 
@@ -352,7 +346,7 @@ class PatientSafetyMCP {
 }
 ```
 
-## Enhanced MCP Integration Patterns
+## MCP Integration Patterns
 
 ### Ollama + Healthcare MCP Integration
 
@@ -412,7 +406,7 @@ class RealTimeClinicalMCP {
 
 ## MCP Development Workflow
 
-### Enhanced Testing Patterns
+### Testing Patterns
 
 **COMPREHENSIVE MCP TESTING**: Test MCP servers with realistic healthcare scenarios and patient safety validation.
 

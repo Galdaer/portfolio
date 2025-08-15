@@ -1,53 +1,113 @@
-# Healthcare AI Performance Optimization Instructions
+# Healthcare Performance Patterns
 
-## Purpose
+**WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
 
-Performance patterns for healthcare AI systems emphasizing medical workflow efficiency and patient-first security that exceeds HIPAA requirements.
+## MCP Async Task Management
 
-## Beyond-HIPAA Performance Security Principles
-
-### Patient-First Performance Standards
-- **Zero PHI in performance logs**: Even anonymized metrics can reveal patterns
-- **Proactive resource isolation**: Separate performance monitoring from patient data processing
-- **Emergency performance protocols**: Maintain system responsiveness during critical medical scenarios
-
-## Healthcare Performance Framework
-
-### Critical MCP Async Task Management (PERFORMANCE CRITICAL)
-
-**PROBLEM**: MCP clients creating runaway async tasks that consume CPU resources.
-
-**PERFORMANCE IMPACT**:
-- CPU usage spikes from accumulating background tasks
-- Memory leaks from unclosed async context managers
-- System responsiveness degradation affecting patient care
-
-**PREVENTION PATTERN**:
 ```python
-# ✅ HIGH PERFORMANCE: Proper MCP task lifecycle management
+# Prevent MCP task accumulation
 async def process_medical_request(request: dict) -> dict:
-    """Process medical request with optimal async cleanup."""
     try:
-        # Perform medical processing
         result = await mcp_client.process(request)
         return {"success": True, "result": result}
     except Exception as e:
         logger.exception(f"Medical processing error: {e}")
         return {"success": False, "error": str(e)}
     finally:
-        # CRITICAL: Prevent task accumulation
+        # Critical: Clean up connections
         try:
             if hasattr(mcp_client, 'disconnect'):
                 await mcp_client.disconnect()
-                logger.debug("MCP connection cleaned up")
         except Exception as cleanup_error:
             logger.warning(f"MCP cleanup error: {cleanup_error}")
 
-# ✅ PATTERN: Agent-level cleanup in medical workflows
+# Agent-level cleanup
 class MedicalAgent:
-    async def _process_implementation(self, request: dict) -> dict:
+    async def process_request(self, request: dict) -> dict:
         try:
-            # Core medical processing logic
+            result = await self._process_implementation(request)
+            return result
+        finally:
+            await self.cleanup_resources()
+```
+
+## Database Performance
+
+```python
+# Connection pooling
+async def get_db_connection():
+    async with db_pool.acquire() as connection:
+        yield connection
+    # Automatic cleanup
+
+# Batch operations for better performance
+async def batch_insert_patients(patients: List[Dict]) -> None:
+    async with get_db_connection() as conn:
+        await conn.executemany(
+            "INSERT INTO patients (id, data) VALUES ($1, $2)",
+            [(p["id"], p["data"]) for p in patients]
+        )
+```
+
+## Memory Management
+
+```python
+# Process large datasets in chunks
+def process_large_medical_dataset(data_source: Iterator) -> Iterator:
+    chunk_size = 1000
+    chunk = []
+    
+    for item in data_source:
+        chunk.append(item)
+        
+        if len(chunk) >= chunk_size:
+            yield process_chunk(chunk)
+            chunk = []  # Clear memory
+    
+    # Process remaining items
+    if chunk:
+        yield process_chunk(chunk)
+
+# Cache management
+from functools import lru_cache
+
+@lru_cache(maxsize=1000)
+def get_medical_reference(reference_id: str) -> Dict:
+    return expensive_medical_lookup(reference_id)
+```
+
+## Async Performance
+
+```python
+# Concurrent MCP requests
+async def parallel_medical_search(queries: List[str]) -> List[Dict]:
+    tasks = [
+        search_medical_literature(query) 
+        for query in queries
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Handle any exceptions
+    valid_results = []
+    for result in results:
+        if not isinstance(result, Exception):
+            valid_results.append(result)
+    
+    return valid_results
+
+# Rate limiting for external APIs
+import asyncio
+from asyncio import Semaphore
+
+class RateLimitedMedicalAPI:
+    def __init__(self, max_concurrent: int = 5):
+        self.semaphore = Semaphore(max_concurrent)
+    
+    async def make_request(self, endpoint: str, data: Dict) -> Dict:
+        async with self.semaphore:
+            await asyncio.sleep(0.1)  # Rate limit delay
+            return await api_call(endpoint, data)
+```
             return await self._handle_medical_request(request)
         finally:
             # Always cleanup MCP connections

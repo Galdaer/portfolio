@@ -1,53 +1,226 @@
-# Healthcare AI Testing Instructions
+# Healthcare Testing Patterns
 
 **WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
 
-## Purpose
-
-Testing patterns for healthcare AI systems emphasizing PHI-safe testing, medical compliance validation, and beyond-HIPAA security standards with patient-first design principles.
-
-## Beyond-HIPAA Testing Security Principles
-
-### Patient-First Testing Standards
-- **Zero real patient data**: Never use real PHI, even in secure test environments
-- **Proactive synthetic data**: Generate realistic test data that exceeds real-world complexity
-- **Emergency scenario testing**: Validate system behavior during critical medical situations
-- **Compassionate failure modes**: Ensure system failures never compromise patient care
-
-## Healthcare Testing Framework
-
-### PHI-Safe Testing (Beyond HIPAA Requirements)
+## Synthetic Data Testing
 
 ```python
-# ✅ PATTERN: Healthcare testing with zero PHI risk
 import pytest
-from unittest.mock import MagicMock
-from tests.synthetic_healthcare_data import generate_realistic_patient_scenario
+from decimal import Decimal
 
-class HealthcareTestFramework:
-    def __init__(self):
-        # Beyond HIPAA: Proactive PHI exclusion in all test environments
-        self.zero_phi_policy = True
-        self.synthetic_data_only = True
-        self.emergency_scenario_testing = True
+# Generate synthetic patient data
+def create_synthetic_patient():
+    return {
+        "id": "SYNTHETIC-PT-001",
+        "name": "Test Patient (SYNTHETIC)",
+        "dob": "1980-01-01",
+        "mrn": "TEST-MRN-123456",
+        "note": "SYNTHETIC_DATA_NOT_REAL_PHI"
+    }
+
+# Test with clearly marked synthetic data
+def test_patient_processing():
+    synthetic_patient = create_synthetic_patient()
+    result = process_patient_data(synthetic_patient)
     
-    def test_with_synthetic_patient(self, test_scenario: str):
-        # Pattern: Use complex synthetic data that tests real-world edge cases
-        synthetic_patient = generate_realistic_patient_scenario(test_scenario)
-        
-        # Validate synthetic data complexity exceeds typical test data
-        assert synthetic_patient.has_realistic_medical_history()
-        assert synthetic_patient.contains_edge_case_scenarios()
-        
-        return synthetic_patient
+    assert result["processed"] == True
+    assert "medical_disclaimer" in result
+```
 
-# ✅ PATTERN: Orchestrator-level tests (provenance + fallback)
-class OrchestratorBehaviorTests:
-    def test_provenance_header_present(self, test_client):
-        # When format=human, response includes agent header
-        resp = test_client.post('/process', json={'message': 'find articles on hypertension', 'format': 'human'})
-        txt = resp.json().get('formatted_response') or ''
-        assert txt.startswith('🤖 ')
+## PHI Protection Testing
+
+```python
+# Test PHI detection
+def test_phi_detection():
+    test_cases = [
+        "Patient SSN: 123-45-6789",  # Should be detected
+        "Synthetic SSN: 555-55-5555",  # Should be flagged as test data
+        "Patient ID: SYNTHETIC-001"  # Should be safe
+    ]
+    
+    for test_case in test_cases:
+        result = scan_for_phi(test_case)
+        if "SYNTHETIC" in test_case:
+            assert result["synthetic_data"] == True
+        else:
+            assert result["phi_detected"] == True
+
+# Test audit logging
+def test_audit_logging():
+    with capture_logs() as logs:
+        access_patient_data("SYNTHETIC-PT-001")
+    
+    assert any("phi_access" in log for log in logs)
+    assert any("SYNTHETIC" in log for log in logs)
+```
+
+## Medical Calculation Testing
+
+```python
+# Test financial calculations with Decimal
+def test_copay_calculation():
+    amount = Decimal('100.00')
+    percentage = Decimal('20.0')
+    
+    result = calculate_copay(amount, percentage)
+    
+    assert result == Decimal('20.00')
+    assert isinstance(result, Decimal)
+
+# Test division by zero protection
+def test_zero_division_protection():
+    amount = Decimal('100.00')
+    percentage = Decimal('0')
+    
+    result = calculate_copay(amount, percentage)
+    
+    assert result == Decimal('0')  # Should not raise exception
+```
+
+## Database Testing
+
+```python
+# Test database operations with cleanup
+@pytest.mark.asyncio
+async def test_patient_database_operations():
+    async with get_test_db() as db:
+        # Insert synthetic patient
+        patient_id = await db.insert_patient(create_synthetic_patient())
+        
+        # Test retrieval
+        patient = await db.get_patient(patient_id)
+        assert patient["id"] == patient_id
+        assert "SYNTHETIC" in patient["note"]
+        
+        # Cleanup happens automatically via context manager
+
+# Test connection cleanup
+def test_connection_cleanup():
+    connection_count_before = get_active_connections()
+    
+    # This should not leak connections
+    for i in range(10):
+        with get_db_connection() as conn:
+            conn.execute("SELECT 1")
+    
+    connection_count_after = get_active_connections()
+    assert connection_count_before == connection_count_after
+```
+
+## API Testing
+
+```python
+# Test healthcare API endpoints
+def test_clinical_analysis_endpoint(test_client):
+    synthetic_data = {
+        "patient_id": "SYNTHETIC-PT-001",
+        "encounter_data": "SYNTHETIC encounter data"
+    }
+    
+    response = test_client.post("/analyze", json=synthetic_data)
+    
+    assert response.status_code == 200
+    assert "medical_disclaimer" in response.json()
+    assert response.json()["provider_review_required"] == True
+
+# Test authentication
+def test_provider_authentication(test_client):
+    # Test without auth
+    response = test_client.post("/clinical/analyze", json={})
+    assert response.status_code == 401
+    
+    # Test with valid auth
+    headers = {"Authorization": "Bearer synthetic_test_token"}
+    response = test_client.post("/clinical/analyze", json={}, headers=headers)
+    assert response.status_code != 401
+```
+
+## Agent Testing
+
+```python
+# Test agent provenance
+def test_agent_provenance(test_client):
+    response = test_client.post('/process', json={
+        'message': 'find articles on hypertension', 
+        'format': 'human'
+    })
+    
+    formatted_response = response.json().get('formatted_response', '')
+    assert formatted_response.startswith('🤖 ')
+
+# Test agent fallback
+def test_agent_fallback():
+    # When agent selection fails, should fall back gracefully
+    result = process_with_fallback("unknown request type")
+    
+    assert result["fallback_used"] == True
+    assert "medical_disclaimer" in result
+```
+
+## Error Testing
+
+```python
+# Test error handling without PHI exposure
+def test_error_handling():
+    with pytest.raises(PatientDataError) as exc_info:
+        process_invalid_patient_data("invalid_data")
+    
+    # Error message should not contain PHI
+    error_msg = str(exc_info.value)
+    assert not contains_phi(error_msg)
+    assert "synthetic" in error_msg.lower() or "test" in error_msg.lower()
+
+# Test medical safety errors
+def test_medical_safety_validation():
+    # Should reject medical advice patterns
+    with pytest.raises(MedicalSafetyError):
+        validate_medical_content("I diagnose you with...")
+    
+    # Should accept informational content
+    result = validate_medical_content("Educational information for providers")
+    assert result["safe"] == True
+```
+
+## Integration Testing
+
+```python
+# Test full workflow with synthetic data
+@pytest.mark.integration
+def test_patient_workflow_integration():
+    # Create synthetic patient
+    patient = create_synthetic_patient()
+    
+    # Test full workflow
+    intake_result = patient_intake(patient)
+    analysis_result = clinical_analysis(intake_result)
+    documentation_result = generate_documentation(analysis_result)
+    
+    # Verify each step
+    assert intake_result["processed"] == True
+    assert analysis_result["provider_review_required"] == True
+    assert "medical_disclaimer" in documentation_result
+    
+    # Verify synthetic data maintained throughout
+    assert "SYNTHETIC" in str(documentation_result)
+```
+
+## Performance Testing
+
+```python
+# Test under medical emergency load
+def test_emergency_response_time():
+    start_time = time.time()
+    
+    # Simulate emergency patient processing
+    result = process_emergency_patient(create_synthetic_emergency_patient())
+    
+    end_time = time.time()
+    response_time = end_time - start_time
+    
+    # Should respond quickly for emergency scenarios
+    assert response_time < 2.0  # 2 second max for emergency
+    assert result["emergency_processed"] == True
+```
 
     def test_base_fallback_when_agent_fails(self, mock_router_failure, test_client):
         # Simulate agent failure; API should return base fallback message

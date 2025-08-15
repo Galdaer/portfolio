@@ -1,52 +1,53 @@
-# Healthcare AI Domain Instructions
+# Healthcare Domain Patterns
 
-## Purpose
+**WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
 
-AI development patterns for healthcare domains emphasizing medical compliance, patient safety, and healthcare-specific technical patterns.
-
-## Core Healthcare AI Principles
-
-### Medical Safety Framework
+## Medical Safety Patterns
 
 ```python
-# ✅ CRITICAL: Healthcare AI safety principles
-class HealthcareAISafetyFramework:
-    def validate_medical_request(self, request: str) -> bool:
-        # Detect medical advice requests and redirect appropriately
-        medical_keywords = ["diagnose", "treatment", "medication", "symptoms"]
-        if any(keyword in request.lower() for keyword in medical_keywords):
-            return False, "I cannot provide medical advice. Please consult with a healthcare professional."
-        return True, None
+# Medical advice prevention
+def validate_medical_request(request: str) -> bool:
+    medical_keywords = ["diagnose", "treatment", "medication", "symptoms"]
+    if any(keyword in request.lower() for keyword in medical_keywords):
+        return False, "I cannot provide medical advice. Please consult with a healthcare professional."
+    return True, None
+
+# Medical disclaimer injection
+MEDICAL_DISCLAIMER = """
+This system provides information for healthcare professionals only.
+Not intended for direct patient diagnosis or treatment decisions.
+All medical decisions require licensed healthcare provider oversight.
+"""
+
+def add_medical_disclaimer(response: str) -> str:
+    return f"{response}\n\n{MEDICAL_DISCLAIMER}"
 ```
 
-### Healthcare Financial Calculation Safety (Based on PR #31 Lessons)
+## Financial Calculation Patterns
 
 ```python
-# ✅ CRITICAL: Financial calculation safety patterns
-class HealthcareFinancialSafety:
-    """Financial calculation safety patterns from real production issues."""
-    
-    @staticmethod
-    def safe_division_with_zero_check(numerator: Decimal, denominator: Decimal) -> Decimal:
-        """Division with zero protection for insurance calculations."""
-        if denominator <= 0:
-            return Decimal('0')  # or appropriate default
-        return numerator / denominator
-    
-    @staticmethod
-    def ensure_decimal_precision(value: Any) -> Decimal:
-        """Convert financial values to Decimal safely."""
-        if isinstance(value, Decimal):
-            return value
-        if isinstance(value, (int, float)):
-            return Decimal(str(value))  # String conversion preserves precision
-        raise ValueError(f"Cannot convert {type(value)} to Decimal")
-    
-    @staticmethod
-    def validate_method_signature_compatibility(method_call: str, expected_params: List[str]) -> bool:
-        """Validate method calls match expected signatures."""
-        # Pattern to catch signature mismatches before runtime
-        pass
+from decimal import Decimal
+
+# Safe division with zero protection
+def safe_division(numerator: Decimal, denominator: Decimal) -> Decimal:
+    if denominator <= 0:
+        return Decimal('0')
+    return numerator / denominator
+
+# Convert to Decimal safely
+def to_decimal(value: Any) -> Decimal:
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, (int, float)):
+        return Decimal(str(value))  # Preserves precision
+    raise ValueError(f"Cannot convert {type(value)} to Decimal")
+
+# Insurance copay calculation
+def calculate_copay(amount: Decimal, percentage: Decimal) -> Decimal:
+    if percentage <= 0:
+        return Decimal('0')
+    return amount * (percentage / Decimal('100'))
+```
 
 ### Healthcare AI Agent Reliability (Updated 2025-08-14)
 
@@ -165,11 +166,11 @@ class HealthcareCodeOrganization:
         ]
 ```
 
-### Healthcare Compliance Framework
+### Healthcare Compliance Patterns
 
 ```python
 # ✅ CORRECT: Comprehensive healthcare logging and PHI monitoring
-class HealthcareLoggingFramework:
+class HealthcareLoggingPatterns:
     def __init__(self):
         # Setup HIPAA-compliant logging with PHI detection
         pass

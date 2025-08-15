@@ -1,10 +1,6 @@
 # Healthcare Compliance Instructions
 
-## Purpose
-
-HIPAA, GDPR, FDA guidelines, and regulatory requirements with audit trail management for healthcare AI systems.
-
-## HIPAA Compliance Framework
+## HIPAA Compliance Patterns
 
 ### 1. Administrative Safeguards
 

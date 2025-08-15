@@ -1,9 +1,5 @@
 # Python Healthcare AI Development Instructions
 
-## Purpose
-
-Python patterns for healthcare AI systems focused on medical compliance, PHI protection, and safety.
-
 ## Core Rules (Enforced Here)
 - No network calls on import. Initialize clients lazily in functions/constructors.
 - Strict typing. Prefer precise types over Any; avoid `# type: ignore` in healthcare modules.
@@ -177,7 +173,7 @@ class SciSpacyService:
 - **Emergency-safe error handling**: Failures never compromise patient care
 - **Compassionate code design**: Code that supports healthcare providers, protects patients
 
-## Enhanced Type Safety from Production Issues (Based on PR #31)
+## Type Safety from Production Issues (Based on PR #31)
 
 ### MANDATORY Healthcare Type Safety Patterns (Lessons from Real Issues)
 
@@ -335,7 +331,7 @@ class PHISafeResponse:
     medical_disclaimer: str = "Administrative support only. No medical advice."
 ```
 
-### Enhanced Error Handling (Beyond HIPAA)
+### Error Handling (Beyond HIPAA)
 
 ```python
 # ✅ PATTERN: Patient-first error handling

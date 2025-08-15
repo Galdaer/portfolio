@@ -1,9 +1,5 @@
 # Healthcare AI Debugging Instructions
 
-## Purpose
-
-Specialized debugging guidance for healthcare AI systems with PHI protection and medical compliance requirements.
-
 ## Healthcare-Specific Debugging Patterns
 
 ### MCP Async Task Management Debugging (CRITICAL)

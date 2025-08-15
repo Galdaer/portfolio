@@ -1,8 +1,5 @@
 # Healthcare LangChain Agent Instructions
 
-## Purpose
-Patterns for building and operating the healthcare LangChain agent with local-only LLMs (Ollama), MCP tools, and HIPAA-aware behavior.
-
 ## CRITICAL UPDATE (2025-08-14): Agent Scratchpad Fix
 
 **BREAKING CHANGE**: Structured chat agents with ConversationSummaryBufferMemory cause scratchpad type errors in LangChain 0.3.x.

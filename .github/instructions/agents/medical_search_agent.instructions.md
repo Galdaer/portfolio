@@ -1,8 +1,5 @@
 # Medical Literature Search Agent Instructions
 
-## Purpose
-Patterns and guardrails for the `medical_search` agent to reliably turn MCP-sourced literature into a PHI-safe, human-readable summary.
-
 ## Core Contract (public output fields)
 - formatted_summary: Required. Human-readable output rendered in UIs. Never omit; provide a safe fallback string on any internal error.
 - information_sources: List[dict] of normalized article objects used to generate the summary.

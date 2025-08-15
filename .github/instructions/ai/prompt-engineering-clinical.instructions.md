@@ -1,17 +1,13 @@
 ````instructions
 # Clinical Prompt Engineering Implementation Patterns
 
-## Implementation Purpose
-
-**IMPLEMENTATION-ONLY**: Prompt management and optimization patterns for healthcare AI systems. For workflow guidance, see main copilot-instructions.md.
-
 ## Healthcare Prompt Implementation Patterns
 
 ### Clinical Prompt Template System
 
 Healthcare AI systems require sophisticated prompt templates that automatically include medical disclaimers, maintain clinical context, and adapt to different clinical specialties and scenarios.
 
-**Healthcare Prompt Template Framework:**
+**Healthcare Prompt Template Patterns:**
 ```python
 from typing import Dict, List, Optional, Any, Union
 from dataclasses import dataclass, field
@@ -238,7 +234,7 @@ class AdaptiveClinicalPromptGenerator:
 
 Healthcare prompts require specialized measurement approaches that account for both response quality and clinical safety.
 
-**Clinical Prompt Effectiveness Framework:**
+**Clinical Prompt Effectiveness Patterns:**
 ```python
 class ClinicalPromptEffectivenessEvaluator:
     """Evaluate clinical prompt effectiveness using healthcare-specific metrics."""
@@ -339,7 +335,7 @@ class ClinicalPromptEffectivenessEvaluator:
 
 Healthcare prompt optimization requires careful A/B testing that maintains patient safety while enabling prompt improvement.
 
-**Clinical Prompt A/B Testing Framework:**
+**Clinical Prompt A/B Testing Patterns:**
 ```python
 class ClinicalPromptABTester:
     """A/B testing framework for clinical prompts with healthcare safety constraints."""
@@ -684,7 +680,7 @@ class ClinicalPromptFeedbackSystem:
 These clinical prompt engineering patterns integrate with your existing healthcare infrastructure:
 
 - **Healthcare MCP**: Utilizes MCP servers for clinical validation and medical terminology processing
-- **Agent Architecture**: Supports multi-agent healthcare workflows with sophisticated prompt management
+- **Agent Implementation**: Supports multi-agent healthcare workflows with sophisticated prompt management
 - **Security**: Builds upon existing PHI protection and audit logging systems
 - **Synthetic Data**: Leverages synthetic healthcare data for safe prompt testing and optimization
 - **Compliance**: Integrates with existing healthcare compliance and audit systems

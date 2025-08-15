@@ -2,11 +2,7 @@
 
 **WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
 
-## Purpose
-
-Specialized refactoring guidance for healthcare AI systems emphasizing medical compliance preservation, PHI protection during code changes, and modern Python pattern adoption.
-
-## Healthcare-Safe Refactoring Framework
+## Healthcare-Safe Refactoring Patterns
 
 ### PHI-Safe Refactoring Patterns
 

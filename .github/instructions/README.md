@@ -6,7 +6,7 @@
 - Use synthetic data and compliance disclaimers for all development and testing.
 - Troubleshoot endpoint issues by checking handler implementation and server logs.
 
-## CRITICAL: Anti-Infinite-Loop Architecture
+## CRITICAL: Anti-Infinite-Loop Implementation
 
 **INSTRUCTION HIERARCHY (Prevents Analysis Paralysis):**
 1. **copilot-instructions.md** - Master workflow control (ACTION-FIRST)
@@ -109,7 +109,7 @@ This means:
 ### 🚫 **When Not to Use Main Instructions**
 
 ```bash
-# Architecture decisions → Use relevant docs under `docs/` or specialized patterns
+# Implementation decisions → Use relevant docs under `docs/` or specialized patterns
 "Should we add a new service for insurance verification?"
 
 # General project questions → Use main copilot-instructions.md

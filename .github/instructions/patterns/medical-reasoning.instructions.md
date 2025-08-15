@@ -4,48 +4,31 @@ description: Transparent clinical reasoning patterns with evidence-based analysi
 tags: [healthcare, clinical-reasoning, evidence-based, medical-diagnosis, transparency]
 ---
 
-# Medical Reasoning Implementation Instructions
+# Medical Reasoning Implementation Patterns
 
 **WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
 
-## Purpose
-
-Comprehensive patterns for implementing transparent clinical reasoning in healthcare AI systems, including evidence-based analysis, differential diagnosis generation, and clinical decision support with appropriate medical disclaimers and uncertainty quantification.
-
-## Core Medical Reasoning Principles
-
-### Clinical Reasoning Architecture
+## Clinical Reasoning Patterns
 
 ```python
-# ✅ ADVANCED: Transparent clinical reasoning engine with evidence-based analysis
-from typing import List, Dict, Any, Optional, Tuple
-from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional
+from dataclasses import dataclass
 from datetime import datetime
-import asyncio
 from enum import Enum
 
 class EvidenceLevel(Enum):
-    """Medical evidence classification levels."""
     SYSTEMATIC_REVIEW = "systematic_review"
     RANDOMIZED_CONTROLLED_TRIAL = "rct"
     COHORT_STUDY = "cohort_study"
-    CASE_CONTROL_STUDY = "case_control"
-    CASE_SERIES = "case_series"
-    EXPERT_OPINION = "expert_opinion"
     CLINICAL_GUIDELINE = "clinical_guideline"
 
 @dataclass
 class ClinicalEvidence:
-    """Structured clinical evidence with transparency metadata."""
     source: str
     evidence_type: EvidenceLevel
     content: str
     confidence_level: float
-    publication_year: int
-    study_population_size: Optional[int] = None
-    limitations: List[str] = field(default_factory=list)
     pmid: Optional[str] = None
-    doi: Optional[str] = None
 
 class ClinicalReasoningEngine:
     """Transparent clinical reasoning patterns for healthcare AI."""
@@ -301,7 +284,7 @@ class ClinicalReasoningEngine:
         )
 ```
 
-### Advanced Diagnostic Reasoning Patterns
+### Diagnostic Reasoning Patterns
 
 ```python
 # ✅ ADVANCED: Sophisticated diagnostic reasoning with clinical logic validation

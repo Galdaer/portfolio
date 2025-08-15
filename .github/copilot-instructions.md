@@ -11,7 +11,7 @@ make deps FOR ALL DEPENDENCY INSTALLATION DON'T SUGGEST UV , PIP, NPM, OR ANYTHI
 
 Use The Sequential Thinking MCP Server to think through your tasks.
 
-**Use available MCP servers for RAG-powered development** - leverage Healthcare MCP, GitHub MCP, Pylance MCP, Sequential Thinking MCP, and Memory MCP while maintaining healthcare compliance.
+**Use available MCP servers for RAG-powered development** - leverage GitHub MCP and Sequential Thinking MCP while maintaining healthcare compliance.
 
 **FINAL ANTI-LOOP ENFORCEMENT**: If you find yourself switching between multiple instruction files or repeatedly analyzing the same code, STOP and implement immediately. The instruction refinements above prevent infinite loops by making specialized files implementation-only.
 

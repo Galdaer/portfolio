@@ -1,12 +1,8 @@
 # Medical Mirrors Service Troubleshooting Instructions
 
-## Strategic Purpose
-
-Comprehensive troubleshooting patterns for the medical-mirrors service that downloads and processes PubMed, ClinicalTrials.gov, and FDA data for healthcare AI systems.
-
 ## Critical Issues Identified (2025-08-07)
 
-### Issue 1: Data Storage Architecture Problem
+### Issue 1: Data Storage Implementation Problem
 **Problem**: Medical-mirrors service downloads files to `/app/data/` but fails to parse and store them in PostgreSQL.
 
 **Root Cause**: Parser bugs prevent data from reaching the database:
@@ -309,7 +305,7 @@ async def bulk_store_articles(self, articles: List[Dict[str, Any]]) -> int:
 - All datasets successfully integrated
 ```
 
-**Architecture Success**:
+**Implementation Success**:
 - ✅ FTP connections with robust timeout handling
 - ✅ Multi-core XML parsing at full CPU utilization
 - ✅ Database-first architecture with appropriate fallbacks

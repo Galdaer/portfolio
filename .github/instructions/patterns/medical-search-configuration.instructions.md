@@ -2,7 +2,7 @@
 
 Purpose: YAML-driven configuration patterns for intent-based medical search with multi-source response formatting.
 
-## Core Architecture
+## Core Implementation
 
 **Intent-Based Query Classification**: Different user intents (articles, studies, treatments, trials, drugs, information) trigger appropriate response formats and source selections.
 

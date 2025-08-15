@@ -2,11 +2,7 @@
 
 **WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
 
-## Purpose
-
-Comprehensive insurance calculation patterns supporting percentage copays, deductible tracking, cost prediction, and complex coverage scenarios for accurate patient cost estimates.
-
-## Enhanced Insurance Coverage Modeling
+## Insurance Coverage Modeling
 
 ### Type Safety and Method Signature Consistency
 

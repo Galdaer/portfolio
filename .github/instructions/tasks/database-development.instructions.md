@@ -1,9 +1,5 @@
 # Database Development Healthcare Instructions
 
-## Purpose
-
-**DATABASE-FIRST ARCHITECTURE**: Healthcare applications prioritize databases as primary data source with appropriate fallbacks for development and testing. Production systems require database connectivity for PHI security.
-
 ## CRITICAL: Database-First Pattern (NOT Database-Only)
 
 ### Correct Database-First Implementation
