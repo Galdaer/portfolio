@@ -34,9 +34,9 @@ I'm continuing development on a healthcare AI multi-agent system. Please review 
 
 ---
 
-Please start by:
-1. Confirming you understand the current state and critical warnings
-2. Identifying where we should begin based on the priorities
-3. Proposing your approach for the first immediate priority
+Do this now:
+1. Confirm you understand the current state and critical warnings
+2. Identify where to begin based on the priorities
+3. Execute the first immediate priority and report progress (what you ran/changed and next step)
 
 Let's continue building this healthcare AI system effectively!

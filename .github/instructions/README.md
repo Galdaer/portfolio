@@ -40,13 +40,11 @@ This directory contains specialized AI instruction files for different developme
 
 ### 🔧 **Main Copilot Instructions** (`.github/copilot-instructions.md`)
 
-**Use for**: General project guidance, architecture decisions, healthcare principles
+**Use for**: Action-first workflow control only (tasks, cadence, guardrails). Not for architecture/planning.
 
-- Project overview and core architecture
-- Healthcare security and compliance principles
-- Service architecture patterns
-- Development workflow overview
-- Synthetic data infrastructure overview
+- How to run tasks (MyPy, lint, build) and checkpoint progress
+- Anti-loop enforcement and instruction hierarchy
+- Dependency and tooling usage via Makefile targets
 
 ### 📂 **Specialized Instructions** (`.github/instructions/**/*.instructions.md`)
 
@@ -108,10 +106,10 @@ This means:
 "Use available MCP servers to analyze this healthcare codebase and suggest improvements"
 ```
 
-### 🚫 **When to Stay with Main Instructions**
+### 🚫 **When Not to Use Main Instructions**
 
 ```bash
-# Architecture decisions → Use main copilot-instructions.md
+# Architecture decisions → Use relevant docs under `docs/` or specialized patterns
 "Should we add a new service for insurance verification?"
 
 # General project questions → Use main copilot-instructions.md
