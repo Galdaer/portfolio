@@ -631,7 +631,7 @@ class SecureHealthcareMCPServer:
             results = []
             for source in sources:
                 if source == "pubmed":
-                    pubmed_results = await self.search_pubmed(sanitized_query)
+                    pubmed_results = await self.search-pubmed(sanitized_query)
                     results.extend(pubmed_results)
                 elif source == "clinical_trials":
                     trials_results = await self.search_clinical_trials(sanitized_query)

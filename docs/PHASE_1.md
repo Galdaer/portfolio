@@ -942,7 +942,7 @@ class SecureHealthcareMCPServer:
             results = []
             for source in sources:
                 if source == "pubmed":
-                    pubmed_results = await self.search_pubmed(sanitized_query)
+                    pubmed_results = await self.search-pubmed(sanitized_query)
                     results.extend(pubmed_results)
                 elif source == "clinical_trials":
                     trials_results = await self.search_clinical_trials(sanitized_query)
@@ -1141,7 +1141,7 @@ class SecureHealthcareMCPServer:
             results = []
             for source in sources:
                 if source == "pubmed":
-                    pubmed_results = await self.search_pubmed(sanitized_query)
+                    pubmed_results = await self.search-pubmed(sanitized_query)
                     results.extend(pubmed_results)
                 elif source == "clinical_trials":
                     trials_results = await self.search_clinical_trials(sanitized_query)
@@ -1499,7 +1499,7 @@ class SecureHealthcareMCPServer:
             results = []
             for source in sources:
                 if source == "pubmed":
-                    pubmed_results = await self.search_pubmed(sanitized_query)
+                    pubmed_results = await self.search-pubmed(sanitized_query)
                     results.extend(pubmed_results)
                 elif source == "clinical_trials":
                     trials_results = await self.search_clinical_trials(sanitized_query)
@@ -1905,7 +1905,7 @@ class UnifiedMCPClient:
         response = await self.client.post(url, json=params)
         return response.json()
 
-    async def search_pubmed(self, query: str) -> Dict[str, Any]:
+    async def search-pubmed(self, query: str) -> Dict[str, Any]:
         """Search medical literature"""
         return await self.call_healthcare_tool(
             "pubmed_search",
@@ -2025,7 +2025,7 @@ class LiteratureResearchAgent:
         """Research medical literature using PubMed and other sources"""
 
         # Search PubMed for peer-reviewed articles
-        pubmed_results = await self.mcp_client.search_pubmed(query)
+        pubmed_results = await self.mcp_client.search-pubmed(query)
 
         # Search clinical trials database
         trials_results = await self.mcp_client.search_clinical_trials(query)
@@ -3579,7 +3579,7 @@ class ResearchAssistantAgent(BaseAgent):
 
         # Get additional literature
         pubmed_query = f"{drug_name} safety efficacy"
-        literature = await self.mcp_client.search_pubmed(pubmed_query)
+        literature = await self.mcp_client.search-pubmed(pubmed_query)
 
         return {
             'research_type': 'drug_information',
@@ -3594,7 +3594,7 @@ class ResearchAssistantAgent(BaseAgent):
         """Comprehensive research using all available sources"""
 
         # Search multiple sources in parallel
-        pubmed_results = await self.mcp_client.search_pubmed(query)
+        pubmed_results = await self.mcp_client.search-pubmed(query)
 
         # Combine and rank results
         all_results = []
@@ -4841,7 +4841,7 @@ class TestPhase1HealthcareIntegration:
         client = UnifiedMCPClient()
 
         # Test PubMed search
-        pubmed_result = await client.search_pubmed("diabetes management")
+        pubmed_result = await client.search-pubmed("diabetes management")
         assert 'results' in pubmed_result or 'error' in pubmed_result
 
         # Test FDA drug lookup
