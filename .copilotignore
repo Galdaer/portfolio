@@ -65,9 +65,12 @@ restart: unless-stopped
 data/synthetic/
 data/training/
 data/vector_stores/
+.devcontainer/
+.githooks/
 coverage/
 logs/
 archive/
+.vscode/
 
 # Build artifacts and cache directories
 __pycache__/
@@ -83,6 +86,7 @@ build/
 # Reference materials and documentation (if not immediately relevant)
 reference/
 docs/THIRD_PARTY_LICENSES.md
+docs/
 THIRD_PARTY_LICENSES.md
 
 # Development/testing infrastructure (can be re-included as needed)
@@ -93,9 +97,7 @@ actions-runners/
 # mcps/healthcare/
 
 # Large configuration and service files (can be re-included as needed)
-services/
 stack/
-test/
 
 # Very large log files and temporary files
 *.log
