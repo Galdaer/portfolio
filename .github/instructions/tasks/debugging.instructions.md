@@ -2,6 +2,149 @@
 
 ## Healthcare-Specific Debugging Patterns
 
+### Ollama LangChain Connection Debugging (2025-08-15)
+
+**PROBLEM PATTERN**: LangChain agents failing with "All connection attempts failed" when connecting to Ollama.
+
+**SYMPTOMS TO WATCH FOR**:
+- Error: `httpx.ConnectError: All connection attempts failed`
+- LangChain agent initialization succeeds but processing fails
+- Stack trace showing connection failures in `langchain_ollama/chat_models.py`
+- MCP tools work but LLM processing fails
+
+**ROOT CAUSE**: Docker hostname resolution issues - LangChain configured for container environment but running in local environment.
+
+**DEBUGGING STEPS**:
+1. **Check Ollama Service Status**:
+   ```bash
+   systemctl status ollama || ps aux | grep ollama
+   curl -s http://localhost:11434/api/version
+   ```
+
+2. **Verify Environment Variables**:
+   ```bash
+   echo "OLLAMA_URL: $OLLAMA_URL"
+   export OLLAMA_URL="http://localhost:11434"
+   ```
+
+3. **Test Direct LLM Connection**:
+   ```python
+   # Test without MCP tools to isolate connection issue
+   from langchain_core.messages import HumanMessage
+   response = await agent.llm.ainvoke([HumanMessage(content='test')])
+   ```
+
+**SOLUTION PATTERN**:
+```python
+# ❌ PROBLEMATIC: Docker hostname in local environment
+config = OllamaConfig(
+    base_url=_os.getenv("OLLAMA_URL", "http://ollama:11434"),  # Fails locally
+)
+
+# ✅ CORRECT: Localhost default with environment override
+config = OllamaConfig(
+    base_url=_os.getenv("OLLAMA_URL", "http://localhost:11434"),  # Works locally
+)
+```
+
+**FILES TO CHECK**:
+- `services/user/healthcare-api/core/langchain/agents.py` - LangChain agent Ollama configuration
+- `services/user/healthcare-mcp/src/server/HealthcareServer.ts` - MCP server Ollama configuration
+- Container environment variables and docker-compose.yml Ollama service definitions
+
+### MCP Broken Pipe Debugging (2025-08-15)
+
+**PROBLEM PATTERN**: MCP tools work in isolation but fail with "Broken pipe" errors during LangChain agent execution.
+
+**SYMPTOMS TO WATCH FOR**:
+- Error: `[Errno 32] Broken pipe` in MCP tool execution
+- MCP tools work via direct `call_tool()` but fail in LangChain context
+- Subprocess stdio stream errors
+- Tool execution starts but doesn't complete
+
+**ROOT CAUSE**: Subprocess lifecycle management issues - MCP client spawning processes without proper session management.
+
+**DEBUGGING STEPS**:
+1. **Test MCP Tools in Isolation**:
+   ```python
+   # Direct MCP tool test
+   client = DirectMCPClient()
+   result = await client.call_tool('search-pubmed', {'query': 'test'})
+   ```
+
+2. **Monitor Subprocess Lifecycle**:
+   ```bash
+   # Monitor subprocess creation during agent execution
+   ps aux | grep mcp-server | wc -l  # Before
+   # Run LangChain agent
+   ps aux | grep mcp-server | wc -l  # After
+   ```
+
+3. **Check Stream Status**:
+   ```python
+   # In DirectMCPClient, add debugging:
+   logger.info(f"Process alive: {self.process.poll() is None}")
+   logger.info(f"Stdin closed: {self.process.stdin.is_closing()}")
+   ```
+
+**SOLUTION PATTERN**:
+```python
+# ❌ PROBLEMATIC: Process spawned without lifecycle management
+async def call_tool(self, name, params):
+    process = await asyncio.create_subprocess_exec(...)
+    # Process may be terminated before response read
+
+# ✅ CORRECT: Connection pooling with proper cleanup
+class MCPSessionPool:
+    async def get_session(self):
+        # Reuse existing sessions, manage lifecycle
+        # Implement graceful shutdown patterns
+```
+
+**FILES TO CHECK**:
+- `services/user/healthcare-api/core/mcp/direct_mcp_client.py` - Primary location for subprocess management fixes
+
+### Open WebUI Integration Debugging (2025-08-15)
+
+**PROBLEM PATTERN**: Healthcare agents not being triggered or logged when accessed through Open WebUI interface.
+
+**SYMPTOMS TO WATCH FOR**:
+- No entries in `logs/agent_medical_search.log` during Open WebUI queries
+- Healthcare API responds but agents not executing
+- MCP tools working but not being called in medical context
+- Open WebUI receives generic responses instead of medical-specific responses
+
+**DEBUGGING STEPS**:
+1. **Verify Agent Registration**:
+   ```python
+   # Check if agents are properly registered in healthcare API
+   from core.agent_coordinator import AgentCoordinator
+   coordinator = AgentCoordinator()
+   print(coordinator.list_agents())  # Should include medical search agent
+   ```
+
+2. **Test Direct Agent Invocation**:
+   ```python
+   # Bypass Open WebUI to test agent directly
+   from agents.medical_search import MedicalLiteratureSearchAssistant
+   agent = MedicalLiteratureSearchAssistant()
+   result = await agent.process("diabetes complications")
+   ```
+
+3. **Check Open WebUI Request Routing**:
+   ```bash
+   # Monitor healthcare API access logs
+   tail -f logs/healthcare_system.log | grep -E "(medical|search|agent)"
+   ```
+
+**SOLUTION PATTERNS**:
+- Verify agent intent classification patterns in medical query routing
+- Ensure Open WebUI requests trigger correct agent selection logic
+- Check healthcare API endpoint configuration for agent coordination
+- `services/user/healthcare-api/core/langchain/agents.py` (main config)
+- `services/user/healthcare-mcp/src/server/HealthcareServer.ts` (MCP server config)
+- Any Docker compose files or environment configuration
+
 ### MCP Async Task Management Debugging (CRITICAL)
 
 **PROBLEM PATTERN**: MCP clients creating runaway async tasks causing CPU drain.

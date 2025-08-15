@@ -96,6 +96,444 @@ class BaseHealthcareAgent:
         pass
 ```
 
+## MCP Tool Communication Debugging (2025-08-15)
+
+### Broken Pipe Error Resolution Patterns
+
+**PROBLEM SIGNATURE**: `[Errno 32] Broken pipe` errors during LangChain agent MCP tool execution.
+
+**ROOT CAUSE**: Subprocess lifecycle management issues - processes terminated before response streams fully read.
+
+**DEBUGGING PATTERN**:
+```python
+# ✅ Add comprehensive MCP subprocess monitoring
+class MCPSubprocessMonitor:
+    """Monitor MCP subprocess lifecycle for broken pipe debugging."""
+    
+    def __init__(self):
+        self.active_processes = {}
+        self.logger = logging.getLogger('mcp.subprocess')
+    
+    def track_process(self, tool_name: str, process: asyncio.subprocess.Process):
+        """Track subprocess for lifecycle monitoring."""
+        process_id = id(process)
+        self.active_processes[process_id] = {
+            'tool': tool_name,
+            'process': process,
+            'started': time.time(),
+            'stdin_closed': False,
+            'stdout_closed': False
+        }
+        self.logger.info(f"Started subprocess {process_id} for {tool_name}")
+    
+    async def check_process_health(self, process_id: int) -> bool:
+        """Check if subprocess is still healthy."""
+        if process_id not in self.active_processes:
+            return False
+        
+        proc_info = self.active_processes[process_id]
+        process = proc_info['process']
+        
+        # Check if process is still alive
+        if process.returncode is not None:
+            self.logger.warning(f"Process {process_id} terminated unexpectedly: {process.returncode}")
+            return False
+        
+        # Check stream states
+        if process.stdin.is_closing():
+            proc_info['stdin_closed'] = True
+            self.logger.warning(f"Process {process_id} stdin closed")
+        
+        if process.stdout.at_eof():
+            proc_info['stdout_closed'] = True
+            self.logger.warning(f"Process {process_id} stdout at EOF")
+        
+        return not (proc_info['stdin_closed'] and proc_info['stdout_closed'])
+
+# ✅ Implement connection pooling to prevent rapid subprocess creation/destruction
+class MCPConnectionPool:
+    """Connection pool to prevent broken pipe errors from rapid subprocess cycling."""
+    
+    def __init__(self, max_connections: int = 3):
+        self.max_connections = max_connections
+        self.pool = asyncio.Queue(maxsize=max_connections)
+        self.active_connections = {}
+        self.logger = logging.getLogger('mcp.pool')
+    
+    async def get_connection(self, tool_category: str = 'general') -> 'MCPConnection':
+        """Get reusable MCP connection from pool."""
+        try:
+            # Try to get existing connection from pool
+            if not self.pool.empty():
+                connection = await asyncio.wait_for(self.pool.get(), timeout=0.1)
+                if await self._test_connection_health(connection):
+                    self.logger.info(f"Reusing pooled connection for {tool_category}")
+                    return connection
+                else:
+                    # Connection unhealthy, clean it up
+                    await self._cleanup_connection(connection)
+            
+            # Create new connection
+            self.logger.info(f"Creating new MCP connection for {tool_category}")
+            connection = await self._create_new_connection()
+            return connection
+            
+        except Exception as e:
+            self.logger.error(f"Failed to get MCP connection: {e}")
+            raise
+    
+    async def return_connection(self, connection: 'MCPConnection'):
+        """Return connection to pool for reuse."""
+        try:
+            if await self._test_connection_health(connection):
+                # Only return healthy connections to pool
+                if self.pool.qsize() < self.max_connections:
+                    await self.pool.put(connection)
+                    self.logger.info("Returned connection to pool")
+                else:
+                    # Pool full, cleanup connection
+                    await self._cleanup_connection(connection)
+            else:
+                # Connection unhealthy, cleanup
+                await self._cleanup_connection(connection)
+        except Exception as e:
+            self.logger.warning(f"Error returning connection to pool: {e}")
+    
+    async def _test_connection_health(self, connection) -> bool:
+        """Test if MCP connection is still healthy."""
+        try:
+            # Quick health check - try to call a simple tool or ping
+            await asyncio.wait_for(connection.ping(), timeout=1.0)
+            return True
+        except Exception as e:
+            self.logger.warning(f"Connection health check failed: {e}")
+            return False
+    
+    async def _create_new_connection(self) -> 'MCPConnection':
+        """Create new MCP connection with proper initialization."""
+        params = StdioServerParameters(
+            command="node",
+            args=["/app/mcp-server/build/stdio_entry.js"],
+            env={"MCP_TRANSPORT": "stdio", "NODE_ENV": "production"}
+        )
+        
+        connection = MCPConnection(params)
+        await connection.initialize()
+        return connection
+    
+    async def _cleanup_connection(self, connection):
+        """Properly cleanup MCP connection."""
+        try:
+            await connection.cleanup()
+        except Exception as e:
+            self.logger.warning(f"Error during connection cleanup: {e}")
+
+# ✅ Enhanced DirectMCPClient with connection pooling
+class DirectMCPClient:
+    """Enhanced MCP client with connection pooling and broken pipe prevention."""
+    
+    def __init__(self):
+        self.connection_pool = MCPConnectionPool()
+        self.logger = logging.getLogger('mcp.direct_client')
+    
+    async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
+        """Call MCP tool with connection pooling and error recovery."""
+        connection = None
+        retry_count = 0
+        max_retries = 2
+        
+        while retry_count <= max_retries:
+            try:
+                # Get connection from pool
+                connection = await self.connection_pool.get_connection(
+                    tool_category=self._get_tool_category(tool_name)
+                )
+                
+                # Execute tool with timeout
+                self.logger.info(f"Executing {tool_name} with pooled connection")
+                result = await asyncio.wait_for(
+                    connection.call_tool(tool_name, arguments),
+                    timeout=30.0
+                )
+                
+                # Return connection to pool
+                await self.connection_pool.return_connection(connection)
+                
+                self.logger.info(f"Successfully executed {tool_name}")
+                return result
+                
+            except BrokenPipeError as e:
+                self.logger.error(f"Broken pipe error in {tool_name} (attempt {retry_count + 1}): {e}")
+                # Don't return broken connection to pool
+                if connection:
+                    await self.connection_pool._cleanup_connection(connection)
+                    connection = None
+                
+                retry_count += 1
+                if retry_count <= max_retries:
+                    # Brief delay before retry
+                    await asyncio.sleep(0.5 * retry_count)
+                else:
+                    raise
+                    
+            except asyncio.TimeoutError as e:
+                self.logger.error(f"Timeout in {tool_name}: {e}")
+                # Connection may be in bad state, don't return to pool
+                if connection:
+                    await self.connection_pool._cleanup_connection(connection)
+                    connection = None
+                raise
+                
+            except Exception as e:
+                self.logger.error(f"Unexpected error in {tool_name}: {e}")
+                # Return connection if it might still be good
+                if connection:
+                    await self.connection_pool.return_connection(connection)
+                    connection = None
+                raise
+    
+    def _get_tool_category(self, tool_name: str) -> str:
+        """Categorize tools for connection affinity."""
+        if 'pubmed' in tool_name or 'search' in tool_name:
+            return 'search'
+        elif 'drug' in tool_name or 'medication' in tool_name:
+            return 'pharmaceutical'
+        elif 'patient' in tool_name or 'fhir' in tool_name:
+            return 'clinical'
+        else:
+            return 'general'
+
+# ✅ MCP Connection class with proper cleanup patterns
+class MCPConnection:
+    """Individual MCP connection with proper lifecycle management."""
+    
+    def __init__(self, params: StdioServerParameters):
+        self.params = params
+        self.session = None
+        self.process = None
+        self.logger = logging.getLogger('mcp.connection')
+    
+    async def initialize(self):
+        """Initialize MCP connection with proper error handling."""
+        try:
+            # Create subprocess with explicit process management
+            self.process = await asyncio.create_subprocess_exec(
+                *([self.params.command] + list(self.params.args)),
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=self.params.env
+            )
+            
+            # Create session with streams
+            self.session = ClientSession(
+                self.process.stdout,
+                self.process.stdin
+            )
+            
+            # Initialize session
+            await self.session.initialize()
+            self.logger.info("MCP connection initialized successfully")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to initialize MCP connection: {e}")
+            await self.cleanup()
+            raise
+    
+    async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
+        """Call tool with proper error handling."""
+        if not self.session:
+            raise RuntimeError("MCP connection not initialized")
+        
+        try:
+            result = await self.session.call_tool(tool_name, arguments)
+            return result
+        except Exception as e:
+            self.logger.error(f"Tool call failed: {e}")
+            raise
+    
+    async def ping(self) -> bool:
+        """Simple health check for connection."""
+        try:
+            # Try to list tools as a health check
+            await self.session.list_tools()
+            return True
+        except Exception:
+            return False
+    
+    async def cleanup(self):
+        """Properly cleanup connection resources."""
+        try:
+            if self.session:
+                # Close session gracefully
+                await self.session.close()
+                self.session = None
+            
+            if self.process and self.process.returncode is None:
+                # Terminate process gracefully
+                self.process.terminate()
+                try:
+                    await asyncio.wait_for(self.process.wait(), timeout=5.0)
+                except asyncio.TimeoutError:
+                    # Force kill if graceful termination fails
+                    self.process.kill()
+                    await self.process.wait()
+                
+                self.process = None
+                
+        except Exception as e:
+            self.logger.warning(f"Error during cleanup: {e}")
+```
+
+### LangChain Integration with MCP Error Handling
+
+```python
+# ✅ LangChain agent with robust MCP tool error handling
+async def _call_mcp_tool_safe(self, tool_name: str, params: Dict[str, Any]) -> str:
+    """Call MCP tool with comprehensive error handling and recovery."""
+    try:
+        self.logger.info(f"Calling MCP tool: {tool_name}")
+        
+        # Use enhanced MCP client with connection pooling
+        result = await self.mcp_client.call_tool(tool_name, params)
+        
+        self.logger.info(f"MCP tool {tool_name} completed successfully")
+        return str(result)
+        
+    except BrokenPipeError as e:
+        self.logger.error(f"MCP tool {tool_name} broken pipe error: {e}")
+        
+        # Provide fallback response instead of failing completely
+        fallback_response = self._get_tool_fallback_response(tool_name, params)
+        return f"Tool {tool_name} temporarily unavailable. {fallback_response}"
+        
+    except asyncio.TimeoutError as e:
+        self.logger.error(f"MCP tool {tool_name} timeout: {e}")
+        return f"Tool {tool_name} timed out. Please try again with a more specific query."
+        
+    except Exception as e:
+        self.logger.error(f"MCP tool {tool_name} failed: {e}")
+        return f"Tool {tool_name} encountered an error: {str(e)}"
+
+def _get_tool_fallback_response(self, tool_name: str, params: Dict[str, Any]) -> str:
+    """Provide fallback guidance when MCP tools fail."""
+    fallback_responses = {
+        'search-pubmed': "For medical literature, try searching PubMed directly at https://pubmed.ncbi.nlm.nih.gov/",
+        'search-clinical-trials': "For clinical trials, visit https://clinicaltrials.gov/",
+        'get-drug-info': "For drug information, consult FDA databases or medical references.",
+        'search-fhir-patients': "Patient data access requires proper authentication and authorization.",
+    }
+    
+    return fallback_responses.get(tool_name, "Please consult appropriate medical databases directly.")
+```
+
+**PROBLEM PATTERN**: MCP tools experiencing "Broken pipe" errors during LangChain agent execution.
+
+**SYMPTOMS**:
+- Error: `[Errno 32] Broken pipe` when calling MCP tools
+- MCP tool calls start successfully but fail during execution
+- LangChain agent retries same tool multiple times with same error
+- Direct MCP client works but LangChain integration fails
+
+**ROOT CAUSE ANALYSIS**:
+1. **Process Lifecycle Mismatch**: LangChain may be calling tools faster than MCP subprocess can handle
+2. **Async Context Issues**: MCP stdio streams not properly managed in async LangChain context
+3. **Resource Cleanup**: MCP subprocess terminating before response completion
+
+**DEBUGGING STEPS**:
+```python
+# 1. Test direct MCP client functionality
+async def test_direct_mcp():
+    client = DirectMCPClient()
+    result = await client.call_tool("search_medical_literature", {"query": "test"})
+    print(f"Direct MCP result: {result}")
+
+# 2. Test MCP tool in isolation
+from core.langchain.tools import create_mcp_tools
+tools = create_mcp_tools(mcp_client)
+for tool in tools:
+    try:
+        result = await tool.arun("test query")
+        print(f"Tool {tool.name}: SUCCESS")
+    except Exception as e:
+        print(f"Tool {tool.name}: FAILED - {e}")
+
+# 3. Monitor subprocess lifecycle
+import psutil
+def monitor_mcp_processes():
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        if 'node' in proc.info['name'] and 'mcp' in str(proc.info['cmdline']):
+            print(f"MCP Process: {proc.info}")
+```
+
+**SOLUTION PATTERNS**:
+
+### 1. Robust MCP Tool Wrapper
+```python
+class RobustMCPTool:
+    def __init__(self, tool_name: str, mcp_client, max_retries: int = 3):
+        self.tool_name = tool_name
+        self.mcp_client = mcp_client
+        self.max_retries = max_retries
+    
+    async def arun(self, query: str) -> str:
+        last_error = None
+        
+        for attempt in range(self.max_retries):
+            try:
+                # Create fresh client session for each attempt
+                async with self.mcp_client.create_session() as session:
+                    result = await session.call_tool(self.tool_name, {"query": query})
+                    return result
+                    
+            except BrokenPipeError as e:
+                last_error = e
+                if attempt < self.max_retries - 1:
+                    await asyncio.sleep(0.5 * (attempt + 1))  # Exponential backoff
+                    continue
+                    
+            except Exception as e:
+                # Non-retryable error
+                raise e
+        
+        # If all retries failed, return graceful fallback
+        return f"Tool {self.tool_name} temporarily unavailable. Please try again."
+```
+
+### 2. Session Management Pattern
+```python
+class HealthcareMCPClient:
+    def __init__(self):
+        self.session_pool = asyncio.Queue(maxsize=3)  # Limit concurrent sessions
+    
+    async def call_tool(self, tool_name: str, arguments: dict):
+        # Use connection pooling to prevent resource exhaustion
+        session = await self._get_session()
+        try:
+            result = await session.call_tool(tool_name, arguments)
+            return result
+        finally:
+            await self._return_session(session)
+    
+    async def _get_session(self):
+        if self.session_pool.empty():
+            return await self._create_fresh_session()
+        return await self.session_pool.get()
+    
+    async def _create_fresh_session(self):
+        # Create new subprocess for each session
+        async with stdio_client(self.params) as (read_stream, write_stream):
+            session = ClientSession(read_stream, write_stream)
+            await session.initialize()
+            return session
+```
+
+**NEXT STEPS FOR BROKEN PIPE INVESTIGATION**:
+1. Implement session pooling in DirectMCPClient
+2. Add process monitoring to detect subprocess termination
+3. Implement graceful fallback when MCP tools fail
+4. Add timeout handling for long-running MCP operations
+
 **Agent Implementation Status**: Implementation working with clean stdio/HTTP separation. All agents now use standardized BaseHealthcareAgent interface.
 
 ## MCP Implementation Patterns

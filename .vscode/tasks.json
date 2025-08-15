@@ -155,12 +155,199 @@
             }
         },
         {
+            "label": "Test Ollama Connection",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Testing Ollama connection...' && curl -s http://localhost:11434/api/version && echo '✅ Ollama connection successful' || echo '❌ Ollama connection failed'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Test LangChain Agent Connection",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd services/user/healthcare-api && OLLAMA_URL=http://localhost:11434 python3 -c \"import sys; sys.path.append('/home/intelluxe/services/user/healthcare-api'); from core.langchain.agents import HealthcareLangChainAgent; from core.mcp.direct_mcp_client import DirectMCPClient; mcp_client = DirectMCPClient(); agent = HealthcareLangChainAgent(mcp_client); print('✅ LangChain agent initialized successfully')\""
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Debug MCP Tool Connection",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd services/user/healthcare-api && python3 -c \"import asyncio; import sys; sys.path.append('/home/intelluxe/services/user/healthcare-api'); from core.mcp.direct_mcp_client import DirectMCPClient; async def test(): client = DirectMCPClient(); result = await client.call_tool('search-pubmed', {'query': 'test'}); print(f'MCP result: {result}'); asyncio.run(test())\""
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Validate Healthcare Environment",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Healthcare Environment Validation:' && echo 'OLLAMA_URL:' $OLLAMA_URL && echo 'Testing Ollama...' && curl -s http://localhost:11434/api/version | head -1 && echo 'Testing healthcare-api import...' && cd services/user/healthcare-api && python3 -c 'from core.langchain.agents import HealthcareLangChainAgent; print(\"✅ Import successful\")' && echo '✅ Healthcare environment validation complete'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
             "label": "Run Integration Smoke Tests",
             "group": "test",
             "type": "shell",
             "command": "python3",
             "args": [
                 "scripts/run_integration_tests.py"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Monitor Open WebUI Healthcare Integration",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Monitoring Open WebUI Healthcare Integration...' && echo 'Watching logs for healthcare agent activity:' && echo 'healthcare_system.log and agent_medical_search.log' && echo 'Make a medical query in Open WebUI now...' && tail -f logs/healthcare_system.log logs/agent_medical_search.log"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "isBackground": true
+        },
+        {
+            "label": "Test Medical Search Agent Direct",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Testing Medical Search Agent Direct (bypass Open WebUI)...' && cd services/user/healthcare-api && python3 -c \"import sys; sys.path.append('/home/intelluxe/services/user/healthcare-api'); from agents.medical_search import MedicalLiteratureSearchAssistant; from core.mcp.direct_mcp_client import DirectMCPClient; mcp_client = DirectMCPClient(); agent = MedicalLiteratureSearchAssistant(mcp_client); print('✅ Medical search agent loaded successfully'); print('Agent type:', type(agent)); print('MCP client:', type(mcp_client))\""
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Check Healthcare API Request Routing",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Checking Healthcare API Request Routing...' && echo 'Analyzing recent healthcare system logs for request patterns:' && echo '--- Medical/Search Keywords ---' && grep -i -E '(medical|search|agent|pubmed|clinical)' logs/healthcare_system.log | tail -10 && echo '--- Request Processing ---' && grep -i -E '(request|routing|intent|classification)' logs/healthcare_system.log | tail -10 && echo '--- Agent Activity ---' && grep -i 'agent' logs/healthcare_system.log | tail -5"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Test Open WebUI Connection",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Testing Open WebUI Connection...' && echo 'Testing healthcare API endpoint:' && curl -s http://localhost:8000/health && echo '' && echo 'Testing Open WebUI chat endpoint (if available):' && curl -s -X POST http://localhost:8000/v1/chat/completions -H 'Content-Type: application/json' -d '{\"model\":\"healthcare\",\"messages\":[{\"role\":\"user\",\"content\":\"test medical query\"}]}' | head -200 && echo ''"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Debug Healthcare Agent Registration",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Debugging Healthcare Agent Registration...' && cd services/user/healthcare-api && python3 -c \"import sys; sys.path.append('/home/intelluxe/services/user/healthcare-api'); try: from core.agent_coordinator import AgentCoordinator; coordinator = AgentCoordinator(); print('Available agents:', coordinator.list_agents()); except ImportError as e: print('AgentCoordinator not found:', e); print('Checking for agent imports...'); import os; print('Agent files:', [f for f in os.listdir('agents') if f.endswith('.py')]); except Exception as e: print('Error:', e)\""
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Comprehensive Healthcare Stack Test",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Comprehensive Healthcare Stack Test...' && echo '1. Testing Ollama...' && curl -s http://localhost:11434/api/version && echo '✅ Ollama OK' && echo '2. Testing MCP tools...' && cd services/user/healthcare-api && python3 -c \"import asyncio; from core.mcp.direct_mcp_client import DirectMCPClient; asyncio.run(DirectMCPClient().call_tool('search-pubmed', {'query': 'test'}))\" && echo '✅ MCP OK' && echo '3. Testing Healthcare API...' && curl -s http://localhost:8000/health && echo '✅ API OK' && echo '4. Testing Agent Import...' && python3 -c \"from agents.medical_search import MedicalLiteratureSearchAssistant; print('✅ Agent import OK')\" && echo '🎉 All healthcare stack components functional'"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"

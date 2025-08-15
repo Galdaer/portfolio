@@ -49,6 +49,138 @@ def calculate_copay(amount: Decimal, percentage: Decimal) -> Decimal:
     return amount * (percentage / Decimal('100'))
 ```
 
+### Healthcare LangChain Configuration (Updated 2025-08-15)
+
+```python
+# ✅ CRITICAL: Ollama connection patterns for healthcare environments
+class HealthcareOllamaConfig:
+    """Ollama configuration patterns for local healthcare environments."""
+    
+    @staticmethod
+    def create_ollama_config(model: str = "llama3.1:8b") -> OllamaConfig:
+        """Create Ollama config with proper environment handling."""
+        import os
+        
+        # CRITICAL: Use localhost for local development, allow override
+        base_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        
+        # Warn if using Docker hostname in local environment
+        if "ollama:" in base_url and "docker" not in os.getenv("CONTAINER_ENV", ""):
+            logger.warning(f"Using Docker hostname {base_url} in local environment - may cause connection failures")
+        
+        return OllamaConfig(
+            model=model,
+            temperature=0.1,  # Conservative for healthcare
+            base_url=base_url,
+            num_ctx=4096
+        )
+    
+    @staticmethod
+    def test_ollama_connection(base_url: str) -> bool:
+        """Test Ollama connection before agent initialization."""
+        import httpx
+        try:
+            response = httpx.get(f"{base_url}/api/version", timeout=5.0)
+            return response.status_code == 200
+        except Exception:
+            return False
+
+# ✅ Healthcare agent initialization with connection validation
+def create_healthcare_langchain_agent(mcp_client, model: str = "llama3.1:8b"):
+    """Create LangChain agent with healthcare-specific validation."""
+    config = HealthcareOllamaConfig.create_ollama_config(model)
+    
+    # Test connection before proceeding
+    if not HealthcareOllamaConfig.test_ollama_connection(config.base_url):
+        raise ConnectionError(f"Cannot connect to Ollama at {config.base_url}")
+    
+    llm = build_chat_model(config)
+    tools = create_mcp_tools(mcp_client)
+    
+    return HealthcareAgentReliability.create_stable_healthcare_agent(llm, tools)
+`
+### Open WebUI Integration Patterns (Added 2025-08-15)
+
+```python
+# ✅ Open WebUI request classification for healthcare
+class HealthcareRequestClassifier:
+    """Classify incoming requests for proper agent routing."""
+    
+    MEDICAL_KEYWORDS = [
+        'medical', 'health', 'disease', 'condition', 'symptoms', 'treatment',
+        'medication', 'clinical', 'patient', 'diagnosis', 'research', 'study',
+        'pubmed', 'literature', 'journal', 'evidence', 'drug', 'therapy'
+    ]
+    
+    @classmethod
+    def is_medical_query(cls, query: str) -> bool:
+        """Determine if query should be routed to medical agents."""
+        query_lower = query.lower()
+        return any(keyword in query_lower for keyword in cls.MEDICAL_KEYWORDS)
+    
+    @classmethod
+    def get_intent_classification(cls, query: str) -> str:
+        """Classify query intent for agent selection."""
+        if cls.is_medical_query(query):
+            if 'research' in query.lower() or 'study' in query.lower():
+                return 'medical_research'
+            elif 'drug' in query.lower() or 'medication' in query.lower():
+                return 'pharmaceutical'
+            else:
+                return 'medical_general'
+        return 'general'
+
+# ✅ Healthcare API endpoint patterns for Open WebUI
+class HealthcareAPIEndpoints:
+    """Endpoint patterns for Open WebUI integration."""
+    
+    @staticmethod
+    async def chat_completion(request: ChatCompletionRequest) -> ChatCompletionResponse:
+        """Handle Open WebUI chat completion requests."""
+        query = request.messages[-1].content
+        intent = HealthcareRequestClassifier.get_intent_classification(query)
+        
+        # Route to appropriate healthcare agent
+        if intent.startswith('medical'):
+            agent = get_medical_agent(intent)
+            response = await agent.process(query)
+            
+            # Ensure medical disclaimer is included
+            response = add_medical_disclaimer(response)
+        else:
+            response = await process_general_query(query)
+        
+        return ChatCompletionResponse(
+            id=f"chat-{uuid4()}",
+            choices=[Choice(message=Message(content=response))],
+            model=request.model
+        )
+
+# ✅ Agent logging patterns for debugging Open WebUI issues
+def setup_healthcare_agent_logging(agent_name: str):
+    """Setup comprehensive logging for healthcare agent debugging."""
+    import logging
+    
+    # Create agent-specific logger
+    logger = logging.getLogger(f'healthcare.agent.{agent_name}')
+    logger.setLevel(logging.INFO)
+    
+    # Add file handler for agent-specific logs
+    handler = logging.FileHandler(f'logs/agent_{agent_name}.log')
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    
+    # Log initialization
+    logger.info(f"{agent_name} initialized")
+    logger.info(f"MCP client: {type(mcp_client)} - {mcp_client}")
+    logger.info(f"LLM client: {type(llm_client)} - {llm_client}")
+    
+    return logger
+```
+
 ### Healthcare AI Agent Reliability (Updated 2025-08-14)
 
 ```python
