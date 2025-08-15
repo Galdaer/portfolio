@@ -32,6 +32,42 @@ from core.tools import tool_registry
 logger = get_healthcare_logger("core.langchain.healthcare_tools")
 
 
+def safe_async_call(coro):
+    """
+    Safely execute an async coroutine from sync context.
+    
+    Handles the case where we're already in an event loop by using
+    different execution strategies.
+    """
+    try:
+        # Try to get the current event loop
+        asyncio.get_running_loop()
+        # If we're in a running loop, we can't use asyncio.run()
+        # Instead, we need to use a different approach
+        import concurrent.futures
+        import threading
+        
+        def run_in_thread():
+            # Create a new event loop in a separate thread
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                return new_loop.run_until_complete(coro)
+            finally:
+                new_loop.close()
+        
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(run_in_thread)
+            return future.result(timeout=30)  # 30 second timeout
+            
+    except RuntimeError:
+        # No event loop running, safe to use asyncio.run()
+        return asyncio.run(coro)
+    except Exception as e:
+        logger.error(f"Failed to execute async call: {e}")
+        raise
+
+
 # Input schemas for agent tools
 class MedicalSearchInput(BaseModel):
     """Input for medical literature search queries."""
@@ -74,11 +110,15 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
     """
     
     # Initialize ToolRegistry with MCP client for robust tool management
+    # Note: ToolRegistry initialization deferred to avoid asyncio.run() in sync context
     try:
-        asyncio.run(tool_registry.initialize(mcp_client))
-        logger.info("✅ ToolRegistry initialized successfully")
+        # Check if ToolRegistry is already initialized
+        if not tool_registry._initialized:
+            logger.info("🔄 ToolRegistry initialization deferred - will use direct MCP fallback")
+        else:
+            logger.info("✅ ToolRegistry already initialized")
     except Exception as e:
-        logger.warning(f"⚠️ ToolRegistry initialization failed, using direct MCP fallback: {e}")
+        logger.warning(f"⚠️ ToolRegistry check failed, using direct MCP fallback: {e}")
     
     tools: List[StructuredTool] = []
     
@@ -96,8 +136,8 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
                 agent = agent_manager.get_agent("medical_search")
                 if agent and hasattr(agent, 'process_query'):
                     logger.info(f"🔍 Routing medical search to agent: {query[:100]}")
-                    # Use asyncio.run since agent.process_query is async
-                    result = asyncio.run(agent.process_query(query))
+                    # Use safe_async_call to handle event loop properly
+                    result = safe_async_call(agent.process_query(query))
                     if isinstance(result, dict):
                         return json.dumps(result, indent=2)
                     return str(result)
@@ -171,7 +211,7 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
             
             # Try ToolRegistry first (robust tool management)
             if tool_registry._initialized:
-                result = asyncio.run(tool_registry.execute_tool("search-pubmed", {
+                result = safe_async_call(tool_registry.execute_tool("search-pubmed", {
                     "query": query,
                     "max_results": max_results
                 }))
@@ -179,7 +219,7 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
             else:
                 # Fallback to direct MCP call if ToolRegistry unavailable
                 logger.warning("⚠️ ToolRegistry not available, using direct MCP")
-                result = asyncio.run(client.call_tool("search-pubmed", {
+                result = safe_async_call(client.call_tool("search-pubmed", {
                     "query": query,
                     "max_results": max_results
                 }))
@@ -211,7 +251,7 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
                 try:
                     if tool_registry._initialized:
                         # Quick health check on external API (1 result only)
-                        asyncio.run(tool_registry.execute_tool("search-clinical-trials", {
+                        safe_async_call(tool_registry.execute_tool("search-clinical-trials", {
                             "query": "health",
                             "max_results": 1
                         }))
@@ -233,7 +273,7 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
             
             # Try ToolRegistry first (robust tool management)
             if tool_registry._initialized:
-                result = asyncio.run(tool_registry.execute_tool("search-clinical-trials", {
+                result = safe_async_call(tool_registry.execute_tool("search-clinical-trials", {
                     "query": query,
                     "max_results": max_results
                 }))
@@ -241,7 +281,7 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
             else:
                 # Fallback to direct MCP call if ToolRegistry unavailable
                 logger.warning("⚠️ ToolRegistry not available, using direct MCP")
-                result = asyncio.run(mcp_client.call_tool("search-clinical-trials", {
+                result = safe_async_call(mcp_client.call_tool("search-clinical-trials", {
                     "query": query,
                     "max_results": max_results
                 }))
@@ -269,7 +309,7 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
                 try:
                     if tool_registry._initialized:
                         # Quick health check on external API
-                        asyncio.run(tool_registry.execute_tool("get-drug-info", {
+                        safe_async_call(tool_registry.execute_tool("get-drug-info", {
                             "drug_name": "aspirin"  # Common drug for health check
                         }))
                         logger.info("✅ External Drug Info API health check passed")
@@ -290,14 +330,14 @@ def create_healthcare_tools(mcp_client: Any, agent_manager: Any, *, max_retries:
             
             # Try ToolRegistry first (robust tool management)
             if tool_registry._initialized:
-                result = asyncio.run(tool_registry.execute_tool("get-drug-info", {
+                result = safe_async_call(tool_registry.execute_tool("get-drug-info", {
                     "drug_name": drug_name
                 }))
                 logger.info("✅ Used ToolRegistry for drug information lookup")
             else:
                 # Fallback to direct MCP call if ToolRegistry unavailable
                 logger.warning("⚠️ ToolRegistry not available, using direct MCP")
-                result = asyncio.run(mcp_client.call_tool("get-drug-info", {
+                result = safe_async_call(mcp_client.call_tool("get-drug-info", {
                     "drug_name": drug_name
                 }))
                 

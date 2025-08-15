@@ -596,8 +596,10 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 pubmed = [s for s in search_result.information_sources if cast(str, s.get("source_type", "")) in ["condition_information", "symptom_literature"]]
                 trials = [s for s in search_result.information_sources if "trial" in cast(str, s.get("source_type", "")) or cast(str, s.get("source_type", "")) == "clinical_guideline"]
                 rt_cfg = cast(dict[str, object], self._intent_config.get("response_templates", {})).get("mixed_studies_list", {}) or {}
-                max_pubmed = int(cast(dict[str, object], rt_cfg).get("max_pubmed", 6))
-                max_trials = int(cast(dict[str, object], rt_cfg).get("max_trials", 4))
+                max_pubmed_obj = cast(dict[str, object], rt_cfg).get("max_pubmed", 6)
+                max_trials_obj = cast(dict[str, object], rt_cfg).get("max_trials", 4)
+                max_pubmed = int(max_pubmed_obj) if isinstance(max_pubmed_obj, (int, str)) else 6
+                max_trials = int(max_trials_obj) if isinstance(max_trials_obj, (int, str)) else 4
                 lines = [f"Studies relevant to: {original_query}", "", "Research Articles:"]
                 for i, src in enumerate(pubmed[:max_pubmed], 1):
                     fmt = format_source_for_display(src)
@@ -620,9 +622,12 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 trials = [s for s in search_result.information_sources if "trial" in cast(str, s.get("source_type", "")) or cast(str, s.get("source_type", "")) == "clinical_guideline"]
                 drugs = [s for s in search_result.information_sources if cast(str, s.get("source_type", "")) == "drug_info"]
                 rt_cfg = cast(dict[str, object], self._intent_config.get("response_templates", {})).get("treatment_options_list", {}) or {}
-                max_pubmed = int(cast(dict[str, object], rt_cfg).get("max_pubmed", 4))
-                max_trials = int(cast(dict[str, object], rt_cfg).get("max_trials", 3))
-                max_drugs = int(cast(dict[str, object], rt_cfg).get("max_drugs", 3))
+                max_pubmed_obj = cast(dict[str, object], rt_cfg).get("max_pubmed", 4)
+                max_trials_obj = cast(dict[str, object], rt_cfg).get("max_trials", 3)
+                max_drugs_obj = cast(dict[str, object], rt_cfg).get("max_drugs", 3)
+                max_pubmed = int(max_pubmed_obj) if isinstance(max_pubmed_obj, (int, str)) else 4
+                max_trials = int(max_trials_obj) if isinstance(max_trials_obj, (int, str)) else 3
+                max_drugs = int(max_drugs_obj) if isinstance(max_drugs_obj, (int, str)) else 3
                 lines = [f"Treatment-related information for: {original_query}", "", "Evidence from Literature:"]
                 for i, src in enumerate(pubmed[:max_pubmed], 1):
                     fmt = format_source_for_display(src)
@@ -650,7 +655,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
             if template == "clinical_trials_list":
                 trials = [s for s in search_result.information_sources if "trial" in cast(str, s.get("source_type", "")) or cast(str, s.get("source_type", "")) == "clinical_guideline"]
-                max_trials = int((cast(dict[str, object], self._intent_config.get("response_templates", {})).get("clinical_trials_list", {}) or {}).get("max_trials", 10))
+                rt_cfg = cast(dict[str, object], self._intent_config.get("response_templates", {})).get("clinical_trials_list", {}) or {}
+                max_trials_obj = cast(dict[str, object], rt_cfg).get("max_trials", 10)
+                max_trials = int(max_trials_obj) if isinstance(max_trials_obj, (int, str)) else 10
                 lines = [f"Clinical trials for: {original_query}", ""]
                 for i, src in enumerate(trials[:max_trials], 1):
                     fmt = format_source_for_display(src)
@@ -666,7 +673,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
             if template == "drug_information_list":
                 drugs = [s for s in search_result.information_sources if cast(str, s.get("source_type", "")) == "drug_info"]
-                max_drugs = int((cast(dict[str, object], self._intent_config.get("response_templates", {})).get("drug_information_list", {}) or {}).get("max_drugs", 10))
+                rt_cfg = cast(dict[str, object], self._intent_config.get("response_templates", {})).get("drug_information_list", {}) or {}
+                max_drugs_obj = cast(dict[str, object], rt_cfg).get("max_drugs", 10)
+                max_drugs = int(max_drugs_obj) if isinstance(max_drugs_obj, (int, str)) else 10
                 lines = [f"Drug information related to: {original_query}", ""]
                 for i, src in enumerate(drugs[:max_drugs], 1):
                     fmt = format_source_for_display(src)

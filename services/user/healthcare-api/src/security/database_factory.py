@@ -31,6 +31,14 @@ class DatabaseConnection(Protocol):
     def close(self) -> None:
         pass
 
+    def __enter__(self) -> "DatabaseConnection":
+        """Context manager entry"""
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Context manager exit"""
+        self.close()
+
     @property
     def closed(self) -> int:
         """Return 0 if connection is open, nonzero if closed (abstract)"""

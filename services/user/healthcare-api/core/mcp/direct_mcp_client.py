@@ -29,8 +29,24 @@ class DirectMCPClient:
 
     def __init__(self) -> None:
         """Initialize direct MCP client with pooled connection management."""
-        # Use container MCP server path - this is the production architecture
-        self.mcp_server_path = "/app/mcp-server/build/stdio_entry.js"
+        # Use configurable MCP server path - supports both container and host environments
+        container_path = "/app/mcp-server/build/stdio_entry.js"
+        host_path = "/home/intelluxe/services/user/healthcare-mcp/build/stdio_entry.js"
+        
+        # Detect environment and choose appropriate path
+        is_container = os.path.exists('/app') and not os.path.exists('/home/intelluxe')
+        is_host = os.path.exists('/home/intelluxe')
+        
+        if is_container and os.path.exists(container_path):
+            self.mcp_server_path = container_path
+        elif is_host and os.path.exists(host_path):
+            self.mcp_server_path = host_path
+        elif is_host:
+            # Host environment but server not built - use host path for clear error
+            self.mcp_server_path = host_path
+        else:
+            # Environment variable override or fallback
+            self.mcp_server_path = os.getenv("MCP_SERVER_PATH", container_path)
         
         self._active_connections: Dict[str, subprocess.Popen] = {}
         self._connection_lock = asyncio.Lock()
@@ -84,6 +100,13 @@ class DirectMCPClient:
             # Create new connection
             logger.debug(f"Creating new MCP connection: {connection_id}")
             
+            # Check if MCP server exists
+            if not os.path.exists(self.mcp_server_path):
+                error_msg = (f"MCP server not found at {self.mcp_server_path}. "
+                             f"Ensure the healthcare-mcp container is built and running.")
+                logger.error(error_msg)
+                raise FileNotFoundError(error_msg)
+            
             # Build command based on server type
             if hasattr(self, 'mcp_server_args'):
                 # Python-based server
@@ -92,14 +115,19 @@ class DirectMCPClient:
                 # Node.js-based server
                 cmd = ['node', self.mcp_server_path]
             
-            process = subprocess.Popen(
-                cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env=self.mcp_env
-            )
+            try:
+                process = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=self.mcp_env
+                )
+            except (FileNotFoundError, OSError) as e:
+                error_msg = f"Failed to start MCP server: {e}. Check that node.js is installed and MCP server is built."
+                logger.error(error_msg)
+                raise RuntimeError(error_msg) from e
             
             try:
                 # Wait for server to start with shorter timeout for pooled connections
