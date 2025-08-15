@@ -8,7 +8,6 @@
     "shellcheck.run": "onType",
     "shellcheck.executablePath": "shellcheck",
     "shellcheck.useWorkspaceRootAsCwd": true,
-    
     "// === FIX CACHING ISSUES ===": "",
     "// Disable file watcher caching that causes stale file issues": "",
     "files.watcherExclude": {
@@ -37,12 +36,10 @@
         "**/.git/subtree-cache/**": true,
         "**/.vscode-server/**": true
     },
-    
     "// Reduce aggressive caching": "",
     "files.useExperimentalFileWatcher": false,
     "files.legacyWatcher": false,
     "files.watcherInclude": [],
-    
     "// Healthcare Data Protection": "",
     "files.exclude": {
         "**/logs/": false,
@@ -66,7 +63,6 @@
         ".*_cache": true,
         "**/.vscode-server/**": true
     },
-    
     "search.exclude": {
         "**/logs/": true,
         "**/bats-core/": true,
@@ -80,25 +76,20 @@
         "**/.git/**": true,
         "**/.vscode-server/**": true
     },
-    
     "// === DISABLE PROBLEMATIC CACHING ===": "",
     "// Disable local history that might be restoring deleted files": "",
     "workbench.localHistory.enabled": false,
     "workbench.localHistory.maxFileSize": 0,
     "workbench.localHistory.maxFileEntries": 0,
-    
     "// Disable timeline view that might show old versions": "",
     "timeline.showView": false,
-    
     "// Disable file recovery": "",
     "workbench.editor.restoreViewState": false,
     "files.hotExit": "off",
-    
     "// Disable problems panel caching": "",
     "problems.decorations.enabled": false,
     "problems.showCurrentInStatus": false,
     "problems.sortOrder": "severity",
-    
     "// Healthcare File Associations": "",
     "files.associations": {
         "*.py": "python",
@@ -107,7 +98,6 @@
         "*.healthcare": "dockerfile",
         "*.conf": "properties"
     },
-    
     "// Python Healthcare AI Configuration": "",
     "python.defaultInterpreterPath": "/usr/bin/python3",
     "python.terminal.activateEnvironment": false,
@@ -117,13 +107,11 @@
     "python.linting.mypyEnabled": true,
     "python.linting.banditEnabled": true,
     "python.formatting.provider": "none",
-    
     "// === DIAGNOSTIC CACHING FIX ===": "",
     "// Clear Python analysis cache on startup": "",
     "python.analysis.cacheFolderPath": "/tmp/vscode-python-cache",
     "python.analysis.memory.keepLibraryAst": false,
     "python.analysis.persistAllIndices": false,
-    
     "// === Ruff Integration (Ultra-Fast Python Tooling) ===": "",
     "[python]": {
         "editor.formatOnSave": true,
@@ -144,7 +132,6 @@
     "ruff.codeAction.disableRuleComment": {
         "enable": true
     },
-    
     "// === Legacy Black/isort Configuration (for migration reference) ===": "",
     "python.formatting.blackArgs": [
         "--line-length=100"
@@ -167,7 +154,6 @@
         "services/user/whisperlive/**",
         "actions-runners/**"
     ],
-    
     "// Medical Terminology and Healthcare Terms": "",
     "cSpell.words": [
         "Galdaer",
@@ -224,12 +210,10 @@
         "scrypt",
         "asymmetric"
     ],
-    
     "// GitHub Actions and Workflows": "",
     "github-actions.workflows.pinned.workflows": [
         ".github/workflows/shell-ci.yml"
     ],
-    
     "// Editor Configuration for Healthcare Development": "",
     "workbench.editor.enablePreview": false,
     "workbench.editor.enablePreviewFromQuickOpen": true,
@@ -246,7 +230,6 @@
     "editor.detectIndentation": false,
     "editor.formatOnSave": true,
     "editor.formatOnPaste": true,
-    
     "// Continue AI Configuration - Disable VS Code suggestions": "",
     "editor.quickSuggestions": {
         "other": false,
@@ -258,15 +241,12 @@
     "editor.suggestOnTriggerCharacters": false,
     "editor.wordBasedSuggestions": "off",
     "editor.parameterHints.enabled": false,
-    
     "// Disable language-specific suggestions": "",
     "python.analysis.autoImportCompletions": false,
     "python.analysis.completeFunctionParens": false,
-    
     "// === DISABLE PYTHON ANALYSIS CACHING ===": "",
     "python.analysis.diagnosticMode": "openFilesOnly",
     "python.analysis.indexing": false,
-    
     "// AI Assistant Configuration": "",
     "github.copilot.chat.enabled": true,
     "github.copilot.chat.instructionsFiles": [
@@ -315,7 +295,6 @@
         "allowlistFile": ".github/copilot-firewall-allowlist.txt",
         "healthcareCompliance": true
     },
-    
     "// Healthcare Testing Configuration": "",
     "python.testing.pytestEnabled": true,
     "python.testing.pytestArgs": [
@@ -325,12 +304,10 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.autoTestDiscoverOnSaveEnabled": false,
-    
     "// Security and Compliance": "",
     "security.workspace.trust.untrustedFiles": "prompt",
     "security.workspace.trust.banner": "always",
     "telemetry.telemetryLevel": "off",
-    
     "// Healthcare Workflow Colors": "",
     "workbench.colorCustomizations": {
         "statusBar.background": "#005a9d",
@@ -338,7 +315,6 @@
         "statusBar.debuggingBackground": "#ff6b6b",
         "statusBar.noFolderBackground": "#005a9d"
     },
-    
     "// === GIT CACHING FIX ===": "",
     "// Disable Git integration that might restore deleted files": "",
     "git.enabled": true,
@@ -355,25 +331,20 @@
     "git.decorations.enabled": false,
     "git.showInlineOpenFileAction": false,
     "git.timeline.showUncommitted": false,
-    
     "// Terminal Configuration": "",
     "terminal.integrated.defaultProfile.linux": "bash",
     "terminal.integrated.cwd": "${workspaceFolder}",
-    
     "// === DISABLE AUTOSAVE TO PREVENT CACHE CONFLICTS ===": "",
     "files.autoSave": "off",
-    
     "// === DISABLE TYPESCRIPT CACHING ===": "",
     "typescript.preferences.includePackageJsonAutoImports": "off",
     "typescript.suggest.autoImports": false,
     "typescript.validate.enable": false,
     "typescript.tsserver.experimental.enableProjectDiagnostics": false,
     "typescript.tsserver.useSyntaxServer": "never",
-    
     "// === ENHANCED HEALTHCARE AI MCP INTEGRATION ===": "",
     "chat.mcp.discovery.enabled": true,
     "chat.mcp.maxConcurrentTools": 128,
-    
     "// Healthcare MCP Tool Sets Configuration": "",
     "github.copilot.chat.toolSets": {
         "clinical_analysis": {
@@ -419,7 +390,6 @@
             "response_time": "immediate"
         }
     },
-    
     "// Advanced Copilot Healthcare Configuration": "",
     "github.copilot.chat.mode": "agent",
     "github.copilot.chat.agent.defaultMode": "healthcare_ai",
@@ -427,13 +397,11 @@
     "github.copilot.chat.medicalDisclaimers": "automatic",
     "github.copilot.chat.phiProtection": "maximum",
     "workbench.tree.renderIndentGuides": "none",
-    
     "// === TASK CACHING FIX ===": "",
     "// Force fresh task detection": "",
     "task.autoDetect": "off",
     "task.quickOpen.history": 0,
     "task.saveBeforeRun": "never",
-    
     "// Terminal integration for seamless healthcare workflow": "",
     "terminal.integrated.commandsToSkipShell": [
         "workbench.action.tasks.runTask"
@@ -444,14 +412,11 @@
             "-l"
         ]
     },
-    
     "// === DISABLE EXTENSION CACHING ===": "",
     "extensions.autoCheckUpdates": false,
     "extensions.autoUpdate": false,
-    
     "continueAI.nextEditSuggestions.enabled": true,
     "github.copilot.nextEditSuggestions.enabled": true,
-    
     "// External Drive Configuration": "Medical data storage on 4TB external drive",
     "medical.dataPath": "/home/intelluxe/database"
 }
