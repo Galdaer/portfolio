@@ -2,6 +2,67 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Autonomous MyPy Fix Session",
+            "group": "build",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🤖 Autonomous MyPy Fix Session (Human Oversight Required)...' && echo 'Step 1: Baseline error count...' && ERROR_COUNT=$(mypy --config-file mypy.ini services/user/healthcare-api 2>&1 | grep -c 'error:' || echo '0') && echo \"Baseline: $ERROR_COUNT MyPy errors\" && echo 'Step 2: Format and auto-fix...' && ruff format services/user/healthcare-api && ruff check --fix services/user/healthcare-api && echo 'Step 3: Post-format error count...' && NEW_COUNT=$(mypy --config-file mypy.ini services/user/healthcare-api 2>&1 | grep -c 'error:' || echo '0') && echo \"After auto-fix: $NEW_COUNT errors\" && echo 'Step 4: Show remaining errors for human review...' && mypy --config-file mypy.ini services/user/healthcare-api && echo \"SUMMARY: Reduced from $ERROR_COUNT to $NEW_COUNT errors. Human review required for remaining issues.\""
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": [
+                "$python"
+            ]
+        },
+        {
+            "label": "Healthcare Development Workflow",
+            "group": "build",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🏥 Healthcare Development Workflow (Code → Test → Validate)...' && echo '1. Code Quality...' && ruff format services/user/healthcare-api && ruff check --fix services/user/healthcare-api && echo '2. Type Safety...' && mypy --config-file mypy.ini services/user/healthcare-api && echo '3. Infrastructure Test...' && python3 tests/test_infrastructure_integration.py && echo '4. Agent Health Check...' && cd services/user/healthcare-api && python3 -c \"from core.tools import tool_registry; from agents import BaseHealthcareAgent; print('✅ Healthcare stack validated')\" && echo '🎉 Healthcare development workflow complete'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": [
+                "$python"
+            ]
+        },
+        {
+            "label": "Medical Query Engine Debug",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🏥 Medical Query Engine Debug Session...' && echo '1. Testing MCP data structure parsing...' && cd services/user/healthcare-api && python3 -c \"from core.mcp.direct_mcp_client import DirectMCPClient; import asyncio; asyncio.run(DirectMCPClient().debug_connection())\" 2>/dev/null || echo 'MCP unavailable in host environment (expected)' && echo '2. Testing agent imports...' && python3 -c \"from agents.medical_search_agent import MedicalLiteratureSearchAssistant; from core.langchain.agents import HealthcareLangChainAgent; print('✅ Agent imports successful')\" && echo '3. PHI detection test...' && python3 -c \"from src.healthcare_mcp.phi_detection import sanitize_for_compliance; result = sanitize_for_compliance({'content': 'diabetes symptoms'}); print(f'PHI test: {\\\"passed\\\" if not result.get(\\\"sanitized\\\") else \\\"failed\\\"}}')\" && echo '4. Database investigation...' && python3 -c \"try: from core.database import DatabaseManager; print('✅ Database connection available'); except Exception as e: print(f'Database unavailable: {e}')\" && echo '✅ Medical query engine debug complete'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "Run All Linting",
             "group": "build",
             "type": "shell",

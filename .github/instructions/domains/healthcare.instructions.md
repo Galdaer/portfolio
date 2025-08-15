@@ -4,6 +4,83 @@
 
 ## Healthcare Infrastructure Integration Patterns (Updated 2025-01-15)
 
+### MCP Data Structure Patterns (CRITICAL - 2025-01-15)
+
+```python
+# UNIVERSAL MCP RESPONSE STRUCTURE - ALL TOOLS FOLLOW THIS PATTERN:
+# {"content": [{"type": "text", "text": "JSON_STRING"}]}
+
+# Tool-specific JSON_STRING contents:
+# - PubMed: '{"articles": [...]}'
+# - Clinical Trials: '{"results": [...]}'  (tool: "search-trials")
+# - FDA: '{"results": [...]}'  (tool: "get-drug-info")
+
+def parse_mcp_response(mcp_result: dict, data_key: str = "articles") -> list:
+    """Universal MCP response parser for all healthcare tools."""
+    import json
+    
+    try:
+        if not mcp_result.get("content") or not len(mcp_result["content"]):
+            return []
+            
+        content_item = mcp_result["content"][0]
+        if "text" not in content_item:
+            return []
+            
+        # Parse the JSON string to get actual data
+        data = json.loads(content_item["text"])
+        return data.get(data_key, [])
+        
+    except (json.JSONDecodeError, KeyError, IndexError) as e:
+        logger.error(f"Failed to parse MCP response: {e}")
+        return []
+
+# Usage examples:
+# PubMed: articles = parse_mcp_response(pubmed_result, "articles")
+# Clinical Trials: trials = parse_mcp_response(trials_result, "results")
+# FDA: drugs = parse_mcp_response(fda_result, "results")
+```
+
+### Enhanced Query Engine Tool Selection (CRITICAL - 2025-01-15)
+
+```python
+# AVOID HARDCODING - Let agents choose tools based on query intent and descriptions
+
+class QueryType(Enum):
+    SYMPTOM_ANALYSIS = "symptom_analysis"      # PubMed only
+    LITERATURE_RESEARCH = "literature_research"  # PubMed + Clinical Trials
+    DRUG_RESEARCH = "drug_research"           # PubMed + FDA + Trials
+    COMPREHENSIVE = "comprehensive"           # All tools
+
+def select_tools_by_intent(query_type: QueryType) -> list:
+    """Dynamic tool selection based on medical query intent."""
+    base_tools = ["search-pubmed"]  # Always include PubMed
+    
+    if query_type == QueryType.LITERATURE_RESEARCH:
+        return base_tools + ["search-trials"]
+    elif query_type == QueryType.DRUG_RESEARCH:
+        return base_tools + ["get-drug-info", "search-trials"]
+    elif query_type == QueryType.COMPREHENSIVE:
+        return base_tools + ["search-trials", "get-drug-info"]
+    else:  # SYMPTOM_ANALYSIS
+        return base_tools  # PubMed only for simple symptom queries
+
+# Session-level caching to prevent duplicate tool calls
+_session_cache = {}
+
+async def cached_tool_call(tool_name: str, params: dict, session_id: str) -> dict:
+    """Prevent multiple calls to same tool within session."""
+    cache_key = f"{session_id}:{tool_name}:{hash(str(sorted(params.items())))}"
+    
+    if cache_key in _session_cache:
+        logger.info(f"Using cached result for {tool_name}")
+        return _session_cache[cache_key]
+    
+    result = await call_tool(tool_name, params)
+    _session_cache[cache_key] = result
+    return result
+```
+
 ### LangChain Agent Orchestrator with Existing Agent Adapters
 
 ```python
@@ -40,68 +117,366 @@ def create_agent_tool(agent, name):
         # Call EXISTING agent's EXISTING method - preserves agent-specific logging
         result = await agent.process_request(parsed_request)
         
-        # Return in format LangChain expects
+        # CRITICAL: Return conclusive answers, not just source lists
+        if "sources" in result and len(result["sources"]) > 0:
+            # Synthesize actual answer from sources
+            answer = synthesize_medical_answer(parsed_request["query"], result["sources"])
+            return f"FINAL ANSWER: {answer}\n\nSources: {format_sources(result['sources'])}"
+        
         return json.dumps(result, default=str)
     
     return agent_wrapper
 
-# Agent routing pattern - DON'T bypass existing agents
-async def route_medical_query(query: str, orchestrator: HealthcareLangChainOrchestrator):
-    """Route medical queries through proper agents, not direct MCP tools."""
-    # LangChain decides which agents to use
-    # Medical queries go to medical_search_agent (logs to agent_medical_search.log)
-    # Intake queries go to intake_agent
-    # Complex queries can use multiple agents
-    return await orchestrator.process(query)
+def synthesize_medical_answer(query: str, sources: list) -> str:
+    """Convert source lists into actual answers to prevent LangChain iteration loops."""
+    # Extract key information from source abstracts/titles
+    # Provide direct answer to user's question
+    # Include medical disclaimers
+    pass
 ```
 
-### MCP Integration with Container Architecture
+### Database vs External API Investigation Patterns (NEW - 2025-01-15)
 
 ```python
-# BaseHealthcareAgent inheritance for LangChain agents
-from agents import BaseHealthcareAgent
-from core.mcp.direct_mcp_client import DirectMCPClient
+# CRITICAL: Determine data source for accurate medical information
 
-class HealthcareLangChainAgent(BaseHealthcareAgent):
-    def __init__(self, mcp_client: DirectMCPClient, **kwargs):
-        super().__init__(mcp_client=mcp_client, agent_name="langchain_medical")
-        
-        # CRITICAL: Configure for medical query complexity
-        self.max_iterations = 10  # Increased for medical searches
-        self.timeout = 120  # 2 minutes for comprehensive medical queries
-        
-        # Inherits healthcare logging, PHI monitoring, database connectivity
-
-# Container-aware MCP tool calling
-async def call_healthcare_tool(tool_name: str, parameters: dict) -> dict:
-    """Healthcare tool calling with container architecture awareness."""
-    from core.tools import tool_registry
+async def investigate_data_source(query: str, mcp_client: DirectMCPClient) -> dict:
+    """Determine if results come from local database or external APIs."""
+    import time
     
-    try:
-        # Use ToolRegistry with MCP container integration
-        await tool_registry.initialize()
-        result = await tool_registry.call_tool(tool_name, parameters)
-        return result
-    except FileNotFoundError as e:
-        if "MCP server not found" in str(e):
-            # Expected in host environment without MCP server
-            logger.warning(f"MCP unavailable in host environment: {tool_name}")
-            return {"error": "Medical database temporarily unavailable"}
-        raise
-    except Exception as e:
-        logger.error(f"ToolRegistry call failed for {tool_name}: {e}")
-        return {"error": f"Tool execution failed: {type(e).__name__}"}
+    start_time = time.time()
+    result = await mcp_client.call_tool("search-pubmed", {"query": query})
+    end_time = time.time()
+    
+    response_time = end_time - start_time
+    
+    # Pattern recognition for data source identification
+    if response_time < 0.5:
+        source_type = "cached_database"  # Fast responses = local database
+    elif response_time > 5.0:
+        source_type = "external_api"     # Slow responses = API calls
+    else:
+        source_type = "hybrid"           # Mixed sources
+    
+    # Check article count patterns
+    articles = parse_mcp_response(result, "articles")
+    if len(articles) > 50:
+        source_type += "_large_dataset"  # Database likely has comprehensive data
+    
+    return {
+        "source_type": source_type,
+        "response_time": response_time,
+        "article_count": len(articles),
+        "investigation_time": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
 
-# PHI Detection integration with medical content awareness
+# Pattern: Prefer database over external APIs for reliability
+async def prioritized_search(query: str, mcp_client: DirectMCPClient) -> dict:
+    """Search strategy that prioritizes database over external APIs."""
+    
+    # 1. Always try database first
+    db_result = await investigate_data_source(query, mcp_client)
+    
+    if db_result["article_count"] >= 5:  # Sufficient database results
+        logger.info(f"Using database results: {db_result['article_count']} articles")
+        return db_result
+    
+    # 2. Only use external APIs if database insufficient
+    logger.info("Database results insufficient, checking external APIs")
+    # Implementation would check external API tools here
+    
+    return db_result
+
+# Database schema investigation for medical content
+def investigate_medical_database() -> dict:
+    """Investigate local medical database capabilities and content."""
+    try:
+        # Check database connection and medical content availability
+        # This helps determine what's available locally vs externally
+        from core.database import DatabaseManager
+        
+        db = DatabaseManager()
+        # Check for medical literature tables, article counts, etc.
+        medical_stats = db.get_medical_content_stats()
+        
+        return {
+            "database_available": True,
+            "medical_articles": medical_stats.get("article_count", 0),
+            "last_updated": medical_stats.get("last_update"),
+            "data_sources": medical_stats.get("sources", [])
+        }
+    except Exception as e:
+        return {
+            "database_available": False,
+            "error": str(e)
+        }
+```
+
+### Agent Iteration Control Patterns (NEW - 2025-01-15)
+
+```python
+# Prevent LangChain orchestrator from hitting iteration limits
+
+class MedicalQueryHandler:
+    """Handle medical queries with controlled iteration and conclusive answers."""
+    
+    def __init__(self, max_iterations: int = 8):
+        self.max_iterations = max_iterations
+        self.current_iteration = 0
+        
+    async def process_medical_query(self, query: str) -> str:
+        """Process medical query with iteration control and conclusive answers."""
+        
+        self.current_iteration = 0
+        search_performed = False
+        final_answer = ""
+        
+        while self.current_iteration < self.max_iterations:
+            self.current_iteration += 1
+            
+            if not search_performed:
+                # First iteration: search for medical information
+                search_result = await self.search_medical_literature(query)
+                search_performed = True
+                
+                if search_result["articles"]:
+                    # CRITICAL: Provide conclusive answer, not just sources
+                    final_answer = self.synthesize_medical_answer(query, search_result["articles"])
+                    break  # Exit loop with answer
+                else:
+                    final_answer = "No relevant medical literature found for this query."
+                    break  # Exit loop with no-results answer
+            else:
+                # Subsequent iterations shouldn't happen - we provide conclusive answers
+                logger.warning(f"Unexpected iteration {self.current_iteration} for medical query")
+                break
+        
+        if self.current_iteration >= self.max_iterations:
+            logger.error("Medical query hit iteration limit - agent design issue")
+            final_answer = "Medical query processing exceeded limits. Please rephrase your question."
+        
+        return final_answer
+    
+    def synthesize_medical_answer(self, query: str, articles: list) -> str:
+        """Convert article list into conclusive medical answer."""
+        
+        # Extract relevant information from articles
+        key_findings = []
+        for article in articles[:5]:  # Use top 5 most relevant
+            if "abstract" in article:
+                key_findings.append(article["abstract"][:200])  # First 200 chars
+        
+        # Synthesize into answer format
+        answer = f"Based on current medical literature:
+
+"
+        for i, finding in enumerate(key_findings, 1):
+            answer += f"{i}. {finding}...
+"
+        
+        answer += "
+**Medical Disclaimer**: This information is for educational purposes only and should not replace professional medical advice."
+        
+        return answer
+
+# Pattern: Agent adapters must return conclusive answers
+def create_conclusive_agent_adapter(agent, name):
+    """Create agent adapter that prevents iteration loops."""
+    
+    @tool(name=f"{name}_conclusive")
+    async def conclusive_agent(request: str) -> str:
+        """Agent wrapper that always provides conclusive answers."""
+        
+        # Process request through existing agent
+        result = await agent.process_request({"query": request})
+        
+        # CRITICAL: Never return just source lists - always synthesize answer
+        if isinstance(result, dict) and "sources" in result:
+            if len(result["sources"]) > 0:
+                answer = synthesize_answer_from_sources(request, result["sources"])
+                return f"CONCLUSIVE ANSWER: {answer}"
+            else:
+                return f"CONCLUSIVE ANSWER: No information found for '{request}'"
+        
+        # For other result types, ensure it's conclusive
+        if isinstance(result, str) and len(result.strip()) > 0:
+            return f"CONCLUSIVE ANSWER: {result}"
+        
+        return f"CONCLUSIVE ANSWER: Unable to process request '{request}'"
+    
+    return conclusive_agent
+```
+
+### PHI Detection integration with medical content awareness
+
+```python
 from src.healthcare_mcp.phi_detection import sanitize_for_compliance
 
 def sanitize_medical_request(request_data: dict) -> dict:
     """HIPAA-compliant sanitization that preserves medical terminology."""
     return sanitize_for_compliance(request_data)
 
-def sanitize_medical_response(response_data: dict) -> dict:
-    """PHI sanitization for responses while preserving medical education content."""
-    return sanitize_for_compliance(response_data)
+# Medical query validation - distinguish between PHI and medical terminology
+def is_medical_terminology(text: str) -> bool:
+    """Determine if text contains medical terminology vs PHI."""
+    medical_terms = [
+        "cardiovascular", "diabetes", "hypertension", "oncology", 
+        "neurology", "cardiology", "symptoms", "treatment", "diagnosis",
+        "medication", "therapy", "syndrome", "disease", "condition"
+    ]
+    
+    # Medical terminology should pass PHI detection
+    return any(term in text.lower() for term in medical_terms)
+
+def enhanced_phi_detection(content: dict) -> dict:
+    """Enhanced PHI detection that preserves medical queries."""
+    
+    text = content.get("content", "")
+    
+    # Skip PHI detection for medical terminology
+    if is_medical_terminology(text):
+        return {"sanitized": False, "content": content}
+    
+    # Apply normal PHI detection for actual personal data
+    return sanitize_for_compliance(content)
+```
+
+## Medical Query Processing Patterns
+
+### Comprehensive Medical Search Strategy
+
+```python
+# Multi-source medical research with proper data parsing
+async def comprehensive_medical_search(query: str, mcp_client: DirectMCPClient) -> dict:
+    """Comprehensive medical search across all available sources."""
+    
+    results = {
+        "pubmed_articles": [],
+        "clinical_trials": [],
+        "drug_information": [],
+        "search_metadata": {}
+    }
+    
+    # 1. PubMed search (primary source)
+    pubmed_result = await mcp_client.call_tool("search-pubmed", {"query": query})
+    results["pubmed_articles"] = parse_mcp_response(pubmed_result, "articles")
+    
+    # 2. Clinical trials (if drug/treatment related)
+    if any(term in query.lower() for term in ["treatment", "therapy", "drug", "medication"]):
+        trials_result = await mcp_client.call_tool("search-trials", {"query": query})
+        results["clinical_trials"] = parse_mcp_response(trials_result, "results")
+    
+    # 3. Drug information (if drug-specific)
+    if any(term in query.lower() for term in ["drug", "medication", "pharmaceutical"]):
+        drug_result = await mcp_client.call_tool("get-drug-info", {"query": query})
+        results["drug_information"] = parse_mcp_response(drug_result, "results")
+    
+    # Add search metadata for transparency
+    results["search_metadata"] = {
+        "query": query,
+        "sources_searched": ["PubMed", "Clinical Trials", "FDA Drug Info"],
+        "total_results": len(results["pubmed_articles"]) + len(results["clinical_trials"]) + len(results["drug_information"]),
+        "search_timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    return results
+
+# Medical answer synthesis from multiple sources
+def synthesize_comprehensive_medical_answer(query: str, search_results: dict) -> str:
+    """Synthesize medical answer from multiple sources."""
+    
+    answer_sections = []
+    
+    # PubMed literature findings
+    if search_results["pubmed_articles"]:
+        literature_summary = summarize_literature(search_results["pubmed_articles"][:3])
+        answer_sections.append(f"**Research Literature:**\n{literature_summary}")
+    
+    # Clinical trial findings
+    if search_results["clinical_trials"]:
+        trial_summary = summarize_trials(search_results["clinical_trials"][:2])
+        answer_sections.append(f"**Clinical Trials:**\n{trial_summary}")
+    
+    # Drug information
+    if search_results["drug_information"]:
+        drug_summary = summarize_drug_info(search_results["drug_information"][:1])
+        answer_sections.append(f"**Drug Information:**\n{drug_summary}")
+    
+    # Combine all sections
+    comprehensive_answer = "\n\n".join(answer_sections)
+    
+    # Add medical disclaimer and metadata
+    comprehensive_answer += f"\n\n**Medical Disclaimer:** This information is for educational purposes only and should not replace professional medical advice.\n\n**Search Metadata:** {search_results['search_metadata']['total_results']} results from {len(search_results['search_metadata']['sources_searched'])} sources."
+    
+    return comprehensive_answer
+```
+
+### Error Handling and Fallback Patterns
+
+```python
+# Robust error handling for medical queries
+async def robust_medical_query(query: str, mcp_client: DirectMCPClient) -> dict:
+    """Medical query with comprehensive error handling."""
+    
+    try:
+        # Attempt comprehensive search
+        result = await comprehensive_medical_search(query, mcp_client)
+        
+        if result["search_metadata"]["total_results"] > 0:
+            return {
+                "status": "success",
+                "answer": synthesize_comprehensive_medical_answer(query, result),
+                "sources": result
+            }
+        else:
+            # No results found
+            return {
+                "status": "no_results", 
+                "answer": f"No medical literature found for '{query}'. Consider rephrasing your query or consulting a healthcare professional.",
+                "sources": {}
+            }
+            
+    except Exception as e:
+        logger.error(f"Medical query failed for '{query}': {e}")
+        
+        # Fallback to database-only search
+        try:
+            fallback_result = await investigate_data_source(query, mcp_client)
+            if fallback_result.get("article_count", 0) > 0:
+                return {
+                    "status": "fallback_success",
+                    "answer": f"Found {fallback_result['article_count']} articles in local database. Medical tools temporarily limited.",
+                    "sources": fallback_result
+                }
+        except Exception as fallback_error:
+            logger.error(f"Fallback search also failed: {fallback_error}")
+        
+        # Final fallback
+        return {
+            "status": "error",
+            "answer": "Medical information services are temporarily unavailable. Please consult a healthcare professional for medical questions.",
+            "sources": {},
+            "error": str(e)
+        }
+```
+
+---
+
+**CRITICAL REMINDERS for Healthcare Development:**
+
+1. **MCP Response Structure**: All MCP tools return nested JSON structure `{"content": [{"type": "text", "text": "JSON_STRING"}]}` - must parse the JSON_STRING to get actual data
+2. **Agent Iteration Control**: Agents must provide conclusive answers, not just source lists, to prevent LangChain iteration loops
+3. **Database vs API Investigation**: Use response time and result patterns to determine data source reliability
+4. **Medical Query Synthesis**: Convert article lists into actual answers with medical disclaimers
+5. **PHI Detection Balance**: Preserve medical terminology while blocking actual personal health information
+6. **Container Architecture**: MCP tools only available inside healthcare-api container, not from host environment
+7. **Agent Adapter Pattern**: Thin wrappers preserve existing agent functionality and logging
+8. **Error Handling**: Comprehensive fallbacks for medical query reliability
+9. **Medical Disclaimers**: Always include appropriate disclaimers for medical information
+10. **Session Caching**: Prevent duplicate tool calls within same session to improve performance
+
+Last Updated: 2025-01-15 | Enhanced with critical debugging patterns and data structure handling
+```
 ```
 
 ### Open WebUI Medical Query Routing

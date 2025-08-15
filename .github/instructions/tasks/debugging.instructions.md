@@ -2,52 +2,131 @@
 
 ## Healthcare-Specific Debugging Patterns
 
-### LangChain Agent Orchestrator Debugging (2025-01-15) **[NEW CRITICAL PATTERN]**
+### Data Structure Mismatch Debugging (2025-01-15) **[CRITICAL PATTERN]**
 
-**PROBLEM PATTERN**: LangChain orchestrator bypassing existing healthcare agents, causing missing agent-specific logging and functionality.
+**PROBLEM PATTERN**: MCP tools returning different data structures than expected by Enhanced Query Engine.
 
 **SYMPTOMS TO WATCH FOR**:
-- Medical queries working but no logs in `agent_medical_search.log`
-- LangChain calling MCP tools directly instead of routing through agents
-- Missing agent-specific processing and disclaimers
-- Log pattern: `Calling MCP tool: search-pubmed` without agent initialization logs
+- Debug logs showing "Successfully parsed 25 articles" but response is "Untitled article"
+- MCP tools completing successfully but no actual content in responses
+- Log pattern: `MCP search-pubmed result keys: ['content']` but code expecting different structure
 
-**ROOT CAUSE**: LangChain orchestrator configured with direct MCP tools instead of agent adapters.
+**ROOT CAUSE**: MCP tools return JSON strings in nested format: `{"content": [{"type": "text", "text": "JSON_STRING"}]}`
 
 **DEBUGGING STEPS**:
-1. **Check Agent Logging**:
+1. **Test MCP Response Structure**:
    ```bash
-   # Should see agent activity for medical queries
-   tail -f logs/agent_medical_search.log
-   tail -f logs/healthcare_system.log | grep "agent"
-   ```
-
-2. **Verify Agent Discovery**:
-   ```python
-   # In container
-   python3 -c "
-   import sys; sys.path.append('.')
-   from main import discovered_agents
-   print('Available agents:', list(discovered_agents.keys()))
-   print('Medical search agent:', 'medical_search' in discovered_agents)
+   # Test actual MCP response format
+   docker exec healthcare-api python3 -c "
+   import asyncio
+   from core.mcp.direct_mcp_client import DirectMCPClient
+   async def test():
+       client = DirectMCPClient()
+       result = await client.call_tool('search-pubmed', {'query': 'test'})
+       print('Structure:', result.keys())
+       if 'content' in result:
+           print('Content type:', type(result['content'][0]))
+           print('Content keys:', result['content'][0].keys())
+   asyncio.run(test())
    "
    ```
 
-3. **Check LangChain Tool Registration**:
-   ```python
-   # Verify what tools LangChain is using
-   from core.langchain.orchestrator import orchestrator
-   tools = orchestrator.agent_executor.tools
-   print('LangChain tools:', [tool.name for tool in tools])
-   # Should see agent_* tools, not raw MCP tools
+2. **Check Enhanced Query Engine Data Access**:
+   ```bash
+   # Look for these patterns in logs
+   grep "CRITICAL DEBUG.*articles" logs/healthcare_system.log
+   # Should show successful parsing, not empty results
    ```
 
-**SOLUTION PATTERN - Agent Adapter Implementation**:
+**SOLUTION PATTERN - MCP Response Parsing**:
 ```python
-# Create thin adapters that preserve existing agent functionality
-def create_agent_tool(agent, name):
-    @tool(name=f"{name}_agent")
-    async def agent_wrapper(request: str) -> str:
+# ALL MCP tools return: {"content": [{"type": "text", "text": "JSON_STRING"}]}
+# Where JSON_STRING contains the actual data
+
+# PubMed: JSON_STRING = '{"articles": [...]}'
+# Clinical Trials: JSON_STRING = '{"results": [...]}'
+# FDA: JSON_STRING = '{"results": [...]}'
+
+# Correct parsing pattern:
+if pubmed_results.get("content") and len(pubmed_results["content"]) > 0:
+    content_item = pubmed_results["content"][0]
+    if "text" in content_item:
+        articles_data = json.loads(content_item["text"])
+        articles = articles_data.get("articles", [])  # PubMed specific
+```
+
+### LangChain Agent Orchestrator Debugging (2025-01-15) **[CRITICAL PATTERN]**
+
+**PROBLEM PATTERN**: LangChain orchestrator calling agents multiple times without conclusive answers.
+
+**SYMPTOMS TO WATCH FOR**:
+- Agent hitting 5-iteration limit: "Agent stopped due to iteration limit"
+- Same MCP tools called multiple times per session
+- Log pattern: Multiple calls to same tool with identical parameters
+- Agent returning article lists but LangChain thinking task incomplete
+
+**ROOT CAUSE**: Medical search agent returning source lists instead of answering user questions.
+
+**DEBUGGING STEPS**:
+1. **Check Iteration Patterns**:
+   ```bash
+   # Look for repeated calls and iteration limits
+   grep -A5 -B5 "iteration limit" logs/healthcare_system.log
+   grep "healthcare_query_router\|medical_search_agent" logs/healthcare_system.log | tail -20
+   ```
+
+2. **Verify Agent Response Types**:
+   ```bash
+   # Check if agents are giving conclusive answers vs source lists
+   grep "FINAL ANSWER\|conclusive" logs/healthcare_system.log
+   ```
+
+**SOLUTION PATTERN - Conclusive Agent Responses**:
+```python
+# Agents must synthesize actual answers, not just return source lists
+# BAD: "1. Article Title\n2. Article Title"
+# GOOD: "Based on medical literature, diabetes symptoms include..."
+
+# For medical search agent, ensure response includes:
+# 1. Direct answer to user question
+# 2. Source attribution
+# 3. Clear conclusion marker
+response = f"Based on {len(sources)} medical sources, {direct_answer}. Sources: {source_list}"
+```
+
+### Database vs External API Investigation (2025-01-15) **[PATTERN]**
+
+**PROBLEM PATTERN**: No visibility into whether MCP tools are hitting database first or going directly to external APIs.
+
+**SYMPTOMS TO WATCH FOR**:
+- Slow response times suggesting external API rate limiting
+- No database-specific logging in MCP container logs
+- Unable to determine data source priority
+
+**DEBUGGING STEPS**:
+1. **Check MCP Container Logs**:
+   ```bash
+   # Look for database connection and query logs
+   docker logs healthcare-api 2>&1 | grep -i "database\|external\|api"
+   ```
+
+2. **Monitor Database Query Performance**:
+   ```bash
+   # Check if database queries are happening
+   # Look for PostgreSQL activity in database container
+   docker exec postgresql-container psql -U intelluxe -d intelluxe -c "
+   SELECT query, calls, total_time 
+   FROM pg_stat_statements 
+   WHERE query LIKE '%diabetes%' 
+   ORDER BY total_time DESC;"
+   ```
+
+**INVESTIGATION PATTERN**:
+```python
+# Add debug logging to MCP connectors to track data source
+logger.info(f"Database search returned {len(db_results)} articles")
+logger.info(f"External API search returned {len(external_results)} articles")
+```
         # Route through existing agent - preserves logging
         parsed_request = json.loads(request) if request.startswith('{') else {"query": request}
         result = await agent.process_request(parsed_request)
