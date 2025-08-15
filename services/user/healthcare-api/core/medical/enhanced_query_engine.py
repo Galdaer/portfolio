@@ -11,16 +11,18 @@ professionals based on individual patient assessment.
 
 import asyncio
 import hashlib
+import json
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any
 
 from cachetools import TTLCache
-
+from core.infrastructure.healthcare_logger import get_healthcare_logger
 from config.app import config
-
 from .medical_response_validator import MedicalTrustScore
+
+logger = get_healthcare_logger("core.medical.enhanced_query_engine")
 
 
 class QueryType(Enum):
@@ -58,6 +60,9 @@ class EnhancedMedicalQueryEngine:
 
         # Dynamic knowledge cache with TTL
         self.knowledge_cache: TTLCache[str, Any] = TTLCache(maxsize=1000, ttl=1800)  # 30 min cache
+        
+        # Session-level cache to prevent duplicate MCP calls within same session
+        self.session_cache: TTLCache[str, Any] = TTLCache(maxsize=100, ttl=300)  # 5 min session cache
 
         # Query refinement tracking
         self.query_history: dict[str, Any] = {}
@@ -196,21 +201,18 @@ class EnhancedMedicalQueryEngine:
         reasoning = ""
 
         try:
-            # Parallel search across multiple sources
+            # Parallel search across multiple sources - OPTIMIZED to reduce calls
             search_tasks = []
 
-            # PubMed literature search
+            # PubMed literature search (always - primary source)
             search_tasks.append(self._search_pubmed_with_context(query, medical_entities, context))
 
-            # FDA drug database (if drug-related)
-            if query_type in [QueryType.DRUG_INTERACTION, QueryType.SYMPTOM_ANALYSIS]:
+            # FDA drug database (ONLY for drug-specific queries, not general symptoms)
+            if query_type == QueryType.DRUG_INTERACTION:
                 search_tasks.append(self._search_fda_drugs(query, medical_entities))
 
-            # Clinical trials (if relevant)
-            if query_type in [
-                QueryType.CLINICAL_GUIDELINES,
-                QueryType.LITERATURE_RESEARCH,
-            ]:
+            # Clinical trials (ONLY for specific clinical research, not basic information)
+            if query_type == QueryType.CLINICAL_GUIDELINES:
                 search_tasks.append(self._search_clinical_trials(query, medical_entities))
 
             # Clinical guidelines
@@ -253,30 +255,59 @@ class EnhancedMedicalQueryEngine:
             enhanced_query = await self._enhance_query_with_entities(query, medical_entities)
 
             # Search PubMed via MCP
-            pubmed_results = await self.mcp_client.call_healthcare_tool(
-                "search_pubmed",
+            pubmed_results = await self.mcp_client.call_tool(
+                "search-pubmed",
                 {
-                    "query": enhanced_query,
-                    "max_results": 20,
-                    "sort": "relevance",
-                    "publication_types": [
-                        "clinical_trial",
-                        "systematic_review",
-                        "meta_analysis",
-                    ],
+                    "query": query,
+                    "max_results": 10,  # Reduced from 20 to prevent rate limiting
                 },
-            )
+            )            # CRITICAL DEBUG: Log the actual MCP result structure
+            logger.info(f"CRITICAL DEBUG - MCP search-pubmed result keys: {list(pubmed_results.keys()) if isinstance(pubmed_results, dict) else 'NOT_DICT'}")
+            logger.info(f"CRITICAL DEBUG - MCP search-pubmed result type: {type(pubmed_results)}")
+            if isinstance(pubmed_results, dict):
+                for key, value in pubmed_results.items():
+                    if isinstance(value, list):
+                        logger.info(f"CRITICAL DEBUG - Key '{key}' has {len(value)} items")
+                    else:
+                        logger.info(f"CRITICAL DEBUG - Key '{key}' = {str(value)[:100]}")
 
             # Process and rank results
             processed_sources = []
-            for article in pubmed_results.get("articles", []):
+            
+            # Parse the MCP response structure: content[0].text contains JSON string with articles
+            if pubmed_results.get("content") and len(pubmed_results["content"]) > 0:
+                content_item = pubmed_results["content"][0]
+                if "text" in content_item:
+                    try:
+                        # Parse the JSON string to get the articles
+                        articles_data = json.loads(content_item["text"])
+                        articles = articles_data.get("articles", [])
+                        logger.info(f"CRITICAL DEBUG - Successfully parsed {len(articles)} articles from MCP response")
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse MCP response JSON: {e}")
+                        articles = []
+                else:
+                    logger.warning("MCP response content item missing 'text' field")
+                    articles = []
+            else:
+                logger.warning("MCP response missing 'content' array")
+                articles = []
+                
+            for i, article in enumerate(articles):
+                # CRITICAL DEBUG: Log actual article structure
+                logger.info(f"CRITICAL DEBUG - Article {i} keys: {list(article.keys()) if isinstance(article, dict) else 'NOT_DICT'}")
+                logger.info(f"CRITICAL DEBUG - Article {i} type: {type(article)}")
+                if isinstance(article, dict):
+                    logger.info(f"CRITICAL DEBUG - Article {i} title: '{article.get('title', 'NO_TITLE')}'")
+                    logger.info(f"CRITICAL DEBUG - Article {i} pmid: '{article.get('pmid', 'NO_PMID')}'")
+                
                 processed_sources.append(
                     {
                         "source_type": "pubmed",
                         "title": article.get("title", ""),
                         "authors": article.get("authors", []),
                         "journal": article.get("journal", ""),
-                        "publication_date": article.get("date", ""),
+                        "publication_date": article.get("publication_date", ""),
                         "pmid": article.get("pmid", ""),
                         "url": f"https://pubmed.ncbi.nlm.nih.gov/{article.get('pmid', '')}/",
                         "abstract": article.get("abstract", ""),
@@ -313,7 +344,7 @@ class EnhancedMedicalQueryEngine:
                 drug_name = drug.get("text", "")
 
                 # Search FDA Orange Book
-                fda_result = await self.mcp_client.call_healthcare_tool(
+                fda_result = await self.mcp_client.call_tool(
                     "search_fda_drugs",
                     {
                         "drug_name": drug_name,
@@ -390,7 +421,7 @@ class EnhancedMedicalQueryEngine:
         """
         try:
             # Use medical NER via MCP tools
-            entities_result = await self.mcp_client.call_healthcare_tool(
+            entities_result = await self.mcp_client.call_tool(
                 "extract_medical_entities", {"text": query},
             )
 
@@ -531,7 +562,7 @@ class EnhancedMedicalQueryEngine:
         """Search clinical trials database"""
         try:
             # Use ClinicalTrials.gov API via MCP
-            trials_result = await self.mcp_client.call_healthcare_tool(
+            trials_result = await self.mcp_client.call_tool(
                 "search_clinical_trials",
                 {
                     "query": query,
@@ -570,7 +601,7 @@ class EnhancedMedicalQueryEngine:
         """Search clinical practice guidelines"""
         try:
             # Search medical society guidelines
-            guidelines_result = await self.mcp_client.call_healthcare_tool(
+            guidelines_result = await self.mcp_client.call_tool(
                 "search_clinical_guidelines",
                 {
                     "query": query,
@@ -659,9 +690,14 @@ class EnhancedMedicalQueryEngine:
     async def _enhance_query_with_entities(
         self, query: str, medical_entities: list[dict[str, Any]],
     ) -> str:
-        """Enhance query with extracted medical entities"""
+        """Transform conversational query into optimized search terms using LLM"""
+        
+        # First, use LLM to convert question to search terms
+        search_query = await self._convert_question_to_search(query)
+        
+        # Then enhance with extracted entities if available
         if not medical_entities:
-            return query
+            return search_query
 
         # Extract relevant entity terms
         entity_terms = []
@@ -676,9 +712,70 @@ class EnhancedMedicalQueryEngine:
                 entity_terms.append(f"({entity_text} AND (drug OR medication))")
 
         if entity_terms:
-            return f"{query} AND ({' OR '.join(entity_terms[:3])})"  # Limit to top 3
+            return f"{search_query} AND ({' OR '.join(entity_terms[:3])})"  # Limit to top 3
 
-        return query
+        return search_query
+
+    async def _convert_question_to_search(self, question: str) -> str:
+        """Convert conversational question to optimized search terms using LLM"""
+        
+        # Create prompt for LLM to extract search terms
+        prompt = f"""Convert this medical question into concise search terms suitable for a medical literature database.
+
+Question: "{question}"
+
+Extract the key medical concepts and convert to effective search terms. Return only the search terms, no explanation.
+
+Examples:
+"What are the symptoms of diabetes?" → "diabetes symptoms"
+"How is hypertension treated?" → "hypertension treatment"
+"What causes heart disease?" → "heart disease etiology causes"
+"Side effects of metformin" → "metformin adverse effects side effects"
+
+Search terms for the question above:"""
+
+        try:
+            # Use LLM to convert question to search terms
+            response = await self.llm_client.chat(
+                model="llama3.1:8b",  # Use the healthcare model
+                messages=[{"role": "user", "content": prompt}],
+                options={"temperature": 0.1, "max_tokens": 50}
+            )
+            
+            search_terms = response['message']['content'].strip()
+            
+            # Clean up the response - remove quotes, extra whitespace
+            search_terms = search_terms.strip('"\'').strip()
+            
+            # Fallback to simple extraction if LLM fails
+            if not search_terms or len(search_terms) < 3:
+                return self._fallback_search_extraction(question)
+                
+            return search_terms
+            
+        except Exception as e:
+            print(f"LLM query conversion failed: {e}")
+            # Fallback to simple extraction
+            return self._fallback_search_extraction(question)
+    
+    def _fallback_search_extraction(self, question: str) -> str:
+        """Simple fallback for extracting search terms when LLM fails"""
+        import re
+        
+        # Remove question words
+        question_words = ['what', 'how', 'why', 'when', 'where', 'is', 'are', 'can', 'does', 'do']
+        words = question.lower().split()
+        words = [w for w in words if w not in question_words and len(w) > 2]
+        
+        # Remove common words
+        stop_words = ['the', 'and', 'or', 'but', 'for', 'with', 'this', 'that', 'these', 'those']
+        words = [w for w in words if w not in stop_words]
+        
+        # Clean punctuation
+        words = [re.sub(r'[^\w\s]', '', w) for w in words]
+        words = [w for w in words if w]  # Remove empty strings
+        
+        return ' '.join(words[:4])  # Limit to 4 key terms
 
     def _determine_evidence_level(self, article: dict[str, Any]) -> str:
         """Determine evidence level from article metadata"""

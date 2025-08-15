@@ -209,7 +209,7 @@ export class ToolHandler {
                 case 'get_appointments':
                     return await this.fhirClient.getPatientAppointments(params);
                 case 'search-pubmed':
-                case 'search_pubmed':
+                case 'search-pubmed':
                     return await this.pubmedApi.getArticles(params, this.cache);
                 case 'search-trials':
                 case 'search_clinical_trials':

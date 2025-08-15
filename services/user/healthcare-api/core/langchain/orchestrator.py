@@ -28,8 +28,8 @@ class LangChainOrchestrator:
         model: Optional[str] = None,
         temperature: float = 0.1,
         verbose: bool = False,
-        max_orchestrator_iterations: int = 3,  # Orchestrator-level agent calls
-        max_agent_iterations: int = 20,          # Agent-internal tool iterations
+        max_orchestrator_iterations: int = 3,  # Not used - custom parameter for potential future use
+        max_agent_iterations: int = 5,           # LangChain max_iterations: drastically reduced to prevent loops
         memory_max_token_limit: int = 2000,
         always_run_medical_search: bool = True,
         presearch_max_results: int = 5,
@@ -62,7 +62,7 @@ class LangChainOrchestrator:
         cfg = self._load_orchestrator_config()
 
         # Resolve runtime settings with precedence: YAML config > provided args (defaults) > env handled by agent
-        resolved_verbose = bool(cfg.get("langchain", {}).get("verbose", verbose)) if isinstance(cfg, dict) else verbose
+        resolved_verbose = True  # Temporarily enable for debugging thought process
         resolved_always_run_medical_search = bool(cfg.get("routing", {}).get("always_run_medical_search", always_run_medical_search)) if isinstance(cfg, dict) else always_run_medical_search
         resolved_presearch_max_results = int(cfg.get("routing", {}).get("presearch_max_results", presearch_max_results)) if isinstance(cfg, dict) else presearch_max_results
         resolved_show_agent_header = cfg.get("provenance", {}).get("show_agent_header") if isinstance(cfg, dict) else show_agent_header

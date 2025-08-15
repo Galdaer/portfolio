@@ -29,7 +29,7 @@ async def test_react_agent():
         # Minimal tools
         tools = [
             Tool(
-                name="search_pubmed",
+                name="search-pubmed",
                 func=lambda x: f"Mock PubMed results for: {x}",
                 description="Search medical literature"
             )

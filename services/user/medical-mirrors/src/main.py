@@ -129,7 +129,7 @@ async def get_status() -> dict[str, Any]:
 
 # PubMed Mirror Endpoints
 @app.get("/pubmed/search")
-async def search_pubmed(query: str, max_results: int = 10) -> dict[str, Any]:
+async def search-pubmed(query: str, max_results: int = 10) -> dict[str, Any]:
     """
     Search PubMed local mirror
     Matches interface of Healthcare MCP search-pubmed tool
@@ -157,13 +157,13 @@ async def get_pubmed_article(pmid: str) -> dict[str, Any]:
 
 # ClinicalTrials Mirror Endpoints
 @app.get("/trials/search")
-async def search_trials(condition: str | None = None, location: str | None = None, max_results: int = 10) -> dict[str, Any]:
+async def search-trials(condition: str | None = None, location: str | None = None, max_results: int = 10) -> dict[str, Any]:
     """
     Search ClinicalTrials.gov local mirror
     Matches interface of Healthcare MCP search-trials tool
     """
     try:
-        results = await trials_api.search_trials(condition, location, max_results)
+        results = await trials_api.search-trials(condition, location, max_results)
         return {"content": [{"type": "text", "text": str(results)}]}
     except Exception as e:
         logger.exception(f"Clinical trials search failed: {e}")
@@ -185,7 +185,7 @@ async def get_trial_details(nct_id: str) -> dict[str, Any]:
 
 # FDA Mirror Endpoints
 @app.get("/fda/search")
-async def search_fda(generic_name: str | None = None, ndc: str | None = None, max_results: int = 10) -> dict[str, Any]:
+async def search-fda(generic_name: str | None = None, ndc: str | None = None, max_results: int = 10) -> dict[str, Any]:
     """
     Search FDA databases local mirror
     Matches interface of Healthcare MCP get-drug-info tool

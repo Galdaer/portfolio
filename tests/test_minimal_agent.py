@@ -32,7 +32,7 @@ async def test_minimal_agent():
         # Minimal tools - just mock tools to avoid MCP issues
         tools = [
             Tool(
-                name="search_pubmed",
+                name="search-pubmed",
                 func=lambda x: f"Mock PubMed results for: {x}",
                 description="Search medical literature"
             )

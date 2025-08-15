@@ -25,7 +25,7 @@ class ClinicalTrialsAPI:
         self.downloader = ClinicalTrialsDownloader()
         self.parser = ClinicalTrialsParser()
 
-    async def search_trials(
+    async def search-trials(
         self, condition: str | None = None, location: str | None = None, max_results: int = 10,
     ) -> list[dict[str, Any]]:
         """

@@ -24,6 +24,8 @@ from core.langchain.healthcare_tools import create_healthcare_tools
 from agents import BaseHealthcareAgent
 
 logger = get_healthcare_logger("core.langchain.agents")
+# Dedicated logger for LangChain's thought process and reasoning
+thought_logger = get_healthcare_logger("langchain.thought_process")
 
 
 class HealthcareLangChainAgent(BaseHealthcareAgent):
@@ -36,7 +38,7 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
         model: Optional[str] = None,
         temperature: float = 0.1,
         verbose: bool = False,
-        max_iterations: int = 20,
+        max_iterations: int = 5,
         memory_max_token_limit: int = 2000,
         tool_max_retries: int = 2,
         tool_retry_base_delay: float = 0.5,
@@ -211,20 +213,33 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
             def __init__(self, enabled: bool = False) -> None:
                 self.enabled = enabled
 
+            # Agent callbacks for thought process
+            def on_agent_action(self, action, **kwargs):
+                """Capture agent's reasoning and action decisions"""
+                if not self.enabled:
+                    return
+                try:
+                    thought_logger.info(f"🧠 AGENT REASONING: {action.log}")
+                    thought_logger.info(f"🔧 TOOL SELECTED: {action.tool} with input: {str(action.tool_input)[:200]}")
+                except Exception:
+                    pass
+
+            def on_agent_finish(self, finish, **kwargs):
+                """Capture final decision and output"""
+                if not self.enabled:
+                    return
+                try:
+                    thought_logger.info(f"✅ AGENT CONCLUDED: {finish.log}")
+                    thought_logger.info(f"📝 FINAL OUTPUT: {str(finish.return_values)[:300]}")
+                except Exception:
+                    pass
+
             # LLM callbacks
             def on_llm_start(self, serialized, prompts, **kwargs):
                 if not self.enabled:
                     return
                 try:
-                    logger.debug(
-                        "LLM start",
-                        extra={
-                            "healthcare_context": {
-                                "prompts_count": len(prompts) if isinstance(prompts, list) else 1,
-                                "prompt_preview": (prompts[0][:200] if isinstance(prompts, list) and prompts else str(prompts)[:200]),
-                            }
-                        },
-                    )
+                    thought_logger.debug(f"🤔 LLM PROMPT: {str(prompts)[:500]}")
                 except Exception:
                     pass
 
@@ -233,10 +248,7 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
                     return
                 try:
                     txt = getattr(response, "content", "") or str(response)
-                    logger.debug(
-                        "LLM end",
-                        extra={"healthcare_context": {"response_preview": str(txt)[:200]}},
-                    )
+                    thought_logger.debug(f"🧠 LLM RESPONSE: {str(txt)[:300]}")
                 except Exception:
                     pass
 
@@ -337,8 +349,15 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
                 except Exception:
                     pass
             
-            # Execute without any callbacks or config initially to isolate issues
-            result = await self.executor.ainvoke(input_data)
+            # Execute with thought process callback for debugging
+            config = RunnableConfig(callbacks=[self._debug_callback]) if self.verbose else None
+            result = await self.executor.ainvoke(input_data, config=config)
+            
+            # Log the intermediate steps for debugging
+            if self.verbose and result.get("intermediate_steps"):
+                thought_logger.info(f"🔄 ITERATION COUNT: {len(result['intermediate_steps'])} steps")
+                for i, (action, observation) in enumerate(result["intermediate_steps"]):
+                    thought_logger.info(f"🔄 STEP {i + 1}: {action.tool} -> {str(observation)[:200]}")
             
             agent_name = "medical_search"  # default label until router is added
             formatted = result.get("output", "")
