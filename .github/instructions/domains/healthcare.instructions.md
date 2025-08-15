@@ -84,27 +84,49 @@ async def cached_tool_call(tool_name: str, params: dict, session_id: str) -> dic
 ### LangChain Agent Orchestrator with Existing Agent Adapters
 
 ```python
-# CRITICAL PATTERN: Thin adapter pattern preserves existing agents
-# LangChain acts as orchestrator, not replacement for existing healthcare agents
+# CRITICAL PATTERN: "Restaurant Kitchen" Model from TODO.md
+# One orchestrator ("head chef") coordinates 8 specialized healthcare agents ("specialized chefs")
+# Through thin adapters - NO agent code changes required
 
 from langchain.tools import tool
 from typing import Dict, Any
 import json
 
 class HealthcareLangChainOrchestrator:
-    """Orchestrator that coordinates existing healthcare agents through thin adapters."""
+    """Orchestrator that coordinates ALL 8 existing healthcare agents through thin adapters."""
     
     def __init__(self, discovered_agents: Dict[str, Any]):
-        # Create thin wrappers for each existing agent - NO CODE DUPLICATION
+        # Create thin wrappers for ALL existing agents - NO CODE DUPLICATION
         self.tools = []
-        for agent_name, agent_instance in discovered_agents.items():
-            self.tools.append(create_agent_tool(agent_instance, agent_name))
+        agent_mapping = {
+            "intake": discovered_agents.get("intake_agent"),
+            "medical_search": discovered_agents.get("medical_search_agent"), 
+            "scheduling": discovered_agents.get("scheduling_agent"),
+            "document_processor": discovered_agents.get("document_processor_agent"),
+            "clinical_research": discovered_agents.get("clinical_research_agent"),
+            "transcription": discovered_agents.get("transcription_agent"),
+            "billing": discovered_agents.get("billing_agent"),
+            "insurance": discovered_agents.get("insurance_agent")
+        }
         
-        # LangChain uses these tools to coordinate workflow
+        for agent_name, agent_instance in agent_mapping.items():
+            if agent_instance:
+                self.tools.append(create_agent_tool(agent_instance, agent_name))
+        
+        # LangChain coordinates workflow - agents do specialized work
         self.chain = create_orchestration_chain(self.tools)
+    
+    async def process(self, message: str):
+        """Multi-agent coordination - Example: 'I need to refill my prescription and schedule a follow-up'"""
+        # Step 1: LangChain analyzes the message
+        # Step 2: Decides to use multiple agents (intake + scheduling)
+        # Step 3: Calls IntakeAgent for prescription refill
+        # Step 4: Calls SchedulingAgent for appointment  
+        # Step 5: Combines results into coherent response
+        return await self.chain.process(message)
 
 def create_agent_tool(agent, name):
-    """Create LangChain tool from existing agent - preserves agent logging."""
+    """Create LangChain tool from existing agent - preserves ALL existing functionality."""
     
     @tool(name=f"{name}_agent")
     async def agent_wrapper(request: str) -> str:
@@ -117,15 +139,24 @@ def create_agent_tool(agent, name):
         # Call EXISTING agent's EXISTING method - preserves agent-specific logging
         result = await agent.process_request(parsed_request)
         
-        # CRITICAL: Return conclusive answers, not just source lists
-        if "sources" in result and len(result["sources"]) > 0:
-            # Synthesize actual answer from sources
-            answer = synthesize_medical_answer(parsed_request["query"], result["sources"])
-            return f"FINAL ANSWER: {answer}\n\nSources: {format_sources(result['sources'])}"
+        # CRITICAL: Return conclusive answers, not just source lists (prevents iteration loops)
+        if isinstance(result, dict) and "sources" in result:
+            if len(result["sources"]) > 0:
+                answer = synthesize_medical_answer(parsed_request["query"], result["sources"])
+                return f"CONCLUSIVE ANSWER: {answer}\n\nSources: {format_sources(result['sources'])}"
+            else:
+                return f"CONCLUSIVE ANSWER: No information found for '{parsed_request['query']}'"
         
         return json.dumps(result, default=str)
     
     return agent_wrapper
+
+# API Integration - route through orchestrator instead of individual agents
+@app.post("/chat")
+async def chat(request: ChatRequest):
+    # Route to orchestrator (coordination layer) instead of individual agents
+    result = await healthcare_orchestrator.process(request.message)
+    return result
 
 def synthesize_medical_answer(query: str, sources: list) -> str:
     """Convert source lists into actual answers to prevent LangChain iteration loops."""
@@ -133,6 +164,13 @@ def synthesize_medical_answer(query: str, sources: list) -> str:
     # Provide direct answer to user's question
     # Include medical disclaimers
     pass
+
+# 4-Phase Implementation Strategy (from TODO.md)
+# Phase 1: Create orchestrator with just routing (no complex chains yet)
+# Phase 2: Add simple adapters for 2-3 most-used agents (medical_search, intake, scheduling)  
+# Phase 3: Test with real healthcare workflows
+# Phase 4: Add remaining agents and sophisticated coordination
+```
 ```
 
 ### Database vs External API Investigation Patterns (NEW - 2025-01-15)

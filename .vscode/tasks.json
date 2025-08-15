@@ -63,6 +63,25 @@
             "problemMatcher": []
         },
         {
+            "label": "Implement TODO.md Orchestrator Pattern",
+            "group": "build",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🏥 Implementing TODO.md LangChain Orchestrator Pattern...' && echo '1. Reviewing orchestrator architecture...' && head -50 TODO.md && echo '\\n2. Checking existing agent discovery...' && cd services/user/healthcare-api && python3 -c \"try: from main import discovered_agents; print('Available agents:', list(discovered_agents.keys())); print('Agent count:', len(discovered_agents)); except Exception as e: print('Agent discovery needs setup:', e)\" && echo '3. Testing thin adapter pattern...' && python3 -c \"from core.langchain.agents import HealthcareLangChainAgent; from core.mcp.direct_mcp_client import DirectMCPClient; print('✅ LangChain components available')\" && echo '4. Next: Implement Phase 1 - basic routing orchestrator' && echo 'See TODO.md for complete 4-phase implementation roadmap'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "Run All Linting",
             "group": "build",
             "type": "shell",
