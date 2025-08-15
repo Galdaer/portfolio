@@ -22,7 +22,7 @@ healthcare_system:
     local_llm:
       provider: "ollama"
       model_name: "${LOCAL_LLM_MODEL:llama3.1:8b}"
-      base_url: "${OLLAMA_BASE_URL:http://localhost:11434}"
+      base_url: "${OLLAMA_BASE_URL:http://172.20.0.10:11434}"
       temperature: 0.1  # Conservative for healthcare
 ```
 

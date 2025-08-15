@@ -138,7 +138,7 @@ def diagnose_langchain_connection_issues():
     print("🔍 LangChain Healthcare Agent Connection Diagnostics")
     
     # Check environment
-    ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+    ollama_url = os.getenv("OLLAMA_URL", "http://172.20.0.10:11434")
     print(f"OLLAMA_URL: {ollama_url}")
     
     # Test direct connection
@@ -239,10 +239,10 @@ def create_robust_mcp_tools(mcp_client, max_retries: int = 3):
 When implementing healthcare LangChain agents, ensure these files use correct Ollama URLs:
 
 1. **Core Agent Configuration**: `services/user/healthcare-api/core/langchain/agents.py`
-   - Default: `http://localhost:11434` (not `http://ollama:11434`)
+   - Default: `http://172.20.0.10:11434` (not `http://172.20.0.10:11434`)
 
 2. **MCP Server Configuration**: `services/user/healthcare-mcp/src/server/HealthcareServer.ts`
-   - Default: `http://localhost:11434`
+   - Default: `http://172.20.0.10:11434`
 
 3. **Test Configurations**: Any test files should use environment variables with localhost fallback
 
@@ -250,7 +250,7 @@ When implementing healthcare LangChain agents, ensure these files use correct Ol
 
 ```bash
 # Recommended environment setup
-export OLLAMA_URL="http://localhost:11434"
+export OLLAMA_URL="http://172.20.0.10:11434"
 export HEALTHCARE_AGENT_DEBUG="true"  # Enable verbose logging
 export LANGCHAIN_TRACING_V2="false"   # Disable external tracing for PHI safety
 ```

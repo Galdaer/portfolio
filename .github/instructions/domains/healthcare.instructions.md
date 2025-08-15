@@ -2,6 +2,42 @@
 
 **WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
 
+## Healthcare Infrastructure Integration Patterns
+
+```python
+# BaseHealthcareAgent inheritance for LangChain agents
+from agents import BaseHealthcareAgent
+
+class HealthcareLangChainAgent(BaseHealthcareAgent):
+    def __init__(self, mcp_client, **kwargs):
+        super().__init__(mcp_client=mcp_client, agent_name="langchain_medical")
+        # Inherits healthcare logging, PHI monitoring, database connectivity
+
+# ToolRegistry integration pattern
+from core.tools import tool_registry
+
+async def call_healthcare_tool(tool_name: str, parameters: dict) -> dict:
+    """Replace direct MCP calls with ToolRegistry for health checking and performance tracking"""
+    try:
+        result = await tool_registry.call_tool(tool_name, parameters)
+        return result
+    except Exception as e:
+        logger.error(f"ToolRegistry call failed for {tool_name}: {e}")
+        # Graceful fallback to direct MCP if needed
+        return await direct_mcp_fallback(tool_name, parameters)
+
+# PHI Detection integration pattern
+from src.healthcare_mcp.phi_detection import sanitize_for_compliance
+
+def sanitize_medical_request(request_data: dict) -> dict:
+    """Automatic HIPAA compliance for all medical queries"""
+    return sanitize_for_compliance(request_data)
+
+def sanitize_medical_response(response_data: dict) -> dict:
+    """Automatic PHI sanitization for all responses"""
+    return sanitize_for_compliance(response_data)
+```
+
 ## Medical Safety Patterns
 
 ```python
@@ -62,7 +98,7 @@ class HealthcareOllamaConfig:
         import os
         
         # CRITICAL: Use localhost for local development, allow override
-        base_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        base_url = os.getenv("OLLAMA_URL", "http://172.20.0.10:11434")
         
         # Warn if using Docker hostname in local environment
         if "ollama:" in base_url and "docker" not in os.getenv("CONTAINER_ENV", ""):
@@ -296,7 +332,6 @@ class HealthcareCodeOrganization:
             "_get_patient_coverage_data",
             "_validate_database_connection"
         ]
-```
 
 ### Healthcare Compliance Patterns
 

@@ -2,6 +2,59 @@
 
 **WORKFLOW CONTROL**: All workflows are controlled by `copilot-instructions.md`. This file provides implementation patterns only.
 
+## Infrastructure Integration Refactoring Patterns
+
+### Connecting Underutilized Healthcare Infrastructure
+
+```python
+# ✅ CORRECT: ToolRegistry integration pattern
+from core.tools import tool_registry
+
+# Before: Direct MCP calls
+async def old_medical_search(query: str):
+    result = await mcp_client.call_tool('search-pubmed', {'query': query})
+    return result
+
+# After: ToolRegistry integration
+async def new_medical_search(query: str):
+    """Leverage ToolRegistry for health checking and performance tracking"""
+    try:
+        result = await tool_registry.call_tool('search-pubmed', {'query': query})
+        return result
+    except Exception as e:
+        logger.error(f"ToolRegistry call failed: {e}")
+        # Graceful fallback maintains functionality
+        return await direct_mcp_fallback('search-pubmed', {'query': query})
+
+# ✅ CORRECT: BaseHealthcareAgent inheritance pattern
+from agents import BaseHealthcareAgent
+
+# Before: LangChain agent without healthcare framework
+class SimpleLangChainAgent:
+    def __init__(self, mcp_client):
+        self.mcp_client = mcp_client
+
+# After: Inherit healthcare logging, PHI monitoring, safety
+class HealthcareLangChainAgent(BaseHealthcareAgent):
+    def __init__(self, mcp_client, **kwargs):
+        super().__init__(mcp_client=mcp_client, agent_name="langchain_medical")
+        # Automatically gets healthcare logging, PHI monitoring, database connectivity
+
+# ✅ CORRECT: PHI Detection integration pattern
+from src.healthcare_mcp.phi_detection import sanitize_for_compliance
+
+# Before: No PHI sanitization
+async def process_request(request_data: dict):
+    return await agent.process(request_data)
+
+# After: Automatic HIPAA compliance
+async def process_request(request_data: dict):
+    sanitized_request = sanitize_for_compliance(request_data)
+    result = await agent.process(sanitized_request)
+    sanitized_response = sanitize_for_compliance(result)
+    return sanitized_response
+```
+
 ## Healthcare-Safe Refactoring Patterns
 
 ### PHI-Safe Refactoring Patterns

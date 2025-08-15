@@ -85,7 +85,7 @@ else:
 
 ## LLM integration (local only)
 - Use `src/local_llm/ollama_client` helpers for ChatOllama.
-- Respect `OLLAMA_BASE_URL`; default to `http://localhost:11434`.
+- Respect `OLLAMA_BASE_URL`; default to `http://172.20.0.10:11434`.
 
 ## Testing & linting
 - Run quick lint for syntax errors; run mypy selectively on `services/user/healthcare-api`.

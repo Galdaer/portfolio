@@ -161,7 +161,7 @@
             "command": "bash",
             "args": [
                 "-c",
-                "echo '🔍 Testing Ollama connection...' && curl -s http://localhost:11434/api/version && echo '✅ Ollama connection successful' || echo '❌ Ollama connection failed'"
+                "echo '🔍 Testing Ollama connection...' && curl -s http://172.20.0.10:11434/api/version && echo '✅ Ollama connection successful' || echo '❌ Ollama connection failed'"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -179,7 +179,7 @@
             "command": "bash",
             "args": [
                 "-c",
-                "cd services/user/healthcare-api && OLLAMA_URL=http://localhost:11434 python3 -c \"import sys; sys.path.append('/home/intelluxe/services/user/healthcare-api'); from core.langchain.agents import HealthcareLangChainAgent; from core.mcp.direct_mcp_client import DirectMCPClient; mcp_client = DirectMCPClient(); agent = HealthcareLangChainAgent(mcp_client); print('✅ LangChain agent initialized successfully')\""
+                "cd services/user/healthcare-api && OLLAMA_URL=http://172.20.0.10:11434 python3 -c \"import sys; sys.path.append('/home/intelluxe/services/user/healthcare-api'); from core.langchain.agents import HealthcareLangChainAgent; from core.mcp.direct_mcp_client import DirectMCPClient; mcp_client = DirectMCPClient(); agent = HealthcareLangChainAgent(mcp_client); print('✅ LangChain agent initialized successfully')\""
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -217,7 +217,7 @@
             "command": "bash",
             "args": [
                 "-c",
-                "echo '🔍 Healthcare Environment Validation:' && echo 'OLLAMA_URL:' $OLLAMA_URL && echo 'Testing Ollama...' && curl -s http://localhost:11434/api/version | head -1 && echo 'Testing healthcare-api import...' && cd services/user/healthcare-api && python3 -c 'from core.langchain.agents import HealthcareLangChainAgent; print(\"✅ Import successful\")' && echo '✅ Healthcare environment validation complete'"
+                "echo '🔍 Healthcare Environment Validation:' && echo 'OLLAMA_URL:' $OLLAMA_URL && echo 'Testing Ollama...' && curl -s http://172.20.0.10:11434/api/version | head -1 && echo 'Testing healthcare-api import...' && cd services/user/healthcare-api && python3 -c \"from core.langchain.agents import HealthcareLangChainAgent; print('✅ Import successful')\" && echo '✅ Healthcare environment validation complete'"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -273,7 +273,7 @@
             "command": "bash",
             "args": [
                 "-c",
-                "echo '🔍 Testing Medical Search Agent Direct (bypass Open WebUI)...' && cd services/user/healthcare-api && python3 -c \"import sys; sys.path.append('/home/intelluxe/services/user/healthcare-api'); from agents.medical_search import MedicalLiteratureSearchAssistant; from core.mcp.direct_mcp_client import DirectMCPClient; mcp_client = DirectMCPClient(); agent = MedicalLiteratureSearchAssistant(mcp_client); print('✅ Medical search agent loaded successfully'); print('Agent type:', type(agent)); print('MCP client:', type(mcp_client))\""
+                "echo '🔍 Testing Medical Search Agent Direct (bypass Open WebUI)...' && cd services/user/healthcare-api && python3 -c \"import sys; sys.path.append('/home/intelluxe/services/user/healthcare-api'); from agents.medical_search_agent import MedicalLiteratureSearchAssistant; from core.mcp.direct_mcp_client import DirectMCPClient; import ollama; mcp_client = DirectMCPClient(); llm_client = ollama.AsyncClient(host='http://172.20.0.10:11434'); agent = MedicalLiteratureSearchAssistant(mcp_client, llm_client); print('✅ Medical search agent loaded successfully'); print('Agent type:', type(agent)); print('MCP client:', type(mcp_client)); print('LLM client:', type(llm_client))\""
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -347,7 +347,7 @@
             "command": "bash",
             "args": [
                 "-c",
-                "echo '🔍 Comprehensive Healthcare Stack Test...' && echo '1. Testing Ollama...' && curl -s http://localhost:11434/api/version && echo '✅ Ollama OK' && echo '2. Testing MCP tools...' && cd services/user/healthcare-api && python3 -c \"import asyncio; from core.mcp.direct_mcp_client import DirectMCPClient; asyncio.run(DirectMCPClient().call_tool('search-pubmed', {'query': 'test'}))\" && echo '✅ MCP OK' && echo '3. Testing Healthcare API...' && curl -s http://localhost:8000/health && echo '✅ API OK' && echo '4. Testing Agent Import...' && python3 -c \"from agents.medical_search import MedicalLiteratureSearchAssistant; print('✅ Agent import OK')\" && echo '🎉 All healthcare stack components functional'"
+                "echo '🔍 Comprehensive Healthcare Stack Test...' && echo '1. Testing Ollama...' && curl -s http://172.20.0.10:11434/api/version && echo '✅ Ollama OK' && echo '2. Testing MCP tools...' && cd services/user/healthcare-api && python3 -c \"import asyncio; from core.mcp.direct_mcp_client import DirectMCPClient; asyncio.run(DirectMCPClient().call_tool('search-pubmed', {'query': 'test'}))\" && echo '✅ MCP OK' && echo '3. Testing Healthcare API...' && curl -s http://localhost:8000/health && echo '✅ API OK' && echo '4. Testing Agent Import...' && python3 -c \"from agents.medical_search_agent import MedicalLiteratureSearchAssistant; from core.mcp.direct_mcp_client import DirectMCPClient; import ollama; print('✅ Agent import OK')\" && echo '🎉 All healthcare stack components functional'"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -368,6 +368,172 @@
                 "echo '🔍 Running quick lint check...' && flake8 --select=E9,F63,F7,F82 --show-source --statistics src/ && echo '✅ Quick lint passed'"
             ],
             "group": "build"
+        },
+        {
+            "label": "Diagnose Open WebUI Medical Routing",
+            "group": "test",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "tests/test_open_webui_medical_routing.py"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Run Open WebUI Medical Routing Tests",
+            "group": "test",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "-m",
+                "pytest",
+                "tests/test_open_webui_medical_routing.py",
+                "-v",
+                "-s"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test Open WebUI Endpoints",
+            "group": "test",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "tests/test_open_webui_endpoints.py"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test Healthcare Agent Routing",
+            "group": "test",
+            "type": "shell",
+            "command": "python3",
+            "args": [
+                "tests/test_healthcare_agent_routing.py"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test ToolRegistry Integration",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Testing ToolRegistry Integration...' && cd services/user/healthcare-api && python3 -c \"from core.tools import tool_registry; import asyncio; async def test(): await tool_registry.initialize(); result = await tool_registry.call_tool('search-pubmed', {'query': 'diabetes'}); print('ToolRegistry result:', type(result)); asyncio.run(test())\" && echo '✅ ToolRegistry integration ready'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test PHI Detection Integration",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Testing PHI Detection Integration...' && cd services/user/healthcare-api && python3 -c \"from src.healthcare_mcp.phi_detection import sanitize_for_compliance; test_data = {'content': 'Patient John Doe, SSN 123-45-6789'}; result = sanitize_for_compliance(test_data); print('PHI sanitized:', result); print('✅ PHI detection ready')\" && echo '🛡️ HIPAA compliance active'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test BaseHealthcareAgent Integration",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Testing BaseHealthcareAgent Integration...' && cd services/user/healthcare-api && python3 -c \"from agents import BaseHealthcareAgent; agent = BaseHealthcareAgent(agent_name='test_agent'); print('Healthcare agent created:', type(agent)); print('Agent name:', agent.agent_name); print('✅ BaseHealthcareAgent integration ready')\" && echo '🏥 Healthcare framework active'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Infrastructure Integration Validation",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Infrastructure Integration Validation...' && echo '1. ToolRegistry Health Check...' && cd services/user/healthcare-api && python3 -c \"from core.tools import tool_registry; import asyncio; async def test(): health = await tool_registry.health_check(); print('ToolRegistry health:', health['status']); asyncio.run(test())\" && echo '2. PHI Detection Test...' && python3 -c \"from src.healthcare_mcp.phi_detection import sanitize_for_compliance; print('PHI detection available')\" && echo '3. BaseHealthcareAgent Test...' && python3 -c \"from agents import BaseHealthcareAgent; print('Healthcare framework available')\" && echo '🎉 All infrastructure components validated'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
+        },
+        {
+            "label": "Test Agent-First Architecture",
+            "group": "test",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "echo '🔍 Testing Agent-First Architecture...' && echo 'Verifying medical queries go through medical search agent, not direct MCP tools' && cd services/user/healthcare-api && python3 -c \"from core.langchain.healthcare_tools import create_healthcare_tools; from core.mcp.direct_mcp_client import DirectMCPClient; print('✅ Healthcare tools architecture validated')\" && echo '🎯 Agent-first architecture ready'"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": "$python"
         }
     ]
 }

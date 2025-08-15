@@ -18,13 +18,13 @@
 1. **Check Ollama Service Status**:
    ```bash
    systemctl status ollama || ps aux | grep ollama
-   curl -s http://localhost:11434/api/version
+   curl -s http://172.20.0.10:11434/api/version
    ```
 
 2. **Verify Environment Variables**:
    ```bash
    echo "OLLAMA_URL: $OLLAMA_URL"
-   export OLLAMA_URL="http://localhost:11434"
+   export OLLAMA_URL="http://172.20.0.10:11434"
    ```
 
 3. **Test Direct LLM Connection**:
@@ -38,12 +38,12 @@
 ```python
 # ❌ PROBLEMATIC: Docker hostname in local environment
 config = OllamaConfig(
-    base_url=_os.getenv("OLLAMA_URL", "http://ollama:11434"),  # Fails locally
+    base_url=_os.getenv("OLLAMA_URL", "http://172.20.0.10:11434"),  # Fails locally
 )
 
 # ✅ CORRECT: Localhost default with environment override
 config = OllamaConfig(
-    base_url=_os.getenv("OLLAMA_URL", "http://localhost:11434"),  # Works locally
+    base_url=_os.getenv("OLLAMA_URL", "http://172.20.0.10:11434"),  # Works locally
 )
 ```
 

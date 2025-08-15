@@ -55,7 +55,7 @@ result = await self.executor.ainvoke({
 
 ## Model configuration (Ollama)
 - Default to `llama3.1:8b` from `services/user/healthcare-api/config/models.yml` under `primary_models.healthcare_llm`.
-- Honor `OLLAMA_BASE_URL` (default http://localhost:11434) and context size via `num_ctx`.
+- Honor `OLLAMA_BASE_URL` (default http://172.20.0.10:11434) and context size via `num_ctx`.
 - Do not invent model names (e.g., do not use llama3.2).
 
 ## MCP tools integration
