@@ -151,7 +151,8 @@ class HealthcareAuthenticator:
             if exp_timestamp and datetime.fromtimestamp(exp_timestamp, UTC) < datetime.now(UTC):
                 logger.warning(f"Expired token attempt - User: {payload.get('user_id')}")
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired",
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token has expired",
                 )
 
             # Create TokenData object
@@ -164,15 +165,16 @@ class HealthcareAuthenticator:
                 issued_at=datetime.fromisoformat(payload["issued_at"]),
             )
 
-
         except jwt.InvalidTokenError as e:
             logger.warning(f"Invalid token attempt: {e}")
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
             )
 
     async def get_current_user(
-        self, credentials: Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())],
+        self,
+        credentials: Annotated[HTTPAuthorizationCredentials, Depends(HTTPBearer())],
     ) -> AuthenticatedUser:
         """Extract authenticated user from request"""
 
@@ -216,7 +218,8 @@ def require_permission(
             if not user:
                 logger.error("No authenticated user found in request")
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required",
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required",
                 )
 
             if required_permission not in user.permissions:
@@ -258,7 +261,8 @@ def require_role(
 
             if not user:
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required",
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication required",
                 )
 
             if user.role != required_role:
@@ -308,7 +312,8 @@ async def require_doctor_access(
     """Require doctor-level access"""
     if "read:medical_records" not in user.permissions:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Doctor-level access required",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Doctor-level access required",
         )
     return user
 
@@ -319,6 +324,7 @@ async def require_patient_data_access(
     """Require patient data access"""
     if "read:patient_data" not in user.permissions:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Patient data access required",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Patient data access required",
         )
     return user

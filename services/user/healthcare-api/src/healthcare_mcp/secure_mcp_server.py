@@ -389,7 +389,8 @@ class HealthcareMCPServer:
         # Add security middleware
         @self.app.middleware("http")
         async def security_middleware(
-            request: Request, call_next: Callable[[Request], Awaitable[Response]],
+            request: Request,
+            call_next: Callable[[Request], Awaitable[Response]],
         ) -> Response:
             # Log all requests for audit trail
             start_time = datetime.now()
@@ -525,7 +526,9 @@ class HealthcareMCPServer:
         return "unknown"
 
     def _validate_credentials(
-        self, credentials: HTTPAuthorizationCredentials, client_ip: str = "unknown",
+        self,
+        credentials: HTTPAuthorizationCredentials,
+        client_ip: str = "unknown",
     ) -> bool:
         """Validate authentication credentials with rate limiting and secure environment detection"""
         from src.security.environment_detector import EnvironmentDetector
@@ -779,6 +782,7 @@ class HealthcareMCPServer:
             """
 
             from core.config.models import get_instruct_model
+
             payload = {
                 "model": get_instruct_model(),
                 "prompt": prompt,

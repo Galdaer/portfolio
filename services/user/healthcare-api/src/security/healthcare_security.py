@@ -414,7 +414,9 @@ class HealthcareSecurityMiddleware:
         # Validate JWT token
         try:
             payload = jwt.decode(
-                token, self.config.jwt_secret, algorithms=[self.config.jwt_algorithm],
+                token,
+                self.config.jwt_secret,
+                algorithms=[self.config.jwt_algorithm],
             )
 
             user_id = payload.get("user_id")
@@ -468,7 +470,11 @@ class HealthcareSecurityMiddleware:
         return has_access
 
     async def _log_access_attempt(
-        self, user_id: str, resource: str, action: str, granted: bool,
+        self,
+        user_id: str,
+        resource: str,
+        action: str,
+        granted: bool,
     ) -> None:
         """Log access attempt for audit"""
         try:

@@ -12,6 +12,7 @@ Compliance notes
 - Do not log prompts/responses here; callers handle audit logging via existing audit modules
 - No Any: strict typing to satisfy mypy rules
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

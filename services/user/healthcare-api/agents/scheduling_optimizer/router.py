@@ -167,7 +167,9 @@ async def find_available_slots(
 
 @router.get("/optimize-schedule/{provider_id}")
 async def optimize_provider_schedule(
-    provider_id: str, start_date: str, end_date: str,
+    provider_id: str,
+    start_date: str,
+    end_date: str,
 ) -> dict[str, Any]:
     """
     Generate schedule optimization recommendations for provider
@@ -197,7 +199,8 @@ async def optimize_provider_schedule(
         date_range = {"start_date": start_date, "end_date": end_date}
 
         recommendations = await scheduling_optimizer_agent.optimize_provider_schedule(
-            provider_id=provider_id, date_range=date_range,
+            provider_id=provider_id,
+            date_range=date_range,
         )
 
         # Convert recommendations to JSON-serializable format

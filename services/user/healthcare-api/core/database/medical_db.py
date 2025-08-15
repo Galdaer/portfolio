@@ -3,7 +3,7 @@ Medical Database Access Layer
 
 Provides database-first access to local medical literature mirrors:
 - pubmed_articles
-- clinical_trials  
+- clinical_trials
 - fda_drugs
 
 This ensures rate limiting issues are avoided by using local data first.
@@ -22,33 +22,33 @@ logger = get_healthcare_logger(__name__)
 
 class MedicalDatabaseAccess:
     """Database access layer for medical literature mirrors"""
-    
+
     def __init__(self, connection_string: Optional[str] = None):
         """Initialize medical database access.
-        
+
         Args:
             connection_string: PostgreSQL connection string (uses env defaults if None)
         """
         self.db_factory = PostgresConnectionFactory(connection_string)
         self.logger = logger
-    
+
     def search_pubmed_local(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         """Search local PubMed articles database.
-        
+
         Args:
             query: Search query
             max_results: Maximum number of results
-            
+
         Returns:
             List of PubMed articles from local database
         """
         try:
             self.logger.info(f"🔍 Searching local PubMed database: {query[:50]}...")
-            
+
             conn = self.db_factory.create_connection()
             try:
                 cursor = conn.cursor()
-                
+
                 # Use PostgreSQL full-text search
                 search_sql = """
                     SELECT pmid, title, abstract, authors, journal, pub_date, doi, mesh_terms,
@@ -58,22 +58,22 @@ class MedicalDatabaseAccess:
                     ORDER BY rank DESC, pub_date DESC
                     LIMIT %s
                 """
-                
+
                 cursor.execute(search_sql, (query, query, max_results))
                 rows = cursor.fetchall()
-                
+
                 articles = []
                 for row in rows:
                     # Handle pub_date - could be datetime object or string
                     pub_date = row[5]
                     if pub_date:
-                        if hasattr(pub_date, 'isoformat'):
+                        if hasattr(pub_date, "isoformat"):
                             pub_date_str = pub_date.isoformat()
                         else:
                             pub_date_str = str(pub_date)
                     else:
                         pub_date_str = ""
-                    
+
                     article = {
                         "pmid": row[0],
                         "title": row[1] or "",
@@ -84,36 +84,38 @@ class MedicalDatabaseAccess:
                         "doi": row[6] or "",
                         "mesh_terms": row[7] or [],
                         "rank": float(row[8]) if row[8] else 0.0,
-                        "source": "local_pubmed"
+                        "source": "local_pubmed",
                     }
                     articles.append(article)
-                
+
                 self.logger.info(f"✅ Found {len(articles)} articles in local PubMed database")
                 return articles
             finally:
                 conn.close()
-                
+
         except Exception as e:
             self.logger.error(f"Local PubMed search error: {e}")
             return []
-    
-    def search_clinical_trials_local(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+
+    def search_clinical_trials_local(
+        self, query: str, max_results: int = 5
+    ) -> List[Dict[str, Any]]:
         """Search local clinical trials database.
-        
+
         Args:
             query: Search query
             max_results: Maximum number of results
-            
+
         Returns:
             List of clinical trials from local database
         """
         try:
             self.logger.info(f"🔍 Searching local clinical trials database: {query[:50]}...")
-            
+
             conn = self.db_factory.create_connection()
             try:
                 cursor = conn.cursor()
-                
+
                 # Search clinical trials with text search
                 search_sql = """
                     SELECT nct_id, title, brief_summary, detailed_description,
@@ -126,31 +128,31 @@ class MedicalDatabaseAccess:
                         start_date DESC
                     LIMIT %s
                 """
-                
+
                 cursor.execute(search_sql, (query, query, max_results))
                 rows = cursor.fetchall()
-                
+
                 trials = []
                 for row in rows:
                     # Handle dates - could be datetime objects or strings
                     start_date = row[8]
                     if start_date:
-                        if hasattr(start_date, 'isoformat'):
+                        if hasattr(start_date, "isoformat"):
                             start_date_str = start_date.isoformat()
                         else:
                             start_date_str = str(start_date)
                     else:
                         start_date_str = ""
-                        
+
                     completion_date = row[9]
                     if completion_date:
-                        if hasattr(completion_date, 'isoformat'):
+                        if hasattr(completion_date, "isoformat"):
                             completion_date_str = completion_date.isoformat()
                         else:
                             completion_date_str = str(completion_date)
                     else:
                         completion_date_str = ""
-                    
+
                     trial = {
                         "nct_id": row[0] or "",
                         "title": row[1] or "",
@@ -164,35 +166,35 @@ class MedicalDatabaseAccess:
                         "completion_date": completion_date_str,
                         "sponsor_name": row[10] or "",
                         "location_countries": row[11] or [],
-                        "source": "local_clinical_trials"
+                        "source": "local_clinical_trials",
                     }
                     trials.append(trial)
-                
+
                 self.logger.info(f"✅ Found {len(trials)} trials in local clinical trials database")
                 return trials
             finally:
                 conn.close()
-                
+
         except Exception as e:
             self.logger.error(f"Local clinical trials search error: {e}")
             return []
-    
+
     def search_fda_drugs_local(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
         """Search local FDA drugs database.
-        
+
         Args:
             query: Search query (drug name, indication, etc.)
             max_results: Maximum number of results
-            
+
         Returns:
             List of FDA drugs from local database
         """
         try:
             self.logger.info(f"🔍 Searching local FDA drugs database: {query[:50]}...")
-            
+
             with self.db_factory.create_connection() as conn:
                 cursor = conn.cursor()
-                
+
                 # Search FDA drugs
                 search_sql = """
                     SELECT application_number, product_number, form, strength, 
@@ -206,10 +208,10 @@ class MedicalDatabaseAccess:
                         approval_date DESC
                     LIMIT %s
                 """
-                
+
                 cursor.execute(search_sql, (query, query, max_results))
                 rows = cursor.fetchall()
-                
+
                 drugs = []
                 for row in rows:
                     drug = {
@@ -229,57 +231,50 @@ class MedicalDatabaseAccess:
                         "rs": row[13] or "",
                         "approval_date": row[14].isoformat() if row[14] else "",
                         "applicant_full_name": row[15] or "",
-                        "source": "local_fda_drugs"
+                        "source": "local_fda_drugs",
                     }
                     drugs.append(drug)
-                
+
                 self.logger.info(f"✅ Found {len(drugs)} drugs in local FDA drugs database")
                 return drugs
-                
+
         except Exception as e:
             self.logger.error(f"Local FDA drugs search error: {e}")
             return []
-    
+
     def get_database_status(self) -> Dict[str, Any]:
         """Get status of medical database tables.
-        
+
         Returns:
             Dictionary with table counts and status
         """
         try:
             with self.db_factory.create_connection() as conn:
                 cursor = conn.cursor()
-                
+
                 # Get counts for each table
                 status = {}
-                
+
                 for table in ["pubmed_articles", "clinical_trials", "fda_drugs"]:
                     try:
                         cursor.execute(f"SELECT COUNT(*) FROM {table}")
                         count = cursor.fetchone()[0]
-                        status[table] = {
-                            "count": count,
-                            "available": True
-                        }
+                        status[table] = {"count": count, "available": True}
                     except Exception as e:
-                        status[table] = {
-                            "count": 0,
-                            "available": False,
-                            "error": str(e)
-                        }
-                
+                        status[table] = {"count": 0, "available": False, "error": str(e)}
+
                 return {
                     "database_available": True,
                     "tables": status,
-                    "last_checked": datetime.now().isoformat()
+                    "last_checked": datetime.now().isoformat(),
                 }
-                
+
         except Exception as e:
             self.logger.error(f"Database status check error: {e}")
             return {
                 "database_available": False,
                 "error": str(e),
-                "last_checked": datetime.now().isoformat()
+                "last_checked": datetime.now().isoformat(),
             }
 
 
@@ -293,5 +288,6 @@ def get_medical_db() -> MedicalDatabaseAccess:
     if _medical_db is None:
         # Use environment database URL
         from config import config
+
         _medical_db = MedicalDatabaseAccess(config.postgres_url)
     return _medical_db

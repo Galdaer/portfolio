@@ -53,7 +53,11 @@ class HealthcareStreamer:
         logger.info("Healthcare streamer initialized")
 
     async def create_medical_literature_stream(
-        self, query: str, user_id: str, session_id: str, max_results: int = 10,
+        self,
+        query: str,
+        user_id: str,
+        session_id: str,
+        max_results: int = 10,
     ) -> AsyncGenerator[str, None]:
         """
         Stream medical literature search results as they arrive
@@ -190,7 +194,10 @@ class HealthcareStreamer:
             self.active_streams.pop(stream_id, None)
 
     async def create_ai_reasoning_stream(
-        self, medical_query: str, user_id: str, session_id: str,
+        self,
+        medical_query: str,
+        user_id: str,
+        session_id: str,
     ) -> AsyncGenerator[str, None]:
         """
         Stream AI reasoning steps for medical query processing
@@ -299,7 +306,10 @@ class HealthcareStreamer:
             self.active_streams.pop(stream_id, None)
 
     async def create_document_processing_stream(
-        self, document_type: str, user_id: str, session_id: str,
+        self,
+        document_type: str,
+        user_id: str,
+        session_id: str,
     ) -> AsyncGenerator[str, None]:
         """
         Stream document processing progress for medical documents
@@ -417,7 +427,10 @@ def get_healthcare_streamer() -> HealthcareStreamer:
 
 # Helper functions for creating streaming responses
 async def stream_medical_literature_search(
-    query: str, user_id: str, session_id: str, max_results: int = 10,
+    query: str,
+    user_id: str,
+    session_id: str,
+    max_results: int = 10,
 ) -> StreamingResponse:
     """Create streaming response for medical literature search"""
     streamer = get_healthcare_streamer()
@@ -434,7 +447,9 @@ async def stream_medical_literature_search(
 
 
 async def stream_ai_reasoning(
-    medical_query: str, user_id: str, session_id: str,
+    medical_query: str,
+    user_id: str,
+    session_id: str,
 ) -> StreamingResponse:
     """Create streaming response for AI reasoning transparency"""
     streamer = get_healthcare_streamer()
@@ -451,7 +466,9 @@ async def stream_ai_reasoning(
 
 
 async def stream_document_processing(
-    document_type: str, user_id: str, session_id: str,
+    document_type: str,
+    user_id: str,
+    session_id: str,
 ) -> StreamingResponse:
     """Create streaming response for document processing"""
     streamer = get_healthcare_streamer()

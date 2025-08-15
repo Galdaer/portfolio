@@ -28,6 +28,7 @@ class ToolRegistry:
 
         # Get real tools from MCP client - no fallbacks to expose real errors
         from core.dependencies import get_mcp_client
+
         mcp_client = await get_mcp_client()
 
         if not mcp_client:

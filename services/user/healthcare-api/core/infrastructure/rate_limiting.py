@@ -16,6 +16,7 @@ from typing import Any
 
 try:
     import yaml  # type: ignore
+
     _YAML_AVAILABLE = True
 except Exception:  # pragma: no cover - optional dependency
     _YAML_AVAILABLE = False
@@ -201,7 +202,9 @@ def _load_external_rate_limits() -> dict[HealthcareRole, dict[RateLimitType, Rat
             if index_path.exists() and _YAML_AVAILABLE:
                 with index_path.open("r", encoding="utf-8") as f:
                     idx_data = yaml.safe_load(f) or {}
-                RATE_LIMITS_POLICY_VERSION = str(idx_data.get("version", RATE_LIMITS_POLICY_VERSION))
+                RATE_LIMITS_POLICY_VERSION = str(
+                    idx_data.get("version", RATE_LIMITS_POLICY_VERSION)
+                )
                 files = idx_data.get("files", [])
                 for entry in files:
                     # support either string entries or dict with name/path keys
@@ -327,7 +330,9 @@ def _load_external_rate_limits() -> dict[HealthcareRole, dict[RateLimitType, Rat
 
 
 # Initialize global rate limits (may be reloaded later if hot-reload added)
-HEALTHCARE_RATE_LIMITS: dict[HealthcareRole, dict[RateLimitType, RateLimitConfig]] = _load_external_rate_limits()
+HEALTHCARE_RATE_LIMITS: dict[HealthcareRole, dict[RateLimitType, RateLimitConfig]] = (
+    _load_external_rate_limits()
+)
 
 
 @dataclass
@@ -367,7 +372,11 @@ class HealthcareRateLimiter:
     def __init__(self, redis_client: redis.Redis | None = None):
         self.redis_client = redis_client
         self.emergency_bypass_active: dict[str, datetime] = {}
-        logger.info("Healthcare rate limiter initialized (policy_version=%s, source=%s)", RATE_LIMITS_POLICY_VERSION, RATE_LIMITS_SOURCE)
+        logger.info(
+            "Healthcare rate limiter initialized (policy_version=%s, source=%s)",
+            RATE_LIMITS_POLICY_VERSION,
+            RATE_LIMITS_SOURCE,
+        )
 
     async def check_rate_limit(
         self,
@@ -418,7 +427,9 @@ class HealthcareRateLimiter:
                 duration_minutes,
             )
             self.emergency_bypass_active[user.user_id] = expiry
-            RATE_LIMIT_METRICS["emergency_bypass"] = RATE_LIMIT_METRICS.get("emergency_bypass", 0) + 1
+            RATE_LIMIT_METRICS["emergency_bypass"] = (
+                RATE_LIMIT_METRICS.get("emergency_bypass", 0) + 1
+            )
             return RateLimitStatus(
                 allowed=True,
                 requests_remaining=999,
@@ -449,12 +460,20 @@ class HealthcareRateLimiter:
             if self.redis_client:
                 # Use Redis for distributed rate limiting (token bucket + counters)
                 status = await self._check_redis_rate_limit(
-                    user, limit_config, limit_type, minute_key, hour_key, current_time,
+                    user,
+                    limit_config,
+                    limit_type,
+                    minute_key,
+                    hour_key,
+                    current_time,
                 )
             else:
                 # Fallback to in-memory rate limiting
                 status = await self._check_memory_rate_limit(
-                    user, limit_config, limit_type, current_time,
+                    user,
+                    limit_config,
+                    limit_type,
+                    current_time,
                 )
 
             # Log rate limit status for healthcare audit
@@ -465,10 +484,14 @@ class HealthcareRateLimiter:
                     f"Retry after: {status.retry_after_seconds}s",
                 )
                 RATE_LIMIT_METRICS["denied"] = RATE_LIMIT_METRICS.get("denied", 0) + 1
-                RATE_LIMIT_METRICS[_metric_key(user.role, limit_type, "denied")] = RATE_LIMIT_METRICS.get(_metric_key(user.role, limit_type, "denied"), 0) + 1
+                RATE_LIMIT_METRICS[_metric_key(user.role, limit_type, "denied")] = (
+                    RATE_LIMIT_METRICS.get(_metric_key(user.role, limit_type, "denied"), 0) + 1
+                )
             else:
                 RATE_LIMIT_METRICS["allowed"] = RATE_LIMIT_METRICS.get("allowed", 0) + 1
-                RATE_LIMIT_METRICS[_metric_key(user.role, limit_type, "allowed")] = RATE_LIMIT_METRICS.get(_metric_key(user.role, limit_type, "allowed"), 0) + 1
+                RATE_LIMIT_METRICS[_metric_key(user.role, limit_type, "allowed")] = (
+                    RATE_LIMIT_METRICS.get(_metric_key(user.role, limit_type, "allowed"), 0) + 1
+                )
 
             return status
 
@@ -503,7 +526,9 @@ class HealthcareRateLimiter:
         minute_counter_key = f"{minute_key}:{minute_window}"
         hour_counter_key = f"{hour_key}:{hour_window}"
         capacity = max(1, config.burst_allowance)
-        fill_rate_per_sec = config.requests_per_minute / 60.0 if config.requests_per_minute > 0 else 0.0
+        fill_rate_per_sec = (
+            config.requests_per_minute / 60.0 if config.requests_per_minute > 0 else 0.0
+        )
         lua = """
 local tb_key = KEYS[1]
 local minute_key = KEYS[2]
@@ -578,7 +603,12 @@ return {allowed, tokens, minute_count, hour_count, retry_after}
         except Exception as e:  # pragma: no cover
             logger.debug("Lua rate limit script failed, falling back to Python logic: %s", e)
             return await self._legacy_python_bucket(
-                user, config, limit_type, minute_key, hour_key, current_time,
+                user,
+                config,
+                limit_type,
+                minute_key,
+                hour_key,
+                current_time,
             )
 
         allowed_flag = int(result[0]) == 1
@@ -652,7 +682,10 @@ return {allowed, tokens, minute_count, hour_count, retry_after}
         )
 
     async def activate_emergency_bypass(
-        self, user: AuthenticatedUser, duration_minutes: int = 30, reason: str = "Medical emergency",
+        self,
+        user: AuthenticatedUser,
+        duration_minutes: int = 30,
+        reason: str = "Medical emergency",
     ) -> bool:
         """
         Activate emergency bypass for healthcare user
@@ -697,7 +730,9 @@ return {allowed, tokens, minute_count, hour_count, retry_after}
         # Provide burst capacity once (static from config) if available
         role_limits = HEALTHCARE_RATE_LIMITS.get(status.user_role) if status.user_role else None
         if role_limits and status.limit_type in role_limits:
-            headers["X-RateLimit-Burst-Capacity"] = str(role_limits[status.limit_type].burst_allowance)
+            headers["X-RateLimit-Burst-Capacity"] = str(
+                role_limits[status.limit_type].burst_allowance
+            )
 
         # Emergency bypass active header
         if status.user_id and self.emergency_bypass_active.get(status.user_id):
@@ -728,7 +763,9 @@ return {allowed, tokens, minute_count, hour_count, retry_after}
                 "allowed": total_allowed,
                 "denied": total_denied,
                 "emergency_bypass": emergency,
-                "allow_rate": (total_allowed / (total_allowed + total_denied)) if (total_allowed + total_denied) else 1.0,
+                "allow_rate": (total_allowed / (total_allowed + total_denied))
+                if (total_allowed + total_denied)
+                else 1.0,
             },
             "breakdown": breakdown,
             "policy_version": RATE_LIMITS_POLICY_VERSION,
@@ -743,7 +780,9 @@ return {allowed, tokens, minute_count, hour_count, retry_after}
         lines: list[str] = []
         # If limiter disabled via env, emit a single flagged metric and suppress counters
         if os.getenv("RL_DISABLE", "false").lower() == "true":
-            lines.append("# HELP healthcare_rate_limit_disabled Rate limiter disabled flag (1=disabled)")
+            lines.append(
+                "# HELP healthcare_rate_limit_disabled Rate limiter disabled flag (1=disabled)"
+            )
             lines.append("# TYPE healthcare_rate_limit_disabled gauge")
             lines.append("healthcare_rate_limit_disabled 1")
             lines.append(
@@ -768,7 +807,9 @@ return {allowed, tokens, minute_count, hour_count, retry_after}
             f'healthcare_rate_limit_policy_info{{policy_version="{RATE_LIMITS_POLICY_VERSION}",source="{RATE_LIMITS_SOURCE}"}} 1',
         )
         # Active emergency bypass gauge
-        active_bypass = sum(1 for _, exp in self.emergency_bypass_active.items() if exp > datetime.now())
+        active_bypass = sum(
+            1 for _, exp in self.emergency_bypass_active.items() if exp > datetime.now()
+        )
         lines.append("# HELP healthcare_active_emergency_bypass Active emergency bypass sessions")
         lines.append("# TYPE healthcare_active_emergency_bypass gauge")
         lines.append(f"healthcare_active_emergency_bypass {active_bypass}")

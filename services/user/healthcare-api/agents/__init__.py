@@ -32,10 +32,18 @@ class BaseHealthcareAgent(ABC):
     - All interactions logged for compliance
     """
 
-    def __init__(self, mcp_client: Any = None, llm_client: Any = None, agent_name: str = None, agent_type: str = None):
+    def __init__(
+        self,
+        mcp_client: Any = None,
+        llm_client: Any = None,
+        agent_name: str = None,
+        agent_type: str = None,
+    ):
         # Auto-derive agent name and type from class name if not provided
         if agent_name is None:
-            agent_name = self.__class__.__name__.lower().replace("agent", "").replace("healthcare", "")
+            agent_name = (
+                self.__class__.__name__.lower().replace("agent", "").replace("healthcare", "")
+            )
         if agent_type is None:
             agent_type = agent_name
 
@@ -175,7 +183,9 @@ class BaseHealthcareAgent(ABC):
         model_registry.log_performance(f"agent_{self.agent_name}", metrics)
 
     async def initialize_session(
-        self, user_id: str, session_data: dict[str, Any] | None = None,
+        self,
+        user_id: str,
+        session_data: dict[str, Any] | None = None,
     ) -> str:
         """Initialize a new session for the agent"""
         self._session_id = str(uuid.uuid4())
@@ -229,7 +239,7 @@ class BaseHealthcareAgent(ABC):
             context = None
             if "medical_search" in self.agent_name or "literature" in self.agent_name:
                 context = "medical_literature"
-            
+
             await self._log_interaction("response", request_id, response, context)
 
             return response
@@ -289,16 +299,23 @@ class BaseHealthcareAgent(ABC):
         return {"safe": True}
 
     async def _log_interaction(
-        self, interaction_type: str, request_id: str, data: dict[str, Any], context: str | None = None,
+        self,
+        interaction_type: str,
+        request_id: str,
+        data: dict[str, Any],
+        context: str | None = None,
     ) -> None:
         """Log agent interaction for audit purposes with PHI protection"""
         try:
             # Use provided context or determine context for PHI detection
             if context is None:
-                if self.agent_name in ["medical_search", "medical_search_agent"] or "search" in self.agent_type:
+                if (
+                    self.agent_name in ["medical_search", "medical_search_agent"]
+                    or "search" in self.agent_type
+                ):
                     # Medical literature search results should not have author names treated as PHI
                     context = "medical_literature"
-            
+
             # Sanitize data for PHI protection with context
             sanitized_data = sanitize_healthcare_data(data, context)
 
@@ -359,6 +376,3 @@ class BaseHealthcareAgent(ABC):
                 )
             finally:
                 self._db_connection = None
-
-
-

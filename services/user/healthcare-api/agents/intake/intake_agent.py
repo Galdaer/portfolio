@@ -183,7 +183,9 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
 
     @healthcare_log_method(operation_type="patient_registration", phi_risk_level="high")
     async def _process_new_patient_registration(
-        self, patient_data: dict[str, Any], session_id: str,
+        self,
+        patient_data: dict[str, Any],
+        session_id: str,
     ) -> IntakeResult:
         """
         Process new patient registration with administrative validation
@@ -269,7 +271,9 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         )
 
     async def _process_appointment_scheduling(
-        self, patient_data: dict[str, Any], session_id: str,
+        self,
+        patient_data: dict[str, Any],
+        session_id: str,
     ) -> IntakeResult:
         """
         Process appointment scheduling with administrative workflow
@@ -330,7 +334,9 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         )
 
     async def _process_insurance_verification(
-        self, patient_data: dict[str, Any], session_id: str,
+        self,
+        patient_data: dict[str, Any],
+        session_id: str,
     ) -> IntakeResult:
         """
         Process insurance verification with administrative validation
@@ -399,7 +405,9 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         )
 
     async def _process_document_checklist(
-        self, patient_data: dict[str, Any], session_id: str,
+        self,
+        patient_data: dict[str, Any],
+        session_id: str,
     ) -> IntakeResult:
         """
         Generate document checklist for patient intake
@@ -454,7 +462,9 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         )
 
     async def _process_general_intake(
-        self, patient_data: dict[str, Any], session_id: str,
+        self,
+        patient_data: dict[str, Any],
+        session_id: str,
     ) -> IntakeResult:
         """
         Process general intake request with basic administrative support

@@ -6,6 +6,7 @@ chat model via our existing `src/local_llm/ollama_client` helpers.
 The agent builds no network connections on import; construction is
 lightweight and runtime-safe for PHI.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -42,7 +43,7 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
         memory_max_token_limit: int = 2000,
         tool_max_retries: int = 2,
         tool_retry_base_delay: float = 0.5,
-        agent_manager: Optional[Any] = None
+        agent_manager: Optional[Any] = None,
     ):
         """Initialize the healthcare LangChain agent.
 
@@ -58,13 +59,15 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
         """
         # PHASE 1.3 BASEHEALTHCAREAGENT INTEGRATION: Initialize healthcare framework
         super().__init__(
-            mcp_client=mcp_client,
-            agent_name="langchain_healthcare",
-            agent_type="langchain_medical"
+            mcp_client=mcp_client, agent_name="langchain_healthcare", agent_type="langchain_medical"
         )
-        
+
         # LangChain-specific configuration with YAML-first precedence
-        self.verbose = verbose or _os.getenv("HEALTHCARE_AGENT_DEBUG", "").lower() in {"1", "true", "yes"}
+        self.verbose = verbose or _os.getenv("HEALTHCARE_AGENT_DEBUG", "").lower() in {
+            "1",
+            "true",
+            "yes",
+        }
 
         def _load_yaml(path: Path) -> Dict[str, Any]:
             try:
@@ -85,12 +88,20 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
         yaml_max_iter = None
         try:
             # Prefer query_engine.enhanced_medical_query.max_iterations when present
-            qe = agent_cfg.get("query_engine", {}).get("enhanced_medical_query", {}) if agent_cfg else {}
+            qe = (
+                agent_cfg.get("query_engine", {}).get("enhanced_medical_query", {})
+                if agent_cfg
+                else {}
+            )
             if isinstance(qe, dict) and qe.get("max_iterations") is not None:
                 yaml_max_iter = int(qe.get("max_iterations"))
             else:
                 # Fallback to a general clinical_research limit if defined
-                cr = agent_cfg.get("agent_limits", {}).get("clinical_research", {}) if agent_cfg else {}
+                cr = (
+                    agent_cfg.get("agent_limits", {}).get("clinical_research", {})
+                    if agent_cfg
+                    else {}
+                )
                 if isinstance(cr, dict) and cr.get("max_iterations") is not None:
                     yaml_max_iter = int(cr.get("max_iterations"))
         except Exception:
@@ -126,16 +137,22 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
 
             try:
                 if models_config_path.exists():
-                    with open(models_config_path, 'r') as f:
+                    with open(models_config_path, "r") as f:
                         models_config = yaml.safe_load(f)
 
                     # Use healthcare LLM from config
-                    default_model = models_config.get('primary_models', {}).get('healthcare_llm', default_model)
+                    default_model = models_config.get("primary_models", {}).get(
+                        "healthcare_llm", default_model
+                    )
 
                     # Use healthcare reasoning parameters if available
-                    reasoning_params = models_config.get('model_parameters', {}).get('healthcare_reasoning', {})
+                    reasoning_params = models_config.get("model_parameters", {}).get(
+                        "healthcare_reasoning", {}
+                    )
                     if isinstance(reasoning_params, dict):
-                        default_temperature = reasoning_params.get('temperature', default_temperature)
+                        default_temperature = reasoning_params.get(
+                            "temperature", default_temperature
+                        )
             except Exception as e:
                 logger.warning(f"Could not load models config, using defaults: {e}")
 
@@ -144,7 +161,7 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
                 model=model or default_model,
                 temperature=default_temperature,
                 base_url=_os.getenv("OLLAMA_URL", "http://172.20.0.10:11434"),
-                num_ctx=4096  # Context window size
+                num_ctx=4096,  # Context window size
             )
 
             # Build the chat model
@@ -157,7 +174,9 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
         self.show_agent_header = True
         # Default timeouts, can be tuned via env for clinical searches
         try:
-            self.per_agent_default_timeout = float(_os.getenv("HEALTHCARE_AGENT_TIMEOUT_DEFAULT", "30"))
+            self.per_agent_default_timeout = float(
+                _os.getenv("HEALTHCARE_AGENT_TIMEOUT_DEFAULT", "30")
+            )
         except ValueError:
             self.per_agent_default_timeout = 30.0
         try:
@@ -167,18 +186,15 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
 
         # Tools - Agent-first architecture
         self.tools = create_healthcare_tools(
-            mcp_client,
-            agent_manager,
-            max_retries=int(tool_max_retries)
+            mcp_client, agent_manager, max_retries=int(tool_max_retries)
         )
         # ReAct prompt template (solves agent_scratchpad issues)
         # Use official ReAct prompt from hub per handoff document
         from langchain import hub
+
         prompt = hub.pull("hwchase17/react")
 
-        agent = create_react_agent(
-            llm=self.llm, tools=self.tools, prompt=prompt
-        )
+        agent = create_react_agent(llm=self.llm, tools=self.tools, prompt=prompt)
 
         # Configure AgentExecutor with ReAct agent and parsing error handling
         # Optional max execution time for AgentExecutor (seconds). 0 disables.
@@ -192,7 +208,9 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
                     yaml_hard_cap = float(tmo2.get("per_agent_hard_cap"))
             max_exec_env = float(_os.getenv("HEALTHCARE_AGENT_MAX_EXECUTION_SEC", "0"))
             max_exec_time = (
-                yaml_hard_cap if (yaml_hard_cap is not None and yaml_hard_cap > 0) else (max_exec_env if max_exec_env > 0 else None)
+                yaml_hard_cap
+                if (yaml_hard_cap is not None and yaml_hard_cap > 0)
+                else (max_exec_env if max_exec_env > 0 else None)
             )
         except Exception:
             max_exec_time = None
@@ -202,7 +220,7 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
             tools=self.tools,
             verbose=True,  # Enable for debugging
             max_iterations=self.max_iterations,  # Use dynamic iterations parameter (env-aware)
-            max_execution_time=max_exec_time,     # Optional wall-clock limit
+            max_execution_time=max_exec_time,  # Optional wall-clock limit
             handle_parsing_errors="Check your output and make sure it conforms!",  # Specific error message per handoff
             return_intermediate_steps=True,
             # NO memory parameter per handoff document
@@ -220,7 +238,9 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
                     return
                 try:
                     thought_logger.info(f"🧠 AGENT REASONING: {action.log}")
-                    thought_logger.info(f"🔧 TOOL SELECTED: {action.tool} with input: {str(action.tool_input)[:200]}")
+                    thought_logger.info(
+                        f"🔧 TOOL SELECTED: {action.tool} with input: {str(action.tool_input)[:200]}"
+                    )
                 except Exception:
                     pass
 
@@ -304,7 +324,13 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
                 try:
                     logger.debug(
                         "Chain start",
-                        extra={"healthcare_context": {"inputs_keys": list(inputs.keys()) if isinstance(inputs, dict) else []}},
+                        extra={
+                            "healthcare_context": {
+                                "inputs_keys": list(inputs.keys())
+                                if isinstance(inputs, dict)
+                                else []
+                            }
+                        },
                     )
                 except Exception:
                     pass
@@ -315,7 +341,13 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
                 try:
                     logger.debug(
                         "Chain end",
-                        extra={"healthcare_context": {"outputs_keys": list(outputs.keys()) if isinstance(outputs, dict) else []}},
+                        extra={
+                            "healthcare_context": {
+                                "outputs_keys": list(outputs.keys())
+                                if isinstance(outputs, dict)
+                                else []
+                            }
+                        },
                     )
                 except Exception:
                     pass
@@ -328,13 +360,15 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
 
         self._debug_callback = _LangchainAgentDebugCallback(enabled=self.verbose)
 
-    async def process(self, query: str, *, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def process(
+        self, query: str, *, context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Process a query with tool access and provenance metadata."""
         try:
             # CRITICAL: Only pass 'input' - no other keys
             # AgentExecutor handles agent_scratchpad internally
             input_data = {"input": query}
-            
+
             if self.verbose:
                 try:
                     logger.debug(
@@ -348,21 +382,27 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
                     )
                 except Exception:
                     pass
-            
+
             # Execute with thought process callback for debugging
             config = RunnableConfig(callbacks=[self._debug_callback]) if self.verbose else None
             result = await self.executor.ainvoke(input_data, config=config)
-            
+
             # Log the intermediate steps for debugging
             if self.verbose and result.get("intermediate_steps"):
-                thought_logger.info(f"🔄 ITERATION COUNT: {len(result['intermediate_steps'])} steps")
+                thought_logger.info(
+                    f"🔄 ITERATION COUNT: {len(result['intermediate_steps'])} steps"
+                )
                 for i, (action, observation) in enumerate(result["intermediate_steps"]):
-                    thought_logger.info(f"🔄 STEP {i + 1}: {action.tool} -> {str(observation)[:200]}")
-            
+                    thought_logger.info(
+                        f"🔄 STEP {i + 1}: {action.tool} -> {str(observation)[:200]}"
+                    )
+
             agent_name = "medical_search"  # default label until router is added
             formatted = result.get("output", "")
             if self.show_agent_header:
-                formatted = f"🤖 {agent_name.replace('_', ' ').title()} Agent Response:\n\n" + formatted
+                formatted = (
+                    f"🤖 {agent_name.replace('_', ' ').title()} Agent Response:\n\n" + formatted
+                )
 
             logger.info(f"LangChain agent processing successful. Output length: {len(formatted)}")
             return {
@@ -386,12 +426,14 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
                 filename = frame.f_code.co_filename
                 funcname = frame.f_code.co_name
                 line = linecache.getline(filename, lineno).rstrip("\n")
-                frames.append({
-                    "file": filename,
-                    "line": lineno,
-                    "function": funcname,
-                    "code": line,
-                })
+                frames.append(
+                    {
+                        "file": filename,
+                        "line": lineno,
+                        "function": funcname,
+                        "code": line,
+                    }
+                )
                 tb = tb.tb_next
 
             # Prefer the deepest in-repo frame for faster pinpointing
@@ -420,7 +462,9 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
                 logger.error(f"DETAILED ERROR: {error_details['message']}")
                 logger.error(f"ERROR TYPE: {error_details['type']}")
                 if chosen:
-                    logger.error(f"ERROR LOCATION: {chosen['file']}:{chosen['line']} in {chosen['function']}()")
+                    logger.error(
+                        f"ERROR LOCATION: {chosen['file']}:{chosen['line']} in {chosen['function']}()"
+                    )
                     logger.error(f"ERROR CODE: {chosen['code']}")
                 logger.error(f"FULL STACK TRACE:\n{error_details['stack']}")
             except Exception:
@@ -439,7 +483,7 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
     async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         BaseHealthcareAgent abstract method implementation for LangChain agent
-        
+
         Processes healthcare requests through LangChain agent workflow
         """
         try:
@@ -449,31 +493,27 @@ class HealthcareLangChainAgent(BaseHealthcareAgent):
                 return {
                     "success": False,
                     "error": "No message provided in request",
-                    "agent_name": self.agent_name
+                    "agent_name": self.agent_name,
                 }
-            
+
             # Process through LangChain agent
             result = await self.process(message)
-            
+
             # Convert to BaseHealthcareAgent expected format
             if isinstance(result, dict) and result.get("success", True):
                 return {
                     "success": True,
                     "response": result.get("formatted_summary", str(result)),
                     "agent_name": self.agent_name,
-                    "details": result
+                    "details": result,
                 }
             else:
                 return {
                     "success": False,
                     "error": result.get("error", "Unknown error"),
-                    "agent_name": self.agent_name
+                    "agent_name": self.agent_name,
                 }
-                
+
         except Exception as e:
             self.logger.error(f"LangChain agent _process_implementation error: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "agent_name": self.agent_name
-            }
+            return {"success": False, "error": str(e), "agent_name": self.agent_name}

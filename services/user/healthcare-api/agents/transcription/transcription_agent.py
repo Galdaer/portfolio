@@ -463,7 +463,8 @@ class TranscriptionAgent(BaseHealthcareAgent):
 
             # Generate recommendations
             recommendations = self._generate_note_recommendations(
-                structured_content, missing_sections,
+                structured_content,
+                missing_sections,
             )
 
             log_healthcare_event(
@@ -516,7 +517,9 @@ class TranscriptionAgent(BaseHealthcareAgent):
             )
 
     async def _structure_note_content(
-        self, raw_content: str, template: DocumentationTemplate,
+        self,
+        raw_content: str,
+        template: DocumentationTemplate,
     ) -> dict[str, Any]:
         """Structure raw content into organized sections"""
 
@@ -554,7 +557,9 @@ class TranscriptionAgent(BaseHealthcareAgent):
         return structured
 
     async def _format_clinical_note(
-        self, structured_content: dict[str, Any], template: DocumentationTemplate,
+        self,
+        structured_content: dict[str, Any],
+        template: DocumentationTemplate,
     ) -> str:
         """Format structured content into clinical note"""
 
@@ -582,7 +587,9 @@ class TranscriptionAgent(BaseHealthcareAgent):
         return "\n".join(formatted_lines)
 
     def _calculate_note_quality(
-        self, structured_content: dict[str, Any], template: DocumentationTemplate,
+        self,
+        structured_content: dict[str, Any],
+        template: DocumentationTemplate,
     ) -> float:
         """Calculate quality score for clinical note"""
 
@@ -612,7 +619,9 @@ class TranscriptionAgent(BaseHealthcareAgent):
         return round(quality_score, 2)
 
     def _identify_missing_sections(
-        self, structured_content: dict[str, Any], template: DocumentationTemplate,
+        self,
+        structured_content: dict[str, Any],
+        template: DocumentationTemplate,
     ) -> list[str]:
         """Identify missing required sections"""
 
@@ -624,7 +633,9 @@ class TranscriptionAgent(BaseHealthcareAgent):
         return missing
 
     def _generate_note_recommendations(
-        self, structured_content: dict[str, Any], missing_sections: list[str],
+        self,
+        structured_content: dict[str, Any],
+        missing_sections: list[str],
     ) -> list[str]:
         """Generate recommendations for note improvement"""
 

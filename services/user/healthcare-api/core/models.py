@@ -28,19 +28,22 @@ class ModelRegistry:
 
         # Get real Ollama models - no fallbacks to expose connection issues
         import ollama
+
         client = ollama.Client(host="http://172.20.0.10:11434")
         models = client.list()
 
         available_models = []
         for model in models.get("models", []):
-            available_models.append({
-                "id": model.get("name", "unknown"),
-                "name": model.get("name", "Unknown Model"),
-                "type": "text_generation",
-                "status": "available",
-                "size": model.get("size", 0),
-                "modified_at": model.get("modified_at", ""),
-            })
+            available_models.append(
+                {
+                    "id": model.get("name", "unknown"),
+                    "name": model.get("name", "Unknown Model"),
+                    "type": "text_generation",
+                    "status": "available",
+                    "size": model.get("size", 0),
+                    "modified_at": model.get("modified_at", ""),
+                }
+            )
 
         logger.info(f"Retrieved {len(available_models)} models from Ollama")
         return available_models

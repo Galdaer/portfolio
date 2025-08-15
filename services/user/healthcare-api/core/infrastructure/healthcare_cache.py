@@ -89,7 +89,9 @@ class HealthcareCacheManager:
         return self.redis_client
 
     async def get(
-        self, cache_key: str, security_level: CacheSecurityLevel = CacheSecurityLevel.PUBLIC,
+        self,
+        cache_key: str,
+        security_level: CacheSecurityLevel = CacheSecurityLevel.PUBLIC,
     ) -> Any | None:
         """Get item from cache with security validation"""
 
@@ -209,7 +211,9 @@ class HealthcareCacheManager:
             # Set in Redis
             redis_client = await self._ensure_redis_client()
             await redis_client.setex(
-                cache_key, cache_entry.ttl_seconds, json.dumps(asdict(cache_entry), default=str),
+                cache_key,
+                cache_entry.ttl_seconds,
+                json.dumps(asdict(cache_entry), default=str),
             )
 
             logger.debug(
@@ -264,7 +268,9 @@ class HealthcareCacheManager:
             return False
 
     async def get_medical_literature(
-        self, query: str, max_results: int = 10,
+        self,
+        query: str,
+        max_results: int = 10,
     ) -> list[dict[str, Any]] | None:
         """Get cached medical literature search results"""
 
@@ -273,7 +279,10 @@ class HealthcareCacheManager:
         return await self.get(cache_key, CacheSecurityLevel.PUBLIC)
 
     async def cache_medical_literature(
-        self, query: str, results: list[dict[str, Any]], max_results: int = 10,
+        self,
+        query: str,
+        results: list[dict[str, Any]],
+        max_results: int = 10,
     ) -> bool:
         """Cache medical literature search results"""
 
@@ -300,7 +309,9 @@ class HealthcareCacheManager:
         return await self.get(cache_key, CacheSecurityLevel.HEALTHCARE_SENSITIVE)
 
     async def cache_drug_interactions(
-        self, medications: list[str], interactions: dict[str, Any],
+        self,
+        medications: list[str],
+        interactions: dict[str, Any],
     ) -> bool:
         """Cache drug interaction data"""
 
@@ -319,7 +330,9 @@ class HealthcareCacheManager:
         )
 
     async def get_clinical_guidelines(
-        self, condition: str, specialty: str | None = None,
+        self,
+        condition: str,
+        specialty: str | None = None,
     ) -> dict[str, Any] | None:
         """Get cached clinical guidelines"""
 
@@ -328,7 +341,10 @@ class HealthcareCacheManager:
         return await self.get(cache_key, CacheSecurityLevel.HEALTHCARE_SENSITIVE)
 
     async def cache_clinical_guidelines(
-        self, condition: str, guidelines: dict[str, Any], specialty: str | None = None,
+        self,
+        condition: str,
+        guidelines: dict[str, Any],
+        specialty: str | None = None,
     ) -> bool:
         """Cache clinical guidelines"""
 
@@ -347,7 +363,9 @@ class HealthcareCacheManager:
         )
 
     async def get_medical_codes(
-        self, code_type: str, search_term: str,
+        self,
+        code_type: str,
+        search_term: str,
     ) -> list[dict[str, Any]] | None:
         """Get cached medical codes (ICD, CPT)"""
 
@@ -356,7 +374,10 @@ class HealthcareCacheManager:
         return await self.get(cache_key, CacheSecurityLevel.PUBLIC)
 
     async def cache_medical_codes(
-        self, code_type: str, search_term: str, codes: list[dict[str, Any]],
+        self,
+        code_type: str,
+        search_term: str,
+        codes: list[dict[str, Any]],
     ) -> bool:
         """Cache medical codes"""
 
@@ -382,7 +403,11 @@ class HealthcareCacheManager:
         return await self.get(cache_key, CacheSecurityLevel.HEALTHCARE_SENSITIVE)
 
     async def cache_session_data(
-        self, session_id: str, data_key: str, data: Any, ttl_minutes: int = 30,
+        self,
+        session_id: str,
+        data_key: str,
+        data: Any,
+        ttl_minutes: int = 30,
     ) -> bool:
         """Cache session data with short TTL"""
 
@@ -462,7 +487,6 @@ class HealthcareCacheManager:
                 "cache_levels": {level.value: ttl for level, ttl in self.cache_ttls.items()},
                 "timestamp": datetime.utcnow().isoformat(),
             }
-
 
         except Exception as e:
             logger.exception(f"Failed to get cache stats: {e}")
@@ -585,7 +609,10 @@ def cache_medical_literature(ttl_seconds: int = 3600 * 24) -> Any:
     async def decorator(func: Any) -> Any:
         cache_manager = await get_healthcare_cache()
         return HealthcareCacheDecorator(
-            cache_manager, "medical_literature", CacheSecurityLevel.PUBLIC, ttl_seconds,
+            cache_manager,
+            "medical_literature",
+            CacheSecurityLevel.PUBLIC,
+            ttl_seconds,
         )(func)
 
     return decorator
@@ -597,7 +624,10 @@ def cache_drug_interactions(ttl_seconds: int = 3600 * 24 * 7) -> Any:
     async def decorator(func: Any) -> Any:
         cache_manager = await get_healthcare_cache()
         return HealthcareCacheDecorator(
-            cache_manager, "drug_interactions", CacheSecurityLevel.HEALTHCARE_SENSITIVE, ttl_seconds,
+            cache_manager,
+            "drug_interactions",
+            CacheSecurityLevel.HEALTHCARE_SENSITIVE,
+            ttl_seconds,
         )(func)
 
     return decorator

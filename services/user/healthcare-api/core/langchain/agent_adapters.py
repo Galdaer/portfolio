@@ -113,7 +113,9 @@ def safe_async_call(coro):
 
 
 def create_agent_adapter(
-    agent_instance: BaseHealthcareAgent, agent_name: str, input_schema: type,
+    agent_instance: BaseHealthcareAgent,
+    agent_name: str,
+    input_schema: type,
 ) -> StructuredTool:
     """
     Create a LangChain tool adapter for an existing healthcare agent.
@@ -159,13 +161,13 @@ def create_agent_adapter(
             if isinstance(result, dict):
                 # For successful responses, extract key information into conclusive summary
                 if result.get("success") and result.get("formatted_summary"):
-                    total_sources = result.get('total_sources', 0)
-                    
+                    total_sources = result.get("total_sources", 0)
+
                     # CRITICAL FIX: Handle empty results with DEFINITIVE completion
                     if total_sources == 0:
                         conclusive_response = f"""FINAL ANSWER: No medical literature sources found.
 
-I have completed a thorough search of the medical literature database for "{result.get('search_query', query)}" but found no matching articles or sources.
+I have completed a thorough search of the medical literature database for "{result.get("search_query", query)}" but found no matching articles or sources.
 
 Possible reasons:
 - Query terms may be too specific
@@ -176,15 +178,15 @@ SEARCH STATUS: COMPLETED - NO RESULTS FOUND
 This healthcare search task is now finished."""
                     else:
                         # Use the agent's own formatted summary as the conclusive response
-                        conclusive_response = f"""MEDICAL SEARCH COMPLETE: {result['formatted_summary']}
+                        conclusive_response = f"""MEDICAL SEARCH COMPLETE: {result["formatted_summary"]}
 
 Key Findings:
 - Sources Found: {total_sources}
-- Search Query: {result.get('search_query', query)}
-- Search Confidence: {result.get('search_confidence', 'N/A')}
+- Search Query: {result.get("search_query", query)}
+- Search Confidence: {result.get("search_confidence", "N/A")}
 
 This medical literature search has been completed successfully by the specialized medical search agent."""
-                    
+
                     return conclusive_response
                 elif result.get("success"):
                     # Generic success format for other agents
@@ -438,16 +440,16 @@ def create_general_healthcare_router(discovered_agents: dict[str, Any]) -> Struc
                         },
                     ),
                 )
-                
+
                 # CRITICAL FIX: Apply same conclusive formatting as individual agents
                 if isinstance(adapter_result, dict):
                     if adapter_result.get("success") and adapter_result.get("formatted_summary"):
-                        total_sources = adapter_result.get('total_sources', 0)
-                        
+                        total_sources = adapter_result.get("total_sources", 0)
+
                         if total_sources == 0:
                             return f"""FINAL ANSWER: No medical literature sources found.
 
-I have completed a thorough search of the medical literature database for "{adapter_result.get('search_query', query)}" but found no matching articles or sources.
+I have completed a thorough search of the medical literature database for "{adapter_result.get("search_query", query)}" but found no matching articles or sources.
 
 Possible reasons:
 - Query terms may be too specific
@@ -457,19 +459,21 @@ Possible reasons:
 SEARCH STATUS: COMPLETED - NO RESULTS FOUND
 This healthcare search task is now finished."""
                         else:
-                            return f"""MEDICAL SEARCH COMPLETE: {adapter_result['formatted_summary']}
+                            return f"""MEDICAL SEARCH COMPLETE: {adapter_result["formatted_summary"]}
 
 Key Findings:
 - Sources Found: {total_sources}
-- Search Query: {adapter_result.get('search_query', query)}
-- Search Confidence: {adapter_result.get('search_confidence', 'N/A')}
+- Search Query: {adapter_result.get("search_query", query)}
+- Search Confidence: {adapter_result.get("search_confidence", "N/A")}
 
 This medical literature search has been completed successfully."""
                     elif adapter_result.get("success"):
                         return f"AGENT TASK COMPLETE: Medical search agent successfully processed: {query[:100]}"
                     else:
-                        return f"AGENT ERROR: {adapter_result.get('error', 'Unknown error occurred')}"
-                
+                        return (
+                            f"AGENT ERROR: {adapter_result.get('error', 'Unknown error occurred')}"
+                        )
+
                 return str(adapter_result)
 
             return "No suitable healthcare agent available for this query."

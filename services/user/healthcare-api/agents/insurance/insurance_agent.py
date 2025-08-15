@@ -159,7 +159,8 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
     @healthcare_log_method(operation_type="insurance_verification", phi_risk_level="high")
     @phi_monitor(risk_level="high", operation_type="insurance_verification")
     async def verify_insurance_eligibility(
-        self, insurance_info: dict[str, Any],
+        self,
+        insurance_info: dict[str, Any],
     ) -> InsuranceVerificationResult:
         """
         Verify patient insurance eligibility and benefits
@@ -301,7 +302,9 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
             )
 
     async def _check_eligibility(
-        self, insurance_info: dict[str, Any], payer_name: str,
+        self,
+        insurance_info: dict[str, Any],
+        payer_name: str,
     ) -> dict[str, Any]:
         """
         Check insurance eligibility with payer API
@@ -329,7 +332,9 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
         }
 
     async def _get_benefits_details(
-        self, insurance_info: dict[str, Any], payer_name: str,
+        self,
+        insurance_info: dict[str, Any],
+        payer_name: str,
     ) -> BenefitsDetails:
         """
         Get detailed benefits information from payer
@@ -532,7 +537,8 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
         }
 
         coverage_info = coverage_rules.get(
-            service_code, {"covered": False, "copay": 0.00, "coinsurance": 0.0, "prior_auth": False},
+            service_code,
+            {"covered": False, "copay": 0.00, "coinsurance": 0.0, "prior_auth": False},
         )
 
         result = {
@@ -659,7 +665,8 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
 
             elif request_type == "eligibility_verification":
                 result = await self.verify_insurance_eligibility(
-                    request.get("patient_info", {}), request.get("insurance_info", {}),
+                    request.get("patient_info", {}),
+                    request.get("insurance_info", {}),
                 )
                 base_response.update({"eligibility_result": result})
 

@@ -31,7 +31,8 @@ class SimplePHIDetector:
 
         # Pre-compile combined pattern for even faster matching
         self.combined_pattern = re.compile(
-            r"(?:" + "|".join(
+            r"(?:"
+            + "|".join(
                 [
                     r"\b\d{3}-\d{2}-\d{4}\b",  # SSN
                     r"\b\d{3}-\d{3}-\d{4}\b",  # Phone (xxx-xxx-xxxx)
@@ -196,7 +197,11 @@ class ChatLogManager:
         return message
 
     async def get_chat_history(
-        self, session_id: str, user_id: str, include_phi: bool = False, max_messages: int = 100,
+        self,
+        session_id: str,
+        user_id: str,
+        include_phi: bool = False,
+        max_messages: int = 100,
     ) -> list[ChatMessage]:
         """Retrieve chat history with PHI protection"""
 
@@ -250,7 +255,9 @@ class ChatLogManager:
         return filtered_messages
 
     async def create_session(
-        self, user_id: str, healthcare_context: dict[str, Any] | None = None,
+        self,
+        user_id: str,
+        healthcare_context: dict[str, Any] | None = None,
     ) -> str:
         """Create new chat session with healthcare context"""
 
@@ -314,7 +321,10 @@ class ChatLogManager:
         return session_summary
 
     async def quarantine_message(
-        self, message_id: str, reason: str, quarantine_level: str = "HIGH",
+        self,
+        message_id: str,
+        reason: str,
+        quarantine_level: str = "HIGH",
     ) -> None:
         """Quarantine message with potential PHI exposure"""
 
@@ -377,7 +387,10 @@ class ChatLogManager:
         return hashlib.sha256(data.encode()).hexdigest()[:12]
 
     def _determine_security_level(
-        self, content: str, phi_detected: bool, healthcare_context: dict[str, Any] | None,
+        self,
+        content: str,
+        phi_detected: bool,
+        healthcare_context: dict[str, Any] | None,
     ) -> ChatLogLevel:
         """Determine security level for message"""
 
@@ -408,7 +421,9 @@ class ChatLogManager:
         return ChatLogLevel.PUBLIC
 
     async def _handle_session_message(
-        self, message: ChatMessage, healthcare_context: dict[str, Any] | None,
+        self,
+        message: ChatMessage,
+        healthcare_context: dict[str, Any] | None,
     ) -> None:
         """Handle message within session context"""
 

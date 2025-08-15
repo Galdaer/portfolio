@@ -20,8 +20,16 @@ from core.infrastructure.agent_context import AgentContext, new_agent_context
 from core.infrastructure.agent_metrics import AgentMetricsStore
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 from core.medical import search_utils as medical_search_utils
-from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType, MedicalQueryResult
-from core.medical.url_utils import generate_source_url, format_source_for_display, generate_conversational_summary
+from core.medical.enhanced_query_engine import (
+    EnhancedMedicalQueryEngine,
+    QueryType,
+    MedicalQueryResult,
+)
+from core.medical.url_utils import (
+    generate_source_url,
+    format_source_for_display,
+    generate_conversational_summary,
+)
 from core.search import extract_source_links
 
 logger = get_healthcare_logger("agent.medical_search")
@@ -54,7 +62,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
     """
 
     def __init__(self, mcp_client: object, llm_client: object) -> None:
-        super().__init__(mcp_client, llm_client, agent_name="medical_search", agent_type="literature_search")
+        super().__init__(
+            mcp_client, llm_client, agent_name="medical_search", agent_type="literature_search"
+        )
         self.mcp_client = mcp_client
         self.llm_client = llm_client
         self._metrics = AgentMetricsStore(agent_name="medical_search")
@@ -92,6 +102,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             max_concurrent = 2
         # Semaphore used around MCP tool invocations
         import asyncio as _asyncio  # local alias to avoid name shadowing
+
         self._mcp_sem = _asyncio.Semaphore(max(1, int(max_concurrent)))
 
         # Load intent configuration (YAML) once
@@ -117,7 +128,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             "medical_search",
             user_id=str(user_id_val) if isinstance(user_id_val, (str, int)) else None,
         )
-        
+
         # Record metrics (non-blocking)
         try:
             await self._metrics.incr("requests_total")
@@ -126,7 +137,11 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
         sq1 = request.get("search_query")
         sq2 = request.get("query")
-        search_query = str(sq1) if isinstance(sq1, (str, int)) else (str(sq2) if isinstance(sq2, (str, int)) else "")
+        search_query = (
+            str(sq1)
+            if isinstance(sq1, (str, int))
+            else (str(sq2) if isinstance(sq2, (str, int)) else "")
+        )
         sc_val = request.get("search_context")
         search_context: dict[str, object] = sc_val if isinstance(sc_val, dict) else {}
 
@@ -134,13 +149,13 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
         if not search_query:
             logger.warning("No search query provided in request")
-            
+
             # Record metrics (non-blocking)
             try:
                 await self._metrics.incr("requests_error_missing_query")
             except Exception as metrics_error:
                 logger.warning(f"Failed to record error metrics: {metrics_error}")
-                
+
             return {
                 "success": False,
                 "error": "Missing search query",
@@ -166,7 +181,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             logger.info(
                 f"Medical search completed successfully, found {len(search_result.information_sources)} sources"
             )
-            
+
             # Record metrics (non-blocking)
             try:
                 await self._metrics.incr("requests_success")
@@ -185,13 +200,21 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 )
                 logger.info("DIAGNOSTIC: Response formatting completed successfully")
             except Exception as format_error:
-                logger.error(f"DIAGNOSTIC: Response formatting failed: {format_error}", exc_info=True)
+                logger.error(
+                    f"DIAGNOSTIC: Response formatting failed: {format_error}", exc_info=True
+                )
                 # Fallback to basic summary
                 formatted_summary = f"Found {len(search_result.information_sources)} medical literature sources for '{search_query}'"
 
-            logger.info(f"DIAGNOSTIC: formatted_summary length: {len(formatted_summary) if formatted_summary else 0}")
-            logger.info(f"DIAGNOSTIC: formatted_summary preview: {formatted_summary[:200] if formatted_summary else 'EMPTY'}")
-            logger.info(f"DIAGNOSTIC: intent_key: {intent_key}, template: {intent_cfg.get('template', 'NOT_SET') if intent_cfg else 'NO_CFG'}")
+            logger.info(
+                f"DIAGNOSTIC: formatted_summary length: {len(formatted_summary) if formatted_summary else 0}"
+            )
+            logger.info(
+                f"DIAGNOSTIC: formatted_summary preview: {formatted_summary[:200] if formatted_summary else 'EMPTY'}"
+            )
+            logger.info(
+                f"DIAGNOSTIC: intent_key: {intent_key}, template: {intent_cfg.get('template', 'NOT_SET') if intent_cfg else 'NO_CFG'}"
+            )
 
             response_dict = {
                 "success": True,
@@ -212,19 +235,21 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             }
 
             logger.info(f"DIAGNOSTIC: Final response keys: {list(response_dict.keys())}")
-            logger.info(f"DIAGNOSTIC: Response success: {response_dict['success']}, total_sources: {response_dict['total_sources']}")
+            logger.info(
+                f"DIAGNOSTIC: Response success: {response_dict['success']}, total_sources: {response_dict['total_sources']}"
+            )
 
             return response_dict
 
         except Exception as e:
             logger.exception(f"Search processing error: {e}")
-            
+
             # Record metrics (non-blocking)
             try:
                 await self._metrics.incr("requests_exception")
             except Exception as metrics_error:
                 logger.warning(f"Failed to record exception metrics: {metrics_error}")
-                
+
             return {
                 "success": False,
                 "error": str(e),
@@ -279,9 +304,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             if not isinstance(timeouts_cfg, dict):
                 timeouts_cfg = {}
             total_timeout = (
-                timeouts_cfg.get("total_search")
-                or timeouts_cfg.get("search_request")
-                or 60
+                timeouts_cfg.get("total_search") or timeouts_cfg.get("search_request") or 60
             )
 
             # Use asyncio.wait_for for overall timeout protection (module-level import)
@@ -292,7 +315,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             return result
 
         except TimeoutError:
-            logger.error(f"Medical literature search timed out after {total_timeout}s for query: '{search_query[:100]}...'")
+            logger.error(
+                f"Medical literature search timed out after {total_timeout}s for query: '{search_query[:100]}...'"
+            )
             # Return empty result with timeout message
             return MedicalSearchResult(
                 search_id=self._generate_search_id(search_query),
@@ -302,7 +327,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 drug_information=[],
                 clinical_references=[],
                 search_confidence=0.0,
-                disclaimers=[f"Search request timed out after {total_timeout} seconds. Please try a more specific query."],
+                disclaimers=[
+                    f"Search request timed out after {total_timeout} seconds. Please try a more specific query."
+                ],
                 source_links=[],
                 generated_at=datetime.now(UTC),
             )
@@ -323,7 +350,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             )
 
     async def _perform_literature_search(
-        self, search_query: str, search_context: dict[str, object] | None = None,
+        self,
+        search_query: str,
+        search_context: dict[str, object] | None = None,
     ) -> MedicalSearchResult:
         """Core literature search logic using Enhanced Medical Query Engine (Phase 2)"""
 
@@ -356,37 +385,43 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                     drug_information=[],
                     clinical_references=[],
                     search_confidence=0.0,
-                    disclaimers=["This appears to be a system prompt. Please provide a medical research question instead."],
+                    disclaimers=[
+                        "This appears to be a system prompt. Please provide a medical research question instead."
+                    ],
                     source_links=[],
                     generated_at=datetime.now(UTC),
                 )
 
-        logger.info(f"Processing legitimate medical search query with Enhanced Query Engine: '{search_query}'")
+        logger.info(
+            f"Processing legitimate medical search query with Enhanced Query Engine: '{search_query}'"
+        )
 
         # PHASE 2: Use Enhanced Medical Query Engine for 25x more sophisticated search
         try:
             # Classify intent and map to QueryType
             intent_key, intent_cfg = self._classify_query_intent(search_query)
             query_type = self._map_intent_to_query_type(intent_key)
-            
+
             logger.info(f"Using Enhanced Query Engine with QueryType: {query_type}")
-            
+
             # Use Enhanced Medical Query Engine for sophisticated medical search
             enhanced_result = await self._enhanced_query_engine.process_medical_query(
                 query=search_query,
                 query_type=query_type,
                 context=search_context,
-                max_iterations=3  # Use iterative refinement for better results
+                max_iterations=3,  # Use iterative refinement for better results
             )
-            
+
             # Convert enhanced result to legacy interface format
             search_result = self._convert_enhanced_result_to_search_result(enhanced_result)
-            
-            logger.info(f"Enhanced search completed - confidence: {enhanced_result.confidence_score:.2f}, "
-                        f"sources: {len(enhanced_result.sources)}, entities: {len(enhanced_result.medical_entities)}")
-            
+
+            logger.info(
+                f"Enhanced search completed - confidence: {enhanced_result.confidence_score:.2f}, "
+                f"sources: {len(enhanced_result.sources)}, entities: {len(enhanced_result.medical_entities)}"
+            )
+
             return search_result
-            
+
         except Exception as e:
             logger.error(f"Enhanced Query Engine failed, falling back to basic search: {e}")
             # Fallback to basic search if enhanced engine fails
@@ -398,25 +433,25 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         """Fallback to basic search if Enhanced Query Engine fails"""
         search_id = self._generate_search_id(search_query)
         logger.info(f"Using fallback basic search for query: '{search_query}'")
-        
+
         try:
             # Extract simple medical terms from the original query
             medical_concepts = await self._extract_simple_medical_terms(search_query)
             if not medical_concepts:
                 medical_concepts = [search_query]
-            
+
             # Validate the concepts
             validated_concepts = await self._validate_medical_terms(medical_concepts)
-            
+
             # Use basic PubMed search only
             condition_info = await self._search_condition_information(validated_concepts)
             symptom_literature = await self._search_symptom_literature(validated_concepts)
-            
+
             # Combine results
             all_sources = []
             all_sources.extend(condition_info if isinstance(condition_info, list) else [])
             all_sources.extend(symptom_literature if isinstance(symptom_literature, list) else [])
-            
+
             # Basic deduplication
             seen_keys: set[str] = set()
             deduped_sources: list[dict[str, object]] = []
@@ -427,10 +462,10 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                     continue
                 seen_keys.add(key)
                 deduped_sources.append(s)
-            
+
             # Calculate basic confidence
             confidence = min(1.0, len(deduped_sources) / 10.0) if deduped_sources else 0.0
-            
+
             return MedicalSearchResult(
                 search_id=search_id,
                 search_query=search_query,
@@ -443,7 +478,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 source_links=[],
                 generated_at=datetime.now(UTC),
             )
-            
+
         except Exception as e:
             logger.error(f"Fallback search also failed: {e}")
             return MedicalSearchResult(
@@ -471,15 +506,21 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         if not cfg_path.exists():
             logger.warning(f"DIAGNOSTIC: Intent config file not found at {cfg_path}")
             return {}
-        
+
         with cfg_path.open("r", encoding="utf-8") as f:
             config_data = yaml.safe_load(f) or {}
-            logger.info(f"DIAGNOSTIC: Loaded intent config with keys: {list(config_data.keys()) if isinstance(config_data, dict) else 'NOT_DICT'}")
+            logger.info(
+                f"DIAGNOSTIC: Loaded intent config with keys: {list(config_data.keys()) if isinstance(config_data, dict) else 'NOT_DICT'}"
+            )
             return config_data
 
     def _classify_query_intent(self, query: str) -> tuple[str, dict[str, object]]:
         """Simple keyword-based classifier per YAML patterns with default fallback."""
-        patterns = (self._intent_config.get("query_patterns") or {}) if isinstance(self._intent_config, dict) else {}
+        patterns = (
+            (self._intent_config.get("query_patterns") or {})
+            if isinstance(self._intent_config, dict)
+            else {}
+        )
         if not isinstance(patterns, dict):
             patterns = {}
         ql = (query or "").lower()
@@ -496,7 +537,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 best_score = score
                 best_cfg = cfg if isinstance(cfg, dict) else {}
         if not best_cfg:
-            best_cfg = patterns.get(best_key, {}) if isinstance(patterns.get(best_key), dict) else {}
+            best_cfg = (
+                patterns.get(best_key, {}) if isinstance(patterns.get(best_key), dict) else {}
+            )
         return best_key, best_cfg
 
     def _map_intent_to_query_type(self, intent_key: str) -> QueryType:
@@ -512,14 +555,16 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         }
         return intent_to_query_type.get(intent_key, QueryType.LITERATURE_RESEARCH)
 
-    def _convert_enhanced_result_to_search_result(self, enhanced_result: MedicalQueryResult) -> MedicalSearchResult:
+    def _convert_enhanced_result_to_search_result(
+        self, enhanced_result: MedicalQueryResult
+    ) -> MedicalSearchResult:
         """Convert Enhanced Query Engine result to Medical Search Agent result format"""
         # Extract different source types from enhanced result
         information_sources = []
         related_conditions: list[dict[str, object]] = []
         drug_information = []
         clinical_references = []
-        
+
         for source in enhanced_result.sources:
             source_type = source.get("source_type", "")
             if source_type in ["condition_information", "symptom_literature"]:
@@ -531,7 +576,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             else:
                 # Default to information sources
                 information_sources.append(source)
-        
+
         # Convert enhanced result to legacy format
         return MedicalSearchResult(
             search_id=enhanced_result.query_id,
@@ -559,8 +604,12 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         try:
             if template == "academic_article_list":
                 # PubMed-focused structured list
-                pubmed = [s for s in search_result.information_sources if s.get("source_type") in ["condition_information", "symptom_literature"]]
-                
+                pubmed = [
+                    s
+                    for s in search_result.information_sources
+                    if s.get("source_type") in ["condition_information", "symptom_literature"]
+                ]
+
                 # Safe config access with proper defaults
                 response_templates = self._intent_config.get("response_templates", {})
                 if isinstance(response_templates, dict):
@@ -574,7 +623,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 else:
                     max_items = 10
                     include_abstracts = True
-                    
+
                 lines: List[str] = [f"Academic articles for: {original_query}", ""]
                 for i, src in enumerate(pubmed[:max_items], 1):
                     fmt = format_source_for_display(src)
@@ -593,9 +642,24 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 return "\n".join(lines)
 
             if template == "mixed_studies_list":
-                pubmed = [s for s in search_result.information_sources if cast(str, s.get("source_type", "")) in ["condition_information", "symptom_literature"]]
-                trials = [s for s in search_result.information_sources if "trial" in cast(str, s.get("source_type", "")) or cast(str, s.get("source_type", "")) == "clinical_guideline"]
-                rt_cfg = cast(dict[str, object], self._intent_config.get("response_templates", {})).get("mixed_studies_list", {}) or {}
+                pubmed = [
+                    s
+                    for s in search_result.information_sources
+                    if cast(str, s.get("source_type", ""))
+                    in ["condition_information", "symptom_literature"]
+                ]
+                trials = [
+                    s
+                    for s in search_result.information_sources
+                    if "trial" in cast(str, s.get("source_type", ""))
+                    or cast(str, s.get("source_type", "")) == "clinical_guideline"
+                ]
+                rt_cfg = (
+                    cast(dict[str, object], self._intent_config.get("response_templates", {})).get(
+                        "mixed_studies_list", {}
+                    )
+                    or {}
+                )
                 max_pubmed_obj = cast(dict[str, object], rt_cfg).get("max_pubmed", 6)
                 max_trials_obj = cast(dict[str, object], rt_cfg).get("max_trials", 4)
                 max_pubmed = int(max_pubmed_obj) if isinstance(max_pubmed_obj, (int, str)) else 6
@@ -603,7 +667,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 lines = [f"Studies relevant to: {original_query}", "", "Research Articles:"]
                 for i, src in enumerate(pubmed[:max_pubmed], 1):
                     fmt = format_source_for_display(src)
-                    lines.append(f"- {cast(str, src.get('title', 'Untitled'))} — {cast(str, fmt.get('citation', ''))}")
+                    lines.append(
+                        f"- {cast(str, src.get('title', 'Untitled'))} — {cast(str, fmt.get('citation', ''))}"
+                    )
                     lines.append(f"  {cast(str, fmt['url'])}")
                 lines.append("\nClinical Trials / Guidelines:")
                 for i, src in enumerate(trials[:max_trials], 1):
@@ -618,35 +684,62 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 return "\n".join(lines)
 
             if template == "treatment_options_list":
-                pubmed = [s for s in search_result.information_sources if cast(str, s.get("source_type", "")) in ["condition_information", "symptom_literature"]]
-                trials = [s for s in search_result.information_sources if "trial" in cast(str, s.get("source_type", "")) or cast(str, s.get("source_type", "")) == "clinical_guideline"]
-                drugs = [s for s in search_result.information_sources if cast(str, s.get("source_type", "")) == "drug_info"]
-                rt_cfg = cast(dict[str, object], self._intent_config.get("response_templates", {})).get("treatment_options_list", {}) or {}
+                pubmed = [
+                    s
+                    for s in search_result.information_sources
+                    if cast(str, s.get("source_type", ""))
+                    in ["condition_information", "symptom_literature"]
+                ]
+                trials = [
+                    s
+                    for s in search_result.information_sources
+                    if "trial" in cast(str, s.get("source_type", ""))
+                    or cast(str, s.get("source_type", "")) == "clinical_guideline"
+                ]
+                drugs = [
+                    s
+                    for s in search_result.information_sources
+                    if cast(str, s.get("source_type", "")) == "drug_info"
+                ]
+                rt_cfg = (
+                    cast(dict[str, object], self._intent_config.get("response_templates", {})).get(
+                        "treatment_options_list", {}
+                    )
+                    or {}
+                )
                 max_pubmed_obj = cast(dict[str, object], rt_cfg).get("max_pubmed", 4)
                 max_trials_obj = cast(dict[str, object], rt_cfg).get("max_trials", 3)
                 max_drugs_obj = cast(dict[str, object], rt_cfg).get("max_drugs", 3)
                 max_pubmed = int(max_pubmed_obj) if isinstance(max_pubmed_obj, (int, str)) else 4
                 max_trials = int(max_trials_obj) if isinstance(max_trials_obj, (int, str)) else 3
                 max_drugs = int(max_drugs_obj) if isinstance(max_drugs_obj, (int, str)) else 3
-                lines = [f"Treatment-related information for: {original_query}", "", "Evidence from Literature:"]
+                lines = [
+                    f"Treatment-related information for: {original_query}",
+                    "",
+                    "Evidence from Literature:",
+                ]
                 for i, src in enumerate(pubmed[:max_pubmed], 1):
                     fmt = format_source_for_display(src)
-                    lines.append(f"- {cast(str, src.get('title', 'Untitled'))} — {cast(str, fmt.get('citation', ''))}")
+                    lines.append(
+                        f"- {cast(str, src.get('title', 'Untitled'))} — {cast(str, fmt.get('citation', ''))}"
+                    )
                     lines.append(f"  {cast(str, fmt['url'])}")
                 lines.append("\nRelevant Clinical Trials:")
                 for i, src in enumerate(trials[:max_trials], 1):
                     fmt = format_source_for_display(src)
-                    lines.append(f"- {cast(str, src.get('title', 'Unnamed study'))} — {cast(str, fmt.get('status_display', ''))} {cast(str, fmt.get('phase_display', ''))}")
+                    lines.append(
+                        f"- {cast(str, src.get('title', 'Unnamed study'))} — {cast(str, fmt.get('status_display', ''))} {cast(str, fmt.get('phase_display', ''))}"
+                    )
                     lines.append(f"  {cast(str, fmt['url'])}")
                 lines.append("\nDrug Information:")
                 for i, src in enumerate(drugs[:max_drugs], 1):
                     fmt = format_source_for_display(src)
-                    dn = cast(str, src.get('drug_name', src.get('generic_name', 'Unknown drug')))
+                    dn = cast(str, src.get("drug_name", src.get("generic_name", "Unknown drug")))
                     lines.append(f"- {dn}")
-                    man = cast(str, fmt.get('manufacturer_display', ''))
+                    man = cast(str, fmt.get("manufacturer_display", ""))
                     if man:
                         lines.append(f"  {man}")
-                    appr = cast(str, fmt.get('approval_display', ''))
+                    appr = cast(str, fmt.get("approval_display", ""))
                     if appr:
                         lines.append(f"  {appr}")
                     lines.append(f"  {cast(str, fmt['url'])}")
@@ -654,8 +747,18 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 return "\n".join(lines)
 
             if template == "clinical_trials_list":
-                trials = [s for s in search_result.information_sources if "trial" in cast(str, s.get("source_type", "")) or cast(str, s.get("source_type", "")) == "clinical_guideline"]
-                rt_cfg = cast(dict[str, object], self._intent_config.get("response_templates", {})).get("clinical_trials_list", {}) or {}
+                trials = [
+                    s
+                    for s in search_result.information_sources
+                    if "trial" in cast(str, s.get("source_type", ""))
+                    or cast(str, s.get("source_type", "")) == "clinical_guideline"
+                ]
+                rt_cfg = (
+                    cast(dict[str, object], self._intent_config.get("response_templates", {})).get(
+                        "clinical_trials_list", {}
+                    )
+                    or {}
+                )
                 max_trials_obj = cast(dict[str, object], rt_cfg).get("max_trials", 10)
                 max_trials = int(max_trials_obj) if isinstance(max_trials_obj, (int, str)) else 10
                 lines = [f"Clinical trials for: {original_query}", ""]
@@ -672,19 +775,28 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 return "\n".join(lines)
 
             if template == "drug_information_list":
-                drugs = [s for s in search_result.information_sources if cast(str, s.get("source_type", "")) == "drug_info"]
-                rt_cfg = cast(dict[str, object], self._intent_config.get("response_templates", {})).get("drug_information_list", {}) or {}
+                drugs = [
+                    s
+                    for s in search_result.information_sources
+                    if cast(str, s.get("source_type", "")) == "drug_info"
+                ]
+                rt_cfg = (
+                    cast(dict[str, object], self._intent_config.get("response_templates", {})).get(
+                        "drug_information_list", {}
+                    )
+                    or {}
+                )
                 max_drugs_obj = cast(dict[str, object], rt_cfg).get("max_drugs", 10)
                 max_drugs = int(max_drugs_obj) if isinstance(max_drugs_obj, (int, str)) else 10
                 lines = [f"Drug information related to: {original_query}", ""]
                 for i, src in enumerate(drugs[:max_drugs], 1):
                     fmt = format_source_for_display(src)
-                    dn = cast(str, src.get('drug_name', src.get('generic_name', 'Unknown drug')))
+                    dn = cast(str, src.get("drug_name", src.get("generic_name", "Unknown drug")))
                     lines.append(f"{i}. {dn}")
-                    man = cast(str, fmt.get('manufacturer_display', ''))
+                    man = cast(str, fmt.get("manufacturer_display", ""))
                     if man:
                         lines.append(f"   {man}")
-                    appr = cast(str, fmt.get('approval_display', ''))
+                    appr = cast(str, fmt.get("approval_display", ""))
                     if appr:
                         lines.append(f"   {appr}")
                     lines.append(f"   {cast(str, fmt['url'])}")
@@ -693,13 +805,18 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 return "\n".join(lines)
 
             # Default conversational overview using utility (LLM primary handled elsewhere)
-            return cast(str, generate_conversational_summary(search_result.information_sources, original_query))
+            return cast(
+                str,
+                generate_conversational_summary(search_result.information_sources, original_query),
+            )
 
         except Exception as e:
             logger.warning(f"Intent formatting failed ({template}): {e}")
             # Fallback to minimal, clean summary without preface
             try:
-                return generate_conversational_summary(search_result.information_sources, original_query)
+                return generate_conversational_summary(
+                    search_result.information_sources, original_query
+                )
             except Exception:
                 # Last resort: extremely simple list
                 items = []
@@ -710,7 +827,8 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 return "\n".join(items) if items else "No literature found."
 
     async def _search_condition_information(
-        self, medical_concepts: list[str],
+        self,
+        medical_concepts: list[str],
     ) -> list[dict[str, object]]:
         """
         Search for condition information using database-first approach
@@ -727,7 +845,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         if not isinstance(query_templates_map, dict):
             query_templates_map = {}
         max_results = int(max_results_map.get("condition_info", 10))
-        query_template = query_templates_map.get("condition_info", "{concept} overview pathophysiology symptoms")
+        query_template = query_templates_map.get(
+            "condition_info", "{concept} overview pathophysiology symptoms"
+        )
 
         for concept in medical_concepts:
             try:
@@ -744,18 +864,22 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                         )
 
                         for row in db_results:
-                            sources.append({
-                                "source_type": "condition_information",
-                                "title": f"Clinical Case: {concept}",
-                                "content": row.soap_notes[:500] + "..." if len(row.soap_notes) > 500 else row.soap_notes,
-                                "source": "Healthcare Database",
-                                "evidence_level": "clinical_case",
-                                "relevance_score": 0.8,
-                                "concept": concept,
-                                "url": "#database_case",
-                                "publication_date": "2024",
-                                "study_type": "case_series",
-                            })
+                            sources.append(
+                                {
+                                    "source_type": "condition_information",
+                                    "title": f"Clinical Case: {concept}",
+                                    "content": row.soap_notes[:500] + "..."
+                                    if len(row.soap_notes) > 500
+                                    else row.soap_notes,
+                                    "source": "Healthcare Database",
+                                    "evidence_level": "clinical_case",
+                                    "relevance_score": 0.8,
+                                    "concept": concept,
+                                    "url": "#database_case",
+                                    "publication_date": "2024",
+                                    "study_type": "case_series",
+                                }
+                            )
 
                         logger.info(f"Found {len(sources)} database entries for '{concept}'")
 
@@ -776,7 +900,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 mcp_timeout = int(timeouts_map.get("mcp_request", 45))
 
                 try:
-                    logger.info(f"Starting MCP call to 'search-pubmed' with timeout {mcp_timeout}s for concept '{concept}'...")
+                    logger.info(
+                        f"Starting MCP call to 'search-pubmed' with timeout {mcp_timeout}s for concept '{concept}'..."
+                    )
                     # Health check if available
                     if hasattr(self.mcp_client, "_ensure_connected"):
                         try:
@@ -799,26 +925,45 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                             timeout=mcp_timeout,
                         )
                     # Raw result debugging
-                    logger.info(f"Raw MCP result for concept '{concept}': type={type(literature_results).__name__} keys={list(literature_results.keys()) if isinstance(literature_results, dict) else 'n/a'}")
-                    
+                    logger.info(
+                        f"Raw MCP result for concept '{concept}': type={type(literature_results).__name__} keys={list(literature_results.keys()) if isinstance(literature_results, dict) else 'n/a'}"
+                    )
+
                     # CRITICAL DEBUG: Log the exact raw response
                     import json
-                    logger.error(f"CRITICAL DEBUG - Full MCP response: {json.dumps(literature_results, indent=2)}")
-                    
-                    if isinstance(literature_results, dict) and "content" in literature_results:
-                        logger.info(f"MCP content field type: {type(literature_results['content']).__name__}")
-                        if literature_results['content'] and isinstance(literature_results['content'][0], dict):
-                            first_content = literature_results['content'][0]
-                            logger.info(f"First content keys: {list(first_content.keys())}")
-                            if 'text' in first_content:
-                                text_preview = first_content['text'][:200] if len(first_content['text']) > 200 else first_content['text']
-                                logger.info(f"Text content preview: {text_preview}")
-                                
-                                # CRITICAL DEBUG: Log the exact text content
-                                logger.error(f"CRITICAL DEBUG - Full text content: {first_content['text']}")
 
-                    parsed_articles = medical_search_utils.parse_mcp_search_results(literature_results)
-                    logger.info(f"MCP call completed successfully, parsed {len(parsed_articles)} articles for '{concept}'")
+                    logger.error(
+                        f"CRITICAL DEBUG - Full MCP response: {json.dumps(literature_results, indent=2)}"
+                    )
+
+                    if isinstance(literature_results, dict) and "content" in literature_results:
+                        logger.info(
+                            f"MCP content field type: {type(literature_results['content']).__name__}"
+                        )
+                        if literature_results["content"] and isinstance(
+                            literature_results["content"][0], dict
+                        ):
+                            first_content = literature_results["content"][0]
+                            logger.info(f"First content keys: {list(first_content.keys())}")
+                            if "text" in first_content:
+                                text_preview = (
+                                    first_content["text"][:200]
+                                    if len(first_content["text"]) > 200
+                                    else first_content["text"]
+                                )
+                                logger.info(f"Text content preview: {text_preview}")
+
+                                # CRITICAL DEBUG: Log the exact text content
+                                logger.error(
+                                    f"CRITICAL DEBUG - Full text content: {first_content['text']}"
+                                )
+
+                    parsed_articles = medical_search_utils.parse_mcp_search_results(
+                        literature_results
+                    )
+                    logger.info(
+                        f"MCP call completed successfully, parsed {len(parsed_articles)} articles for '{concept}'"
+                    )
 
                     for article in parsed_articles:
                         pmid = article.get("pmid", "")
@@ -830,28 +975,38 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                                 "content": article.get("abstract", ""),
                                 "abstract": article.get("abstract", ""),
                                 "source": f"PubMed:{pmid}" if pmid else "PubMed",
-                                "evidence_level": article.get("evidence_level") or medical_search_utils.determine_evidence_level(article),
-                                "relevance_score": self._calculate_concept_relevance(concept, article),
+                                "evidence_level": article.get("evidence_level")
+                                or medical_search_utils.determine_evidence_level(article),
+                                "relevance_score": self._calculate_concept_relevance(
+                                    concept, article
+                                ),
                                 "concept": concept,
                                 "pmid": pmid,  # For PubMed URLs
-                                "doi": doi,   # For DOI URLs (preferred)
-                                "url": generate_source_url({
-                                    "source_type": "condition_information",
-                                    "pmid": pmid,
-                                    "doi": doi,
-                                    "source": f"PubMed:{pmid}" if pmid else "PubMed"
-                                }),
+                                "doi": doi,  # For DOI URLs (preferred)
+                                "url": generate_source_url(
+                                    {
+                                        "source_type": "condition_information",
+                                        "pmid": pmid,
+                                        "doi": doi,
+                                        "source": f"PubMed:{pmid}" if pmid else "PubMed",
+                                    }
+                                ),
                                 "publication_date": article.get("date", ""),
                                 "journal": article.get("journal", ""),
                                 "authors": article.get("authors", []),
-                                "study_type": article.get("study_type", article.get("publication_type", "research_article")),
+                                "study_type": article.get(
+                                    "study_type",
+                                    article.get("publication_type", "research_article"),
+                                ),
                             },
                         )
 
                     logger.info(f"MCP search found {len(parsed_articles)} articles for '{concept}'")
 
                 except TimeoutError:
-                    logger.warning(f"MCP search timed out after {mcp_timeout}s for concept '{concept}'")
+                    logger.warning(
+                        f"MCP search timed out after {mcp_timeout}s for concept '{concept}'"
+                    )
                     # Continue with other concepts
                 except Exception as mcp_error:
                     logger.warning(f"MCP literature search failed for '{concept}': {mcp_error}")
@@ -864,7 +1019,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         logger.info(f"Total condition information sources found: {len(sources)}")
         return sources
 
-    async def _search_symptom_literature(self, medical_concepts: list[str]) -> list[dict[str, object]]:
+    async def _search_symptom_literature(
+        self, medical_concepts: list[str]
+    ) -> list[dict[str, object]]:
         """
         Search literature about symptoms and their associations
         Returns: Literature about what symptoms are associated with, not diagnoses
@@ -880,7 +1037,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         if not isinstance(query_templates_map, dict):
             query_templates_map = {}
         max_results = int(max_results_map.get("symptom_literature", 15))
-        query_template = query_templates_map.get("symptom_literature", "{symptom} presentation differential clinical features")
+        query_template = query_templates_map.get(
+            "symptom_literature", "{symptom} presentation differential clinical features"
+        )
 
         # Use all medical concepts from SciSpacy (no hardcoded filtering)
         # SciSpacy already identifies medical entities accurately
@@ -911,8 +1070,12 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                             timeout=mcp_timeout,
                         )
                     # Debug raw response and parse
-                    logger.info(f"Raw MCP result for symptom '{symptom}': type={type(literature_results).__name__} keys={list(literature_results.keys()) if isinstance(literature_results, dict) else 'n/a'}")
-                    parsed_articles = medical_search_utils.parse_mcp_search_results(literature_results)
+                    logger.info(
+                        f"Raw MCP result for symptom '{symptom}': type={type(literature_results).__name__} keys={list(literature_results.keys()) if isinstance(literature_results, dict) else 'n/a'}"
+                    )
+                    parsed_articles = medical_search_utils.parse_mcp_search_results(
+                        literature_results
+                    )
 
                     for article in parsed_articles:
                         pmid = article.get("pmid", "")
@@ -926,24 +1089,34 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                                 "publication_date": article.get("date", ""),
                                 "pmid": pmid,
                                 "doi": doi,
-                                "url": generate_source_url({
-                                    "source_type": "symptom_literature",
-                                    "pmid": pmid,
-                                    "doi": doi,
-                                    "source": f"PubMed:{pmid}" if pmid else "PubMed"
-                                }),
+                                "url": generate_source_url(
+                                    {
+                                        "source_type": "symptom_literature",
+                                        "pmid": pmid,
+                                        "doi": doi,
+                                        "source": f"PubMed:{pmid}" if pmid else "PubMed",
+                                    }
+                                ),
                                 "abstract": article.get("abstract", ""),
-                                "evidence_level": medical_search_utils.determine_evidence_level(article),
+                                "evidence_level": medical_search_utils.determine_evidence_level(
+                                    article
+                                ),
                                 "information_type": "symptom_research",
                             },
                         )
 
-                    logger.info(f"MCP search found {len(parsed_articles)} articles for symptom '{symptom}'")
+                    logger.info(
+                        f"MCP search found {len(parsed_articles)} articles for symptom '{symptom}'"
+                    )
 
                 except TimeoutError:
-                    logger.warning(f"MCP search timed out after {mcp_timeout}s for symptom '{symptom}'")
+                    logger.warning(
+                        f"MCP search timed out after {mcp_timeout}s for symptom '{symptom}'"
+                    )
                 except Exception as mcp_error:
-                    logger.warning(f"MCP literature search failed for symptom '{symptom}': {mcp_error}")
+                    logger.warning(
+                        f"MCP literature search failed for symptom '{symptom}': {mcp_error}"
+                    )
 
             except Exception as e:
                 logger.warning(f"Failed to search symptom literature for '{symptom}': {e}")
@@ -951,7 +1124,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         logger.info(f"Total symptom literature sources found: {len(sources)}")
         return sources
 
-    async def _search_drug_information(self, medical_concepts: list[str]) -> list[dict[str, object]]:
+    async def _search_drug_information(
+        self, medical_concepts: list[str]
+    ) -> list[dict[str, object]]:
         """
         Search for drug information and interactions
         Returns: Official drug information, not prescribing advice
@@ -962,7 +1137,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         url_patterns_map = getattr(search_config, "url_patterns", {}) or {}
         if not isinstance(url_patterns_map, dict):
             url_patterns_map = {}
-        fda_url_pattern = url_patterns_map.get("fda_drug", "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm")
+        fda_url_pattern = url_patterns_map.get(
+            "fda_drug", "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm"
+        )
 
         # Use all medical concepts from SciSpacy (SciSpacy detects CHEMICAL entities for drugs)
         # Medical search agent focuses on FDA drug database
@@ -988,51 +1165,85 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                             timeout=mcp_timeout,
                         )
 
-                    logger.info(f"Raw MCP drug result for '{drug_concept}': type={type(drug_results).__name__} keys={list(drug_results.keys()) if isinstance(drug_results, dict) else 'n/a'}")
+                    logger.info(
+                        f"Raw MCP drug result for '{drug_concept}': type={type(drug_results).__name__} keys={list(drug_results.keys()) if isinstance(drug_results, dict) else 'n/a'}"
+                    )
 
                     found_flag = False
                     if isinstance(drug_results, dict):
                         found_flag = bool(drug_results.get("found"))
                     if found_flag:
                         # Use configurable URL pattern if application number available
-                        drug_url = drug_results.get("fda_url", "") if isinstance(drug_results, dict) else ""
-                        if not drug_url and isinstance(drug_results, dict) and drug_results.get("application_number"):
+                        drug_url = (
+                            drug_results.get("fda_url", "")
+                            if isinstance(drug_results, dict)
+                            else ""
+                        )
+                        if (
+                            not drug_url
+                            and isinstance(drug_results, dict)
+                            and drug_results.get("application_number")
+                        ):
                             drug_url = fda_url_pattern.format(
                                 application_number=drug_results.get("application_number"),
                             )
 
                         # Get NDC and other identifiers for URL generation
                         ndc = drug_results.get("ndc", "") if isinstance(drug_results, dict) else ""
-                        generic_name = drug_results.get("generic_name", drug_concept) if isinstance(drug_results, dict) else drug_concept
-                        
+                        generic_name = (
+                            drug_results.get("generic_name", drug_concept)
+                            if isinstance(drug_results, dict)
+                            else drug_concept
+                        )
+
                         sources.append(
                             {
                                 "source_type": "drug_info",
                                 "drug_name": drug_concept,
                                 "generic_name": generic_name,
                                 "ndc": ndc,
-                                "fda_approval": drug_results.get("approval_date", "") if isinstance(drug_results, dict) else "",
-                                "approval_date": drug_results.get("approval_date", "") if isinstance(drug_results, dict) else "",
-                                "manufacturer": drug_results.get("manufacturer", "") if isinstance(drug_results, dict) else "",
-                                "indications": drug_results.get("indications", []) if isinstance(drug_results, dict) else [],
-                                "contraindications": drug_results.get("contraindications", []) if isinstance(drug_results, dict) else [],
-                                "interactions": drug_results.get("interactions", []) if isinstance(drug_results, dict) else [],
-                                "url": generate_source_url({
-                                    "source_type": "drug_info",
-                                    "ndc": ndc,
-                                    "drug_name": drug_concept,
-                                    "generic_name": generic_name
-                                }),
+                                "fda_approval": drug_results.get("approval_date", "")
+                                if isinstance(drug_results, dict)
+                                else "",
+                                "approval_date": drug_results.get("approval_date", "")
+                                if isinstance(drug_results, dict)
+                                else "",
+                                "manufacturer": drug_results.get("manufacturer", "")
+                                if isinstance(drug_results, dict)
+                                else "",
+                                "indications": drug_results.get("indications", [])
+                                if isinstance(drug_results, dict)
+                                else [],
+                                "contraindications": drug_results.get("contraindications", [])
+                                if isinstance(drug_results, dict)
+                                else [],
+                                "interactions": drug_results.get("interactions", [])
+                                if isinstance(drug_results, dict)
+                                else [],
+                                "url": generate_source_url(
+                                    {
+                                        "source_type": "drug_info",
+                                        "ndc": ndc,
+                                        "drug_name": drug_concept,
+                                        "generic_name": generic_name,
+                                    }
+                                ),
                                 "information_type": "regulatory_information",
                                 "evidence_level": "regulatory_approval",
                             },
                         )
 
-                    status_txt = "found" if (isinstance(drug_results, dict) and drug_results.get("found")) else "not found"
+                    status_txt = (
+                        "found"
+                        if (isinstance(drug_results, dict) and drug_results.get("found"))
+                        else "not found"
+                    )
                     logger.info(f"MCP drug search completed for '{drug_concept}': {status_txt}")
 
                 except TimeoutError:
-                    logger.warning(f"MCP drug search timed out after {mcp_timeout}s for drug '{drug_concept}'")
+                    logger.warning(
+                        f"MCP drug search timed out after {mcp_timeout}s for drug '{drug_concept}'"
+                    )
                 except Exception as mcp_error:
                     logger.warning(f"MCP drug search failed for '{drug_concept}': {mcp_error}")
 
@@ -1043,7 +1254,8 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         return sources
 
     async def _search_clinical_references(
-        self, medical_concepts: list[str],
+        self,
+        medical_concepts: list[str],
     ) -> list[dict[str, object]]:
         """
         Search clinical practice guidelines and reference materials
@@ -1072,7 +1284,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                             ),
                             timeout=mcp_timeout,
                         )
-                    logger.info(f"Raw MCP trials/guidelines result for '{concept}': type={type(guideline_results).__name__} keys={list(guideline_results.keys()) if isinstance(guideline_results, dict) else 'n/a'}")
+                    logger.info(
+                        f"Raw MCP trials/guidelines result for '{concept}': type={type(guideline_results).__name__} keys={list(guideline_results.keys()) if isinstance(guideline_results, dict) else 'n/a'}"
+                    )
 
                     guidelines = []
                     if isinstance(guideline_results, dict):
@@ -1080,7 +1294,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                             guidelines = guideline_results.get("guidelines", [])
                         else:
                             # Fallback: try generic parser for records
-                            guidelines = medical_search_utils.parse_mcp_search_results(guideline_results)
+                            guidelines = medical_search_utils.parse_mcp_search_results(
+                                guideline_results
+                            )
 
                     for guideline in guidelines:
                         nct_id = guideline.get("nct_id", guideline.get("nctId", ""))
@@ -1090,23 +1306,32 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                                 "concept": concept,
                                 "title": guideline.get("title", ""),
                                 "organization": guideline.get("organization", ""),
-                                "publication_year": guideline.get("year", guideline.get("date", "")),
+                                "publication_year": guideline.get(
+                                    "year", guideline.get("date", "")
+                                ),
                                 "nct_id": nct_id,
-                                "url": generate_source_url({
-                                    "source_type": "clinical_guideline",
-                                    "nct_id": nct_id
-                                }) if nct_id else guideline.get("url", guideline.get("_raw", {}).get("url", "")),
+                                "url": generate_source_url(
+                                    {"source_type": "clinical_guideline", "nct_id": nct_id}
+                                )
+                                if nct_id
+                                else guideline.get("url", guideline.get("_raw", {}).get("url", "")),
                                 "summary": guideline.get("summary", guideline.get("abstract", "")),
-                                "evidence_grade": guideline.get("evidence_grade", guideline.get("evidence_level", "")),
+                                "evidence_grade": guideline.get(
+                                    "evidence_grade", guideline.get("evidence_level", "")
+                                ),
                                 "information_type": "clinical_reference",
                                 "evidence_level": "clinical_guideline",
                             },
                         )
 
-                    logger.info(f"MCP trials search found {len(guidelines)} guidelines for '{concept}'")
+                    logger.info(
+                        f"MCP trials search found {len(guidelines)} guidelines for '{concept}'"
+                    )
 
                 except TimeoutError:
-                    logger.warning(f"MCP trials search timed out after {mcp_timeout}s for concept '{concept}'")
+                    logger.warning(
+                        f"MCP trials search timed out after {mcp_timeout}s for concept '{concept}'"
+                    )
                 except Exception as mcp_error:
                     logger.warning(f"MCP trials search failed for '{concept}': {mcp_error}")
 
@@ -1116,7 +1341,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         logger.info(f"Total clinical reference sources found: {len(sources)}")
         return sources
 
-    async def _extract_literature_conditions(self, sources: list[dict[str, object]]) -> list[dict[str, object]]:
+    async def _extract_literature_conditions(
+        self, sources: list[dict[str, object]]
+    ) -> list[dict[str, object]]:
         """
         Extract conditions mentioned in literature using SciSpacy (not diagnose them)
         Returns: List of conditions found in literature with context
@@ -1178,6 +1405,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             scispacy_timeout = int(timeouts_map.get("scispacy_request", 15))
             # Call SciSpacy service for biomedical entity extraction
             import aiohttp
+
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     "http://172.20.0.6:8001/analyze",  # SciSpacy service
@@ -1192,7 +1420,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                         for entity in result.get("entities", []):
                             if entity.get("label") == "DISEASE":
                                 condition_text = entity.get("text", "").strip()
-                                if condition_text and len(condition_text) > 2:  # Filter very short terms
+                                if (
+                                    condition_text and len(condition_text) > 2
+                                ):  # Filter very short terms
                                     conditions.append(condition_text)
 
                         return list(set(conditions))  # Remove duplicates
@@ -1248,15 +1478,39 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         """Extract medical terms by simply cleaning the original query"""
         # Remove common question words and phrases
         question_words = {
-            "can", "you", "help", "me", "find", "search", "for", "about", "on",
-            "recent", "latest", "new", "current", "show", "get", "give", "provide",
-            "articles", "studies", "research", "papers", "information", "data",
-            "trials", "medications", "medicines", "drugs", "treatments"
+            "can",
+            "you",
+            "help",
+            "me",
+            "find",
+            "search",
+            "for",
+            "about",
+            "on",
+            "recent",
+            "latest",
+            "new",
+            "current",
+            "show",
+            "get",
+            "give",
+            "provide",
+            "articles",
+            "studies",
+            "research",
+            "papers",
+            "information",
+            "data",
+            "trials",
+            "medications",
+            "medicines",
+            "drugs",
+            "treatments",
         }
-        
+
         # Clean the query
         cleaned = search_query.lower()
-        
+
         # Remove common prefixes
         prefixes_to_remove = [
             "can you help me find recent articles on",
@@ -1268,33 +1522,33 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             "show me recent research on",
             "i need information about",
             "tell me about",
-            "what can you tell me about"
+            "what can you tell me about",
         ]
-        
+
         for prefix in prefixes_to_remove:
             if cleaned.startswith(prefix):
-                cleaned = cleaned[len(prefix):].strip()
+                cleaned = cleaned[len(prefix) :].strip()
                 break
-        
+
         # Remove question marks and extra punctuation
         cleaned = cleaned.replace("?", "").replace(".", "").strip()
-        
+
         # Split into words and filter out question words
         words = [word.strip() for word in cleaned.split() if word.strip()]
         medical_words = [word for word in words if word.lower() not in question_words]
-        
+
         # Join back into phrases and also include individual important terms
         search_terms = []
-        
+
         # Always include the cleaned original query if it's meaningful
         if len(" ".join(medical_words)) > 3:
             search_terms.append(" ".join(medical_words))
-        
+
         # Include individual medical terms that are meaningful
         for word in medical_words:
             if len(word) > 3 and word not in search_terms:
                 search_terms.append(word)
-        
+
         logger.info(f"Simple extraction from '{search_query}' -> {search_terms}")
         return search_terms
         """Extract medical concepts using SciSpacy entities + LLM query understanding"""
@@ -1310,6 +1564,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
             # Call SciSpacy service for biomedical entity extraction
             import aiohttp
+
             async with aiohttp.ClientSession() as session:
                 # Request enrichment so we can prioritize certain biomedical categories if metadata available
                 async with session.post(
@@ -1326,10 +1581,22 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                         # MULTI-TISSUE_STRUCTURE, ORGAN, ORGANISM, ORGANISM_SUBDIVISION,
                         # ORGANISM_SUBSTANCE, PATHOLOGICAL_FORMATION, SIMPLE_CHEMICAL, TISSUE
                         medical_entity_types = {
-                            "AMINO_ACID", "ANATOMICAL_SYSTEM", "CANCER", "CELL", "CELLULAR_COMPONENT",
-                            "DEVELOPING_ANATOMICAL_STRUCTURE", "GENE_OR_GENE_PRODUCT", "IMMATERIAL_ANATOMICAL_ENTITY",
-                            "MULTI-TISSUE_STRUCTURE", "ORGAN", "ORGANISM", "ORGANISM_SUBDIVISION",
-                            "ORGANISM_SUBSTANCE", "PATHOLOGICAL_FORMATION", "SIMPLE_CHEMICAL", "TISSUE",
+                            "AMINO_ACID",
+                            "ANATOMICAL_SYSTEM",
+                            "CANCER",
+                            "CELL",
+                            "CELLULAR_COMPONENT",
+                            "DEVELOPING_ANATOMICAL_STRUCTURE",
+                            "GENE_OR_GENE_PRODUCT",
+                            "IMMATERIAL_ANATOMICAL_ENTITY",
+                            "MULTI-TISSUE_STRUCTURE",
+                            "ORGAN",
+                            "ORGANISM",
+                            "ORGANISM_SUBDIVISION",
+                            "ORGANISM_SUBSTANCE",
+                            "PATHOLOGICAL_FORMATION",
+                            "SIMPLE_CHEMICAL",
+                            "TISSUE",
                         }
                         medical_entities: list[str] = []
                         enriched_mode = result.get("enriched")
@@ -1351,13 +1618,20 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                         )
 
                         # Use LLM to understand query intent and craft search terms (as backup)
-                        llm_search_terms = await self._llm_craft_search_terms(search_query, medical_entities)
+                        llm_search_terms = await self._llm_craft_search_terms(
+                            search_query, medical_entities
+                        )
 
                         # PRIORITY 1: Extract professional medical terms from original query
                         professional_terms = self._extract_professional_medical_terms(search_query)
-                        
+
                         # PRIORITY 2: Always include the original user query as a search term (cleaned)
-                        original_cleaned = search_query.replace("Find me recent research on", "").replace("Can you help me find recent articles on", "").replace("?", "").strip()
+                        original_cleaned = (
+                            search_query.replace("Find me recent research on", "")
+                            .replace("Can you help me find recent articles on", "")
+                            .replace("?", "")
+                            .strip()
+                        )
                         if len(original_cleaned) > 5:  # Only if meaningful
                             original_search_terms = [original_cleaned]
                         else:
@@ -1367,8 +1641,15 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                         # PRIORITY 4: LLM terms as fallback (often converts professional to lay terms)
 
                         # Combine in priority order: professional terms + original query + entities + LLM terms
-                        all_concepts = professional_terms + original_search_terms + medical_entities + llm_search_terms
-                        unique_concepts = list(dict.fromkeys(all_concepts))  # Preserve order, remove duplicates
+                        all_concepts = (
+                            professional_terms
+                            + original_search_terms
+                            + medical_entities
+                            + llm_search_terms
+                        )
+                        unique_concepts = list(
+                            dict.fromkeys(all_concepts)
+                        )  # Preserve order, remove duplicates
 
                         logger.info(f"Professional medical terms: {professional_terms}")
                         logger.info(f"Combined medical concepts: {unique_concepts}")
@@ -1380,7 +1661,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             logger.error(f"SciSpacy entity extraction failed: {e}")
             raise Exception(f"Medical entity extraction failed: {e}")
 
-    async def _llm_craft_search_terms(self, original_query: str, medical_entities: list[str]) -> list[str]:
+    async def _llm_craft_search_terms(
+        self, original_query: str, medical_entities: list[str]
+    ) -> list[str]:
         """Use LLM to understand query intent and craft simple search terms"""
         try:
             # Create a prompt for the LLM to understand the query and suggest SIMPLE search terms
@@ -1408,14 +1691,16 @@ Return only the simple search terms, one per line, no explanations:"""
                 # Split by lines and apply stricter heuristics
                 lines = [ln.strip() for ln in content.split("\n") if ln.strip()]
                 bullet_re = re.compile(r"^\s*(?:\d+\.|[-*])\s*")
-                daterange_re = re.compile(r"\b(?:19|20)\d{2}\s*[-–]\s*(?:19|20)\d{2}\b|last\s+\d+\s+years", re.I)
+                daterange_re = re.compile(
+                    r"\b(?:19|20)\d{2}\s*[-–]\s*(?:19|20)\d{2}\b|last\s+\d+\s+years", re.I
+                )
                 bracket_filter_re = re.compile(r"\[(?:title|ti|abstract|ab|mesh|mh):[^\]]+\]", re.I)
                 noise_prefixes = ("The ", "Here ", "Consider ", "- ")
                 candidates: list[str] = []
                 for raw in lines:
                     term = bullet_re.sub("", raw)
                     term = bracket_filter_re.sub("", term)
-                    term = term.strip('"\' ”“').strip()
+                    term = term.strip("\"' ”“").strip()
                     if not term or len(term) > 80:
                         continue
                     if term.startswith(noise_prefixes):
@@ -1424,7 +1709,11 @@ Return only the simple search terms, one per line, no explanations:"""
                         continue
                     if not re.search(r"[A-Za-z]", term):
                         continue
-                    if ":" in term and not re.search(r"\b(therapy|treatment|syndrome|disease|trial|review|guideline)\b", term, re.I):
+                    if ":" in term and not re.search(
+                        r"\b(therapy|treatment|syndrome|disease|trial|review|guideline)\b",
+                        term,
+                        re.I,
+                    ):
                         continue
                     candidates.append(term)
                 # Deduplicate while preserving order
@@ -1442,57 +1731,123 @@ Return only the simple search terms, one per line, no explanations:"""
         except Exception as e:
             logger.warning(f"LLM search term crafting failed: {e}")
             # Fallback to simple keyword extraction
-            keywords = [word for word in original_query.split()
-                        if len(word) > 3 and word.lower() not in ["help", "find", "articles", "recent"]]
+            keywords = [
+                word
+                for word in original_query.split()
+                if len(word) > 3 and word.lower() not in ["help", "find", "articles", "recent"]
+            ]
             return keywords[:3]
 
     def _extract_professional_medical_terms(self, query: str) -> list[str]:
         """Extract professional medical terminology from the query text"""
         # Professional medical terms that should be preserved exactly as written
         professional_medical_terms = [
-            "cardiovascular", "cardiology", "cardiothoracic", "cardiac", "myocardial",
-            "hypertension", "hypotension", "atherosclerosis", "thrombosis", "embolism",
-            "diabetes", "diabetic", "endocrine", "metabolic", "obesity", "hyperlipidemia",
-            "oncology", "neoplasm", "carcinoma", "malignancy", "chemotherapy", "radiotherapy",
-            "neurology", "neurological", "alzheimer", "parkinson", "dementia", "stroke",
-            "pulmonary", "respiratory", "pneumonia", "asthma", "copd", "bronchitis",
-            "gastroenterology", "hepatology", "nephrology", "renal", "dialysis",
-            "orthopedic", "musculoskeletal", "rheumatoid", "arthritis", "osteoporosis",
-            "dermatology", "immunology", "infectious", "antimicrobial", "antibiotic",
-            "pharmaceutical", "pharmacology", "clinical trial", "randomized", "systematic review",
-            "meta-analysis", "epidemiology", "biomarker", "pathology", "diagnosis", "prognosis",
-            "prevention", "treatment", "therapy", "intervention", "rehabilitation"
+            "cardiovascular",
+            "cardiology",
+            "cardiothoracic",
+            "cardiac",
+            "myocardial",
+            "hypertension",
+            "hypotension",
+            "atherosclerosis",
+            "thrombosis",
+            "embolism",
+            "diabetes",
+            "diabetic",
+            "endocrine",
+            "metabolic",
+            "obesity",
+            "hyperlipidemia",
+            "oncology",
+            "neoplasm",
+            "carcinoma",
+            "malignancy",
+            "chemotherapy",
+            "radiotherapy",
+            "neurology",
+            "neurological",
+            "alzheimer",
+            "parkinson",
+            "dementia",
+            "stroke",
+            "pulmonary",
+            "respiratory",
+            "pneumonia",
+            "asthma",
+            "copd",
+            "bronchitis",
+            "gastroenterology",
+            "hepatology",
+            "nephrology",
+            "renal",
+            "dialysis",
+            "orthopedic",
+            "musculoskeletal",
+            "rheumatoid",
+            "arthritis",
+            "osteoporosis",
+            "dermatology",
+            "immunology",
+            "infectious",
+            "antimicrobial",
+            "antibiotic",
+            "pharmaceutical",
+            "pharmacology",
+            "clinical trial",
+            "randomized",
+            "systematic review",
+            "meta-analysis",
+            "epidemiology",
+            "biomarker",
+            "pathology",
+            "diagnosis",
+            "prognosis",
+            "prevention",
+            "treatment",
+            "therapy",
+            "intervention",
+            "rehabilitation",
         ]
-        
+
         # Extract terms that appear in the query
         query_lower = query.lower()
         found_terms = []
-        
+
         # Look for professional terms
         for term in professional_medical_terms:
             if term in query_lower:
                 # Extract the term with its original context (preserve case and surrounding words)
                 import re
-                pattern = rf'\b\w*{re.escape(term)}\w*\b'
+
+                pattern = rf"\b\w*{re.escape(term)}\w*\b"
                 matches = re.findall(pattern, query, re.IGNORECASE)
                 found_terms.extend(matches)
-        
+
         # Also look for compound medical phrases
         medical_phrases = [
-            "cardiovascular health", "heart disease", "disease prevention", "risk factors",
-            "blood pressure", "clinical trial", "systematic review", "meta analysis",
-            "randomized controlled", "evidence based", "peer reviewed"
+            "cardiovascular health",
+            "heart disease",
+            "disease prevention",
+            "risk factors",
+            "blood pressure",
+            "clinical trial",
+            "systematic review",
+            "meta analysis",
+            "randomized controlled",
+            "evidence based",
+            "peer reviewed",
         ]
-        
+
         for phrase in medical_phrases:
             if phrase in query_lower:
                 # Find the exact phrase with original capitalization
                 import re
-                pattern = rf'\b{re.escape(phrase)}\b'
+
+                pattern = rf"\b{re.escape(phrase)}\b"
                 match = re.search(pattern, query, re.IGNORECASE)
                 if match:
                     found_terms.append(match.group())
-        
+
         # Remove duplicates while preserving order
         unique_terms = list(dict.fromkeys(found_terms))
         logger.info(f"Professional medical terms extracted: {unique_terms}")
@@ -1536,13 +1891,11 @@ Return only the simple search terms, one per line, no explanations:"""
         return hashlib.md5(f"{query}{datetime.now(UTC)}".encode()).hexdigest()[:12]
 
     async def generate_conversational_response(
-        self,
-        search_result: MedicalSearchResult,
-        original_query: str
+        self, search_result: MedicalSearchResult, original_query: str
     ) -> str:
         """
         Generate a conversational response from search results using LLM.
-        
+
         Transforms technical search results into human-readable format with
         inline citations and natural language explanations.
         """
@@ -1552,62 +1905,76 @@ Return only the simple search terms, one per line, no explanations:"""
             clinical_trials = []
             drug_info = []
             other_sources = []
-            
+
             for source in search_result.information_sources[:15]:  # Limit to 15 most relevant
-                source_type = source.get('source_type', 'unknown')
-                
-                if source_type in ['condition_information', 'symptom_literature'] and source.get('pmid'):
+                source_type = source.get("source_type", "unknown")
+
+                if source_type in ["condition_information", "symptom_literature"] and source.get(
+                    "pmid"
+                ):
                     # PubMed articles with proper links (prefer DOI when available)
-                    pmid = source.get('pmid', '')
+                    pmid = source.get("pmid", "")
                     fmt = format_source_for_display(source)
-                    url = fmt.get('url', source.get('url', ''))
-                    
-                    pubmed_articles.append({
-                        'title': source.get('title', 'Unknown'),
-                        'authors': source.get('authors', []) if isinstance(source.get('authors'), list) else [source.get('authors', 'Unknown')],
-                        'journal': source.get('journal', 'Unknown'),
-                        'date': source.get('publication_date', 'Unknown'),
-                        'abstract': source.get('content', source.get('abstract', 'No summary available'))[:300],
-                        'pmid': pmid,
-                        'url': url
-                    })
-                
-                elif source_type == 'clinical_guideline':
+                    url = fmt.get("url", source.get("url", ""))
+
+                    pubmed_articles.append(
+                        {
+                            "title": source.get("title", "Unknown"),
+                            "authors": source.get("authors", [])
+                            if isinstance(source.get("authors"), list)
+                            else [source.get("authors", "Unknown")],
+                            "journal": source.get("journal", "Unknown"),
+                            "date": source.get("publication_date", "Unknown"),
+                            "abstract": source.get(
+                                "content", source.get("abstract", "No summary available")
+                            )[:300],
+                            "pmid": pmid,
+                            "url": url,
+                        }
+                    )
+
+                elif source_type == "clinical_guideline":
                     # Clinical trials/guidelines
-                    clinical_trials.append({
-                        'title': source.get('title', 'Unknown'),
-                        'organization': source.get('organization', 'Unknown'),
-                        'year': source.get('publication_year', 'Unknown'),
-                        'summary': source.get('summary', 'No summary available')[:300],
-                        'url': source.get('url', ''),
-                        'evidence_grade': source.get('evidence_grade', 'Unknown')
-                    })
-                
-                elif source_type == 'drug_info':
+                    clinical_trials.append(
+                        {
+                            "title": source.get("title", "Unknown"),
+                            "organization": source.get("organization", "Unknown"),
+                            "year": source.get("publication_year", "Unknown"),
+                            "summary": source.get("summary", "No summary available")[:300],
+                            "url": source.get("url", ""),
+                            "evidence_grade": source.get("evidence_grade", "Unknown"),
+                        }
+                    )
+
+                elif source_type == "drug_info":
                     # Drug information
-                    drug_info.append({
-                        'drug_name': source.get('drug_name', 'Unknown'),
-                        'manufacturer': source.get('manufacturer', 'Unknown'),
-                        'approval_date': source.get('fda_approval', 'Unknown'),
-                        'indications': source.get('indications', []),
-                        'url': source.get('url', ''),
-                        'interactions': source.get('interactions', [])
-                    })
-                
+                    drug_info.append(
+                        {
+                            "drug_name": source.get("drug_name", "Unknown"),
+                            "manufacturer": source.get("manufacturer", "Unknown"),
+                            "approval_date": source.get("fda_approval", "Unknown"),
+                            "indications": source.get("indications", []),
+                            "url": source.get("url", ""),
+                            "interactions": source.get("interactions", []),
+                        }
+                    )
+
                 else:
                     # Other sources (database, etc.)
-                    other_sources.append({
-                        'title': source.get('title', 'Unknown'),
-                        'content': source.get('content', 'No content available')[:200],
-                        'source': source.get('source', 'Unknown'),
-                        'url': source.get('url', '')
-                    })
+                    other_sources.append(
+                        {
+                            "title": source.get("title", "Unknown"),
+                            "content": source.get("content", "No content available")[:200],
+                            "source": source.get("source", "Unknown"),
+                            "url": source.get("url", ""),
+                        }
+                    )
 
             # Prepare related conditions string for the prompt
             rc_names: list[str] = []
             for rc in search_result.related_conditions[:5]:
                 if isinstance(rc, dict):
-                    name = rc.get('condition_name') or rc.get('name') or rc.get('condition') or ''
+                    name = rc.get("condition_name") or rc.get("name") or rc.get("condition") or ""
                     if name:
                         rc_names.append(str(name))
                 elif isinstance(rc, str):
@@ -1615,7 +1982,8 @@ Return only the simple search terms, one per line, no explanations:"""
             related_conditions_display = ", ".join(rc_names) if rc_names else "None identified"
 
             # Create comprehensive LLM prompt for all source types
-            conversation_prompt = f"""
+            conversation_prompt = (
+                f"""
 You are a medical research assistant helping someone understand research on: "{original_query}"
 
 I found information from multiple medical sources. Please create a conversational, informative response that:
@@ -1628,61 +1996,91 @@ I found information from multiple medical sources. Please create a conversationa
 6. Ends with the medical disclaimer
 
 RESEARCH ARTICLES ({len(pubmed_articles)} found):
-""" + "\n".join([
-                f"- **{article['title']}** by {', '.join(article['authors'][:3])} et al. in {article['journal']} ({article['date']})\n  Summary: {article['abstract']}...\n  [PubMed: {article['pmid']}]({article['url']})\n"
-                for article in pubmed_articles[:8]
-            ]) + f"""
+"""
+                + "\n".join(
+                    [
+                        f"- **{article['title']}** by {', '.join(article['authors'][:3])} et al. in {article['journal']} ({article['date']})\n  Summary: {article['abstract']}...\n  [PubMed: {article['pmid']}]({article['url']})\n"
+                        for article in pubmed_articles[:8]
+                    ]
+                )
+                + f"""
 
 CLINICAL GUIDELINES ({len(clinical_trials)} found):
-""" + ("\n".join([
-                f"- **{trial['title']}** by {trial['organization']} ({trial['year']})\n  Summary: {trial['summary']}...\n  Evidence Grade: {trial['evidence_grade']}\n  [View Guidelines]({trial['url']})\n"
-                for trial in clinical_trials[:5]
-            ]) if clinical_trials else "None found") + f"""
+"""
+                + (
+                    "\n".join(
+                        [
+                            f"- **{trial['title']}** by {trial['organization']} ({trial['year']})\n  Summary: {trial['summary']}...\n  Evidence Grade: {trial['evidence_grade']}\n  [View Guidelines]({trial['url']})\n"
+                            for trial in clinical_trials[:5]
+                        ]
+                    )
+                    if clinical_trials
+                    else "None found"
+                )
+                + f"""
 
 DRUG INFORMATION ({len(drug_info)} found):
-""" + ("\n".join([
-                f"- **{drug['drug_name']}** by {drug['manufacturer']} (Approved: {drug['approval_date']})\n  Indications: {', '.join(drug['indications'][:3])}\n  [FDA Information]({drug['url']})\n"
-                for drug in drug_info[:3]
-            ]) if drug_info else "None found") + f"""
+"""
+                + (
+                    "\n".join(
+                        [
+                            f"- **{drug['drug_name']}** by {drug['manufacturer']} (Approved: {drug['approval_date']})\n  Indications: {', '.join(drug['indications'][:3])}\n  [FDA Information]({drug['url']})\n"
+                            for drug in drug_info[:3]
+                        ]
+                    )
+                    if drug_info
+                    else "None found"
+                )
+                + f"""
 
 ADDITIONAL SOURCES ({len(other_sources)} found):
-""" + ("\n".join([
-                f"- **{source['title']}** from {source['source']}\n  {source['content']}...\n"
-                for source in other_sources[:3]
-            ]) if other_sources else "None found") + f"""
+"""
+                + (
+                    "\n".join(
+                        [
+                            f"- **{source['title']}** from {source['source']}\n  {source['content']}...\n"
+                            for source in other_sources[:3]
+                        ]
+                    )
+                    if other_sources
+                    else "None found"
+                )
+                + f"""
 
 Related conditions mentioned: {related_conditions_display}
 
 Create a helpful, conversational response that synthesizes this research:
-"""            # Generate response using local LLM
+"""
+            )  # Generate response using local LLM
             if self.llm_client:
                 response = await self.llm_client.chat(
                     model=get_instruct_model(),
-                    messages=[{
-                        "role": "user",
-                        "content": conversation_prompt
-                    }],
-                    options={"temperature": 0.3}  # Lower temperature for more factual responses
+                    messages=[{"role": "user", "content": conversation_prompt}],
+                    options={"temperature": 0.3},  # Lower temperature for more factual responses
                 )
-                
-                conversational_text = response.get('message', {}).get('content', '')
-                
+
+                conversational_text = response.get("message", {}).get("content", "")
+
                 # Add medical disclaimer if not already included
                 if "medical disclaimer" not in conversational_text.lower():
                     conversational_text += "\n\n**Medical Disclaimer**: This information is for educational purposes only and is not medical advice. Always consult your healthcare provider for questions about a medical condition."
-                
-                logger.info(f"Generated conversational response of {len(conversational_text)} characters")
+
+                logger.info(
+                    f"Generated conversational response of {len(conversational_text)} characters"
+                )
                 return conversational_text
-            
+
             else:
                 # Fallback if LLM is not available
                 return self._create_fallback_response(search_result, original_query)
-                
+
         except Exception as e:
             logger.error(f"Failed to generate conversational response: {e}")
             return self._create_fallback_response(search_result, original_query)
 
-    def _create_fallback_response(self, search_result: MedicalSearchResult, original_query: str) -> str:
+    def _create_fallback_response(
+        self, search_result: MedicalSearchResult, original_query: str
+    ) -> str:
         """Create a concise, preface-free response when LLM is unavailable."""
         lines: list[str] = []
         for i, source in enumerate(search_result.information_sources[:8], 1):
@@ -1690,19 +2088,21 @@ Create a helpful, conversational response that synthesizes this research:
                 fmt = format_source_for_display(source)
             except Exception:
                 fmt = {"url": source.get("url", "")}
-            title = str(source.get('title', 'Untitled')).strip()
-            citation = str(fmt.get('citation', ''))
-            url = str(fmt.get('url', source.get('url', '')))
+            title = str(source.get("title", "Untitled")).strip()
+            citation = str(fmt.get("citation", ""))
+            url = str(fmt.get("url", source.get("url", "")))
             header = f"{i}. {title}"
             if citation:
                 header += f" — {citation}"
             lines.append(header)
             if url:
                 lines.append(f"   {url}")
-            abstract = str(source.get('abstract', source.get('content', ''))).strip()
+            abstract = str(source.get("abstract", source.get("content", ""))).strip()
             if abstract:
                 snippet = abstract if len(abstract) <= 400 else abstract[:400].rstrip() + "..."
                 lines.append(f"   {snippet}")
             lines.append("")
-        lines.append("**Medical Disclaimer**: This information is for educational purposes only and is not medical advice. Always consult your healthcare provider for questions about a medical condition.")
+        lines.append(
+            "**Medical Disclaimer**: This information is for educational purposes only and is not medical advice. Always consult your healthcare provider for questions about a medical condition."
+        )
         return "\n".join(lines).rstrip()

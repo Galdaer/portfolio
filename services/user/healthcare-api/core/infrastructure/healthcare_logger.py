@@ -79,7 +79,9 @@ class PHISafeHandler(logging.Handler):
                     # Verify healthcare context doesn't contain raw PHI
                     if self._contains_phi_indicators(str(healthcare_context)):
                         # Create a sanitized version
-                        record.healthcare_context = self._sanitize_healthcare_context(healthcare_context)
+                        record.healthcare_context = self._sanitize_healthcare_context(
+                            healthcare_context
+                        )
 
             self.base_handler.emit(record)
         except Exception:
@@ -330,7 +332,9 @@ def log_phi_alert(message: str, context: dict[str, Any], severity: str = "high")
 
 
 def log_compliance_event(
-    event_type: str, details: dict[str, Any], compliance_status: str = "compliant",
+    event_type: str,
+    details: dict[str, Any],
+    compliance_status: str = "compliant",
 ) -> None:
     """
     Log a compliance-related event for audit purposes.
@@ -350,13 +354,15 @@ def log_compliance_event(
     }
 
     audit_logger.info(
-        f"COMPLIANCE_EVENT: {event_type}", extra={"healthcare_context": compliance_context},
+        f"COMPLIANCE_EVENT: {event_type}",
+        extra={"healthcare_context": compliance_context},
     )
 
 
 # Healthcare-specific logging decorators
 def healthcare_log_method(
-    operation_type: str = "healthcare_operation", phi_risk_level: str = "medium",
+    operation_type: str = "healthcare_operation",
+    phi_risk_level: str = "medium",
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator for comprehensive healthcare method logging.

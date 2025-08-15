@@ -88,7 +88,8 @@ class MedicalWorkflowOrchestrator:
         try:
             # Use the query engine to search for medical information
             result = await self.query_engine.process_medical_query(
-                query=state.current_query, context=state.context,
+                query=state.current_query,
+                context=state.context,
             )
             state.results.append(result)
         except Exception as e:
@@ -369,20 +370,21 @@ class HealthcareMCPOrchestrator:
                 }
 
                 # Call the MCP server endpoint
-                async with aiohttp.ClientSession(
-                    timeout=aiohttp.ClientTimeout(total=self.timeout),
-                ) as session, session.post(
-                    f"http://{self.host}:{self.port}/mcp",
-                    json=mcp_request,
-                    headers={"Content-Type": "application/json"},
-                ) as response:
+                async with (
+                    aiohttp.ClientSession(
+                        timeout=aiohttp.ClientTimeout(total=self.timeout),
+                    ) as session,
+                    session.post(
+                        f"http://{self.host}:{self.port}/mcp",
+                        json=mcp_request,
+                        headers={"Content-Type": "application/json"},
+                    ) as response,
+                ):
                     if response.status == 200:
                         mcp_response = await response.json()
                         if "result" in mcp_response and "tools" in mcp_response["result"]:
                             # Extract tool names from MCP response
-                            mcp_tools = [
-                                tool["name"] for tool in mcp_response["result"]["tools"]
-                            ]
+                            mcp_tools = [tool["name"] for tool in mcp_response["result"]["tools"]]
                             # Combine with our expected healthcare tools
                             return list(set(available_tools + mcp_tools))
 

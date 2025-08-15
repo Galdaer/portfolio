@@ -45,7 +45,9 @@ class HealthcareFinancialUtils:
 
     @staticmethod
     def safe_division(
-        numerator: Decimal, denominator: Decimal, default: Decimal = Decimal("0"),
+        numerator: Decimal,
+        denominator: Decimal,
+        default: Decimal = Decimal("0"),
     ) -> Decimal:
         """
         Perform safe division with zero protection for healthcare calculations.

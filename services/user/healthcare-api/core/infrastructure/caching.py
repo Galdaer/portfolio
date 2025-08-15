@@ -40,7 +40,9 @@ class HealthcareCacheManager:
         }
 
     async def get_medical_literature(
-        self, query: str, query_params: dict[str, Any],
+        self,
+        query: str,
+        query_params: dict[str, Any],
     ) -> dict[str, Any] | None:
         """
         Get cached medical literature search results
@@ -76,7 +78,10 @@ class HealthcareCacheManager:
         return None
 
     async def cache_medical_literature(
-        self, query: str, query_params: dict[str, Any], results: dict[str, Any],
+        self,
+        query: str,
+        query_params: dict[str, Any],
+        results: dict[str, Any],
     ) -> None:
         """
         Cache medical literature search results
@@ -145,7 +150,9 @@ class HealthcareCacheManager:
         return None
 
     async def cache_drug_interactions(
-        self, drug_list: list[str], interaction_data: dict[str, Any],
+        self,
+        drug_list: list[str],
+        interaction_data: dict[str, Any],
     ) -> None:
         """
         Cache drug interaction data
@@ -221,7 +228,9 @@ class HealthcareCacheManager:
         return None
 
     async def cache_patient_session_context(
-        self, session_id: str, context_data: dict[str, Any],
+        self,
+        session_id: str,
+        context_data: dict[str, Any],
     ) -> None:
         """
         Cache patient session context securely

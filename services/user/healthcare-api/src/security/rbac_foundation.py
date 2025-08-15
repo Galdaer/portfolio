@@ -415,7 +415,8 @@ class HealthcareRBACManager:
                     description=str(role_data["description"]),
                     permissions=set(cast("list[Permission]", role_data["permissions"])),
                     resource_constraints=cast(
-                        "dict[ResourceType, dict[str, Any]]", role_data["resource_constraints"],
+                        "dict[ResourceType, dict[str, Any]]",
+                        role_data["resource_constraints"],
                     ),
                     is_active=True,
                     created_at=datetime.now(),
@@ -492,7 +493,11 @@ class HealthcareRBACManager:
             return False
 
     async def assign_role(
-        self, user_id: str, role_id: str, assigned_by: str, reason: str = "",
+        self,
+        user_id: str,
+        role_id: str,
+        assigned_by: str,
+        reason: str = "",
     ) -> bool:
         """Assign a role to a user"""
         if not self.postgres_conn:
@@ -558,7 +563,12 @@ class HealthcareRBACManager:
             user = await self.get_user(user_id)
             if not user or not user.is_active:
                 self._log_access_attempt(
-                    user_id, permission, resource_type, resource_id, False, context,
+                    user_id,
+                    permission,
+                    resource_type,
+                    resource_id,
+                    False,
+                    context,
                 )
                 return False
 
@@ -572,7 +582,10 @@ class HealthcareRBACManager:
                 if permission in role.permissions:
                     # Check resource constraints
                     if await self._check_resource_constraints(
-                        role, resource_type, resource_id, context,
+                        role,
+                        resource_type,
+                        resource_id,
+                        context,
                     ):
                         self._log_access_attempt(
                             user_id,
@@ -586,14 +599,24 @@ class HealthcareRBACManager:
 
             # No role granted permission
             self._log_access_attempt(
-                user_id, permission, resource_type, resource_id, False, context,
+                user_id,
+                permission,
+                resource_type,
+                resource_id,
+                False,
+                context,
             )
             return False
 
         except Exception as e:
             self.logger.exception(f"Permission check failed for user {user_id}: {e}")
             self._log_access_attempt(
-                user_id, permission, resource_type, resource_id, False, context,
+                user_id,
+                permission,
+                resource_type,
+                resource_id,
+                False,
+                context,
             )
             return False
 
@@ -871,7 +894,10 @@ class HealthcareRBACManager:
                 f"EMERGENCY ACCESS: Emergency user {user_id} accessing patient {patient_id}",
             )
             self._log_emergency_access(
-                user_id, patient_id, "emergency_user", "User has emergency access role",
+                user_id,
+                patient_id,
+                "emergency_user",
+                "User has emergency access role",
             )
             return True
 
@@ -933,7 +959,11 @@ class HealthcareRBACManager:
         return os.getenv("RBAC_BREAK_GLASS_ENABLED", "false").lower() == "true"
 
     def _log_emergency_access(
-        self, user_id: str, patient_id: str, access_type: str, reason: str,
+        self,
+        user_id: str,
+        patient_id: str,
+        access_type: str,
+        reason: str,
     ) -> None:
         """
         Log emergency access with comprehensive audit trail
@@ -967,7 +997,9 @@ class HealthcareRBACManager:
         # TODO: Store in audit database
 
     async def _check_patient_assignment_constraints(
-        self, user_id: str, constraints: dict[str, Any],
+        self,
+        user_id: str,
+        constraints: dict[str, Any],
     ) -> bool:
         """Check patient assignment constraints with Phase 2 preparation"""
         if not constraints:
@@ -1301,7 +1333,11 @@ class RBACMixin:
         if self.patient_db:
             try:
                 self.patient_db.log_access_attempt(
-                    user_id, patient_id, action, result, details or "",
+                    user_id,
+                    patient_id,
+                    action,
+                    result,
+                    details or "",
                 )
             except Exception as e:
                 self.logger.exception(f"Failed to log access attempt: {e}")

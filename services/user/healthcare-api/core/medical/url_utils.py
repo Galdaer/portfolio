@@ -6,6 +6,7 @@ import re
 # Load configurable parameters (e.g., list limits) without creating cycles
 try:
     from config.medical_search_config_loader import MedicalSearchConfigLoader  # type: ignore
+
     _cfg_loader = MedicalSearchConfigLoader()
     _search_cfg = _cfg_loader.load_config()
 except Exception:  # pragma: no cover - fallback if config loader unavailable
@@ -33,7 +34,9 @@ def generate_source_url(source: Mapping[str, object]) -> str:
     """
     source_type = _as_str(source.get("source_type")).lower()
 
-    if source_type in ["condition_information", "symptom_literature"] and _as_str(source.get("source")).startswith("PubMed"):
+    if source_type in ["condition_information", "symptom_literature"] and _as_str(
+        source.get("source")
+    ).startswith("PubMed"):
         # PubMed articles - prefer DOI links to actual journals
         doi = _as_str(source.get("doi")).strip()
         pmid = _as_str(source.get("pmid")).strip()
@@ -93,7 +96,9 @@ def format_source_for_display(source: Mapping[str, object]) -> dict[str, object]
         authors_val = source.get("authors", [])
         authors_list = [str(a) for a in authors_val] if isinstance(authors_val, list) else []
         if authors_list:
-            formatted["authors_display"] = ", ".join(authors_list[:3]) + (" et al." if len(authors_list) > 3 else "")
+            formatted["authors_display"] = ", ".join(authors_list[:3]) + (
+                " et al." if len(authors_list) > 3 else ""
+            )
         else:
             formatted["authors_display"] = "Authors not listed"
 
@@ -143,11 +148,14 @@ def generate_conversational_summary(sources: list[dict[str, object]], query: str
     # Import logger here to avoid circular imports
     try:
         from core.infrastructure.healthcare_logger import get_healthcare_logger
+
         logger = get_healthcare_logger("conversational_summary")
-        logger.info(f"DIAGNOSTIC: generate_conversational_summary called with {len(sources) if sources else 0} sources for query: '{query}'")
+        logger.info(
+            f"DIAGNOSTIC: generate_conversational_summary called with {len(sources) if sources else 0} sources for query: '{query}'"
+        )
     except Exception:
         logger = None
-    
+
     if not sources:
         if logger:
             logger.info("DIAGNOSTIC: No sources provided, returning 'No literature found.'")
@@ -157,7 +165,9 @@ def generate_conversational_summary(sources: list[dict[str, object]], query: str
     seen: set[str] = set()
     unique: list[dict[str, object]] = []
     for s in sources:
-        key = _as_str(s.get("doi") or s.get("pmid") or s.get("url") or s.get("title")).strip().lower()
+        key = (
+            _as_str(s.get("doi") or s.get("pmid") or s.get("url") or s.get("title")).strip().lower()
+        )
         if not key or key in seen:
             continue
         seen.add(key)
@@ -216,8 +226,10 @@ def generate_conversational_summary(sources: list[dict[str, object]], query: str
 
     result = "\n".join(lines).rstrip()
     if logger:
-        logger.info(f"DIAGNOSTIC: Generated summary length: {len(result)}, preview: {result[:200] if result else 'EMPTY'}")
-    
+        logger.info(
+            f"DIAGNOSTIC: Generated summary length: {len(result)}, preview: {result[:200] if result else 'EMPTY'}"
+        )
+
     return result
 
 

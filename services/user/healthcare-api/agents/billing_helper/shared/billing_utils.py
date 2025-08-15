@@ -113,7 +113,8 @@ class SharedBillingUtils:
             if amount_field in billing_data:
                 try:
                     HealthcareFinancialUtils.validate_financial_amount(
-                        billing_data[amount_field], amount_field,
+                        billing_data[amount_field],
+                        amount_field,
                     )
                 except ValueError as e:
                     validation_errors.append(str(e))

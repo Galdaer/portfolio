@@ -11,6 +11,7 @@ Design goals:
 DISCLAIMER: Generic relevance scoring only – does not interpret or validate
 content domain correctness.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -23,6 +24,7 @@ __all__ = [
     "extract_source_links",
     "basic_rank_sources",
 ]
+
 
 def normalize_query_terms(query: str) -> set[str]:
     return {t for t in query.lower().split() if t}
@@ -74,11 +76,13 @@ def basic_rank_sources(sources: list[dict[str, Any]], query: str) -> list[dict[s
     ranked: list[dict[str, Any]] = []
     for src in sources:
         recency = calculate_recency_score(src.get("publication_date") or src.get("date"))
-        blob = " ".join([
-            str(src.get("title", "")),
-            str(src.get("abstract", "")),
-            str(src.get("summary", "")),
-        ]).lower()
+        blob = " ".join(
+            [
+                str(src.get("title", "")),
+                str(src.get("abstract", "")),
+                str(src.get("summary", "")),
+            ]
+        ).lower()
         hits = sum(1 for t in terms if t in blob)
         overlap = (hits / len(terms)) if terms else 0.0
         score = recency + (overlap * 2.0)

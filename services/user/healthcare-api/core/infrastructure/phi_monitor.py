@@ -92,10 +92,10 @@ class PHIMonitor:
         """
         self.logger = get_healthcare_logger("phi_monitor")
         self.enable_synthetic_detection = enable_synthetic_detection
-        
+
         # Load configuration from YAML files
         self._load_configuration()
-        
+
         self._detection_stats = {
             "total_scans": 0,
             "phi_detections": 0,
@@ -108,27 +108,33 @@ class PHIMonitor:
         try:
             # Get compiled patterns from config
             self._compiled_patterns = phi_config.get_compiled_patterns()
-            
+
             # Get other config settings
             self._risk_settings = phi_config.get_risk_settings()
             self._synthetic_patterns = phi_config.get_synthetic_patterns()
             self._phi_field_names = phi_config.get_phi_field_names()
             self._risk_mappings = phi_config.get_risk_mappings()
             self._recommendations_config = phi_config.get_recommendations()
-            
+
             # Update instance settings from config
-            if not hasattr(self, 'enable_synthetic_detection'):
-                self.enable_synthetic_detection = self._risk_settings.get("enable_synthetic_detection", True)
-            
+            if not hasattr(self, "enable_synthetic_detection"):
+                self.enable_synthetic_detection = self._risk_settings.get(
+                    "enable_synthetic_detection", True
+                )
+
             self.logger.info("PHI detection configuration loaded successfully")
-            
+
         except Exception as e:
             self.logger.error(f"Failed to load PHI configuration: {e}")
             # Use basic fallback patterns
             self._compiled_patterns = {}
             self._synthetic_patterns = []
             self._phi_field_names = set()
-            self._risk_mappings = {"high_risk_types": [], "medium_risk_types": [], "low_risk_types": []}
+            self._risk_mappings = {
+                "high_risk_types": [],
+                "medium_risk_types": [],
+                "low_risk_types": [],
+            }
             self._recommendations_config = {}
 
     def reload_configuration(self) -> None:
@@ -138,7 +144,9 @@ class PHIMonitor:
         self.logger.info("PHI detection configuration reloaded")
 
     def scan_for_phi(
-        self, data: str | dict[str, Any] | list[Any], context: str | None = None,
+        self,
+        data: str | dict[str, Any] | list[Any],
+        context: str | None = None,
     ) -> PHIDetectionResult:
         """
         Comprehensive PHI detection scan.
@@ -275,7 +283,9 @@ class PHIMonitor:
         return phi_fields
 
     def _calculate_risk_level(
-        self, detected_types: list[PHIType], phi_fields: list[str],
+        self,
+        detected_types: list[PHIType],
+        phi_fields: list[str],
     ) -> PHIRiskLevel:
         """Calculate risk level based on detected PHI types and config mappings."""
         if not detected_types and not phi_fields:
@@ -283,44 +293,46 @@ class PHIMonitor:
 
         # Convert PHIType enums to strings for comparison with config
         detected_type_names = [phi_type.value for phi_type in detected_types]
-        
+
         # Get risk mappings from config
         high_risk_types = set(self._risk_mappings.get("high_risk_types", []))
         medium_risk_types = set(self._risk_mappings.get("medium_risk_types", []))
-        
+
         # Check for high-risk PHI types
         if any(phi_type in high_risk_types for phi_type in detected_type_names):
             return PHIRiskLevel.CRITICAL
-        
+
         # Check for multiple PHI types (critical threshold from config)
         critical_threshold = self._risk_settings.get("critical_threshold", 3)
         if len(detected_types) >= critical_threshold:
             return PHIRiskLevel.HIGH
-        
+
         # Check for medium-risk PHI types
         if any(phi_type in medium_risk_types for phi_type in detected_type_names):
             return PHIRiskLevel.MEDIUM
-        
+
         return PHIRiskLevel.LOW
 
     def _generate_recommendations(
-        self, detected_types: list[PHIType], risk_level: PHIRiskLevel,
+        self,
+        detected_types: list[PHIType],
+        risk_level: PHIRiskLevel,
     ) -> list[str]:
         """Generate recommendations based on detection results and config."""
         # Get recommendations from config
         risk_level_key = risk_level.value.lower()
         if risk_level_key in self._recommendations_config:
             return self._recommendations_config[risk_level_key].copy()
-        
+
         # Fallback recommendations if config is missing
         fallback_recommendations = {
             "critical": ["IMMEDIATE ACTION REQUIRED: Critical PHI detected"],
             "high": ["HIGH PRIORITY: Multiple PHI types detected"],
             "medium": ["MEDIUM PRIORITY: PHI detected"],
             "low": ["LOW PRIORITY: Minimal PHI detected"],
-            "none": []
+            "none": [],
         }
-        
+
         return fallback_recommendations.get(risk_level_key, [])
 
     def _log_phi_detection(self, result: PHIDetectionResult, context: str | None) -> None:
@@ -339,7 +351,10 @@ class PHIMonitor:
         )
 
     def monitor_data_pipeline(
-        self, pipeline_name: str, data: Any, stage: str = "processing",
+        self,
+        pipeline_name: str,
+        data: Any,
+        stage: str = "processing",
     ) -> bool:
         """
         Monitor data pipeline for PHI exposure.
@@ -394,7 +409,9 @@ class PHIMonitor:
         """
         return hashlib.sha256(patient_id.encode()).hexdigest()[:8]
 
-    def sanitize_for_logging(self, data: dict[str, Any], context: str | None = None) -> dict[str, Any]:
+    def sanitize_for_logging(
+        self, data: dict[str, Any], context: str | None = None
+    ) -> dict[str, Any]:
         """
         Sanitize data for secure logging by removing or hashing PHI.
 
@@ -523,7 +540,8 @@ def monitor_pipeline_safety(pipeline_name: str, data: Any, stage: str = "process
 
 
 def phi_monitor_decorator(
-    risk_level: str = "medium", operation_type: str = "healthcare_operation",
+    risk_level: str = "medium",
+    operation_type: str = "healthcare_operation",
 ) -> Callable:
     """
     Decorator for PHI monitoring of healthcare methods.

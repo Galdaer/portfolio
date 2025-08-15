@@ -23,7 +23,8 @@ class PatientAssignmentDB:
         if db_path is None:
             # Create data directory if it doesn't exist
             data_dir = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data",
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                "data",
             )
             os.makedirs(data_dir, exist_ok=True)
             db_path = os.path.join(data_dir, "healthcare.db")
@@ -316,7 +317,8 @@ class RBACConfig:
         default_db_path = os.getenv("RBAC_DATABASE_PATH")
         if default_db_path is None:
             data_dir = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data",
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                "data",
             )
             os.makedirs(data_dir, exist_ok=True)
             default_db_path = os.path.join(data_dir, "healthcare.db")

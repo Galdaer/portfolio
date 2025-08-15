@@ -6,6 +6,7 @@ MCP subprocess for each call, avoiding the problematic mcp.client.stdio library.
 Fixed: Implements connection pooling and proper subprocess lifecycle management
 to resolve broken pipe errors when called from LangChain agents.
 """
+
 import asyncio
 import json
 import logging
@@ -22,7 +23,7 @@ logger = get_healthcare_logger("infrastructure.mcp.direct")
 class DirectMCPClient:
     """
     Direct MCP Client using JSON-RPC communication.
-    
+
     Uses connection pooling and proper subprocess lifecycle management
     to prevent broken pipe errors during LangChain agent execution.
     """
@@ -32,11 +33,11 @@ class DirectMCPClient:
         # Use configurable MCP server path - supports both container and host environments
         container_path = "/app/mcp-server/build/stdio_entry.js"
         host_path = "/home/intelluxe/services/user/healthcare-mcp/build/stdio_entry.js"
-        
+
         # Detect environment and choose appropriate path
-        is_container = os.path.exists('/app') and not os.path.exists('/home/intelluxe')
-        is_host = os.path.exists('/home/intelluxe')
-        
+        is_container = os.path.exists("/app") and not os.path.exists("/home/intelluxe")
+        is_host = os.path.exists("/home/intelluxe")
+
         if is_container and os.path.exists(container_path):
             self.mcp_server_path = container_path
         elif is_host and os.path.exists(host_path):
@@ -47,10 +48,10 @@ class DirectMCPClient:
         else:
             # Environment variable override or fallback
             self.mcp_server_path = os.getenv("MCP_SERVER_PATH", container_path)
-        
+
         self._active_connections: Dict[str, subprocess.Popen] = {}
         self._connection_lock = asyncio.Lock()
-        
+
         # Environment configuration for MCP server
         self.mcp_env = {
             "MCP_TRANSPORT": "stdio-only",
@@ -63,7 +64,7 @@ class DirectMCPClient:
             "ENVIRONMENT": os.getenv("ENVIRONMENT", "development"),
             "LOG_LEVEL": os.getenv("LOG_LEVEL", "info"),
         }
-        
+
         logger.info(
             "Direct MCP client initialized with connection pooling",
             extra={
@@ -80,7 +81,7 @@ class DirectMCPClient:
     async def _get_mcp_connection(self, connection_id: str = "default"):
         """
         Async context manager for MCP connections with proper lifecycle management.
-        
+
         Implements connection pooling to prevent rapid create/destroy cycles
         that cause broken pipe errors in LangChain agent execution.
         """
@@ -96,25 +97,27 @@ class DirectMCPClient:
                     # Clean up dead connection
                     del self._active_connections[connection_id]
                     logger.debug(f"Cleaned up dead MCP connection: {connection_id}")
-            
+
             # Create new connection
             logger.debug(f"Creating new MCP connection: {connection_id}")
-            
+
             # Check if MCP server exists
             if not os.path.exists(self.mcp_server_path):
-                error_msg = (f"MCP server not found at {self.mcp_server_path}. "
-                             f"Ensure the healthcare-mcp container is built and running.")
+                error_msg = (
+                    f"MCP server not found at {self.mcp_server_path}. "
+                    f"Ensure the healthcare-mcp container is built and running."
+                )
                 logger.error(error_msg)
                 raise FileNotFoundError(error_msg)
-            
+
             # Build command based on server type
-            if hasattr(self, 'mcp_server_args'):
+            if hasattr(self, "mcp_server_args"):
                 # Python-based server
                 cmd = [self.mcp_server_path] + self.mcp_server_args
             else:
                 # Node.js-based server
-                cmd = ['node', self.mcp_server_path]
-            
+                cmd = ["node", self.mcp_server_path]
+
             try:
                 process = subprocess.Popen(
                     cmd,
@@ -122,47 +125,46 @@ class DirectMCPClient:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
-                    env=self.mcp_env
+                    env=self.mcp_env,
                 )
             except (FileNotFoundError, OSError) as e:
                 error_msg = f"Failed to start MCP server: {e}. Check that node.js is installed and MCP server is built."
                 logger.error(error_msg)
                 raise RuntimeError(error_msg) from e
-            
+
             try:
                 # Wait for server to start with shorter timeout for pooled connections
                 await asyncio.sleep(0.5)
-                
+
                 # Initialize MCP session
                 init_request = {
-                    'jsonrpc': '2.0',
-                    'id': 1,
-                    'method': 'initialize',
-                    'params': {
-                        'protocolVersion': '2024-11-05',
-                        'capabilities': {},
-                        'clientInfo': {'name': 'healthcare-api', 'version': '1.0.0'}
-                    }
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {},
+                        "clientInfo": {"name": "healthcare-api", "version": "1.0.0"},
+                    },
                 }
 
-                process.stdin.write(json.dumps(init_request) + '\n')
+                process.stdin.write(json.dumps(init_request) + "\n")
                 process.stdin.flush()
-                
+
                 # Read initialization response
                 response_line = await asyncio.wait_for(
-                    asyncio.to_thread(process.stdout.readline),
-                    timeout=10
+                    asyncio.to_thread(process.stdout.readline), timeout=10
                 )
-                
+
                 if not response_line:
                     raise RuntimeError("No response from MCP server during initialization")
-                
+
                 # Store active connection for reuse
                 self._active_connections[connection_id] = process
                 logger.debug(f"MCP connection established: {connection_id}")
-                
+
                 yield process
-                
+
             except Exception as e:
                 # Clean up on error
                 logger.error(f"Failed to establish MCP connection {connection_id}: {e}")
@@ -177,43 +179,42 @@ class DirectMCPClient:
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Call an MCP tool using pooled connection with proper lifecycle management.
-        
+
         This implementation uses connection pooling to prevent broken pipe errors
         that occur during LangChain agent execution due to rapid subprocess cycling.
         """
-        logger.info(f"Calling MCP tool: {tool_name}", extra={
-            "healthcare_context": {
-                "operation_type": "mcp_tool_call",
-                "tool_name": tool_name,
-                "arguments": arguments,
-                "connection_strategy": "pooled",
-            }
-        })
+        logger.info(
+            f"Calling MCP tool: {tool_name}",
+            extra={
+                "healthcare_context": {
+                    "operation_type": "mcp_tool_call",
+                    "tool_name": tool_name,
+                    "arguments": arguments,
+                    "connection_strategy": "pooled",
+                }
+            },
+        )
 
         try:
             # Use connection pool with tool-specific connection ID
             connection_id = f"tool_{tool_name}"
-            
+
             async with self._get_mcp_connection(connection_id) as process:
                 # Call the tool
                 tool_request = {
-                    'jsonrpc': '2.0',
-                    'id': 2,
-                    'method': 'tools/call',
-                    'params': {
-                        'name': tool_name,
-                        'arguments': arguments
-                    }
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
+                    "params": {"name": tool_name, "arguments": arguments},
                 }
 
                 logger.debug(f"Sending tool request: {tool_name}")
-                process.stdin.write(json.dumps(tool_request) + '\n')
+                process.stdin.write(json.dumps(tool_request) + "\n")
                 process.stdin.flush()
 
                 # Read tool response with longer timeout for medical searches
                 response_line = await asyncio.wait_for(
-                    asyncio.to_thread(process.stdout.readline),
-                    timeout=30
+                    asyncio.to_thread(process.stdout.readline), timeout=30
                 )
 
                 if not response_line:
@@ -222,22 +223,25 @@ class DirectMCPClient:
                 # Parse response
                 result = json.loads(response_line.strip())
 
-                if 'error' in result:
+                if "error" in result:
                     logger.error(f"MCP tool error: {result['error']}")
                     raise RuntimeError(f"MCP tool error: {result['error']}")
 
                 logger.info(f"MCP tool {tool_name} completed successfully")
-                return result.get('result', {})
+                return result.get("result", {})
 
         except Exception as e:
-            logger.error(f"Failed to call MCP tool {tool_name}: {e}", extra={
-                "healthcare_context": {
-                    "operation_type": "mcp_tool_error",
-                    "tool_name": tool_name,
-                    "error": str(e),
-                    "fix_note": "pooled_connection_failed",
-                }
-            })
+            logger.error(
+                f"Failed to call MCP tool {tool_name}: {e}",
+                extra={
+                    "healthcare_context": {
+                        "operation_type": "mcp_tool_error",
+                        "tool_name": tool_name,
+                        "error": str(e),
+                        "fix_note": "pooled_connection_failed",
+                    }
+                },
+            )
             raise
 
     async def cleanup_connections(self) -> None:
@@ -252,7 +256,7 @@ class DirectMCPClient:
                     process.wait()
                 except Exception as e:
                     logger.warning(f"Error cleaning up connection {connection_id}: {e}")
-                
+
             self._active_connections.clear()
             logger.info("All MCP connections cleaned up")
 
@@ -263,30 +267,24 @@ class DirectMCPClient:
         try:
             async with self._get_mcp_connection("tools_list") as process:
                 # List tools
-                tools_request = {
-                    'jsonrpc': '2.0',
-                    'id': 2,
-                    'method': 'tools/list',
-                    'params': {}
-                }
+                tools_request = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
 
-                process.stdin.write(json.dumps(tools_request) + '\n')
+                process.stdin.write(json.dumps(tools_request) + "\n")
                 process.stdin.flush()
 
                 # Read tools response
                 response_line = await asyncio.wait_for(
-                    asyncio.to_thread(process.stdout.readline),
-                    timeout=10
+                    asyncio.to_thread(process.stdout.readline), timeout=10
                 )
 
                 # Parse response
                 result = json.loads(response_line.strip())
 
-                if 'error' in result:
+                if "error" in result:
                     logger.error(f"Failed to list tools: {result['error']}")
                     return []
 
-                tools = result.get('result', {}).get('tools', [])
+                tools = result.get("result", {}).get("tools", [])
                 logger.info(f"Found {len(tools)} available MCP tools")
                 return tools
 
@@ -306,11 +304,11 @@ class DirectMCPClient:
             async with self._get_mcp_connection("debug") as process:
                 if process.poll() is None:
                     logger.info("✅ MCP connection pool working correctly")
-                    
+
             # Test actual tool call
-            result = await self.call_tool('search-pubmed', {'query': 'test connection'})
+            result = await self.call_tool("search-pubmed", {"query": "test connection"})
             logger.info(f"✅ MCP tool test successful: {len(str(result))} chars response")
-            
+
         except Exception as e:
             logger.error(f"❌ MCP connection test failed: {e}")
             raise

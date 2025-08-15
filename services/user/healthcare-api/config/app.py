@@ -27,7 +27,8 @@ class IntelluxeConfig(BaseSettings):
     database_name: str = Field(default="intelluxe", json_schema_extra={"env": "DATABASE_NAME"})
     database_url: str | None = Field(default=None, json_schema_extra={"env": "DATABASE_URL"})
     postgres_password: str = Field(
-        default="secure_password", json_schema_extra={"env": "POSTGRES_PASSWORD"},
+        default="secure_password",
+        json_schema_extra={"env": "POSTGRES_PASSWORD"},
     )
     redis_password: str | None = Field(default=None, json_schema_extra={"env": "REDIS_PASSWORD"})
 
@@ -52,12 +53,14 @@ class IntelluxeConfig(BaseSettings):
     def get_model_for_task(self, task_type: str = "default") -> str:
         """Get appropriate model for a specific task type - delegates to MODEL_CONFIG"""
         from core.config.models import MODEL_CONFIG
+
         return MODEL_CONFIG.get_model_for_task(task_type)
 
     # AI Model configuration
     ollama_url: str = Field(default="intelluxe-ai", json_schema_extra={"env": "OLLAMA_URL"})
     ollama_max_loaded_models: int = Field(
-        default=3, json_schema_extra={"env": "OLLAMA_MAX_LOADED_MODELS"},
+        default=3,
+        json_schema_extra={"env": "OLLAMA_MAX_LOADED_MODELS"},
     )
     ollama_keep_alive: str = Field(default="24h", json_schema_extra={"env": "OLLAMA_KEEP_ALIVE"})
 
@@ -69,40 +72,48 @@ class IntelluxeConfig(BaseSettings):
 
     # Training configuration (Phase 2+)
     unsloth_training_enabled: bool = Field(
-        default=False, json_schema_extra={"env": "UNSLOTH_TRAINING_ENABLED"},
+        default=False,
+        json_schema_extra={"env": "UNSLOTH_TRAINING_ENABLED"},
     )
     training_data_path: str = Field(
-        default="/app/data/training", json_schema_extra={"env": "TRAINING_DATA_PATH"},
+        default="/app/data/training",
+        json_schema_extra={"env": "TRAINING_DATA_PATH"},
     )
     adapter_registry_path: str = Field(
         default="/app/models/adapters",
         json_schema_extra={"env": "ADAPTER_REGISTRY_PATH"},
     )
     wandb_project: str = Field(
-        default="intelluxe-training", json_schema_extra={"env": "WANDB_PROJECT"},
+        default="intelluxe-training",
+        json_schema_extra={"env": "WANDB_PROJECT"},
     )
 
     # Performance configuration
     gpu_memory_fraction: float = Field(
-        default=0.8, json_schema_extra={"env": "GPU_MEMORY_FRACTION"},
+        default=0.8,
+        json_schema_extra={"env": "GPU_MEMORY_FRACTION"},
     )
 
     # Compliance and security
     data_retention_days: int = Field(
-        default=2555, json_schema_extra={"env": "DATA_RETENTION_DAYS"},
+        default=2555,
+        json_schema_extra={"env": "DATA_RETENTION_DAYS"},
     )  # 7 years
     audit_log_level: str = Field(default="detailed", json_schema_extra={"env": "AUDIT_LOG_LEVEL"})
     pii_redaction_enabled: bool = Field(
-        default=True, json_schema_extra={"env": "PII_REDACTION_ENABLED"},
+        default=True,
+        json_schema_extra={"env": "PII_REDACTION_ENABLED"},
     )
     rbac_enabled: bool = Field(default=True, json_schema_extra={"env": "RBAC_ENABLED"})
 
     # Health monitoring
     health_check_interval: str = Field(
-        default="60s", json_schema_extra={"env": "HEALTH_CHECK_INTERVAL"},
+        default="60s",
+        json_schema_extra={"env": "HEALTH_CHECK_INTERVAL"},
     )
     health_alert_webhook: str | None = Field(
-        default=None, json_schema_extra={"env": "HEALTH_ALERT_WEBHOOK"},
+        default=None,
+        json_schema_extra={"env": "HEALTH_ALERT_WEBHOOK"},
     )
     health_page_public: bool = Field(default=False, json_schema_extra={"env": "HEALTH_PAGE_PUBLIC"})
 

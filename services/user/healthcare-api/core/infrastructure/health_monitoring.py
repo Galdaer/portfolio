@@ -121,7 +121,7 @@ class HealthcareSystemMonitor:
             self.last_check_time = time.time()
             self.cached_status = health_status
             # Record latency in histogram (seconds)
-            duration_seconds = (time.time() - start_time)
+            duration_seconds = time.time() - start_time
             self._duration_sum += duration_seconds
             self._duration_count += 1
             # Increment first bucket whose upper bound >= duration
@@ -376,6 +376,7 @@ class HealthcareSystemMonitor:
         """Include rate limiting snapshot metrics."""
         try:
             from core.infrastructure.rate_limiting import get_healthcare_rate_limiter
+
             limiter = get_healthcare_rate_limiter()
             snapshot = limiter.snapshot_metrics()
             return {
@@ -406,10 +407,13 @@ class HealthcareSystemMonitor:
         try:
             quick_tasks = [self._check_database_health(), self._check_redis_health()]
             results = await asyncio.wait_for(
-                asyncio.gather(*quick_tasks, return_exceptions=True), timeout=self.health_check_timeout,
+                asyncio.gather(*quick_tasks, return_exceptions=True),
+                timeout=self.health_check_timeout,
             )
             db_status = results[0] if not isinstance(results[0], Exception) else {"status": "error"}
-            redis_status = results[1] if not isinstance(results[1], Exception) else {"status": "error"}
+            redis_status = (
+                results[1] if not isinstance(results[1], Exception) else {"status": "error"}
+            )
             overall = "healthy"
             if (isinstance(db_status, dict) and db_status.get("status") == "critical") or (
                 isinstance(redis_status, dict) and redis_status.get("status") == "critical"
@@ -418,7 +422,8 @@ class HealthcareSystemMonitor:
             elif (
                 isinstance(db_status, dict) and db_status.get("status") in ["degraded", "error"]
             ) or (
-                isinstance(redis_status, dict) and redis_status.get("status") in ["degraded", "error"]
+                isinstance(redis_status, dict)
+                and redis_status.get("status") in ["degraded", "error"]
             ):
                 overall = "degraded"
             return {
@@ -453,28 +458,38 @@ class HealthcareSystemMonitor:
         lines: list[str] = []
         snap = self.cached_status or {}
         overall = snap.get("overall_status", "unknown")
-        lines.append("# HELP healthcare_overall_status Overall health status (1=healthy,0 otherwise)")
+        lines.append(
+            "# HELP healthcare_overall_status Overall health status (1=healthy,0 otherwise)"
+        )
         lines.append("# TYPE healthcare_overall_status gauge")
         val = 1 if overall == "healthy" else 0
         lines.append(f'healthcare_overall_status{{status="{overall}"}} {val}')
         components = snap.get("components", {})
         if isinstance(components, dict):
-            lines.append("# HELP healthcare_component_status Component status (1=healthy,0 otherwise)")
+            lines.append(
+                "# HELP healthcare_component_status Component status (1=healthy,0 otherwise)"
+            )
             lines.append("# TYPE healthcare_component_status gauge")
             for name, data in components.items():
                 if isinstance(data, dict):
                     status = data.get("status", "unknown")
                     lines.append(
-                        f'healthcare_component_status{{component="{name}",status="{status}"}} {1 if status == 'healthy' else 0}',
+                        f'healthcare_component_status{{component="{name}",status="{status}"}} {1 if status == "healthy" else 0}',
                     )
         # Histogram exposition (Prometheus style) for comprehensive health check latency
         if self._duration_count > 0:
-            lines.append("# HELP healthcare_health_check_duration_seconds Comprehensive health check duration")
+            lines.append(
+                "# HELP healthcare_health_check_duration_seconds Comprehensive health check duration"
+            )
             lines.append("# TYPE healthcare_health_check_duration_seconds histogram")
             cumulative = 0
-            for upper, count in zip(self._duration_buckets, self._duration_bucket_counts, strict=False):
+            for upper, count in zip(
+                self._duration_buckets, self._duration_bucket_counts, strict=False
+            ):
                 cumulative += count
-                le_label = "+Inf" if upper == float("inf") else (f"{upper:.2f}".rstrip("0").rstrip("."))
+                le_label = (
+                    "+Inf" if upper == float("inf") else (f"{upper:.2f}".rstrip("0").rstrip("."))
+                )
                 lines.append(
                     f'healthcare_health_check_duration_seconds_bucket{{le="{le_label}"}} {cumulative}',
                 )

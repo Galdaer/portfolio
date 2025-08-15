@@ -27,7 +27,8 @@ class ResearchRequest(BaseModel):
         description="Type of research: general_inquiry, differential_diagnosis, drug_interaction, literature_research",
     )
     clinical_context: dict[str, Any] = Field(
-        default_factory=dict, description="Clinical context for the research",
+        default_factory=dict,
+        description="Clinical context for the research",
     )
     session_id: str = Field(default="default", description="Session identifier")
 
@@ -47,7 +48,8 @@ class LiteratureSearchRequest(BaseModel):
 
     search_query: str = Field(..., description="Medical literature search query")
     search_context: dict[str, Any] = Field(
-        default_factory=dict, description="Additional search context",
+        default_factory=dict,
+        description="Additional search context",
     )
 
     class Config:

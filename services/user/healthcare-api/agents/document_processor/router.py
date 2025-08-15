@@ -25,7 +25,8 @@ class DocumentProcessingRequest(BaseModel):
         description="Type of document: soap_note, medical_form, patient_summary, clinical_note",
     )
     document_data: dict[str, Any] = Field(
-        default_factory=dict, description="Document data for processing",
+        default_factory=dict,
+        description="Document data for processing",
     )
     session_id: str = Field(default="default", description="Session identifier")
 
@@ -125,7 +126,6 @@ async def process_document(
         # Process document
         return await processor._process_implementation(request.model_dump())
 
-
     except Exception as e:
         logger.exception(f"Document processing error: {e}")
         raise HTTPException(
@@ -158,7 +158,6 @@ async def process_soap_note(
 
         processor = HealthcareDocumentProcessor(mcp_client=mcp_client, llm_client=llm_client)
         return await processor._process_implementation(processing_request)
-
 
     except Exception as e:
         logger.exception(f"SOAP note processing error: {e}")
@@ -193,7 +192,6 @@ async def process_medical_form(
         processor = HealthcareDocumentProcessor(mcp_client=mcp_client, llm_client=llm_client)
         return await processor._process_implementation(processing_request)
 
-
     except Exception as e:
         logger.exception(f"Medical form processing error: {e}")
         raise HTTPException(
@@ -225,7 +223,6 @@ async def process_patient_summary(
 
         processor = HealthcareDocumentProcessor(mcp_client=mcp_client, llm_client=llm_client)
         return await processor._process_implementation(processing_request)
-
 
     except Exception as e:
         logger.exception(f"Patient summary processing error: {e}")
@@ -261,7 +258,6 @@ async def process_clinical_note(
 
         processor = HealthcareDocumentProcessor(mcp_client=mcp_client, llm_client=llm_client)
         return await processor._process_implementation(processing_request)
-
 
     except Exception as e:
         logger.exception(f"Clinical note processing error: {e}")
@@ -323,7 +319,8 @@ async def validate_document_completeness(
         }
 
         requirements = validation_requirements.get(
-            document_type, validation_requirements["clinical_note"],
+            document_type,
+            validation_requirements["clinical_note"],
         )
 
         return {

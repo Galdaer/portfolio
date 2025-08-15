@@ -13,27 +13,33 @@ import yaml
 @dataclass
 class SearchParameters:
     """Search parameter configuration"""
+
     max_results: dict[str, int]
     timeouts: dict[str, int]
     query_templates: dict[str, str]
 
+
 @dataclass
 class PublicationConfig:
     """Publication type preferences"""
+
     condition_info: list[str]
     symptom_literature: list[str]
     drug_information: list[str]
     clinical_references: list[str]
 
+
 @dataclass
 class MedicalSearchConfig:
     """Complete medical search configuration"""
+
     search_parameters: SearchParameters
     publication_types: PublicationConfig
     evidence_weights: dict[str, int]
     trusted_organizations: list[str]
     confidence_parameters: dict[str, Any]
     url_patterns: dict[str, str]
+
 
 class MedicalSearchConfigLoader:
     """Loads medical search configuration from YAML with defaults"""
@@ -71,9 +77,15 @@ class MedicalSearchConfigLoader:
 
             publication_types = PublicationConfig(
                 condition_info=config_data.get("publication_types", {}).get("condition_info", []),
-                symptom_literature=config_data.get("publication_types", {}).get("symptom_literature", []),
-                drug_information=config_data.get("publication_types", {}).get("drug_information", []),
-                clinical_references=config_data.get("publication_types", {}).get("clinical_references", []),
+                symptom_literature=config_data.get("publication_types", {}).get(
+                    "symptom_literature", []
+                ),
+                drug_information=config_data.get("publication_types", {}).get(
+                    "drug_information", []
+                ),
+                clinical_references=config_data.get("publication_types", {}).get(
+                    "clinical_references", []
+                ),
             )
 
             self._config = MedicalSearchConfig(

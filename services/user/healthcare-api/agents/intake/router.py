@@ -25,7 +25,8 @@ class IntakeRequest(BaseModel):
         description="Type of intake: new_patient_registration, appointment_scheduling, insurance_verification, document_checklist",
     )
     patient_data: dict[str, Any] = Field(
-        default_factory=dict, description="Patient data for intake processing",
+        default_factory=dict,
+        description="Patient data for intake processing",
     )
     session_id: str = Field(default="default", description="Session identifier")
 
@@ -53,7 +54,8 @@ class AppointmentSchedulingRequest(BaseModel):
     patient_id: str = Field(..., description="Patient identifier")
     provider_preference: str | None = Field(None, description="Preferred provider")
     preferred_times: list[str] = Field(
-        default_factory=list, description="Preferred appointment times",
+        default_factory=list,
+        description="Preferred appointment times",
     )
     appointment_type: str = Field(default="general", description="Type of appointment")
 
@@ -73,7 +75,8 @@ class InsuranceVerificationRequest(BaseModel):
 
     patient_id: str = Field(..., description="Patient identifier")
     insurance_info: dict[str, Any] = Field(
-        ..., description="Insurance information for verification",
+        ...,
+        description="Insurance information for verification",
     )
 
     class Config:

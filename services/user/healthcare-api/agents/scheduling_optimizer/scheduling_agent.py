@@ -315,7 +315,10 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
         end_hour = 17
 
         current_time = preferred_datetime.replace(
-            hour=start_hour, minute=0, second=0, microsecond=0,
+            hour=start_hour,
+            minute=0,
+            second=0,
+            microsecond=0,
         )
         end_time = preferred_datetime.replace(hour=end_hour, minute=0, second=0, microsecond=0)
 
@@ -363,7 +366,9 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
         return available_slots
 
     def _select_optimal_slot(
-        self, available_slots: list[AppointmentSlot], appointment_request: dict[str, Any],
+        self,
+        available_slots: list[AppointmentSlot],
+        appointment_request: dict[str, Any],
     ) -> AppointmentSlot:
         """
         Select the optimal appointment slot based on scheduling criteria
@@ -392,7 +397,9 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
 
     @healthcare_log_method(operation_type="scheduling_optimization", phi_risk_level="medium")
     async def optimize_provider_schedule(
-        self, provider_id: str, date_range: dict[str, str],
+        self,
+        provider_id: str,
+        date_range: dict[str, str],
     ) -> list[OptimizationRecommendation]:
         """
         Analyze and optimize provider schedule for efficiency
@@ -594,7 +601,8 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
                 return cast("dict[str, Any]", result)
             if request_type == "optimize_schedule":
                 result = await self.optimize_provider_schedule(
-                    request["provider_id"], request["date"],
+                    request["provider_id"],
+                    request["date"],
                 )
                 return cast("dict[str, Any]", result)
             if request_type == "wait_time_analysis":

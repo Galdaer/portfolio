@@ -43,6 +43,7 @@ logger = get_healthcare_logger(__name__)
 # Healthcare AI orchestration configuration (centralized)
 ORCHESTRATOR_MODEL = get_primary_model()
 
+
 # HTTP Request/Response models
 class ProcessRequest(BaseModel):
     message: str
@@ -53,6 +54,7 @@ class ProcessRequest(BaseModel):
     # Citations remain in result["citations"] regardless of this flag
     show_sources: bool | None = None
 
+
 class ProcessResponse(BaseModel):
     status: str
     result: dict[str, Any] | None = None
@@ -60,6 +62,7 @@ class ProcessResponse(BaseModel):
     # Back-compat for older pipelines expecting a 'response' string
     response: str | None = None
     formatted_response: str | None = None  # Human-readable response
+
 
 # Open WebUI compatible models
 class ChatCompletionsRequest(BaseModel):
@@ -69,8 +72,10 @@ class ChatCompletionsRequest(BaseModel):
     max_tokens: int | None = None
     stream: bool = False
 
+
 class InvokeRequest(BaseModel):
     arguments: dict[str, Any] | None = None
+
 
 # Global variables for agent management
 discovered_agents = {}
@@ -101,14 +106,29 @@ def load_orchestrator_config() -> dict[str, Any]:
             "presearch_max_results": 5,
         },
         "synthesis": {
-            "prefer": ["formatted_summary", "formatted_response", "response", "research_summary", "message"],
-            "agent_priority": ["medical_search", "clinical_research", "document_processor", "intake"],
+            "prefer": [
+                "formatted_summary",
+                "formatted_response",
+                "response",
+                "research_summary",
+                "message",
+            ],
+            "agent_priority": [
+                "medical_search",
+                "clinical_research",
+                "document_processor",
+                "intake",
+            ],
             "header_prefix": "🤖 ",
         },
-        "fallback": {"agent_name": "base", "message_template": "I couldn't find a specialized agent to handle this request yet.\n\nRequest: \"{user_message}\""},
+        "fallback": {
+            "agent_name": "base",
+            "message_template": 'I couldn\'t find a specialized agent to handle this request yet.\n\nRequest: "{user_message}"',
+        },
     }
     try:
         import yaml  # type: ignore
+
         if cfg_path.exists():
             with cfg_path.open("r", encoding="utf-8") as f:
                 loaded = yaml.safe_load(f) or {}
@@ -138,6 +158,7 @@ async def initialize_agents():
     try:
         # Initialize healthcare services
         from core.dependencies import HealthcareServices
+
         healthcare_services = HealthcareServices()
         await healthcare_services.initialize()
 
@@ -171,11 +192,12 @@ async def initialize_agents():
                     module = importlib.import_module(module_name)
 
                     for name, obj in inspect.getmembers(module, inspect.isclass):
-                        if (issubclass(obj, BaseHealthcareAgent)
-                                and obj != BaseHealthcareAgent
-                                and hasattr(obj, "__module__")
-                                and obj.__module__ == module_name):
-
+                        if (
+                            issubclass(obj, BaseHealthcareAgent)
+                            and obj != BaseHealthcareAgent
+                            and hasattr(obj, "__module__")
+                            and obj.__module__ == module_name
+                        ):
                             # Instantiate agent with dependencies
                             agent_instance = obj(healthcare_services.mcp_client, llm_client)
                             agent_name = getattr(agent_instance, "agent_name", agent_dir.name)
@@ -205,20 +227,20 @@ async def initialize_agents():
             chat_model = build_chat_model(
                 OllamaConfig(model=str(model_name), base_url=base_url, temperature=0.0)
             )
-            
+
             # Create a simple agent manager for discovered_agents
             class SimpleAgentManager:
                 def __init__(self, agents_dict):
                     self.agents = agents_dict
-                
+
                 def get_agent(self, name):
                     return self.agents.get(name)
-                
+
                 def list_agents(self):
                     return list(self.agents.keys())
-            
+
             agent_manager = SimpleAgentManager(discovered_agents)
-            
+
             langchain_orchestrator = LangChainOrchestrator(
                 mcp_client=healthcare_services.mcp_client,
                 chat_model=chat_model,
@@ -226,9 +248,15 @@ async def initialize_agents():
                     "per_agent_default": float(timeouts.get("per_agent_default", 30)),
                     "per_agent_hard_cap": float(timeouts.get("per_agent_hard_cap", 90)),
                 },
-                always_run_medical_search=bool(orch_cfg.get("routing", {}).get("always_run_medical_search", True)),
-                presearch_max_results=int(orch_cfg.get("routing", {}).get("presearch_max_results", 5)),
-                citations_max_display=int(orch_cfg.get("langchain", {}).get("citations_max_display", 10)),
+                always_run_medical_search=bool(
+                    orch_cfg.get("routing", {}).get("always_run_medical_search", True)
+                ),
+                presearch_max_results=int(
+                    orch_cfg.get("routing", {}).get("presearch_max_results", 5)
+                ),
+                citations_max_display=int(
+                    orch_cfg.get("langchain", {}).get("citations_max_display", 10)
+                ),
                 agent_manager=agent_manager,
             )
             logger.info("LangChain orchestrator initialized (default)")
@@ -252,6 +280,7 @@ async def lifespan(app: FastAPI):
             await healthcare_services.cleanup()
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
+
 
 # FastAPI app for HTTP server
 app = FastAPI(
@@ -301,7 +330,13 @@ async def warm() -> dict[str, Any]:
         "status": "warm",
         "agents": list(discovered_agents.keys()) if discovered_agents else [],
         "llm_warmed": warmed_llm,
-        "policy_version": getattr(__import__("core.infrastructure.rate_limiting", fromlist=["RATE_LIMITS_POLICY_VERSION"]), "RATE_LIMITS_POLICY_VERSION", "unknown"),
+        "policy_version": getattr(
+            __import__(
+                "core.infrastructure.rate_limiting", fromlist=["RATE_LIMITS_POLICY_VERSION"]
+            ),
+            "RATE_LIMITS_POLICY_VERSION",
+            "unknown",
+        ),
     }
 
 
@@ -323,6 +358,7 @@ async def rate_limit_stats():
     """
     try:
         from core.infrastructure.rate_limiting import get_healthcare_rate_limiter
+
         limiter = get_healthcare_rate_limiter()
         return limiter.snapshot_metrics()
     except Exception as e:  # pragma: no cover
@@ -335,6 +371,7 @@ async def rate_limit_metrics_raw():
     """Return raw counter map (internal diagnostic)."""
     try:
         from core.infrastructure.rate_limiting import RATE_LIMIT_METRICS
+
         return {"metrics": RATE_LIMIT_METRICS}
     except Exception as e:  # pragma: no cover
         logger.error(f"Failed to fetch raw metrics: {e}")
@@ -345,6 +382,7 @@ async def rate_limit_metrics_raw():
 async def full_health():
     try:
         from core.infrastructure.health_monitoring import healthcare_monitor
+
         return await healthcare_monitor.comprehensive_health_check()
     except Exception as e:  # pragma: no cover
         logger.error(f"Full health check failed: {e}")
@@ -355,6 +393,7 @@ async def full_health():
 async def quick_health():
     try:
         from core.infrastructure.health_monitoring import healthcare_monitor
+
         return await healthcare_monitor.quick_health_check()
     except Exception as e:  # pragma: no cover
         logger.error(f"Quick health check failed: {e}")
@@ -371,6 +410,7 @@ async def prometheus_metrics() -> str:
     # Rate limiting metrics via helper
     try:
         from core.infrastructure.rate_limiting import get_healthcare_rate_limiter
+
         limiter = get_healthcare_rate_limiter()
         lines.extend(limiter.prometheus_lines())
     except Exception as e:  # pragma: no cover
@@ -378,6 +418,7 @@ async def prometheus_metrics() -> str:
     # Health quick status
     try:
         from core.infrastructure.health_monitoring import healthcare_monitor
+
         # Refresh cached snapshot opportunistically
         await healthcare_monitor.quick_health_check()
         lines.extend(healthcare_monitor.prometheus_lines())
@@ -404,7 +445,7 @@ async def prometheus_metrics() -> str:
 async def select_agent_with_llm(message: str, available_agents: dict, llm_client: Any) -> Any:
     """
     Use local LLM to intelligently select the most appropriate agent for the message
-    
+
     SECURITY: Cloud AI disabled for PHI protection - using local LLM only
     """
     if not available_agents:
@@ -484,11 +525,14 @@ You must respond with a JSON object containing only the agent name. Do not inclu
             )
             # Parse structured JSON response
             import json
+
             try:
                 response_data = json.loads(response["response"])
                 selected_agent_name = response_data["agent"].strip().lower()
             except (json.JSONDecodeError, KeyError) as e:
-                logger.error(f"Failed to parse LLM structured response: {response.get('response', 'No response')}")
+                logger.error(
+                    f"Failed to parse LLM structured response: {response.get('response', 'No response')}"
+                )
                 raise ValueError(f"LLM returned malformed response: {e}")
         elif hasattr(llm_client, "chat"):
             # Alternative Ollama chat interface with structured output
@@ -500,30 +544,41 @@ You must respond with a JSON object containing only the agent name. Do not inclu
             )
             # Parse structured JSON response
             import json
+
             try:
                 response_data = json.loads(response["message"]["content"])
                 selected_agent_name = response_data["agent"].strip().lower()
             except (json.JSONDecodeError, KeyError) as e:
-                logger.error(f"Failed to parse LLM structured response: {response['message'].get('content', 'No response')}")
+                logger.error(
+                    f"Failed to parse LLM structured response: {response['message'].get('content', 'No response')}"
+                )
                 raise ValueError(f"LLM returned malformed response: {e}")
         else:
-            raise ValueError(f"LLM client missing expected methods. Available methods: {[method for method in dir(llm_client) if not method.startswith('_')]}")
+            raise ValueError(
+                f"LLM client missing expected methods. Available methods: {[method for method in dir(llm_client) if not method.startswith('_')]}"
+            )
 
         # Try to find matching agent
         for name, agent in available_agents.items():
-            if name.lower() == selected_agent_name or name.lower().replace("_", "") == selected_agent_name.replace("_", ""):
+            if name.lower() == selected_agent_name or name.lower().replace(
+                "_", ""
+            ) == selected_agent_name.replace("_", ""):
                 logger.info(f"Local LLM selected agent: {name}")
                 return agent
 
         # If no exact match, raise error to identify LLM selection issues
-        raise ValueError(f"Local LLM selected unknown agent '{selected_agent_name}', available: {list(available_agents.keys())}")
+        raise ValueError(
+            f"Local LLM selected unknown agent '{selected_agent_name}', available: {list(available_agents.keys())}"
+        )
 
     except Exception as e:
         logger.error(f"Error in LLM agent selection: {e}")
         raise  # Don't mask LLM issues with fallbacks
 
 
-async def _call_agent_safely(agent: Any, request_data: dict[str, Any], timeout_s: float) -> tuple[dict[str, Any] | None, str | None]:
+async def _call_agent_safely(
+    agent: Any, request_data: dict[str, Any], timeout_s: float
+) -> tuple[dict[str, Any] | None, str | None]:
     """Call an agent with timeout and exception safety. Returns (result, error)."""
     try:
         result = await asyncio.wait_for(agent.process_request(request_data), timeout=timeout_s)
@@ -558,11 +613,11 @@ async def _run_base_fallback(user_message: str) -> dict[str, Any]:
 def format_response_for_user(result: dict[str, Any], agent_name: str = None) -> str:
     """
     Convert agent JSON response to human-readable text for web UI users
-    
+
     Args:
         result: The JSON response from the agent
         agent_name: Name of the agent that generated the response
-        
+
     Returns:
         Human-readable formatted text
     """
@@ -584,7 +639,9 @@ def format_response_for_user(result: dict[str, Any], agent_name: str = None) -> 
 
         # Add agent identification if provided
         if agent_name:
-            response_parts.append(f"🤖 **{agent_name.replace('_', ' ').title()} Agent Response:**\n")
+            response_parts.append(
+                f"🤖 **{agent_name.replace('_', ' ').title()} Agent Response:**\n"
+            )
 
         # Handle search results
         if "search_id" in result:
@@ -627,7 +684,9 @@ def format_response_for_user(result: dict[str, Any], agent_name: str = None) -> 
                 response_parts.append(f"📋 **Data:** {len(data)} items returned")
 
         # Handle general result field
-        if "result" in result and len(response_parts) <= 1:  # Only if we haven't found other content
+        if (
+            "result" in result and len(response_parts) <= 1
+        ):  # Only if we haven't found other content
             result_data = result["result"]
             if isinstance(result_data, str):
                 response_parts.append(result_data)
@@ -648,7 +707,9 @@ def format_response_for_user(result: dict[str, Any], agent_name: str = None) -> 
     if isinstance(result, str):
         return result
     if isinstance(result, list):
-        return f"📋 Returned {len(result)} items: " + ", ".join(str(item)[:50] for item in result[:3])
+        return f"📋 Returned {len(result)} items: " + ", ".join(
+            str(item)[:50] for item in result[:3]
+        )
     return f"✅ Operation completed. Result: {str(result)[:200]}"
 
 
@@ -658,8 +719,16 @@ async def list_pipelines():
     """List available pipelines for Open WebUI"""
     try:
         return [
-            {"id": "healthcare", "name": "Healthcare AI", "description": "Healthcare AI with medical literature search"},
-            {"id": "medical-search", "name": "Medical Search", "description": "Medical literature search and clinical information"},
+            {
+                "id": "healthcare",
+                "name": "Healthcare AI",
+                "description": "Healthcare AI with medical literature search",
+            },
+            {
+                "id": "medical-search",
+                "name": "Medical Search",
+                "description": "Medical literature search and clinical information",
+            },
         ]
     except Exception as e:
         logger.error(f"Failed to list pipelines: {e}")
@@ -678,8 +747,16 @@ async def list_models():
             {"id": "medical-search", "name": "Medical Search", "owned_by": "intelluxe"},
         ]
         pipelines_data = [
-            {"id": "healthcare", "name": "Healthcare AI", "description": "Healthcare AI with medical literature search"},
-            {"id": "medical-search", "name": "Medical Search", "description": "Medical literature search and clinical information"},
+            {
+                "id": "healthcare",
+                "name": "Healthcare AI",
+                "description": "Healthcare AI with medical literature search",
+            },
+            {
+                "id": "medical-search",
+                "name": "Medical Search",
+                "description": "Medical literature search and clinical information",
+            },
         ]
         return {"object": "list", "data": models, "pipelines": pipelines_data}
     except Exception as e:
@@ -694,12 +771,14 @@ async def list_tools():
         # Return discovered agents as tools
         tools = []
         for name, agent in discovered_agents.items():
-            tools.append({
-                "id": name,
-                "name": name.replace("_", " ").title(),
-                "description": f"Healthcare agent: {name}",
-                "type": "agent"
-            })
+            tools.append(
+                {
+                    "id": name,
+                    "name": name.replace("_", " ").title(),
+                    "description": f"Healthcare agent: {name}",
+                    "type": "agent",
+                }
+            )
         return {"object": "list", "data": tools}
     except Exception as e:
         logger.error(f"Failed to list tools: {e}")
@@ -718,7 +797,7 @@ async def get_tool(tool_id: str):
                 "description": f"Healthcare agent: {tool_id}",
                 "type": "agent",
                 "agent_name": getattr(agent, "agent_name", tool_id),
-                "agent_type": getattr(agent, "agent_type", "healthcare")
+                "agent_type": getattr(agent, "agent_type", "healthcare"),
             }
         return JSONResponse(status_code=404, content={"error": "Tool not found"})
     except Exception as e:
@@ -732,10 +811,10 @@ async def invoke_tool(tool_id: str, req: InvokeRequest):
     try:
         if tool_id not in discovered_agents:
             return JSONResponse(status_code=404, content={"error": "Tool not found"})
-        
+
         agent = discovered_agents[tool_id]
         args = req.arguments or {}
-        
+
         # Convert arguments to process_request format
         request_data = {
             "message": args.get("message", args.get("query", "")),
@@ -743,10 +822,10 @@ async def invoke_tool(tool_id: str, req: InvokeRequest):
             "user_id": args.get("user_id", "anonymous"),
             "session_id": args.get("session_id", "default"),
         }
-        
+
         result = await agent.process_request(request_data)
         return {"status": "success", "result": result}
-        
+
     except ValueError as ve:
         logger.error(f"Tool invocation validation error: {ve}")
         return JSONResponse(status_code=400, content={"error": str(ve)})
@@ -763,34 +842,34 @@ async def chat_completions(request: ChatCompletionsRequest):
         request_dict = request.dict()
         sanitized_request = sanitize_request_data(request_dict)
         logger.info("🛡️ Request sanitized for HIPAA compliance")
-        
+
         # Extract the last user message (from sanitized request)
         user_message = ""
         for message in reversed(sanitized_request.get("messages", [])):
             if message.get("role") == "user":
                 user_message = message.get("content", "")
                 break
-        
+
         if not user_message:
             return JSONResponse(status_code=400, content={"error": "No user message found"})
-        
+
         # Process through our healthcare system
         process_request = ProcessRequest(
             message=user_message,
             user_id="openwebui",
             session_id="openwebui_session",
-            format="human"
+            format="human",
         )
-        
+
         # Use the existing process logic
         result = await process_message(process_request)
-        
+
         if result.status == "error":
             return JSONResponse(status_code=500, content={"error": result.error})
-        
+
         # Convert to OpenAI format
         response_content = result.formatted_response or result.response or "Operation completed"
-        
+
         openai_response = {
             "id": "chatcmpl-healthcare",
             "object": "chat.completion",
@@ -799,27 +878,24 @@ async def chat_completions(request: ChatCompletionsRequest):
             "choices": [
                 {
                     "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": response_content
-                    },
-                    "finish_reason": "stop"
+                    "message": {"role": "assistant", "content": response_content},
+                    "finish_reason": "stop",
                 }
             ],
             "usage": {
                 "prompt_tokens": len(user_message.split()),
                 "completion_tokens": len(response_content.split()),
-                "total_tokens": len(user_message.split()) + len(response_content.split())
-            }
+                "total_tokens": len(user_message.split()) + len(response_content.split()),
+            },
         }
-        
+
         # PHASE 1.2 PHI DETECTION: Sanitize outgoing response for HIPAA compliance
         sanitized_response = sanitize_response_data(openai_response)
         logger.info("🛡️ Response sanitized for HIPAA compliance")
-        
+
         logger.info(f"OpenAI chat completion processed with PHI protection: {user_message[:100]}")
         return sanitized_response
-        
+
     except Exception as e:
         logger.error(f"Chat completion error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -848,14 +924,28 @@ async def process_message(request: ProcessRequest) -> ProcessResponse:
             )
             if request.format == "human":
                 formatted = result.get("formatted_summary", "") or "Operation completed."
-                return ProcessResponse(status="success", result=result, response=formatted, formatted_response=formatted)
+                return ProcessResponse(
+                    status="success",
+                    result=result,
+                    response=formatted,
+                    formatted_response=formatted,
+                )
             return ProcessResponse(status="success", result=result)
         except Exception as e:
             logger.error(f"LangChain orchestrator error: {e}")
-            fb = langchain_orchestrator.get_fallback_response() if langchain_orchestrator else {"formatted_summary": "Unavailable"}
+            fb = (
+                langchain_orchestrator.get_fallback_response()
+                if langchain_orchestrator
+                else {"formatted_summary": "Unavailable"}
+            )
             if request.format == "human":
                 formatted = fb.get("formatted_summary", "")
-                return ProcessResponse(status="error", error="orchestrator_error", response=formatted, formatted_response=formatted)
+                return ProcessResponse(
+                    status="error",
+                    error="orchestrator_error",
+                    response=formatted,
+                    formatted_response=formatted,
+                )
             return ProcessResponse(status="error", error="orchestrator_error", result=fb)
 
         # Ensure agents are initialized
@@ -872,7 +962,9 @@ async def process_message(request: ProcessRequest) -> ProcessResponse:
 
         # All agents inherit from BaseHealthcareAgent and must implement process_request
         if not hasattr(selected_agent, "process_request"):
-            logger.error(f"Agent {getattr(selected_agent, 'agent_name', 'unknown')} missing process_request method")
+            logger.error(
+                f"Agent {getattr(selected_agent, 'agent_name', 'unknown')} missing process_request method"
+            )
             return ProcessResponse(status="error", error="Agent missing required interface")
 
         # Standard request payload for agents
@@ -892,24 +984,53 @@ async def process_message(request: ProcessRequest) -> ProcessResponse:
             result, err = await _call_agent_safely(selected_agent, request_data, timeout_s)
 
             enable_fallback = bool(orch.get("selection", {}).get("enable_fallback", True))
-            if err or not isinstance(result, dict) or (result.get("success") is False and enable_fallback):
-                logger.warning(f"Primary agent failed or returned unsuccessful result, falling back. Error: {err}")
+            if (
+                err
+                or not isinstance(result, dict)
+                or (result.get("success") is False and enable_fallback)
+            ):
+                logger.warning(
+                    f"Primary agent failed or returned unsuccessful result, falling back. Error: {err}"
+                )
                 result = await _run_base_fallback(request.message)
                 agent_name_for_header = result.get("agent_name", "base")
             else:
                 agent_name_for_header = getattr(selected_agent, "agent_name", "unknown")
 
             if request.format == "human":
-                preferred_keys = orch.get("synthesis", {}).get("prefer", [
-                    "formatted_summary", "formatted_response", "response", "research_summary", "message",
-                ])
+                preferred_keys = orch.get("synthesis", {}).get(
+                    "prefer",
+                    [
+                        "formatted_summary",
+                        "formatted_response",
+                        "response",
+                        "research_summary",
+                        "message",
+                    ],
+                )
                 payload = result or {}
-                text = next((payload.get(k) for k in preferred_keys if isinstance(payload.get(k), str) and payload.get(k)), None)
+                text = next(
+                    (
+                        payload.get(k)
+                        for k in preferred_keys
+                        if isinstance(payload.get(k), str) and payload.get(k)
+                    ),
+                    None,
+                )
                 if not text:
                     text = json.dumps(payload) if payload else "Operation completed."
-                header = _build_agent_header(agent_name_for_header) if orch.get("provenance", {}).get("show_agent_header", True) else ""
+                header = (
+                    _build_agent_header(agent_name_for_header)
+                    if orch.get("provenance", {}).get("show_agent_header", True)
+                    else ""
+                )
                 formatted_text = f"{header}{text}"
-                return ProcessResponse(status="success", result=result, response=formatted_text, formatted_response=formatted_text)
+                return ProcessResponse(
+                    status="success",
+                    result=result,
+                    response=formatted_text,
+                    formatted_response=formatted_text,
+                )
 
             return ProcessResponse(status="success", result=result)
 

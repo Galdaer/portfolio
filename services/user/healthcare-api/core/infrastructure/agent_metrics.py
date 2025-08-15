@@ -15,6 +15,7 @@ Design goals:
 DISCLAIMER: Not a replacement for Prometheus instrumentation; acts as a
 light aggregation layer so agents avoid duplicating counting logic.
 """
+
 from __future__ import annotations
 
 import asyncio

@@ -45,7 +45,9 @@ REDACTION_LENGTH_THRESHOLD = 100  # Minimum length for value redaction in error 
 
 
 def apply_replacements_in_reverse(
-    replacements: list[tuple[int, int, str]], text: str, batch_size: int = 500,
+    replacements: list[tuple[int, int, str]],
+    text: str,
+    batch_size: int = 500,
 ) -> str:
     """
     Apply text replacements in reverse order with batching for large texts
@@ -122,7 +124,9 @@ def apply_replacements_in_reverse(
 
 
 def _mask_phi_streaming(
-    text: str, replacements: list[tuple[int, int, str]], start_time: float,
+    text: str,
+    replacements: list[tuple[int, int, str]],
+    start_time: float,
 ) -> str:
     """
     Memory-efficient PHI masking for very large documents using streaming approach
@@ -571,7 +575,9 @@ class PresidioPHIDetector:
         try:
             # Analyze text for PII/PHI
             results = self.analyzer.analyze(
-                text=text, entities=self.healthcare_entities, language="en",
+                text=text,
+                entities=self.healthcare_entities,
+                language="en",
             )
 
             phi_detected = len(results) > 0
@@ -582,7 +588,8 @@ class PresidioPHIDetector:
             anonymized_result = self.anonymizer.anonymize(
                 text=text,
                 analyzer_results=cast(
-                    "list[Any]", results,
+                    "list[Any]",
+                    results,
                 ),  # Type cast to resolve Presidio type mismatch
             )
             masked_text = anonymized_result.text

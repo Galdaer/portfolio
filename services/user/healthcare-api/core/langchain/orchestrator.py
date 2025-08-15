@@ -4,6 +4,7 @@ Minimal LangChain Orchestrator façade.
 Initial version wires a single HealthcareLangChainAgent. Routing and
 parallel helpers can be added in subsequent iterations.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -29,7 +30,7 @@ class LangChainOrchestrator:
         temperature: float = 0.1,
         verbose: bool = False,
         max_orchestrator_iterations: int = 3,  # Not used - custom parameter for potential future use
-        max_agent_iterations: int = 5,           # LangChain max_iterations: drastically reduced to prevent loops
+        max_agent_iterations: int = 5,  # LangChain max_iterations: drastically reduced to prevent loops
         memory_max_token_limit: int = 2000,
         always_run_medical_search: bool = True,
         presearch_max_results: int = 5,
@@ -63,9 +64,21 @@ class LangChainOrchestrator:
 
         # Resolve runtime settings with precedence: YAML config > provided args (defaults) > env handled by agent
         resolved_verbose = True  # Temporarily enable for debugging thought process
-        resolved_always_run_medical_search = bool(cfg.get("routing", {}).get("always_run_medical_search", always_run_medical_search)) if isinstance(cfg, dict) else always_run_medical_search
-        resolved_presearch_max_results = int(cfg.get("routing", {}).get("presearch_max_results", presearch_max_results)) if isinstance(cfg, dict) else presearch_max_results
-        resolved_show_agent_header = cfg.get("provenance", {}).get("show_agent_header") if isinstance(cfg, dict) else show_agent_header
+        resolved_always_run_medical_search = (
+            bool(cfg.get("routing", {}).get("always_run_medical_search", always_run_medical_search))
+            if isinstance(cfg, dict)
+            else always_run_medical_search
+        )
+        resolved_presearch_max_results = (
+            int(cfg.get("routing", {}).get("presearch_max_results", presearch_max_results))
+            if isinstance(cfg, dict)
+            else presearch_max_results
+        )
+        resolved_show_agent_header = (
+            cfg.get("provenance", {}).get("show_agent_header")
+            if isinstance(cfg, dict)
+            else show_agent_header
+        )
 
         # Timeouts and tool retry settings
         cfg_timeouts: Dict[str, float] | None = None
@@ -84,7 +97,9 @@ class LangChainOrchestrator:
             except Exception:
                 pass
             try:
-                tool_retry_base_delay = float(tmo.get("tool_retry_base_delay", tool_retry_base_delay))
+                tool_retry_base_delay = float(
+                    tmo.get("tool_retry_base_delay", tool_retry_base_delay)
+                )
             except Exception:
                 pass
 
@@ -97,8 +112,11 @@ class LangChainOrchestrator:
 
         # Environment overrides for iteration/timeouts
         import os as _os
+
         try:
-            env_agent_iters = int(_os.getenv("HEALTHCARE_AGENT_MAX_ITERATIONS", str(max_agent_iterations)))
+            env_agent_iters = int(
+                _os.getenv("HEALTHCARE_AGENT_MAX_ITERATIONS", str(max_agent_iterations))
+            )
         except ValueError:
             env_agent_iters = max_agent_iterations
         # Initialize the LangChain agent with correct parameters
@@ -118,7 +136,9 @@ class LangChainOrchestrator:
         # Apply optional runtime settings
         # Prefer YAML provenance.show_agent_header when present, else use explicit param if provided
         effective_show_header = (
-            resolved_show_agent_header if resolved_show_agent_header is not None else show_agent_header
+            resolved_show_agent_header
+            if resolved_show_agent_header is not None
+            else show_agent_header
         )
         if effective_show_header is not None:
             try:
@@ -128,14 +148,24 @@ class LangChainOrchestrator:
 
         # Apply timeouts: YAML first, then explicit param dict
         applied_timeouts = (
-            cfg_timeouts if cfg_timeouts is not None else (timeouts if isinstance(timeouts, dict) else None)
+            cfg_timeouts
+            if cfg_timeouts is not None
+            else (timeouts if isinstance(timeouts, dict) else None)
         )
         if isinstance(applied_timeouts, dict):
             try:
                 if "per_agent_default" in applied_timeouts:
-                    setattr(self.agent, "per_agent_default_timeout", float(applied_timeouts["per_agent_default"]))
+                    setattr(
+                        self.agent,
+                        "per_agent_default_timeout",
+                        float(applied_timeouts["per_agent_default"]),
+                    )
                 if "per_agent_hard_cap" in applied_timeouts:
-                    setattr(self.agent, "per_agent_hard_cap", float(applied_timeouts["per_agent_hard_cap"]))
+                    setattr(
+                        self.agent,
+                        "per_agent_hard_cap",
+                        float(applied_timeouts["per_agent_hard_cap"]),
+                    )
             except Exception:
                 # Best-effort; keep defaults if casting fails
                 pass
@@ -143,6 +173,7 @@ class LangChainOrchestrator:
         # Apply environment timeouts if provided (as a fallback when 'timeouts' not passed)
         try:
             import os as _os
+
             env_default = _os.getenv("HEALTHCARE_AGENT_TIMEOUT_DEFAULT")
             env_hardcap = _os.getenv("HEALTHCARE_AGENT_TIMEOUT_HARDCAP")
             if env_default:
@@ -173,7 +204,7 @@ class LangChainOrchestrator:
         self,
         query: str,
         context: Optional[Dict[str, Any]] = None,
-        show_sources: Optional[bool] = None
+        show_sources: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """Process a healthcare query using the LangChain agent.
 
@@ -200,7 +231,9 @@ class LangChainOrchestrator:
                             self.tool = tool
 
                     # Reuse citation extractor by forming a single synthetic step
-                    pre_citations = self._extract_citations([(_Action("search_medical_literature"), presearch_obs)])
+                    pre_citations = self._extract_citations(
+                        [(_Action("search_medical_literature"), presearch_obs)]
+                    )
                 except Exception:
                     pre_citations = []
 
@@ -241,11 +274,12 @@ class LangChainOrchestrator:
                 "formatted_summary": "Unable to connect to the AI service. Please ensure the Ollama service is running and accessible.",
                 "error": f"Connection failed: {str(e)}",
                 "agent_name": "orchestrator",
-                "agents_used": []
+                "agents_used": [],
             }
         except Exception as e:
             # Log the full error for debugging
             import logging
+
             logger = logging.getLogger(__name__)
             logger.error(f"Orchestrator error: {e}", exc_info=True)
 
@@ -257,7 +291,7 @@ class LangChainOrchestrator:
                     "formatted_summary": "The AI service is temporarily unavailable. Please try again in a moment.",
                     "error": "Service connection issue",
                     "agent_name": "orchestrator",
-                    "agents_used": []
+                    "agents_used": [],
                 }
             else:
                 # If the agent provided structured error_details, surface them
@@ -273,7 +307,7 @@ class LangChainOrchestrator:
                     "error": error_msg,
                     "error_details": error_details,
                     "agent_name": "orchestrator",
-                    "agents_used": []
+                    "agents_used": [],
                 }
 
     def get_fallback_response(self) -> Dict[str, Any]:
@@ -330,7 +364,9 @@ class LangChainOrchestrator:
                         title = title or (meta.get("title") if isinstance(meta, dict) else None)
                         url = url or (meta.get("url") if isinstance(meta, dict) else None)
                     if title or url:
-                        citations.append({"title": title or "Source", "url": url or "", "source": tool_name})
+                        citations.append(
+                            {"title": title or "Source", "url": url or "", "source": tool_name}
+                        )
         except Exception:  # pragma: no cover - defensive
             return citations
         return citations

@@ -40,9 +40,13 @@ class ModelConfig:
         """Create model config from environment variables"""
         return cls(
             PRIMARY_CHAT_MODEL=os.getenv("PRIMARY_CHAT_MODEL", "llama3.1:8b"),
-            PRIMARY_INSTRUCT_MODEL=os.getenv("PRIMARY_INSTRUCT_MODEL", "llama3.1:8b-instruct-q4_K_M"),
+            PRIMARY_INSTRUCT_MODEL=os.getenv(
+                "PRIMARY_INSTRUCT_MODEL", "llama3.1:8b-instruct-q4_K_M"
+            ),
             FALLBACK_MODEL=os.getenv("FALLBACK_MODEL", "llama3.1:8b"),
-            MEDICAL_ANALYSIS_MODEL=os.getenv("MEDICAL_ANALYSIS_MODEL", "llama3.1:8b-instruct-q4_K_M"),
+            MEDICAL_ANALYSIS_MODEL=os.getenv(
+                "MEDICAL_ANALYSIS_MODEL", "llama3.1:8b-instruct-q4_K_M"
+            ),
             RESEARCH_MODEL=os.getenv("RESEARCH_MODEL", "llama3.1:8b-instruct-q4_K_M"),
             VALIDATION_MODEL=os.getenv("VALIDATION_MODEL", "llama3.1:8b-instruct-q4_K_M"),
             WORKFLOW_MODEL=os.getenv("WORKFLOW_MODEL", "llama3.1:8b"),
@@ -66,41 +70,51 @@ class ModelConfig:
         }
         return task_model_map.get(task_type, self.PRIMARY_CHAT_MODEL)
 
+
 # Global model configuration instance
 MODEL_CONFIG = ModelConfig.from_env()
+
 
 # Convenience functions for backward compatibility
 def get_primary_model() -> str:
     """Get the primary chat model"""
     return MODEL_CONFIG.PRIMARY_CHAT_MODEL
 
+
 def get_instruct_model() -> str:
     """Get the primary instruction-following model"""
     return MODEL_CONFIG.PRIMARY_INSTRUCT_MODEL
+
 
 def get_medical_model() -> str:
     """Get the model for medical analysis tasks"""
     return MODEL_CONFIG.MEDICAL_ANALYSIS_MODEL
 
+
 def get_research_model() -> str:
     """Get the model for research tasks"""
     return MODEL_CONFIG.RESEARCH_MODEL
+
 
 def get_validation_model() -> str:
     """Get the model for validation tasks"""
     return MODEL_CONFIG.VALIDATION_MODEL
 
+
 def get_workflow_model() -> str:
     """Get the model for workflow orchestration"""
     return MODEL_CONFIG.WORKFLOW_MODEL
+
 
 def get_fallback_model() -> str:
     """Get the fallback model when primary is unavailable"""
     return MODEL_CONFIG.FALLBACK_MODEL
 
+
 def get_alternative_models() -> list:
     """Get list of alternative models to try"""
     return MODEL_CONFIG.ALTERNATIVE_MODELS.copy()
+
 
 # Model capabilities and settings
 MODEL_SETTINGS: dict[str, dict[str, Any]] = {
@@ -127,12 +141,16 @@ MODEL_SETTINGS: dict[str, dict[str, Any]] = {
     },
 }
 
+
 def get_model_settings(model_name: str) -> dict[str, Any]:
     """Get settings for a specific model"""
-    return MODEL_SETTINGS.get(model_name, {
-        "max_tokens": 4096,
-        "temperature": 0.7,
-        "top_p": 0.9,
-        "context_window": 4096,
-        "use_case": ["general"],
-    })
+    return MODEL_SETTINGS.get(
+        model_name,
+        {
+            "max_tokens": 4096,
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "context_window": 4096,
+            "use_case": ["general"],
+        },
+    )

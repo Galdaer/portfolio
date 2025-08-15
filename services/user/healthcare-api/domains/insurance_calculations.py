@@ -133,7 +133,10 @@ class InsuranceCoverageCalculator:
         }
 
     def _safe_division(
-        self, numerator: Decimal, denominator: Decimal, default: Decimal = Decimal("0"),
+        self,
+        numerator: Decimal,
+        denominator: Decimal,
+        default: Decimal = Decimal("0"),
     ) -> Decimal:
         """Safe division with zero protection for financial calculations
 
@@ -148,7 +151,10 @@ class InsuranceCoverageCalculator:
         return numerator / denominator
 
     def calculate_patient_cost(
-        self, cpt_code: str, billed_amount: Decimal, patient_coverage: PatientCoverage,
+        self,
+        cpt_code: str,
+        billed_amount: Decimal,
+        patient_coverage: PatientCoverage,
     ) -> CostEstimate:
         """Calculate exact patient cost for a procedure"""
 
@@ -165,7 +171,8 @@ class InsuranceCoverageCalculator:
 
         # Step 3: Apply appropriate copay structure
         copay_structure = patient_coverage.copay_structures.get(
-            service_category, patient_coverage.copay_structures.get("general"),
+            service_category,
+            patient_coverage.copay_structures.get("general"),
         )
 
         if not copay_structure:
@@ -179,7 +186,9 @@ class InsuranceCoverageCalculator:
         # Step 4: Calculate patient responsibility
         if deductible_status.remaining_amount > 0:
             patient_cost = self._calculate_with_deductible(
-                billed_amount, deductible_status, copay_structure,
+                billed_amount,
+                deductible_status,
+                copay_structure,
             )
         else:
             patient_cost = self._calculate_post_deductible(billed_amount, copay_structure)
@@ -189,7 +198,10 @@ class InsuranceCoverageCalculator:
 
         # Step 6: Generate patient-friendly explanation
         cost_explanation = self._generate_cost_explanation(
-            billed_amount, final_cost, copay_structure, deductible_status,
+            billed_amount,
+            final_cost,
+            copay_structure,
+            deductible_status,
         )
 
         return CostEstimate(
@@ -260,7 +272,9 @@ class InsuranceCoverageCalculator:
         return deductible_portion + coinsurance
 
     def _calculate_post_deductible(
-        self, billed_amount: Decimal, copay_structure: CopayStructure,
+        self,
+        billed_amount: Decimal,
+        copay_structure: CopayStructure,
     ) -> Decimal:
         """Calculate cost after deductible is met"""
         if copay_structure.copay_type == CopayType.FIXED_DOLLAR:
@@ -270,7 +284,9 @@ class InsuranceCoverageCalculator:
         return billed_amount * Decimal("0.20")  # Default 20%
 
     def _apply_oop_maximum(
-        self, calculated_cost: Decimal, patient_coverage: PatientCoverage,
+        self,
+        calculated_cost: Decimal,
+        patient_coverage: PatientCoverage,
     ) -> Decimal:
         """Apply out-of-pocket maximum limits"""
         remaining_oop = patient_coverage.out_of_pocket_maximum - patient_coverage.out_of_pocket_met
@@ -322,7 +338,10 @@ class DeductibleTracker:
         self.spending_patterns: dict[str, Any] = {}  # Would connect to actual spending history
 
     def _safe_division(
-        self, numerator: Decimal, denominator: Decimal, default: Decimal = Decimal("0"),
+        self,
+        numerator: Decimal,
+        denominator: Decimal,
+        default: Decimal = Decimal("0"),
     ) -> Decimal:
         """Safe division with zero protection for financial calculations"""
         if denominator == 0:
@@ -333,7 +352,9 @@ class DeductibleTracker:
         return numerator / denominator
 
     async def calculate_deductible_proximity(
-        self, patient_id: str, coverage_period: str = "current_year",
+        self,
+        patient_id: str,
+        coverage_period: str = "current_year",
     ) -> DeductibleStatus:
         """Calculate how close patient is to meeting deductible"""
 
@@ -351,7 +372,9 @@ class DeductibleTracker:
 
         remaining = mock_coverage.annual_deductible - mock_coverage.deductible_met
         percentage_met = self._safe_division(
-            mock_coverage.deductible_met, mock_coverage.annual_deductible, Decimal("0"),
+            mock_coverage.deductible_met,
+            mock_coverage.annual_deductible,
+            Decimal("0"),
         )
 
         # Calculate likelihood to meet based on spending patterns
@@ -460,7 +483,9 @@ class VisitCostPredictor:
 
         for cpt_code in scheduled_cpt_codes:
             cpt_estimate = self.calculator.calculate_patient_cost(
-                cpt_code, negotiated_rates[cpt_code], coverage,
+                cpt_code,
+                negotiated_rates[cpt_code],
+                coverage,
             )
             total_estimate = self._combine_estimates(total_estimate, cpt_estimate)
 

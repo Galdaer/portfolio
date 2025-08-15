@@ -23,7 +23,8 @@ class SearchRequest(BaseModel):
 
     search_query: str = Field(..., description="Medical literature search query")
     search_context: dict[str, Any] = Field(
-        default_factory=dict, description="Additional search context",
+        default_factory=dict,
+        description="Additional search context",
     )
     session_id: str = Field(default="default", description="Session identifier")
 
@@ -47,7 +48,7 @@ async def search_medical_literature(
     Search medical literature like a medical librarian
 
     Returns information about medical concepts, not diagnoses.
-    
+
     MEDICAL DISCLAIMER: This provides educational information only,
     not medical advice, diagnosis, or treatment recommendations.
     """
@@ -67,15 +68,15 @@ async def search_medical_literature(
         # Generate conversational response using LLM
         try:
             conversational_response = await search_assistant.generate_conversational_response(
-                search_result=search_result,
-                original_query=request.search_query
+                search_result=search_result, original_query=request.search_query
             )
         except Exception as llm_error:
-            logger.warning(f"LLM conversational response failed, using utility fallback: {llm_error}")
+            logger.warning(
+                f"LLM conversational response failed, using utility fallback: {llm_error}"
+            )
             # Fallback to utility-based conversational summary
             conversational_response = generate_conversational_summary(
-                search_result.information_sources,
-                request.search_query
+                search_result.information_sources, request.search_query
             )
 
         # Return only the conversational response and minimal metadata
@@ -86,7 +87,7 @@ async def search_medical_literature(
                 "total_sources": len(search_result.information_sources),
                 "search_confidence": search_result.search_confidence,
                 "generated_at": search_result.generated_at.isoformat(),
-            }
+            },
         }
 
     except Exception as e:

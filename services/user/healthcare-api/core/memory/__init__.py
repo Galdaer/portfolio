@@ -42,7 +42,9 @@ class MemoryManager:
         try:
             # Initialize Redis connection
             self.redis_client = redis.from_url(
-                config.redis_url, encoding="utf-8", decode_responses=True,
+                config.redis_url,
+                encoding="utf-8",
+                decode_responses=True,
             )
 
             # Test Redis connection
@@ -51,10 +53,13 @@ class MemoryManager:
 
             # Initialize PostgreSQL connection pool
             import os
+
             database_url = os.getenv("DATABASE_URL", config.postgres_url)
             logger.info(f"Attempting to connect to PostgreSQL with URL: {database_url}")
             self.postgres_pool = await asyncpg.create_pool(
-                database_url, min_size=2, max_size=10,
+                database_url,
+                min_size=2,
+                max_size=10,
             )
 
             logger.info("PostgreSQL connection pool established")
@@ -125,7 +130,10 @@ class MemoryManager:
         await self.redis_client.setex(f"session:{session_id}", ttl, json.dumps(data, default=str))
 
     async def store_session_with_expiration(
-        self, session_id: str, data: dict[str, Any], expires_in: timedelta | None = None,
+        self,
+        session_id: str,
+        data: dict[str, Any],
+        expires_in: timedelta | None = None,
     ) -> None:
         """Store session data with timedelta-based expiration (healthcare compliant)"""
         if not self._initialized:
@@ -145,7 +153,9 @@ class MemoryManager:
 
         ttl_seconds = int(expiration.total_seconds())
         await self.redis_client.setex(
-            f"session:{session_id}", ttl_seconds, json.dumps(data, default=str),
+            f"session:{session_id}",
+            ttl_seconds,
+            json.dumps(data, default=str),
         )
 
     async def cleanup_expired_sessions(self) -> int:

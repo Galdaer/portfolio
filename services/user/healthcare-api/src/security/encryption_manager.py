@@ -410,7 +410,9 @@ class KeyManager:
 
         # Generate RSA key pair
         private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=key_size, backend=default_backend(),
+            public_exponent=65537,
+            key_size=key_size,
+            backend=default_backend(),
         )
 
         # Serialize keys
@@ -745,19 +747,25 @@ class HealthcareEncryptionManager:
                 connection.close()
 
     def encrypt_phi_data(
-        self, data: str | dict[str, Any], user_id: str | None = None,
+        self,
+        data: str | dict[str, Any],
+        user_id: str | None = None,
     ) -> dict[str, Any]:
         """Encrypt PHI data with healthcare-level encryption"""
         return self._encrypt_data(data, EncryptionLevel.HEALTHCARE, user_id)
 
     def encrypt_critical_data(
-        self, data: str | dict[str, Any], user_id: str | None = None,
+        self,
+        data: str | dict[str, Any],
+        user_id: str | None = None,
     ) -> dict[str, Any]:
         """Encrypt critical data with maximum security"""
         return self._encrypt_data(data, EncryptionLevel.CRITICAL, user_id)
 
     def encrypt_basic_data(
-        self, data: str | dict[str, Any], user_id: str | None = None,
+        self,
+        data: str | dict[str, Any],
+        user_id: str | None = None,
     ) -> dict[str, Any]:
         """Encrypt non-PHI data with basic encryption"""
         return self._encrypt_data(data, EncryptionLevel.BASIC, user_id)
@@ -805,7 +813,9 @@ class HealthcareEncryptionManager:
             raise
 
     def decrypt_data(
-        self, encrypted_package: dict[str, Any], user_id: str | None = None,
+        self,
+        encrypted_package: dict[str, Any],
+        user_id: str | None = None,
     ) -> str | dict[str, Any]:
         """Decrypt data package"""
         try:

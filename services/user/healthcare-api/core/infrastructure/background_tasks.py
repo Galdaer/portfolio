@@ -28,7 +28,10 @@ class HealthcareTaskManager:
         self.active_tasks: dict[str, asyncio.Task] = {}
 
     async def process_medical_analysis(
-        self, task_id: str, analysis_func: Callable, patient_data: dict[str, Any],
+        self,
+        task_id: str,
+        analysis_func: Callable,
+        patient_data: dict[str, Any],
     ) -> None:
         """
         Process medical analysis in background with progress tracking
@@ -83,7 +86,9 @@ class HealthcareTaskManager:
 
                 # Store with 1 hour expiration
                 await redis_client.setex(
-                    f"task_result:{task_id}", 3600, json.dumps({"status": "error", "error": error}),
+                    f"task_result:{task_id}",
+                    3600,
+                    json.dumps({"status": "error", "error": error}),
                 )
         except Exception as e:
             logger.warning(f"Failed to store task error {task_id}: {e}")

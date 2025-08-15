@@ -11,6 +11,7 @@ Design:
 
 DISCLAIMER: This client logs only redacted summaries when PHI masking enabled.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -39,7 +40,14 @@ class HTTPRequestSpec:
 
 
 MASK_PATTERNS = [
-    "patient", "name", "dob", "ssn", "mrn", "address", "phone", "email",
+    "patient",
+    "name",
+    "dob",
+    "ssn",
+    "mrn",
+    "address",
+    "phone",
+    "email",
 ]
 
 

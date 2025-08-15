@@ -16,6 +16,7 @@ MEDICAL DISCLAIMER: These utilities assist with structuring and ranking medical
 literature information only; they do not perform diagnosis or clinical
 decision-making. Always defer to qualified healthcare professionals.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -62,12 +63,15 @@ def determine_evidence_level(article: dict[str, Any]) -> str:
     return "unknown"
 
 
-def extract_source_links(sources: Iterable[dict[str, Any]]) -> list[str]:  # re-export for backwards compatibility
+def extract_source_links(
+    sources: Iterable[dict[str, Any]],
+) -> list[str]:  # re-export for backwards compatibility
     return generic_extract_source_links(sources)
 
 
 def rank_sources_by_evidence_and_relevance(
-    sources: list[dict[str, Any]], query: str,
+    sources: list[dict[str, Any]],
+    query: str,
 ) -> list[dict[str, Any]]:
     """Rank merged source list by evidence, relevance term overlap, recency.
 
@@ -78,11 +82,13 @@ def rank_sources_by_evidence_and_relevance(
     for src in sources:
         ev = src.get("evidence_level") or determine_evidence_level(src)
         recency = generic_recency_score(src.get("publication_date") or src.get("date"))
-        text_blob = " ".join([
-            str(src.get("title", "")),
-            str(src.get("abstract", "")),
-            str(src.get("summary", "")),
-        ]).lower()
+        text_blob = " ".join(
+            [
+                str(src.get("title", "")),
+                str(src.get("abstract", "")),
+                str(src.get("summary", "")),
+            ]
+        ).lower()
         rel_hits = sum(1 for t in query_terms if t in text_blob)
         rel_score = (rel_hits / len(query_terms)) if query_terms else 0.0
         try:
@@ -90,12 +96,17 @@ def rank_sources_by_evidence_and_relevance(
         except ValueError:
             evidence_weight = 0
         final_score = evidence_weight + (rel_score * 3.0) + recency
-        ranked.append({**src, "evidence_level": ev, "search_score": final_score, "relevance_score": rel_score})
+        ranked.append(
+            {**src, "evidence_level": ev, "search_score": final_score, "relevance_score": rel_score}
+        )
     return sorted(ranked, key=lambda x: x.get("search_score", 0), reverse=True)
 
 
 def calculate_search_confidence(
-    sources: list[dict[str, Any]], query: str, min_sources: int = 15, min_high_quality: int = 5,
+    sources: list[dict[str, Any]],
+    query: str,
+    min_sources: int = 15,
+    min_high_quality: int = 5,
 ) -> float:
     """Compute literature search confidence (not diagnostic).
 
@@ -141,7 +152,10 @@ def parse_mcp_search_results(raw_mcp_result: dict[str, Any]) -> list[dict[str, A
                 # Try to parse text if it looks like JSON
                 try:
                     import json as _json
-                    raw = _json.loads(first["text"]) if first["text"].strip().startswith("{") else {}
+
+                    raw = (
+                        _json.loads(first["text"]) if first["text"].strip().startswith("{") else {}
+                    )
                 except Exception:
                     raw = {}
             else:
@@ -211,7 +225,9 @@ def format_medical_search_response(
     lines.append("")
 
     if not search_results:
-        lines.append("No literature was retrieved. This may be due to dynamic timeouts or issues with the upstream sources.")
+        lines.append(
+            "No literature was retrieved. This may be due to dynamic timeouts or issues with the upstream sources."
+        )
     else:
         lines.append("Key findings:")
         limit = min(len(search_results), max_items)

@@ -133,7 +133,10 @@ class PHISafeTestingFramework:
 
         for phi_type, pattern in cls.PHI_PATTERNS.items():
             scrubbed = re.sub(
-                pattern, f"[{phi_type.upper()}_REDACTED]", scrubbed, flags=re.IGNORECASE,
+                pattern,
+                f"[{phi_type.upper()}_REDACTED]",
+                scrubbed,
+                flags=re.IGNORECASE,
             )
 
         return scrubbed

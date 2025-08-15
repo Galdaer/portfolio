@@ -71,14 +71,16 @@ class ToolRegistry:
 
         try:
             # Test MCP server connection - adapt to different client interfaces
-            if hasattr(self.mcp_client, 'get'):
+            if hasattr(self.mcp_client, "get"):
                 # HTTP client interface
                 response = await self.mcp_client.get("/health")
                 mcp_connected = response.status_code == 200
-            elif hasattr(self.mcp_client, 'call_tool'):
+            elif hasattr(self.mcp_client, "call_tool"):
                 # DirectMCPClient stdio interface - test with a simple tool call
                 try:
-                    await self.mcp_client.call_tool("search-pubmed", {"query": "test", "max_results": 1})
+                    await self.mcp_client.call_tool(
+                        "search-pubmed", {"query": "test", "max_results": 1}
+                    )
                     mcp_connected = True
                 except Exception:
                     mcp_connected = False
@@ -128,8 +130,16 @@ class ToolRegistry:
             # Track version and capabilities if available
             for tool in self._available_tools:
                 name = tool.get("name") if isinstance(tool, dict) else getattr(tool, "name", None)
-                version = tool.get("version", "unknown") if isinstance(tool, dict) else getattr(tool, "version", "unknown")
-                capabilities = tool.get("capabilities", {}) if isinstance(tool, dict) else getattr(tool, "capabilities", {})
+                version = (
+                    tool.get("version", "unknown")
+                    if isinstance(tool, dict)
+                    else getattr(tool, "version", "unknown")
+                )
+                capabilities = (
+                    tool.get("capabilities", {})
+                    if isinstance(tool, dict)
+                    else getattr(tool, "capabilities", {})
+                )
                 if name is not None:
                     self._tool_versions[name] = version
                     self._tool_capabilities[name] = capabilities
@@ -167,13 +177,13 @@ class ToolRegistry:
                 raise RuntimeError("MCP client is not initialized")
 
             # Adapt to different client interfaces
-            if hasattr(self.mcp_client, 'post'):
+            if hasattr(self.mcp_client, "post"):
                 # HTTP client interface
                 payload = {"tool": tool_name, "parameters": parameters}
                 response = await self.mcp_client.post("/execute", json=payload)
                 response.raise_for_status()
                 result: dict[str, Any] = response.json()
-            elif hasattr(self.mcp_client, 'call_tool'):
+            elif hasattr(self.mcp_client, "call_tool"):
                 # DirectMCPClient stdio interface
                 result = await self.mcp_client.call_tool(tool_name, parameters)
                 # Ensure result is a dict
@@ -189,7 +199,9 @@ class ToolRegistry:
             raise
 
     async def execute_tools_concurrently(
-        self, tool_requests: list[dict[str, Any]], timeout: float = 30.0,
+        self,
+        tool_requests: list[dict[str, Any]],
+        timeout: float = 30.0,
     ) -> list[dict[str, Any]]:
         """Execute multiple tools concurrently using asyncio for healthcare workflows"""
         if not self._initialized:
@@ -202,7 +214,8 @@ class ToolRegistry:
             parameters = req.get("parameters", {})
             if tool_name:
                 task = asyncio.create_task(
-                    self.execute_tool(tool_name, parameters), name=f"tool_{tool_name}",
+                    self.execute_tool(tool_name, parameters),
+                    name=f"tool_{tool_name}",
                 )
                 tasks.append((req.get("request_id", "unknown"), task))
 

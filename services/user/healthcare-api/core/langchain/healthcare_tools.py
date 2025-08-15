@@ -11,6 +11,7 @@ Architecture:
 
 UPDATED: Now uses agent_adapters.py for proper agent routing!
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -122,9 +123,7 @@ def create_healthcare_tools(
         else:
             logger.info("✅ ToolRegistry already initialized")
     except Exception as e:
-        logger.warning(
-            f"⚠️ ToolRegistry initialization failed, using direct MCP fallback: {e}"
-        )
+        logger.warning(f"⚠️ ToolRegistry initialization failed, using direct MCP fallback: {e}")
 
     tools: List[StructuredTool] = []
 
@@ -146,9 +145,7 @@ def create_healthcare_tools(
         logger.info(f"✅ Created {len(tools)} agent-based healthcare tools")
 
     else:
-        logger.warning(
-            "⚠️ No agent_manager or agents found, falling back to MCP-only tools"
-        )
+        logger.warning("⚠️ No agent_manager or agents found, falling back to MCP-only tools")
         # Fallback to original MCP-based tools if agents not available
         tools.extend(_create_mcp_fallback_tools(mcp_client, max_retries))
 
@@ -218,9 +215,7 @@ def _fallback_pubmed_search(client: Any, query: str, max_results: int = 10) -> s
             logger.info("🔄 Database not available, using external API only")
 
         # STEP 2: If no local results, fallback to external API
-        logger.warning(
-            f"📡 No local results found, using external PubMed API: {query[:50]}..."
-        )
+        logger.warning(f"📡 No local results found, using external PubMed API: {query[:50]}...")
 
         # Try ToolRegistry first (robust tool management)
         if tool_registry._initialized:
@@ -234,9 +229,7 @@ def _fallback_pubmed_search(client: Any, query: str, max_results: int = 10) -> s
             # Fallback to direct MCP call if ToolRegistry unavailable
             logger.warning("⚠️ ToolRegistry not available, using direct MCP")
             result = safe_async_call(
-                client.call_tool(
-                    "search-pubmed", {"query": query, "max_results": max_results}
-                )
+                client.call_tool("search-pubmed", {"query": query, "max_results": max_results})
             )
 
         return json.dumps(result, indent=2) if result else "No results found"

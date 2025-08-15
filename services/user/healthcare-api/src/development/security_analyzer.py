@@ -325,11 +325,15 @@ class SecurityAnalyzer:
         # Check for potential plaintext password usage
         for node in ast.walk(tree):
             if (
-                isinstance(node, ast.Assign)
-                and node.targets
-                and isinstance(node.targets[0], ast.Name)
-                and self._is_secret_variable_name(node.targets[0].id)
-            ) and isinstance(node.value, ast.Str) and not self._is_hashed_value(node.value.s):
+                (
+                    isinstance(node, ast.Assign)
+                    and node.targets
+                    and isinstance(node.targets[0], ast.Name)
+                    and self._is_secret_variable_name(node.targets[0].id)
+                )
+                and isinstance(node.value, ast.Str)
+                and not self._is_hashed_value(node.value.s)
+            ):
                 issues.append(
                     SecurityIssue(
                         severity="medium",

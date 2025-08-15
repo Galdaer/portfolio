@@ -45,7 +45,9 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         max_steps: int | None = None,
         config_override: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(mcp_client, llm_client, agent_name="clinical_research", agent_type="research_assistant")
+        super().__init__(
+            mcp_client, llm_client, agent_name="clinical_research", agent_type="research_assistant"
+        )
 
         # Load configuration
         self.config = self._load_agent_config(config_override)
@@ -134,7 +136,9 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             return self._create_error_response(f"Processing error: {str(e)}", session_id)
 
     async def _process_with_step_limit(
-        self, input_data: dict[str, Any], session_id: str,
+        self,
+        input_data: dict[str, Any],
+        session_id: str,
     ) -> dict[str, Any]:
         """Process single step with completion checking"""
         # Extract query information
@@ -146,13 +150,17 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         try:
             if query_type == "differential_diagnosis":
                 result = await self._process_differential_diagnosis(
-                    query, clinical_context, session_id,
+                    query,
+                    clinical_context,
+                    session_id,
                 )
             elif query_type == "drug_interaction":
                 result = await self._process_drug_interaction(query, clinical_context, session_id)
             else:
                 # Route all other queries (including literature_research) to comprehensive research with MCP tools
-                result = await self._process_comprehensive_research(query, clinical_context, session_id)
+                result = await self._process_comprehensive_research(
+                    query, clinical_context, session_id
+                )
 
             # Mark as complete
             result["complete"] = True
@@ -162,7 +170,10 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             return self._create_error_response(f"Step processing error: {str(e)}", session_id)
 
     async def _process_differential_diagnosis(
-        self, query: str, clinical_context: dict[str, Any], session_id: str,
+        self,
+        query: str,
+        clinical_context: dict[str, Any],
+        session_id: str,
     ) -> dict[str, Any]:
         """
         Process differential diagnosis with iterative reasoning
@@ -240,7 +251,10 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         }
 
     async def _process_drug_interaction(
-        self, query: str, clinical_context: dict[str, Any], session_id: str,
+        self,
+        query: str,
+        clinical_context: dict[str, Any],
+        session_id: str,
     ) -> dict[str, Any]:
         """
         Process drug interaction analysis with FDA and literature integration
@@ -250,7 +264,8 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         if not medications:
             # Try to extract from query using NLP
             entity_result = await self.mcp_client.call_healthcare_tool(
-                "extract_medical_entities", {"text": query},
+                "extract_medical_entities",
+                {"text": query},
             )
             drug_entities = [
                 e.get("text")
@@ -261,7 +276,8 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
 
         if not medications:
             return self._create_error_response(
-                "No medications identified for interaction analysis", session_id,
+                "No medications identified for interaction analysis",
+                session_id,
             )
 
         # Enhanced drug interaction reasoning
@@ -316,7 +332,10 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         }
 
     async def _process_literature_research(
-        self, query: str, clinical_context: dict[str, Any], session_id: str,
+        self,
+        query: str,
+        clinical_context: dict[str, Any],
+        session_id: str,
     ) -> dict[str, Any]:
         """
         Comprehensive literature research with source prioritization
@@ -392,7 +411,9 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
 
         # Generate research summary
         summary = await self._generate_research_summary(
-            query, prioritized_sources, clinical_context,
+            query,
+            prioritized_sources,
+            clinical_context,
         )
 
         return {
@@ -419,7 +440,8 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         }
 
     def _prioritize_sources_by_evidence(
-        self, sources: list[dict[str, Any]],
+        self,
+        sources: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         """
         Prioritize sources by evidence level and quality
@@ -551,7 +573,9 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             llm_settings.update(validation_config.get("llm_settings", {}))
 
         response = await self.llm_client.generate(
-            prompt=prompt, model=config.get_model_for_task("clinical"), options=llm_settings,
+            prompt=prompt,
+            model=config.get_model_for_task("clinical"),
+            options=llm_settings,
         )
 
         response_text = response.get("response", "")
@@ -576,7 +600,10 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         return {"llm_settings": {"temperature": 0.1, "max_tokens": 10}}
 
     async def _process_general_inquiry(
-        self, query: str, clinical_context: dict[str, Any], session_id: str,
+        self,
+        query: str,
+        clinical_context: dict[str, Any],
+        session_id: str,
     ) -> dict[str, Any]:
         """
         Process general medical inquiry
@@ -607,26 +634,29 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             return self._create_error_response(f"General inquiry error: {str(e)}", session_id)
 
     async def process_research_query(
-        self, query: str, user_id: str, session_id: str,
+        self,
+        query: str,
+        user_id: str,
+        session_id: str,
     ) -> dict[str, Any]:
         """
         Process research query with MCP tool integration for medical literature search
-        
+
         This is the primary entry point for clinical research queries from the pipeline.
         Provides comprehensive medical literature search, clinical reasoning, and evidence synthesis.
-        
+
         MEDICAL DISCLAIMER: This agent provides medical research assistance and clinical data
         analysis only. It searches medical literature, clinical trials, drug interactions, and
         evidence-based resources to support healthcare decision-making. It does not provide
         medical diagnosis, treatment recommendations, or replace clinical judgment. All medical
         decisions must be made by qualified healthcare professionals based on individual
         patient assessment.
-        
+
         Args:
             query: The medical research query from the user
             user_id: User identifier for session tracking
             session_id: Session identifier for conversation continuity
-            
+
         Returns:
             Dict containing research results, sources, and medical disclaimers
         """
@@ -666,16 +696,22 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             # Route to appropriate processing method based on query type
             if query_analysis.get("query_type") == "differential_diagnosis":
                 result = await self._process_differential_diagnosis(
-                    query, clinical_context, session_id,
+                    query,
+                    clinical_context,
+                    session_id,
                 )
             elif query_analysis.get("query_type") == "drug_interaction":
                 result = await self._process_drug_interaction(
-                    query, clinical_context, session_id,
+                    query,
+                    clinical_context,
+                    session_id,
                 )
             else:
                 # Default to comprehensive research with MCP tools for all other queries
                 result = await self._process_comprehensive_research(
-                    query, clinical_context, session_id,
+                    query,
+                    clinical_context,
+                    session_id,
                 )
 
             # Add pipeline-specific response formatting
@@ -712,7 +748,9 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
                     "user_id": user_id,
                     "session_id": session_id,
                     "query_type": query_analysis.get("query_type", "general"),
-                    "sources_found": len(result.get("supporting_literature", [])) if "supporting_literature" in result else 0,
+                    "sources_found": len(result.get("supporting_literature", []))
+                    if "supporting_literature" in result
+                    else 0,
                     "processing_successful": True,
                 },
                 operation_type="research_query_complete",
@@ -761,7 +799,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
     async def _analyze_research_query(self, query: str) -> dict[str, Any]:
         """
         Analyze the research query using LLM intelligence to determine processing approach
-        
+
         Uses advanced LLM reasoning to categorize medical research queries and select appropriate tools
         """
         try:
@@ -800,6 +838,7 @@ Respond only with valid JSON.
 
             try:
                 import json
+
                 analysis_result = json.loads(response_text)
 
                 # Validate and set defaults if needed
@@ -807,7 +846,9 @@ Respond only with valid JSON.
                 focus_areas = analysis_result.get("focus_areas", ["general_medicine"])
                 complexity_score = float(analysis_result.get("complexity_score", 0.6))
                 recommended_tools = analysis_result.get("recommended_tools", ["search-pubmed"])
-                research_strategy = analysis_result.get("research_strategy", "Comprehensive literature search")
+                research_strategy = analysis_result.get(
+                    "research_strategy", "Comprehensive literature search"
+                )
                 urgency_level = analysis_result.get("urgency_level", "medium")
 
                 return {
@@ -847,11 +888,14 @@ Respond only with valid JSON.
         }
 
     async def _process_comprehensive_research(
-        self, query: str, clinical_context: dict[str, Any], session_id: str,
+        self,
+        query: str,
+        clinical_context: dict[str, Any],
+        session_id: str,
     ) -> dict[str, Any]:
         """
         Process comprehensive research query with multiple MCP tool integrations
-        
+
         Combines literature search, clinical guidelines, and evidence synthesis
         """
         try:
@@ -865,20 +909,24 @@ Respond only with valid JSON.
                         "search-pubmed",
                         {"query": query, "max_results": 10},
                     )
-                    research_stages.append({
-                        "stage": "pubmed_search",
-                        "tool": "search-pubmed",
-                        "result": pubmed_result,
-                        "success": True,
-                    })
+                    research_stages.append(
+                        {
+                            "stage": "pubmed_search",
+                            "tool": "search-pubmed",
+                            "result": pubmed_result,
+                            "success": True,
+                        }
+                    )
                 except Exception as mcp_error:
                     logger.warning(f"MCP tool search-pubmed failed: {mcp_error}")
-                    research_stages.append({
-                        "stage": "pubmed_search",
-                        "tool": "search-pubmed",
-                        "error": str(mcp_error),
-                        "success": False,
-                    })
+                    research_stages.append(
+                        {
+                            "stage": "pubmed_search",
+                            "tool": "search-pubmed",
+                            "error": str(mcp_error),
+                            "success": False,
+                        }
+                    )
 
                 # Stage 2: Clinical trial search via MCP tools
                 try:
@@ -886,20 +934,24 @@ Respond only with valid JSON.
                         "search-trials",
                         {"query": query, "max_results": 5},
                     )
-                    research_stages.append({
-                        "stage": "trials_search",
-                        "tool": "search-trials",
-                        "result": trials_result,
-                        "success": True,
-                    })
+                    research_stages.append(
+                        {
+                            "stage": "trials_search",
+                            "tool": "search-trials",
+                            "result": trials_result,
+                            "success": True,
+                        }
+                    )
                 except Exception as mcp_error:
                     logger.warning(f"MCP tool search-trials failed: {mcp_error}")
-                    research_stages.append({
-                        "stage": "trials_search",
-                        "tool": "search-trials",
-                        "error": str(mcp_error),
-                        "success": False,
-                    })
+                    research_stages.append(
+                        {
+                            "stage": "trials_search",
+                            "tool": "search-trials",
+                            "error": str(mcp_error),
+                            "success": False,
+                        }
+                    )
 
             # Stage 3: Enhanced medical reasoning using existing capabilities
             reasoning_result = await self.medical_reasoning.reason_with_dynamic_knowledge(
@@ -910,7 +962,9 @@ Respond only with valid JSON.
 
             # Stage 4: Synthesis and summary generation
             research_summary = await self._synthesize_research_findings(
-                query, research_stages, reasoning_result,
+                query,
+                research_stages,
+                reasoning_result,
             )
 
             return {
@@ -927,13 +981,16 @@ Respond only with valid JSON.
                 },
                 "research_summary": research_summary,
                 "evidence_sources": reasoning_result.evidence_sources,
-                "mcp_tools_used": [stage["tool"] for stage in research_stages if stage.get("success")],
+                "mcp_tools_used": [
+                    stage["tool"] for stage in research_stages if stage.get("success")
+                ],
                 "total_sources_found": sum(
                     len(stage.get("result", {}).get("articles", []))
                     for stage in research_stages
                     if stage.get("success") and stage.get("result")
                 ),
-                "disclaimers": reasoning_result.disclaimers + [
+                "disclaimers": reasoning_result.disclaimers
+                + [
                     "MCP tool integration provides enhanced literature access",
                     "Results synthesized from multiple authoritative medical sources",
                 ],
@@ -942,7 +999,8 @@ Respond only with valid JSON.
 
         except Exception as e:
             return self._create_error_response(
-                f"Comprehensive research processing error: {str(e)}", session_id,
+                f"Comprehensive research processing error: {str(e)}",
+                session_id,
             )
 
     async def _synthesize_research_findings(
@@ -964,15 +1022,19 @@ Respond only with valid JSON.
 
                 if stage_name == "pubmed_search" and "articles" in result_data:
                     articles = result_data["articles"][:5]  # Top 5 articles
-                    findings.append(f"Literature Review ({len(articles)} studies): " +
-                                  "; ".join([article.get("title", "Untitled")[:100]
-                                           for article in articles]))
+                    findings.append(
+                        f"Literature Review ({len(articles)} studies): "
+                        + "; ".join(
+                            [article.get("title", "Untitled")[:100] for article in articles]
+                        )
+                    )
 
                 elif stage_name == "trials_search" and "trials" in result_data:
                     trials = result_data["trials"][:3]  # Top 3 trials
-                    findings.append(f"Clinical Trials ({len(trials)} trials): " +
-                                  "; ".join([trial.get("title", "Untitled")[:100]
-                                           for trial in trials]))
+                    findings.append(
+                        f"Clinical Trials ({len(trials)} trials): "
+                        + "; ".join([trial.get("title", "Untitled")[:100] for trial in trials])
+                    )
 
         # Add reasoning insights
         if hasattr(reasoning_result, "final_assessment"):

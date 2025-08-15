@@ -116,7 +116,9 @@ class EnhancedMedicalReasoning:
             # Perform iterative reasoning
             for iteration in range(max_iterations):
                 step = await self._perform_reasoning_step(
-                    clinical_scenario, reasoning_type_enum, iteration + 1,
+                    clinical_scenario,
+                    reasoning_type_enum,
+                    iteration + 1,
                 )
                 steps.append(step)
 
@@ -238,7 +240,8 @@ class EnhancedMedicalReasoning:
             )
 
     async def _analyze_differential_diagnosis_step(
-        self, scenario: dict[str, Any],
+        self,
+        scenario: dict[str, Any],
     ) -> dict[str, Any]:
         """Analyze differential diagnosis possibilities"""
         symptoms = scenario.get("symptoms", [])
@@ -313,7 +316,8 @@ class EnhancedMedicalReasoning:
         # Generate evidence-based treatment recommendations
         if condition:
             treatment_options = self._get_treatment_options_for_condition(
-                condition, patient_factors,
+                condition,
+                patient_factors,
             )
 
         return {
@@ -342,7 +346,9 @@ class EnhancedMedicalReasoning:
         }
 
     def _calculate_step_confidence(
-        self, analysis_data: dict[str, Any], reasoning_type: ReasoningType,
+        self,
+        analysis_data: dict[str, Any],
+        reasoning_type: ReasoningType,
     ) -> float:
         """Calculate confidence score for reasoning step"""
         base_confidence = 0.6
@@ -549,7 +555,9 @@ class EnhancedMedicalReasoning:
         return red_flags
 
     def _get_treatment_options_for_condition(
-        self, condition: str, patient_factors: dict,
+        self,
+        condition: str,
+        patient_factors: dict,
     ) -> list[dict]:
         """Get treatment options for a specific condition"""
         # Basic treatment guidelines - would be expanded with real medical databases
@@ -684,7 +692,9 @@ class EnhancedMedicalReasoning:
         return observations or ["Limited clinical information available"]
 
     async def _generate_final_analysis(
-        self, steps: list[ReasoningStep], reasoning_type: ReasoningType,
+        self,
+        steps: list[ReasoningStep],
+        reasoning_type: ReasoningType,
     ) -> dict[str, Any]:
         """
         Generate comprehensive final analysis from reasoning steps
@@ -733,7 +743,9 @@ class EnhancedMedicalReasoning:
         }
 
     def _create_reasoning_summary(
-        self, steps: list[ReasoningStep], reasoning_type: ReasoningType,
+        self,
+        steps: list[ReasoningStep],
+        reasoning_type: ReasoningType,
     ) -> str:
         """Create a comprehensive reasoning summary"""
         summary_parts = [f"Completed {len(steps)} reasoning steps for {reasoning_type.value}."]
@@ -755,9 +767,7 @@ class EnhancedMedicalReasoning:
             return "Moderate confidence - some supporting evidence with reasonable clinical correlation"
         if confidence >= 0.4:
             return "Low-moderate confidence - limited evidence requiring additional evaluation"
-        return (
-            "Low confidence - insufficient evidence, requires comprehensive clinical assessment"
-        )
+        return "Low confidence - insufficient evidence, requires comprehensive clinical assessment"
 
     def _generate_next_steps(self, reasoning_type: ReasoningType, confidence: float) -> list[str]:
         """Generate appropriate next steps based on reasoning type and confidence"""

@@ -382,7 +382,9 @@ class BillingHelperAgent(BaseHealthcareAgent):
         )
 
     def _calculate_claim_amount(
-        self, claim_data: dict[str, Any], cpt_validations: list[CPTCodeValidation],
+        self,
+        claim_data: dict[str, Any],
+        cpt_validations: list[CPTCodeValidation],
     ) -> float:
         """
         Calculate total claim amount based on procedure codes
@@ -530,7 +532,8 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
             elif request_type == "report_generation":
                 result = await self.generate_billing_report(
-                    request.get("date_range", {}), request.get("report_type", "summary"),
+                    request.get("date_range", {}),
+                    request.get("report_type", "summary"),
                 )
                 base_response.update({"report": result})
 
@@ -587,7 +590,8 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
             # Get current deductible status
             deductible_status = await self.deductible_tracker.calculate_deductible_proximity(
-                patient_id, "current_year",
+                patient_id,
+                "current_year",
             )
 
             # Calculate cost for each CPT code
@@ -617,7 +621,8 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
                 # Create patient coverage data for insurance calculator using shared utility
                 patient_coverage = SharedBillingUtils.get_patient_coverage_data(
-                    patient_id, insurance_type,
+                    patient_id,
+                    insurance_type,
                 )
 
                 # Calculate cost using advanced insurance calculator
@@ -721,7 +726,8 @@ class BillingHelperAgent(BaseHealthcareAgent):
         """
         try:
             deductible_status = await self.deductible_tracker.calculate_deductible_proximity(
-                patient_id, "current_year",
+                patient_id,
+                "current_year",
             )
 
             insights = self.deductible_tracker.generate_deductible_insights(deductible_status)

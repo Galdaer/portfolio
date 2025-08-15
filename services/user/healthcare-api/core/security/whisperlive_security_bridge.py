@@ -116,7 +116,8 @@ class WhisperLiveSecurityBridge:
                 transcript: str
                 confidence: float
                 transcript, confidence = await self._transcribe_with_whisperlive(
-                    processed_audio, security_metadata,
+                    processed_audio,
+                    security_metadata,
                 )
 
                 # PHI detection and sanitization
@@ -200,7 +201,9 @@ class WhisperLiveSecurityBridge:
 
     @asynccontextmanager
     async def _secure_audio_context(
-        self, audio_data: BinaryIO, security_metadata: AudioSecurityMetadata,
+        self,
+        audio_data: BinaryIO,
+        security_metadata: AudioSecurityMetadata,
     ) -> AsyncGenerator[io.BytesIO, None]:
         """Secure context manager for memory-only audio processing"""
 
@@ -242,7 +245,9 @@ class WhisperLiveSecurityBridge:
             )
 
     async def _transcribe_with_whisperlive(
-        self, audio_buffer: io.BytesIO, security_metadata: AudioSecurityMetadata,
+        self,
+        audio_buffer: io.BytesIO,
+        security_metadata: AudioSecurityMetadata,
     ) -> tuple[str, float]:
         """Transcribe audio using WhisperLive in memory-only mode"""
 
@@ -275,7 +280,9 @@ class WhisperLiveSecurityBridge:
             raise
 
     async def _mock_transcription(
-        self, audio_buffer: io.BytesIO, security_metadata: AudioSecurityMetadata,
+        self,
+        audio_buffer: io.BytesIO,
+        security_metadata: AudioSecurityMetadata,
     ) -> tuple[str, float]:
         """Mock transcription for testing purposes"""
 
@@ -297,7 +304,9 @@ class WhisperLiveSecurityBridge:
         return transcript, confidence
 
     async def _detect_audio_properties(
-        self, audio_buffer: io.BytesIO, security_metadata: AudioSecurityMetadata,
+        self,
+        audio_buffer: io.BytesIO,
+        security_metadata: AudioSecurityMetadata,
     ) -> None:
         """Detect audio properties for security metadata"""
 

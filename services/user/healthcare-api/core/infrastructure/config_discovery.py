@@ -15,6 +15,7 @@ Environment variables:
 
 The index file contains relative paths under its own directory.
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,6 +23,7 @@ from pathlib import Path
 
 try:
     import yaml  # type: ignore
+
     _YAML_AVAILABLE = True
 except Exception:  # pragma: no cover
     _YAML_AVAILABLE = False
@@ -47,7 +49,9 @@ def load_config_index(index_path: str | None = None) -> list[str]:
         return []
 
 
-def find_config_file(filename: str, *, index_path: str | None = None, discovery_root: str = "config") -> str | None:
+def find_config_file(
+    filename: str, *, index_path: str | None = None, discovery_root: str = "config"
+) -> str | None:
     # 1. Index lookup
     for p in load_config_index(index_path):
         if Path(p).name == filename and Path(p).exists():

@@ -3,6 +3,7 @@
 Provides lightweight dataclass capturing trace / correlation details so logs &
 metrics can uniformly enrich events without per-agent duplication.
 """
+
 from __future__ import annotations
 
 import uuid
