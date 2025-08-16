@@ -8,6 +8,7 @@ parallel helpers can be added in subsequent iterations.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
+from core.mcp.universal_parser import extract_citations_from_mcp_steps
 from pathlib import Path
 import yaml
 
@@ -319,57 +320,11 @@ class LangChainOrchestrator:
         }
 
     def _extract_citations(self, intermediate_steps: Any) -> List[Dict[str, Any]]:
-        """Best-effort extraction of citations from tool observations.
-
-        Handles common shapes like:
-        - observation = {"citations": [...]}  # preferred
-        - observation = {"results": [{"title": ..., "url"|"link": ...}, ...]}
-        - observation = [{"title": ..., "url": ...}, ...]
-        """
-        citations: List[Dict[str, Any]] = []
+        """Extract citations from intermediate steps using the universal MCP parser."""
         try:
-            steps = intermediate_steps or []
-            for step in steps:
-                # step may be (action, observation)
-                if not isinstance(step, (list, tuple)) or len(step) < 2:
-                    continue
-                action, observation = step[0], step[1]
-                tool_name = getattr(action, "tool", None) or "medical_search"
-
-                # Normalize observation into iterable of items
-                items: List[Any] = []
-                if isinstance(observation, dict):
-                    if isinstance(observation.get("citations"), list):
-                        items = observation.get("citations")  # type: ignore[assignment]
-                    elif isinstance(observation.get("results"), list):
-                        items = observation.get("results")  # type: ignore[assignment]
-                    elif isinstance(observation.get("content"), list):
-                        items = observation.get("content")  # type: ignore[assignment]
-                    else:
-                        items = [observation]
-                elif isinstance(observation, list):
-                    items = observation
-                else:
-                    # unsupported shape, skip
-                    continue
-
-                for it in items:
-                    if not isinstance(it, dict):
-                        continue
-                    title = it.get("title") or it.get("name") or it.get("id")
-                    url = it.get("url") or it.get("link")
-                    if not (title or url):
-                        # Look inside nested structures
-                        meta = it.get("metadata") if isinstance(it.get("metadata"), dict) else {}
-                        title = title or (meta.get("title") if isinstance(meta, dict) else None)
-                        url = url or (meta.get("url") if isinstance(meta, dict) else None)
-                    if title or url:
-                        citations.append(
-                            {"title": title or "Source", "url": url or "", "source": tool_name}
-                        )
-        except Exception:  # pragma: no cover - defensive
-            return citations
-        return citations
+            return extract_citations_from_mcp_steps(intermediate_steps)
+        except Exception:
+            return []
 
     def _merge_citations(
         self, a: List[Dict[str, Any]], b: List[Dict[str, Any]]

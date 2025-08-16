@@ -11,6 +11,7 @@ import re
 from datetime import datetime
 from typing import Any, Dict, Optional
 
+import os
 from src.healthcare_mcp.phi_detection import PHIDetector
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 from config.phi_detection_config_loader import phi_config
@@ -22,12 +23,23 @@ _phi_detector: Optional[PHIDetector] = None
 
 
 def get_phi_detector() -> PHIDetector:
-    """Get or create PHI detector singleton"""
+    """Get or create PHI detector singleton.
+
+    Defaults to the basic PHI detector to avoid heavyweight Presidio/spaCy
+    initialization or package downloads in system-managed environments (PEP 668).
+    Set PHI_USE_PRESIDIO=1 to enable Presidio when the environment is properly
+    configured (venv with required models).
+    """
     global _phi_detector
     if _phi_detector is None:
         try:
-            _phi_detector = PHIDetector(use_presidio=True)
-            logger.info("✅ PHI detector initialized with Presidio")
+            use_presidio_env = os.getenv("PHI_USE_PRESIDIO", "0").lower() in {"1", "true", "yes"}
+            if use_presidio_env:
+                _phi_detector = PHIDetector(use_presidio=True)
+                logger.info("✅ PHI detector initialized with Presidio (env-enabled)")
+            else:
+                _phi_detector = PHIDetector(use_presidio=False)
+                logger.info("✅ PHI detector initialized with basic patterns (default)")
         except Exception as e:
             logger.warning(f"⚠️ Presidio unavailable, using basic PHI detection: {e}")
             _phi_detector = PHIDetector(use_presidio=False)

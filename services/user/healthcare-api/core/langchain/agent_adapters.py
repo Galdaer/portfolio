@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import json
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, TypedDict, cast
 
 if TYPE_CHECKING:
     from agents import BaseHealthcareAgent
@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 from langchain.tools import StructuredTool
 from pydantic import BaseModel, Field
 
-from agents import BaseHealthcareAgent
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 
 logger = get_healthcare_logger("core.langchain.agent_adapters")
@@ -115,7 +114,7 @@ def safe_async_call(coro):
 def create_agent_adapter(
     agent_instance: BaseHealthcareAgent,
     agent_name: str,
-    input_schema: type,
+    input_schema: type[BaseModel],
 ) -> StructuredTool:
     """
     Create a LangChain tool adapter for an existing healthcare agent.
@@ -210,6 +209,11 @@ This medical literature search has been completed successfully by the specialize
     )
 
 
+class AgentConfig(TypedDict):
+    input_schema: type[BaseModel]
+    description_suffix: str
+
+
 def create_healthcare_agent_adapters(discovered_agents: dict[str, Any]) -> list[StructuredTool]:
     """
     Create LangChain tool adapters for all discovered healthcare agents.
@@ -227,7 +231,7 @@ def create_healthcare_agent_adapters(discovered_agents: dict[str, Any]) -> list[
     tools: list[StructuredTool] = []
 
     # Define agent-specific configurations
-    agent_configs = {
+    agent_configs: dict[str, AgentConfig] = {
         "medical_search": {
             "input_schema": MedicalSearchInput,
             "description_suffix": "Use for medical literature, research, drug information, clinical studies, or disease information queries.",
@@ -269,9 +273,12 @@ def create_healthcare_agent_adapters(discovered_agents: dict[str, Any]) -> list[
             continue
 
         # Get configuration for this agent type
-        config = agent_configs.get(
-            agent_name,
-            {
+        config = cast(
+            AgentConfig,
+            agent_configs.get(
+                agent_name,
+            )
+            or {
                 "input_schema": MedicalSearchInput,  # Default to medical search schema
                 "description_suffix": f"Use for {agent_name.replace('_', ' ')} related healthcare questions.",
             },
@@ -282,7 +289,7 @@ def create_healthcare_agent_adapters(discovered_agents: dict[str, Any]) -> list[
             adapter_tool = create_agent_adapter(
                 agent_instance=agent_instance,
                 agent_name=agent_name,
-                input_schema=config["input_schema"],
+                input_schema=cast(type[BaseModel], config["input_schema"]),
             )
 
             tools.append(adapter_tool)

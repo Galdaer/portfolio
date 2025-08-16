@@ -18,6 +18,7 @@ from core.config.models import get_primary_model, get_instruct_model
 from config.medical_search_config_loader import MedicalSearchConfigLoader
 from core.infrastructure.agent_context import AgentContext, new_agent_context
 from core.infrastructure.agent_metrics import AgentMetricsStore
+from core.mcp.universal_parser import parse_mcp_response, parse_pubmed_response
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 from core.medical import search_utils as medical_search_utils
 from core.medical.enhanced_query_engine import (
@@ -45,10 +46,10 @@ class MedicalSearchResult:
 
     search_id: str
     search_query: str
-    information_sources: list[dict[str, object]]
-    related_conditions: list[dict[str, object]]  # From literature, not diagnosed
-    drug_information: list[dict[str, object]]
-    clinical_references: list[dict[str, object]]
+    information_sources: list[dict[str, Any]]
+    related_conditions: list[dict[str, Any]]  # From literature, not diagnosed
+    drug_information: list[dict[str, Any]]
+    clinical_references: list[dict[str, Any]]
     search_confidence: float
     disclaimers: list[str]
     source_links: list[str]
@@ -106,7 +107,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         self._mcp_sem = _asyncio.Semaphore(max(1, int(max_concurrent)))
 
         # Load intent configuration (YAML) once
-        self._intent_config: dict[str, object] = {}
+        self._intent_config: dict[str, Any] = {}
         try:
             self._intent_config = self._load_intent_config()
             logger.info("Loaded medical_query_patterns.yaml for intent classification")
@@ -117,7 +118,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         self._enhanced_query_engine = EnhancedMedicalQueryEngine(mcp_client, llm_client)
         logger.info("Enhanced Medical Query Engine initialized for sophisticated medical search")
 
-    async def _process_implementation(self, request: Mapping[str, object]) -> dict[str, object]:
+    async def _process_implementation(self, request: Mapping[str, Any]) -> dict[str, Any]:
         """
         Required implementation for BaseHealthcareAgent
         Processes search requests through the standard agent interface
@@ -143,7 +144,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             else (str(sq2) if isinstance(sq2, (str, int)) else "")
         )
         sc_val = request.get("search_context")
-        search_context: dict[str, object] = sc_val if isinstance(sc_val, dict) else {}
+        search_context: dict[str, Any] = sc_val if isinstance(sc_val, dict) else {}
 
         logger.info(f"Extracted search query: '{search_query}', context: {search_context}")
 
@@ -170,7 +171,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             intent_key, intent_cfg = self._classify_query_intent(search_query)
             logger.info(f"Classified query intent as '{intent_key}'")
 
-            merged_ctx: dict[str, object] = {}
+            merged_ctx: dict[str, Any] = {}
             merged_ctx.update(search_context)
             merged_ctx["intent"] = intent_key
             merged_ctx["intent_cfg"] = intent_cfg
@@ -289,7 +290,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
     async def search_medical_literature(
         self,
         search_query: str,
-        search_context: dict[str, object] | None = None,
+        search_context: dict[str, Any] | None = None,
     ) -> MedicalSearchResult:
         """
         Search medical literature like a medical librarian would
@@ -352,7 +353,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
     async def _perform_literature_search(
         self,
         search_query: str,
-        search_context: dict[str, object] | None = None,
+        search_context: dict[str, Any] | None = None,
     ) -> MedicalSearchResult:
         """Core literature search logic using Enhanced Medical Query Engine (Phase 2)"""
 
@@ -428,7 +429,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             return await self._fallback_basic_search(search_query, search_context)
 
     async def _fallback_basic_search(
-        self, search_query: str, search_context: dict[str, object] | None = None
+        self, search_query: str, search_context: dict[str, Any] | None = None
     ) -> MedicalSearchResult:
         """Fallback to basic search if Enhanced Query Engine fails"""
         search_id = self._generate_search_id(search_query)
@@ -454,7 +455,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
             # Basic deduplication
             seen_keys: set[str] = set()
-            deduped_sources: list[dict[str, object]] = []
+            deduped_sources: list[dict[str, Any]] = []
             for s in all_sources:
                 val = s.get("doi") or s.get("pmid") or s.get("url") or s.get("title") or ""
                 key = str(val).strip().lower()
@@ -497,7 +498,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
     # ------------------------
     # Intent configuration & formatting
     # ------------------------
-    def _load_intent_config(self) -> dict[str, object]:
+    def _load_intent_config(self) -> dict[str, Any]:
         """Load YAML-based intent patterns from config directory."""
         # agents/medical_search_agent/ -> up two levels to healthcare-api/, then config/
         base_dir = Path(__file__).resolve().parents[2]  # Up 2 levels to healthcare-api root
@@ -514,7 +515,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             )
             return config_data
 
-    def _classify_query_intent(self, query: str) -> tuple[str, dict[str, object]]:
+    def _classify_query_intent(self, query: str) -> tuple[str, dict[str, Any]]:
         """Simple keyword-based classifier per YAML patterns with default fallback."""
         patterns = (
             (self._intent_config.get("query_patterns") or {})
@@ -526,7 +527,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         ql = (query or "").lower()
         best_key = "information_request"
         best_score = 0
-        best_cfg: dict[str, object] = {}
+        best_cfg: dict[str, Any] = {}
         for key, cfg in patterns.items():
             kws = cfg.get("keywords", []) if isinstance(cfg, dict) else []
             if not isinstance(kws, list):
@@ -561,7 +562,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         """Convert Enhanced Query Engine result to Medical Search Agent result format"""
         # Extract different source types from enhanced result
         information_sources = []
-        related_conditions: list[dict[str, object]] = []
+        related_conditions: list[dict[str, Any]] = []
         drug_information = []
         clinical_references = []
 
@@ -594,7 +595,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
     def _format_response_by_intent(
         self,
         intent_key: str,
-        intent_cfg: dict[str, object],
+        intent_cfg: dict[str, Any],
         search_result: "MedicalSearchResult",
         original_query: str,
     ) -> str:
@@ -655,13 +656,13 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                     or cast(str, s.get("source_type", "")) == "clinical_guideline"
                 ]
                 rt_cfg = (
-                    cast(dict[str, object], self._intent_config.get("response_templates", {})).get(
+                    cast(dict[str, Any], self._intent_config.get("response_templates", {})).get(
                         "mixed_studies_list", {}
                     )
                     or {}
                 )
-                max_pubmed_obj = cast(dict[str, object], rt_cfg).get("max_pubmed", 6)
-                max_trials_obj = cast(dict[str, object], rt_cfg).get("max_trials", 4)
+                max_pubmed_obj = cast(dict[str, Any], rt_cfg).get("max_pubmed", 6)
+                max_trials_obj = cast(dict[str, Any], rt_cfg).get("max_trials", 4)
                 max_pubmed = int(max_pubmed_obj) if isinstance(max_pubmed_obj, (int, str)) else 6
                 max_trials = int(max_trials_obj) if isinstance(max_trials_obj, (int, str)) else 4
                 lines = [f"Studies relevant to: {original_query}", "", "Research Articles:"]
@@ -702,14 +703,14 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                     if cast(str, s.get("source_type", "")) == "drug_info"
                 ]
                 rt_cfg = (
-                    cast(dict[str, object], self._intent_config.get("response_templates", {})).get(
+                    cast(dict[str, Any], self._intent_config.get("response_templates", {})).get(
                         "treatment_options_list", {}
                     )
                     or {}
                 )
-                max_pubmed_obj = cast(dict[str, object], rt_cfg).get("max_pubmed", 4)
-                max_trials_obj = cast(dict[str, object], rt_cfg).get("max_trials", 3)
-                max_drugs_obj = cast(dict[str, object], rt_cfg).get("max_drugs", 3)
+                max_pubmed_obj = cast(dict[str, Any], rt_cfg).get("max_pubmed", 4)
+                max_trials_obj = cast(dict[str, Any], rt_cfg).get("max_trials", 3)
+                max_drugs_obj = cast(dict[str, Any], rt_cfg).get("max_drugs", 3)
                 max_pubmed = int(max_pubmed_obj) if isinstance(max_pubmed_obj, (int, str)) else 4
                 max_trials = int(max_trials_obj) if isinstance(max_trials_obj, (int, str)) else 3
                 max_drugs = int(max_drugs_obj) if isinstance(max_drugs_obj, (int, str)) else 3
@@ -754,12 +755,12 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                     or cast(str, s.get("source_type", "")) == "clinical_guideline"
                 ]
                 rt_cfg = (
-                    cast(dict[str, object], self._intent_config.get("response_templates", {})).get(
+                    cast(dict[str, Any], self._intent_config.get("response_templates", {})).get(
                         "clinical_trials_list", {}
                     )
                     or {}
                 )
-                max_trials_obj = cast(dict[str, object], rt_cfg).get("max_trials", 10)
+                max_trials_obj = cast(dict[str, Any], rt_cfg).get("max_trials", 10)
                 max_trials = int(max_trials_obj) if isinstance(max_trials_obj, (int, str)) else 10
                 lines = [f"Clinical trials for: {original_query}", ""]
                 for i, src in enumerate(trials[:max_trials], 1):
@@ -781,12 +782,12 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                     if cast(str, s.get("source_type", "")) == "drug_info"
                 ]
                 rt_cfg = (
-                    cast(dict[str, object], self._intent_config.get("response_templates", {})).get(
+                    cast(dict[str, Any], self._intent_config.get("response_templates", {})).get(
                         "drug_information_list", {}
                     )
                     or {}
                 )
-                max_drugs_obj = cast(dict[str, object], rt_cfg).get("max_drugs", 10)
+                max_drugs_obj = cast(dict[str, Any], rt_cfg).get("max_drugs", 10)
                 max_drugs = int(max_drugs_obj) if isinstance(max_drugs_obj, (int, str)) else 10
                 lines = [f"Drug information related to: {original_query}", ""]
                 for i, src in enumerate(drugs[:max_drugs], 1):
@@ -829,7 +830,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
     async def _search_condition_information(
         self,
         medical_concepts: list[str],
-    ) -> list[dict[str, object]]:
+    ) -> list[dict[str, Any]]:
         """
         Search for condition information using database-first approach
         Returns: Information about conditions, not diagnostic recommendations
@@ -958,9 +959,8 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                                     f"CRITICAL DEBUG - Full text content: {first_content['text']}"
                                 )
 
-                    parsed_articles = medical_search_utils.parse_mcp_search_results(
-                        literature_results
-                    )
+                    # Parse MCP response using universal parser to fix "Untitled article" issue
+                    parsed_articles = parse_pubmed_response(literature_results)
                     logger.info(
                         f"MCP call completed successfully, parsed {len(parsed_articles)} articles for '{concept}'"
                     )
@@ -1021,7 +1021,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
     async def _search_symptom_literature(
         self, medical_concepts: list[str]
-    ) -> list[dict[str, object]]:
+    ) -> list[dict[str, Any]]:
         """
         Search literature about symptoms and their associations
         Returns: Literature about what symptoms are associated with, not diagnoses
@@ -1069,13 +1069,11 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                             ),
                             timeout=mcp_timeout,
                         )
-                    # Debug raw response and parse
+                    # Debug raw response and parse using universal parser
                     logger.info(
                         f"Raw MCP result for symptom '{symptom}': type={type(literature_results).__name__} keys={list(literature_results.keys()) if isinstance(literature_results, dict) else 'n/a'}"
                     )
-                    parsed_articles = medical_search_utils.parse_mcp_search_results(
-                        literature_results
-                    )
+                    parsed_articles = parse_pubmed_response(literature_results)
 
                     for article in parsed_articles:
                         pmid = article.get("pmid", "")
@@ -1126,7 +1124,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
     async def _search_drug_information(
         self, medical_concepts: list[str]
-    ) -> list[dict[str, object]]:
+    ) -> list[dict[str, Any]]:
         """
         Search for drug information and interactions
         Returns: Official drug information, not prescribing advice
@@ -1256,7 +1254,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
     async def _search_clinical_references(
         self,
         medical_concepts: list[str],
-    ) -> list[dict[str, object]]:
+    ) -> list[dict[str, Any]]:
         """
         Search clinical practice guidelines and reference materials
         Returns: Reference information for clinical context
@@ -1293,10 +1291,8 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                         if isinstance(guideline_results.get("guidelines"), list):
                             guidelines = guideline_results.get("guidelines", [])
                         else:
-                            # Fallback: try generic parser for records
-                            guidelines = medical_search_utils.parse_mcp_search_results(
-                                guideline_results
-                            )
+                            # Fallback: try universal parser then generic parser for records
+                            guidelines = parse_pubmed_response(guideline_results)
 
                     for guideline in guidelines:
                         nct_id = guideline.get("nct_id", guideline.get("nctId", ""))
@@ -1342,13 +1338,13 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         return sources
 
     async def _extract_literature_conditions(
-        self, sources: list[dict[str, object]]
-    ) -> list[dict[str, object]]:
+        self, sources: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """
         Extract conditions mentioned in literature using SciSpacy (not diagnose them)
         Returns: List of conditions found in literature with context
         """
-        conditions: list[dict[str, object]] = []
+        conditions: list[dict[str, Any]] = []
 
         for source in sources:
             # Extract conditions mentioned in abstracts/summaries using SciSpacy
@@ -1386,7 +1382,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 continue
 
         # Remove duplicates and limit results
-        unique_conditions: dict[str, dict[str, object]] = {}
+        unique_conditions: dict[str, dict[str, Any]] = {}
         for condition_dict in conditions:
             key = condition_dict["condition_name"].lower()
             if key not in unique_conditions:
@@ -1435,7 +1431,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
     # _rank_sources_by_evidence removed in favor of centralized utilities in core.medical.search_utils
 
-    def _calculate_search_confidence(self, sources: list[dict[str, object]], query: str) -> float:
+    def _calculate_search_confidence(self, sources: list[dict[str, Any]], query: str) -> float:
         """
         Calculate how confident we are that we found good information (not diagnostic confidence)
         """
@@ -1853,7 +1849,7 @@ Return only the simple search terms, one per line, no explanations:"""
         logger.info(f"Professional medical terms extracted: {unique_terms}")
         return unique_terms
 
-    def _calculate_concept_relevance(self, concept: str, article: dict[str, object]) -> float:
+    def _calculate_concept_relevance(self, concept: str, article: dict[str, Any]) -> float:
         """Calculate how relevant an article is to a medical concept"""
         article_text = " ".join([article.get("title", ""), article.get("abstract", "")]).lower()
 
@@ -1869,7 +1865,7 @@ Return only the simple search terms, one per line, no explanations:"""
 
         return matches / len(concept_words) if concept_words else 0.0
 
-    def _determine_evidence_level(self, article: dict[str, object]) -> str:
+    def _determine_evidence_level(self, article: dict[str, Any]) -> str:
         """Determine evidence level from article metadata"""
         pub_type = article.get("publication_type", "").lower()
         title = article.get("title", "").lower()

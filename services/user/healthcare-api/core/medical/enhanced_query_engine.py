@@ -21,6 +21,10 @@ from cachetools import TTLCache
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 from config.app import config
 from .medical_response_validator import MedicalTrustScore
+from core.mcp.universal_parser import (
+    parse_pubmed_response,
+    parse_clinical_trials_response,
+)
 
 logger = get_healthcare_logger("core.medical.enhanced_query_engine")
 
@@ -262,7 +266,7 @@ class EnhancedMedicalQueryEngine:
             pubmed_results = await self.mcp_client.call_tool(
                 "search-pubmed",
                 {
-                    "query": query,
+                    "query": enhanced_query,
                     "max_results": 10,  # Reduced from 20 to prevent rate limiting
                 },
             )  # CRITICAL DEBUG: Log the actual MCP result structure
@@ -281,25 +285,10 @@ class EnhancedMedicalQueryEngine:
             processed_sources = []
 
             # Parse the MCP response structure: content[0].text contains JSON string with articles
-            if pubmed_results.get("content") and len(pubmed_results["content"]) > 0:
-                content_item = pubmed_results["content"][0]
-                if "text" in content_item:
-                    try:
-                        # Parse the JSON string to get the articles
-                        articles_data = json.loads(content_item["text"])
-                        articles = articles_data.get("articles", [])
-                        logger.info(
-                            f"CRITICAL DEBUG - Successfully parsed {len(articles)} articles from MCP response"
-                        )
-                    except json.JSONDecodeError as e:
-                        logger.error(f"Failed to parse MCP response JSON: {e}")
-                        articles = []
-                else:
-                    logger.warning("MCP response content item missing 'text' field")
-                    articles = []
-            else:
-                logger.warning("MCP response missing 'content' array")
-                articles = []
+            articles = parse_pubmed_response(pubmed_results)
+            logger.info(
+                f"CRITICAL DEBUG - Universal parser extracted {len(articles)} articles from MCP response"
+            )
 
             for i, article in enumerate(articles):
                 # CRITICAL DEBUG: Log actual article structure
@@ -315,21 +304,21 @@ class EnhancedMedicalQueryEngine:
                         f"CRITICAL DEBUG - Article {i} pmid: '{article.get('pmid', 'NO_PMID')}'"
                     )
 
-                processed_sources.append(
-                    {
-                        "source_type": "pubmed",
-                        "title": article.get("title", ""),
-                        "authors": article.get("authors", []),
-                        "journal": article.get("journal", ""),
-                        "publication_date": article.get("publication_date", ""),
-                        "pmid": article.get("pmid", ""),
-                        "url": f"https://pubmed.ncbi.nlm.nih.gov/{article.get('pmid', '')}/",
-                        "abstract": article.get("abstract", ""),
-                        "relevance_score": article.get("relevance_score", 0.0),
-                        "study_type": article.get("publication_type", ""),
-                        "evidence_level": self._determine_evidence_level(article),
-                    },
-                )
+                    processed_sources.append(
+                        {
+                            "source_type": "pubmed",
+                            "title": article.get("title", ""),
+                            "authors": article.get("authors", []),
+                            "journal": article.get("journal", ""),
+                            "publication_date": article.get("pubDate") or article.get("date", ""),
+                            "pmid": article.get("pmid", ""),
+                            "url": f"https://pubmed.ncbi.nlm.nih.gov/{article.get('pmid', '')}/",
+                            "abstract": article.get("abstract", ""),
+                            "relevance_score": article.get("relevance_score", 0.0),
+                            "study_type": article.get("study_type") or article.get("publication_type", ""),
+                            "evidence_level": self._determine_evidence_level(article),
+                        },
+                    )
 
             return {"sources": processed_sources}
 
@@ -584,30 +573,32 @@ class EnhancedMedicalQueryEngine:
     ) -> dict[str, Any]:
         """Search clinical trials database"""
         try:
-            # Use ClinicalTrials.gov API via MCP
-            trials_result = await self.mcp_client.call_tool(
-                "search_clinical_trials",
+            # Use ClinicalTrials.gov API via MCP (tool name uses hyphen per MCP schema)
+            trials_mcp = await self.mcp_client.call_tool(
+                "search-trials",
                 {
-                    "query": query,
-                    "max_results": 10,
-                    "study_status": ["recruiting", "completed"],
-                    "study_type": ["interventional", "observational"],
+                    "condition": query,
+                    "maxResults": 10,
                 },
             )
 
+            # Parse via universal parser to support both array and keyed JSON
+            trials_list = parse_clinical_trials_response(trials_mcp)
+
             processed_trials = []
-            for trial in trials_result.get("studies", []):
+            for trial in trials_list:
+                nct_id = trial.get("nct_id") or trial.get("nctId") or trial.get("nct") or ""
                 processed_trials.append(
                     {
                         "source_type": "clinical_trial",
                         "title": trial.get("title", ""),
-                        "nct_id": trial.get("nct_id", ""),
+                        "nct_id": nct_id,
                         "status": trial.get("status", ""),
                         "phase": trial.get("phase", ""),
                         "condition": trial.get("condition", ""),
                         "intervention": trial.get("intervention", ""),
                         "sponsor": trial.get("sponsor", ""),
-                        "url": f"https://clinicaltrials.gov/study/{trial.get('nct_id', '')}",
+                        "url": f"https://clinicaltrials.gov/study/{nct_id}" if nct_id else "",
                         "evidence_level": "clinical_trial",
                         "enrollment": trial.get("enrollment", 0),
                     },

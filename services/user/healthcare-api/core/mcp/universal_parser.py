@@ -110,17 +110,20 @@ def parse_mcp_response(
 
 def parse_pubmed_response(mcp_result: dict[str, Any]) -> list[dict[str, Any]]:
     """Parse PubMed MCP response to extract articles."""
-    return parse_mcp_response(mcp_result, "articles", [])
+    result = parse_mcp_response(mcp_result, "articles", [])
+    return result if isinstance(result, list) else []
 
 
 def parse_clinical_trials_response(mcp_result: dict[str, Any]) -> list[dict[str, Any]]:
     """Parse Clinical Trials MCP response to extract trial results."""
-    return parse_mcp_response(mcp_result, "results", [])
+    result = parse_mcp_response(mcp_result, "results", [])
+    return result if isinstance(result, list) else []
 
 
 def parse_fda_response(mcp_result: dict[str, Any]) -> list[dict[str, Any]]:
     """Parse FDA MCP response to extract drug information."""
-    return parse_mcp_response(mcp_result, "results", [])
+    result = parse_mcp_response(mcp_result, "results", [])
+    return result if isinstance(result, list) else []
 
 
 def debug_mcp_response_structure(mcp_result: dict[str, Any]) -> dict[str, Any]:

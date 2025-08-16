@@ -149,8 +149,18 @@ def test_base_healthcare_agent():
         from agents import BaseHealthcareAgent
         print("✅ BaseHealthcareAgent import successful")
         
-        # Test agent creation
-        agent = BaseHealthcareAgent(agent_name="test_integration_agent")
+        # Define a minimal concrete subclass to satisfy abstract method
+        class _TestAgent(BaseHealthcareAgent):
+            async def _process_implementation(self, request: dict[str, any]) -> dict[str, any]:
+                # Return a minimal conforming response structure
+                return {
+                    "success": True,
+                    "message": "test ok",
+                    "echo": request,
+                }
+
+        # Test agent creation using the minimal concrete subclass
+        agent = _TestAgent(agent_name="test_integration_agent")
         print(f"✅ Healthcare agent created: {type(agent)}")
         print(f"   Agent name: {agent.agent_name}")
         
@@ -287,7 +297,7 @@ def main():
             passed += 1
     
     total = len(results)
-    print(f"\n📊 Results: {passed}/{total} tests passed ({100*passed//total}%)")
+    print(f"\n📊 Results: {passed}/{total} tests passed ({100 * passed // total}%)")
     
     if passed == total:
         print("🎉 ALL INFRASTRUCTURE INTEGRATION TESTS PASSED!")

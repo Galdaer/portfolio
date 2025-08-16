@@ -77,6 +77,11 @@ class InvokeRequest(BaseModel):
     arguments: dict[str, Any] | None = None
 
 
+# Simple chat request for direct orchestrator routing
+class ChatRequest(BaseModel):
+    message: str
+
+
 # Global variables for agent management
 discovered_agents = {}
 healthcare_services = None
@@ -524,8 +529,6 @@ You must respond with a JSON object containing only the agent name. Do not inclu
                 stream=False,
             )
             # Parse structured JSON response
-            import json
-
             try:
                 response_data = json.loads(response["response"])
                 selected_agent_name = response_data["agent"].strip().lower()
@@ -543,8 +546,6 @@ You must respond with a JSON object containing only the agent name. Do not inclu
                 stream=False,
             )
             # Parse structured JSON response
-            import json
-
             try:
                 response_data = json.loads(response["message"]["content"])
                 selected_agent_name = response_data["agent"].strip().lower()
@@ -905,6 +906,22 @@ async def chat_completions(request: ChatCompletionsRequest):
 app.add_api_route("/chat/completions", chat_completions, methods=["POST"])
 
 
+@app.post("/chat")
+async def chat(request: ChatRequest):
+    """Direct chat endpoint that routes through the LangChain orchestrator.
+
+    Returns the orchestrator result JSON. For a human-formatted string, use /process.
+    """
+    try:
+        if not langchain_orchestrator:
+            return JSONResponse(status_code=503, content={"error": "orchestrator_unavailable"})
+        result = await langchain_orchestrator.process(request.message)
+        return result
+    except Exception as e:
+        logger.error(f"/chat orchestrator error: {e}")
+        return JSONResponse(status_code=500, content={"error": "orchestrator_error"})
+
+
 @app.post("/process", response_model=ProcessResponse)
 async def process_message(request: ProcessRequest) -> ProcessResponse:
     """Process message via AI agents.
@@ -948,103 +965,7 @@ async def process_message(request: ProcessRequest) -> ProcessResponse:
                 )
             return ProcessResponse(status="error", error="orchestrator_error", result=fb)
 
-        # Ensure agents are initialized
-        if not discovered_agents:
-            return ProcessResponse(status="error", error="No agents available")
-
-        if not llm_client:
-            return ProcessResponse(status="error", error="LLM client not available")
-
-        orch = load_orchestrator_config()
-
-        # Let LLM choose the appropriate agent based on message content
-        selected_agent = await select_agent_with_llm(request.message, discovered_agents, llm_client)
-
-        # All agents inherit from BaseHealthcareAgent and must implement process_request
-        if not hasattr(selected_agent, "process_request"):
-            logger.error(
-                f"Agent {getattr(selected_agent, 'agent_name', 'unknown')} missing process_request method"
-            )
-            return ProcessResponse(status="error", error="Agent missing required interface")
-
-        # Standard request payload for agents
-        request_data = {
-            "message": request.message,
-            "query": request.message,  # Some agents may expect 'query' instead of 'message'
-            "user_id": request.user_id,
-            "session_id": request.session_id,
-        }
-
-        # Primary call with safe timeout and base fallback
-        try:
-            timeout_s = float(orch.get("timeouts", {}).get("per_agent_default", 30))
-            hard_cap = float(orch.get("timeouts", {}).get("per_agent_hard_cap", 90))
-            timeout_s = min(max(1.0, timeout_s), hard_cap)
-
-            result, err = await _call_agent_safely(selected_agent, request_data, timeout_s)
-
-            enable_fallback = bool(orch.get("selection", {}).get("enable_fallback", True))
-            if (
-                err
-                or not isinstance(result, dict)
-                or (result.get("success") is False and enable_fallback)
-            ):
-                logger.warning(
-                    f"Primary agent failed or returned unsuccessful result, falling back. Error: {err}"
-                )
-                result = await _run_base_fallback(request.message)
-                agent_name_for_header = result.get("agent_name", "base")
-            else:
-                agent_name_for_header = getattr(selected_agent, "agent_name", "unknown")
-
-            if request.format == "human":
-                preferred_keys = orch.get("synthesis", {}).get(
-                    "prefer",
-                    [
-                        "formatted_summary",
-                        "formatted_response",
-                        "response",
-                        "research_summary",
-                        "message",
-                    ],
-                )
-                payload = result or {}
-                text = next(
-                    (
-                        payload.get(k)
-                        for k in preferred_keys
-                        if isinstance(payload.get(k), str) and payload.get(k)
-                    ),
-                    None,
-                )
-                if not text:
-                    text = json.dumps(payload) if payload else "Operation completed."
-                header = (
-                    _build_agent_header(agent_name_for_header)
-                    if orch.get("provenance", {}).get("show_agent_header", True)
-                    else ""
-                )
-                formatted_text = f"{header}{text}"
-                return ProcessResponse(
-                    status="success",
-                    result=result,
-                    response=formatted_text,
-                    formatted_response=formatted_text,
-                )
-
-            return ProcessResponse(status="success", result=result)
-
-        except Exception as e:
-            logger.error(f"Error calling agent process_request: {e}")
-            error_msg = f"Agent processing error: {str(e)}"
-            if request.format == "human":
-                return ProcessResponse(
-                    status="error",
-                    error=error_msg,
-                    response=f"❌ **Error:** {error_msg}",
-                    formatted_response=f"❌ **Error:** {error_msg}",
-                )
-            return ProcessResponse(status="error", error=error_msg)
+    # Legacy direct-agent routing removed; API now routes exclusively through orchestrator
 
     except Exception as e:
         logger.error(f"Error processing HTTP request: {e}")

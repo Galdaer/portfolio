@@ -19,6 +19,7 @@ from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     log_healthcare_event,
 )
+from core.mcp.universal_parser import parse_mcp_response, parse_pubmed_response, parse_clinical_trials_response
 from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType
 from core.reasoning.medical_reasoning_enhanced import EnhancedMedicalReasoning
 
@@ -1019,9 +1020,11 @@ Respond only with valid JSON.
             if stage.get("success") and stage.get("result"):
                 stage_name = stage.get("stage", "unknown")
                 result_data = stage.get("result", {})
-
-                if stage_name == "pubmed_search" and "articles" in result_data:
-                    articles = result_data["articles"][:5]  # Top 5 articles
+                
+                # Parse MCP response using universal parser to fix "Untitled" issue
+                if stage_name == "pubmed_search":
+                    parsed_articles = parse_pubmed_response(result_data)
+                    articles = parsed_articles[:5]  # Top 5 articles
                     findings.append(
                         f"Literature Review ({len(articles)} studies): "
                         + "; ".join(
@@ -1029,8 +1032,9 @@ Respond only with valid JSON.
                         )
                     )
 
-                elif stage_name == "trials_search" and "trials" in result_data:
-                    trials = result_data["trials"][:3]  # Top 3 trials
+                elif stage_name == "trials_search":
+                    parsed_trials = parse_clinical_trials_response(result_data)
+                    trials = parsed_trials[:3]  # Top 3 trials
                     findings.append(
                         f"Clinical Trials ({len(trials)} trials): "
                         + "; ".join([trial.get("title", "Untitled")[:100] for trial in trials])
