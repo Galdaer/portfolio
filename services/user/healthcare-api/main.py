@@ -18,7 +18,7 @@ import json
 from functools import lru_cache
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -576,6 +576,76 @@ You must respond with a JSON object containing only the agent name. Do not inclu
         logger.error(f"Error in LLM agent selection: {e}")
         raise  # Don't mask LLM issues with fallbacks
 
+async def process_query(self, query: str, **kwargs) -> Dict[str, Any]:
+    """Process a healthcare query using the appropriate agent."""
+    try:
+        # ...existing code...
+        
+        # Process with selected agent
+        result = await agent_func({"query": query, **kwargs})
+        
+        # Format the response for human consumption
+        if isinstance(result, dict) and result.get('success'):
+            formatted_response = self._format_agent_response(result)
+            return {
+                "success": True,
+                "message": formatted_response,
+                "raw_data": result,  # Keep raw data for debugging
+                "agent_used": selected_agent
+            }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"❌ Error processing query: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+def _format_agent_response(self, response: Dict[str, Any]) -> str:
+    """Format agent response for human-readable output."""
+    
+    # Check if we already have a formatted summary
+    if 'formatted_summary' in response:
+        return response['formatted_summary']
+    
+    # Handle medical search responses
+    if response.get('agent_type') == 'search' and 'information_sources' in response:
+        sources = response.get('information_sources', [])
+        total = response.get('total_sources', len(sources))
+        
+        formatted = f"I found {total} relevant articles on cardiovascular health. Here are the most recent:\n\n"
+        
+        for i, source in enumerate(sources[:10], 1):
+            title = source.get('title', 'No title')
+            authors = source.get('authors', [])
+            journal = source.get('journal', 'Unknown journal')
+            url = source.get('url', '')
+            abstract = source.get('abstract', 'No abstract available')
+            
+            formatted += f"**{i}. {title}**\n"
+            if authors:
+                formatted += f"   Authors: {', '.join(authors[:3])}"
+                if len(authors) > 3:
+                    formatted += f" et al."
+                formatted += "\n"
+            formatted += f"   Journal: {journal}\n"
+            if url:
+                formatted += f"   [View on PubMed]({url})\n"
+            if abstract and abstract != 'No abstract available':
+                formatted += f"   Abstract: {abstract[:200]}...\n" if len(abstract) > 200 else f"   Abstract: {abstract}\n"
+            formatted += "\n"
+        
+        # Add disclaimers
+        disclaimers = response.get('disclaimers', [])
+        if disclaimers:
+            formatted += "\n---\n*" + "\n*".join(disclaimers) + "*"
+        
+        return formatted
+    
+    # Default formatting for other responses
+    return json.dumps(response, indent=2)
 
 async def _call_agent_safely(
     agent: Any, request_data: dict[str, Any], timeout_s: float
@@ -908,18 +978,72 @@ app.add_api_route("/chat/completions", chat_completions, methods=["POST"])
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
-    """Direct chat endpoint that routes through the LangChain orchestrator.
-
-    Returns the orchestrator result JSON. For a human-formatted string, use /process.
-    """
+    """Process chat messages through the healthcare AI system."""
     try:
-        if not langchain_orchestrator:
-            return JSONResponse(status_code=503, content={"error": "orchestrator_unavailable"})
-        result = await langchain_orchestrator.process(request.message)
-        return result
+        # PHASE 1.2 PHI DETECTION: Sanitize incoming request for HIPAA compliance
+        request_dict = request.dict()
+        sanitized_request = sanitize_request_data(request_dict)
+        logger.info("🛡️ Request sanitized for HIPAA compliance")
+
+        # Extract the last user message (from sanitized request)
+        user_message = ""
+        for message in reversed(sanitized_request.get("messages", [])):
+            if message.get("role") == "user":
+                user_message = message.get("content", "")
+                break
+
+        if not user_message:
+            return JSONResponse(status_code=400, content={"error": "No user message found"})
+
+        # Process through our healthcare system
+        process_request = ProcessRequest(
+            message=user_message,
+            user_id="openwebui",
+            session_id="openwebui_session",
+            format="human",
+        )
+
+        # Use the existing process logic
+        result = await process_message(process_request)
+
+        if result.status == "error":
+            return JSONResponse(status_code=500, content={"error": result.error})
+
+        # Convert to OpenAI format
+        response_content = result.formatted_response or result.response or "Operation completed"
+
+        openai_response = {
+            "id": "chatcmpl-healthcare",
+            "object": "chat.completion",
+            "created": int(asyncio.get_event_loop().time()),
+            "model": request.model,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": response_content},
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": len(user_message.split()),
+                "completion_tokens": len(response_content.split()),
+                "total_tokens": len(user_message.split()) + len(response_content.split()),
+            },
+        }
+
+        # PHASE 1.2 PHI DETECTION: Sanitize outgoing response for HIPAA compliance
+        sanitized_response = sanitize_response_data(openai_response)
+        logger.info("🛡️ Response sanitized for HIPAA compliance")
+
+        logger.info(f"OpenAI chat completion processed with PHI protection: {user_message[:100]}")
+        return sanitized_response
+
     except Exception as e:
-        logger.error(f"/chat orchestrator error: {e}")
-        return JSONResponse(status_code=500, content={"error": "orchestrator_error"})
+        logger.error(f"❌ Error in chat endpoint: {str(e)}")
+        return {
+            "response": "I apologize, but I encountered an error processing your request.",
+            "metadata": {"error": str(e)}
+        }
 
 
 @app.post("/process", response_model=ProcessResponse)
@@ -935,10 +1059,19 @@ async def process_message(request: ProcessRequest) -> ProcessResponse:
         if not langchain_orchestrator:
             return ProcessResponse(status="error", error="LangChain orchestrator unavailable")
         try:
-            result = await langchain_orchestrator.process(
-                request.message,
-                show_sources=request.show_sources,
-            )
+            # Use conclusive adapters when agents are available to prevent iteration loops
+            if discovered_agents:
+                result = await langchain_orchestrator.process_with_conclusive_adapters(
+                    request.message,
+                    discovered_agents,
+                    show_sources=request.show_sources,
+                )
+            else:
+                # Fallback to regular processing when no agents discovered
+                result = await langchain_orchestrator.process(
+                    request.message,
+                    show_sources=request.show_sources,
+                )
             if request.format == "human":
                 formatted = result.get("formatted_summary", "") or "Operation completed."
                 return ProcessResponse(

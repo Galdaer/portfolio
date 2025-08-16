@@ -34,20 +34,10 @@ class DirectMCPClient:
         container_path = "/app/mcp-server/build/stdio_entry.js"
         host_path = "/home/intelluxe/services/user/healthcare-mcp/build/stdio_entry.js"
 
-        # Detect environment and choose appropriate path
-        is_container = os.path.exists("/app") and not os.path.exists("/home/intelluxe")
-        is_host = os.path.exists("/home/intelluxe")
-
-        if is_container and os.path.exists(container_path):
-            self.mcp_server_path = container_path
-        elif is_host and os.path.exists(host_path):
-            self.mcp_server_path = host_path
-        elif is_host:
-            # Host environment but server not built - use host path for clear error
-            self.mcp_server_path = host_path
-        else:
-            # Environment variable override or fallback
-            self.mcp_server_path = os.getenv("MCP_SERVER_PATH", container_path)
+        # Detect environment - we're running inside the healthcare-api container
+        # when /app exists and the MCP server is built there
+        self._is_container_environment = self._detect_container_environment()
+        self.mcp_server_path = self._detect_mcp_server_path(container_path, host_path)
 
         self._active_connections: Dict[str, subprocess.Popen] = {}
         self._connection_lock = asyncio.Lock()
@@ -73,9 +63,46 @@ class DirectMCPClient:
                     "server_path": self.mcp_server_path,
                     "communication_method": "pooled_jsonrpc",
                     "fix_applied": "broken_pipe_resolution",
+                    "container_environment": self._is_container_environment,
                 },
             },
         )
+
+    def _detect_container_environment(self) -> bool:
+        """Detect if we're running inside the healthcare-api container."""
+        # Check for container-specific paths and environment variables
+        container_indicators = [
+            os.path.exists("/app"),  # Container app directory
+            os.getenv("CONTAINER") == "healthcare-api",  # Explicit container flag
+            os.path.exists("/proc/1/cgroup") and "docker" in open("/proc/1/cgroup").read(),  # Docker cgroup
+        ]
+        return any(container_indicators)
+
+    def _detect_mcp_server_path(self, container_path: str, host_path: str) -> str:
+        """Detect the correct MCP server path based on environment."""
+        # Force container path when environment variable is set
+        env_path = os.getenv("MCP_SERVER_PATH")
+        if env_path:
+            logger.info(f"Using MCP server path from environment: {env_path}")
+            return env_path
+
+        # Container environment - use container path
+        if self._is_container_environment:
+            if os.path.exists(container_path):
+                logger.info(f"Container environment detected, using: {container_path}")
+                return container_path
+            else:
+                logger.warning(f"Container environment but MCP server not found at {container_path}")
+                return container_path  # Return anyway for clear error messaging
+
+        # Host environment - check for built MCP server
+        if os.path.exists(host_path):
+            logger.info(f"Host environment with built MCP server: {host_path}")
+            return host_path
+        else:
+            logger.warning(f"Host environment - MCP server expected at {host_path} but not found")
+            logger.info("Note: MCP server is container-only by design. Expected when running from host.")
+            return host_path  # Return for clear error messaging
 
     @asynccontextmanager
     async def _get_mcp_connection(self, connection_id: str = "default"):
@@ -295,6 +322,57 @@ class DirectMCPClient:
     async def connect(self) -> None:
         """Initialize connection pool - compatibility method."""
         logger.info("Direct MCP client ready with connection pooling")
+
+    async def investigate_data_source(self, query: str) -> dict[str, Any]:
+        """
+        Determine if results come from local database or external APIs.
+        
+        Implementation of Critical Discovery 3 from handoff document.
+        Uses response time patterns and result counts for source determination.
+        """
+        import time
+        from core.mcp.universal_parser import parse_mcp_response
+        
+        start_time = time.time()
+        result = await self.call_tool("search-pubmed", {"query": query})
+        end_time = time.time()
+        
+        response_time = end_time - start_time
+        
+        # Pattern recognition for data source identification
+        if response_time < 0.5:
+            source_type = "cached_database"  # Fast responses = local database
+        elif response_time > 5.0:
+            source_type = "external_api"     # Slow responses = API calls
+        else:
+            source_type = "hybrid"           # Mixed sources
+        
+        articles = parse_mcp_response(result, "articles")
+        if len(articles) > 50:
+            source_type += "_large_dataset"  # Database has comprehensive data
+        
+        investigation_result = {
+            "source_type": source_type,
+            "response_time": response_time,
+            "article_count": len(articles),
+            "investigation_time": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "query": query
+        }
+        
+        logger.info(
+            f"Data source investigation complete: {source_type}",
+            extra={
+                "healthcare_context": {
+                    "operation_type": "data_source_investigation",
+                    "query": query,
+                    "response_time": response_time,
+                    "article_count": len(articles),
+                    "source_type": source_type
+                }
+            }
+        )
+        
+        return investigation_result
 
     async def debug_connection(self) -> None:
         """Debug method to test MCP connection and fix validation."""

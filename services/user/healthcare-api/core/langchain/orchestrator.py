@@ -16,6 +16,7 @@ from langchain_core.language_models import BaseChatModel
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 from core.langchain.agents import HealthcareLangChainAgent
+from core.langchain.agent_adapters import synthesize_answer_from_sources, create_conclusive_agent_adapter
 
 logger = get_healthcare_logger("core.langchain.orchestrator")
 
@@ -310,6 +311,126 @@ class LangChainOrchestrator:
                     "agent_name": "orchestrator",
                     "agents_used": [],
                 }
+
+    async def process_with_conclusive_adapters(
+        self,
+        query: str,
+        discovered_agents: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None,
+        show_sources: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """
+        Process a healthcare query using conclusive agent adapters to prevent iteration loops.
+        
+        This implements the pattern from the handoff document to ensure agents return
+        conclusive answers instead of just source lists, preventing LangChain from
+        hitting max_iterations (25).
+        
+        Args:
+            query: The user's healthcare-related query
+            discovered_agents: Dictionary of available healthcare agents
+            context: Optional context for the query
+            show_sources: Whether to show sources in formatted_summary
+            
+        Returns:
+            Dictionary with conclusive answer, avoiding iteration loops
+        """
+        try:
+            logger.info(f"🔄 Processing query with conclusive adapters: {query[:100]}...")
+            
+            # Determine the most appropriate agent for the query
+            agent_name = "medical_search"  # Default to medical search
+            if "appointment" in query.lower() or "schedule" in query.lower():
+                agent_name = "scheduling"
+            elif "billing" in query.lower() or "insurance" in query.lower():
+                agent_name = "billing_helper"
+            elif "intake" in query.lower() or "registration" in query.lower():
+                agent_name = "intake"
+            elif "clinical" in query.lower() or "research" in query.lower() or "trial" in query.lower():
+                agent_name = "clinical_research"
+            
+            # Get the appropriate agent
+            selected_agent = discovered_agents.get(agent_name)
+            if not selected_agent:
+                # Fallback to any available agent
+                if discovered_agents:
+                    agent_name, selected_agent = next(iter(discovered_agents.items()))
+                else:
+                    # No agents available, use fallback
+                    return {
+                        "success": False,
+                        "formatted_summary": "No healthcare agents are currently available. Please try again later.",
+                        "agent_name": "orchestrator",
+                        "agents_used": [],
+                    }
+            
+            logger.info(f"🎯 Selected agent: {agent_name}")
+            
+            # Create conclusive adapter for the selected agent
+            conclusive_adapter = create_conclusive_agent_adapter(selected_agent, agent_name)
+            
+            # Call the agent through the conclusive adapter
+            conclusive_result = await conclusive_adapter(query)
+            
+            logger.info(f"✅ Conclusive adapter completed for {agent_name}")
+            
+            # Extract agent result from "CONCLUSIVE ANSWER:" prefix if present
+            if conclusive_result.startswith("CONCLUSIVE ANSWER: "):
+                answer_content = conclusive_result[len("CONCLUSIVE ANSWER: "):]
+            else:
+                answer_content = conclusive_result
+            
+            # Try to get sources from the original agent call if available
+            sources = []
+            try:
+                if hasattr(selected_agent, '_process_implementation'):
+                    raw_result = await selected_agent._process_implementation({"query": query})
+                    if isinstance(raw_result, dict) and "sources" in raw_result:
+                        sources = raw_result["sources"]
+            except Exception:
+                pass
+            
+            # Build structured result
+            result = {
+                "success": True,
+                "formatted_summary": answer_content,
+                "agent_name": agent_name,
+                "agents_used": [agent_name],
+                "total_sources": len(sources),
+                "search_query": query,
+            }
+            
+            # Add citations if sources are available
+            if sources:
+                result["citations"] = sources
+                # Append sources to formatted summary if requested
+                display_sources = True if show_sources is None else bool(show_sources)
+                if display_sources:
+                    formatted = result.get("formatted_summary", "") or ""
+                    lines = [formatted, "\n\nSources:"]
+                    for c in sources[: self.citations_max_display]:
+                        title = c.get("title") or c.get("name") or c.get("id") or "Source"
+                        url = c.get("url") or c.get("link") or ""
+                        src = c.get("source") or ""
+                        bullet = f"- {title}"
+                        if src:
+                            bullet += f" ({src})"
+                        if url:
+                            bullet += f": {url}"
+                        lines.append(bullet)
+                    result["formatted_summary"] = "\n".join(lines).strip()
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Error in conclusive adapter processing: {e}")
+            return {
+                "success": False,
+                "formatted_summary": f"I encountered an issue processing your request: {str(e)}",
+                "error": str(e),
+                "agent_name": "orchestrator",
+                "agents_used": [],
+            }
 
     def get_fallback_response(self) -> Dict[str, Any]:
         return {
