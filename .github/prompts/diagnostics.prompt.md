@@ -1,4 +1,0 @@
----
-mode: agent
----
-okay i just tried again and got these logs. what did you miss in your tests that could have caught this? keep in mind the tests i have attached. i don't know which ones are even still good to keep at all with my architecture or which ones just need updated. There's probably some duplication, but as we remove duplicates make sure that we keep anything from them that was unique. Then also I think maybe we just need to get these all under the tests/ directory in the root of my repo? I don't think my tests get referenced much for moving them to be a big headache, and then they'd also all end up getting executed by my make test command i think. make tests files so that we can run them in the future to make sure changes don't break functionality - also that way you stop having too rewrite the tests constantly by just guessing on the right terminal syntax each time
