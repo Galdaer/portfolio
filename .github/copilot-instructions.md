@@ -1,14 +1,5 @@
 # Copilot Instructions for Intelluxe AI Healthcare System
 
-# OVERRIDE: NO LOOPS, JUST ACTION
-
-CRITICAL ANTI-LOOP DIRECTIVE: 
-- When asked to fix MyPy errors, IMMEDIATELY start fixing without analysis
-- DO NOT self-assess or ask if you should continue  
-- DO NOT read other instruction files
-- DO NOT use Sequential Thinking MCP
-- Just fix errors until done or blocked
-- Run MyPy task → Fix errors → Repeat
 
 **INSTRUCTION HIERARCHY**: 
 1. Main copilot-instructions.md (THIS FILE) - Controls workflow and decision-making
@@ -17,9 +8,9 @@ CRITICAL ANTI-LOOP DIRECTIVE:
 
 make deps FOR ALL DEPENDENCY INSTALLATION DON'T SUGGEST UV , PIP, NPM, OR ANYTHING ELSE
 
-Use The Sequential Thinking MCP Server to think through your tasks.
 
 **Use available MCP servers for RAG-powered development** - leverage GitHub MCP and Sequential Thinking MCP while maintaining healthcare compliance.
+
 **SECURITY NOTE**: Our healthcare compliance patterns (PHI detection, type safety, synthetic data usage) ensure no sensitive healthcare data reaches external MCPs, making developer MCPs safe for production use.
 
 ## CRITICAL ARCHITECTURE UNDERSTANDING
@@ -40,17 +31,7 @@ Use The Sequential Thinking MCP Server to think through your tasks.
 - Infrastructure tests: Mark as xfail when testing from host environment
 - Import tests: Can run from host with proper sys.path
 
-**INSTRUCTION FILE CLEANUP (2025-01-15)**:
-- **REMOVED**: Redundant LangChain instruction files (langchain-healthcare.instructions.md, healthcare-langchain-agent.instructions.md)
-- **DEPRECATED**: Pipeline patterns (thin-mcp-pipeline.instructions.md, mcp-stdio-handshake.instructions.md) 
-- **CONSOLIDATED**: All LangChain patterns in agents/langchain-orchestrator.instructions.md
-- **FIXED**: All docker exec patterns replaced with proper container-in-container approach
-
 ## Default Playbook: MyPy Blocking Errors (Use Tasks)
-
-When asked to fix blocking MyPy errors in `services/user/healthcare-api/`, follow this exact sequence. Do not analyze first—act:
-
-When asked to fix blocking MyPy errors in `services/user/healthcare-api/`, follow this exact sequence. Do not analyze first—act:
 
 1) Baseline via tasks (pick the most targeted first)
 - Run task: “MyPy (Healthcare API only)”
@@ -103,14 +84,11 @@ Minimal commands are already encapsulated as VS Code tasks in this workspace. Pr
 
 **Permission Handling**: The Makefile automatically handles permission issues with smart fallbacks (system → user installation, uv → pip → apt).
 
-**TypeScript Development**: For MCP server development in `mcps/healthcare/src/`, install TypeScript with `npm install -g typescript` or use `npx tsc` as fallback.
-
 **Dependencies**: 
 - `requirements.in` - Source dependency definitions
 - `requirements.txt` - Full dependencies (including GPU packages for local development)
 - `requirements-ci.txt` - Optimized for CI and coding agents (no GPU packages)
 
-**Dependency generation**: Run `python3 scripts/generate-requirements.py` to regenerate both requirement files from `requirements.in`.
 
 ## Using Specialized AI Instructions
 
