@@ -492,14 +492,33 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             # Validate the concepts
             validated_concepts = await self._validate_medical_terms(medical_concepts)
 
-            # Use basic PubMed search only
-            condition_info = await self._search_condition_information(validated_concepts)
-            symptom_literature = await self._search_symptom_literature(validated_concepts)
-
-            # Combine results
+            # Intelligent search routing based on query type
             all_sources = []
-            all_sources.extend(condition_info if isinstance(condition_info, list) else [])
-            all_sources.extend(symptom_literature if isinstance(symptom_literature, list) else [])
+            
+            # Check if this is a medicine/drug query
+            query_lower = search_query.lower()
+            is_medicine_query = any(keyword in query_lower for keyword in [
+                'medicine', 'medication', 'drug', 'treatment', 'therapy', 'prescription',
+                'pharmaceutical', 'dosage', 'side effect', 'interaction', 'fda'
+            ])
+            
+            if is_medicine_query:
+                logger.info(f"🎯 MEDICINE QUERY DETECTED - using FDA drug search for: '{search_query}'")
+                # For medicine queries, prioritize FDA drug information
+                drug_info = await self._search_drug_information(validated_concepts)
+                all_sources.extend(drug_info if isinstance(drug_info, list) else [])
+                
+                # Also get some condition context if no drug results
+                if not drug_info:
+                    condition_info = await self._search_condition_information(validated_concepts)
+                    all_sources.extend(condition_info if isinstance(condition_info, list) else [])
+            else:
+                logger.info(f"📚 RESEARCH QUERY DETECTED - using PubMed literature search for: '{search_query}'")
+                # For general medical research, use PubMed
+                condition_info = await self._search_condition_information(validated_concepts)
+                symptom_literature = await self._search_symptom_literature(validated_concepts)
+                all_sources.extend(condition_info if isinstance(condition_info, list) else [])
+                all_sources.extend(symptom_literature if isinstance(symptom_literature, list) else [])
 
             # Basic deduplication
             seen_keys: set[str] = set()
@@ -596,10 +615,12 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         intent_to_query_type = {
             "symptom_analysis": QueryType.SYMPTOM_ANALYSIS,
             "drug_information": QueryType.DRUG_INTERACTION,
+            "drug_information_request": QueryType.DRUG_INTERACTION,  # FIXED: Add missing mapping
             "differential_diagnosis": QueryType.DIFFERENTIAL_DIAGNOSIS,
             "clinical_guidelines": QueryType.CLINICAL_GUIDELINES,
             "information_request": QueryType.LITERATURE_RESEARCH,
             "treatment_research": QueryType.CLINICAL_GUIDELINES,
+            "treatments_request": QueryType.CLINICAL_GUIDELINES,  # FIXED: Add missing mapping
             "drug_interaction": QueryType.DRUG_INTERACTION,
         }
         return intent_to_query_type.get(intent_key, QueryType.LITERATURE_RESEARCH)
@@ -609,10 +630,10 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
     ) -> MedicalSearchResult:
         """Convert Enhanced Query Engine result to Medical Search Agent result format"""
         # Extract different source types from enhanced result
-        information_sources = []
+        information_sources: list[dict[str, Any]] = []
         related_conditions: list[dict[str, Any]] = []
-        drug_information = []
-        clinical_references = []
+        drug_information: list[dict[str, Any]] = []
+        clinical_references: list[dict[str, Any]] = []
 
         # PERFORMANCE OPTIMIZATION: Limit sources early to prevent processing 75+ articles
         # Sort by publication date (most recent first) and limit before processing
@@ -1273,9 +1294,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                     async with self._mcp_sem:
                         drug_results = await asyncio.wait_for(
                             self.mcp_client.call_tool(
-                                "get-drug-info",  # Updated: Use actual MCP tool name
+                                "get-drug-info",  # FIXED: Use correct MCP tool name for FDA
                                 {
-                                    "genericName": drug_concept,  # Updated: Use correct parameter name
+                                    "genericName": drug_concept,  # FIXED: Use correct parameter name
                                 },
                             ),
                             timeout=mcp_timeout,

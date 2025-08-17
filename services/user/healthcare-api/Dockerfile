@@ -33,13 +33,13 @@ RUN npm install && npm run build
 WORKDIR /app
 
 # Copy healthcare-api specific requirements
-# Copy requirements (specific to healthcare-api)
 COPY --chown=api:intelluxe healthcare-api/requirements.txt ./requirements.txt
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt
-
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir scispacy && \
+    pip install --no-cache-dir https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_ner_bionlp13cg_md-0.5.4.tar.gz
 # Copy healthcare-api source code
 COPY --chown=api:intelluxe healthcare-api/ ./
 

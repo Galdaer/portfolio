@@ -215,8 +215,8 @@ class EnhancedMedicalQueryEngine:
             # PubMed literature search (always - primary source)
             search_tasks.append(self._search_pubmed_with_context(query, medical_entities, context))
 
-            # FDA drug database (ONLY for drug-specific queries, not general symptoms)
-            if query_type == QueryType.DRUG_INTERACTION:
+            # FDA drug database (for drug-specific AND condition-based drug queries)
+            if query_type in [QueryType.DRUG_INTERACTION, QueryType.DRUG_INFORMATION]:
                 search_tasks.append(self._search_fda_drugs(query, medical_entities))
 
             # Clinical trials (ONLY for specific clinical research, not basic information)
@@ -340,40 +340,100 @@ class EnhancedMedicalQueryEngine:
                 for entity in medical_entities
                 if entity.get("label") in ["CHEMICAL", "DRUG", "MEDICATION"]
             ]
-
-            if not drug_entities:
-                return {"sources": []}
+            
+            # Extract condition entities for condition-based searches
+            condition_entities = [
+                entity
+                for entity in medical_entities
+                if entity.get("label") in ["DISEASE", "SYMPTOM", "CONDITION"]
+            ]
 
             fda_sources = []
+            
+            # Search by specific drug names if provided
             for drug in drug_entities:
                 drug_name = drug.get("text", "")
 
                 # Search FDA Orange Book
                 fda_result = await self.mcp_client.call_tool(
-                    "search_fda_drugs",
+                    "get-drug-info",
                     {
-                        "drug_name": drug_name,
-                        "include_interactions": True,
-                        "include_adverse_events": True,
+                        "genericName": drug_name,
                     },
                 )
 
-                if fda_result.get("found"):
-                    fda_sources.append(
+                if fda_result and fda_result.get("results"):
+                    # Handle array of results from FDA API
+                    for drug_info in fda_result.get("results", []):
+                        fda_sources.append(
+                            {
+                                "source_type": "fda",
+                                "drug_name": drug_info.get("genericName", drug_name),
+                                "brand_name": drug_info.get("brandName", ""),
+                                "ndc_number": drug_info.get("ndc", ""),
+                                "approval_date": drug_info.get("approvalDate", ""),
+                                "manufacturer": drug_info.get("manufacturer", ""),
+                                "indications": drug_info.get("indicationsAndUsage", ""),
+                                "contraindications": drug_info.get("contraindications", ""),
+                                "interactions": drug_info.get("drugInteractions", ""),
+                                "adverse_events": drug_info.get("adverseReactions", ""),
+                                "warnings": drug_info.get("warnings", ""),
+                                "dosage_form": drug_info.get("dosageForm", ""),
+                                "route": drug_info.get("route", ""),
+                                "mechanism_of_action": drug_info.get("mechanismOfAction", ""),
+                                "therapeutic_class": drug_info.get("therapeuticClass", ""),
+                                "url": f"https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query={drug_info.get('genericName', drug_name)}",
+                                "evidence_level": "regulatory_approval",
+                            },
+                        )
+            
+            # If no specific drugs found, search by condition using general search terms
+            if not drug_entities and condition_entities:
+                # Search for drugs that treat the condition
+                for condition in condition_entities:
+                    condition_name = condition.get("text", "")
+                    
+                    # Use condition name to search FDA drug indications
+                    fda_result = await self.mcp_client.call_tool(
+                        "get-drug-info",
                         {
-                            "source_type": "fda",
-                            "drug_name": drug_name,
-                            "ndc_number": fda_result.get("ndc", ""),
-                            "approval_date": fda_result.get("approval_date", ""),
-                            "manufacturer": fda_result.get("manufacturer", ""),
-                            "indications": fda_result.get("indications", []),
-                            "contraindications": fda_result.get("contraindications", []),
-                            "interactions": fda_result.get("interactions", []),
-                            "adverse_events": fda_result.get("adverse_events", []),
-                            "url": fda_result.get("fda_url", ""),
-                            "evidence_level": "regulatory_approval",
+                            "genericName": condition_name,  # FDA will search in indications
                         },
                     )
+
+                    if fda_result and fda_result.get("results"):
+                        # Handle array of results from FDA API
+                        for drug_info in fda_result.get("results", []):
+                            # Only include if the condition appears in indications
+                            indications = drug_info.get("indicationsAndUsage", "").lower()
+                            if condition_name.lower() in indications or any(
+                                term in indications for term in [
+                                    "cardiac", "heart", "tachycardia", "arrhythmia",
+                                    "hypertension", "blood pressure"
+                                ] if "tachycardia" in condition_name.lower()
+                            ):
+                                fda_sources.append(
+                                    {
+                                        "source_type": "fda",
+                                        "drug_name": drug_info.get("genericName", ""),
+                                        "brand_name": drug_info.get("brandName", ""),
+                                        "ndc_number": drug_info.get("ndc", ""),
+                                        "approval_date": drug_info.get("approvalDate", ""),
+                                        "manufacturer": drug_info.get("manufacturer", ""),
+                                        "indications": drug_info.get("indicationsAndUsage", ""),
+                                        "contraindications": drug_info.get("contraindications", ""),
+                                        "interactions": drug_info.get("drugInteractions", ""),
+                                        "adverse_events": drug_info.get("adverseReactions", ""),
+                                        "warnings": drug_info.get("warnings", ""),
+                                        "dosage_form": drug_info.get("dosageForm", ""),
+                                        "route": drug_info.get("route", ""),
+                                        "mechanism_of_action": drug_info.get("mechanismOfAction", ""),
+                                        "therapeutic_class": drug_info.get("therapeuticClass", ""),
+                                        "url": f"https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query={drug_info.get('genericName', '')}",
+                                        "evidence_level": "regulatory_approval",
+                                        "condition_match": condition_name,
+                                    },
+                                )
 
             return {"sources": fda_sources}
 

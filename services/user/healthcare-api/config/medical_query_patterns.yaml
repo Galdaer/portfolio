@@ -30,8 +30,11 @@ query_patterns:
     keywords:
       [
         "drug",
+        "drugs",
         "medication",
         "medications",
+        "medicine",
+        "medicines",
         "dosage",
         "ndc",
         "side effect",

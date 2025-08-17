@@ -318,7 +318,9 @@ class BasicPHIDetector:
         # PHI patterns based on HIPAA identifiers (excluding synthetic patterns)
         self.phi_patterns = {
             "name": {
-                "pattern": r"\b[A-Z][a-z]+\s+[A-Z][a-z]+\b",
+                # FIXED: Much more specific name pattern that requires common name indicators
+                # Only matches when preceded by patient/person/name indicators or specific contexts
+                "pattern": r"\b(?:patient|person|mr\.?|mrs\.?|ms\.?|dr\.?)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b|(?:^|\s)([A-Z][a-z]+\s+[A-Z][a-z]+)(?:\s+(?:born|dob|age|patient|chart)|\s*,\s*(?:age|born))",
                 "description": "Personal Name",
             },
             "ssn": {
