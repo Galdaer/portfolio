@@ -6,7 +6,7 @@ import os
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
-from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
+from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -67,25 +67,50 @@ class ClinicalTrial(Base):  # type: ignore[misc,valid-type]
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class FDADrug(Base):  # type: ignore[misc,valid-type]
-    """FDA drug information table"""
-
+class FDADrug(Base):
     __tablename__ = "fda_drugs"
 
-    ndc = Column(String(50), primary_key=True)  # Increased from 20 to handle longer NDCs
-    name = Column(Text, nullable=False)  # Changed from String(500) to Text for unlimited length
-    generic_name = Column(Text)  # Changed from String(500) to Text
-    brand_name = Column(Text)  # Changed from String(500) to Text
-    manufacturer = Column(Text)  # Changed from String(500) to Text
+    # Primary key and core identification (ndc is the primary key, not id)
+    ndc = Column(String(50), primary_key=True)
+    
+    # Basic drug information
+    name = Column(Text, nullable=False)
+    generic_name = Column(Text)
+    brand_name = Column(Text)
+    manufacturer = Column(Text)
+    
+    # Active ingredients and composition (ingredients is an array)
     ingredients = Column(ARRAY(String))
-    dosage_form = Column(String(200))  # Increased from 100 to 200
-    route = Column(String(200))  # Increased from 100 to 200
-    approval_date = Column(String(100))  # Increased from 20 to 100 for longer approval descriptions
-    orange_book_code = Column(String(20))  # Increased from 10 to 20
-    therapeutic_class = Column(Text)  # Changed from String(200) to Text
+    
+    # Dosage and form information
+    dosage_form = Column(Text)  # Changed from String(200) to Text
+    route = Column(Text)  # Changed from String(200) to Text
+    
+    # Classification and approval
+    approval_date = Column(String(100))  # String, not DateTime
+    orange_book_code = Column(String(20))
+    therapeutic_class = Column(Text)
+    
+    # Drug interactions (JSON field)
+    drug_interactions = Column(JSON)  # JSON field
+    
+    # Enhanced prescribing information fields (arrays for some fields)
+    contraindications = Column(ARRAY(Text))
+    warnings = Column(ARRAY(Text))
+    precautions = Column(ARRAY(Text))
+    adverse_reactions = Column(ARRAY(Text))
+    
+    # Text fields for prescribing information
+    dosage_and_administration = Column(Text)
+    indications_and_usage = Column(Text)
+    mechanism_of_action = Column(Text)
+    pharmacokinetics = Column(Text)
+    pharmacodynamics = Column(Text)
+    
+    # Search and metadata
     search_vector = Column(TSVECTOR)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
 
 
 class UpdateLog(Base):  # type: ignore[misc,valid-type]

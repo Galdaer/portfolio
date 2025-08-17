@@ -4,11 +4,12 @@ Provides search functionality matching Healthcare MCP interface
 """
 
 import logging
+import os
 from datetime import datetime
 from typing import Any
 
-from fda.downloader import FDADownloader
-from fda.parser import FDAParser
+from .downloader import FDADownloader
+from .parser import FDAParser
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
@@ -66,6 +67,9 @@ class FDAAPI:
                 search_query = text(f"""
                     SELECT ndc, name, generic_name, brand_name, manufacturer, ingredients,
                            dosage_form, route, approval_date, orange_book_code, therapeutic_class,
+                           indications_and_usage, contraindications, adverse_reactions,
+                           drug_interactions, warnings, precautions, dosage_and_administration,
+                           mechanism_of_action, pharmacokinetics,
                            ts_rank(search_vector, plainto_tsquery(:search_term)) as rank
                     FROM fda_drugs
                     WHERE {where_clause}
@@ -76,6 +80,9 @@ class FDAAPI:
                 search_query = text(f"""
                     SELECT ndc, name, generic_name, brand_name, manufacturer, ingredients,
                            dosage_form, route, approval_date, orange_book_code, therapeutic_class,
+                           indications_and_usage, contraindications, adverse_reactions,
+                           drug_interactions, warnings, precautions, dosage_and_administration,
+                           mechanism_of_action, pharmacokinetics,
                            0 as rank
                     FROM fda_drugs
                     WHERE {where_clause}
@@ -99,6 +106,16 @@ class FDAAPI:
                     "approvalDate": row.approval_date,
                     "orangeBookCode": row.orange_book_code,
                     "therapeuticClass": row.therapeutic_class,
+                    # Detailed prescribing information
+                    "indicationsAndUsage": row.indications_and_usage,
+                    "contraindications": row.contraindications,
+                    "adverseReactions": row.adverse_reactions,
+                    "drugInteractions": row.drug_interactions,
+                    "warnings": row.warnings,
+                    "precautions": row.precautions,
+                    "dosageAndAdministration": row.dosage_and_administration,
+                    "mechanismOfAction": row.mechanism_of_action,
+                    "pharmacokinetics": row.pharmacokinetics,
                 }
                 drugs.append(drug)
 
@@ -131,6 +148,16 @@ class FDAAPI:
                 "approvalDate": drug.approval_date,
                 "orangeBookCode": drug.orange_book_code,
                 "therapeuticClass": drug.therapeutic_class,
+                # Detailed prescribing information
+                "indicationsAndUsage": drug.indications_and_usage,
+                "contraindications": drug.contraindications,
+                "adverseReactions": drug.adverse_reactions,
+                "drugInteractions": drug.drug_interactions,
+                "warnings": drug.warnings,
+                "precautions": drug.precautions,
+                "dosageAndAdministration": drug.dosage_and_administration,
+                "mechanismOfAction": drug.mechanism_of_action,
+                "pharmacokinetics": drug.pharmacokinetics,
             }
 
         finally:
@@ -225,8 +252,6 @@ class FDAAPI:
         """Process a specific FDA dataset"""
         logger.info(f"Processing FDA dataset: {dataset_name}")
 
-        import os
-
         processed_count = 0
 
         try:
@@ -304,6 +329,16 @@ class FDAAPI:
                     "approval_date": drug_data.get("approval_date"),
                     "orange_book_code": drug_data.get("orange_book_code", ""),
                     "therapeutic_class": drug_data.get("therapeutic_class", ""),
+                    # Detailed prescribing information
+                    "indications_and_usage": drug_data.get("indications_and_usage", ""),
+                    "contraindications": drug_data.get("contraindications", ""),
+                    "adverse_reactions": drug_data.get("adverse_reactions", ""),
+                    "drug_interactions": drug_data.get("drug_interactions", ""),
+                    "warnings": drug_data.get("warnings", ""),
+                    "precautions": drug_data.get("precautions", ""),
+                    "dosage_and_administration": drug_data.get("dosage_and_administration", ""),
+                    "mechanism_of_action": drug_data.get("mechanism_of_action", ""),
+                    "pharmacokinetics": drug_data.get("pharmacokinetics", ""),
                     "updated_at": datetime.utcnow(),
                 }
 
@@ -322,6 +357,16 @@ class FDAAPI:
                         "approval_date": stmt.excluded.approval_date,
                         "orange_book_code": stmt.excluded.orange_book_code,
                         "therapeutic_class": stmt.excluded.therapeutic_class,
+                        # Update detailed prescribing information
+                        "indications_and_usage": stmt.excluded.indications_and_usage,
+                        "contraindications": stmt.excluded.contraindications,
+                        "adverse_reactions": stmt.excluded.adverse_reactions,
+                        "drug_interactions": stmt.excluded.drug_interactions,
+                        "warnings": stmt.excluded.warnings,
+                        "precautions": stmt.excluded.precautions,
+                        "dosage_and_administration": stmt.excluded.dosage_and_administration,
+                        "mechanism_of_action": stmt.excluded.mechanism_of_action,
+                        "pharmacokinetics": stmt.excluded.pharmacokinetics,
                         "updated_at": stmt.excluded.updated_at,
                     },
                 )
@@ -363,7 +408,10 @@ class FDAAPI:
                     COALESCE(brand_name, '') || ' ' ||
                     COALESCE(manufacturer, '') || ' ' ||
                     COALESCE(array_to_string(ingredients, ' '), '') || ' ' ||
-                    COALESCE(therapeutic_class, '')
+                    COALESCE(therapeutic_class, '') || ' ' ||
+                    COALESCE(indications_and_usage, '') || ' ' ||
+                    COALESCE(contraindications, '') || ' ' ||
+                    COALESCE(mechanism_of_action, '')
                 )
                 WHERE search_vector IS NULL
             """)

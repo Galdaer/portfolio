@@ -292,7 +292,7 @@ class FDAParser:
             return []
 
     def parse_drug_label_record(self, label_data: dict) -> dict | None:
-        """Parse a single drug label record"""
+        """Parse a single drug label record with full prescribing information"""
         try:
             # Extract OpenFDA information
             openfda = label_data.get("openfda", {})
@@ -301,7 +301,7 @@ class FDAParser:
             ndc_list = openfda.get("product_ndc", [])
             ndc = ndc_list[0] if ndc_list else f"LB_{hash(str(label_data)) % 1000000}"
 
-            # Extract names
+            # Extract names from OpenFDA
             brand_names = openfda.get("brand_name", [])
             generic_names = openfda.get("generic_name", [])
             manufacturers = openfda.get("manufacturer_name", [])
@@ -309,30 +309,145 @@ class FDAParser:
             brand_name = brand_names[0] if brand_names else ""
             generic_name = generic_names[0] if generic_names else ""
             manufacturer = manufacturers[0] if manufacturers else ""
+            manufacturer_name = manufacturer  # Same as manufacturer for compatibility
 
-            # Extract ingredients
+            # Extract ingredients and substance info
             ingredients = openfda.get("substance_name", [])
+            substance_name = ingredients[0] if ingredients else ""
+            active_ingredient = substance_name  # Use substance_name as active ingredient
 
-            # Extract therapeutic class
+            # Extract therapeutic and pharmaceutical class
             therapeutic_classes = openfda.get("pharm_class_epc", [])
             therapeutic_class = therapeutic_classes[0] if therapeutic_classes else ""
+            pharm_class_moa = openfda.get("pharm_class_moa", [])
+            pharm_class = pharm_class_moa[0] if pharm_class_moa else therapeutic_class
 
-            name = brand_name or generic_name or "Unknown"
+            # Extract route, product type, and application info
+            routes = openfda.get("route", [])
+            route = routes[0] if routes else ""
+            
+            product_types = openfda.get("product_type", [])
+            product_type = product_types[0] if product_types else ""
+            
+            approval_date = ""  # Not directly available in labels
+
+            # Extract detailed prescribing information from label data
+            indications_and_usage = self._extract_label_section(label_data, [
+                "indications_and_usage"
+            ])
+            
+            contraindications = self._extract_label_section(label_data, [
+                "contraindications"
+            ])
+            
+            adverse_reactions = self._extract_label_section(label_data, [
+                "adverse_reactions"
+            ])
+            
+            drug_interactions = self._extract_label_section(label_data, [
+                "drug_interactions"
+            ])
+            
+            warnings = self._extract_label_section(label_data, [
+                "warnings_and_cautions", "boxed_warning"
+            ])
+            
+            precautions = self._extract_label_section(label_data, [
+                "warnings_and_cautions", "precautions"
+            ])
+            
+            dosage_and_administration = self._extract_label_section(label_data, [
+                "dosage_and_administration"
+            ])
+            
+            mechanism_of_action = self._extract_label_section(label_data, [
+                "mechanism_of_action", "clinical_pharmacology"
+            ])
+            
+            pharmacokinetics = self._extract_label_section(label_data, [
+                "pharmacokinetics", "clinical_pharmacology"
+            ])
+            
+            pharmacodynamics = self._extract_label_section(label_data, [
+                "pharmacodynamics", "clinical_pharmacology"
+            ])
+
+            # Extract additional fields from label sections
+            dosage_form = self._extract_label_section(label_data, [
+                "dosage_forms_and_strengths"
+            ])
+            
+            strength = dosage_form  # Use dosage forms as strength info
+            
+            # Determine primary name
+            name = brand_name or generic_name or substance_name or "Unknown"
 
             return {
+                # Core identification fields (matching database schema)
                 "ndc": ndc,
                 "name": name,
                 "generic_name": generic_name,
                 "brand_name": brand_name,
                 "manufacturer": manufacturer,
-                "ingredients": ingredients,
-                "dosage_form": "",  # Not in labels
-                "route": "",  # Not in labels
-                "approval_date": "",  # Not in labels
-                "orange_book_code": "",  # Not in labels
+                
+                # Ingredient fields (ingredients as array in database)
+                "ingredients": ingredients,  # This will be an array
+                
+                # Form and administration fields
+                "dosage_form": dosage_form,
+                "route": route,
+                
+                # Classification fields
                 "therapeutic_class": therapeutic_class,
+                
+                # Regulatory fields
+                "approval_date": approval_date,
+                "orange_book_code": "",  # Not in labels
+                
+                # Detailed prescribing information
+                "indications_and_usage": indications_and_usage,
+                "contraindications": [contraindications] if contraindications else [],  # Array field
+                "adverse_reactions": [adverse_reactions] if adverse_reactions else [],  # Array field
+                "drug_interactions": {"interactions": drug_interactions} if drug_interactions else {},  # JSON field
+                "warnings": [warnings] if warnings else [],  # Array field
+                "precautions": [precautions] if precautions else [],  # Array field
+                "dosage_and_administration": dosage_and_administration,
+                "mechanism_of_action": mechanism_of_action,
+                "pharmacokinetics": pharmacokinetics,
+                "pharmacodynamics": pharmacodynamics,
             }
 
         except Exception as e:
             logger.exception(f"Failed to parse drug label record: {e}")
             return None
+            
+    def _extract_label_section(self, label_data: dict, field_names: list[str]) -> str:
+        """Extract text from label sections, trying multiple field name variations"""
+        for field_name in field_names:
+            # Try direct field access
+            if field_name in label_data:
+                value = label_data[field_name]
+                if isinstance(value, list) and value:
+                    # Join all array elements and clean up
+                    text = " ".join(str(item) for item in value if item)
+                    # Remove excessive whitespace and normalize
+                    text = " ".join(text.split())
+                    return text
+                elif isinstance(value, str) and value.strip():
+                    # Clean up single string
+                    text = " ".join(value.strip().split())
+                    return text
+            
+            # Try with underscores replaced by spaces
+            field_variant = field_name.replace("_", " ")
+            if field_variant in label_data:
+                value = label_data[field_variant]
+                if isinstance(value, list) and value:
+                    text = " ".join(str(item) for item in value if item)
+                    text = " ".join(text.split())
+                    return text
+                elif isinstance(value, str) and value.strip():
+                    text = " ".join(value.strip().split())
+                    return text
+        
+        return ""
