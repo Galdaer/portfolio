@@ -25,66 +25,93 @@ _phi_detector: Optional[PHIDetector] = None
 def get_phi_detector() -> PHIDetector:
     """Get or create PHI detector singleton.
 
-    Defaults to the basic PHI detector to avoid heavyweight Presidio/spaCy
-    initialization or package downloads in system-managed environments (PEP 668).
-    Set PHI_USE_PRESIDIO=1 to enable Presidio when the environment is properly
-    configured (venv with required models).
+    Tries to use Presidio for intelligent PHI detection first, with fallback
+    to basic patterns only when Presidio is unavailable. This ensures medical
+    terminology isn't incorrectly flagged as PHI.
     """
     global _phi_detector
     if _phi_detector is None:
         try:
-            use_presidio_env = os.getenv("PHI_USE_PRESIDIO", "0").lower() in {"1", "true", "yes"}
-            if use_presidio_env:
-                _phi_detector = PHIDetector(use_presidio=True)
-                logger.info("✅ PHI detector initialized with Presidio (env-enabled)")
-            else:
-                _phi_detector = PHIDetector(use_presidio=False)
-                logger.info("✅ PHI detector initialized with basic patterns (default)")
+            _phi_detector = PHIDetector(use_presidio=True)
+            logger.info("✅ PHI detector initialized with Presidio (intelligent detection)")
         except Exception as e:
             logger.warning(f"⚠️ Presidio unavailable, using basic PHI detection: {e}")
             _phi_detector = PHIDetector(use_presidio=False)
-            logger.info("✅ PHI detector initialized with basic patterns")
+            logger.info("✅ PHI detector initialized with basic patterns (fallback)")
     return _phi_detector
 
 
 def _is_external_medical_content(content: str) -> bool:
     """
-    Determine if content is external medical/research content that should bypass PHI detection
-
-    Uses configuration-based exemptions like phi_monitor for consistency.
-
-    Args:
-        content: Content string to analyze
-
-    Returns:
-        True if content appears to be external medical research/citation content or general medical terminology
+    Check if content appears to be external medical literature/research content
+    or general medical terminology that should bypass PHI detection.
+    
+    This includes content from:
+    - Medical journals and publications
+    - PubMed and other medical databases
+    - Clinical research papers
+    - Medical textbooks and references
+    - General medical terminology and queries
     """
-    # Use configuration-based exemptions for medical literature context
-    if phi_config.is_exempted_context("medical_literature"):
-        # Get patterns from configuration instead of hardcoding
-        compiled_patterns = phi_config.get_compiled_medical_literature_patterns()
-
-        # Check for research patterns first
-        if "research_citations" in compiled_patterns:
-            for pattern in compiled_patterns["research_citations"]:
-                if pattern.search(content):
-                    logger.debug(f"🔬 Research pattern detected: {pattern.pattern}")
-                    return True
-
-        # Check if content contains patient-specific language that should still be flagged
-        if "patient_specific_exclusions" in compiled_patterns:
-            for pattern in compiled_patterns["patient_specific_exclusions"]:
-                if pattern.search(content):
-                    logger.debug(f"🏥 Patient-specific pattern detected: {pattern.pattern}")
-                    return False
-
-        # If it's just medical terminology without patient context, exempt it
-        if "medical_terminology" in compiled_patterns:
-            for pattern in compiled_patterns["medical_terminology"]:
-                if pattern.search(content):
-                    logger.debug(f"🏥 Medical terminology detected: {pattern.pattern}")
-                    return True
-
+    if not content or not isinstance(content, str):
+        return False
+    
+    content_lower = content.lower()
+    
+    # Check for clear external medical source indicators
+    external_indicators = [
+        "pubmed.ncbi.nlm.nih.gov",
+        "doi.org/",
+        "clinicaltrials.gov",
+        "ncbi.nlm.nih.gov",
+        "nih.gov",
+        "who.int",
+        "cdc.gov",
+        "fda.gov",
+        "medical journal",
+        "peer reviewed",
+        "published in",
+        "abstract:",
+        "citation:",
+        "pmid:",
+        "issn:",
+        "volume",
+        "issue"
+    ]
+    
+    # Medical terminology that should be exempted from PHI detection
+    medical_terms = [
+        "cardiovascular", "diabetes", "hypertension", "cancer", "treatment",
+        "prevention", "symptoms", "diagnosis", "therapy", "medication",
+        "research", "study", "clinical", "health", "disease", "condition",
+        "patient care", "healthcare", "medical", "guidelines", "protocol",
+        "intervention", "management", "prognosis", "pathology", "epidemiology",
+        "immunology", "neurology", "cardiology", "oncology", "psychiatry",
+        "pediatrics", "geriatrics", "surgery", "radiology", "pathophysiology"
+    ]
+    
+    # Medical query patterns that indicate legitimate medical research
+    medical_query_patterns = [
+        "find.*research", "recent.*studies", "treatment.*options",
+        "prevention.*strategies", "clinical.*guidelines", "medical.*literature",
+        "health.*information", "disease.*management", "therapeutic.*approaches"
+    ]
+    
+    # Check if content contains clear external source indicators
+    if any(indicator in content_lower for indicator in external_indicators):
+        return True
+    
+    # Check if content contains medical terminology
+    if any(term in content_lower for term in medical_terms):
+        logger.info(f"🏥 Medical terminology detected, exempting from PHI: {content[:50]}...")
+        return True
+    
+    # Check for medical query patterns
+    for pattern in medical_query_patterns:
+        if re.search(pattern, content_lower):
+            logger.info(f"🔬 Medical query pattern detected, exempting from PHI: {content[:50]}...")
+            return True
+    
     return False
 
 

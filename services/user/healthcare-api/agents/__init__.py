@@ -310,8 +310,9 @@ class BaseHealthcareAgent(ABC):
             # Use provided context or determine context for PHI detection
             if context is None:
                 if (
-                    self.agent_name in ["medical_search", "medical_search_agent"]
+                    self.agent_name in ["medical_search", "medical_search_agent", "clinical_research"]
                     or "search" in self.agent_type
+                    or "research" in self.agent_type
                 ):
                     # Medical literature search results should not have author names treated as PHI
                     context = "medical_literature"

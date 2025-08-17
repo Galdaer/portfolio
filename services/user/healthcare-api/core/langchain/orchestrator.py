@@ -339,15 +339,17 @@ class LangChainOrchestrator:
             logger.info(f"🔄 Processing query with conclusive adapters: {query[:100]}...")
             
             # Determine the most appropriate agent for the query
-            agent_name = "medical_search"  # Default to medical search
+            agent_name = "medical_search"  # Default to medical search for all medical queries
             if "appointment" in query.lower() or "schedule" in query.lower():
                 agent_name = "scheduling"
             elif "billing" in query.lower() or "insurance" in query.lower():
                 agent_name = "billing_helper"
             elif "intake" in query.lower() or "registration" in query.lower():
                 agent_name = "intake"
-            elif "clinical" in query.lower() or "research" in query.lower() or "trial" in query.lower():
+            elif "clinical trial" in query.lower() or "trial enrollment" in query.lower():
+                # Only use clinical_research for specific clinical trial queries
                 agent_name = "clinical_research"
+            # Note: "research" alone should go to medical_search for literature queries
             
             # Get the appropriate agent
             selected_agent = discovered_agents.get(agent_name)
@@ -366,29 +368,59 @@ class LangChainOrchestrator:
             
             logger.info(f"🎯 Selected agent: {agent_name}")
             
-            # Create conclusive adapter for the selected agent
-            conclusive_adapter = create_conclusive_agent_adapter(selected_agent, agent_name)
-            
-            # Call the agent through the conclusive adapter
-            conclusive_result = await conclusive_adapter(query)
-            
-            logger.info(f"✅ Conclusive adapter completed for {agent_name}")
-            
-            # Extract agent result from "CONCLUSIVE ANSWER:" prefix if present
-            if conclusive_result.startswith("CONCLUSIVE ANSWER: "):
-                answer_content = conclusive_result[len("CONCLUSIVE ANSWER: "):]
-            else:
-                answer_content = conclusive_result
-            
-            # Try to get sources from the original agent call if available
+            # Call the agent directly to get full result with sources
+            raw_result = None
             sources = []
+            
             try:
-                if hasattr(selected_agent, '_process_implementation'):
+                if hasattr(selected_agent, 'process_request'):
+                    raw_result = await selected_agent.process_request({"query": query})
+                elif hasattr(selected_agent, '_process_implementation'):
                     raw_result = await selected_agent._process_implementation({"query": query})
-                    if isinstance(raw_result, dict) and "sources" in raw_result:
+                elif hasattr(selected_agent, 'search'):
+                    raw_result = await selected_agent.search(query)
+                elif hasattr(selected_agent, 'process'):
+                    raw_result = await selected_agent.process(query)
+                
+                # Extract formatted_summary and sources from the raw result
+                if isinstance(raw_result, dict):
+                    # Use agent's formatted_summary if available (preferred for medical search)
+                    if "formatted_summary" in raw_result and raw_result["formatted_summary"]:
+                        answer_content = raw_result["formatted_summary"]
+                        logger.info("✅ Using agent's formatted_summary")
+                    else:
+                        # Create conclusive adapter for synthesis if no formatted_summary
+                        conclusive_adapter = create_conclusive_agent_adapter(selected_agent, agent_name)
+                        conclusive_result = await conclusive_adapter(query)
+                        
+                        # Extract from CONCLUSIVE ANSWER prefix
+                        if conclusive_result.startswith("CONCLUSIVE ANSWER: "):
+                            answer_content = conclusive_result[len("CONCLUSIVE ANSWER: "):]
+                        else:
+                            answer_content = conclusive_result
+                    
+                    # Get sources from the result - different agents use different keys
+                    if "sources" in raw_result:
                         sources = raw_result["sources"]
-            except Exception:
-                pass
+                    elif "information_sources" in raw_result:  # Medical search agent uses this
+                        sources = raw_result["information_sources"]
+                    elif "citations" in raw_result:
+                        sources = raw_result["citations"]
+                else:
+                    # Fallback to conclusive adapter for non-dict results
+                    conclusive_adapter = create_conclusive_agent_adapter(selected_agent, agent_name)
+                    conclusive_result = await conclusive_adapter(query)
+                    
+                    if conclusive_result.startswith("CONCLUSIVE ANSWER: "):
+                        answer_content = conclusive_result[len("CONCLUSIVE ANSWER: "):]
+                    else:
+                        answer_content = conclusive_result
+                        
+            except Exception as e:
+                logger.error(f"❌ Error calling agent {agent_name}: {e}")
+                answer_content = f"Error processing request with {agent_name}: {str(e)}"
+            
+            logger.info(f"✅ Agent {agent_name} completed with {len(sources)} sources")
             
             # Build structured result
             result = {
@@ -400,25 +432,44 @@ class LangChainOrchestrator:
                 "search_query": query,
             }
             
+            # Add PHI context for medical literature agents
+            if agent_name in ["medical_search", "clinical_research"] or "search" in agent_name.lower():
+                result["phi_context"] = "medical_literature"
+            
             # Add citations if sources are available
             if sources:
                 result["citations"] = sources
-                # Append sources to formatted summary if requested
+                # Only append sources if agent didn't already include them in formatted_summary
                 display_sources = True if show_sources is None else bool(show_sources)
                 if display_sources:
                     formatted = result.get("formatted_summary", "") or ""
-                    lines = [formatted, "\n\nSources:"]
-                    for c in sources[: self.citations_max_display]:
-                        title = c.get("title") or c.get("name") or c.get("id") or "Source"
-                        url = c.get("url") or c.get("link") or ""
-                        src = c.get("source") or ""
-                        bullet = f"- {title}"
-                        if src:
-                            bullet += f" ({src})"
-                        if url:
-                            bullet += f": {url}"
-                        lines.append(bullet)
-                    result["formatted_summary"] = "\n".join(lines).strip()
+                    
+                    # Check if the formatted_summary already contains source information
+                    # (medical agents format their own sources with DOI links, authors, etc.)
+                    has_existing_sources = (
+                        "doi.org" in formatted.lower()
+                        or "pubmed.ncbi.nlm.nih.gov" in formatted.lower()
+                        or "📄" in formatted
+                        or "🔬" in formatted
+                        or len(formatted) > 500  # Rich formatted summaries are typically longer
+                    )
+                    
+                    if not has_existing_sources:
+                        # Only add basic source list if agent didn't provide rich formatting
+                        lines = [formatted, "\n\nSources:"]
+                        for c in sources[: self.citations_max_display]:
+                            title = c.get("title") or c.get("name") or c.get("id") or "Source"
+                            url = c.get("url") or c.get("link") or ""
+                            src = c.get("source") or ""
+                            bullet = f"- {title}"
+                            if src:
+                                bullet += f" ({src})"
+                            if url:
+                                bullet += f": {url}"
+                            lines.append(bullet)
+                        result["formatted_summary"] = "\n".join(lines).strip()
+                    else:
+                        logger.info(f"✅ Agent {agent_name} provided rich formatting, preserving original formatted_summary")
             
             return result
             

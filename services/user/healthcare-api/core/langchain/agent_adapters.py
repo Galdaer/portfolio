@@ -153,13 +153,20 @@ def create_conclusive_agent_adapter(agent: Any, name: str):
                 logger.error(f"Agent {name} has no recognizable processing method")
                 return f"CONCLUSIVE ANSWER: Agent {name} is not properly configured."
             
-            # CRITICAL: Never return just source lists - always synthesize answer
-            if isinstance(result, dict) and "sources" in result:
-                if len(result["sources"]) > 0:
+            # CRITICAL: Use formatted_summary if available (medical search agent provides this)
+            if isinstance(result, dict):
+                # First priority: Use the agent's formatted_summary if available
+                if "formatted_summary" in result and result["formatted_summary"]:
+                    formatted_summary = result["formatted_summary"]
+                    logger.info("✅ Using agent's formatted_summary for conclusive answer")
+                    return f"CONCLUSIVE ANSWER: {formatted_summary}"
+                
+                # Second priority: Synthesize from sources
+                if "sources" in result and len(result["sources"]) > 0:
                     answer = synthesize_answer_from_sources(query, result["sources"])
                     logger.info(f"✅ Synthesized conclusive answer from {len(result['sources'])} sources")
                     return f"CONCLUSIVE ANSWER: {answer}"
-                else:
+                elif "sources" in result:
                     logger.info(f"⚠️ No sources found for query: {query[:50]}...")
                     return f"CONCLUSIVE ANSWER: No information found for '{query}'"
             

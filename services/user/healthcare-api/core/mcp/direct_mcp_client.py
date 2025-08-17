@@ -42,14 +42,31 @@ class DirectMCPClient:
         self._active_connections: Dict[str, subprocess.Popen] = {}
         self._connection_lock = asyncio.Lock()
 
-        # Environment configuration for MCP server
+        # Environment variables to pass to MCP server subprocess
+        # Construct DATABASE_URL if not already set
+        postgres_host = os.getenv("POSTGRES_HOST", "172.20.0.13")
+        postgres_port = os.getenv("POSTGRES_PORT", "5432")
+        postgres_user = os.getenv("POSTGRES_USER", "intelluxe")
+        postgres_password = os.getenv("POSTGRES_PASSWORD", "secure_password")
+        postgres_db = os.getenv("POSTGRES_DB", "intelluxe")
+        
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            database_url = f"postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/{postgres_db}"
+        
         self.mcp_env = {
-            "MCP_TRANSPORT": "stdio-only",
-            "NO_COLOR": "1",
-            "FHIR_BASE_URL": os.getenv("FHIR_BASE_URL", "https://hapi.fhir.org/baseR4"),
+            **os.environ.copy(),  # Inherit parent environment
+            "PATH": os.environ.get("PATH", ""),
+            "NODE_ENV": "production",
             "PUBMED_API_KEY": os.getenv("PUBMED_API_KEY", "optional_for_higher_rate_limits"),
             "CLINICALTRIALS_API_KEY": os.getenv("CLINICALTRIALS_API_KEY", "test"),
-            "POSTGRES_HOST": os.getenv("POSTGRES_HOST", "postgresql"),
+            # Database connection for MCP server
+            "DATABASE_URL": database_url,
+            "POSTGRES_HOST": postgres_host,
+            "POSTGRES_PORT": postgres_port,
+            "POSTGRES_USER": postgres_user,
+            "POSTGRES_PASSWORD": postgres_password,
+            "POSTGRES_DB": postgres_db,
             "REDIS_HOST": os.getenv("REDIS_HOST", "redis"),
             "ENVIRONMENT": os.getenv("ENVIRONMENT", "development"),
             "LOG_LEVEL": os.getenv("LOG_LEVEL", "info"),
@@ -83,7 +100,12 @@ class DirectMCPClient:
         # Force container path when environment variable is set
         env_path = os.getenv("MCP_SERVER_PATH")
         if env_path:
-            logger.info(f"Using MCP server path from environment: {env_path}")
+            # Override incorrect index.js with stdio_entry.js for STDIO transport
+            if env_path.endswith("index.js"):
+                env_path = env_path.replace("index.js", "stdio_entry.js")
+                logger.info(f"Corrected MCP server path from index.js to stdio_entry.js: {env_path}")
+            else:
+                logger.info(f"Using MCP server path from environment: {env_path}")
             return env_path
 
         # Container environment - use container path

@@ -163,8 +163,8 @@ class EnhancedMedicalQueryEngine:
             query_session["reasoning_chain"].append(reasoning_step)
             query_session["sources"].extend(iteration_results.get("sources", []))
 
-            # Stop if quality threshold reached
-            if quality_score > 0.8:
+            # Stop if quality threshold reached OR if we have any sources (prevent infinite retries)
+            if quality_score > 0.5 or len(iteration_results.get("sources", [])) > 0:
                 break
 
         # Generate final result
@@ -310,9 +310,9 @@ class EnhancedMedicalQueryEngine:
                             "title": article.get("title", ""),
                             "authors": article.get("authors", []),
                             "journal": article.get("journal", ""),
-                            "publication_date": article.get("pubDate") or article.get("date", ""),
+                            "publication_date": article.get("date") or article.get("publication_date") or article.get("pubDate", ""),
                             "pmid": article.get("pmid", ""),
-                            "url": f"https://pubmed.ncbi.nlm.nih.gov/{article.get('pmid', '')}/",
+                            "doi": article.get("doi", ""),
                             "abstract": article.get("abstract", ""),
                             "relevance_score": article.get("relevance_score", 0.0),
                             "study_type": article.get("study_type") or article.get("publication_type", ""),

@@ -24,59 +24,43 @@ def _as_str(val: object | None) -> str:
 
 
 def generate_source_url(source: Mapping[str, object]) -> str:
-    """
-    Generate appropriate URLs for different medical data sources.
-
-    Uses the database schema fields to create proper links:
-    - PubMed: DOI links when available, fallback to PubMed
-    - Clinical Trials: ClinicalTrials.gov study links
-    - FDA Drugs: DailyMed or FDA database links
-    """
+    """Generate URL for a source using DOI only"""
+    
+    # PRIORITY 1: DOI - links to actual full article
+    doi = _as_str(source.get("doi", "")).strip()
+    if doi and doi.lower() not in ["", "no doi", "none"]:
+        if doi.startswith("http"):
+            return doi
+        return f"https://doi.org/{doi}"
+    
+    # PRIORITY 2: Direct URL if provided
+    url = _as_str(source.get("url", "")).strip()
+    if url and url not in ["", "#", "#database_record"]:
+        return url
+    
+    # PRIORITY 4: Source-type specific handling
     source_type = _as_str(source.get("source_type")).lower()
-
-    if source_type in ["condition_information", "symptom_literature"] and _as_str(
-        source.get("source")
-    ).startswith("PubMed"):
-        # PubMed articles - prefer DOI links to actual journals
-        doi = _as_str(source.get("doi")).strip()
-        pmid = _as_str(source.get("pmid")).strip()
-
-        if doi and doi.lower() != "no doi":
-            # DOI link goes to actual journal
-            doi_url = _normalize_doi_url(doi)
-            if doi_url:
-                return doi_url
-        elif pmid:
-            # Fallback to PubMed abstract page
-            return f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
-        else:
-            return _as_str(source.get("url")) or "#"
-
-    elif source_type == "clinical_guideline" or "trial" in source_type:
+    
+    if source_type == "clinical_guideline" or "trial" in source_type:
         # Clinical trials
         nct_id = _as_str(source.get("nct_id")).strip()
         if nct_id:
             return f"https://clinicaltrials.gov/study/{nct_id}"
-        else:
-            return _as_str(source.get("url")) or "#"
-
+    
     elif source_type == "drug_info":
         # FDA drug information
         ndc = _as_str(source.get("ndc")).strip()
         generic_name = _as_str(source.get("drug_name", source.get("generic_name", ""))).strip()
-
+        
         if ndc:
-            # DailyMed for drug labels (more user-friendly than raw FDA database)
             return f"https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query={ndc}"
         elif generic_name:
-            # DailyMed search by name
             return f"https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query={generic_name.replace(' ', '+')}"
         else:
-            return _as_str(source.get("url")) or "https://dailymed.nlm.nih.gov/dailymed/"
-
-    else:
-        # Fallback to source URL or database indicator
-        return _as_str(source.get("url")) or "#database_record"
+            return "https://dailymed.nlm.nih.gov/dailymed/"
+    
+    # Fallback
+    return "#"
 
 
 def format_source_for_display(source: Mapping[str, object]) -> dict[str, object]:
@@ -209,13 +193,20 @@ def generate_conversational_summary(sources: list[dict[str, object]], query: str
         title = _as_str(source.get("title") or "Untitled article").strip()
         url = _as_str(formatted.get("url"))
         citation = _as_str(formatted.get("citation", ""))
+        pub_date = _as_str(source.get("publication_date", "")).strip()
 
-        header = f"{i}. {title}"
+        # Make title clickable if URL exists
+        if url:
+            title_with_link = f"[{title}]({url})"
+        else:
+            title_with_link = title
+
+        header = f"{i}. {title_with_link}"
+        if pub_date:
+            header += f" ({pub_date})"
         if citation:
             header += f" — {citation}"
         lines.append(header)
-        if url:
-            lines.append(f"   {url}")
 
         # Brief abstract if available
         abstract = _as_str(source.get("abstract", source.get("content", ""))).strip()

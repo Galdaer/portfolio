@@ -198,7 +198,7 @@ export class PubMed {
                 }).join(' OR ');
 
                 searchQuery = `
-                    SELECT DISTINCT pmid, title, journal, pub_date, abstract, authors
+                    SELECT DISTINCT pmid, title, journal, pub_date, abstract, authors, doi
                     FROM pubmed_articles 
                     WHERE ${conditions}
                     ORDER BY pub_date DESC
@@ -217,7 +217,7 @@ export class PubMed {
                 console.log(`Executing single-term search for: "${query}"`);
 
                 searchQuery = `
-                    SELECT pmid, title, journal, pub_date, abstract, authors
+                    SELECT pmid, title, journal, pub_date, abstract, authors, doi
                     FROM pubmed_articles 
                     WHERE title ILIKE $1 
                        OR abstract ILIKE $1 
@@ -241,7 +241,7 @@ export class PubMed {
                 pubDate: row.pub_date || '',
                 abstract: row.abstract || '',
                 authors: row.authors ? (Array.isArray(row.authors) ? row.authors : [row.authors]) : [],
-                doi: '' // Not stored in this table structure
+                doi: row.doi || '' // Use DOI data from your database!
             }));
 
             await client.end();
