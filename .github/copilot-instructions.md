@@ -1,5 +1,6 @@
 # Copilot Instructions for Intelluxe AI Healthcare System
 
+MCP RUNS IN A CONTAINER INSIDE THE API CONTAINER THIS IS THE MOST CRUCIAL THING TO REMEMBER
 
 **INSTRUCTION HIERARCHY**: 
 1. Main copilot-instructions.md (THIS FILE) - Controls workflow and decision-making
