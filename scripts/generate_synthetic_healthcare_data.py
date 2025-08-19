@@ -10,37 +10,69 @@ import os
 import random
 import uuid
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from faker import Faker
 from faker.providers import BaseProvider
 
-if TYPE_CHECKING:
-    import psycopg2
-
-# Optional database dependencies with graceful fallback - healthcare-safe pattern
-psycopg2 = None
-redis_module = None
-
+# Healthcare scripts require database connectivity - no fallbacks
 try:
     import psycopg2
 
     PSYCOPG2_AVAILABLE = True
-except ImportError:
-    PSYCOPG2_AVAILABLE = False
-    print("⚠️  psycopg2 not available - database population will be skipped")
+except ImportError as e:
+    print("❌ Database connection required for healthcare data generation")
+    print("   To fix: Run 'make setup' to initialize database dependencies")
+    print("   Database-first architecture: Healthcare scripts require database connectivity")
+    raise ImportError(
+        "Healthcare data generation requires psycopg2 database connectivity. "
+        "Run 'make setup' to initialize database or install with: pip install psycopg2-binary",
+    ) from e
 
 try:
     import redis
 
     redis_module = redis
     REDIS_AVAILABLE = True
-except ImportError:
-    REDIS_AVAILABLE = False
-    print("⚠️  redis not available - Redis caching will be skipped")
+except ImportError as e:
+    print("❌ Redis connection required for healthcare caching")
+    print("   To fix: Run 'make setup' to initialize Redis dependencies")
+    raise ImportError(
+        "Healthcare data generation requires Redis for caching. "
+        "Run 'make setup' to initialize Redis or install with: pip install redis",
+    ) from e
 
 # Initialize Faker with healthcare-specific providers
 fake = Faker()
+
+
+# Synthetic data generation constants for maintainability
+class SyntheticDataConstants:
+    """Constants for synthetic healthcare data generation"""
+
+    # SSN Constants
+    SYNTHETIC_SSN_PREFIX = "555"
+    SSN_GROUP_MIN = 10
+    SSN_GROUP_MAX = 99
+    SSN_SERIAL_MIN = 1000
+    SSN_SERIAL_MAX = 9999
+
+    # Phone Number Constants
+    SYNTHETIC_PHONE_AREA_CODES = ["555", "123", "456"]
+    PHONE_PREFIX_MIN = 100
+    PHONE_PREFIX_MAX = 999
+    PHONE_LINE_MIN = 1000
+    PHONE_LINE_MAX = 9999
+
+    # Medical Record Number Constants
+    MRN_PREFIXES = ["MRN", "HSP", "MED", "PAT"]
+    MRN_NUMBER_MIN = 100000
+    MRN_NUMBER_MAX = 999999
+
+    # Email Constants
+    SYNTHETIC_EMAIL_DOMAIN = "synthetic-health.test"
+    EMAIL_NUMBER_MIN = 1
+    EMAIL_NUMBER_MAX = 999
 
 
 def random_date(start: datetime, end: datetime) -> datetime:
@@ -191,47 +223,105 @@ class SyntheticHealthcareDataGenerator:
             self._connect_to_databases()
 
     def _connect_to_databases(self) -> None:
-        """Connect to PostgreSQL and Redis if using database mode"""
-        if not PSYCOPG2_AVAILABLE or psycopg2 is None:
-            print("⚠️  psycopg2 not available - skipping PostgreSQL connection")
-            self.db_conn = None
-        else:
-            try:
-                self.db_conn = psycopg2.connect(
-                    "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
-                )
-                print("✅ Connected to PostgreSQL")
-            except Exception as e:
-                print(f"⚠️  PostgreSQL connection failed: {e}")
-                self.db_conn = None
+        """Connect to PostgreSQL and Redis - REQUIRED for healthcare operations"""
+        # PostgreSQL connection - REQUIRED
+        try:
+            self.db_conn = psycopg2.connect(
+                "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe",
+            )
+            print("✅ Connected to PostgreSQL")
+        except Exception as e:
+            print(f"❌ PostgreSQL connection failed: {e}")
+            print("   To fix: Run 'make setup' to initialize database or verify DATABASE_URL")
+            print(
+                "   Database-first architecture: Healthcare scripts require database connectivity",
+            )
+            msg = (
+                f"Healthcare data generation requires PostgreSQL database connectivity. Error: {e}. "
+                "Run 'make setup' to initialize database."
+            )
+            raise ConnectionError(
+                msg,
+            ) from e
 
-        if not REDIS_AVAILABLE or redis_module is None:
-            print("⚠️  redis not available - skipping Redis connection")
-            self.redis_client = None
-        else:
-            try:
-                self.redis_client = redis_module.Redis(
-                    host="localhost", port=6379, decode_responses=True
-                )
-                if self.redis_client:
-                    self.redis_client.ping()
+        # Redis connection - REQUIRED
+        try:
+            self.redis_client = redis_module.Redis(
+                host="localhost", port=6379, decode_responses=True,
+            )
+            if self.redis_client:
+                self.redis_client.ping()
                 print("✅ Connected to Redis")
-            except Exception as e:
-                print(f"⚠️  Redis connection failed: {e}")
-                self.redis_client = None
+        except Exception as e:
+            print(f"❌ Redis connection failed: {e}")
+            print("   To fix: Run 'make setup' to initialize Redis dependencies")
+            msg = (
+                f"Healthcare data generation requires Redis for caching. Error: {e}. "
+                "Run 'make setup' to initialize Redis."
+            )
+            raise ConnectionError(
+                msg,
+            ) from e
 
     def generate_patient(self) -> dict[str, Any]:
-        """Generate synthetic patient data"""
+        """
+        Generate synthetic patient data with PHI-like realistic patterns
+
+        Creates realistic synthetic data that properly tests PHI detection systems:
+        - Realistic SSN patterns (555-xx-xxxx for synthetic safety)
+        - Phone numbers with realistic area codes
+        - Email patterns that look real but are clearly synthetic
+        - Medical record numbers with hospital-like prefixes
+        - Realistic names and addresses
+        """
+        first_name = fake.first_name()
+        last_name = fake.last_name()
+
+        # Enhanced PHI-like patterns for proper detection testing
+        # Break down SSN generation for readability
+        ssn_group = random.randint(
+            SyntheticDataConstants.SSN_GROUP_MIN, SyntheticDataConstants.SSN_GROUP_MAX,
+        )
+        ssn_serial = random.randint(
+            SyntheticDataConstants.SSN_SERIAL_MIN, SyntheticDataConstants.SSN_SERIAL_MAX,
+        )
+        synthetic_ssn = f"{SyntheticDataConstants.SYNTHETIC_SSN_PREFIX}-{ssn_group}-{ssn_serial}"  # 555 prefix = synthetic SSN (reserved for test data)
+
+        # Break down phone generation for readability
+        phone_area = random.choice(SyntheticDataConstants.SYNTHETIC_PHONE_AREA_CODES)
+        phone_prefix = random.randint(
+            SyntheticDataConstants.PHONE_PREFIX_MIN, SyntheticDataConstants.PHONE_PREFIX_MAX,
+        )
+        phone_line = random.randint(
+            SyntheticDataConstants.PHONE_LINE_MIN, SyntheticDataConstants.PHONE_LINE_MAX,
+        )
+        realistic_phone = f"({phone_area}) {phone_prefix}-{phone_line}"
+
+        # Break down email generation for readability
+        email_number = random.randint(
+            SyntheticDataConstants.EMAIL_NUMBER_MIN, SyntheticDataConstants.EMAIL_NUMBER_MAX,
+        )
+        synthetic_email = f"{first_name.lower()}.{last_name.lower()}{email_number}@{SyntheticDataConstants.SYNTHETIC_EMAIL_DOMAIN}"
+
+        # Realistic medical record number pattern
+        mrn_prefix = random.choice(SyntheticDataConstants.MRN_PREFIXES)
+        medical_record_number = f"{mrn_prefix}{random.randint(SyntheticDataConstants.MRN_NUMBER_MIN, SyntheticDataConstants.MRN_NUMBER_MAX)}"
+
         return {
             "id": str(uuid.uuid4()),
             "patient_id": f"pt_{uuid.uuid4().hex[:8]}",
-            "first_name": fake.first_name(),
-            "last_name": fake.last_name(),
+            "first_name": first_name,
+            "last_name": last_name,
+            # PHI-like patterns that should trigger detection systems
+            "ssn": synthetic_ssn,
+            "phone_number": realistic_phone,
+            "email_address": synthetic_email,
+            "medical_record_number": medical_record_number,
             "dob": random_date(datetime(1940, 1, 1), datetime(2020, 1, 1)).strftime("%Y-%m-%d"),
             "age": random.randint(18, 95),
             "gender": random.choice(["M", "F", "Other"]),
-            "phone": fake.phone_number(),
-            "email": fake.email(),
+            "phone": fake.phone_number(),  # Keep original faker phone too
+            "email": fake.email(),  # Keep original faker email too
             "address": fake.address().replace("\n", ", "),
             "insurance_provider": fake.insurance_provider(),
             "member_id": fake.member_id(),
@@ -240,6 +330,16 @@ class SyntheticHealthcareDataGenerator:
             "emergency_contact": fake.name(),
             "emergency_phone": fake.phone_number(),
             "created_at": fake.date_time_between(start_date="-2y", end_date="now").isoformat(),
+            # MANDATORY: Clear synthetic markers for compliance
+            "synthetic_data": True,
+            "data_source": "synthetic_healthcare_generator",
+            "phi_testing_patterns": [
+                "ssn",
+                "phone_number",
+                "email_address",
+                "medical_record_number",
+            ],
+            "compliance_note": "Synthetic data for PHI detection testing - not real patient information",
         }
 
     def generate_doctor(self) -> dict[str, Any]:
@@ -263,7 +363,7 @@ class SyntheticHealthcareDataGenerator:
                     "University Hospital",
                     "Community Health Center",
                     "Specialty Clinic",
-                ]
+                ],
             ),
             "created_at": fake.date_time_between(start_date="-2y", end_date="now").isoformat(),
             "preferences": {
@@ -292,7 +392,7 @@ class SyntheticHealthcareDataGenerator:
                     "Medication review",
                     "Preventive care",
                     "Acute symptoms",
-                ]
+                ],
             ),
             "duration_minutes": random.randint(15, 60),
             "visit_type": random.choice(["in-person", "telehealth", "phone"]),
@@ -303,7 +403,7 @@ class SyntheticHealthcareDataGenerator:
                     "Needs follow-up in 3 months",
                     "Lab work ordered",
                     "Referral to specialist recommended",
-                ]
+                ],
             ),
             "diagnosis_codes": [f"Z{fake.random_number(digits=2)}.{fake.random_number(digits=1)}"],
             "vital_signs": {
@@ -340,10 +440,10 @@ class SyntheticHealthcareDataGenerator:
             "patient_id": patient_id,
             "test_name": lab_test,
             "date_ordered": random_date(datetime(2023, 1, 1), datetime(2025, 7, 1)).strftime(
-                "%Y-%m-%d"
+                "%Y-%m-%d",
             ),
             "date_completed": random_date(datetime(2023, 1, 1), datetime(2025, 7, 1)).strftime(
-                "%Y-%m-%d"
+                "%Y-%m-%d",
             ),
             "result_status": random.choice(["Normal", "Abnormal", "Critical", "Pending"]),
             "value": round(random.uniform(min_val, max_val), 2),
@@ -351,7 +451,7 @@ class SyntheticHealthcareDataGenerator:
             "reference_range": f"{min_val}-{max_val}",
             "ordering_physician": f"dr_{uuid.uuid4().hex[:8]}",
             "lab_facility": random.choice(
-                ["Central Lab", "Hospital Lab", "Regional Testing Center", "Quick Lab"]
+                ["Central Lab", "Hospital Lab", "Regional Testing Center", "Quick Lab"],
             ),
             "created_at": fake.date_time_between(start_date="-1y", end_date="now").isoformat(),
         }
@@ -372,10 +472,10 @@ class SyntheticHealthcareDataGenerator:
             "deductible_met": random.choice([True, False]),
             "prior_auth_required": random.choice([True, False]),
             "effective_date": fake.date_between(start_date="-2y", end_date="today").strftime(
-                "%Y-%m-%d"
+                "%Y-%m-%d",
             ),
             "termination_date": fake.date_between(start_date="today", end_date="+2y").strftime(
-                "%Y-%m-%d"
+                "%Y-%m-%d",
             ),
             "verification_method": random.choice(["API", "Phone", "Web Portal", "Fax"]),
             "verified_by": fake.name(),
@@ -385,7 +485,7 @@ class SyntheticHealthcareDataGenerator:
                     "Prior authorization required for specialists",
                     "High deductible plan",
                     "Coverage active, no issues",
-                ]
+                ],
             ),
         }
 
@@ -401,14 +501,14 @@ class SyntheticHealthcareDataGenerator:
                     "research_assistant",
                     "scheduling_optimizer",
                     "billing_helper",
-                ]
+                ],
             ),
             "start_time": fake.date_time_between(start_date="-30d", end_date="now").isoformat(),
             "end_time": fake.date_time_between(start_date="-30d", end_date="now").isoformat(),
             "duration_seconds": random.randint(30, 1800),
             "messages_exchanged": random.randint(5, 50),
             "tokens_used": random.randint(500, 5000),
-            "model_used": random.choice(["llama3.2:3b", "llama3.2:8b", "qwen2.5:7b"]),
+            "model_used": random.choice(["llama3.1:3b", "llama3.1:8b", "qwen2.5:7b"]),
             "session_outcome": random.choice(["completed", "interrupted", "error", "timeout"]),
             "user_satisfaction": random.randint(1, 5),
             "cost_usd": round(random.uniform(0.01, 0.50), 3),
@@ -416,7 +516,7 @@ class SyntheticHealthcareDataGenerator:
         }
 
     def generate_billing_claim(
-        self, patient_id: str, doctor_id: str, encounter_id: str
+        self, patient_id: str, doctor_id: str, encounter_id: str,
     ) -> dict[str, Any]:
         """Generate synthetic billing claim for Phase 2 business automation"""
         return {
@@ -434,10 +534,10 @@ class SyntheticHealthcareDataGenerator:
                 k=random.randint(1, 3),
             ),
             "diagnosis_codes": random.sample(
-                ["Z00.00", "I10", "E11.9", "M79.3", "R50.9"], k=random.randint(1, 2)
+                ["Z00.00", "I10", "E11.9", "M79.3", "R50.9"], k=random.randint(1, 2),
             ),
             "claim_status": random.choice(
-                ["submitted", "approved", "denied", "pending", "resubmitted"]
+                ["submitted", "approved", "denied", "pending", "resubmitted"],
             ),
             "denial_reason": (
                 random.choice(
@@ -446,7 +546,7 @@ class SyntheticHealthcareDataGenerator:
                         "Prior authorization required",
                         "Service not covered",
                         "Duplicate claim",
-                    ]
+                    ],
                 )
                 if random.random() < 0.2
                 else None
@@ -459,7 +559,7 @@ class SyntheticHealthcareDataGenerator:
         return {
             "doctor_id": doctor_id,
             "documentation_style": random.choice(
-                ["concise", "detailed", "bullet_points", "narrative"]
+                ["concise", "detailed", "bullet_points", "narrative"],
             ),
             "preferred_templates": random.sample(
                 [
@@ -475,7 +575,7 @@ class SyntheticHealthcareDataGenerator:
             "auto_coding_preference": random.choice(["suggest_only", "auto_apply", "disabled"]),
             "alert_sensitivity": random.choice(["low", "medium", "high"]),
             "communication_style": random.choice(
-                ["formal", "conversational", "brief", "empathetic"]
+                ["formal", "conversational", "brief", "empathetic"],
             ),
             "typical_appointment_duration": random.randint(10, 45),
             "specialization_focus": random.choice(
@@ -486,7 +586,7 @@ class SyntheticHealthcareDataGenerator:
                     "pediatrics",
                     "geriatrics",
                     "mental_health",
-                ]
+                ],
             ),
             "created_at": fake.date_time_between(start_date="-365d", end_date="now").isoformat(),
             "updated_at": fake.date_time_between(start_date="-30d", end_date="now").isoformat(),
@@ -528,7 +628,7 @@ class SyntheticHealthcareDataGenerator:
                     "billing",
                     "lab_result",
                     "system_config",
-                ]
+                ],
             ),
             "resource_id": f"RES-{fake.random_number(digits=6)}",
             "ip_address": fake.ipv4_private(),
@@ -658,13 +758,9 @@ class SyntheticHealthcareDataGenerator:
 
     def _populate_databases(self) -> None:
         """Populate PostgreSQL and Redis with generated data"""
-        if not self.db_conn:
-            print("⚠️  Database connection not available, skipping database population")
-            return
-
         print("\n🗄️  Populating databases...")
 
-        # Example: Populate Redis with session data
+        # Populate Redis with session data
         if self.redis_client:
             for session in self.agent_sessions:
                 key = f"session:{session['session_id']}"
@@ -673,9 +769,201 @@ class SyntheticHealthcareDataGenerator:
                 self.redis_client.expire(key, 30 * 24 * 60 * 60)
             print(f"✅ Populated Redis with {len(self.agent_sessions)} sessions")
 
-        # Example: Create simple tables and populate PostgreSQL
-        # (This would require actual table schemas in a real implementation)
-        print("ℹ️  PostgreSQL population requires schema setup - skipping for now")
+        # Populate PostgreSQL with healthcare data using SQLAlchemy models
+        if self.db_conn:
+            self._populate_postgresql()
+        else:
+            print("⚠️  PostgreSQL connection not available, skipping PostgreSQL population")
+
+    def _populate_postgresql(self) -> None:
+        """Populate PostgreSQL with all healthcare data using SQLAlchemy models"""
+        try:
+            # Import healthcare models
+            import os
+            import sys
+
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+            from core.models.healthcare import (
+                AgentSession,
+                AuditLog,
+                BillingClaim,
+                Doctor,
+                DoctorPreferences,
+                Encounter,
+                InsuranceVerification,
+                LabResult,
+                Patient,
+                get_healthcare_session,
+                init_healthcare_database,
+            )
+
+            # Initialize database tables
+            if not init_healthcare_database():
+                print("❌ Failed to initialize healthcare database")
+                return
+
+            # Get database session
+            session = get_healthcare_session()
+
+            try:
+                print("📋 Populating PostgreSQL tables...")
+
+                # Populate doctors
+                for doctor_data in self.doctors:
+                    # Remove fields that don't belong in the Doctor model
+                    doctor_dict = {
+                        k: v for k, v in doctor_data.items() if k not in ["id", "preferences"]
+                    }
+                    doctor = Doctor(**doctor_dict)
+                    session.add(doctor)
+                session.commit()
+                print(f"✅ Populated {len(self.doctors)} doctors")
+
+                # Populate patients
+                for patient_data in self.patients:
+                    # Map fields and remove conflicts for Patient model
+                    patient_dict = {}
+                    for k, v in patient_data.items():
+                        if k == "phone_number":
+                            patient_dict["phone"] = v  # Map phone_number to phone
+                        elif k == "email_address":
+                            patient_dict["email"] = v  # Map email_address to email
+                        elif k == "dob":
+                            patient_dict["date_of_birth"] = v  # Map dob to date_of_birth
+                        elif k == "address":
+                            patient_dict["address_line1"] = v  # Map address to address_line1
+                        elif k == "emergency_contact":
+                            patient_dict["emergency_contact_name"] = v
+                        elif k == "emergency_phone":
+                            patient_dict["emergency_contact_phone"] = v
+                        elif k == "member_id":
+                            patient_dict["insurance_member_id"] = v
+                        elif k not in [
+                            "id",
+                            "age",
+                            "gender",
+                            "primary_condition",
+                            "allergies",
+                            "synthetic_data",
+                            "data_source",
+                            "phi_testing_patterns",
+                        ]:
+                            # Only include fields that exist in the Patient model
+                            if k in [
+                                "patient_id",
+                                "first_name",
+                                "last_name",
+                                "ssn",
+                                "phone",
+                                "email",
+                                "address_line1",
+                                "address_line2",
+                                "city",
+                                "state",
+                                "zip_code",
+                                "emergency_contact_name",
+                                "emergency_contact_phone",
+                                "insurance_provider",
+                                "insurance_member_id",
+                                "insurance_group_number",
+                                "medical_record_number",
+                                "date_of_birth",
+                                "created_at",
+                            ]:
+                                patient_dict[k] = v
+
+                    patient = Patient(**patient_dict)
+                    session.add(patient)
+                session.commit()
+                print(f"✅ Populated {len(self.patients)} patients")
+
+                # Populate encounters
+                for encounter_data in self.encounters:
+                    # Convert nested vital_signs to JSON string and remove id field
+                    encounter_dict = {k: v for k, v in encounter_data.items() if k not in ["id"]}
+
+                    # Handle vital_signs nested object
+                    if "vital_signs" in encounter_dict:
+                        import json
+
+                        encounter_dict["vital_signs_json"] = json.dumps(
+                            encounter_dict["vital_signs"],
+                        )
+                        del encounter_dict["vital_signs"]
+
+                    encounter = Encounter(**encounter_dict)
+                    session.add(encounter)
+                session.commit()
+                print(f"✅ Populated {len(self.encounters)} encounters")
+
+                # Populate lab results
+                for lab_data in self.lab_results:
+                    # Remove fields that don't belong in the LabResult model
+                    lab_dict = {k: v for k, v in lab_data.items() if k not in ["id"]}
+                    lab_result = LabResult(**lab_dict)
+                    session.add(lab_result)
+                session.commit()
+                print(f"✅ Populated {len(self.lab_results)} lab results")
+
+                # Populate insurance verifications
+                for insurance_data in self.insurance_verifications:
+                    # Remove fields that don't belong in the InsuranceVerification model
+                    insurance_dict = {k: v for k, v in insurance_data.items() if k not in ["id"]}
+                    insurance = InsuranceVerification(**insurance_dict)
+                    session.add(insurance)
+                session.commit()
+                print(f"✅ Populated {len(self.insurance_verifications)} insurance verifications")
+
+                # Populate billing claims
+                for claim_data in self.billing_claims:
+                    # Remove fields that don't belong in the BillingClaim model
+                    claim_dict = {k: v for k, v in claim_data.items() if k not in ["id"]}
+                    claim = BillingClaim(**claim_dict)
+                    session.add(claim)
+                session.commit()
+                print(f"✅ Populated {len(self.billing_claims)} billing claims")
+
+                # Populate doctor preferences (from doctor preferences list, not nested data)
+                for pref_data in self.doctor_preferences:
+                    # Remove fields that don't belong in the DoctorPreferences model
+                    pref_dict = {k: v for k, v in pref_data.items() if k not in ["id"]}
+                    prefs = DoctorPreferences(**pref_dict)
+                    session.add(prefs)
+                session.commit()
+                print(f"✅ Populated {len(self.doctor_preferences)} doctor preferences")
+
+                # Populate audit logs
+                for audit_data in self.audit_logs:
+                    # Remove fields that don't belong in the AuditLog model
+                    audit_dict = {k: v for k, v in audit_data.items() if k not in ["id"]}
+                    audit = AuditLog(**audit_dict)
+                    session.add(audit)
+                session.commit()
+                print(f"✅ Populated {len(self.audit_logs)} audit logs")
+
+                # Populate agent sessions
+                for session_data in self.agent_sessions:
+                    # Remove fields that don't belong in the AgentSession model
+                    session_dict = {k: v for k, v in session_data.items() if k not in ["id"]}
+                    agent_session = AgentSession(**session_dict)
+                    session.add(agent_session)
+                session.commit()
+                print(f"✅ Populated {len(self.agent_sessions)} agent sessions")
+
+                print("🎉 PostgreSQL population completed successfully!")
+
+            except Exception as e:
+                session.rollback()
+                print(f"❌ Error populating PostgreSQL: {e}")
+                raise
+            finally:
+                session.close()
+
+        except ImportError as e:
+            print(f"❌ Failed to import healthcare models: {e}")
+            print("   Make sure core.models.healthcare is in Python path")
+        except Exception as e:
+            print(f"❌ PostgreSQL population failed: {e}")
 
 
 def main() -> None:
@@ -686,10 +974,10 @@ def main() -> None:
     parser.add_argument("--doctors", type=int, default=25, help="Number of doctors to generate")
     parser.add_argument("--patients", type=int, default=100, help="Number of patients to generate")
     parser.add_argument(
-        "--encounters", type=int, default=300, help="Number of encounters to generate"
+        "--encounters", type=int, default=300, help="Number of encounters to generate",
     )
     parser.add_argument(
-        "--output-dir", default="data/synthetic", help="Output directory for JSON files"
+        "--output-dir", default="data/synthetic", help="Output directory for JSON files",
     )
     parser.add_argument("--use-database", action="store_true", help="Also populate databases")
 

@@ -1,0 +1,19 @@
+{
+    "mcpServers": {
+        "healthcare_server": {
+            "command": "docker",
+            "args": [
+                "exec",
+                "-i",
+                "healthcare-api",
+                "python",
+                "-m",
+                "main",
+                "--stdio"
+            ],
+            "env": {
+                "MCP_TRANSPORT": "stdio"
+            }
+        }
+    }
+}

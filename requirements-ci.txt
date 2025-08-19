@@ -193,6 +193,7 @@ langchain-core==0.3.72
     #   langgraph-prebuilt
     #   ragas
 langchain-openai==0.3.28
+langchain-ollama==0.3.6
 langchain-text-splitters==0.3.9
 langcodes==3.5.0
 langgraph==0.5.4

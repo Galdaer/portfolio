@@ -15,10 +15,10 @@
 
 ### Running Services
 ```
-✓ Ollama AI: http://localhost:11434
+✓ Ollama AI: http://172.20.0.10:11434
 ✓ Healthcare-MCP: http://localhost:3000
 ✓ Health Monitor: http://localhost:8080
-✓ PostgreSQL: localhost:5432
+✓ PostgreSQL: 172.20.0.13:5432
 ✓ Redis: localhost:6379
 ```
 
@@ -27,7 +27,7 @@
 **1. Create "AI Query" Workflow**
 ```
 HTTP Request Node:
-- URL: http://localhost:11434/api/generate
+- URL: http://172.20.0.10:11434/api/generate
 - Method: POST
 - Body: {"model": "intelluxe-medical", "prompt": "{{$node["Start"].json["query"]}}"}
 

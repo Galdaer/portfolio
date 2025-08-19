@@ -1,0 +1,77 @@
+# AI Model Configuration
+# Centralized model definitions for consistent usage across the healthcare system
+
+# Primary AI Models
+primary_models:
+  # Main healthcare reasoning model
+  healthcare_llm: "llama3.1:8b"
+
+  # Specialized models for different tasks
+  clinical_analysis: "llama3.1:8b-instruct-q4_K_M"
+  document_processing: "llama3.1:8b"
+  research_assistant: "llama3.1:8b"
+
+  # Default fallback model
+  default: "llama3.1:8b"
+
+  # Additional use cases referenced in the code
+  clinical: "llama3.1:8b"
+  reasoning: "llama3.1:8b"
+  fast: "llama3.1:8b"
+
+# Model Parameters by Use Case
+model_parameters:
+  healthcare_reasoning:
+    model: "llama3.1:8b"
+    temperature: 0.1
+    max_tokens: 2048
+    top_p: 0.9
+    frequency_penalty: 0.0
+    presence_penalty: 0.0
+    timeout_seconds: 30
+
+  clinical_documentation:
+    model: "llama3.1:8b"
+    temperature: 0.2
+    max_tokens: 1024
+    top_p: 0.8
+
+  medical_research:
+    model: "llama3.1:8b-instruct-q4_K_M"
+    temperature: 0.3
+    max_tokens: 1000
+    top_p: 0.9
+
+  quick_responses:
+    model: "llama3.1:8b"
+    temperature: 0.1
+    max_tokens: 500
+    top_p: 0.7
+
+# Health Check Configuration
+health_check:
+  model: "llama3.1:8b"
+  test_prompt: "Hello, respond with 'OK' if you are working properly."
+  expected_response_contains: "OK"
+  timeout_seconds: 10
+
+# Model Availability and Fallbacks
+model_fallbacks:
+  primary: "llama3.1:8b"
+  secondary: "llama3.1:8b-instruct-q4_K_M"
+  emergency: "llama3.1:8b"
+
+# Environment-Specific Model Selection
+environments:
+  development:
+    default_model: "llama3.1:8b"
+    enable_model_switching: true
+
+  production:
+    default_model: "llama3.1:8b"
+    enable_model_switching: false
+    strict_model_validation: true
+
+  testing:
+    default_model: "llama3.1:8b"
+    mock_responses_enabled: true

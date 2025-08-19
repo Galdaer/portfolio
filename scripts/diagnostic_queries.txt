@@ -1,0 +1,23 @@
+
+# Diagnostic Queries for Healthcare Literature Search
+
+## Simple queries to test different components:
+
+1. "cardiovascular health" - Test basic medical term search
+2. "heart disease" - Test condition-specific search  
+3. "diabetes treatment" - Test treatment-focused search
+4. "recent cancer research" - Test time-based filtering
+5. "covid vaccine studies" - Test specific medical topic
+
+## Expected behavior:
+- Agent should retrieve medical literature
+- PHI detection should NOT sanitize author names in medical context
+- Response should show formatted article listings, not raw JSON
+- Pipeline should prioritize formatted_summary over formatted_response
+
+## Debug checkpoints:
+- MCP calls succeed ✓ (confirmed in logs)
+- Articles parsed correctly ✓ (confirmed in logs) 
+- Response formatting ? (needs investigation)
+- PHI processing ? (needs investigation)
+- Pipeline response selection ? (needs investigation)

@@ -206,7 +206,7 @@ FORM_TEMPLATE = """
   {% endfor %}
 </table>
 <h2>Quick Healthcare AI Links</h2>
-<p><a href="http://localhost:11434" target="_blank">🧠 Ollama API (Local LLM)</a></p>
+<p><a href="http://172.20.0.10:11434" target="_blank">🧠 Ollama API (Local LLM)</a></p>
 <p><a href="http://localhost:3000" target="_blank">🏥 Healthcare-MCP Dashboard</a></p>
 <p><a href="http://localhost:5678" target="_blank">🔄 n8n Workflow Editor</a></p>
 <p><a href="http://localhost:{{ grafana_port }}" target="_blank">📊 Grafana Monitoring</a></p>
@@ -374,7 +374,7 @@ def changed_services(old: dict[str, Any], new: dict[str, Any]) -> set[str]:
 
 
 def run_bootstrap(
-    args: list[str] | None = None, env: dict[str, str] | None = None, suppress: bool = True
+    args: list[str] | None = None, env: dict[str, str] | None = None, suppress: bool = True,
 ) -> subprocess.Popen[bytes]:
     """Run ``bootstrap.sh`` with optional arguments.
 
@@ -405,8 +405,7 @@ def run_bootstrap(
 
     if suppress:
         return subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    else:
-        return subprocess.Popen(cmd, env=env)
+    return subprocess.Popen(cmd, env=env)
 
 
 def get_container_statuses() -> dict[str, str]:

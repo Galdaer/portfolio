@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 MCP_URL="http://localhost:3000"
 FASTAPI_URL="http://localhost:8000"
 WEBUI_URL="http://localhost:1000"
-OLLAMA_URL="http://localhost:11434"
+OLLAMA_URL="http://172.20.0.10:11434"
 
 # Logging
 LOG_FILE="test_deployment_$(date +%Y%m%d_%H%M%S).log"

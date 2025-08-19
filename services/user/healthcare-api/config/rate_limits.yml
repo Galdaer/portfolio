@@ -1,0 +1,26 @@
+# Externalized Healthcare Rate Limits Policy
+# Modify values here (or override via environment variables) without code changes.
+# policy_version: Increment when structural meaning changes.
+policy_version: 1
+roles:
+  DOCTOR:
+    api_general: { rpm: 120, rph: 3600, burst: 20 }
+    medical_query: { rpm: 60, rph: 1800, burst: 15 }
+    patient_access: { rpm: 180, rph: 5400, burst: 30 }
+    emergency: { rpm: 300, rph: 7200, burst: 50, emergency_bypass: true }
+  NURSE:
+    api_general: { rpm: 90, rph: 2700, burst: 15 }
+    medical_query: { rpm: 30, rph: 900, burst: 10 }
+    patient_access: { rpm: 120, rph: 3600, burst: 20 }
+  RECEPTIONIST:
+    api_general: { rpm: 60, rph: 1800, burst: 10 }
+    patient_access: { rpm: 90, rph: 2700, burst: 15 }
+  BILLING:
+    api_general: { rpm: 45, rph: 1350, burst: 8 }
+    bulk_operation: { rpm: 20, rph: 600, burst: 5 }
+  RESEARCH:
+    api_general: { rpm: 30, rph: 900, burst: 5 }
+    medical_query: { rpm: 45, rph: 1350, burst: 10 }
+  ADMIN:
+    api_general: { rpm: 200, rph: 6000, burst: 40 }
+    bulk_operation: { rpm: 100, rph: 3000, burst: 20 }

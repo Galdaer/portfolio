@@ -109,7 +109,7 @@ class HealthcareAgentSimulator:
         )
 
     async def simulate_scheduling_agent(
-        self, patient_data: dict[str, Any], appointment_type: str
+        self, patient_data: dict[str, Any], appointment_type: str,
     ) -> AgentResponse:
         """Simulate appointment scheduling agent"""
         start_time = datetime.now()
@@ -180,7 +180,7 @@ class HealthcareAgentSimulator:
             }
 
             response = requests.post(
-                f"{self.ollama_base_url}/api/generate", json=payload, timeout=30
+                f"{self.ollama_base_url}/api/generate", json=payload, timeout=30,
             )
             response.raise_for_status()
 
@@ -189,7 +189,7 @@ class HealthcareAgentSimulator:
             return response_text
 
         except Exception as e:
-            self.logger.error(f"Ollama API call failed: {e}")
+            self.logger.exception(f"Ollama API call failed: {e}")
             return f"Error: Unable to generate response - {str(e)}"
 
 
@@ -227,7 +227,7 @@ class MultiAgentHealthcareTests:
                     "confidence_above": 0.7,
                     "no_phi_exposure": True,
                 },
-            )
+            ),
         )
 
         # Scenario 2: Medical research workflow
@@ -244,7 +244,7 @@ class MultiAgentHealthcareTests:
                     "evidence_based": True,
                     "no_harmful_advice": True,
                 },
-            )
+            ),
         )
 
         # Scenario 3: Scheduling optimization
@@ -261,7 +261,7 @@ class MultiAgentHealthcareTests:
                     "insurance_consideration": True,
                     "patient_preparation": True,
                 },
-            )
+            ),
         )
 
         return scenarios
@@ -285,14 +285,14 @@ class MultiAgentHealthcareTests:
             for agent_name in scenario.agents_involved:
                 if agent_name == "intake_agent":
                     response = await self.agent_simulator.simulate_intake_agent(
-                        scenario.patient_data
+                        scenario.patient_data,
                     )
                 elif agent_name == "research_agent":
                     query = "hypertension management guidelines"
                     response = await self.agent_simulator.simulate_research_agent(query)
                 elif agent_name == "scheduling_agent":
                     response = await self.agent_simulator.simulate_scheduling_agent(
-                        scenario.patient_data, "follow-up"
+                        scenario.patient_data, "follow-up",
                     )
                 elif agent_name == "billing_agent":
                     encounter_data = {
@@ -310,7 +310,7 @@ class MultiAgentHealthcareTests:
                         "confidence_score": response.confidence_score,
                         "processing_time": response.processing_time,
                         "metadata": response.metadata,
-                    }
+                    },
                 )
 
             # Evaluate workflow success
@@ -323,14 +323,14 @@ class MultiAgentHealthcareTests:
             results["compliance_check"] = self._check_compliance(results)
 
         except Exception as e:
-            self.logger.error(f"Scenario execution failed: {e}")
+            self.logger.exception(f"Scenario execution failed: {e}")
             results["error"] = str(e)
 
         results["end_time"] = datetime.now().isoformat()
         return results
 
     def _evaluate_workflow_success(
-        self, scenario: MultiAgentScenario, results: dict[str, Any]
+        self, scenario: MultiAgentScenario, results: dict[str, Any],
     ) -> bool:
         """Evaluate if workflow met success criteria"""
         criteria = scenario.success_criteria

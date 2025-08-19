@@ -21,7 +21,15 @@ This document defines the Docker network topology and static IP assignments for 
 | ScispaCy        | scispacy           | 172.20.0.6       | Biomedical NLP              |
 | Config Web UI   | config-web-ui      | 172.20.0.7       | System management           |
 | Traefik         | traefik            | 172.20.0.8       | Reverse proxy               |
+| Open WebUI      | open-webui         | 172.20.0.11      | AI chat interface           |
+| Healthcare MCP  | healthcare-mcp     | 172.20.0.12      | Medical tools (auth proxy:3001, mcpo:3000) |
 | ...             | ...                | ...              | Add new services here       |
+
+**Healthcare MCP Architecture Notes:**
+- **External Port 3001**: FastAPI authentication proxy for Open WebUI integration
+- **Internal Port 3000**: mcpo backend for MCP protocol handling  
+- **Tools Available**: 3 public research tools (search-pubmed, search-trials, get-drug-info)
+- **Protected Tools**: 12 additional patient tools require paid FHIR/database APIs
 
 - **Add new services** to this table as they are deployed.
 - **Do not reuse IPs**; increment for each new service.

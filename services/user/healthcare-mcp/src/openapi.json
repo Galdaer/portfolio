@@ -1,0 +1,267 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Healthcare MCP REST API",
+        "description": "REST API wrapper for Healthcare MCP server tools",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:3000",
+            "description": "Healthcare MCP Server"
+        }
+    ],
+    "paths": {
+        "/tools/search-pubmed": {
+            "post": {
+                "summary": "Search PubMed for medical literature",
+                "description": "Search PubMed database for medical research articles",
+                "operationId": "searchPubmed",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "query": {
+                                        "type": "string",
+                                        "description": "Search query for PubMed"
+                                    },
+                                    "maxResults": {
+                                        "type": "integer",
+                                        "default": 10,
+                                        "minimum": 1,
+                                        "maximum": 50,
+                                        "description": "Maximum number of results to return"
+                                    }
+                                },
+                                "required": [
+                                    "query"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful search results",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "articles": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "title": {
+                                                        "type": "string"
+                                                    },
+                                                    "authors": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "journal": {
+                                                        "type": "string"
+                                                    },
+                                                    "pubDate": {
+                                                        "type": "string"
+                                                    },
+                                                    "doi": {
+                                                        "type": "string"
+                                                    },
+                                                    "abstract": {
+                                                        "type": "string"
+                                                    },
+                                                    "pmid": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tools/search-trials": {
+            "post": {
+                "summary": "Search Clinical Trials",
+                "description": "Search ClinicalTrials.gov for relevant clinical studies",
+                "operationId": "searchTrials",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "condition": {
+                                        "type": "string",
+                                        "description": "Medical condition to search for"
+                                    },
+                                    "location": {
+                                        "type": "string",
+                                        "description": "Geographic location (optional)"
+                                    }
+                                },
+                                "required": [
+                                    "condition"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful trial search results",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "trials": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "nctId": {
+                                                        "type": "string"
+                                                    },
+                                                    "title": {
+                                                        "type": "string"
+                                                    },
+                                                    "status": {
+                                                        "type": "string"
+                                                    },
+                                                    "phase": {
+                                                        "type": "string"
+                                                    },
+                                                    "sponsor": {
+                                                        "type": "string"
+                                                    },
+                                                    "locations": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tools/get-drug-info": {
+            "post": {
+                "summary": "Get Drug Information",
+                "description": "Get detailed information about a medication",
+                "operationId": "getDrugInfo",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "genericName": {
+                                        "type": "string",
+                                        "description": "Generic name of the medication"
+                                    }
+                                },
+                                "required": [
+                                    "genericName"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Drug information retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "genericName": {
+                                            "type": "string"
+                                        },
+                                        "brandNames": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "description": {
+                                            "type": "string"
+                                        },
+                                        "indications": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "contraindications": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "sideEffects": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Error": {
+                "type": "object",
+                "properties": {
+                    "error": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "securitySchemes": {
+            "sessionAuth": {
+                "type": "apiKey",
+                "in": "cookie",
+                "name": "session",
+                "description": "Session-based authentication via cookies"
+            }
+        }
+    },
+    "security": [
+        {},
+        {
+            "sessionAuth": []
+        }
+    ]
+}

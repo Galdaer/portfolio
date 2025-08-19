@@ -362,7 +362,7 @@ def test_index_contains_reset_form(monkeypatch: Any) -> None:
         "load_config",
         lambda: {"SELECTED_CONTAINERS": [], "CONTAINER_PORTS[grafana]": "1234"},
     )
-    monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
+    monkeypatch.setattr(config_web_ui, "get_all_containers", list)
     monkeypatch.setattr(
         config_web_ui,
         "render_template_string",
@@ -394,7 +394,7 @@ def test_index_contains_teardown_form(monkeypatch: Any) -> None:
         "load_config",
         lambda: {"SELECTED_CONTAINERS": [], "CONTAINER_PORTS[grafana]": "3001"},
     )
-    monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
+    monkeypatch.setattr(config_web_ui, "get_all_containers", list)
 
     def render(tpl, **kw):
         import jinja2
@@ -426,7 +426,7 @@ def test_index_default_grafana_port(monkeypatch: Any) -> None:
         "load_config",
         lambda: {"SELECTED_CONTAINERS": []},
     )
-    monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
+    monkeypatch.setattr(config_web_ui, "get_all_containers", list)
     monkeypatch.setattr(
         config_web_ui,
         "render_template_string",
@@ -525,10 +525,10 @@ def test_index_includes_extra_fields(monkeypatch: Any) -> None:
     cfg = dict.fromkeys(config_web_ui.EXTRA_FIELDS, "x")
     cfg["SELECTED_CONTAINERS"] = []
     monkeypatch.setattr(config_web_ui, "load_config", lambda: cfg)
-    monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
+    monkeypatch.setattr(config_web_ui, "get_all_containers", list)
 
     def fake_render_template_string(tpl, **kw):
-        return "\n".join(f'<input name="{k}">' for k in kw["config"].keys())
+        return "\n".join(f'<input name="{k}">' for k in kw["config"])
 
     monkeypatch.setattr(config_web_ui, "render_template_string", fake_render_template_string)
     req = types.SimpleNamespace(
@@ -545,7 +545,7 @@ def test_index_post_updates_extra_fields(monkeypatch: Any) -> None:
     start = dict.fromkeys(config_web_ui.EXTRA_FIELDS, "old")
     start["SELECTED_CONTAINERS"] = []
     monkeypatch.setattr(config_web_ui, "load_config", lambda: start)
-    monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
+    monkeypatch.setattr(config_web_ui, "get_all_containers", list)
     monkeypatch.setattr(config_web_ui.subprocess, "Popen", lambda *a, **k: None)
     monkeypatch.setattr(config_web_ui, "changed_services", lambda a, b: set())
     saved = {}
@@ -705,8 +705,7 @@ def test_add_service_route(monkeypatch: Any, tmp_path: Any) -> None:
         first_arg = str(args[0]) if args else ""
         if str(tmp_path) in first_arg:
             return original_join(*[str(arg) for arg in args])
-        else:
-            return original_join(str(tmp_path), *[str(arg) for arg in args[1:]])
+        return original_join(str(tmp_path), *[str(arg) for arg in args[1:]])
 
     monkeypatch.setattr(config_web_ui.os.path, "join", safe_path_join)
     monkeypatch.setattr(config_web_ui.os, "makedirs", lambda path, exist_ok=False: None)
@@ -732,7 +731,7 @@ def test_add_service_route(monkeypatch: Any, tmp_path: Any) -> None:
     monkeypatch.setattr(config_web_ui, "redirect", fake_redirect)
 
     req = types.SimpleNamespace(
-        form=types.SimpleNamespace(get=lambda k, d=None: form_data.get(k, d))
+        form=types.SimpleNamespace(get=lambda k, d=None: form_data.get(k, d)),
     )
     monkeypatch.setattr(config_web_ui, "request", req)
 
@@ -740,7 +739,7 @@ def test_add_service_route(monkeypatch: Any, tmp_path: Any) -> None:
 
     # Verify configuration file was created with correct content
     # Find the config file that was created (there should be one ending with newsvc.conf)
-    config_files = [f for f in file_contents.keys() if f.endswith("newsvc.conf")]
+    config_files = [f for f in file_contents if f.endswith("newsvc.conf")]
     assert len(config_files) == 1, f"Expected exactly 1 config file, found: {config_files}"
     config_file = config_files[0]
 
@@ -796,7 +795,7 @@ class MockFileRead:
     ],
 )
 def test_add_service_route_missing_field(
-    monkeypatch: Any, missing_field: pytest.MonkeyPatch
+    monkeypatch: Any, missing_field: pytest.MonkeyPatch,
 ) -> None:
     form_data = {
         "service": "newsvc",
@@ -838,7 +837,7 @@ def test_add_service_route_missing_field(
 
 def test_index_includes_add_service_form(monkeypatch: Any) -> None:
     monkeypatch.setattr(config_web_ui, "load_config", lambda: {"SELECTED_CONTAINERS": []})
-    monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
+    monkeypatch.setattr(config_web_ui, "get_all_containers", list)
     monkeypatch.setattr(config_web_ui, "render_template_string", lambda tpl, **kw: tpl)
     req = types.SimpleNamespace(
         method="GET",
@@ -852,7 +851,7 @@ def test_index_includes_add_service_form(monkeypatch: Any) -> None:
 
 def test_index_includes_remove_service_form(monkeypatch: Any) -> None:
     monkeypatch.setattr(config_web_ui, "load_config", lambda: {"SELECTED_CONTAINERS": []})
-    monkeypatch.setattr(config_web_ui, "get_all_containers", lambda: [])
+    monkeypatch.setattr(config_web_ui, "get_all_containers", list)
     monkeypatch.setattr(config_web_ui, "render_template_string", lambda tpl, **kw: tpl)
     req = types.SimpleNamespace(
         method="GET",
@@ -870,7 +869,7 @@ def test_add_service_form_confirm_js(tmp_path: Any) -> None:
     js_path = (
         Path(__file__).resolve().parents[2] / "test" / "javascript" / "test_add_service_confirm.js"
     )
-    result = subprocess.run(["node", str(js_path)], capture_output=True, text=True)
+    result = subprocess.run(["node", str(js_path)], check=False, capture_output=True, text=True)
     assert result.stdout.strip() == "PASS"
 
 

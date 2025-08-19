@@ -16,7 +16,37 @@ from typing import Any
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Import database and healthcare modules
+# Define mock classes (always available for fallback)
+class MockCursor:
+    def fetchall(self):
+        return []
+
+    def close(self):
+        pass
+
+
+class MockConnection:
+    def cursor(self):
+        return MockCursor()
+
+    def close(self):
+        pass
+
+    def commit(self):
+        pass
+
+
+class MockPsycopg2:
+    @staticmethod
+    def connect(*args, **kwargs):
+        return MockConnection()
+
+
+class MockRealDictCursor:
+    pass
+
+
+# Import database and healthcare modules with fallback to mocks
 try:
     import asyncpg
     import psycopg2
@@ -28,36 +58,10 @@ except ImportError as e:
     print("🔄 Using mock database for testing...")
     DATABASE_AVAILABLE = False
 
-    # Mock the database modules for testing
-    class MockCursor:
-        def fetchall(self):
-            return []
-
-        def close(self):
-            pass
-
-    class MockConnection:
-        def cursor(self):
-            return MockCursor()
-
-        def close(self):
-            pass
-
-        def commit(self):
-            pass
-
-    class MockPsycopg2:
-        @staticmethod
-        def connect(*args, **kwargs):
-            return MockConnection()
-
-    class MockRealDictCursor:
-        pass
-
-    # Replace imports with mocks
+    # Use mocks when database dependencies not available
+    asyncpg = None
     psycopg2 = MockPsycopg2()
     RealDictCursor = MockRealDictCursor
-    asyncpg = None
 
 
 class SyntheticHealthcareData:
@@ -70,7 +74,7 @@ class SyntheticHealthcareData:
         """Initialize database connection to synthetic healthcare data."""
         self.db_url = db_url or os.getenv(
             "HEALTHCARE_DB_URL",
-            "postgresql://intelluxe:secure_password@localhost:5432/intelluxe",
+            "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe",
         )
         self.connection = None
         self.async_pool = None
@@ -86,9 +90,10 @@ class SyntheticHealthcareData:
             self.connection = psycopg2.connect(self.db_url, cursor_factory=RealDictCursor)
             logging.info("✅ Connected to synthetic healthcare database")
         except Exception as e:
-            logging.error(f"❌ Failed to connect to healthcare database: {e}")
+            logging.exception(f"❌ Failed to connect to healthcare database: {e}")
             logging.info("🔄 Using mock database for testing")
-            self.connection = psycopg2.connect()
+            # Use mock connection when database connection fails
+            self.connection = MockConnection()
 
     async def async_connect(self) -> None:
         """Establish asynchronous database connection pool."""
@@ -100,7 +105,7 @@ class SyntheticHealthcareData:
             self.async_pool = await asyncpg.create_pool(self.db_url)
             logging.info("✅ Connected to synthetic healthcare database (async)")
         except Exception as e:
-            logging.error(f"❌ Failed to connect to healthcare database (async): {e}")
+            logging.exception(f"❌ Failed to connect to healthcare database (async): {e}")
             logging.info("🔄 Using mock async connection for testing")
 
     def get_test_patients(self, limit: int = 10) -> list[dict[str, Any]]:
@@ -224,7 +229,7 @@ class SyntheticHealthcareData:
             ]
 
     def get_test_encounters(
-        self, patient_id: str | None = None, limit: int = 10
+        self, patient_id: str | None = None, limit: int = 10,
     ) -> list[dict[str, Any]]:
         """Get synthetic encounter data for testing."""
         if not self.connection:
@@ -353,7 +358,7 @@ class HealthcareTestCase:
         if self.test_patients:
             # Get encounters for first test patient
             self.test_encounters = self.synthetic_data.get_test_encounters(
-                patient_id=self.test_patients[0]["patient_id"], limit=3
+                patient_id=self.test_patients[0]["patient_id"], limit=3,
             )
 
     def tearDown(self) -> None:

@@ -1,0 +1,47 @@
+# Sample external metadata file for SciSpacy server enrichment
+# Copy to metadata.yml (or set METADATA_PATH) and adjust as needed.
+# Only fields present will be included in enriched responses.
+
+entity_metadata:
+  SIMPLE_CHEMICAL:
+    category: chemical
+    usage_hint: drugs, small molecules, therapeutic compounds
+    priority: high
+    agent_relevance: [medical_search, intake]
+  CANCER:
+    category: pathology
+    usage_hint: malignant neoplasms
+    priority: high
+    agent_relevance: [medical_search, intake]
+  PATHOLOGICAL_FORMATION:
+    category: pathology
+    usage_hint: non-cancer pathological formations
+    priority: high
+    agent_relevance: [medical_search]
+  ORGAN:
+    category: anatomy
+    usage_hint: major body organs
+    priority: high
+    agent_relevance: [intake, medical_search]
+  GENE_OR_GENE_PRODUCT:
+    category: genetic
+    usage_hint: molecular targets (genes, proteins)
+    priority: high
+    agent_relevance: [research_assistant]
+  ANATOMICAL_SYSTEM:
+    category: anatomy
+    usage_hint: body systems
+    agent_relevance: [intake]
+  TISSUE:
+    category: anatomy
+    usage_hint: tissue references
+    agent_relevance: [intake]
+
+relationships:
+  ORGAN: [TISSUE, PATHOLOGICAL_FORMATION, CANCER]
+  TISSUE: [PATHOLOGICAL_FORMATION, CANCER]
+  PATHOLOGICAL_FORMATION: [ORGAN, TISSUE]
+  CANCER: [ORGAN, TISSUE]
+  SIMPLE_CHEMICAL: [GENE_OR_GENE_PRODUCT, PATHOLOGICAL_FORMATION]
+  GENE_OR_GENE_PRODUCT: [SIMPLE_CHEMICAL]
+# Optional notes: Additional fields can be added; unknown fields are ignored.

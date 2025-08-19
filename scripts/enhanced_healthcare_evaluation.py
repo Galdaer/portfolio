@@ -29,7 +29,14 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+# Initialize DeepEval availability flags
+DEEPEVAL_AVAILABLE = False
+LLMTestCase = None
+AnswerRelevancyMetric = None
+ContextualRecallMetric = None
+FaithfulnessMetric = None
 
 if TYPE_CHECKING:
     from deepeval.metrics.answer_relevancy.answer_relevancy import AnswerRelevancyMetric
@@ -42,13 +49,10 @@ else:
         from deepeval.metrics.contextual_recall.contextual_recall import ContextualRecallMetric
         from deepeval.metrics.faithfulness.faithfulness import FaithfulnessMetric
         from deepeval.test_case.llm_test_case import LLMTestCase
+
         DEEPEVAL_AVAILABLE = True
     except ImportError:
-        DEEPEVAL_AVAILABLE = False
-        LLMTestCase = None
-        AnswerRelevancyMetric = None
-        ContextualRecallMetric = None
-        FaithfulnessMetric = None
+        pass  # Variables already initialized above
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +182,7 @@ class AdvancedPHIDetector:
 
         # Compile synthetic marker patterns for performance
         self.compiled_synthetic_pattern = re.compile(
-            "|".join(f"({marker})" for marker in self.synthetic_markers), re.IGNORECASE
+            "|".join(f"({marker})" for marker in self.synthetic_markers), re.IGNORECASE,
         )
 
     def detect_phi_violations(self, text: str) -> list[EvaluationFinding]:
@@ -241,11 +245,11 @@ class MedicalAccuracyValidator:
 
         # Compile patterns for performance
         self.compiled_medical_advice_pattern = re.compile(
-            "|".join(f"({pattern})" for pattern in self.medical_advice_patterns), re.IGNORECASE
+            "|".join(f"({pattern})" for pattern in self.medical_advice_patterns), re.IGNORECASE,
         )
 
         self.compiled_disclaimer_pattern = re.compile(
-            "|".join(f"({pattern})" for pattern in self.appropriate_disclaimers), re.IGNORECASE
+            "|".join(f"({pattern})" for pattern in self.appropriate_disclaimers), re.IGNORECASE,
         )
 
         self.administrative_indicators = [
@@ -381,7 +385,7 @@ class EnhancedDeepEvalWrapper:
         }
 
     def evaluate_with_deepeval(
-        self, query: str, response: str, context: str | None = None
+        self, query: str, response: str, context: str | None = None,
     ) -> dict[str, float]:
         """Evaluate using DeepEval with healthcare-specific thresholds"""
         if not DEEPEVAL_AVAILABLE:
@@ -404,20 +408,20 @@ class EnhancedDeepEvalWrapper:
             metrics: dict[str, float] = {}
 
             relevancy_metric = AnswerRelevancyMetric(
-                threshold=self.healthcare_thresholds["answer_relevancy"]
+                threshold=self.healthcare_thresholds["answer_relevancy"],
             )
             relevancy_metric.measure(test_case)
             metrics["answer_relevancy"] = relevancy_metric.score or 0.0
 
             faithfulness_metric = FaithfulnessMetric(
-                threshold=self.healthcare_thresholds["faithfulness"]
+                threshold=self.healthcare_thresholds["faithfulness"],
             )
             faithfulness_metric.measure(test_case)
             metrics["faithfulness"] = faithfulness_metric.score or 0.0
 
             if context:
                 recall_metric = ContextualRecallMetric(
-                    threshold=self.healthcare_thresholds["contextual_recall"]
+                    threshold=self.healthcare_thresholds["contextual_recall"],
                 )
                 recall_metric.measure(test_case)
                 metrics["contextual_recall"] = recall_metric.score or 0.0
@@ -425,11 +429,11 @@ class EnhancedDeepEvalWrapper:
             return metrics
 
         except Exception as e:
-            logger.error(f"DeepEval evaluation failed: {e}")
+            logger.exception(f"DeepEval evaluation failed: {e}")
             return self._fallback_deepeval_evaluation(query, response, context)
 
     def _fallback_deepeval_evaluation(
-        self, query: str, response: str, context: str | None = None
+        self, query: str, response: str, context: str | None = None,
     ) -> dict[str, float]:
         """Fallback evaluation when DeepEval is unavailable"""
         metrics = {}
@@ -582,11 +586,11 @@ class ComprehensiveHealthcareEvaluator:
     """
 
     def __init__(
-        self, config: dict[str, Any], synthetic_data_path: str = "data/synthetic/"
+        self, config: dict[str, Any], synthetic_data_path: str = "data/synthetic/",
     ) -> None:
         # Validate no PHI in input data
         if self._contains_potential_phi(str(config)) or self._contains_potential_phi(
-            synthetic_data_path
+            synthetic_data_path,
         ):
             raise ValueError("PHI detected in evaluation configuration - use synthetic data only")
 
@@ -617,10 +621,7 @@ class ComprehensiveHealthcareEvaluator:
 
         import re
 
-        for pattern in phi_patterns:
-            if re.search(pattern, text):
-                return True
-        return False
+        return any(re.search(pattern, text) for pattern in phi_patterns)
 
     async def evaluate_comprehensive(
         self,
@@ -668,11 +669,11 @@ class ComprehensiveHealthcareEvaluator:
             "evaluation_time_seconds": evaluation_time,
             "findings_count": len(all_findings),
             "critical_findings_count": len(
-                [f for f in all_findings if f.severity == EvaluationSeverity.CRITICAL]
+                [f for f in all_findings if f.severity == EvaluationSeverity.CRITICAL],
             ),
         }
 
-        result = ComprehensiveEvaluationResult(
+        return ComprehensiveEvaluationResult(
             overall_score=overall_score,
             weighted_score=weighted_score,
             evaluation_id=evaluation_id,
@@ -685,8 +686,6 @@ class ComprehensiveHealthcareEvaluator:
             performance_metrics=performance_metrics,
             metadata=metadata or {},
         )
-
-        return result
 
     def _calculate_category_scores(self, findings: list[EvaluationFinding]) -> dict[str, float]:
         """Calculate scores by healthcare compliance category"""
@@ -715,7 +714,7 @@ class ComprehensiveHealthcareEvaluator:
         summary: dict[str, Any] = {
             "total_findings": len(findings),
             "critical_findings": len(
-                [f for f in findings if f.severity == EvaluationSeverity.CRITICAL]
+                [f for f in findings if f.severity == EvaluationSeverity.CRITICAL],
             ),
             "high_findings": len([f for f in findings if f.severity == EvaluationSeverity.HIGH]),
             "compliance_categories": {},
@@ -726,7 +725,7 @@ class ComprehensiveHealthcareEvaluator:
             summary["compliance_categories"][category.value] = {
                 "total_findings": len(category_findings),
                 "critical_findings": len(
-                    [f for f in category_findings if f.severity == EvaluationSeverity.CRITICAL]
+                    [f for f in category_findings if f.severity == EvaluationSeverity.CRITICAL],
                 ),
                 "average_score": (
                     sum(f.score for f in category_findings) / len(category_findings)
@@ -738,7 +737,7 @@ class ComprehensiveHealthcareEvaluator:
         return summary
 
     def _calculate_overall_score(
-        self, deepeval_metrics: dict[str, float], category_scores: dict[str, float]
+        self, deepeval_metrics: dict[str, float], category_scores: dict[str, float],
     ) -> float:
         """Calculate overall evaluation score"""
         deepeval_avg = (
@@ -751,7 +750,7 @@ class ComprehensiveHealthcareEvaluator:
         return (deepeval_avg + healthcare_avg) / 2
 
     def _calculate_weighted_score(
-        self, deepeval_metrics: dict[str, float], category_scores: dict[str, float]
+        self, deepeval_metrics: dict[str, float], category_scores: dict[str, float],
     ) -> float:
         """Calculate weighted score based on healthcare importance"""
         components = {
@@ -763,11 +762,9 @@ class ComprehensiveHealthcareEvaluator:
             "hipaa_compliance": category_scores.get("hipaa_compliance", 1.0),
         }
 
-        weighted_sum = sum(
+        return sum(
             components[component] * weight for component, weight in self.evaluation_weights.items()
         )
-
-        return weighted_sum
 
     def _generate_recommendations(self, findings: list[EvaluationFinding]) -> list[str]:
         """Generate prioritized recommendations"""
@@ -795,7 +792,7 @@ class ComprehensiveHealthcareEvaluator:
 
         if not critical_findings and not high_findings:
             recommendations.append(
-                "Evaluation passed healthcare standards - maintain current quality"
+                "Evaluation passed healthcare standards - maintain current quality",
             )
 
         return recommendations
@@ -886,7 +883,7 @@ def generate_evaluation_report(results: list[ComprehensiveEvaluationResult]) -> 
             f"Average Weighted Score: {sum(r.weighted_score for r in results) / len(results):.3f}",
             f"Average Overall Score: {sum(r.overall_score for r in results) / len(results):.3f}",
             "",
-        ]
+        ],
     )
 
     critical_issues = sum(len(r.get_critical_issues()) for r in results)
@@ -896,7 +893,7 @@ def generate_evaluation_report(results: list[ComprehensiveEvaluationResult]) -> 
                 f"⚠️  CRITICAL ISSUES DETECTED: {critical_issues}",
                 "These must be addressed immediately for healthcare compliance",
                 "",
-            ]
+            ],
         )
 
     compliance_summary: dict[str, list[float]] = {}
@@ -928,7 +925,7 @@ def generate_evaluation_report(results: list[ComprehensiveEvaluationResult]) -> 
                 "✅ EVALUATION PASSED",
                 "Healthcare AI system meets compliance standards",
                 "Continue monitoring and maintain current quality levels",
-            ]
+            ],
         )
     else:
         report_lines.extend(
@@ -937,7 +934,7 @@ def generate_evaluation_report(results: list[ComprehensiveEvaluationResult]) -> 
                 "❌ EVALUATION REQUIRES ATTENTION",
                 "Address identified issues before production deployment",
                 "Focus on critical and high-severity findings first",
-            ]
+            ],
         )
 
     report_lines.append("=" * 80)

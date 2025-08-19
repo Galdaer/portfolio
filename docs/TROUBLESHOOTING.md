@@ -48,6 +48,53 @@ journalctl -u wg-quick@wg0
 </details>
 
 <details>
+<summary><strong>MCP Integration Issues</strong></summary>
+
+**Only 3 Tools Visible in Open WebUI**:
+- This is expected behavior without API credentials - only public research tools are available
+- Full Healthcare MCP has 15 tools: 3 public + 12 requiring paid FHIR/database access
+- Public tools: search-pubmed, search-trials, get-drug-info
+- To enable all 15 tools: Configure FHIR_BASE_URL and OAuth credentials in root `.env` file
+
+**API Credential Configuration**:
+```bash
+# Check current tool count
+curl -s http://172.20.0.12:3001/openapi.json | jq '.paths | keys | length'
+
+# After adding FHIR credentials to .env, restart container
+docker restart healthcare-mcp
+
+# Verify increased tool availability (should be 15 with proper credentials)
+curl -s http://172.20.0.12:3001/openapi.json | jq '.paths | keys'
+```
+
+**Authentication Errors**:
+```bash
+# Check if auth proxy is running
+curl -H "Authorization: Bearer healthcare-mcp-2025" http://localhost:3001/health
+
+# Check direct MCP tool discovery
+curl -H "Authorization: Bearer healthcare-mcp-2025" http://localhost:3001/tools
+
+# Check container logs
+docker logs healthcare-mcp-container
+```
+
+**Port Conflicts**:
+- Auth proxy: External port (default 3001) for Open WebUI with direct MCP communication
+- Modify ports in container configuration if conflicts occur
+
+**Container Issues**:
+```bash
+# Rebuild Healthcare MCP with direct integration
+cd mcps/healthcare && docker build -t intelluxe/healthcare-mcp:latest .
+
+# Check startup script execution
+docker exec healthcare-mcp cat /app/start_services.sh
+```
+</details>
+
+<details>
 <summary><strong>Container Startup Failures</strong></summary>
 
 ```bash

@@ -4,13 +4,16 @@ Validates master key security requirements and entropy validation with database-
 """
 
 import base64
+import contextlib
 import os
 import secrets
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+from src.security.database_factory import PostgresConnectionFactory  # noqa: E402
+from src.security.encryption_manager import HealthcareEncryptionManager  # noqa: E402
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -21,10 +24,6 @@ try:
     from tests.database_test_utils import HealthcareTestCase  # noqa: F401
 except ImportError:
     pytest.skip("Database test utilities not available", allow_module_level=True)
-
-from src.security.database_factory import PostgresConnectionFactory  # noqa: E402
-from src.security.encryption_manager import HealthcareEncryptionManager  # noqa: E402
-
 
 class TestEncryptionValidation(HealthcareTestCase):
     """Test encryption security validation functionality with database-backed data"""
@@ -48,10 +47,8 @@ class TestEncryptionValidation(HealthcareTestCase):
 
     def tearDown(self) -> None:
         """Clean up test case."""
-        try:
+        with contextlib.suppress(Exception):
             super().tearDown()
-        except Exception:
-            pass
 
     def test_valid_master_key_base64_format(self) -> None:
         """Test valid master key in base64 format"""
@@ -103,9 +100,8 @@ class TestEncryptionValidation(HealthcareTestCase):
         with patch.dict(
             os.environ,
             {"MASTER_ENCRYPTION_KEY": short_key, "ENVIRONMENT": "development"},
-        ):
-            with pytest.raises(ValueError, match="MASTER_ENCRYPTION_KEY length error"):
-                HealthcareEncryptionManager(self.test_connection)
+        ), pytest.raises(ValueError, match="MASTER_ENCRYPTION_KEY length error"):
+            HealthcareEncryptionManager(self.test_connection)
 
     def test_invalid_master_key_not_base64(self) -> None:
         """Test invalid master key - not valid base64"""
@@ -115,9 +111,8 @@ class TestEncryptionValidation(HealthcareTestCase):
                 "MASTER_ENCRYPTION_KEY": "not-valid-base64!@#",
                 "ENVIRONMENT": "development",
             },
-        ):
-            with pytest.raises(ValueError, match="Master encryption key must be valid base64"):
-                HealthcareEncryptionManager(self.test_connection)
+        ), pytest.raises(ValueError, match="Master encryption key must be valid base64"):
+            HealthcareEncryptionManager(self.test_connection)
 
     def test_production_requires_master_key(self) -> None:
         """Test that production environment requires MASTER_ENCRYPTION_KEY"""
@@ -178,7 +173,7 @@ class TestEncryptionValidation(HealthcareTestCase):
                             try:
                                 method = getattr(manager2, method_name)
                                 with pytest.raises(
-                                    (ValueError, RuntimeError, TypeError)
+                                    (ValueError, RuntimeError, TypeError),
                                 ):  # Should fail to decrypt with wrong key
                                     method(encrypted_data)
                                 return  # Test passed
@@ -194,14 +189,9 @@ class TestRBACStrictModeValidation:
         with patch.dict(os.environ, {"RBAC_STRICT_MODE": "true", "ENVIRONMENT": "development"}):
             from src.security.rbac_foundation import HealthcareRBACManager
 
-            connection_factory = PostgresConnectionFactory(
-                host="localhost",
-                database="intelluxe",
-                user="intelluxe",
-                password="secure_password",
-            )
-            test_connection = connection_factory.create_connection()
-            manager = HealthcareRBACManager(test_connection)
+            # Mock database connection for unit test
+            mock_connection = MagicMock()
+            manager = HealthcareRBACManager(mock_connection)
             assert manager.STRICT_MODE is True
 
     def test_valid_rbac_strict_mode_false(self) -> None:
@@ -209,14 +199,9 @@ class TestRBACStrictModeValidation:
         with patch.dict(os.environ, {"RBAC_STRICT_MODE": "false", "ENVIRONMENT": "development"}):
             from src.security.rbac_foundation import HealthcareRBACManager
 
-            connection_factory = PostgresConnectionFactory(
-                host="localhost",
-                database="intelluxe",
-                user="intelluxe",
-                password="secure_password",
-            )
-            test_connection = connection_factory.create_connection()
-            manager = HealthcareRBACManager(test_connection)
+            # Mock database connection for unit test
+            mock_connection = MagicMock()
+            manager = HealthcareRBACManager(mock_connection)
             assert manager.STRICT_MODE is False
 
     def test_invalid_rbac_strict_mode(self) -> None:
@@ -224,16 +209,11 @@ class TestRBACStrictModeValidation:
         with patch.dict(os.environ, {"RBAC_STRICT_MODE": "invalid", "ENVIRONMENT": "development"}):
             from src.security.rbac_foundation import HealthcareRBACManager
 
-            connection_factory = PostgresConnectionFactory(
-                host="localhost",
-                database="intelluxe",
-                user="intelluxe",
-                password="secure_password",
-            )
-            test_connection = connection_factory.create_connection()
+            # Mock database connection for unit test
+            mock_connection = MagicMock()
 
             with pytest.raises(ValueError, match="Invalid value for RBAC_STRICT_MODE"):
-                HealthcareRBACManager(test_connection)
+                HealthcareRBACManager(mock_connection)
 
     def test_rbac_strict_mode_case_insensitive(self) -> None:
         """Test RBAC strict mode is case insensitive"""
@@ -251,14 +231,9 @@ class TestRBACStrictModeValidation:
             ):
                 from src.security.rbac_foundation import HealthcareRBACManager
 
-                connection_factory = PostgresConnectionFactory(
-                    host="localhost",
-                    database="intelluxe",
-                    user="intelluxe",
-                    password="secure_password",
-                )
-                test_connection = connection_factory.create_connection()
-                manager = HealthcareRBACManager(test_connection)
+                # Mock database connection for unit test
+                mock_connection = MagicMock()
+                manager = HealthcareRBACManager(mock_connection)
                 assert manager.STRICT_MODE is expected
 
     def test_rbac_strict_mode_whitespace_handling(self) -> None:
@@ -266,14 +241,9 @@ class TestRBACStrictModeValidation:
         with patch.dict(os.environ, {"RBAC_STRICT_MODE": "  true  ", "ENVIRONMENT": "development"}):
             from src.security.rbac_foundation import HealthcareRBACManager
 
-            connection_factory = PostgresConnectionFactory(
-                host="localhost",
-                database="intelluxe",
-                user="intelluxe",
-                password="secure_password",
-            )
-            test_connection = connection_factory.create_connection()
-            manager = HealthcareRBACManager(test_connection)
+            # Mock database connection for unit test
+            mock_connection = MagicMock()
+            manager = HealthcareRBACManager(mock_connection)
             assert manager.STRICT_MODE is True
 
 
@@ -286,13 +256,8 @@ class TestSecurityScan:
 
     def setup_method(self) -> None:
         """Setup test environment"""
-        connection_factory = PostgresConnectionFactory(
-            host="localhost",
-            database="intelluxe",
-            user="intelluxe",
-            password="secure_password",
-        )
-        self.test_connection = connection_factory.create_connection()
+        # Mock database connection for unit tests
+        self.test_connection = MagicMock()
 
     def test_configuration_injection_pattern(self) -> None:
         """Test that configuration injection works without mocking private methods"""
@@ -317,7 +282,7 @@ class TestSecurityScan:
             # Test configuration with specific values
             override_config = {
                 "MASTER_ENCRYPTION_KEY": base64.urlsafe_b64encode(
-                    b"test_key_32_bytes_long_exactly!"
+                    b"test_key_32_bytes_long_exactly!",
                 ).decode(),
                 "TEST_MODE": True,
             }
