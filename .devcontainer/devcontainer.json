@@ -24,7 +24,7 @@
             }
         }
     },
-    "postCreateCommand": "make install && make deps && make hooks",
+    "postCreateCommand": "make deps -v",
     "forwardPorts": [
         8000,
         5432,
