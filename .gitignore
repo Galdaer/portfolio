@@ -40,6 +40,8 @@
 !/src/**/*
 !/config/
 !/config/**/*
+!/domains/
+!/domains/**/*
 
 # Healthcare MCP integration
 !/mcps/
@@ -85,8 +87,8 @@
 !/test-setup.sh
 
 # === AI DATA DIRECTORIES (CONTROLLED) ===
-!/data/
-!/data/**/*
+/data/
+/data/**/*
 # Exclude sensitive AI data even if directories are whitelisted
 /data/training/user_samples/*
 !/data/training/user_samples/.gitkeep
@@ -144,8 +146,9 @@ id_ed25519*
 # Logs
 /scripts/logs/
 *.log
-!/logs/
-!/logs/*
+/logs/*.log
+logs/
+logs/*
 
 # Backups created by scripts
 /backups/
@@ -254,3 +257,7 @@ Thumbs.db
 !dmesg.txt
 !tests.txt
 services/user/wyoming-whisper/wyoming-whisper.conf
+
+!/core/models/
+!/core/models/*.py
+!/core/models/**/*.py

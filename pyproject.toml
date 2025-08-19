@@ -59,6 +59,23 @@ select = [
     "B",   # flake8-bugbear
     "C4",  # flake8-comprehensions
     "UP",  # pyupgrade
+    "S",   # flake8-bandit (security)
+    "A",   # flake8-builtins (avoid shadowing)
+    "COM", # flake8-commas
+    "DTZ", # flake8-datetimez (timezone-aware datetime)
+    "EM",  # flake8-errmsg (exception message formatting)
+    "FBT", # flake8-boolean-trap
+    "ICN", # flake8-import-conventions
+    "PIE", # flake8-pie (misc linting)
+    "Q",   # flake8-quotes
+    "RET", # flake8-return (return value patterns)
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "ARG", # flake8-unused-arguments
+    "PTH", # flake8-use-pathlib
+    "TD",  # flake8-todos (TODO formatting)
+    "PL",  # pylint
+    "TRY", # tryceratops (exception handling)
 ]
 
 ignore = [
@@ -66,8 +83,56 @@ ignore = [
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex (let's be reasonable)
     "B904",  # raise from inside except without specifying exception cause
+    # Healthcare AI specific ignores
+    "S101",  # assert used (legitimate in healthcare validation)
+    "PLR0913", # too many arguments (healthcare functions may need many params)
+    "PLR0912", # too many branches (medical logic can be complex)
+    "TRY003", # avoid specifying long messages in exceptions (healthcare needs detailed errors)
+    "EM101",  # string literal in exception (healthcare needs specific error messages)
+    "FBT001", # boolean positional args (healthcare configs may use booleans)
+    "FBT002", # boolean default args (healthcare defaults may be boolean)
+    "TD002",  # missing TODO author (not critical for healthcare development)
+    "TD003",  # missing TODO link (not critical for healthcare development)
 ]
+
+# Healthcare AI specific rule customizations
+[tool.ruff.lint.per-file-ignores]
+# Test files can use assert and have complex logic
+"tests/**/*.py" = ["S101", "PLR0912", "PLR0913", "PLR0915"]
+# Migration scripts can have complex patterns
+"**/migrations/**/*.py" = ["PLR0912", "PLR0913", "PLR0915"]
+# Medical-mirrors downloaders can have complex error handling
+"services/user/medical-mirrors/**/*.py" = ["PLR0912", "TRY003", "EM101"]
+# Agent files can have complex medical logic
+"agents/**/*.py" = ["PLR0912", "PLR0913", "C901"]
+# Configuration files can have boolean patterns
+"**/config.py" = ["FBT001", "FBT002"]
+
+[tool.ruff.lint.flake8-type-checking]
+# Enable strict imports for healthcare type safety
+strict = true
+
+[tool.ruff.lint.isort]
+# Healthcare AI import organization
+known-first-party = ["agents", "core", "config", "domains"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+combine-as-imports = true
+split-on-trailing-comma = true
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: marks tests as integration tests",
+    "e2e: marks tests as end-to-end tests",
+    "slow: marks tests as slow running",
+]
+env = [
+    "ENVIRONMENT=testing",
+]
 indent-style = "space"

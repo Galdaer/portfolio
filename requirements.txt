@@ -304,14 +304,14 @@ kiwisolver==1.4.8
     # via matplotlib
 kubernetes==33.1.0
     # via chromadb
-langchain==0.3.26
+langchain==0.3.27
     # via
     #   -r requirements.in
     #   langchain-community
     #   ragas
 langchain-community==0.3.27
     # via ragas
-langchain-core==0.3.68
+langchain-core==0.3.72
     # via
     #   langchain
     #   langchain-community
@@ -323,7 +323,9 @@ langchain-core==0.3.68
     #   ragas
 langchain-openai==0.3.27
     # via ragas
-langchain-text-splitters==0.3.8
+langchain-ollama==0.3.6
+    # via ragas
+langchain-text-splitters==0.3.9
     # via langchain
 langcodes==3.5.0
     # via spacy

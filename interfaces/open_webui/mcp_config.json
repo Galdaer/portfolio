@@ -1,0 +1,14 @@
+{
+    "mcpServers": {
+        "healthcare_server": {
+            "command": "node",
+            "args": [
+                "/app/build/index.js"
+            ],
+            "description": "Provides healthcare tools including PubMed search, clinical trials, and FDA drug information",
+            "env": {
+                "MCP_TRANSPORT": "stdio"
+            }
+        }
+    }
+}

@@ -1474,8 +1474,12 @@ enable_config_web_ui() {
     date +%s >"$timestamp_file"
 
     if [[ "$config_changed" == "true" ]]; then
-        log "Enabling intelluxe-config-web-ui.service"
-        run systemctl enable --now intelluxe-config-web-ui.service
+        if systemctl list-unit-files | grep -q '^intelluxe-config-web-ui.service'; then
+            log "Enabling intelluxe-config-web-ui.service"
+            run systemctl enable --now intelluxe-config-web-ui.service
+        else
+            warn "intelluxe-config-web-ui.service unit not found; skipping enable"
+        fi
     else
         # Just ensure it's enabled but don't restart
         log "Ensuring intelluxe-config-web-ui.service is enabled (without restart)"
@@ -3091,6 +3095,13 @@ restart_services_with_dependencies() {
     local -a startup_order=(
         "wireguard"     # VPN must be first for network access
         "traefik"       # Reverse proxy
+        "postgresql"    # Database
+        "redis"         # Cache
+        "healthcare-mcp-stdio"  # Healthcare MCP stdio server
+        "mcp-pipeline"  # MCP Pipeline service
+        "ollama"        # AI model server
+        "ollama-webui"  # Open WebUI
+        "medical-mirrors" # Medical data mirrors
         "config-web-ui" # Configuration interface
         "whisper"       # Speech-to-text service
         "scispacy"      # Scientific NLP

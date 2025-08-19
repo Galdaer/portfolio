@@ -1,0 +1,92 @@
+# Medical Search Agent Configuration
+# Enables customization for different healthcare organizations
+
+# =============================================================================
+# TECHNICAL PARAMETERS (Developer Responsibility)
+# =============================================================================
+search_parameters:
+  # Maximum results per search type
+  max_results:
+  summary_display_limit: 10
+    condition_info: 10
+    symptom_literature: 15
+    drug_information: 8
+    clinical_references: 5
+
+  # Timeout settings (seconds)
+  timeouts:
+  scispacy_request: 15 # SciSpacy entity extraction timeout
+  mcp_request: 45 # Individual MCP tool timeout (increased for stability)
+  search_request: 60 # Individual search operation timeout (agent step)
+  total_search: 75 # Overall search operation timeout
+  database_query: 5 # Database query timeout
+  max_concurrent_mcp: 2 # Limit concurrent MCP calls to reduce transport contention
+
+  # Search query templates (technical formatting)
+  query_templates:
+    condition_info: "{concept} overview pathophysiology symptoms"
+    symptom_literature: "{symptom} presentation differential clinical features"
+    drug_information: "{drug_name} indications contraindications interactions"
+    clinical_guidelines: "{condition} clinical practice guidelines evidence"
+
+# =============================================================================
+# CLINICAL PREFERENCES (Doctor/Client Configurable)
+# =============================================================================
+
+# Evidence quality weights (clinical judgment - doctors should configure)
+evidence_weights:
+  systematic_review: 10
+  meta_analysis: 9
+  randomized_controlled_trial: 8
+  clinical_guideline: 8
+  regulatory_approval: 7
+  cohort_study: 6
+  case_control_study: 5
+  clinical_study: 4
+  review: 3
+  case_report: 2
+  unknown: 1
+
+# Medical organizations for guideline search (regional preferences)
+trusted_organizations:
+  - "AHA" # American Heart Association
+  - "ACC" # American College of Cardiology
+  - "ACP" # American College of Physicians
+  - "USPSTF" # US Preventive Services Task Force
+  - "CDC" # Centers for Disease Control
+  - "NIH" # National Institutes of Health
+  - "WHO" # World Health Organization
+
+# Publication preferences by search type
+publication_types:
+  condition_info:
+    - "review"
+    - "meta_analysis"
+    - "systematic_review"
+  symptom_literature:
+    - "clinical_study"
+    - "review"
+    - "case_control_study"
+  drug_information:
+    - "clinical_trial"
+    - "regulatory_approval"
+    - "prescribing_information"
+  clinical_references:
+    - "clinical_guideline"
+    - "practice_guideline"
+    - "consensus_statement"
+
+# Search confidence parameters (clinical judgment)
+confidence_parameters:
+  min_sources_for_high_confidence: 15
+  min_high_quality_sources: 5
+  recency_bonus_years: 2
+  max_recency_bonus: 1.0
+
+# =============================================================================
+# TECHNICAL URL PATTERNS (Developer Responsibility)
+# =============================================================================
+url_patterns:
+  pubmed_article: "https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+  fda_drug: "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=overview.process&ApplNo={application_number}"
+  clinicaltrials: "https://clinicaltrials.gov/ct2/show/{nct_id}"

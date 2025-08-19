@@ -121,7 +121,7 @@ class ExampleMigratedTest(HealthcareTestCase, unittest.TestCase):
         # Get synthetic lab results from database
         patient = self.get_sample_patient()
         lab_results = self.synthetic_data.get_test_lab_results(
-            patient_id=patient["patient_id"], limit=3
+            patient_id=patient["patient_id"], limit=3,
         )
 
         if lab_results:
@@ -131,7 +131,7 @@ class ExampleMigratedTest(HealthcareTestCase, unittest.TestCase):
                 self.assertIsNotNone(lab_result["test_value"])
 
                 print(
-                    f"✅ Testing lab result: {lab_result['test_name']} = {lab_result['test_value']}"
+                    f"✅ Testing lab result: {lab_result['test_name']} = {lab_result['test_value']}",
                 )
 
     def _process_medical_encounter(self, patient, doctor, encounter):
@@ -180,7 +180,7 @@ class QuickTestDataExample(unittest.TestCase):
 
 if __name__ == "__main__":
     print(
-        "🏥 Running example test migration from hardcoded PHI to database-backed synthetic data..."
+        "🏥 Running example test migration from hardcoded PHI to database-backed synthetic data...",
     )
     print()
 

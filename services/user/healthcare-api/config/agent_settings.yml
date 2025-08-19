@@ -1,0 +1,57 @@
+# config/agent_settings.yml
+# Healthcare AI Agent Configuration
+# Configures behavior, limits, and LLM parameters for all agents
+
+agent_limits:
+  clinical_research:
+    max_steps: 100 # Complex research needs more attempts
+    timeout_seconds: 300
+  max_iterations: 10 # For iterative reasoning processes (raised to avoid premature stops)
+    llm_settings:
+      temperature: 0.3 # Balance creativity and consistency
+      max_tokens: 1000 # Comprehensive medical responses
+
+  document_processing:
+    max_steps: 20 # Document parsing should be fast
+    timeout_seconds: 60
+    max_iterations: 2 # Simple document processing
+    llm_settings:
+      temperature: 0.2 # More deterministic for document analysis
+      max_tokens: 500 # Moderate response length
+
+  differential_diagnosis:
+    max_steps: 50 # Moderate complexity
+    timeout_seconds: 180
+    max_iterations: 3 # Thorough diagnostic reasoning
+    llm_settings:
+      temperature: 0.3 # Balanced for medical reasoning
+      max_tokens: 800 # Detailed diagnostic explanations
+
+# Query engine specific settings
+query_engine:
+  enhanced_medical_query:
+  max_iterations: 10 # Default for medical queries (raised to avoid iteration-limit halts)
+    cache_ttl_seconds: 1800 # 30 minutes
+    llm_settings:
+      temperature: 0.3
+      max_tokens: 100 # Query refinement responses
+
+# Response validation settings
+response_validation:
+  medical_trust_scoring:
+    llm_settings:
+      temperature: 0.1 # Very deterministic for validation
+      max_tokens: 10 # Just numerical scores
+    thresholds:
+      minimum_trust_score: 0.8 # Require high trust for medical info
+      critical_safety_score: 0.95 # Very high safety requirement
+
+# Healthcare compliance settings
+compliance:
+  phi_detection:
+    confidence_threshold: 0.85 # High confidence for PHI detection
+    enable_logging: true # Log all PHI detection events
+
+  disclaimers:
+    always_include: true # Always include medical disclaimers
+    emergency_contact_required: true # Require emergency contact info

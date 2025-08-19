@@ -1,0 +1,399 @@
+{
+    "__inputs": [
+        {
+            "name": "DS_JSONAPI",
+            "label": "JSON API Datasource",
+            "description": "Datasource pointing to healthcare-api base URL",
+            "type": "datasource",
+            "pluginId": "marcusolsson-json-datasource",
+            "pluginName": "JSON API"
+        }
+    ],
+    "title": "Healthcare System Health Overview",
+    "uid": "health-overview",
+    "schemaVersion": 37,
+    "version": 1,
+    "refresh": "15s",
+    "tags": [
+        "healthcare",
+        "infrastructure"
+    ],
+    "panels": [
+        {
+            "type": "stat",
+            "title": "Overall Status",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 0,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/health/full",
+                    "field": "overall_status"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "DB Query ms",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 4,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "refId": "B",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/health/full",
+                    "field": "components.database.query_time_ms"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "Redis Ping ms",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 8,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "refId": "C",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/health/full",
+                    "field": "components.cache.ping_time_ms"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "LLM Status",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 12,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "refId": "D",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/health/full",
+                    "field": "components.llm.status"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "Memory %",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 16,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "refId": "E",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/health/full",
+                    "field": "components.memory.memory_percent"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "Allow Rate",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 20,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "refId": "F",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/rate-limit/stats",
+                    "field": "summary.allow_rate"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "Denied %",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 0,
+                "y": 12
+            },
+            "targets": [
+                {
+                    "refId": "L",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/rate-limit/stats",
+                    "field": "summary.denied"
+                },
+                {
+                    "refId": "M",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/rate-limit/stats",
+                    "field": "summary.allowed"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "Policy Version",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 4,
+                "y": 12
+            },
+            "targets": [
+                {
+                    "refId": "N",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/rate-limit/stats",
+                    "field": "policy_version"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "Redis Memory",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 8,
+                "y": 12
+            },
+            "targets": [
+                {
+                    "refId": "O",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/health/full",
+                    "field": "components.cache.memory_used"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "LLM Protocol",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 12,
+                "y": 12
+            },
+            "targets": [
+                {
+                    "refId": "P",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/health/full",
+                    "field": "components.llm.protocol"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "Active Bypass Count",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 16,
+                "y": 12
+            },
+            "targets": [
+                {
+                    "refId": "Q",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/rate-limit/stats",
+                    "field": "summary.emergency_bypass"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "Allowed Requests",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 0,
+                "y": 4
+            },
+            "targets": [
+                {
+                    "refId": "G",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/rate-limit/stats",
+                    "field": "summary.allowed"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "Denied Requests",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 4,
+                "y": 4
+            },
+            "targets": [
+                {
+                    "refId": "H",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/rate-limit/stats",
+                    "field": "summary.denied"
+                }
+            ]
+        },
+        {
+            "type": "stat",
+            "title": "Emergency Bypass",
+            "gridPos": {
+                "h": 4,
+                "w": 4,
+                "x": 8,
+                "y": 4
+            },
+            "targets": [
+                {
+                    "refId": "I",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/rate-limit/stats",
+                    "field": "summary.emergency_bypass"
+                }
+            ]
+        },
+        {
+            "type": "table",
+            "title": "Component Statuses",
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 4
+            },
+            "targets": [
+                {
+                    "refId": "J",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/health/full",
+                    "rootSelector": "components"
+                }
+            ]
+        },
+        {
+            "type": "table",
+            "title": "Rate Limit Breakdown",
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 8
+            },
+            "targets": [
+                {
+                    "refId": "K",
+                    "datasource": {
+                        "type": "marcusolsson-json-datasource",
+                        "uid": "${DS_JSONAPI}"
+                    },
+                    "method": "GET",
+                    "urlPath": "/admin/rate-limit/stats",
+                    "rootSelector": "breakdown"
+                }
+            ]
+        }
+    ],
+    "time": {
+        "from": "now-30m",
+        "to": "now"
+    },
+    "timepicker": {
+        "refresh_intervals": [
+            "5s",
+            "10s",
+            "30s",
+            "1m",
+            "5m",
+            "15m"
+        ]
+    }
+}

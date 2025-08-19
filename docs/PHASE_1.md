@@ -448,7 +448,7 @@ jobs:
         ./scripts/universal-service-runner.sh start healthcare-mcp
 
         # Wait for services to be ready
-        timeout 60 bash -c 'until curl -f http://localhost:11434/api/tags; do sleep 2; done'
+        timeout 60 bash -c 'until curl -f http://172.20.0.10:11434/api/tags; do sleep 2; done'
 
     - name: Run Comprehensive Healthcare Evaluation
       env:
@@ -942,7 +942,7 @@ class SecureHealthcareMCPServer:
             results = []
             for source in sources:
                 if source == "pubmed":
-                    pubmed_results = await self.search_pubmed(sanitized_query)
+                    pubmed_results = await self.search-pubmed(sanitized_query)
                     results.extend(pubmed_results)
                 elif source == "clinical_trials":
                     trials_results = await self.search_clinical_trials(sanitized_query)
@@ -1141,7 +1141,7 @@ class SecureHealthcareMCPServer:
             results = []
             for source in sources:
                 if source == "pubmed":
-                    pubmed_results = await self.search_pubmed(sanitized_query)
+                    pubmed_results = await self.search-pubmed(sanitized_query)
                     results.extend(pubmed_results)
                 elif source == "clinical_trials":
                     trials_results = await self.search_clinical_trials(sanitized_query)
@@ -1499,7 +1499,7 @@ class SecureHealthcareMCPServer:
             results = []
             for source in sources:
                 if source == "pubmed":
-                    pubmed_results = await self.search_pubmed(sanitized_query)
+                    pubmed_results = await self.search-pubmed(sanitized_query)
                     results.extend(pubmed_results)
                 elif source == "clinical_trials":
                     trials_results = await self.search_clinical_trials(sanitized_query)
@@ -1905,7 +1905,7 @@ class UnifiedMCPClient:
         response = await self.client.post(url, json=params)
         return response.json()
 
-    async def search_pubmed(self, query: str) -> Dict[str, Any]:
+    async def search-pubmed(self, query: str) -> Dict[str, Any]:
         """Search medical literature"""
         return await self.call_healthcare_tool(
             "pubmed_search",
@@ -2025,7 +2025,7 @@ class LiteratureResearchAgent:
         """Research medical literature using PubMed and other sources"""
 
         # Search PubMed for peer-reviewed articles
-        pubmed_results = await self.mcp_client.search_pubmed(query)
+        pubmed_results = await self.mcp_client.search-pubmed(query)
 
         # Search clinical trials database
         trials_results = await self.mcp_client.search_clinical_trials(query)
@@ -2458,7 +2458,7 @@ class MedicalHybridRetriever:
         # Initialize medical-optimized embeddings
         self.medical_embeddings = OllamaEmbeddings(
             model="llama3.1",  # Using local Ollama deployment
-            base_url="http://localhost:11434"
+            base_url="http://172.20.0.10:11434"
         )
 
         # Setup vector store with medical document partitioning
@@ -2541,7 +2541,7 @@ class EnhancedMemoryManager:
             host='localhost', port=6379, decode_responses=True
         )
         self.db_conn = psycopg2.connect(
-            "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
+            "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
         )
 
     async def store_session_context(self,
@@ -3579,7 +3579,7 @@ class ResearchAssistantAgent(BaseAgent):
 
         # Get additional literature
         pubmed_query = f"{drug_name} safety efficacy"
-        literature = await self.mcp_client.search_pubmed(pubmed_query)
+        literature = await self.mcp_client.search-pubmed(pubmed_query)
 
         return {
             'research_type': 'drug_information',
@@ -3594,7 +3594,7 @@ class ResearchAssistantAgent(BaseAgent):
         """Comprehensive research using all available sources"""
 
         # Search multiple sources in parallel
-        pubmed_results = await self.mcp_client.search_pubmed(query)
+        pubmed_results = await self.mcp_client.search-pubmed(query)
 
         # Combine and rank results
         all_results = []
@@ -4148,7 +4148,7 @@ class HealthcareMetricsCollector:
 
     def __init__(self):
         self.db_conn = psycopg2.connect(
-            "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
+            "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe"
         )
 
     async def record_transcription_metrics(self, session_id: str, doctor_id: str,
@@ -4800,7 +4800,7 @@ class TestPhase1HealthcareIntegration:
         """Test all services are running via universal service runner"""
 
         services_to_check = [
-            'http://localhost:11434/api/version',  # Ollama
+            'http://172.20.0.10:11434/api/version',  # Ollama
             'http://localhost:3000/health',        # Healthcare-MCP
             'http://localhost:8001/health',        # WhisperLive
         ]
@@ -4841,7 +4841,7 @@ class TestPhase1HealthcareIntegration:
         client = UnifiedMCPClient()
 
         # Test PubMed search
-        pubmed_result = await client.search_pubmed("diabetes management")
+        pubmed_result = await client.search-pubmed("diabetes management")
         assert 'results' in pubmed_result or 'error' in pubmed_result
 
         # Test FDA drug lookup
@@ -4987,7 +4987,7 @@ if __name__ == "__main__":
 image="intelluxe/real-time-assistant:latest"
 port="8009:8009"
 description="Real-time clinical AI assistant with live transcription integration"
-env="WHISPER_ENDPOINT=http://whisperlive:8000,OLLAMA_ENDPOINT=http://ollama:11434"
+env="WHISPER_ENDPOINT=http://whisperlive:8000,OLLAMA_ENDPOINT=http://172.20.0.10:11434"
 volumes="./session-data:/app/sessions:rw"
 network_mode="intelluxe-net"
 restart_policy="unless-stopped"

@@ -230,7 +230,7 @@ class SyntheticHealthcareDataGenerator:
         emergency_contact = {
             "name": self.fake.name(),
             "relationship": self.fake.random_element(
-                ["Spouse", "Parent", "Sibling", "Child", "Friend"]
+                ["Spouse", "Parent", "Sibling", "Child", "Friend"],
             ),
             "phone": self.generate_phone_number(),
         }
@@ -249,7 +249,7 @@ class SyntheticHealthcareDataGenerator:
             condition = {
                 "condition": self.fake.medical_condition(),
                 "diagnosed_date": self.fake.date_between(
-                    start_date="-10y", end_date="today"
+                    start_date="-10y", end_date="today",
                 ).isoformat(),
                 "status": self.fake.random_element(["Active", "Resolved", "Chronic"]),
             }
@@ -263,10 +263,10 @@ class SyntheticHealthcareDataGenerator:
                 "name": self.fake.medication(),
                 "dosage": f"{random.randint(5, 100)}mg",
                 "frequency": self.fake.random_element(
-                    ["Once daily", "Twice daily", "Three times daily", "As needed"]
+                    ["Once daily", "Twice daily", "Three times daily", "As needed"],
                 ),
                 "prescribed_date": self.fake.date_between(
-                    start_date="-2y", end_date="today"
+                    start_date="-2y", end_date="today",
                 ).isoformat(),
             }
             current_medications.append(medication)
@@ -326,7 +326,7 @@ class SyntheticHealthcareDataGenerator:
         # Generate encounter details
         encounter_date = self.fake.date_between(start_date="-1y", end_date="today").isoformat()
         encounter_type = self.fake.random_element(
-            ["Office Visit", "Telehealth", "Follow-up", "Annual Physical"]
+            ["Office Visit", "Telehealth", "Follow-up", "Annual Physical"],
         )
 
         # Generate clinical content (generic, non-specific)
@@ -378,12 +378,12 @@ class SyntheticHealthcareDataGenerator:
         )
 
     def generate_dataset(
-        self, num_patients: int = 100, encounters_per_patient: int = 3
+        self, num_patients: int = 100, encounters_per_patient: int = 3,
     ) -> dict[str, Any]:
         """Generate a complete synthetic healthcare dataset"""
 
         self.logger.info(
-            f"Generating synthetic dataset: {num_patients} patients, {encounters_per_patient} encounters each"
+            f"Generating synthetic dataset: {num_patients} patients, {encounters_per_patient} encounters each",
         )
 
         patients = []
@@ -416,7 +416,7 @@ class SyntheticHealthcareDataGenerator:
         }
 
         self.logger.info(
-            f"Dataset generation complete: {len(patients)} patients, {len(encounters)} encounters"
+            f"Dataset generation complete: {len(patients)} patients, {len(encounters)} encounters",
         )
         return dataset
 
@@ -435,5 +435,5 @@ if __name__ == "__main__":
     generator = SyntheticHealthcareDataGenerator()
     dataset = generator.generate_dataset(num_patients=50, encounters_per_patient=2)
     generator.save_dataset(
-        dataset, "/opt/intelluxe/data/evaluation/synthetic/healthcare_test_data.json"
+        dataset, "/opt/intelluxe/data/evaluation/synthetic/healthcare_test_data.json",
     )
