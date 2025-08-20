@@ -420,5 +420,6 @@
     "continueAI.nextEditSuggestions.enabled": true,
     "github.copilot.nextEditSuggestions.enabled": true,
     "// External Drive Configuration": "Medical data storage on 4TB external drive",
-    "medical.dataPath": "/home/intelluxe/database"
+    "medical.dataPath": "/home/intelluxe/database",
+    "terminal.integrated.env.linux": {}
 }
