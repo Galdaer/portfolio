@@ -22,21 +22,6 @@
 	   lint-dev \
 	   lint-python \
 	   lint-shell-complexity \
-	   mcp \
-	   mcp-build \
-	   mcp-rebuild \
-	   mcp-clean \
-	   mcp-pipeline \
-	   mcp-pipeline-build \
-	   mcp-pipeline-rebuild \
-	   mcp-pipeline-clean \
-	   mcp-pipeline-run \
-	   mcp-pipeline-stop \
-	   mcp-pipeline-restart \
-	   mcp-pipeline-logs \
-	   mcp-pipeline-health \
-	   mcp-pipeline-status \
-	mcp-pipeline-test \
 	   healthcare-api \
 	   healthcare-api-build \
 	   healthcare-api-rebuild \
@@ -471,127 +456,50 @@ define BOOTSTRAP_RESTART
 	@printf '\n\n$(2)\n' | $(BOOTSTRAP)
 endef
 
-# Single-command restarts for interactive services (14 entries)
+# Interactive service commands - runs make setup then navigates to service
 grafana:
-	$(call BOOTSTRAP_RESTART,grafana,1)
+	@echo "🔁 Restarting Grafana via setup menu..."
+	@printf '3\n1\n' | make setup
 
 healthcare-api:
-	$(call BOOTSTRAP_RESTART,healthcare-api,2)
-
-healthcare-mcp:
-	$(call BOOTSTRAP_RESTART,healthcare-mcp,3)
-
-mcp-pipeline:
-	$(call BOOTSTRAP_RESTART,mcp-pipeline,4)
+	@echo "🔁 Restarting Healthcare API via setup menu..."
+	@printf '3\n2\n' | make setup
 
 medical-mirrors:
-	$(call BOOTSTRAP_RESTART,medical-mirrors,5)
-
-n8n:
-	$(call BOOTSTRAP_RESTART,n8n,6)
+	@echo "🔁 Restarting Medical Mirrors via setup menu..."
+	@printf '3\n3\n' | make setup
 
 ollama:
-	$(call BOOTSTRAP_RESTART,ollama,7)
+	@echo "🔁 Restarting Ollama via setup menu..."
+	@printf '3\n4\n' | make setup
 
 ollama-webui:
-	$(call BOOTSTRAP_RESTART,ollama-webui,8)
+	@echo "🔁 Restarting Ollama WebUI via setup menu..."
+	@printf '3\n5\n' | make setup
 
 postgresql:
-	$(call BOOTSTRAP_RESTART,postgresql,9)
+	@echo "🔁 Restarting PostgreSQL via setup menu..."
+	@printf '3\n6\n' | make setup
 
 redis:
-	$(call BOOTSTRAP_RESTART,redis,10)
+	@echo "🔁 Restarting Redis via setup menu..."
+	@printf '3\n7\n' | make setup
 
 scispacy:
-	$(call BOOTSTRAP_RESTART,scispacy,11)
+	@echo "🔁 Restarting SciSpacy via setup menu..."
+	@printf '3\n8\n' | make setup
 
 traefik:
-	$(call BOOTSTRAP_RESTART,traefik,12)
+	@echo "🔁 Restarting Traefik via setup menu..."
+	@printf '3\n9\n' | make setup
 
 wireguard:
-	$(call BOOTSTRAP_RESTART,wireguard,13)
+	@echo "🔁 Restarting Wireguard via setup menu..."
+	@printf '3\n10\n' | make setup
 
 wyoming-whisper:
-	$(call BOOTSTRAP_RESTART,wyoming-whisper,14)
-
-
-mcp: healthcare-mcp
-
-mcp-build:
-	@echo "🏗️  Building Healthcare MCP server Docker image"
-	@cd services/user/healthcare-mcp && docker build -t intelluxe/healthcare-mcp:latest .
-	@echo "✅ Healthcare MCP Docker image built successfully"
-
-mcp-rebuild:
-	@echo "🔄  Rebuilding Healthcare MCP server (no cache)"
-	@cd services/user/healthcare-mcp && docker build --no-cache -t intelluxe/healthcare-mcp:latest .
-	@echo "✅ Healthcare MCP Docker image rebuilt successfully"
-
-mcp-clean:
-	@echo "🧹  Cleaning up Healthcare MCP Docker artifacts"
-	@docker images intelluxe/healthcare-mcp -q | xargs -r docker rmi -f
-	@docker system prune -f --filter "label=maintainer=Intelluxe AI Healthcare Team"
-	@echo "✅ Healthcare MCP Docker cleanup complete"
-
-# MCP Pipeline Service Commands (Open WebUI Integration)
-mcp-pipeline-build:
-	@echo "🏗️  Building MCP Pipeline service Docker image"
-	@cd services/user/mcp-pipeline && docker build -t intelluxe/mcp-pipeline:latest .
-	@echo "✅ MCP Pipeline Docker image built successfully"
-
-mcp-pipeline-rebuild:
-	@echo "🔄  Rebuilding MCP Pipeline service (no cache)"
-	@cd services/user/mcp-pipeline && docker build --no-cache -t intelluxe/mcp-pipeline:latest .
-	@echo "✅ MCP Pipeline Docker image rebuilt successfully"
-
-mcp-pipeline-clean:
-	@echo "🧹  Cleaning up MCP Pipeline Docker artifacts"
-	@docker images intelluxe/mcp-pipeline -q | xargs -r docker rmi -f
-	@docker system prune -f --filter "label=service=mcp-pipeline"
-	@echo "✅ MCP Pipeline Docker cleanup complete"
-
-# MCP Pipeline test targets
-mcp-pipeline-stdio-test: mcp-pipeline
-	@echo "🧪  MCP Pipeline stdio-only test (DISABLE_HTTP_FALLBACK=1)"
-	@docker run --rm --network intelluxe-net \
-	  -e PIPELINES_PORT=9099 \
-	  -e MCP_CONFIG_PATH=/app/data/mcp_config.json \
-	  -e HEALTHCARE_MCP_CONTAINER=healthcare-mcp-stdio \
-	  -e DISABLE_HTTP_FALLBACK=1 \
-	  intelluxe/mcp-pipeline:latest bash -lc 'set -e; ./start_pipeline.sh & PID=$$!; for i in $$(seq 1 25); do sleep 1; curl -sf http://localhost:9099/health >/dev/null 2>&1 && break || true; done; echo "Health OK"; curl -s http://localhost:9099/tools | jq ".data | length"; kill $$PID || true; wait $$PID 2>/dev/null || true'
-	@echo "✅  Stdio test complete"
-
-mcp-pipeline-full-test: mcp-pipeline
-	@echo "🧪  MCP Pipeline full test (stdio + HTTP fallback)"
-	@docker run --rm --network intelluxe-net \
-	  -e PIPELINES_PORT=9099 \
-	  -e MCP_CONFIG_PATH=/app/data/mcp_config.json \
-	  -e HEALTHCARE_MCP_CONTAINER=healthcare-mcp-stdio \
-	  intelluxe/mcp-pipeline:latest bash -lc 'set -e; ./start_pipeline.sh & PID=$$!; for i in $$(seq 1 25); do sleep 1; curl -sf http://localhost:9099/health >/dev/null 2>&1 && break || true; done; echo "Health OK"; curl -s http://localhost:9099/tools | jq ".data | {count: length, sample: (.[0:3]|map(.id))}"; kill $$PID || true; wait $$PID 2>/dev/null || true'
-	@echo "✅  Full test complete"
-
-mcp-pipeline-stop:
-	@echo "🛑  Stopping MCP Pipeline service"
-	@docker stop mcp-pipeline 2>/dev/null || echo "Container not running"
-	@docker rm mcp-pipeline 2>/dev/null || echo "Container not found"
-	@echo "✅ MCP Pipeline service stopped"
-
-mcp-pipeline-logs:
-	@echo "📋  MCP Pipeline service logs (last 50 lines):"
-	@docker logs --tail 50 mcp-pipeline 2>/dev/null || echo "Container not found or not running"
-
-mcp-pipeline-health:
-	@echo "🏥  Checking MCP Pipeline service health"
-	@curl -f http://172.20.0.15:9099/health 2>/dev/null && echo "✅ MCP Pipeline service is healthy" || echo "❌ MCP Pipeline service is unhealthy"
-
-mcp-pipeline-status:
-	@echo "📊  MCP Pipeline service status:"
-	@docker ps --filter name=mcp-pipeline --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || echo "Container not found"
-
-mcp-pipeline-test:
-	@echo "🧪  Running MCP Pipeline validation script"
-	@bash scripts/test_mcp_pipeline.sh
-	@echo "✅  MCP Pipeline validation complete"
+	@echo "🔁 Restarting Wyoming Whisper via setup menu..."
+	@printf '3\n11\n' | make setup
 
 # Healthcare API Service Commands
 healthcare-api-build:
@@ -1167,22 +1075,6 @@ help:
 	@echo "   make data-status    - Show synthetic data statistics"
 	@echo "   make data-clean     - Remove synthetic data"
 	@echo ""
-	@echo "🐳  MCP SERVER:"
-	@echo "   make mcp			 - Start Healthcare MCP server"
-	@echo "   make mcp-build           - Build Healthcare MCP server Docker image"
-	@echo "   make mcp-rebuild   - Rebuild MCP server (no cache)"
-	@echo "   make mcp-clean     - Clean MCP Docker artifacts"
-	@echo ""
-	@echo "🔌  MCP PIPELINE (Open WebUI Integration):"
-	@echo "   make mcp-pipeline         - Start MCP Pipeline service"
-	@echo "   make mcp-pipeline-build       - Build MCP Pipeline service Docker image"
-	@echo "   make mcp-pipeline-rebuild - Rebuild MCP Pipeline (no cache)"
-	@echo "   make mcp-pipeline-logs    - View MCP Pipeline logs"
-	@echo "   make mcp-pipeline-health  - Check MCP Pipeline health"
-	@echo "   make mcp-pipeline-status  - Show MCP Pipeline status"
-	@echo "   make mcp-pipeline-clean   - Clean MCP Pipeline Docker artifacts"
-	@echo "   make mcp-pipeline-stdio-test  - Run stdio-only MCP pipeline tool discovery test"
-	@echo "   make mcp-pipeline-full-test   - Run stdio + HTTP fallback pipeline test"
 	@echo ""
 	@echo "🧬  SCISPACY NLP SERVICE:"
 	@echo "   make scispacy         - Start SciSpacy NLP service"
