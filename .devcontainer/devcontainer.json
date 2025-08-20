@@ -2,10 +2,23 @@
     "name": "Intelluxe Healthcare AI",
     "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
     "features": {
+        "ghcr.io/devcontainers/features/nvidia-cuda:1": {
+            "version": "12.3"
+        },
         "ghcr.io/devcontainers/features/docker-in-docker:2": {},
         "ghcr.io/devcontainers/features/node:1": {
             "version": "18"
         }
+    },
+    "hostRequirements": {
+        "gpu": "optional"
+    },
+    "runArgs": [
+        "--gpus=all"
+    ],
+    "containerEnv": {
+        "NVIDIA_VISIBLE_DEVICES": "all",
+        "NVIDIA_DRIVER_CAPABILITIES": "all"
     },
     "customizations": {
         "vscode": {
@@ -19,7 +32,8 @@
                 "ms-python.vscode-pylance",
                 "ms-python.debugpy",
                 "ms-python.vscode-python-envs",
-                "foxundermoon.shell-format"
+                "foxundermoon.shell-format",
+                "nvidia.nsight-vscode-edition"
             ],
             "settings": {
                 "python.defaultInterpreterPath": "/usr/bin/python3.12",
@@ -29,7 +43,7 @@
             }
         }
     },
-    "postCreateCommand": "sudo mkdir -p /opt/intelluxe/stack/logs && sudo chown -R vscode:vscode /opt/intelluxe && sudo apt update && sudo apt install software-properties-common -y && sudo add-apt-repository ppa:deadsnakes/ppa -y && sudo apt update && sudo apt install python3.12 python3.12-venv python3.12-dev python3-pip -y && sudo ln -sf /usr/bin/python3.12 /usr/local/bin/python && python3.12 -m ensurepip --upgrade && make deps -v",
+    "postCreateCommand": "sudo mkdir -p /opt/intelluxe/stack/logs && sudo chown -R vscode:vscode /opt/intelluxe && sudo apt update && sudo apt install software-properties-common -y && sudo add-apt-repository ppa:deadsnakes/ppa -y && sudo apt update && sudo apt install python3.12 python3.12-venv python3.12-dev python3-pip -y && sudo ln -sf /usr/bin/python3.12 /usr/local/bin/python && python3.12 -m ensurepip --upgrade && nvidia-smi && make deps -v",
     "forwardPorts": [
         8000,
         5432,
