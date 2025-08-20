@@ -1402,7 +1402,7 @@ choose_containers() {
         local description="${CONTAINER_DESCRIPTIONS[$container_name]:-No description available}"
         echo "  $((i + 1))) ${container_name} - ${description}"
     done
-    echo "Enter numbers separated by spaces (or press Enter for all):"
+    echo "Enter numbers separated by spaces or commas (e.g., '2 5 7' or '2,5,7') or press Enter for all:"
     if $FORCE_DEFAULTS; then
         SELECTED_CONTAINERS=("${ALL_CONTAINERS[@]}")
         log "[FORCE-DEFAULT] All containers selected."
@@ -1413,6 +1413,8 @@ choose_containers() {
         SELECTED_CONTAINERS=("${ALL_CONTAINERS[@]}")
     else
         SELECTED_CONTAINERS=()
+        # Replace commas with spaces and handle both formats
+        choices=$(echo "$choices" | tr ',' ' ')
         for idx in $choices; do
             if [[ "$idx" =~ ^[0-9]+$ ]] && ((idx >= 1 && idx <= ${#ALL_CONTAINERS[@]})); then
                 SELECTED_CONTAINERS+=("${ALL_CONTAINERS[$((idx - 1))]}")
