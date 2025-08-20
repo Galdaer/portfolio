@@ -5,7 +5,7 @@
         "ghcr.io/devcontainers/features/nvidia-cuda:1": {
             "version": "12.3"
         },
-        "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
         "ghcr.io/devcontainers/features/node:1": {
             "version": "18"
         }
@@ -81,7 +81,8 @@
         }
     },
     "mounts": [
-        "source=${localWorkspaceFolder}/.env,target=/workspaces/intelluxe-core/.env,type=bind"
+        "source=${localWorkspaceFolder}/.env,target=/workspaces/intelluxe-core/.env,type=bind",
+        "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
     ],
     "remoteUser": "vscode"
 }
