@@ -465,41 +465,45 @@ healthcare-api:
 	@echo "🔁 Restarting Healthcare API via setup menu..."
 	@printf '3\n2\n' | make setup
 
+llama-cpp:
+	@echo "🔁 Restarting Llama.cpp via setup menu..."
+	@printf '3\n3\n' | make setup
+
 medical-mirrors:
 	@echo "🔁 Restarting Medical Mirrors via setup menu..."
-	@printf '3\n3\n' | make setup
+	@printf '3\n4\n' | make setup
 
 ollama:
 	@echo "🔁 Restarting Ollama via setup menu..."
-	@printf '3\n4\n' | make setup
+	@printf '3\n5\n' | make setup
 
 ollama-webui:
 	@echo "🔁 Restarting Ollama WebUI via setup menu..."
-	@printf '3\n5\n' | make setup
+	@printf '3\n6\n' | make setup
 
 postgresql:
 	@echo "🔁 Restarting PostgreSQL via setup menu..."
-	@printf '3\n6\n' | make setup
+	@printf '3\n7\n' | make setup
 
 redis:
 	@echo "🔁 Restarting Redis via setup menu..."
-	@printf '3\n7\n' | make setup
+	@printf '3\n8\n' | make setup
 
 scispacy:
 	@echo "🔁 Restarting SciSpacy via setup menu..."
-	@printf '3\n8\n' | make setup
+	@printf '3\n9\n' | make setup
 
 traefik:
 	@echo "🔁 Restarting Traefik via setup menu..."
-	@printf '3\n9\n' | make setup
+	@printf '3\n10\n' | make setup
 
 wireguard:
 	@echo "🔁 Restarting Wireguard via setup menu..."
-	@printf '3\n10\n' | make setup
+	@printf '3\n11\n' | make setup
 
 wyoming-whisper:
 	@echo "🔁 Restarting Wyoming Whisper via setup menu..."
-	@printf '3\n11\n' | make setup
+	@printf '3\n12\n' | make setup
 
 # Healthcare API Service Commands
 healthcare-api-build:

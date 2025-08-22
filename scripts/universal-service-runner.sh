@@ -167,7 +167,8 @@ declare -gA DOCKER_ARG_MAP=(
     ["cgroup_ns"]="--cgroupns"
     
     # Advanced options
-    ["ulimit"]="--ulimit"
+    ["ulimit"]="ulimit_mapping"          # Special handling for multiple ulimits
+    ["ulimits"]="ulimit_mapping"         # Alternative plural form
     ["sysctl"]="--sysctl"
     ["shm_size"]="--shm-size"
     ["platform"]="--platform"
