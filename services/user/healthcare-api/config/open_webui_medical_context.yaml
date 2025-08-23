@@ -1,0 +1,329 @@
+# Open WebUI Medical Context Configuration
+# Configures healthcare-aware conversation continuity for Open WebUI integration
+
+# =============================================================================
+# FEATURE TOGGLES (Administrative Control)
+# =============================================================================
+features:
+  enable_medical_context: true
+  enable_topic_extraction: true
+  enable_conversation_linking: true
+  enable_phi_detection: true
+  enable_semantic_search: true
+  enable_user_preferences: true
+  enable_audit_logging: true
+
+# =============================================================================
+# DATABASE AND STORAGE SETTINGS
+# =============================================================================
+database:
+  # Open WebUI database path (relative to Open WebUI installation)
+  default_webui_db_path: "app/backend/data/webui.db"
+  
+  # Connection settings
+  connection_timeout: 30  # seconds
+  busy_timeout: 10  # SQLite busy timeout in seconds
+  
+  # Data retention policies
+  retention:
+    default_days: 365  # Default conversation context retention
+    min_retention_days: 30  # Minimum allowed retention
+    max_retention_days: 2555  # Maximum allowed retention (7 years for compliance)
+    cleanup_interval_hours: 24  # How often to run cleanup
+
+  # Performance settings
+  performance:
+    fts_rebuild_threshold: 1000  # Rebuild FTS index after N insertions
+    max_concurrent_queries: 5
+    query_timeout: 10  # Individual query timeout
+
+# =============================================================================
+# TOPIC EXTRACTION SETTINGS
+# =============================================================================
+topic_extraction:
+  # Confidence thresholds for topic extraction
+  confidence:
+    minimum_topic_confidence: 0.5
+    high_confidence_threshold: 0.8
+    multiple_topics_bonus: 0.1  # Boost confidence when multiple medical topics found
+
+  # Topic categorization settings
+  categories:
+    enabled:
+      - "condition"
+      - "medication" 
+      - "treatment"
+      - "procedure"
+      - "symptom"
+      - "test"
+      - "anatomy"
+    
+    # Category-specific confidence adjustments
+    confidence_adjustments:
+      medication: 0.9  # High confidence for drug names
+      condition: 0.8   # High confidence for conditions
+      procedure: 0.7   # Medium confidence for procedures
+      symptom: 0.6     # Lower confidence for symptoms (often ambiguous)
+      test: 0.75       # Medium-high confidence for medical tests
+      treatment: 0.7   # Medium confidence for treatments
+      anatomy: 0.65    # Medium confidence for anatomical terms
+
+  # Context window for topic extraction
+  context:
+    max_context_length: 500  # Characters of context to store with each topic
+    snippet_length: 200      # Length of context snippet for display
+
+# =============================================================================
+# CONVERSATION LINKING SETTINGS
+# =============================================================================
+conversation_linking:
+  # Similarity thresholds for linking conversations
+  similarity:
+    minimum_similarity: 0.3    # Minimum to consider conversations related
+    high_similarity: 0.7       # Threshold for strong relationship
+    exact_topic_bonus: 0.2     # Bonus for exact topic matches
+
+  # Relationship types and their weights
+  relationship_types:
+    similar_topic: 1.0         # Same medical topics discussed
+    follow_up: 1.2             # Explicit follow-up conversation
+    continuation: 1.1          # Continuation of previous discussion
+    related_condition: 0.8     # Related medical conditions
+    same_medication: 1.3       # Same medication discussed
+
+  # Limits for performance
+  limits:
+    max_related_conversations: 10   # Maximum related conversations to track per chat
+    max_search_results: 20          # Maximum results when searching for related chats
+    relationship_cache_size: 1000   # Cache size for relationship calculations
+
+# =============================================================================
+# USER PREFERENCE DEFAULTS
+# =============================================================================
+user_preferences:
+  defaults:
+    enable_medical_context: true
+    enable_topic_extraction: true
+    enable_conversation_linking: true
+    enable_phi_detection: true
+    privacy_level: "standard"  # minimal, standard, enhanced
+    context_retention_days: 365
+    enable_search_suggestions: true
+    enable_continuation_prompts: true
+    max_context_suggestions: 5
+
+  # Privacy level definitions
+  privacy_levels:
+    minimal:
+      enable_topic_extraction: true
+      enable_conversation_linking: false
+      enable_phi_detection: false
+      context_retention_days: 90
+      enable_search_suggestions: false
+      
+    standard:
+      enable_topic_extraction: true
+      enable_conversation_linking: true  
+      enable_phi_detection: true
+      context_retention_days: 365
+      enable_search_suggestions: true
+      
+    enhanced:
+      enable_topic_extraction: true
+      enable_conversation_linking: true
+      enable_phi_detection: true
+      context_retention_days: 730  # 2 years
+      enable_search_suggestions: true
+      enable_detailed_audit: true
+
+# =============================================================================
+# PERFORMANCE AND TIMEOUT SETTINGS
+# =============================================================================
+performance:
+  # Processing timeouts
+  timeouts:
+    topic_extraction: 5        # Seconds to extract topics from text
+    phi_detection: 3           # Seconds for PHI detection
+    similarity_calculation: 10  # Seconds to calculate conversation similarity
+    database_query: 15         # Seconds for complex database queries
+    context_retrieval: 8       # Seconds to retrieve medical context
+
+  # Concurrency limits
+  concurrency:
+    max_concurrent_extractions: 3    # Max parallel topic extractions
+    max_concurrent_searches: 2       # Max parallel similarity searches  
+    max_concurrent_phi_scans: 2      # Max parallel PHI detection runs
+
+  # Memory management
+  memory:
+    context_cache_size: 500     # Number of contexts to cache in memory
+    topic_cache_size: 1000      # Number of topics to cache
+    relationship_cache_size: 200 # Number of relationship calculations to cache
+    cache_ttl_minutes: 60       # Cache time-to-live
+
+# =============================================================================
+# SEARCH AND SUGGESTION SETTINGS  
+# =============================================================================
+search:
+  # Full-text search configuration
+  fts:
+    enable_stemming: true
+    enable_synonym_expansion: false  # Disable for medical precision
+    min_search_length: 3            # Minimum characters for search
+    max_search_results: 50          # Maximum search results
+
+  # Suggestion generation
+  suggestions:
+    max_suggestions_per_query: 5    # Max context suggestions to show
+    suggestion_confidence_min: 0.6  # Minimum confidence for suggestions
+    enable_proactive_suggestions: true # Show suggestions before user asks
+    suggestion_cache_ttl_minutes: 30   # How long to cache suggestions
+
+  # Medical topic search weights
+  topic_weights:
+    exact_match: 2.0           # Weight for exact topic name matches
+    partial_match: 1.0         # Weight for partial topic matches
+    category_match: 0.5        # Weight for same category matches
+    recent_discussion: 1.5     # Weight boost for recently discussed topics
+
+# =============================================================================
+# MEDICAL CONTEXT FORMATTING
+# =============================================================================
+formatting:
+  # Context display preferences
+  display:
+    max_context_preview_length: 150   # Characters for context previews
+    max_suggestions_displayed: 3      # Max suggestions in UI
+    enable_topic_highlighting: true   # Highlight medical topics in text
+    enable_confidence_display: false  # Show confidence scores to users
+
+  # Response enhancement
+  responses:
+    add_context_header: true          # Add "Related to previous discussion" headers
+    include_last_discussed_date: true # Show when topic was last discussed  
+    suggest_follow_up_questions: true # Generate follow-up questions
+    max_follow_up_suggestions: 2      # Max follow-up questions to suggest
+
+# =============================================================================
+# INTEGRATION SETTINGS
+# =============================================================================
+integration:
+  # Open WebUI specific settings
+  open_webui:
+    hook_points:
+      - "pre_message_processing"    # Before processing user message
+      - "post_message_processing"   # After processing user message  
+      - "pre_response_generation"   # Before generating assistant response
+      - "post_response_generation"  # After generating assistant response
+
+  # API endpoints for medical context
+  endpoints:
+    enable_rest_api: true
+    api_prefix: "/api/medical-context"
+    require_authentication: true
+    rate_limit_per_minute: 60
+
+  # Frontend integration
+  frontend:
+    enable_context_sidebar: true     # Show medical context in sidebar
+    enable_suggestion_buttons: true  # Show clickable suggestions
+    enable_topic_highlights: false   # Highlight medical terms (can be distracting)
+    context_update_interval_ms: 2000 # How often to update context display
+
+# =============================================================================
+# AUDIT AND COMPLIANCE SETTINGS
+# =============================================================================
+audit:
+  # Logging configuration
+  logging:
+    enable_topic_extraction_log: true
+    enable_phi_detection_log: true
+    enable_user_interaction_log: true
+    enable_performance_metrics: true
+    log_retention_days: 1095  # 3 years for audit logs
+
+  # Compliance settings
+  compliance:
+    enable_hipaa_logging: true
+    log_access_patterns: true
+    require_user_consent: false  # Set true for stricter compliance
+    enable_data_export: true     # Allow users to export their data
+    enable_data_deletion: true   # Allow users to delete their data
+
+  # Metrics and monitoring
+  metrics:
+    track_topic_extraction_accuracy: true
+    track_phi_detection_rates: true  
+    track_user_engagement: true
+    track_performance_metrics: true
+    metrics_retention_days: 730
+
+# =============================================================================
+# DEVELOPMENT AND TESTING SETTINGS
+# =============================================================================
+development:
+  # Development mode settings
+  debug:
+    enable_debug_logging: false
+    log_sql_queries: false
+    enable_timing_metrics: false
+    verbose_topic_extraction: false
+
+  # Testing configuration
+  testing:
+    use_test_database: false
+    enable_synthetic_data: false
+    mock_phi_detection: false
+    disable_external_calls: false
+
+# =============================================================================
+# EXTENSION SETTINGS
+# =============================================================================
+extensions:
+  # Future extension points
+  custom_topic_extractors:
+    enabled: []  # List of custom topic extraction modules
+    
+  custom_phi_detectors: 
+    enabled: []  # List of custom PHI detection modules
+    
+  integration_hooks:
+    pre_topic_extraction: []   # Custom hooks before topic extraction
+    post_topic_extraction: []  # Custom hooks after topic extraction
+    pre_context_retrieval: []  # Custom hooks before context retrieval
+    post_context_retrieval: [] # Custom hooks after context retrieval
+
+# =============================================================================
+# ENVIRONMENT-SPECIFIC OVERRIDES
+# =============================================================================
+environments:
+  development:
+    features:
+      enable_debug_logging: true
+    performance:
+      timeouts:
+        topic_extraction: 10  # More generous timeouts in dev
+    database:
+      retention:
+        default_days: 90      # Shorter retention in dev
+        
+  testing:
+    features:
+      enable_audit_logging: false  # Reduce noise in tests
+    database:
+      retention:
+        default_days: 7           # Very short retention for tests
+    development:
+      testing:
+        use_test_database: true
+        enable_synthetic_data: true
+        
+  production:
+    performance:
+      memory:
+        context_cache_size: 1000  # Larger caches in production
+    audit:
+      logging:
+        enable_hipaa_logging: true # Always enable in production
+    compliance:
+      require_user_consent: true  # Strict consent in production

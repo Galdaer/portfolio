@@ -1,0 +1,312 @@
+# Healthcare Multi-Agent Workflow Configuration
+# Defines workflow orchestration patterns from PHASE_3 design
+
+workflows:
+  # Workflow type definitions
+  types:
+    intake_to_billing:
+      name: "Patient Intake to Billing"
+      description: "Complete patient intake workflow from initial registration through billing"
+      timeout_seconds: 1800  # 30 minutes
+      retry_attempts: 2
+      
+    voice_intake_workflow:
+      name: "Voice-Enabled Intake Processing"
+      description: "Real-time voice processing for intake form completion"
+      timeout_seconds: 900   # 15 minutes
+      retry_attempts: 1
+      
+    clinical_decision:
+      name: "Clinical Decision Support"
+      description: "Medical transcription analysis for clinical decision making"
+      timeout_seconds: 600   # 10 minutes
+      retry_attempts: 2
+      
+    comprehensive_analysis:
+      name: "Comprehensive Patient Analysis"
+      description: "Full patient analysis combining intake, transcription, and clinical data"
+      timeout_seconds: 2400  # 40 minutes
+      retry_attempts: 1
+
+  # Agent specialization definitions
+  agent_specializations:
+    intake:
+      name: "Healthcare Intake Agent"
+      capabilities:
+        - "patient_registration"
+        - "appointment_scheduling" 
+        - "insurance_verification"
+        - "document_management"
+        - "voice_processing"
+      timeout_seconds: 300
+      
+    transcription:
+      name: "Medical Transcription Agent"
+      capabilities:
+        - "audio_transcription"
+        - "medical_terminology_extraction"
+        - "real_time_processing"
+        - "phi_detection"
+        - "confidence_scoring"
+      timeout_seconds: 180
+      
+    clinical_analysis:
+      name: "Clinical Analysis Agent"
+      capabilities:
+        - "clinical_reasoning"
+        - "medical_analysis"
+        - "diagnosis_support"
+        - "treatment_recommendations"
+        - "medical_validation"
+      timeout_seconds: 420
+      
+    billing:
+      name: "Healthcare Billing Agent"
+      capabilities:
+        - "insurance_processing"
+        - "code_generation"
+        - "claim_preparation"
+        - "billing_validation"
+        - "payment_processing"
+      timeout_seconds: 240
+      
+    compliance:
+      name: "Healthcare Compliance Agent"
+      capabilities:
+        - "hipaa_validation"
+        - "audit_trail_generation"
+        - "phi_protection"
+        - "regulatory_compliance"
+        - "security_monitoring"
+      timeout_seconds: 120
+      
+    document_processor:
+      name: "Medical Document Processor"
+      capabilities:
+        - "document_generation"
+        - "template_processing"
+        - "format_conversion"
+        - "document_validation"
+        - "archive_management"
+      timeout_seconds: 200
+
+  # Workflow step definitions
+  step_definitions:
+    intake_to_billing:
+      - step_name: "patient_intake"
+        agent_specialization: "intake"
+        step_config: {}
+        dependencies: []
+        parallel_capable: false
+        timeout_seconds: 300
+        description: "Initial patient registration and data collection"
+        
+      - step_name: "medical_transcription"
+        agent_specialization: "transcription"
+        step_config:
+          medical_nlp: true
+          terminology_extraction: true
+        dependencies: ["patient_intake"]
+        parallel_capable: false
+        timeout_seconds: 180
+        description: "Process medical audio/text with terminology extraction"
+        
+      - step_name: "clinical_analysis"
+        agent_specialization: "clinical_analysis"
+        step_config:
+          analysis_depth: "comprehensive"
+        dependencies: ["medical_transcription"]
+        parallel_capable: false
+        timeout_seconds: 420
+        description: "Analyze clinical data and generate insights"
+        
+      - step_name: "compliance_check"
+        agent_specialization: "compliance"
+        step_config:
+          hipaa_validation: true
+          audit_logging: true
+        dependencies: ["clinical_analysis"]
+        parallel_capable: true
+        timeout_seconds: 120
+        description: "Validate HIPAA compliance and generate audit trail"
+        
+      - step_name: "billing_process"
+        agent_specialization: "billing"
+        step_config:
+          generate_codes: true
+          validate_insurance: true
+        dependencies: ["clinical_analysis"]
+        parallel_capable: true
+        timeout_seconds: 240
+        description: "Generate billing codes and prepare insurance claims"
+
+    voice_intake_workflow:
+      - step_name: "voice_intake_session"
+        agent_specialization: "intake"
+        step_config:
+          voice_enabled: true
+          real_time: true
+        dependencies: []
+        parallel_capable: false
+        timeout_seconds: 300
+        description: "Initialize voice intake session with real-time processing"
+        
+      - step_name: "transcription_analysis"
+        agent_specialization: "transcription"
+        step_config:
+          medical_nlp: true
+          terminology_extraction: true
+          real_time: true
+        dependencies: []
+        parallel_capable: true
+        timeout_seconds: 180
+        description: "Real-time transcription with medical term extraction"
+        
+      - step_name: "form_completion"
+        agent_specialization: "intake"
+        step_config:
+          voice_to_form: true
+          field_extraction: true
+        dependencies: ["voice_intake_session", "transcription_analysis"]
+        parallel_capable: false
+        timeout_seconds: 200
+        description: "Complete intake forms using voice transcription results"
+        
+      - step_name: "clinical_validation"
+        agent_specialization: "clinical_analysis"
+        step_config:
+          voice_intake_validation: true
+          confidence_threshold: 0.85
+        dependencies: ["form_completion"]
+        parallel_capable: false
+        timeout_seconds: 180
+        description: "Validate voice intake results for clinical accuracy"
+
+    clinical_decision:
+      - step_name: "medical_transcription"
+        agent_specialization: "transcription"
+        step_config:
+          medical_nlp: true
+          clinical_focus: true
+        dependencies: []
+        parallel_capable: false
+        timeout_seconds: 180
+        description: "Process medical transcription for clinical decision support"
+        
+      - step_name: "clinical_analysis"
+        agent_specialization: "clinical_analysis"
+        step_config:
+          decision_support: true
+          recommendation_generation: true
+        dependencies: ["medical_transcription"]
+        parallel_capable: false
+        timeout_seconds: 420
+        description: "Generate clinical recommendations and decision support"
+        
+      - step_name: "compliance_validation"
+        agent_specialization: "compliance"
+        step_config:
+          clinical_compliance: true
+        dependencies: ["clinical_analysis"]
+        parallel_capable: false
+        timeout_seconds: 120
+        description: "Validate clinical decisions for regulatory compliance"
+
+    comprehensive_analysis:
+      - step_name: "intake_processing"
+        agent_specialization: "intake"
+        step_config:
+          comprehensive_mode: true
+        dependencies: []
+        parallel_capable: true
+        timeout_seconds: 300
+        description: "Comprehensive patient intake processing"
+        
+      - step_name: "transcription_processing"
+        agent_specialization: "transcription"
+        step_config:
+          comprehensive_mode: true
+          advanced_nlp: true
+        dependencies: []
+        parallel_capable: true
+        timeout_seconds: 240
+        description: "Advanced transcription processing with comprehensive analysis"
+        
+      - step_name: "clinical_analysis"
+        agent_specialization: "clinical_analysis"
+        step_config:
+          comprehensive_analysis: true
+          multi_source_integration: true
+        dependencies: ["intake_processing", "transcription_processing"]
+        parallel_capable: false
+        timeout_seconds: 600
+        description: "Integrate intake and transcription data for comprehensive analysis"
+        
+      - step_name: "document_generation"
+        agent_specialization: "document_processor"
+        step_config:
+          comprehensive_documents: true
+          template_selection: "comprehensive_report"
+        dependencies: ["clinical_analysis"]
+        parallel_capable: false
+        timeout_seconds: 200
+        description: "Generate comprehensive clinical documentation"
+        
+      - step_name: "billing_optimization"
+        agent_specialization: "billing"
+        step_config:
+          optimization_enabled: true
+          comprehensive_coding: true
+        dependencies: ["clinical_analysis"]
+        parallel_capable: true
+        timeout_seconds: 300
+        description: "Optimize billing codes based on comprehensive analysis"
+
+  # Workflow result compilation templates
+  result_templates:
+    intake_to_billing:
+      patient_intake: "intake_result"
+      clinical_notes: "medical_transcription"
+      clinical_analysis: "clinical_analysis"
+      billing_codes: "billing_process"
+      compliance_verified: "compliance_check.success"
+      
+    voice_intake_workflow:
+      voice_session: "voice_intake_session"
+      transcription_analysis: "transcription_analysis"
+      completed_form: "form_completion"
+      clinical_validation: "clinical_validation"
+      form_completion_percentage: "form_completion.completion_percentage"
+      
+    clinical_decision:
+      transcription_analysis: "medical_transcription"
+      clinical_recommendations: "clinical_analysis"
+      compliance_validation: "compliance_validation"
+      
+    comprehensive_analysis:
+      intake_data: "intake_processing"
+      transcription_data: "transcription_processing"
+      clinical_analysis: "clinical_analysis"
+      generated_documents: "document_generation"
+      billing_optimization: "billing_optimization"
+
+# Orchestration settings
+orchestration:
+  max_concurrent_workflows: 50
+  workflow_cleanup_delay_seconds: 300
+  status_check_interval_seconds: 5
+  max_workflow_duration_seconds: 3600
+  
+  # Error handling
+  error_handling:
+    retry_exponential_backoff: true
+    max_retry_delay_seconds: 60
+    circuit_breaker_enabled: true
+    circuit_breaker_failure_threshold: 5
+    
+  # Monitoring and logging
+  monitoring:
+    detailed_step_logging: true
+    performance_metrics: true
+    workflow_analytics: true
+    phi_monitoring: true

@@ -71,3 +71,54 @@ workflows:
   appointment_buffer_minutes: 15 # 15-minute appointment buffer
   insurance_verification_timeout: 300 # 5-minute insurance check
   prescription_review_required: true # Always require prescription review
+
+# =============================================================================
+# OPEN WEBUI INTEGRATION SETTINGS
+# =============================================================================
+open_webui_integration:
+  # Feature toggles for Open WebUI medical context
+  features:
+    enable_medical_context: true
+    enable_conversation_continuity: true
+    enable_cross_session_memory: true
+    enable_medical_topic_extraction: true
+    enable_phi_aware_conversations: true
+    enable_suggestion_system: true
+    
+  # Integration modes
+  integration_mode: "embedded"  # embedded, api_only, hybrid
+  
+  # Database settings
+  database:
+    extend_existing_webui_db: true  # Add tables to existing Open WebUI database
+    create_separate_medical_db: false  # Use separate database for medical data
+    backup_before_schema_changes: true
+    
+  # Performance settings for Open WebUI context
+  performance:
+    max_context_retrieval_time_ms: 500  # Max time to get medical context
+    cache_conversation_context: true
+    context_cache_size_mb: 50
+    enable_async_processing: true
+    
+  # User experience settings
+  user_experience:
+    show_medical_context_suggestions: true
+    max_suggestions_per_query: 3
+    enable_proactive_topic_suggestions: false  # Don't be too aggressive
+    suggestion_confidence_threshold: 0.7
+    
+  # Privacy and compliance for Open WebUI
+  privacy:
+    default_privacy_level: "standard"  # minimal, standard, enhanced
+    allow_user_privacy_control: true
+    require_medical_data_consent: false  # Set true for stricter compliance
+    enable_conversation_phi_detection: true
+    phi_detection_mode: "balanced_mode"  # From phi_detection_config.yaml
+    
+  # API endpoints for Open WebUI frontend integration
+  api_endpoints:
+    enable_medical_context_api: true
+    api_rate_limit_per_minute: 120
+    require_user_authentication: true
+    cors_allowed_origins: ["http://localhost:3000", "http://localhost:8080"]

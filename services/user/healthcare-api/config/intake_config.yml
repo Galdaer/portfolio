@@ -1,0 +1,283 @@
+# Healthcare Intake Agent Configuration
+# Contains field mappings, document requirements, and intake workflows
+
+intake_agent:
+  # Standard healthcare disclaimers
+  disclaimers:
+    - "This system provides administrative support only, not medical advice."
+    - "For medical questions, please consult with qualified healthcare professionals."
+    - "In case of emergency, contact emergency services immediately."
+    - "All patient data is handled in compliance with HIPAA regulations."
+    - "Database connectivity required for healthcare operations."
+  
+  # Voice processing configuration
+  voice_processing:
+    enabled: true
+    real_time_processing: true
+    confidence_threshold: 0.8
+    max_session_duration_minutes: 30
+    
+    # Voice-to-form field mappings for common intake questions
+    field_mappings:
+      first_name:
+        - "first name"
+        - "given name"
+        - "what is your first name"
+        - "your first name"
+        - "my name is"
+        - "i am"
+        - "call me"
+      
+      last_name:
+        - "last name"
+        - "family name"
+        - "surname"
+        - "what is your last name"
+        - "my last name is"
+      
+      date_of_birth:
+        - "date of birth"
+        - "birthday"
+        - "birth date"
+        - "when were you born"
+        - "born on"
+        - "my birthday is"
+      
+      contact_phone:
+        - "phone number"
+        - "telephone"
+        - "contact number"
+        - "phone"
+        - "my number is"
+        - "you can reach me at"
+      
+      contact_email:
+        - "email"
+        - "email address"
+        - "electronic mail"
+        - "my email is"
+        - "email me at"
+      
+      emergency_contact:
+        - "emergency contact"
+        - "emergency person"
+        - "emergency number"
+        - "in case of emergency"
+        - "contact in emergency"
+      
+      insurance_primary:
+        - "insurance"
+        - "insurance company"
+        - "health insurance"
+        - "insurance provider"
+        - "my insurance is"
+        - "covered by"
+      
+      chief_complaint:
+        - "chief complaint"
+        - "main concern"
+        - "reason for visit"
+        - "why are you here"
+        - "what brings you in"
+        - "my problem is"
+        - "i feel"
+        - "experiencing"
+      
+      current_medications:
+        - "medications"
+        - "drugs"
+        - "pills"
+        - "medicine"
+        - "current medications"
+        - "taking"
+        - "prescribed"
+      
+      allergies:
+        - "allergies"
+        - "allergic to"
+        - "drug allergies"
+        - "food allergies"
+        - "react to"
+        - "can't take"
+    
+    # Medical terminology keywords for extraction
+    medical_keywords:
+      symptoms:
+        - "pain"
+        - "hurt"
+        - "ache"
+        - "sick"
+        - "feel"
+        - "problem"
+        - "issue"
+        - "concern"
+        - "dizzy"
+        - "nauseous"
+        - "tired"
+        - "fatigue"
+        - "headache"
+        - "fever"
+        - "cough"
+        - "shortness of breath"
+      
+      medications:
+        - "aspirin"
+        - "ibuprofen"
+        - "acetaminophen"
+        - "insulin"
+        - "metformin"
+        - "lisinopril"
+        - "amlodipine"
+        - "omeprazole"
+        - "metoprolol"
+        - "hydrochlorothiazide"
+      
+      allergies:
+        - "penicillin"
+        - "sulfa"
+        - "latex"
+        - "shellfish"
+        - "nuts"
+        - "peanuts"
+        - "eggs"
+        - "milk"
+        - "soy"
+
+  # Document requirements by intake type and patient type
+  document_requirements:
+    base_documents:
+      - "Government-issued photo ID"
+      - "Insurance card (front and back)"
+    
+    new_patient_additional:
+      - "Completed new patient registration form"
+      - "Medical history questionnaire"
+      - "Emergency contact information"
+      - "List of current medications and dosages"
+      - "Pharmacy contact information"
+    
+    specialist_additional:
+      - "Referral from primary care physician"
+      - "Previous test results or imaging"
+      - "Specialist-specific intake forms"
+    
+    insurance_verification:
+      - "Insurance card (front and back)"
+      - "Photo ID"
+    
+    appointment_scheduling:
+      - "Insurance card"
+      - "Photo ID"
+      - "Completed intake forms"
+    
+    general_intake:
+      - "Photo ID"
+      - "Insurance card"
+      - "Completed intake forms"
+
+  # Form completion requirements by intake type
+  required_fields:
+    new_patient_registration:
+      - "first_name"
+      - "last_name"
+      - "date_of_birth"
+      - "contact_phone"
+      - "contact_email"
+      - "emergency_contact"
+      - "insurance_primary"
+    
+    appointment_scheduling:
+      - "patient_id"
+      - "appointment_type"
+      - "preferred_times"
+    
+    insurance_verification:
+      - "patient_id"
+      - "insurance_primary"
+      - "insurance_secondary"
+    
+    document_checklist:
+      - "patient_id"
+      - "appointment_type"
+    
+    voice_intake:
+      - "patient_id"
+      - "intake_type"
+    
+    general_intake:
+      - "patient_id"
+
+  # Next steps templates by intake type
+  next_steps_templates:
+    new_patient_registration:
+      - "Complete online patient portal registration"
+      - "Upload required documents via patient portal"
+      - "Arrive 15 minutes early for appointment"
+      - "Bring all required documents to appointment"
+      - "Review and sign consent forms"
+    
+    appointment_scheduling:
+      - "Confirm appointment time and date"
+      - "Add appointment to personal calendar"
+      - "Prepare questions for healthcare provider"
+      - "Gather relevant medical documents"
+      - "Plan transportation to appointment"
+    
+    insurance_verification:
+      - "Contact insurance provider to confirm coverage"
+      - "Verify in-network status of healthcare provider"
+      - "Understand co-pay and deductible requirements"
+      - "Update insurance information if needed"
+    
+    document_checklist:
+      - "Review document checklist"
+      - "Gather all required documents"
+      - "Upload or bring documents to appointment"
+      - "Complete all forms before appointment date"
+    
+    voice_intake:
+      - "Review voice intake results for accuracy"
+      - "Complete any remaining form fields"
+      - "Verify PHI protection compliance"
+      - "Continue with standard intake process"
+    
+    general_intake:
+      - "Contact our administrative team for specific assistance"
+      - "Complete online patient portal registration"
+      - "Review our patient resources and FAQ"
+
+# Form validation rules
+validation:
+  field_validation:
+    first_name:
+      required: true
+      min_length: 1
+      max_length: 50
+      pattern: "^[a-zA-Z\\s\\-']+$"
+    
+    last_name:
+      required: true
+      min_length: 1
+      max_length: 50
+      pattern: "^[a-zA-Z\\s\\-']+$"
+    
+    date_of_birth:
+      required: true
+      format: "date"
+      min_age: 0
+      max_age: 150
+    
+    contact_phone:
+      required: true
+      pattern: "^\\+?[1-9]\\d{1,14}$"
+      format: "phone"
+    
+    contact_email:
+      required: false
+      format: "email"
+      pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    
+    insurance_primary:
+      required: true
+      min_length: 2
+      max_length: 100

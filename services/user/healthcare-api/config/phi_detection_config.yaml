@@ -183,3 +183,143 @@ synthetic_patterns:
   - "\\btest\\.com\\b" # Test.com emails
   - "\\b123-45-6789\\b" # Common test SSN
   - "\\b000-00-0000\\b" # Invalid SSN for testing
+
+# =============================================================================
+# OPEN WEBUI CONVERSATION-SPECIFIC PATTERNS
+# =============================================================================
+
+# Conversation context exemptions for Open WebUI
+conversation_exemptions:
+  # Medical literature discussions (should not flag author names as PHI)
+  medical_literature_context:
+    - "according to"
+    - "study by"
+    - "research by" 
+    - "authored by"
+    - "published by"
+    - "et al"
+    - "and colleagues"
+    - "research team"
+    - "clinical trial"
+    - "systematic review"
+    - "meta-analysis"
+    
+  # Educational/general medical discussions
+  educational_context:
+    - "medical textbook"
+    - "medical education"
+    - "case study"
+    - "hypothetical patient"
+    - "example patient"
+    - "medical example"
+    - "for instance"
+    - "such as"
+    
+  # Open WebUI system contexts
+  system_context:
+    - "chatbot"
+    - "ai assistant"
+    - "open webui"
+    - "conversation history"
+    - "chat history"
+    - "system message"
+
+# Conversation-specific PHI risk adjustments
+conversation_risk_adjustments:
+  # Lower risk for certain conversation patterns
+  reduced_risk_patterns:
+    hypothetical_discussions:
+      patterns:
+        - "what if a patient"
+        - "suppose someone"
+        - "hypothetical case"
+        - "for example, if"
+      risk_multiplier: 0.5
+      
+    educational_discussions:
+      patterns:
+        - "medical terminology"
+        - "learning about"
+        - "understanding"
+        - "explanation of"
+      risk_multiplier: 0.6
+      
+  # Higher risk for certain patterns  
+  increased_risk_patterns:
+    personal_medical_info:
+      patterns:
+        - "my doctor"
+        - "my medication" 
+        - "my condition"
+        - "my symptoms"
+        - "i was diagnosed"
+        - "i take"
+        - "i have been prescribed"
+      risk_multiplier: 1.5
+      
+    specific_medical_details:
+      patterns:
+        - "my test results"
+        - "my blood work"
+        - "my appointment"
+        - "my surgery"
+      risk_multiplier: 1.8
+
+# Open WebUI conversation memory PHI handling
+conversation_memory:
+  # How to handle PHI in conversation continuity
+  phi_handling_modes:
+    strict_mode:
+      description: "Remove all potential PHI from conversation memory"
+      action: "redact"
+      patterns_to_redact: "all"
+      
+    balanced_mode:
+      description: "Redact high-confidence PHI, flag medium confidence"
+      action: "selective_redact"
+      redact_threshold: 0.8
+      flag_threshold: 0.5
+      
+    permissive_mode:
+      description: "Only flag obvious PHI, preserve medical context"
+      action: "flag_only"
+      flag_threshold: 0.9
+  
+  # Default mode for conversation memory
+  default_mode: "balanced_mode"
+  
+  # Conversation-specific redaction patterns
+  redaction_replacements:
+    name: "[NAME_REDACTED]"
+    phone: "[PHONE_REDACTED]" 
+    email: "[EMAIL_REDACTED]"
+    ssn: "[SSN_REDACTED]"
+    medical_record_number: "[MRN_REDACTED]"
+    date_of_birth: "[DOB_REDACTED]"
+    address: "[ADDRESS_REDACTED]"
+    
+# Conversation context analysis
+context_analysis:
+  # Analyze conversation context to reduce false positives
+  enable_context_analysis: true
+  
+  # Context windows for analysis
+  context_window_size: 500  # Characters before/after potential PHI
+  
+  # Context-based confidence adjustments
+  context_confidence_adjustments:
+    medical_literature:
+      keywords: ["study", "research", "published", "journal", "clinical trial"]
+      phi_confidence_multiplier: 0.3  # Significantly reduce PHI confidence
+      
+    educational_content:
+      keywords: ["example", "hypothetical", "case study", "textbook", "learning"]
+      phi_confidence_multiplier: 0.4
+      
+    personal_medical_history:
+      keywords: ["my", "i have", "i was", "my doctor", "my symptoms"]  
+      phi_confidence_multiplier: 1.4  # Increase PHI confidence
+      
+    system_generated:
+      keywords: ["system", "chatbot", "ai", "generated", "automatic"]
+      phi_confidence_multiplier: 0.2  # System text shouldn't contain real PHI

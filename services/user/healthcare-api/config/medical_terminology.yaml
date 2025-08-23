@@ -1,0 +1,660 @@
+# Medical Terminology Configuration
+# Customizable medical keywords and terminology for topic extraction
+# Healthcare organizations can customize this file for their specific terminology
+
+# =============================================================================
+# MEDICAL CONDITIONS AND DISEASES
+# =============================================================================
+conditions:
+  # Endocrine and metabolic disorders
+  endocrine:
+    - "diabetes"
+    - "type 1 diabetes"
+    - "type 2 diabetes"
+    - "gestational diabetes"
+    - "hyperthyroidism"
+    - "hypothyroidism"
+    - "thyroid disease"
+    - "adrenal insufficiency"
+    - "cushing syndrome"
+    - "metabolic syndrome"
+    - "obesity"
+    - "hypoglycemia"
+    - "hyperglycemia"
+    
+  # Cardiovascular conditions
+  cardiovascular:
+    - "hypertension"
+    - "high blood pressure"
+    - "hypotension"
+    - "heart disease"
+    - "coronary artery disease"
+    - "myocardial infarction"
+    - "heart attack"
+    - "stroke"
+    - "atrial fibrillation"
+    - "heart failure"
+    - "cardiomyopathy"
+    - "angina"
+    - "arrhythmia"
+    - "peripheral artery disease"
+    - "deep vein thrombosis"
+    - "pulmonary embolism"
+    
+  # Respiratory conditions
+  respiratory:
+    - "asthma"
+    - "chronic obstructive pulmonary disease"
+    - "copd"
+    - "pneumonia"
+    - "bronchitis"
+    - "emphysema"
+    - "sleep apnea"
+    - "pulmonary fibrosis"
+    - "tuberculosis"
+    - "lung cancer"
+    - "respiratory failure"
+    
+  # Neurological conditions
+  neurological:
+    - "alzheimer disease"
+    - "dementia"
+    - "parkinson disease"
+    - "epilepsy"
+    - "seizure disorder"
+    - "migraine"
+    - "multiple sclerosis"
+    - "neuropathy"
+    - "traumatic brain injury"
+    - "concussion"
+    - "spinal cord injury"
+    
+  # Mental health conditions
+  mental_health:
+    - "depression"
+    - "anxiety"
+    - "bipolar disorder"
+    - "schizophrenia"
+    - "post-traumatic stress disorder"
+    - "ptsd"
+    - "obsessive-compulsive disorder"
+    - "ocd"
+    - "panic disorder"
+    - "attention deficit hyperactivity disorder"
+    - "adhd"
+    - "eating disorder"
+    - "substance abuse"
+    - "addiction"
+    
+  # Musculoskeletal conditions
+  musculoskeletal:
+    - "arthritis"
+    - "rheumatoid arthritis"
+    - "osteoarthritis"
+    - "osteoporosis"
+    - "fibromyalgia"
+    - "lupus"
+    - "gout"
+    - "back pain"
+    - "joint pain"
+    - "fracture"
+    - "sprain"
+    - "strain"
+    - "tendinitis"
+    - "bursitis"
+    
+  # Gastrointestinal conditions
+  gastrointestinal:
+    - "irritable bowel syndrome"
+    - "ibs"
+    - "inflammatory bowel disease"
+    - "ibd"
+    - "crohn disease"
+    - "ulcerative colitis"
+    - "gastroesophageal reflux disease"
+    - "gerd"
+    - "peptic ulcer"
+    - "liver disease"
+    - "hepatitis"
+    - "cirrhosis"
+    - "gallbladder disease"
+    - "pancreatitis"
+    
+  # Infectious diseases
+  infectious:
+    - "covid-19"
+    - "coronavirus"
+    - "influenza"
+    - "flu"
+    - "strep throat"
+    - "urinary tract infection"
+    - "uti"
+    - "sepsis"
+    - "meningitis"
+    - "cellulitis"
+    - "pneumonia"
+    - "bronchitis"
+    - "sinusitis"
+    
+  # Cancer and oncology
+  cancer:
+    - "cancer"
+    - "tumor"
+    - "malignant"
+    - "benign"
+    - "metastasis"
+    - "leukemia"
+    - "lymphoma"
+    - "breast cancer"
+    - "lung cancer"
+    - "colon cancer"
+    - "prostate cancer"
+    - "skin cancer"
+    - "melanoma"
+    - "ovarian cancer"
+    - "cervical cancer"
+    
+  # Skin conditions
+  dermatological:
+    - "eczema"
+    - "psoriasis"
+    - "dermatitis"
+    - "rash"
+    - "acne"
+    - "hives"
+    - "urticaria"
+    - "allergic reaction"
+    - "contact dermatitis"
+    - "skin infection"
+
+# =============================================================================
+# MEDICATIONS AND DRUGS
+# =============================================================================
+medications:
+  # Pain medications
+  pain_medications:
+    - "aspirin"
+    - "ibuprofen"
+    - "acetaminophen"
+    - "naproxen"
+    - "celecoxib"
+    - "tramadol"
+    - "oxycodone"
+    - "hydrocodone"
+    - "morphine"
+    - "fentanyl"
+    - "codeine"
+    
+  # Diabetes medications
+  diabetes_medications:
+    - "metformin"
+    - "insulin"
+    - "glipizide"
+    - "glyburide"
+    - "pioglitazone"
+    - "sitagliptin"
+    - "exenatide"
+    - "liraglutide"
+    - "empagliflozin"
+    - "canagliflozin"
+    
+  # Cardiovascular medications
+  cardiovascular_medications:
+    - "lisinopril"
+    - "enalapril"
+    - "losartan"
+    - "valsartan"
+    - "amlodipine"
+    - "nifedipine"
+    - "atenolol"
+    - "metoprolol"
+    - "carvedilol"
+    - "furosemide"
+    - "hydrochlorothiazide"
+    - "warfarin"
+    - "clopidogrel"
+    - "atorvastatin"
+    - "simvastatin"
+    - "rosuvastatin"
+    
+  # Respiratory medications
+  respiratory_medications:
+    - "albuterol"
+    - "ipratropium"
+    - "budesonide"
+    - "fluticasone"
+    - "montelukast"
+    - "theophylline"
+    - "prednisone"
+    - "prednisolone"
+    
+  # Antibiotics
+  antibiotics:
+    - "amoxicillin"
+    - "azithromycin"
+    - "ciprofloxacin"
+    - "doxycycline"
+    - "cephalexin"
+    - "clindamycin"
+    - "erythromycin"
+    - "penicillin"
+    - "vancomycin"
+    - "metronidazole"
+    
+  # Mental health medications
+  mental_health_medications:
+    - "sertraline"
+    - "fluoxetine"
+    - "escitalopram"
+    - "paroxetine"
+    - "venlafaxine"
+    - "duloxetine"
+    - "bupropion"
+    - "trazodone"
+    - "lorazepam"
+    - "alprazolam"
+    - "clonazepam"
+    - "zolpidem"
+    - "quetiapine"
+    - "risperidone"
+    - "aripiprazole"
+    - "lithium"
+    - "lamotrigine"
+    - "valproic acid"
+    
+  # Thyroid medications
+  thyroid_medications:
+    - "levothyroxine"
+    - "synthroid"
+    - "methimazole"
+    - "propylthiouracil"
+    
+  # Generic drug categories
+  drug_categories:
+    - "antibiotics"
+    - "analgesics"
+    - "anti-inflammatory"
+    - "antihypertensive"
+    - "antidepressant"
+    - "anticoagulant"
+    - "diuretic"
+    - "statin"
+    - "beta blocker"
+    - "ace inhibitor"
+    - "calcium channel blocker"
+    - "proton pump inhibitor"
+    - "bronchodilator"
+    - "corticosteroid"
+
+# =============================================================================
+# TREATMENTS AND PROCEDURES
+# =============================================================================
+treatments:
+  # Surgical procedures
+  surgical:
+    - "surgery"
+    - "operation"
+    - "procedure"
+    - "appendectomy"
+    - "cholecystectomy"
+    - "bypass surgery"
+    - "angioplasty"
+    - "stent placement"
+    - "catheterization"
+    - "biopsy"
+    - "colonoscopy"
+    - "endoscopy"
+    - "laparoscopy"
+    - "arthroscopy"
+    - "transplant"
+    - "amputation"
+    - "mastectomy"
+    - "hysterectomy"
+    - "cesarean section"
+    - "c-section"
+    
+  # Therapeutic treatments
+  therapeutic:
+    - "physical therapy"
+    - "occupational therapy"
+    - "speech therapy"
+    - "rehabilitation"
+    - "psychotherapy"
+    - "counseling"
+    - "cognitive behavioral therapy"
+    - "cbt"
+    - "dialysis"
+    - "chemotherapy"
+    - "radiation therapy"
+    - "immunotherapy"
+    - "hormone therapy"
+    - "oxygen therapy"
+    - "mechanical ventilation"
+    - "cpap"
+    - "bipap"
+    
+  # Interventional procedures
+  interventional:
+    - "injection"
+    - "infusion"
+    - "transfusion"
+    - "intubation"
+    - "central line"
+    - "lumbar puncture"
+    - "thoracentesis"
+    - "paracentesis"
+    - "joint injection"
+    - "epidural"
+    - "nerve block"
+    
+  # Preventive treatments
+  preventive:
+    - "vaccination"
+    - "immunization"
+    - "screening"
+    - "mammography"
+    - "colonoscopy screening"
+    - "pap smear"
+    - "physical exam"
+    - "annual checkup"
+    - "wellness visit"
+
+# =============================================================================
+# SYMPTOMS AND PRESENTATIONS
+# =============================================================================
+symptoms:
+  # Pain symptoms
+  pain:
+    - "pain"
+    - "chest pain"
+    - "abdominal pain"
+    - "back pain"
+    - "neck pain"
+    - "joint pain"
+    - "muscle pain"
+    - "headache"
+    - "migraine"
+    - "toothache"
+    - "burning"
+    - "aching"
+    - "sharp pain"
+    - "dull pain"
+    - "cramping"
+    
+  # Respiratory symptoms  
+  respiratory:
+    - "shortness of breath"
+    - "difficulty breathing"
+    - "dyspnea"
+    - "cough"
+    - "wheezing"
+    - "chest tightness"
+    - "sputum"
+    - "hemoptysis"
+    - "coughing up blood"
+    
+  # Gastrointestinal symptoms
+  gastrointestinal:
+    - "nausea"
+    - "vomiting"
+    - "diarrhea"
+    - "constipation"
+    - "bloating"
+    - "indigestion"
+    - "heartburn"
+    - "acid reflux"
+    - "stomach pain"
+    - "loss of appetite"
+    - "weight loss"
+    - "weight gain"
+    
+  # Neurological symptoms
+  neurological:
+    - "dizziness"
+    - "lightheadedness"
+    - "vertigo"
+    - "confusion"
+    - "memory loss"
+    - "weakness"
+    - "numbness"
+    - "tingling"
+    - "tremor"
+    - "seizure"
+    - "fainting"
+    - "syncope"
+    - "vision changes"
+    - "hearing loss"
+    
+  # Cardiovascular symptoms
+  cardiovascular:
+    - "palpitations"
+    - "irregular heartbeat"
+    - "rapid heart rate"
+    - "slow heart rate"
+    - "swelling"
+    - "edema"
+    - "leg swelling"
+    - "ankle swelling"
+    
+  # General symptoms
+  general:
+    - "fatigue"
+    - "tiredness"
+    - "weakness"
+    - "fever"
+    - "chills"
+    - "night sweats"
+    - "malaise"
+    - "irritability"
+    - "mood changes"
+    - "sleep problems"
+    - "insomnia"
+    - "excessive sleepiness"
+    
+  # Skin symptoms
+  skin:
+    - "rash"
+    - "itching"
+    - "burning"
+    - "redness"
+    - "swelling"
+    - "bruising"
+    - "bleeding"
+    - "dry skin"
+    - "skin changes"
+    - "lesions"
+    - "sores"
+    - "ulcers"
+
+# =============================================================================
+# MEDICAL TESTS AND DIAGNOSTICS
+# =============================================================================
+tests:
+  # Laboratory tests
+  laboratory:
+    - "blood test"
+    - "blood work"
+    - "complete blood count"
+    - "cbc"
+    - "basic metabolic panel"
+    - "comprehensive metabolic panel"
+    - "lipid panel"
+    - "liver function tests"
+    - "kidney function tests"
+    - "thyroid function tests"
+    - "hemoglobin a1c"
+    - "glucose test"
+    - "cholesterol test"
+    - "troponin"
+    - "d-dimer"
+    - "inr"
+    - "pt/ptt"
+    - "urinalysis"
+    - "urine test"
+    - "stool test"
+    - "culture"
+    - "biopsy"
+    
+  # Imaging studies
+  imaging:
+    - "x-ray"
+    - "ct scan"
+    - "mri"
+    - "ultrasound"
+    - "echocardiogram"
+    - "ekg"
+    - "ecg"
+    - "stress test"
+    - "nuclear scan"
+    - "pet scan"
+    - "bone scan"
+    - "mammogram"
+    - "dexa scan"
+    
+  # Specialized tests
+  specialized:
+    - "pulmonary function test"
+    - "spirometry"
+    - "sleep study"
+    - "endoscopy"
+    - "colonoscopy"
+    - "cardiac catheterization"
+    - "angiogram"
+    - "holter monitor"
+    - "event monitor"
+    - "tilt table test"
+
+# =============================================================================
+# ANATOMICAL TERMS
+# =============================================================================
+anatomy:
+  # Body systems
+  systems:
+    - "cardiovascular system"
+    - "respiratory system" 
+    - "nervous system"
+    - "digestive system"
+    - "musculoskeletal system"
+    - "endocrine system"
+    - "immune system"
+    - "urinary system"
+    - "reproductive system"
+    - "integumentary system"
+    
+  # Major organs
+  organs:
+    - "heart"
+    - "lungs"
+    - "brain"
+    - "liver"
+    - "kidneys"
+    - "stomach"
+    - "intestines"
+    - "pancreas"
+    - "spleen"
+    - "bladder"
+    - "thyroid"
+    - "adrenal glands"
+    - "ovaries"
+    - "uterus"
+    - "prostate"
+    - "gallbladder"
+    
+  # Body parts
+  body_parts:
+    - "head"
+    - "neck"
+    - "chest"
+    - "abdomen"
+    - "back"
+    - "arms"
+    - "legs"
+    - "hands"
+    - "feet"
+    - "joints"
+    - "muscles"
+    - "bones"
+    - "spine"
+    - "pelvis"
+
+# =============================================================================
+# MEDICAL SPECIALTIES AND PROVIDERS
+# =============================================================================
+specialties:
+  medical_specialties:
+    - "cardiology"
+    - "pulmonology"
+    - "neurology"
+    - "gastroenterology"
+    - "endocrinology"
+    - "nephrology"
+    - "oncology"
+    - "hematology"
+    - "rheumatology"
+    - "infectious disease"
+    - "psychiatry"
+    - "dermatology"
+    - "ophthalmology"
+    - "otolaryngology"
+    - "urology"
+    - "gynecology"
+    - "obstetrics"
+    - "pediatrics"
+    - "geriatrics"
+    - "family medicine"
+    - "internal medicine"
+    - "emergency medicine"
+    - "anesthesiology"
+    - "radiology"
+    - "pathology"
+    - "surgery"
+    - "orthopedics"
+    - "plastic surgery"
+    
+  healthcare_providers:
+    - "doctor"
+    - "physician"
+    - "nurse"
+    - "nurse practitioner"
+    - "physician assistant"
+    - "therapist"
+    - "pharmacist"
+    - "dentist"
+    - "optometrist"
+    - "psychologist"
+    - "psychiatrist"
+    - "surgeon"
+    - "specialist"
+
+# =============================================================================
+# TOPIC EXTRACTION RULES
+# =============================================================================
+extraction_rules:
+  # Confidence modifiers based on context
+  context_modifiers:
+    with_symptoms: 1.2        # Boost confidence when symptoms are mentioned
+    with_medications: 1.3     # Boost confidence when medications are mentioned  
+    with_procedures: 1.1      # Boost confidence when procedures are mentioned
+    question_context: 0.9     # Slightly lower confidence for questions
+    past_tense: 0.8          # Lower confidence for past medical history
+    
+  # Exclusion patterns (things that shouldn't be extracted as medical topics)
+  exclusions:
+    - "medical school"
+    - "medical student"  
+    - "medical degree"
+    - "medical history" # As a general concept
+    - "medical records"
+    - "medical insurance"
+    - "medical bills"
+    - "medical facility"
+    - "medical equipment"
+    
+  # Minimum word length for topic extraction
+  minimum_lengths:
+    condition: 3
+    medication: 3
+    treatment: 4
+    symptom: 3
+    test: 2
+    anatomy: 3
