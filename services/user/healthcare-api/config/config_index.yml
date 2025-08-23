@@ -10,3 +10,7 @@ files:
   - orchestrator.yml
   - transcription_config.yml
   - ui_config.yml
+  - intake_config.yml
+  - insurance_config.yml
+  - compliance_config.yml
+  - reasoning_config.yml

@@ -1,8 +1,8 @@
 """
-Real-Time Insurance Verification System
+Real-Time Insurance Verification System - Updated with Configuration
 
 Provides real-time insurance verification with multiple provider APIs,
-cost estimation, and prior authorization automation.
+cost estimation, and prior authorization automation using configuration files.
 """
 
 import asyncio
@@ -17,6 +17,7 @@ from core.infrastructure.healthcare_logger import get_healthcare_logger, log_hea
 from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
 from core.infrastructure.agent_metrics import AgentMetricsStore
 from core.infrastructure.phi_monitor import phi_monitor_decorator, sanitize_healthcare_data
+from config.config_loader import get_healthcare_config
 
 logger = get_healthcare_logger(__name__)
 
@@ -67,22 +68,24 @@ class CoverageResponse:
 
 class RealTimeInsuranceVerifier:
     """
-    Real-time insurance verification with multiple provider APIs
+    Real-time insurance verification with multiple provider APIs using configuration
     """
     
     def __init__(self):
-        self.provider_clients = {
-            "anthem": AnthemAPIClient(),
-            "uhc": UnitedHealthAPIClient(), 
-            "cigna": CignaAPIClient(),
-            "aetna": AetnaAPIClient(),
-            "bcbs": BlueCrossBlueShieldAPIClient(),
-            # Central Indiana providers
-            "iuhealth": IUHealthAPIClient(),
-            "mdwise": MDwiseAPIClient(),
-            "caresource": CareSourceAPIClient()
-        }
-        self.verification_cache = TTLCache(maxsize=500, ttl=1800)  # 30 min cache
+        # Load configuration
+        self.config = get_healthcare_config().insurance
+        
+        # Initialize provider clients based on configuration
+        self.provider_clients = {}
+        for provider_name, provider_config in self.config.providers.items():
+            self.provider_clients[provider_name] = ConfigurableAPIClient(provider_config)
+        
+        # Configure caching from configuration
+        cache_config = self.config.cache
+        cache_ttl = cache_config.get("verification_cache_ttl_seconds", 1800)
+        cache_size = cache_config.get("max_cache_size", 500)
+        self.verification_cache = TTLCache(maxsize=cache_size, ttl=cache_ttl)
+        
         self.cache_manager = HealthcareCacheManager()
         self.metrics = AgentMetricsStore(agent_name="real_time_insurance_verifier")
     
@@ -104,114 +107,83 @@ class RealTimeInsuranceVerifier:
             await self.metrics.incr("verification_validation_errors")
             return InsuranceVerificationResult(
                 verified=False,
-                error="Missing insurance provider or member ID"
+                error="Missing required insurance information (provider or member_id)"
             )
         
         # Check cache first
-        cache_key = f"real_time_verify_{provider}_{member_id}_{hash(tuple(service_codes))}"
-        try:
-            cached_result = await self.cache_manager.get(
-                cache_key,
-                security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE
-            )
-            if cached_result:
-                await self.metrics.incr("cache_hits")
-                logger.info(f"Using cached verification result for {member_id[:4]}****")
-                return cached_result
-        except Exception as e:
-            logger.warning(f"Cache lookup failed: {e}")
-            
-        await self.metrics.incr("cache_misses")
-        
-        # Get appropriate API client
-        api_client = self.provider_clients.get(provider)
-        if not api_client:
-            await self.metrics.incr("unsupported_provider_errors")
-            return InsuranceVerificationResult(
-                verified=False,
-                error=f"Unsupported insurance provider: {provider}"
-            )
+        cache_key = hashlib.md5(f"{provider}_{member_id}_{'-'.join(service_codes)}".encode()).hexdigest()
+        if cache_key in self.verification_cache:
+            await self.metrics.incr("verification_cache_hits")
+            return self.verification_cache[cache_key]
         
         try:
-            # Start verification timer
-            verification_start = datetime.utcnow()
+            # Find provider client
+            if provider not in self.provider_clients:
+                await self.metrics.incr("verification_provider_not_found")
+                return InsuranceVerificationResult(
+                    verified=False,
+                    error=f"Insurance provider '{provider}' not supported"
+                )
             
-            # Verify eligibility
-            eligibility = await api_client.check_eligibility(
-                member_id=member_id,
-                service_date=datetime.now().date()
-            )
+            api_client = self.provider_clients[provider]
+            
+            # Check eligibility first
+            eligibility = await api_client.check_eligibility(member_id, date.today())
             
             if not eligibility.is_active:
-                await self.metrics.incr("inactive_coverage_responses")
+                await self.metrics.incr("verification_eligibility_inactive")
                 result = InsuranceVerificationResult(
                     verified=False,
                     provider=provider,
                     member_id=member_id,
+                    coverage_active=False,
                     error="Insurance coverage is not active"
                 )
-            else:
-                # Check coverage for specific services
-                coverage_results = []
-                for service_code in service_codes:
-                    coverage = await api_client.check_service_coverage(
-                        member_id=member_id,
-                        service_code=service_code,
-                        provider_npi=patient_info.get("provider_npi")
-                    )
-                    coverage_results.append(coverage)
-                
-                # Calculate estimated costs
-                cost_estimates = await self._calculate_cost_estimates(
-                    coverage_results, service_codes, eligibility
-                )
-                
-                result = InsuranceVerificationResult(
-                    verified=True,
-                    provider=provider,
-                    member_id=member_id,
-                    coverage_active=eligibility.is_active,
-                    coverage_details=[{
-                        "service_code": code,
-                        "covered": coverage.covered,
-                        "copay": coverage.copay,
-                        "coinsurance_rate": coverage.coinsurance_rate,
-                        "estimated_charge": coverage.estimated_charge,
-                        "requires_prior_auth": coverage.requires_prior_auth
-                    } for code, coverage in zip(service_codes, coverage_results)],
-                    cost_estimates=cost_estimates,
-                    copay_amounts={code: coverage.copay for code, coverage in zip(service_codes, coverage_results)},
-                    deductible_remaining=eligibility.deductible_remaining,
-                    out_of_pocket_max=eligibility.out_of_pocket_max,
-                    out_of_pocket_met=eligibility.out_of_pocket_met,
-                    verified_at=datetime.utcnow()
-                )
-                
-                await self.metrics.incr("successful_verifications")
-                
-            # Cache result
-            try:
-                await self.cache_manager.set(
-                    cache_key,
-                    result,
-                    security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE,
-                    ttl_seconds=1800,  # 30 minutes
-                    healthcare_context={"verification_type": "real_time_insurance", "provider": provider}
-                )
-            except Exception as e:
-                logger.warning(f"Failed to cache verification result: {e}")
-                
-            # Record timing metrics
-            verification_duration = (datetime.utcnow() - verification_start).total_seconds()
-            await self.metrics.record_timing("verification_duration_seconds", verification_duration)
+                self.verification_cache[cache_key] = result
+                return result
             
-            logger.info(f"Successfully verified insurance for {member_id[:4]}**** with {provider}")
+            # Check coverage for each service
+            coverage_results = []
+            for service_code in service_codes:
+                coverage = await api_client.check_service_coverage(
+                    member_id, 
+                    service_code,
+                    provider_npi=patient_info.get("provider_npi")
+                )
+                coverage_results.append(coverage)
+            
+            # Calculate cost estimates
+            cost_estimates = await self._calculate_cost_estimates(service_codes, coverage_results, eligibility)
+            
+            result = InsuranceVerificationResult(
+                verified=True,
+                provider=provider,
+                member_id=member_id,
+                coverage_active=eligibility.is_active,
+                coverage_details=[{
+                    "service_code": code,
+                    "covered": coverage.covered,
+                    "copay": coverage.copay,
+                    "coinsurance_rate": coverage.coinsurance_rate,
+                    "requires_prior_auth": coverage.requires_prior_auth
+                } for code, coverage in zip(service_codes, coverage_results)],
+                cost_estimates=cost_estimates,
+                copay_amounts={code: coverage.copay for code, coverage in zip(service_codes, coverage_results)},
+                deductible_remaining=eligibility.deductible_remaining,
+                out_of_pocket_max=eligibility.out_of_pocket_max,
+                out_of_pocket_met=eligibility.out_of_pocket_met,
+                verified_at=datetime.now()
+            )
+            
+            # Cache successful result
+            self.verification_cache[cache_key] = result
+            await self.metrics.incr("verification_success")
             
             return result
             
         except Exception as e:
             await self.metrics.incr("verification_errors")
-            logger.error(f"Insurance verification failed for {provider}: {e}")
+            logger.error(f"Insurance verification error: {e}")
             return InsuranceVerificationResult(
                 verified=False,
                 provider=provider,
@@ -219,13 +191,44 @@ class RealTimeInsuranceVerifier:
                 error=f"Verification failed: {str(e)}"
             )
     
+    async def request_prior_authorization(
+        self,
+        patient_info: Dict[str, Any],
+        service_codes: List[str],
+        medical_justification: str
+    ) -> PriorAuthResult:
+        """Request prior authorization for services"""
+        
+        insurance_info = patient_info.get("insurance", {})
+        provider = insurance_info.get("provider", "").lower()
+        
+        if provider not in self.provider_clients:
+            return PriorAuthResult(
+                status="rejected",
+                message=f"Provider '{provider}' not supported for prior authorization"
+            )
+        
+        # Simulate prior authorization request
+        tracking_id = f"PA_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{provider}"
+        estimated_decision_date = date.today() + timedelta(days=3)
+        
+        await self.metrics.incr("prior_auth_requests")
+        
+        return PriorAuthResult(
+            status="submitted",
+            tracking_id=tracking_id,
+            estimated_decision_date=estimated_decision_date,
+            reference_number=f"REF_{tracking_id}",
+            message="Prior authorization request submitted successfully"
+        )
+    
     async def _calculate_cost_estimates(
         self,
-        coverage_results: List[CoverageResponse],
         service_codes: List[str],
+        coverage_results: List[CoverageResponse],
         eligibility: EligibilityResponse
     ) -> Dict[str, float]:
-        """Calculate estimated costs for services"""
+        """Calculate estimated patient costs for services"""
         
         cost_estimates = {}
         
@@ -251,24 +254,29 @@ class RealTimeInsuranceVerifier:
                 
         return cost_estimates
 
-# API Client implementations for different insurance providers
 
-class AnthemAPIClient:
-    """Anthem insurance API client"""
+# Configuration-based API Client
+class ConfigurableAPIClient:
+    """Insurance API client that uses configuration for all responses"""
+    
+    def __init__(self, provider_config):
+        self.config = provider_config
+        self.api_delay = self.config.api_delay_seconds
+        self.eligibility_config = self.config.eligibility
+        self.coverage_rules = self.config.coverage_rules
+        self.default_coverage = self.config.default_coverage
     
     async def check_eligibility(self, member_id: str, service_date: date) -> EligibilityResponse:
-        """Check member eligibility with Anthem"""
-        # Simulate API call delay
-        await asyncio.sleep(0.1)
+        """Check member eligibility using configuration"""
+        await asyncio.sleep(self.api_delay)
         
-        # Mock response - in production, connect to actual Anthem API
         return EligibilityResponse(
             is_active=True,
-            deductible_remaining=500.0,
-            out_of_pocket_max=2000.0,
-            out_of_pocket_met=300.0,
-            plan_type="PPO",
-            effective_date=date(2024, 1, 1)
+            deductible_remaining=float(self.eligibility_config.get('deductible_remaining', 500.0)),
+            out_of_pocket_max=float(self.eligibility_config.get('out_of_pocket_max', 2000.0)),
+            out_of_pocket_met=float(self.eligibility_config.get('out_of_pocket_met', 300.0)),
+            plan_type=self.eligibility_config.get('plan_type', 'PPO'),
+            effective_date=date.fromisoformat(self.eligibility_config.get('effective_date', '2024-01-01'))
         )
     
     async def check_service_coverage(
@@ -277,261 +285,24 @@ class AnthemAPIClient:
         service_code: str, 
         provider_npi: str
     ) -> CoverageResponse:
-        """Check coverage for specific service"""
-        await asyncio.sleep(0.05)
+        """Check coverage for specific service using configuration"""
+        await asyncio.sleep(self.api_delay / 2)
         
-        # Mock coverage based on common service codes
-        coverage_rules = {
-            "99213": CoverageResponse(covered=True, copay=25.0, coinsurance_rate=0.0, estimated_charge=150.0),
-            "99214": CoverageResponse(covered=True, copay=25.0, coinsurance_rate=0.0, estimated_charge=200.0),
-            "73721": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.2, estimated_charge=400.0, requires_prior_auth=True),
-            "45378": CoverageResponse(covered=True, copay=150.0, coinsurance_rate=0.1, estimated_charge=800.0, requires_prior_auth=True)
-        }
+        if service_code in self.coverage_rules:
+            rule = self.coverage_rules[service_code]
+            return CoverageResponse(
+                covered=rule.get('covered', True),
+                copay=float(rule.get('copay', 0.0)),
+                coinsurance_rate=float(rule.get('coinsurance_rate', 0.0)),
+                estimated_charge=float(rule.get('estimated_charge', 150.0)),
+                requires_prior_auth=rule.get('requires_prior_auth', False)
+            )
         
-        return coverage_rules.get(
-            service_code,
-            CoverageResponse(covered=True, copay=30.0, coinsurance_rate=0.2, estimated_charge=150.0)
-        )
-
-class UnitedHealthAPIClient:
-    """United Health insurance API client"""
-    
-    async def check_eligibility(self, member_id: str, service_date: date) -> EligibilityResponse:
-        await asyncio.sleep(0.12)
-        return EligibilityResponse(
-            is_active=True,
-            deductible_remaining=750.0,
-            out_of_pocket_max=3000.0,
-            out_of_pocket_met=450.0,
-            plan_type="HMO",
-            effective_date=date(2024, 1, 1)
-        )
-    
-    async def check_service_coverage(
-        self, 
-        member_id: str, 
-        service_code: str, 
-        provider_npi: str
-    ) -> CoverageResponse:
-        await asyncio.sleep(0.06)
-        
-        coverage_rules = {
-            "99213": CoverageResponse(covered=True, copay=30.0, coinsurance_rate=0.0, estimated_charge=150.0),
-            "99214": CoverageResponse(covered=True, copay=30.0, coinsurance_rate=0.0, estimated_charge=200.0),
-            "73721": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.15, estimated_charge=400.0, requires_prior_auth=True),
-            "45378": CoverageResponse(covered=True, copay=200.0, coinsurance_rate=0.15, estimated_charge=800.0, requires_prior_auth=True)
-        }
-        
-        return coverage_rules.get(
-            service_code,
-            CoverageResponse(covered=True, copay=35.0, coinsurance_rate=0.15, estimated_charge=175.0)
-        )
-
-class CignaAPIClient:
-    """Cigna insurance API client"""
-    
-    async def check_eligibility(self, member_id: str, service_date: date) -> EligibilityResponse:
-        await asyncio.sleep(0.11)
-        return EligibilityResponse(
-            is_active=True,
-            deductible_remaining=600.0,
-            out_of_pocket_max=2500.0,
-            out_of_pocket_met=250.0,
-            plan_type="PPO",
-            effective_date=date(2024, 1, 1)
-        )
-    
-    async def check_service_coverage(
-        self, 
-        member_id: str, 
-        service_code: str, 
-        provider_npi: str
-    ) -> CoverageResponse:
-        await asyncio.sleep(0.07)
-        
-        coverage_rules = {
-            "99213": CoverageResponse(covered=True, copay=20.0, coinsurance_rate=0.0, estimated_charge=150.0),
-            "99214": CoverageResponse(covered=True, copay=20.0, coinsurance_rate=0.0, estimated_charge=200.0),
-            "73721": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.25, estimated_charge=400.0, requires_prior_auth=True),
-            "45378": CoverageResponse(covered=True, copay=100.0, coinsurance_rate=0.2, estimated_charge=800.0, requires_prior_auth=True)
-        }
-        
-        return coverage_rules.get(
-            service_code,
-            CoverageResponse(covered=True, copay=25.0, coinsurance_rate=0.25, estimated_charge=150.0)
-        )
-
-class AetnaAPIClient:
-    """Aetna insurance API client"""
-    
-    async def check_eligibility(self, member_id: str, service_date: date) -> EligibilityResponse:
-        await asyncio.sleep(0.09)
-        return EligibilityResponse(
-            is_active=True,
-            deductible_remaining=800.0,
-            out_of_pocket_max=3500.0,
-            out_of_pocket_met=200.0,
-            plan_type="HDHP",
-            effective_date=date(2024, 1, 1)
-        )
-    
-    async def check_service_coverage(
-        self, 
-        member_id: str, 
-        service_code: str, 
-        provider_npi: str
-    ) -> CoverageResponse:
-        await asyncio.sleep(0.08)
-        
-        coverage_rules = {
-            "99213": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.1, estimated_charge=150.0),
-            "99214": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.1, estimated_charge=200.0),
-            "73721": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.3, estimated_charge=400.0, requires_prior_auth=True),
-            "45378": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.3, estimated_charge=800.0, requires_prior_auth=True)
-        }
-        
-        return coverage_rules.get(
-            service_code,
-            CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.2, estimated_charge=150.0)
-        )
-
-class BlueCrossBlueShieldAPIClient:
-    """Blue Cross Blue Shield insurance API client"""
-    
-    async def check_eligibility(self, member_id: str, service_date: date) -> EligibilityResponse:
-        await asyncio.sleep(0.13)
-        return EligibilityResponse(
-            is_active=True,
-            deductible_remaining=400.0,
-            out_of_pocket_max=2200.0,
-            out_of_pocket_met=600.0,
-            plan_type="PPO",
-            effective_date=date(2024, 1, 1)
-        )
-    
-    async def check_service_coverage(
-        self, 
-        member_id: str, 
-        service_code: str, 
-        provider_npi: str
-    ) -> CoverageResponse:
-        await asyncio.sleep(0.09)
-        
-        coverage_rules = {
-            "99213": CoverageResponse(covered=True, copay=30.0, coinsurance_rate=0.0, estimated_charge=150.0),
-            "99214": CoverageResponse(covered=True, copay=30.0, coinsurance_rate=0.0, estimated_charge=200.0),
-            "73721": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.2, estimated_charge=400.0, requires_prior_auth=True),
-            "45378": CoverageResponse(covered=True, copay=175.0, coinsurance_rate=0.15, estimated_charge=800.0, requires_prior_auth=True)
-        }
-        
-        return coverage_rules.get(
-            service_code,
-            CoverageResponse(covered=True, copay=35.0, coinsurance_rate=0.2, estimated_charge=175.0)
-        )
-
-# Central Indiana Insurance Provider API Clients
-
-class IUHealthAPIClient:
-    """IU Health Plans API client"""
-    
-    async def check_eligibility(self, member_id: str, service_date: date) -> EligibilityResponse:
-        await asyncio.sleep(0.1)
-        return EligibilityResponse(
-            is_active=True,
-            deductible_remaining=300.0,
-            out_of_pocket_max=1800.0,
-            out_of_pocket_met=400.0,
-            plan_type="PPO",
-            effective_date=date(2024, 1, 1)
-        )
-    
-    async def check_service_coverage(
-        self, 
-        member_id: str, 
-        service_code: str, 
-        provider_npi: str
-    ) -> CoverageResponse:
-        await asyncio.sleep(0.06)
-        
-        # IU Health typically has lower copays for IU Health system providers
-        coverage_rules = {
-            "99213": CoverageResponse(covered=True, copay=15.0, coinsurance_rate=0.0, estimated_charge=150.0),
-            "99214": CoverageResponse(covered=True, copay=15.0, coinsurance_rate=0.0, estimated_charge=200.0),
-            "73721": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.1, estimated_charge=400.0, requires_prior_auth=True),
-            "45378": CoverageResponse(covered=True, copay=100.0, coinsurance_rate=0.1, estimated_charge=800.0, requires_prior_auth=True)
-        }
-        
-        return coverage_rules.get(
-            service_code,
-            CoverageResponse(covered=True, copay=20.0, coinsurance_rate=0.15, estimated_charge=150.0)
-        )
-
-class MDwiseAPIClient:
-    """MDwise Medicaid API client"""
-    
-    async def check_eligibility(self, member_id: str, service_date: date) -> EligibilityResponse:
-        await asyncio.sleep(0.08)
-        return EligibilityResponse(
-            is_active=True,
-            deductible_remaining=0.0,  # Medicaid typically has no deductible
-            out_of_pocket_max=0.0,    # Medicaid typically has no out-of-pocket max
-            out_of_pocket_met=0.0,
-            plan_type="Medicaid",
-            effective_date=date(2024, 1, 1)
-        )
-    
-    async def check_service_coverage(
-        self, 
-        member_id: str, 
-        service_code: str, 
-        provider_npi: str
-    ) -> CoverageResponse:
-        await asyncio.sleep(0.05)
-        
-        # Medicaid typically has minimal or no copays
-        coverage_rules = {
-            "99213": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.0, estimated_charge=150.0),
-            "99214": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.0, estimated_charge=200.0),
-            "73721": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.0, estimated_charge=400.0, requires_prior_auth=True),
-            "45378": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.0, estimated_charge=800.0, requires_prior_auth=True)
-        }
-        
-        return coverage_rules.get(
-            service_code,
-            CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.0, estimated_charge=150.0)
-        )
-
-class CareSourceAPIClient:
-    """CareSource Medicaid/Medicare API client"""
-    
-    async def check_eligibility(self, member_id: str, service_date: date) -> EligibilityResponse:
-        await asyncio.sleep(0.09)
-        return EligibilityResponse(
-            is_active=True,
-            deductible_remaining=0.0,  # Medicaid/Medicare Advantage typically minimal deductible
-            out_of_pocket_max=1500.0, # Medicare Advantage may have OOP max
-            out_of_pocket_met=150.0,
-            plan_type="Medicare Advantage",
-            effective_date=date(2024, 1, 1)
-        )
-    
-    async def check_service_coverage(
-        self, 
-        member_id: str, 
-        service_code: str, 
-        provider_npi: str
-    ) -> CoverageResponse:
-        await asyncio.sleep(0.07)
-        
-        # CareSource typically has reasonable copays for Indiana market
-        coverage_rules = {
-            "99213": CoverageResponse(covered=True, copay=10.0, coinsurance_rate=0.0, estimated_charge=150.0),
-            "99214": CoverageResponse(covered=True, copay=15.0, coinsurance_rate=0.0, estimated_charge=200.0),
-            "73721": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.2, estimated_charge=400.0, requires_prior_auth=True),
-            "45378": CoverageResponse(covered=True, copay=75.0, coinsurance_rate=0.1, estimated_charge=800.0, requires_prior_auth=True)
-        }
-        
-        return coverage_rules.get(
-            service_code,
-            CoverageResponse(covered=True, copay=15.0, coinsurance_rate=0.2, estimated_charge=150.0)
+        # Use default coverage if specific rule not found
+        return CoverageResponse(
+            covered=self.default_coverage.get('covered', True),
+            copay=float(self.default_coverage.get('copay', 30.0)),
+            coinsurance_rate=float(self.default_coverage.get('coinsurance_rate', 0.2)),
+            estimated_charge=float(self.default_coverage.get('estimated_charge', 150.0)),
+            requires_prior_auth=self.default_coverage.get('requires_prior_auth', False)
         )

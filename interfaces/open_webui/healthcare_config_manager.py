@@ -156,6 +156,72 @@ class Action:
             default=UI_CONFIG.compliance.disclaimer_text,
             description="⚠️ Medical disclaimer text shown to users"
         )
+        
+        # === Insurance Configuration ===
+        INSURANCE_CACHE_TTL_SECONDS: int = Field(
+            default=1800,
+            ge=300,
+            le=7200,
+            description="🕒 Insurance verification cache TTL (300-7200 seconds)"
+        )
+        INSURANCE_MAX_CACHE_SIZE: int = Field(
+            default=500,
+            ge=50,
+            le=2000,
+            description="📦 Maximum insurance verification cache size (50-2000)"
+        )
+        INSURANCE_API_TIMEOUT_SECONDS: int = Field(
+            default=30,
+            ge=10,
+            le=120,
+            description="⏱️ Insurance API request timeout (10-120 seconds)"
+        )
+        
+        # === Compliance Monitoring ===
+        COMPLIANCE_MAX_EVENTS_RETENTION: int = Field(
+            default=10000,
+            ge=1000,
+            le=50000,
+            description="📊 Maximum compliance events to retain (1000-50000)"
+        )
+        COMPLIANCE_HIGH_RISK_PENALTY: int = Field(
+            default=10,
+            ge=1,
+            le=50,
+            description="⚡ Points deducted per high-risk compliance event (1-50)"
+        )
+        COMPLIANCE_UNRESOLVED_PENALTY: int = Field(
+            default=5,
+            ge=1,
+            le=25,
+            description="⏳ Points deducted per unresolved compliance event (1-25)"
+        )
+        COMPLIANCE_AUDIT_FREQUENCY_DAYS: int = Field(
+            default=90,
+            ge=30,
+            le=365,
+            description="📅 Required audit frequency in days (30-365)"
+        )
+        
+        # === Reasoning Engine Configuration ===
+        REASONING_MAX_STEPS: int = Field(
+            default=10,
+            ge=3,
+            le=20,
+            description="🧠 Maximum steps in reasoning chain (3-20)"
+        )
+        REASONING_CONFIDENCE_THRESHOLD: float = Field(
+            default=0.7,
+            ge=0.1,
+            le=1.0,
+            description="🎯 Minimum confidence threshold for reasoning (0.1-1.0)"
+        )
+        REASONING_STEP_TIMEOUT_SECONDS: int = Field(
+            default=30,
+            ge=10,
+            le=120,
+            description="⏱️ Timeout per reasoning step (10-120 seconds)"
+        )
 
     def __init__(self):
         self.id = "healthcare_config_manager"
@@ -370,6 +436,34 @@ class Action:
                         "STATUS_UPDATES_ENABLED",
                         "AUDIO_VISUALIZATION_ENABLED",
                         "SESSION_HISTORY_ENABLED"
+                    ]
+                },
+                {
+                    "name": "Insurance Verification",
+                    "description": "Insurance verification and caching settings",
+                    "fields": [
+                        "INSURANCE_CACHE_TTL_SECONDS",
+                        "INSURANCE_MAX_CACHE_SIZE",
+                        "INSURANCE_API_TIMEOUT_SECONDS"
+                    ]
+                },
+                {
+                    "name": "Compliance Monitoring",
+                    "description": "HIPAA compliance and audit settings",
+                    "fields": [
+                        "COMPLIANCE_MAX_EVENTS_RETENTION",
+                        "COMPLIANCE_HIGH_RISK_PENALTY",
+                        "COMPLIANCE_UNRESOLVED_PENALTY",
+                        "COMPLIANCE_AUDIT_FREQUENCY_DAYS"
+                    ]
+                },
+                {
+                    "name": "Reasoning Engine",
+                    "description": "AI reasoning and decision-making settings",
+                    "fields": [
+                        "REASONING_MAX_STEPS",
+                        "REASONING_CONFIDENCE_THRESHOLD",
+                        "REASONING_STEP_TIMEOUT_SECONDS"
                     ]
                 }
             ],

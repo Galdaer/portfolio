@@ -103,12 +103,58 @@ class OrchestrationConfig:
 
 
 @dataclass
+class InsuranceProviderConfig:
+    """Insurance provider configuration"""
+    name: str = ""
+    api_type: str = "external"
+    api_delay_seconds: float = 0.1
+    eligibility: Dict[str, Any] = field(default_factory=dict)
+    coverage_rules: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    default_coverage: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class InsuranceConfig:
+    """Insurance verification configuration"""
+    cache: Dict[str, Any] = field(default_factory=dict)
+    performance: Dict[str, Any] = field(default_factory=dict)
+    providers: Dict[str, InsuranceProviderConfig] = field(default_factory=dict)
+    service_codes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+
+
+@dataclass
+class ComplianceConfig:
+    """Compliance monitoring configuration"""
+    event_retention: Dict[str, Any] = field(default_factory=dict)
+    scoring: Dict[str, Any] = field(default_factory=dict)
+    risk_levels: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    audit: Dict[str, Any] = field(default_factory=dict)
+    notifications: Dict[str, Any] = field(default_factory=dict)
+    event_categories: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    automated_checks: Dict[str, Any] = field(default_factory=dict)
+    recommendations: Dict[str, Any] = field(default_factory=dict)
+    integration: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ReasoningConfig:
+    """Reasoning engine configuration"""
+    chain_of_thought: Dict[str, Any] = field(default_factory=dict)
+    tree_of_thoughts: Dict[str, Any] = field(default_factory=dict)
+    shared: Dict[str, Any] = field(default_factory=dict)
+    quality_metrics: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class HealthcareAPIConfig:
     """Complete healthcare API configuration"""
     intake_agent: IntakeAgentConfig = field(default_factory=IntakeAgentConfig)
     workflows: WorkflowConfig = field(default_factory=WorkflowConfig)
     orchestration: OrchestrationConfig = field(default_factory=OrchestrationConfig)
     validation: ValidationConfig = field(default_factory=ValidationConfig)
+    insurance: InsuranceConfig = field(default_factory=InsuranceConfig)
+    compliance: ComplianceConfig = field(default_factory=ComplianceConfig)
+    reasoning: ReasoningConfig = field(default_factory=ReasoningConfig)
 
 
 class ConfigLoader:
@@ -129,11 +175,12 @@ class ConfigLoader:
         """Load complete healthcare API configuration"""
         
         try:
-            # Load intake configuration
+            # Load configuration files
             intake_config = self._load_yaml_file("intake_config.yml")
-            
-            # Load workflow configuration
             workflow_config = self._load_yaml_file("workflow_config.yml")
+            insurance_config = self._load_yaml_file("insurance_config.yml")
+            compliance_config = self._load_yaml_file("compliance_config.yml")
+            reasoning_config = self._load_yaml_file("reasoning_config.yml")
             
             # Create configuration objects
             config = HealthcareAPIConfig()
@@ -153,6 +200,22 @@ class ConfigLoader:
             # Parse orchestration configuration
             if "orchestration" in workflow_config:
                 config.orchestration = self._parse_orchestration_config(workflow_config["orchestration"])
+            
+            # Parse insurance configuration
+            if "insurance_verification" in insurance_config:
+                config.insurance = self._parse_insurance_config(insurance_config["insurance_verification"])
+                config.insurance.service_codes = insurance_config.get("service_codes", {})
+            
+            # Parse compliance configuration
+            if "compliance_monitor" in compliance_config:
+                config.compliance = self._parse_compliance_config(compliance_config["compliance_monitor"])
+                config.compliance.recommendations = compliance_config.get("recommendations", {})
+                config.compliance.integration = compliance_config.get("integration", {})
+            
+            # Parse reasoning configuration
+            if "reasoning_engines" in reasoning_config:
+                config.reasoning = self._parse_reasoning_config(reasoning_config["reasoning_engines"])
+                config.reasoning.quality_metrics = reasoning_config.get("quality_metrics", {})
             
             # Apply environment overrides
             self._apply_environment_overrides(config)
@@ -292,6 +355,51 @@ class ConfigLoader:
         
         return ValidationConfig(
             field_validation=validation_data.get("field_validation", {})
+        )
+    
+    def _parse_insurance_config(self, insurance_data: Dict[str, Any]) -> InsuranceConfig:
+        """Parse insurance verification configuration"""
+        
+        config = InsuranceConfig()
+        
+        # Parse cache and performance settings
+        config.cache = insurance_data.get("cache", {})
+        config.performance = insurance_data.get("performance", {})
+        
+        # Parse provider configurations
+        providers_data = insurance_data.get("providers", {})
+        for provider_name, provider_data in providers_data.items():
+            config.providers[provider_name] = InsuranceProviderConfig(
+                name=provider_data.get("name", ""),
+                api_type=provider_data.get("api_type", "external"),
+                api_delay_seconds=provider_data.get("api_delay_seconds", 0.1),
+                eligibility=provider_data.get("eligibility", {}),
+                coverage_rules=provider_data.get("coverage_rules", {}),
+                default_coverage=provider_data.get("default_coverage", {})
+            )
+        
+        return config
+    
+    def _parse_compliance_config(self, compliance_data: Dict[str, Any]) -> ComplianceConfig:
+        """Parse compliance monitoring configuration"""
+        
+        return ComplianceConfig(
+            event_retention=compliance_data.get("event_retention", {}),
+            scoring=compliance_data.get("scoring", {}),
+            risk_levels=compliance_data.get("risk_levels", {}),
+            audit=compliance_data.get("audit", {}),
+            notifications=compliance_data.get("notifications", {}),
+            event_categories=compliance_data.get("event_categories", {}),
+            automated_checks=compliance_data.get("automated_checks", {})
+        )
+    
+    def _parse_reasoning_config(self, reasoning_data: Dict[str, Any]) -> ReasoningConfig:
+        """Parse reasoning engine configuration"""
+        
+        return ReasoningConfig(
+            chain_of_thought=reasoning_data.get("chain_of_thought", {}),
+            tree_of_thoughts=reasoning_data.get("tree_of_thoughts", {}),
+            shared=reasoning_data.get("shared", {})
         )
     
     def _apply_environment_overrides(self, config: HealthcareAPIConfig):

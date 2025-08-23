@@ -1,0 +1,183 @@
+# Healthcare Compliance Monitoring Configuration
+# Settings for HIPAA compliance, audit logging, and compliance scoring
+
+compliance_monitor:
+  # Event retention and storage
+  event_retention:
+    max_events_retention: 10000  # Keep last 10k compliance events
+    retention_cleanup_interval_hours: 24  # Clean up old events every 24 hours
+    archive_events_after_days: 365  # Archive events older than 1 year
+  
+  # Compliance scoring configuration
+  scoring:
+    high_risk_penalty: 10        # Points deducted per high-risk event
+    unresolved_penalty: 5        # Points deducted per unresolved event
+    base_score: 100.0           # Starting compliance score
+    minimum_score: 0.0          # Minimum possible score
+    score_recalculation_interval_hours: 6  # Recalculate scores every 6 hours
+  
+  # Risk level definitions
+  risk_levels:
+    low:
+      description: "Routine compliance events"
+      alert_threshold: false
+      immediate_notification: false
+    medium:
+      description: "Moderate compliance concerns"
+      alert_threshold: false
+      immediate_notification: false
+    high:
+      description: "Significant compliance issues requiring attention"
+      alert_threshold: true
+      immediate_notification: true
+    critical:
+      description: "Critical violations requiring immediate action"
+      alert_threshold: true
+      immediate_notification: true
+      auto_escalate: true
+  
+  # Audit and reporting settings
+  audit:
+    frequency_days: 90          # Generate audit reports every 90 days
+    automatic_reports: true     # Automatically generate scheduled reports
+    report_retention_days: 2555 # Keep audit reports for 7 years (HIPAA requirement)
+    
+    # PHI access monitoring
+    phi_access:
+      log_all_access: true      # Log every PHI access event
+      require_justification: true  # Require business justification for PHI access
+      monitor_unusual_patterns: true  # Monitor for unusual access patterns
+      access_timeout_minutes: 30    # Auto-timeout PHI access sessions
+    
+    # Data breach detection
+    breach_detection:
+      enabled: true
+      monitor_bulk_exports: true     # Monitor large data exports
+      unusual_access_threshold: 50   # Flag if user accesses >50 records/hour
+      after_hours_monitoring: true   # Enhanced monitoring outside business hours
+      geographic_anomaly_detection: true  # Detect access from unusual locations
+  
+  # Alert and notification settings
+  notifications:
+    email_alerts:
+      enabled: true
+      recipients:
+        - "compliance@healthcare-org.com"
+        - "admin@healthcare-org.com"
+      
+    critical_alerts:
+      enabled: true
+      immediate_delivery: true
+      escalation_delay_minutes: 15  # Escalate if not acknowledged in 15 minutes
+    
+    summary_reports:
+      enabled: true
+      frequency: "weekly"         # weekly, monthly, quarterly
+      include_trends: true
+      include_recommendations: true
+  
+  # Compliance categories and thresholds
+  event_categories:
+    phi_access:
+      description: "PHI access and handling events"
+      default_risk_level: "medium"
+      requires_justification: true
+      
+    data_breach_risk:
+      description: "Potential data breach or security incidents"
+      default_risk_level: "critical"
+      auto_escalate: true
+      
+    audit_access:
+      description: "Audit trail and compliance data access"
+      default_risk_level: "medium"
+      track_all_access: true
+      
+    system_security:
+      description: "System security and access control events"
+      default_risk_level: "high"
+      monitor_failed_attempts: true
+      
+    workflow_compliance:
+      description: "Healthcare workflow compliance events"
+      default_risk_level: "low"
+      aggregate_daily: true
+  
+  # Automated compliance checks
+  automated_checks:
+    enabled: true
+    check_interval_hours: 4     # Run automated checks every 4 hours
+    
+    checks:
+      - name: "excessive_phi_access"
+        description: "Check for users accessing excessive PHI records"
+        threshold: 100            # Records per day
+        risk_level: "high"
+        
+      - name: "unresolved_critical_events"
+        description: "Check for critical events unresolved after 24 hours"
+        threshold_hours: 24
+        risk_level: "critical"
+        
+      - name: "audit_access_frequency"
+        description: "Monitor frequency of audit trail access"
+        threshold_per_week: 5
+        risk_level: "medium"
+        
+      - name: "compliance_score_decline"
+        description: "Alert when compliance score drops significantly"
+        threshold_drop: 20        # Points
+        risk_level: "high"
+
+# Compliance recommendations configuration
+recommendations:
+  scoring_thresholds:
+    excellent: 95               # Score >= 95: Excellent compliance
+    good: 80                   # Score >= 80: Good compliance
+    needs_improvement: 60       # Score >= 60: Needs improvement
+    poor: 40                   # Score >= 40: Poor compliance
+    critical: 0                # Score < 40: Critical compliance issues
+  
+  # Template recommendations based on common issues
+  templates:
+    high_phi_access:
+      - "High volume of PHI access events detected. Consider implementing additional access controls."
+      - "Review PHI access patterns and ensure all access is medically necessary."
+      - "Consider additional PHI access training for staff."
+    
+    unresolved_events:
+      - "Multiple unresolved compliance events found. Prioritize resolution of pending items."
+      - "Implement systematic review process for compliance event resolution."
+      - "Ensure adequate staffing for compliance event management."
+    
+    critical_violations:
+      - "Critical violations require immediate attention and corrective action."
+      - "Document all corrective actions taken for critical compliance events."
+      - "Review policies and procedures to prevent similar violations."
+    
+    low_compliance_score:
+      - "Compliance score indicates need for immediate attention to compliance practices."
+      - "Consider engaging compliance consultant for comprehensive review."
+      - "Implement enhanced compliance monitoring and staff training."
+    
+    audit_gaps:
+      - "Regular compliance audits should be conducted at least quarterly."
+      - "Ensure audit trail access is properly monitored and justified."
+      - "Implement automated compliance checking to identify issues proactively."
+
+# Integration settings
+integration:
+  healthcare_logger:
+    enabled: true
+    compliance_level: 25        # Custom log level for compliance events
+    include_context: true       # Include full context in compliance logs
+  
+  phi_monitor:
+    enabled: true
+    auto_redaction: true        # Automatically redact PHI in compliance logs
+    risk_assessment: true       # Use PHI monitor for risk assessment
+  
+  metrics_store:
+    enabled: true
+    metric_prefix: "compliance" # Prefix for compliance metrics
+    track_trends: true          # Track compliance trends over time

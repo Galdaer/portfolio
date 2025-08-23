@@ -1,0 +1,374 @@
+# Insurance Provider Configuration
+# Real-time verification settings and coverage rules for each insurance provider
+
+insurance_verification:
+  # Cache settings
+  cache:
+    verification_cache_ttl_seconds: 1800  # 30 minutes
+    max_cache_size: 500
+  
+  # Performance settings
+  performance:
+    api_timeout_seconds: 30
+    max_concurrent_requests: 10
+    retry_attempts: 3
+    retry_delay_seconds: 2
+  
+  # Provider configurations
+  providers:
+    # Major national providers
+    anthem:
+      name: "Anthem"
+      api_type: "external"
+      api_delay_seconds: 0.1
+      eligibility:
+        deductible_remaining: 500.0
+        out_of_pocket_max: 2000.0
+        out_of_pocket_met: 300.0
+        plan_type: "PPO"
+        effective_date: "2024-01-01"
+      coverage_rules:
+        "99213":  # Office visit established patient
+          covered: true
+          copay: 25.0
+          coinsurance_rate: 0.0
+          estimated_charge: 150.0
+          requires_prior_auth: false
+        "99214":  # Office visit established patient complex
+          covered: true
+          copay: 25.0
+          coinsurance_rate: 0.0
+          estimated_charge: 200.0
+          requires_prior_auth: false
+        "73721":  # MRI lower extremity
+          covered: true
+          copay: 0.0
+          coinsurance_rate: 0.2
+          estimated_charge: 400.0
+          requires_prior_auth: true
+        "45378":  # Diagnostic colonoscopy
+          covered: true
+          copay: 150.0
+          coinsurance_rate: 0.1
+          estimated_charge: 800.0
+          requires_prior_auth: true
+      default_coverage:
+        covered: true
+        copay: 30.0
+        coinsurance_rate: 0.2
+        estimated_charge: 150.0
+        requires_prior_auth: false
+    
+    uhc:
+      name: "United Health Care"
+      api_type: "external"
+      api_delay_seconds: 0.12
+      eligibility:
+        deductible_remaining: 750.0
+        out_of_pocket_max: 3000.0
+        out_of_pocket_met: 450.0
+        plan_type: "HMO"
+        effective_date: "2024-01-01"
+      coverage_rules:
+        "99213":
+          covered: true
+          copay: 30.0
+          coinsurance_rate: 0.0
+          estimated_charge: 150.0
+          requires_prior_auth: false
+        "99214":
+          covered: true
+          copay: 30.0
+          coinsurance_rate: 0.0
+          estimated_charge: 200.0
+          requires_prior_auth: false
+        "73721":
+          covered: true
+          copay: 0.0
+          coinsurance_rate: 0.15
+          estimated_charge: 400.0
+          requires_prior_auth: true
+        "45378":
+          covered: true
+          copay: 200.0
+          coinsurance_rate: 0.15
+          estimated_charge: 800.0
+          requires_prior_auth: true
+      default_coverage:
+        covered: true
+        copay: 35.0
+        coinsurance_rate: 0.15
+        estimated_charge: 175.0
+        requires_prior_auth: false
+    
+    cigna:
+      name: "Cigna"
+      api_type: "external"
+      api_delay_seconds: 0.11
+      eligibility:
+        deductible_remaining: 600.0
+        out_of_pocket_max: 2500.0
+        out_of_pocket_met: 250.0
+        plan_type: "PPO"
+        effective_date: "2024-01-01"
+      coverage_rules:
+        "99213":
+          covered: true
+          copay: 20.0
+          coinsurance_rate: 0.0
+          estimated_charge: 150.0
+          requires_prior_auth: false
+        "99214":
+          covered: true
+          copay: 20.0
+          coinsurance_rate: 0.0
+          estimated_charge: 200.0
+          requires_prior_auth: false
+        "73721":
+          covered: true
+          copay: 0.0
+          coinsurance_rate: 0.25
+          estimated_charge: 400.0
+          requires_prior_auth: true
+        "45378":
+          covered: true
+          copay: 100.0
+          coinsurance_rate: 0.2
+          estimated_charge: 800.0
+          requires_prior_auth: true
+      default_coverage:
+        covered: true
+        copay: 25.0
+        coinsurance_rate: 0.25
+        estimated_charge: 150.0
+        requires_prior_auth: false
+    
+    aetna:
+      name: "Aetna"
+      api_type: "external"
+      api_delay_seconds: 0.09
+      eligibility:
+        deductible_remaining: 800.0
+        out_of_pocket_max: 3500.0
+        out_of_pocket_met: 200.0
+        plan_type: "HDHP"
+        effective_date: "2024-01-01"
+      coverage_rules:
+        "99213":
+          covered: true
+          copay: 0.0
+          coinsurance_rate: 0.1
+          estimated_charge: 150.0
+          requires_prior_auth: false
+        "99214":
+          covered: true
+          copay: 0.0
+          coinsurance_rate: 0.1
+          estimated_charge: 200.0
+          requires_prior_auth: false
+        "73721":
+          covered: true
+          copay: 0.0
+          coinsurance_rate: 0.3
+          estimated_charge: 400.0
+          requires_prior_auth: true
+        "45378":
+          covered: true
+          copay: 0.0
+          coinsurance_rate: 0.3
+          estimated_charge: 800.0
+          requires_prior_auth: true
+      default_coverage:
+        covered: true
+        copay: 0.0
+        coinsurance_rate: 0.2
+        estimated_charge: 150.0
+        requires_prior_auth: false
+    
+    bcbs:
+      name: "Blue Cross Blue Shield"
+      api_type: "external"
+      api_delay_seconds: 0.13
+      eligibility:
+        deductible_remaining: 400.0
+        out_of_pocket_max: 2200.0
+        out_of_pocket_met: 600.0
+        plan_type: "PPO"
+        effective_date: "2024-01-01"
+      coverage_rules:
+        "99213":
+          covered: true
+          copay: 30.0
+          coinsurance_rate: 0.0
+          estimated_charge: 150.0
+          requires_prior_auth: false
+        "99214":
+          covered: true
+          copay: 30.0
+          coinsurance_rate: 0.0
+          estimated_charge: 200.0
+          requires_prior_auth: false
+        "73721":
+          covered: true
+          copay: 0.0
+          coinsurance_rate: 0.2
+          estimated_charge: 400.0
+          requires_prior_auth: true
+        "45378":
+          covered: true
+          copay: 175.0
+          coinsurance_rate: 0.15
+          estimated_charge: 800.0
+          requires_prior_auth: true
+      default_coverage:
+        covered: true
+        copay: 35.0
+        coinsurance_rate: 0.2
+        estimated_charge: 175.0
+        requires_prior_auth: false
+    
+    # Central Indiana providers
+    iuhealth:
+      name: "IU Health Plans"
+      api_type: "external"
+      api_delay_seconds: 0.1
+      eligibility:
+        deductible_remaining: 300.0
+        out_of_pocket_max: 1800.0
+        out_of_pocket_met: 400.0
+        plan_type: "PPO"
+        effective_date: "2024-01-01"
+      coverage_rules:
+        "99213":
+          covered: true
+          copay: 15.0  # Lower copays for IU Health system providers
+          coinsurance_rate: 0.0
+          estimated_charge: 150.0
+          requires_prior_auth: false
+        "99214":
+          covered: true
+          copay: 15.0
+          coinsurance_rate: 0.0
+          estimated_charge: 200.0
+          requires_prior_auth: false
+        "73721":
+          covered: true
+          copay: 0.0
+          coinsurance_rate: 0.1  # Better rates for IU Health facilities
+          estimated_charge: 400.0
+          requires_prior_auth: true
+        "45378":
+          covered: true
+          copay: 100.0
+          coinsurance_rate: 0.1
+          estimated_charge: 800.0
+          requires_prior_auth: true
+      default_coverage:
+        covered: true
+        copay: 20.0
+        coinsurance_rate: 0.15
+        estimated_charge: 150.0
+        requires_prior_auth: false
+    
+    mdwise:
+      name: "MDwise Medicaid"
+      api_type: "external"
+      api_delay_seconds: 0.08
+      eligibility:
+        deductible_remaining: 0.0  # Medicaid typically has no deductible
+        out_of_pocket_max: 0.0    # Medicaid typically has no out-of-pocket max
+        out_of_pocket_met: 0.0
+        plan_type: "Medicaid"
+        effective_date: "2024-01-01"
+      coverage_rules:
+        "99213":
+          covered: true
+          copay: 0.0  # Medicaid minimal or no copays
+          coinsurance_rate: 0.0
+          estimated_charge: 150.0
+          requires_prior_auth: false
+        "99214":
+          covered: true
+          copay: 0.0
+          coinsurance_rate: 0.0
+          estimated_charge: 200.0
+          requires_prior_auth: false
+        "73721":
+          covered: true
+          copay: 0.0
+          coinsurance_rate: 0.0
+          estimated_charge: 400.0
+          requires_prior_auth: true
+        "45378":
+          covered: true
+          copay: 0.0
+          coinsurance_rate: 0.0
+          estimated_charge: 800.0
+          requires_prior_auth: true
+      default_coverage:
+        covered: true
+        copay: 0.0
+        coinsurance_rate: 0.0
+        estimated_charge: 150.0
+        requires_prior_auth: false
+    
+    caresource:
+      name: "CareSource Medicaid/Medicare"
+      api_type: "external"
+      api_delay_seconds: 0.09
+      eligibility:
+        deductible_remaining: 0.0  # Medicaid/Medicare Advantage minimal deductible
+        out_of_pocket_max: 1500.0 # Medicare Advantage may have OOP max
+        out_of_pocket_met: 150.0
+        plan_type: "Medicare Advantage"
+        effective_date: "2024-01-01"
+      coverage_rules:
+        "99213":
+          covered: true
+          copay: 10.0  # Reasonable copays for Indiana market
+          coinsurance_rate: 0.0
+          estimated_charge: 150.0
+          requires_prior_auth: false
+        "99214":
+          covered: true
+          copay: 15.0
+          coinsurance_rate: 0.0
+          estimated_charge: 200.0
+          requires_prior_auth: false
+        "73721":
+          covered: true
+          copay: 0.0
+          coinsurance_rate: 0.2
+          estimated_charge: 400.0
+          requires_prior_auth: true
+        "45378":
+          covered: true
+          copay: 75.0
+          coinsurance_rate: 0.1
+          estimated_charge: 800.0
+          requires_prior_auth: true
+      default_coverage:
+        covered: true
+        copay: 15.0
+        coinsurance_rate: 0.2
+        estimated_charge: 150.0
+        requires_prior_auth: false
+
+# Service code definitions for reference
+service_codes:
+  "99213":
+    description: "Office visit, established patient, straightforward"
+    category: "office_visit"
+    complexity: "low"
+  "99214":
+    description: "Office visit, established patient, moderate complexity"
+    category: "office_visit"
+    complexity: "moderate"
+  "73721":
+    description: "MRI of lower extremity without contrast"
+    category: "imaging"
+    complexity: "high"
+  "45378":
+    description: "Diagnostic colonoscopy"
+    category: "procedure"
+    complexity: "high"
