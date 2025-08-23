@@ -9,6 +9,7 @@ from typing import Any
 
 from clinicaltrials.downloader import ClinicalTrialsDownloader
 from clinicaltrials.parser import ClinicalTrialsParser
+from clinicaltrials.parser_optimized import OptimizedClinicalTrialsParser
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
@@ -20,10 +21,28 @@ logger = logging.getLogger(__name__)
 class ClinicalTrialsAPI:
     """Local ClinicalTrials.gov API matching Healthcare MCP interface"""
 
-    def __init__(self, session_factory: Any) -> None:
+    def __init__(self, session_factory: Any, config: Any = None) -> None:
         self.session_factory = session_factory
+        self.config = config
         self.downloader = ClinicalTrialsDownloader()
         self.parser = ClinicalTrialsParser()
+        
+        # Use optimized parser if multicore parsing is enabled
+        if config and getattr(config, 'ENABLE_MULTICORE_PARSING', False):
+            max_workers = getattr(config, 'CLINICALTRIALS_MAX_WORKERS', None)
+            self.optimized_parser = OptimizedClinicalTrialsParser(max_workers=max_workers)
+            logger.info(f"Using optimized ClinicalTrials parser with {max_workers or 'auto'} workers")
+        else:
+            self.optimized_parser = None
+    
+    def _is_large_file(self, file_path: str, size_threshold_mb: int = 50) -> bool:
+        """Check if a file is large enough to benefit from chunked parallel processing"""
+        try:
+            import os
+            file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+            return file_size_mb > size_threshold_mb
+        except:
+            return False
 
     async def search_trials(
         self,
@@ -190,22 +209,36 @@ class ClinicalTrialsAPI:
             total_processed: int = 0
             trials_processed: int = 0
 
-            for json_file in update_files:
-                trials = self.parser.parse_json_file(json_file)
-
-                # For quick test, limit number of trials processed
-                if quick_test and trials_processed + len(trials) > (limit or 100):
-                    trials = trials[: (limit or 100) - trials_processed]
-                    logger.info(f"Quick test: processing {len(trials)} trials from {json_file}")
-
-                processed = await self.store_trials(trials, db)
+            # Use optimized parser if available and not in quick test mode
+            if self.optimized_parser and not quick_test and len(update_files) > 1:
+                logger.info(f"Using optimized parallel parsing for {len(update_files)} files")
+                all_trials = await self.optimized_parser.parse_json_files_parallel(update_files)
+                processed = await self.store_trials(all_trials, db)
                 total_processed += processed
-                trials_processed += len(trials)
+                trials_processed += len(all_trials)
+            else:
+                # Use serial parsing for quick tests or when optimized parser unavailable
+                for json_file in update_files:
+                    # Check if we have a large JSON file that would benefit from chunking
+                    if self.optimized_parser and not quick_test and self._is_large_file(json_file):
+                        logger.info(f"Using chunked parallel parsing for large file: {json_file}")
+                        trials = await self.optimized_parser.parse_large_json_file_parallel(json_file)
+                    else:
+                        trials = self.parser.parse_json_file(json_file)
 
-                # Stop if we've reached the quick test limit
-                if quick_test and trials_processed >= (limit or 100):
-                    logger.info(f"Quick test complete: processed {trials_processed} trials")
-                    break
+                    # For quick test, limit number of trials processed
+                    if quick_test and trials_processed + len(trials) > (limit or 100):
+                        trials = trials[: (limit or 100) - trials_processed]
+                        logger.info(f"Quick test: processing {len(trials)} trials from {json_file}")
+
+                    processed = await self.store_trials(trials, db)
+                    total_processed += processed
+                    trials_processed += len(trials)
+
+                    # Stop if we've reached the quick test limit
+                    if quick_test and trials_processed >= (limit or 100):
+                        logger.info(f"Quick test complete: processed {trials_processed} trials")
+                        break
 
             # Update log
             update_log.status = "success"
@@ -332,11 +365,26 @@ class ClinicalTrialsAPI:
             study_files = await self.downloader.download_all_studies()
             total_processed = 0
 
-            for json_file in study_files:
-                trials = self.parser.parse_json_file(json_file)
-                processed = await self.store_trials(trials, db)
+            # Use optimized parser if available for multiple files
+            if self.optimized_parser and len(study_files) > 1:
+                logger.info(f"Using optimized parallel parsing for {len(study_files)} study files")
+                all_trials = await self.optimized_parser.parse_json_files_parallel(study_files)
+                processed = await self.store_trials(all_trials, db)
                 total_processed += processed
-                logger.info(f"Processed {processed} trials from {json_file}")
+                logger.info(f"Processed {processed} trials using parallel parsing")
+            else:
+                # Use serial parsing or chunked parsing for large single files
+                for json_file in study_files:
+                    # Check if we have a large JSON file that would benefit from chunking
+                    if self.optimized_parser and self._is_large_file(json_file):
+                        logger.info(f"Using chunked parallel parsing for large file: {json_file}")
+                        trials = await self.optimized_parser.parse_large_json_file_parallel(json_file)
+                    else:
+                        trials = self.parser.parse_json_file(json_file)
+                    
+                    processed = await self.store_trials(trials, db)
+                    total_processed += processed
+                    logger.info(f"Processed {processed} trials from {json_file}")
 
             logger.info(f"ClinicalTrials initialization completed: {total_processed} trials")
             return {

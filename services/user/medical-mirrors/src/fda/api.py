@@ -9,6 +9,7 @@ from typing import Any
 
 from .downloader import FDADownloader
 from .parser import FDAParser
+from .parser_optimized import OptimizedFDAParser
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
@@ -27,10 +28,19 @@ logger = logging.getLogger(__name__)
 class FDAAPI:
     """Local FDA API matching Healthcare MCP interface"""
 
-    def __init__(self, session_factory: Any) -> None:
+    def __init__(self, session_factory: Any, config: Any = None) -> None:
         self.session_factory = session_factory
+        self.config = config
         self.downloader = FDADownloader()
         self.parser = FDAParser()
+        
+        # Use optimized parser if multicore parsing is enabled
+        if config and getattr(config, 'ENABLE_MULTICORE_PARSING', False):
+            max_workers = getattr(config, 'FDA_MAX_WORKERS', None)
+            self.optimized_parser = OptimizedFDAParser(max_workers=max_workers)
+            logger.info(f"Using optimized FDA parser with {max_workers or 'auto'} workers")
+        else:
+            self.optimized_parser = None
 
     async def search_drugs(
         self,
@@ -266,46 +276,73 @@ class FDAAPI:
         processed_count = 0
 
         try:
+            # Collect all relevant files for parallel processing
+            json_files = []
+            csv_files = []
+            
             for file in os.listdir(data_dir):
-                if quick_test_limit and processed_count >= quick_test_limit:
-                    logger.info(
-                        f"Quick test limit reached for {dataset_name}: {processed_count} drugs"
-                    )
-                    break
-
                 file_path = os.path.join(data_dir, file)
-
+                
                 if dataset_name == "ndc" and file.endswith(".json"):
-                    drugs = self.parser.parse_ndc_file(file_path)
-                    if quick_test_limit:
-                        remaining = quick_test_limit - processed_count
-                        drugs = drugs[:remaining]
-                    stored = await self.store_drugs_with_merging(drugs, db)
-                    processed_count += stored
-
+                    json_files.append(file_path)
                 elif dataset_name == "drugs_fda" and file.endswith(".json"):
-                    drugs = self.parser.parse_drugs_fda_file(file_path)
-                    if quick_test_limit:
-                        remaining = quick_test_limit - processed_count
-                        drugs = drugs[:remaining]
-                    stored = await self.store_drugs_with_merging(drugs, db)
-                    processed_count += stored
-
-                elif dataset_name == "orange_book" and file.endswith((".csv", ".txt")):
-                    drugs = self.parser.parse_orange_book_file(file_path)
-                    if quick_test_limit:
-                        remaining = quick_test_limit - processed_count
-                        drugs = drugs[:remaining]
-                    stored = await self.store_drugs_with_merging(drugs, db)
-                    processed_count += stored
-
+                    json_files.append(file_path)
                 elif dataset_name == "labels" and file.endswith(".json"):
-                    drugs = self.parser.parse_drug_labels_file(file_path)
+                    json_files.append(file_path)
+                elif dataset_name == "orange_book" and file.endswith((".csv", ".txt")):
+                    csv_files.append(file_path)
+            
+            # Use optimized parser for JSON files if available
+            if json_files and self.optimized_parser:
+                logger.info(f"Using optimized parallel parsing for {len(json_files)} {dataset_name} JSON files")
+                drugs = await self.optimized_parser.parse_json_files_parallel(json_files, dataset_name)
+                
+                if quick_test_limit:
+                    drugs = drugs[:quick_test_limit]
+                
+                stored = await self.store_drugs_with_merging(drugs, db)
+                processed_count += stored
+            
+            # Use serial parsing for JSON files if optimized parser not available
+            elif json_files:
+                for file_path in json_files:
+                    if quick_test_limit and processed_count >= quick_test_limit:
+                        logger.info(f"Quick test limit reached for {dataset_name}: {processed_count} drugs")
+                        break
+                    
+                    if dataset_name == "ndc":
+                        drugs = self.parser.parse_ndc_file(file_path)
+                    elif dataset_name == "drugs_fda":
+                        drugs = self.parser.parse_drugs_fda_file(file_path)
+                    elif dataset_name == "labels":
+                        drugs = self.parser.parse_drug_labels_file(file_path)
+                    else:
+                        continue
+                    
                     if quick_test_limit:
                         remaining = quick_test_limit - processed_count
                         drugs = drugs[:remaining]
+                    
                     stored = await self.store_drugs_with_merging(drugs, db)
                     processed_count += stored
+            
+            # Handle CSV files (Orange Book) - single threaded as it's usually one file
+            for file_path in csv_files:
+                if quick_test_limit and processed_count >= quick_test_limit:
+                    logger.info(f"Quick test limit reached for {dataset_name}: {processed_count} drugs")
+                    break
+                
+                if self.optimized_parser:
+                    drugs = self.optimized_parser.parse_orange_book_file(file_path)
+                else:
+                    drugs = self.parser.parse_orange_book_file(file_path)
+                
+                if quick_test_limit:
+                    remaining = quick_test_limit - processed_count
+                    drugs = drugs[:remaining]
+                
+                stored = await self.store_drugs_with_merging(drugs, db)
+                processed_count += stored
 
             logger.info(f"Processed {processed_count} drugs from {dataset_name}")
             return processed_count

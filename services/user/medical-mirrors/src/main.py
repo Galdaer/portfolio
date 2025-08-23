@@ -99,8 +99,8 @@ else:
     pubmed_api = PubMedAPI(SessionLocal)
     logger.info("Using standard single-threaded PubMed parser")
 
-trials_api = ClinicalTrialsAPI(SessionLocal)
-fda_api = FDAAPI(SessionLocal)
+trials_api = ClinicalTrialsAPI(SessionLocal, config)
+fda_api = FDAAPI(SessionLocal, config)
 
 # Initialize new data source APIs (these don't need specific API classes since they use direct database operations)
 icd10_session_factory = SessionLocal

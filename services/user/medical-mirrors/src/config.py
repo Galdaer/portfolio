@@ -53,6 +53,14 @@ class Config:
     MAX_PARSER_WORKERS: int = int(
         os.getenv("MAX_PARSER_WORKERS", "8")
     )  # Default to 8 cores (half of typical 16-core system)
+    
+    # Service-specific worker settings
+    FDA_MAX_WORKERS: int = int(
+        os.getenv("FDA_MAX_WORKERS", "8")
+    )  # FDA-specific worker count
+    CLINICALTRIALS_MAX_WORKERS: int = int(
+        os.getenv("CLINICALTRIALS_MAX_WORKERS", "8") 
+    )  # ClinicalTrials-specific worker count
 
     def get_pubmed_data_dir(self) -> str:
         """Get PubMed data directory"""
