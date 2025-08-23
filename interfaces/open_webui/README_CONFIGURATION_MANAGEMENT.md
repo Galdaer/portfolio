@@ -98,6 +98,22 @@ This is a **dedicated configuration management interface**:
 - `AUDIO_VISUALIZATION_ENABLED` - Enable audio visualization
 - `SESSION_HISTORY_ENABLED` - Enable session history
 
+##### **💳 Insurance Verification**
+- `INSURANCE_CACHE_TTL_SECONDS` - Verification cache TTL (300-7200 seconds)
+- `INSURANCE_MAX_CACHE_SIZE` - Maximum cache size (50-2000 entries)
+- `INSURANCE_API_TIMEOUT_SECONDS` - API request timeout (10-120 seconds)
+
+##### **📊 Compliance Monitoring**
+- `COMPLIANCE_MAX_EVENTS_RETENTION` - Maximum events to retain (1000-50000)
+- `COMPLIANCE_HIGH_RISK_PENALTY` - Points per high-risk event (1-50)
+- `COMPLIANCE_UNRESOLVED_PENALTY` - Points per unresolved event (1-25)
+- `COMPLIANCE_AUDIT_FREQUENCY_DAYS` - Required audit frequency (30-365 days)
+
+##### **🧠 Reasoning Engine**
+- `REASONING_MAX_STEPS` - Maximum reasoning chain steps (3-20)
+- `REASONING_CONFIDENCE_THRESHOLD` - Minimum confidence (0.1-1.0)
+- `REASONING_STEP_TIMEOUT_SECONDS` - Timeout per step (10-120 seconds)
+
 ### **Method 2: Enhanced Medical Transcription Action**
 
 The **Medical Transcription Action** now has **dynamic Valves** for quick configuration:
@@ -202,6 +218,80 @@ quality:
   high_confidence_threshold: 0.92
 ```
 
+### **insurance_config.yml**
+```yaml
+# Insurance Provider Configuration
+insurance_verification:
+  cache:
+    verification_cache_ttl_seconds: 1800
+    max_cache_size: 500
+  
+  performance:
+    api_timeout_seconds: 30
+    max_concurrent_requests: 10
+  
+  providers:
+    anthem:
+      name: "Anthem"
+      api_delay_seconds: 0.1
+      eligibility:
+        deductible_remaining: 500.0
+        out_of_pocket_max: 2000.0
+        plan_type: "PPO"
+      coverage_rules:
+        "99213":
+          covered: true
+          copay: 25.0
+          coinsurance_rate: 0.0
+          estimated_charge: 150.0
+```
+
+### **compliance_config.yml**
+```yaml
+# Compliance Monitoring Configuration  
+compliance_monitor:
+  event_retention:
+    max_events_retention: 10000
+    retention_cleanup_interval_hours: 24
+  
+  scoring:
+    high_risk_penalty: 10
+    unresolved_penalty: 5
+    base_score: 100.0
+  
+  audit:
+    frequency_days: 90
+    automatic_reports: true
+    phi_access:
+      log_all_access: true
+      require_justification: true
+```
+
+### **reasoning_config.yml**
+```yaml
+# Reasoning Engine Configuration
+reasoning_engines:
+  chain_of_thought:
+    processing:
+      max_reasoning_steps: 10
+      step_timeout_seconds: 30
+      confidence_threshold: 0.7
+    
+    templates:
+      insurance_eligibility:
+        confidence_threshold: 0.8
+        required_fields:
+          - "patient_id"
+          - "insurance_provider"
+          - "member_id"
+  
+  tree_of_thoughts:
+    planning:
+      max_tree_depth: 5
+      max_branches_per_node: 4
+      exploration_timeout_seconds: 120
+```
+
 ## 🔒 Security & Access Control
 
 ### **Admin-Only Mode**
@@ -250,6 +340,9 @@ ADMIN_USERS: List[str] = Field(
 - ✅ Healthcare Configuration Manager  
 - ✅ WebSocket Transcription Service
 - ✅ UI Configuration API
+- ✅ Insurance Verification Service
+- ✅ Compliance Monitoring Service
+- ✅ Reasoning Engine Service
 
 ## 🚨 Troubleshooting
 

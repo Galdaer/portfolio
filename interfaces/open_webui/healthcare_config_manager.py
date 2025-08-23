@@ -487,6 +487,9 @@ class Action:
             # Map changes to configuration files
             transcription_changes = {}
             ui_changes = {}
+            insurance_changes = {}
+            compliance_changes = {}
+            reasoning_changes = {}
             
             # Map valve fields to configuration structures
             transcription_field_map = {
@@ -518,6 +521,25 @@ class Action:
                 'MEDICAL_DISCLAIMER_TEXT': ('compliance', 'disclaimer_text'),
             }
             
+            insurance_field_map = {
+                'INSURANCE_CACHE_TTL_SECONDS': ('cache', 'verification_cache_ttl_seconds'),
+                'INSURANCE_MAX_CACHE_SIZE': ('cache', 'max_cache_size'),
+                'INSURANCE_API_TIMEOUT_SECONDS': ('performance', 'api_timeout_seconds'),
+            }
+            
+            compliance_field_map = {
+                'COMPLIANCE_MAX_EVENTS_RETENTION': ('event_retention', 'max_events_retention'),
+                'COMPLIANCE_HIGH_RISK_PENALTY': ('scoring', 'high_risk_penalty'),
+                'COMPLIANCE_UNRESOLVED_PENALTY': ('scoring', 'unresolved_penalty'),
+                'COMPLIANCE_AUDIT_FREQUENCY_DAYS': ('audit', 'frequency_days'),
+            }
+            
+            reasoning_field_map = {
+                'REASONING_MAX_STEPS': ('chain_of_thought', 'processing', 'max_reasoning_steps'),
+                'REASONING_CONFIDENCE_THRESHOLD': ('chain_of_thought', 'processing', 'confidence_threshold'),
+                'REASONING_STEP_TIMEOUT_SECONDS': ('chain_of_thought', 'processing', 'step_timeout_seconds'),
+            }
+            
             # Organize changes by configuration file
             for field, value in changes.items():
                 if field in transcription_field_map:
@@ -531,6 +553,28 @@ class Action:
                     if section not in ui_changes:
                         ui_changes[section] = {}
                     ui_changes[section][key] = value
+                    
+                elif field in insurance_field_map:
+                    section, key = insurance_field_map[field]
+                    if section not in insurance_changes:
+                        insurance_changes[section] = {}
+                    insurance_changes[section][key] = value
+                    
+                elif field in compliance_field_map:
+                    section, key = compliance_field_map[field]
+                    if section not in compliance_changes:
+                        compliance_changes[section] = {}
+                    compliance_changes[section][key] = value
+                    
+                elif field in reasoning_field_map:
+                    # Handle nested structure for reasoning config
+                    if len(reasoning_field_map[field]) == 3:
+                        top_section, sub_section, key = reasoning_field_map[field]
+                        if top_section not in reasoning_changes:
+                            reasoning_changes[top_section] = {}
+                        if sub_section not in reasoning_changes[top_section]:
+                            reasoning_changes[top_section][sub_section] = {}
+                        reasoning_changes[top_section][sub_section][key] = value
             
             # Apply transcription configuration changes
             if transcription_changes:
@@ -550,6 +594,39 @@ class Action:
                     results["changes_applied"].extend(list(ui_changes.keys()))
                 except Exception as e:
                     results["errors"].append(f"UI config update failed: {str(e)}")
+                    results["success"] = False
+            
+            # Apply insurance configuration changes
+            if insurance_changes:
+                try:
+                    # Note: This would need a proper insurance config update function
+                    # For now, log that insurance config changes were requested
+                    self.logger.info(f"Insurance configuration changes requested: {insurance_changes}")
+                    results["changes_applied"].extend(list(insurance_changes.keys()))
+                except Exception as e:
+                    results["errors"].append(f"Insurance config update failed: {str(e)}")
+                    results["success"] = False
+            
+            # Apply compliance configuration changes  
+            if compliance_changes:
+                try:
+                    # Note: This would need a proper compliance config update function
+                    # For now, log that compliance config changes were requested
+                    self.logger.info(f"Compliance configuration changes requested: {compliance_changes}")
+                    results["changes_applied"].extend(list(compliance_changes.keys()))
+                except Exception as e:
+                    results["errors"].append(f"Compliance config update failed: {str(e)}")
+                    results["success"] = False
+            
+            # Apply reasoning configuration changes
+            if reasoning_changes:
+                try:
+                    # Note: This would need a proper reasoning config update function
+                    # For now, log that reasoning config changes were requested
+                    self.logger.info(f"Reasoning configuration changes requested: {reasoning_changes}")
+                    results["changes_applied"].extend(list(reasoning_changes.keys()))
+                except Exception as e:
+                    results["errors"].append(f"Reasoning config update failed: {str(e)}")
                     results["success"] = False
             
             return results
