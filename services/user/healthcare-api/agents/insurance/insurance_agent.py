@@ -18,6 +18,11 @@ from core.infrastructure.healthcare_logger import (
     log_healthcare_event,
 )
 from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor, scan_for_phi
+from core.reasoning.chain_of_thought import (
+    ChainOfThoughtProcessor,
+    ReasoningType,
+    ReasoningChainResult
+)
 
 logger = get_healthcare_logger("agent.insurance")
 
@@ -95,6 +100,12 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
         # Initialize shared healthcare infrastructure tools
         self._metrics = AgentMetricsStore(agent_name="insurance_verification")
         self._cache_manager = HealthcareCacheManager()
+        
+        # Initialize Chain-of-Thought reasoning processor
+        self._reasoning_processor = ChainOfThoughtProcessor(
+            llm_client=llm_client,
+            audit_logger=logger
+        )
         self.capabilities = [
             "eligibility_verification",
             "benefits_checking",
@@ -640,6 +651,182 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
 
         return report
 
+    @healthcare_log_method(operation_type="insurance_chain_of_thought", phi_risk_level="high")
+    @phi_monitor(risk_level="high", operation_type="insurance_chain_of_thought")
+    async def verify_eligibility_with_reasoning(
+        self,
+        insurance_info: dict[str, Any],
+        service_codes: list[str] = None,
+        session_id: str = None,
+        user_id: str = None
+    ) -> dict[str, Any]:
+        """
+        Verify insurance eligibility using Chain-of-Thought reasoning
+        
+        Provides transparent, step-by-step reasoning for insurance eligibility decisions
+        with full audit trails for compliance and quality assurance.
+        
+        Args:
+            insurance_info: Dictionary containing insurance information
+            service_codes: Optional list of service codes to verify coverage
+            session_id: Session ID for tracking
+            user_id: User ID for audit trails
+            
+        Returns:
+            Dictionary containing reasoning chain and eligibility results
+            
+        Medical Disclaimer: Administrative insurance verification only.
+        Does not provide medical advice or treatment authorization.
+        """
+        try:
+            # Increment metrics for Chain-of-Thought usage
+            await self._metrics.incr("chain_of_thought_requests")
+            
+            # Validate and sanitize input data for PHI protection
+            scan_for_phi(str(insurance_info))
+            
+            # Prepare reasoning input data
+            reasoning_input = {
+                "member_id": insurance_info.get("member_id"),
+                "provider_network": insurance_info.get("payer_name"),
+                "plan_type": insurance_info.get("plan_type", "Unknown"),
+                "service_date": insurance_info.get("service_date", datetime.now().date().isoformat()),
+                "service_codes": service_codes or [],
+                "provider_npi": insurance_info.get("provider_npi"),
+                "group_id": insurance_info.get("group_id"),
+                "date_of_birth": insurance_info.get("dob")
+            }
+            
+            # Generate Chain-of-Thought reasoning
+            reasoning_question = f"""Verify insurance eligibility for member ID {insurance_info.get('member_id', 'N/A')} 
+            with {insurance_info.get('payer_name', 'Unknown')} insurance for the requested services.
+            Provide administrative verification with step-by-step reasoning."""
+            
+            reasoning_result = await self._reasoning_processor.process_reasoning_chain(
+                input_data=reasoning_input,
+                question=reasoning_question,
+                reasoning_type=ReasoningType.INSURANCE_ELIGIBILITY,
+                session_id=session_id or f"ins_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                user_id=user_id
+            )
+            
+            # Perform actual eligibility verification
+            eligibility_result = await self.verify_insurance_eligibility(insurance_info)
+            
+            # Combine reasoning with verification results
+            enhanced_result = {
+                "eligibility_verification": {
+                    "verification_id": eligibility_result.verification_id,
+                    "status": eligibility_result.status,
+                    "coverage_active": eligibility_result.coverage_active,
+                    "benefits_summary": eligibility_result.benefits_summary,
+                    "verification_errors": eligibility_result.verification_errors
+                },
+                "reasoning_chain": {
+                    "chain_id": reasoning_result.chain_id,
+                    "reasoning_steps": [
+                        {
+                            "step_id": step.step_id,
+                            "step_type": step.step_type,
+                            "conclusion": step.conclusion,
+                            "confidence_score": step.confidence_score,
+                            "evidence": step.evidence[:3],  # Top 3 evidence items
+                            "timestamp": step.timestamp.isoformat()
+                        }
+                        for step in reasoning_result.steps
+                    ],
+                    "final_conclusion": reasoning_result.final_conclusion,
+                    "overall_confidence": reasoning_result.overall_confidence,
+                    "recommendations": reasoning_result.recommendations
+                },
+                "audit_trail": reasoning_result.audit_trail,
+                "medical_disclaimer": (
+                    "This analysis provides administrative insurance verification support only. "
+                    "It does not provide medical advice, diagnosis, or treatment recommendations. "
+                    "All medical decisions must be made by qualified healthcare professionals."
+                ),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Log Chain-of-Thought usage
+            await self._metrics.incr("chain_of_thought_completions")
+            
+            log_healthcare_event(
+                logger,
+                logging.INFO,
+                "Chain-of-Thought insurance verification completed",
+                context={
+                    "chain_id": reasoning_result.chain_id,
+                    "reasoning_steps": len(reasoning_result.steps),
+                    "overall_confidence": reasoning_result.overall_confidence,
+                    "eligibility_status": eligibility_result.status,
+                    "user_id": user_id,
+                    "session_id": session_id
+                },
+                operation_type="insurance_chain_of_thought"
+            )
+            
+            return enhanced_result
+            
+        except Exception as e:
+            await self._metrics.incr("chain_of_thought_errors")
+            
+            log_healthcare_event(
+                logger,
+                logging.ERROR,
+                f"Chain-of-Thought insurance verification failed: {str(e)}",
+                context={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "user_id": user_id,
+                    "session_id": session_id
+                },
+                operation_type="insurance_chain_of_thought_error"
+            )
+            
+            # Return error response with fallback to standard verification
+            try:
+                fallback_result = await self.verify_insurance_eligibility(insurance_info)
+                return {
+                    "eligibility_verification": {
+                        "verification_id": fallback_result.verification_id,
+                        "status": fallback_result.status,
+                        "coverage_active": fallback_result.coverage_active,
+                        "benefits_summary": fallback_result.benefits_summary,
+                        "verification_errors": fallback_result.verification_errors
+                    },
+                    "reasoning_chain": {
+                        "error": "Chain-of-Thought reasoning failed",
+                        "error_details": str(e),
+                        "fallback_used": True
+                    },
+                    "medical_disclaimer": (
+                        "This analysis provides administrative insurance verification support only. "
+                        "It does not provide medical advice, diagnosis, or treatment recommendations. "
+                        "All medical decisions must be made by qualified healthcare professionals."
+                    ),
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as fallback_error:
+                return {
+                    "eligibility_verification": {
+                        "status": "verification_failed",
+                        "coverage_active": False,
+                        "verification_errors": [f"Primary and fallback verification failed: {str(fallback_error)}"]
+                    },
+                    "reasoning_chain": {
+                        "error": "Both Chain-of-Thought and standard verification failed",
+                        "primary_error": str(e),
+                        "fallback_error": str(fallback_error)
+                    },
+                    "medical_disclaimer": (
+                        "This analysis provides administrative insurance verification support only. "
+                        "It does not provide medical advice, diagnosis, or treatment recommendations. "
+                        "All medical decisions must be made by qualified healthcare professionals."
+                    ),
+                    "timestamp": datetime.now().isoformat()
+                }
+
     async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Implement insurance agent-specific processing logic
@@ -671,10 +858,18 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
 
             elif request_type == "eligibility_verification":
                 result = await self.verify_insurance_eligibility(
-                    request.get("patient_info", {}),
                     request.get("insurance_info", {}),
                 )
                 base_response.update({"eligibility_result": result})
+                
+            elif request_type == "eligibility_verification_with_reasoning":
+                result = await self.verify_eligibility_with_reasoning(
+                    insurance_info=request.get("insurance_info", {}),
+                    service_codes=request.get("service_codes", []),
+                    session_id=request.get("session_id"),
+                    user_id=request.get("user_id")
+                )
+                base_response.update({"enhanced_eligibility_result": result})
 
             elif request_type == "report_generation":
                 result = await self.generate_insurance_report(request.get("date_range", {}))
@@ -689,6 +884,7 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
                             "coverage_verification",
                             "prior_authorization",
                             "eligibility_verification",
+                            "eligibility_verification_with_reasoning",
                             "report_generation",
                         ],
                     },

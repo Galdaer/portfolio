@@ -24,6 +24,11 @@ from core.infrastructure.phi_monitor import (
     sanitize_healthcare_data,
     scan_for_phi,
 )
+from core.reasoning.tree_of_thoughts import (
+    TreeOfThoughtsPlanner,
+    PlanningFocus,
+    TreeOfThoughtsResult
+)
 
 logger = get_healthcare_logger("agent.billing_helper")
 
@@ -93,6 +98,12 @@ class BillingHelperAgent(BaseHealthcareAgent):
         # Initialize shared healthcare infrastructure tools
         self._metrics = AgentMetricsStore(agent_name="billing_helper")
         self._cache_manager = HealthcareCacheManager()
+        
+        # Initialize Tree-of-Thoughts planner for complex billing scenarios
+        self._tree_planner = TreeOfThoughtsPlanner(
+            llm_client=llm_client,
+            knowledge_base=None  # Could integrate billing knowledge base
+        )
         self.capabilities = [
             "claims_processing",
             "code_validation",
@@ -757,6 +768,176 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
         except Exception as e:
             return {"success": False, "error": f"Deductible tracking failed: {str(e)}"}
+    
+    @healthcare_log_method(operation_type="complex_billing_planning", phi_risk_level="medium")
+    @phi_monitor_decorator(risk_level="medium", operation_type="complex_billing_planning")
+    async def plan_complex_billing_scenario(
+        self,
+        billing_scenario: dict[str, Any],
+        planning_focus: str = "billing_optimization",
+        session_id: str = None,
+        user_id: str = None
+    ) -> dict[str, Any]:
+        """
+        Plan complex billing scenarios using Tree-of-Thoughts reasoning
+        
+        Uses advanced planning to handle complex billing situations like:
+        - Multi-payer scenarios
+        - Complex coding situations
+        - Denial management strategies
+        - Revenue cycle optimization
+        
+        Args:
+            billing_scenario: Dictionary containing billing scenario data
+            planning_focus: Focus area for planning (billing_optimization, denial_management, etc.)
+            session_id: Session ID for tracking
+            user_id: User ID for audit trails
+            
+        Returns:
+            Dictionary containing planning results and recommendations
+            
+        Medical Disclaimer: Administrative billing planning only.
+        Does not provide medical advice or clinical decision-making.
+        """
+        
+        try:
+            # Increment metrics for Tree-of-Thoughts usage
+            await self._metrics.incr("tree_of_thoughts_billing_requests")
+            
+            # Validate and sanitize input data for PHI protection
+            scan_for_phi(str(billing_scenario))
+            
+            # Map planning focus to PlanningFocus enum
+            focus_mapping = {
+                "billing_optimization": PlanningFocus.BILLING_OPTIMIZATION,
+                "coding_compliance": PlanningFocus.CODING_COMPLIANCE,
+                "claim_processing": PlanningFocus.CLAIM_PROCESSING,
+                "denial_management": PlanningFocus.DENIAL_MANAGEMENT,
+                "revenue_cycle": PlanningFocus.REVENUE_CYCLE
+            }
+            
+            planning_focus_enum = focus_mapping.get(
+                planning_focus.lower(), 
+                PlanningFocus.BILLING_OPTIMIZATION
+            )
+            
+            # Generate Tree-of-Thoughts planning
+            tree_result = await self._tree_planner.plan_complex_scenario(
+                scenario_data=billing_scenario,
+                planning_focus=planning_focus_enum,
+                planning_depth=3,
+                branches_per_level=3,
+                user_id=user_id
+            )
+            
+            # Convert tree result to response format
+            planning_response = {
+                "billing_scenario_analysis": {
+                    "scenario_id": tree_result.tree_id,
+                    "planning_focus": planning_focus,
+                    "confidence_score": tree_result.confidence_score,
+                    "final_recommendation": tree_result.final_recommendation
+                },
+                "optimal_approach": {
+                    "path_steps": [
+                        {
+                            "level": node.level,
+                            "approach": node.approach,
+                            "expected_outcome": node.expected_outcome,
+                            "success_probability": node.success_probability,
+                            "resource_requirements": node.resource_requirements,
+                            "risk_assessment": node.risk_assessment
+                        }
+                        for node in tree_result.optimal_path
+                    ],
+                    "overall_viability": tree_result.confidence_score,
+                    "implementation_priority": "high" if tree_result.confidence_score > 0.7 else "medium"
+                },
+                "alternative_approaches": [
+                    {
+                        "branch_id": branch.branch_id,
+                        "path_score": branch.path_score,
+                        "implementation_complexity": branch.implementation_complexity,
+                        "expected_roi": branch.expected_roi,
+                        "compliance_rating": branch.compliance_rating,
+                        "approach_summary": branch.nodes[0].approach if branch.nodes else "Alternative approach"
+                    }
+                    for branch in tree_result.alternative_paths
+                ],
+                "planning_metadata": {
+                    "levels_explored": len(tree_result.planning_levels),
+                    "total_branches_evaluated": sum(
+                        len(level["branches"]) for level in tree_result.planning_levels
+                    ),
+                    "planning_timestamp": tree_result.created_at.isoformat(),
+                    "session_id": session_id,
+                    "user_id": user_id
+                },
+                "medical_disclaimer": (
+                    "This analysis provides administrative billing planning support only. "
+                    "It does not provide medical advice, diagnosis, or treatment recommendations. "
+                    "All medical decisions must be made by qualified healthcare professionals."
+                ),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Log Tree-of-Thoughts planning completion
+            await self._metrics.incr("tree_of_thoughts_billing_completions")
+            
+            log_healthcare_event(
+                logger,
+                logging.INFO,
+                "Tree-of-Thoughts billing planning completed",
+                context={
+                    "tree_id": tree_result.tree_id,
+                    "planning_focus": planning_focus,
+                    "confidence_score": tree_result.confidence_score,
+                    "optimal_path_steps": len(tree_result.optimal_path),
+                    "alternatives_generated": len(tree_result.alternative_paths),
+                    "user_id": user_id,
+                    "session_id": session_id
+                },
+                operation_type="complex_billing_planning"
+            )
+            
+            return planning_response
+            
+        except Exception as e:
+            await self._metrics.incr("tree_of_thoughts_billing_errors")
+            
+            log_healthcare_event(
+                logger,
+                logging.ERROR,
+                f"Tree-of-Thoughts billing planning failed: {str(e)}",
+                context={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "planning_focus": planning_focus,
+                    "user_id": user_id,
+                    "session_id": session_id
+                },
+                operation_type="complex_billing_planning_error"
+            )
+            
+            # Return error response with fallback to standard processing
+            return {
+                "billing_scenario_analysis": {
+                    "error": "Tree-of-Thoughts planning failed",
+                    "error_details": str(e),
+                    "fallback_recommendation": "Follow standard billing procedures for this scenario"
+                },
+                "optimal_approach": {
+                    "fallback_used": True,
+                    "standard_recommendation": "Process using established billing workflows"
+                },
+                "alternative_approaches": [],
+                "medical_disclaimer": (
+                    "This analysis provides administrative billing planning support only. "
+                    "It does not provide medical advice, diagnosis, or treatment recommendations. "
+                    "All medical decisions must be made by qualified healthcare professionals."
+                ),
+                "timestamp": datetime.now().isoformat()
+            }
 
 
 # Initialize the billing helper agent
