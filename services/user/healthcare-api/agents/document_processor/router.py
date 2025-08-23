@@ -4,12 +4,14 @@ Handles medical document formatting, organization, and administrative processing
 """
 
 import logging
-from typing import Any
+from datetime import datetime
+from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Form
 from pydantic import BaseModel, Field
 
 from agents.document_processor.document_processor import HealthcareDocumentProcessor
+from agents.document_processor.enhanced_document_processor import EnhancedDocumentProcessor
 from core.dependencies import get_llm_client, get_mcp_client
 
 logger = logging.getLogger(__name__)
@@ -338,18 +340,362 @@ async def validate_document_completeness(
         )
 
 
+# Enhanced Document Processing Endpoints
+
+class EnhancedDocumentRequest(BaseModel):
+    """Enhanced document processing request model"""
+    
+    operation: str = Field(default="process_document", description="Operation type: process_document, analyze_phi, extract_entities, search_documents")
+    file_path: Optional[str] = Field(default=None, description="Path to document file")
+    document_content: Optional[str] = Field(default=None, description="Direct document content")
+    content: Optional[str] = Field(default=None, description="Text content for analysis")
+    entity_types: Optional[List[str]] = Field(default=None, description="Specific entity types to extract")
+    query: Optional[str] = Field(default=None, description="Search query")
+    filters: Optional[dict] = Field(default_factory=dict, description="Search filters")
+    options: dict = Field(default_factory=dict, description="Processing options")
+    session_id: str = Field(default="enhanced_processing", description="Session identifier")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "operation": "process_document",
+                "file_path": "/path/to/medical_record.pdf",
+                "options": {
+                    "store_document": True,
+                    "context": {"patient_id": "PAT_001"}
+                },
+                "session_id": "enhanced_session_001"
+            }
+        }
+
+
+class BatchProcessingRequest(BaseModel):
+    """Batch document processing request model"""
+    
+    file_paths: List[str] = Field(..., description="List of document file paths")
+    options: dict = Field(default_factory=dict, description="Processing options")
+    session_id: str = Field(default="batch_processing", description="Session identifier")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "file_paths": [
+                    "/path/to/document1.pdf",
+                    "/path/to/document2.docx",
+                    "/path/to/document3.txt"
+                ],
+                "options": {
+                    "store_document": True,
+                    "extract_entities": True
+                },
+                "session_id": "batch_001"
+            }
+        }
+
+
+@router.post("/enhanced/process")
+async def enhanced_document_process(
+    request: EnhancedDocumentRequest,
+    mcp_client: Any = Depends(get_mcp_client),
+    llm_client: Any = Depends(get_llm_client),
+) -> dict[str, Any]:
+    """
+    Enhanced document processing with PHI detection, entity extraction, and storage
+    
+    MEDICAL DISCLAIMER: This provides document processing and entity extraction 
+    for administrative purposes only, not medical interpretation or clinical advice.
+    """
+    try:
+        # Initialize enhanced document processor
+        processor = EnhancedDocumentProcessor(
+            mcp_client=mcp_client,
+            llm_client=llm_client,
+        )
+        await processor.initialize()
+        
+        # Process document with enhanced capabilities
+        return await processor._process_implementation(request.model_dump())
+        
+    except Exception as e:
+        logger.exception(f"Enhanced document processing error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Enhanced document processing failed: {str(e)}",
+        )
+
+
+@router.post("/enhanced/upload")
+async def upload_and_process_document(
+    file: UploadFile = File(...),
+    store_document: bool = Form(True),
+    extract_entities: bool = Form(True),
+    analyze_phi: bool = Form(True),
+    mcp_client: Any = Depends(get_mcp_client),
+    llm_client: Any = Depends(get_llm_client),
+) -> dict[str, Any]:
+    """
+    Upload and process document with enhanced capabilities
+    
+    MEDICAL DISCLAIMER: Document processing for administrative purposes only.
+    """
+    import tempfile
+    from pathlib import Path
+    
+    try:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
+            content = await file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
+        # Initialize processor
+        processor = EnhancedDocumentProcessor(
+            mcp_client=mcp_client,
+            llm_client=llm_client,
+        )
+        await processor.initialize()
+        
+        # Process uploaded document
+        request_data = {
+            "operation": "process_document",
+            "file_path": temp_file_path,
+            "options": {
+                "store_document": store_document,
+                "extract_entities": extract_entities,
+                "analyze_phi": analyze_phi,
+                "context": {
+                    "original_filename": file.filename,
+                    "upload_timestamp": str(datetime.now()),
+                }
+            },
+            "session_id": f"upload_{file.filename}_{int(datetime.now().timestamp())}"
+        }
+        
+        result = await processor._process_implementation(request_data)
+        
+        # Clean up temporary file
+        Path(temp_file_path).unlink(missing_ok=True)
+        
+        return result
+        
+    except Exception as e:
+        logger.exception(f"Document upload processing error: {e}")
+        # Clean up on error
+        try:
+            Path(temp_file_path).unlink(missing_ok=True)
+        except:
+            pass
+        raise HTTPException(
+            status_code=500,
+            detail=f"Document upload processing failed: {str(e)}",
+        )
+
+
+@router.post("/enhanced/batch")
+async def batch_process_documents(
+    request: BatchProcessingRequest,
+    mcp_client: Any = Depends(get_mcp_client),
+    llm_client: Any = Depends(get_llm_client),
+) -> dict[str, Any]:
+    """
+    Batch process multiple documents
+    
+    MEDICAL DISCLAIMER: Document processing for administrative purposes only.
+    """
+    try:
+        processor = EnhancedDocumentProcessor(
+            mcp_client=mcp_client,
+            llm_client=llm_client,
+        )
+        await processor.initialize()
+        
+        batch_request = {
+            "operation": "batch_process",
+            "file_paths": request.file_paths,
+            "options": request.options,
+            "session_id": request.session_id,
+        }
+        
+        return await processor._process_implementation(batch_request)
+        
+    except Exception as e:
+        logger.exception(f"Batch document processing error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Batch document processing failed: {str(e)}",
+        )
+
+
+@router.post("/enhanced/analyze-phi")
+async def analyze_phi_in_content(
+    request: EnhancedDocumentRequest,
+    mcp_client: Any = Depends(get_mcp_client),
+    llm_client: Any = Depends(get_llm_client),
+) -> dict[str, Any]:
+    """
+    Analyze content for PHI detection and classification
+    
+    MEDICAL DISCLAIMER: PHI detection for administrative compliance support only.
+    """
+    try:
+        if not request.content:
+            raise HTTPException(status_code=400, detail="Content field is required for PHI analysis")
+        
+        processor = EnhancedDocumentProcessor(
+            mcp_client=mcp_client,
+            llm_client=llm_client,
+        )
+        await processor.initialize()
+        
+        phi_request = {
+            "operation": "analyze_phi",
+            "content": request.content,
+            "session_id": request.session_id,
+        }
+        
+        return await processor._process_implementation(phi_request)
+        
+    except Exception as e:
+        logger.exception(f"PHI analysis error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"PHI analysis failed: {str(e)}",
+        )
+
+
+@router.post("/enhanced/extract-entities")
+async def extract_medical_entities(
+    request: EnhancedDocumentRequest,
+    mcp_client: Any = Depends(get_mcp_client),
+    llm_client: Any = Depends(get_llm_client),
+) -> dict[str, Any]:
+    """
+    Extract medical entities from content using SciSpacy
+    
+    MEDICAL DISCLAIMER: Entity extraction for administrative organization only.
+    """
+    try:
+        if not request.content:
+            raise HTTPException(status_code=400, detail="Content field is required for entity extraction")
+        
+        processor = EnhancedDocumentProcessor(
+            mcp_client=mcp_client,
+            llm_client=llm_client,
+        )
+        await processor.initialize()
+        
+        entity_request = {
+            "operation": "extract_entities",
+            "content": request.content,
+            "entity_types": request.entity_types,
+            "session_id": request.session_id,
+        }
+        
+        return await processor._process_implementation(entity_request)
+        
+    except Exception as e:
+        logger.exception(f"Entity extraction error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Entity extraction failed: {str(e)}",
+        )
+
+
+@router.post("/enhanced/search")
+async def search_documents(
+    request: EnhancedDocumentRequest,
+    mcp_client: Any = Depends(get_mcp_client),
+    llm_client: Any = Depends(get_llm_client),
+) -> dict[str, Any]:
+    """
+    Search stored documents using full-text search
+    
+    MEDICAL DISCLAIMER: Document search for administrative purposes only.
+    """
+    try:
+        if not request.query:
+            raise HTTPException(status_code=400, detail="Query field is required for document search")
+        
+        processor = EnhancedDocumentProcessor(
+            mcp_client=mcp_client,
+            llm_client=llm_client,
+        )
+        await processor.initialize()
+        
+        search_request = {
+            "operation": "search_documents",
+            "query": request.query,
+            "filters": request.filters,
+            "session_id": request.session_id,
+        }
+        
+        return await processor._process_implementation(search_request)
+        
+    except Exception as e:
+        logger.exception(f"Document search error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Document search failed: {str(e)}",
+        )
+
+
+@router.get("/enhanced/stats")
+async def get_processing_statistics(
+    mcp_client: Any = Depends(get_mcp_client),
+    llm_client: Any = Depends(get_llm_client),
+) -> dict[str, Any]:
+    """
+    Get document processing statistics and service health
+    
+    Administrative metrics and service status information.
+    """
+    try:
+        processor = EnhancedDocumentProcessor(
+            mcp_client=mcp_client,
+            llm_client=llm_client,
+        )
+        await processor.initialize()
+        
+        return await processor.get_processing_statistics()
+        
+    except Exception as e:
+        logger.exception(f"Statistics retrieval error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Statistics retrieval failed: {str(e)}",
+        )
+
+
 @router.get("/health")
 async def document_processor_health_check() -> dict[str, Any]:
     """Health check for document processor services"""
+    from datetime import datetime
     return {
         "status": "healthy",
         "service": "document_processor",
         "capabilities": [
+            # Traditional capabilities
             "soap_note_formatting",
             "medical_form_processing",
             "patient_summary_generation",
             "clinical_note_formatting",
             "document_validation",
+            # Enhanced capabilities
+            "pdf_document_parsing",
+            "docx_document_parsing", 
+            "image_ocr_processing",
+            "phi_detection_and_redaction",
+            "medical_entity_extraction",
+            "full_text_search",
+            "batch_processing",
+            "document_storage",
         ],
-        "disclaimer": "Document formatting only - not medical interpretation",
+        "integrations": [
+            "scispacy_nlp_service",
+            "phi_detection_system",
+            "postgresql_storage",
+            "http_client_infrastructure",
+        ],
+        "disclaimer": "Document processing for administrative purposes only - not medical interpretation",
+        "timestamp": datetime.now().isoformat(),
     }
