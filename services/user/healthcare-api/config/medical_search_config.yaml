@@ -47,6 +47,31 @@ evidence_weights:
   case_report: 2
   unknown: 1
 
+# Treatment recommendation settings
+treatment_recommendation_settings:
+  # Enable actionable clinical recommendations (vs. information-only research)
+  enable_treatment_protocols: true
+  enable_physical_therapy_guidance: true
+  enable_lifestyle_recommendations: true
+  enable_public_api_integration: false  # Set to true when APIs are configured
+  
+  # Recommendation confidence thresholds
+  min_confidence_for_treatment_advice: 0.7
+  require_multiple_evidence_sources: true
+  
+  # Physical therapy recommendation parameters
+  physical_therapy:
+    include_condition_specific_protocols: true
+    include_contraindications: true
+    require_professional_assessment_disclaimer: true
+  
+  # Lifestyle recommendation parameters  
+  lifestyle_guidance:
+    include_dietary_recommendations: true
+    include_exercise_protocols: true
+    include_behavioral_change_strategies: true
+    include_monitoring_parameters: true
+
 # Medical organizations for guideline search (regional preferences)
 trusted_organizations:
   - "AHA" # American Heart Association
@@ -90,3 +115,38 @@ url_patterns:
   pubmed_article: "https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
   fda_drug: "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=overview.process&ApplNo={application_number}"
   clinicaltrials: "https://clinicaltrials.gov/ct2/show/{nct_id}"
+
+# =============================================================================
+# EXTERNAL API INTEGRATION (Future Enhancement)
+# =============================================================================
+
+# Free public health APIs for treatment recommendations
+external_apis:
+  myhealthfinder:
+    base_url: "https://healthfinder.gov/developer/How_to_Use.aspx"
+    description: "Consumer health information from federal agencies"
+    api_key_required: false
+    rate_limit: "1000 requests per day"
+    enabled: false  # Set to true when implemented
+    
+  exercise_db:
+    base_url: "https://exercisedb.p.rapidapi.com"
+    description: "Comprehensive exercise database with 1000+ exercises"
+    api_key_required: true  # RapidAPI key needed
+    rate_limit: "100 requests per day (free tier)"
+    enabled: false  # Set to true when API key configured
+    
+  usda_fooddata:
+    base_url: "https://api.nal.usda.gov/fdc/v1"
+    description: "USDA FoodData Central - comprehensive nutrition database"
+    api_key_required: true  # USDA API key needed
+    rate_limit: "1000 requests per hour"
+    enabled: false  # Set to true when API key configured
+
+# API integration settings
+api_integration:
+  timeout_seconds: 10
+  max_retries: 2
+  enable_caching: true
+  cache_duration_hours: 24
+  fallback_to_literature_search: true  # If APIs fail, use literature search

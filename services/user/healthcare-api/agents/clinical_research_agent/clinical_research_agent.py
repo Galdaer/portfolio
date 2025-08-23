@@ -729,20 +729,28 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             }
 
             # Route to appropriate processing method based on query type
-            if query_analysis.get("query_type") == "differential_diagnosis":
+            query_type = query_analysis.get("query_type")
+            if query_type == "differential_diagnosis":
                 result = await self._process_differential_diagnosis(
                     enhanced_query,
                     clinical_context,
                     session_id,
                 )
-            elif query_analysis.get("query_type") == "drug_interaction":
+            elif query_type == "drug_interaction":
                 result = await self._process_drug_interaction(
                     enhanced_query,
                     clinical_context,
                     session_id,
                 )
+            elif query_type in ["treatment_recommendation", "lifestyle_guidance"]:
+                # Route to new treatment recommendation processor
+                result = await self._process_treatment_recommendations(
+                    enhanced_query,
+                    clinical_context,
+                    session_id,
+                )
             else:
-                # Default to comprehensive research with MCP tools for all other queries
+                # Default to comprehensive research with MCP tools for literature queries
                 result = await self._process_comprehensive_research(
                     enhanced_query,
                     clinical_context,
@@ -838,28 +846,41 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         """
         Analyze the research query using LLM intelligence to determine processing approach
 
-        Uses advanced LLM reasoning to categorize medical research queries and select appropriate tools
+        Enhanced to distinguish between information-based research and actionable treatment recommendations
         """
         try:
-            # Create intelligent query analysis prompt
+            # Create intelligent query analysis prompt with treatment recommendation support
             analysis_prompt = f"""
 You are a medical research query analyzer. Analyze this query and determine the best research approach and tools to use.
 
 Query: "{query}"
 
 Analyze this query and respond with a JSON object containing:
-1. query_type: One of ["differential_diagnosis", "drug_interaction", "literature_research", "comprehensive_research"]
-2. focus_areas: Array of relevant medical specialties or focus areas
-3. complexity_score: Float from 0.1 to 1.0 indicating query complexity
-4. recommended_tools: Array of MCP tools to use (e.g., ["search-pubmed", "search-trials", "get-drug-info"])
-5. research_strategy: Brief description of recommended research approach
-6. urgency_level: One of ["low", "medium", "high", "emergency"]
+1. query_type: One of ["differential_diagnosis", "drug_interaction", "literature_research", "comprehensive_research", "treatment_recommendation", "lifestyle_guidance"]
+2. intent_category: One of ["information_seeking", "actionable_guidance"] 
+3. focus_areas: Array of relevant medical specialties or focus areas
+4. complexity_score: Float from 0.1 to 1.0 indicating query complexity
+5. recommended_tools: Array of MCP tools to use (e.g., ["search-pubmed", "search-trials", "get-drug-info", "lifestyle-api", "exercise-api"])
+6. research_strategy: Brief description of recommended research approach
+7. urgency_level: One of ["low", "medium", "high", "emergency"]
+8. requires_treatment_guidance: Boolean indicating if practical treatment recommendations are needed
 
-Guidelines:
-- For literature searches, recent studies, or general medical topics: use "comprehensive_research" with ["search-pubmed", "search-trials"]
-- For specific symptom combinations or diagnostic questions: use "differential_diagnosis" 
-- For medication questions, drug interactions, side effects: use "drug_interaction" with ["get-drug-info", "search-pubmed"]
-- For emergency or urgent medical questions: mark urgency as "high" or "emergency"
+Guidelines for classification:
+- **Information-seeking queries**: "what causes diabetes?", "research on heart disease", "studies about medication X"
+  - Use "literature_research" or "comprehensive_research" 
+  - Tools: ["search-pubmed", "search-trials"]
+
+- **Actionable guidance queries**: "physical therapy for back pain", "lifestyle changes for cardiovascular health", "exercises for diabetes management"
+  - Use "treatment_recommendation" or "lifestyle_guidance"
+  - Tools: ["search-pubmed", "lifestyle-api", "exercise-api", "nutrition-api"]
+  - Set requires_treatment_guidance: true
+
+- **Diagnostic queries**: symptom combinations, diagnostic questions
+  - Use "differential_diagnosis"
+
+- **Medication queries**: drug interactions, side effects, dosing
+  - Use "drug_interaction" 
+  - Tools: ["get-drug-info", "search-pubmed"]
 
 Respond only with valid JSON.
 """
@@ -868,7 +889,7 @@ Respond only with valid JSON.
             response = await self.llm_client.generate(
                 model=config.get_model_for_task("clinical"),
                 prompt=analysis_prompt,
-                options={"temperature": 0.2, "max_tokens": 500},
+                options={"temperature": 0.2, "max_tokens": 600},
             )
 
             # Parse LLM response
@@ -881,6 +902,7 @@ Respond only with valid JSON.
 
                 # Validate and set defaults if needed
                 query_type = analysis_result.get("query_type", "comprehensive_research")
+                intent_category = analysis_result.get("intent_category", "information_seeking")
                 focus_areas = analysis_result.get("focus_areas", ["general_medicine"])
                 complexity_score = float(analysis_result.get("complexity_score", 0.6))
                 recommended_tools = analysis_result.get("recommended_tools", ["search-pubmed"])
@@ -888,14 +910,17 @@ Respond only with valid JSON.
                     "research_strategy", "Comprehensive literature search"
                 )
                 urgency_level = analysis_result.get("urgency_level", "medium")
+                requires_treatment_guidance = bool(analysis_result.get("requires_treatment_guidance", False))
 
                 return {
                     "query_type": query_type,
+                    "intent_category": intent_category,
                     "focus_areas": focus_areas,
                     "complexity_score": min(max(complexity_score, 0.1), 1.0),
                     "recommended_tools": recommended_tools,
                     "research_strategy": research_strategy,
                     "urgency_level": urgency_level,
+                    "requires_treatment_guidance": requires_treatment_guidance,
                     "requires_mcp_tools": len(recommended_tools) > 0,
                     "estimated_processing_time": "30-60 seconds",
                     "llm_analysis": True,
@@ -915,11 +940,13 @@ Respond only with valid JSON.
         """Fallback analysis when LLM analysis fails"""
         return {
             "query_type": "comprehensive_research",
+            "intent_category": "information_seeking",
             "focus_areas": ["general_medicine"],
             "complexity_score": 0.6,
             "recommended_tools": ["search-pubmed", "search-trials"],
             "research_strategy": "Comprehensive literature search with multiple sources",
             "urgency_level": "medium",
+            "requires_treatment_guidance": False,
             "requires_mcp_tools": True,
             "estimated_processing_time": "30-60 seconds",
             "llm_analysis": False,
@@ -1561,6 +1588,535 @@ Enhanced query:"""
 
         return "\n".join(formatted_lines)
 
+    async def _process_treatment_recommendations(
+        self,
+        query: str,
+        clinical_context: dict[str, Any],
+        session_id: str,
+    ) -> dict[str, Any]:
+        """
+        Process treatment recommendation queries with actionable clinical guidance
+
+        Provides evidence-based treatment protocols, physical therapy recommendations,
+        lifestyle modifications, and practical clinical interventions.
+
+        MEDICAL DISCLAIMER: These recommendations are for educational purposes only
+        and should not replace professional medical assessment and personalized care.
+        """
+        try:
+            query_analysis = clinical_context.get("query_analysis", {})
+            focus_areas = query_analysis.get("focus_areas", ["general_medicine"])
+            
+            # Stage 1: Evidence-based literature search for treatment protocols
+            literature_search_query = f"{query} evidence-based treatment protocols clinical guidelines"
+            literature_result = await self.query_engine.process_medical_query(
+                query=literature_search_query,
+                query_type=QueryType.CLINICAL_GUIDELINES,
+                context=clinical_context,
+                max_iterations=2,
+            )
+
+            # Stage 2: Physical therapy and exercise recommendations
+            physical_therapy_recommendations = await self._get_physical_therapy_recommendations(
+                query, focus_areas, clinical_context
+            )
+
+            # Stage 3: Lifestyle and nutrition guidance
+            lifestyle_recommendations = await self._get_lifestyle_recommendations(
+                query, focus_areas, clinical_context
+            )
+
+            # Stage 4: Free public API integration for additional resources
+            public_api_resources = await self._integrate_public_health_apis(
+                query, focus_areas
+            )
+
+            # Stage 5: Generate comprehensive treatment recommendations
+            treatment_synthesis = await self._synthesize_treatment_recommendations(
+                query,
+                literature_result,
+                physical_therapy_recommendations,
+                lifestyle_recommendations,
+                public_api_resources,
+                clinical_context
+            )
+
+            # Create formatted treatment plan
+            formatted_treatment_plan = self._create_formatted_treatment_plan(
+                query,
+                treatment_synthesis,
+                literature_result,
+                physical_therapy_recommendations,
+                lifestyle_recommendations,
+                public_api_resources
+            )
+
+            return {
+                "success": True,
+                "agent_type": "clinical_research",
+                "request_type": "treatment_recommendation",
+                "session_id": session_id,
+                "query": query,
+                "treatment_plan": formatted_treatment_plan,
+                "evidence_based_protocols": {
+                    "literature_sources": getattr(literature_result, "sources", [])[:10],
+                    "confidence_score": getattr(literature_result, "confidence_score", 0.7),
+                    "guidelines_found": len(getattr(literature_result, "sources", []))
+                },
+                "physical_therapy": physical_therapy_recommendations,
+                "lifestyle_guidance": lifestyle_recommendations,
+                "public_resources": public_api_resources,
+                "clinical_focus_areas": focus_areas,
+                "recommendations_confidence": self._calculate_recommendations_confidence(
+                    literature_result, physical_therapy_recommendations, lifestyle_recommendations
+                ),
+                "disclaimers": [
+                    "MEDICAL DISCLAIMER: These recommendations are educational and informational only.",
+                    "This does not constitute personalized medical advice or treatment.",
+                    "Always consult qualified healthcare professionals before implementing treatments.",
+                    "Individual responses to treatments may vary significantly.",
+                    "Professional medical assessment is required for personalized care.",
+                ],
+                "generated_at": datetime.utcnow().isoformat(),
+            }
+
+        except Exception as e:
+            return self._create_error_response(
+                f"Treatment recommendation processing error: {str(e)}",
+                session_id,
+            )
+
+    async def _get_physical_therapy_recommendations(
+        self,
+        query: str,
+        focus_areas: list[str],
+        clinical_context: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Get evidence-based physical therapy recommendations"""
+        try:
+            # Search for physical therapy protocols in literature
+            pt_query = f"{query} physical therapy rehabilitation protocol exercise therapy"
+            pt_result = await self.query_engine.process_medical_query(
+                query=pt_query,
+                query_type=QueryType.LITERATURE_RESEARCH,
+                context=clinical_context,
+                max_iterations=1,
+            )
+
+            # Extract common physical therapy approaches for different conditions
+            condition_specific_pt = self._get_condition_specific_pt_protocols(query, focus_areas)
+
+            return {
+                "evidence_based_protocols": getattr(pt_result, "sources", [])[:8],
+                "condition_specific_approaches": condition_specific_pt,
+                "general_recommendations": [
+                    "Assessment by qualified physical therapist recommended",
+                    "Start with supervised sessions before home programs",
+                    "Progressive loading and gradual exercise advancement",
+                    "Pain monitoring during activity modification",
+                    "Regular reassessment of functional goals"
+                ],
+                "contraindications_to_consider": [
+                    "Acute injury phases may require rest before active therapy",
+                    "Certain cardiovascular conditions require medical clearance",
+                    "Neurological conditions need specialized PT assessment"
+                ]
+            }
+
+        except Exception as e:
+            logger.warning(f"Physical therapy recommendation error: {e}")
+            return {
+                "evidence_based_protocols": [],
+                "condition_specific_approaches": [],
+                "general_recommendations": ["Consult physical therapist for personalized assessment"],
+                "error": str(e)
+            }
+
+    def _get_condition_specific_pt_protocols(self, query: str, focus_areas: list[str]) -> list[dict[str, Any]]:
+        """Get condition-specific physical therapy protocols based on evidence"""
+        protocols = []
+        query_lower = query.lower()
+        
+        # Cardiovascular conditions
+        if any(term in query_lower for term in ["cardiovascular", "heart", "cardiac", "circulation"]):
+            protocols.append({
+                "condition_category": "Cardiovascular Health",
+                "evidence_level": "High (AHA/ACC Guidelines)",
+                "recommended_exercises": [
+                    "Supervised aerobic exercise (walking, cycling, swimming)",
+                    "Resistance training with light-moderate weights",
+                    "Flexibility and stretching programs",
+                    "Progressive exercise intensity based on cardiac capacity"
+                ],
+                "frequency": "150 minutes moderate aerobic activity per week",
+                "special_considerations": [
+                    "Medical clearance required for cardiac patients",
+                    "Heart rate monitoring during exercise",
+                    "Recognition of cardiac symptoms during activity"
+                ]
+            })
+
+        # Musculoskeletal conditions
+        if any(term in query_lower for term in ["back pain", "spine", "lumbar", "musculoskeletal"]):
+            protocols.append({
+                "condition_category": "Back Pain / Spinal Health",
+                "evidence_level": "High (Clinical Practice Guidelines)",
+                "recommended_exercises": [
+                    "Core strengthening exercises (planks, bridges)",
+                    "Spinal mobility and flexibility exercises",
+                    "Progressive resistance training",
+                    "Functional movement patterns"
+                ],
+                "frequency": "3-4 sessions per week, 20-30 minutes",
+                "special_considerations": [
+                    "Avoid exercises that increase spinal flexion during acute phases",
+                    "Progress gradually from passive to active movements",
+                    "Include ergonomic and posture education"
+                ]
+            })
+
+        # Diabetes and metabolic conditions
+        if any(term in query_lower for term in ["diabetes", "metabolic", "weight", "glucose"]):
+            protocols.append({
+                "condition_category": "Diabetes / Metabolic Health",
+                "evidence_level": "High (ADA Guidelines)",
+                "recommended_exercises": [
+                    "Regular aerobic exercise (brisk walking, swimming)",
+                    "Resistance training 2-3 times per week",
+                    "Flexibility exercises",
+                    "Balance training for fall prevention"
+                ],
+                "frequency": "At least 150 minutes moderate aerobic activity per week",
+                "special_considerations": [
+                    "Blood glucose monitoring before/after exercise",
+                    "Proper foot care and footwear",
+                    "Gradual exercise progression",
+                    "Recognition of hypoglycemia symptoms"
+                ]
+            })
+
+        return protocols
+
+    async def _get_lifestyle_recommendations(
+        self,
+        query: str,
+        focus_areas: list[str],
+        clinical_context: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Get evidence-based lifestyle recommendations"""
+        try:
+            # Search for lifestyle modification protocols
+            lifestyle_query = f"{query} lifestyle modifications diet nutrition behavioral interventions"
+            lifestyle_result = await self.query_engine.process_medical_query(
+                query=lifestyle_query,
+                query_type=QueryType.LITERATURE_RESEARCH,
+                context=clinical_context,
+                max_iterations=1,
+            )
+
+            # Get condition-specific lifestyle recommendations
+            condition_specific_lifestyle = self._get_condition_specific_lifestyle(query, focus_areas)
+
+            return {
+                "evidence_based_guidelines": getattr(lifestyle_result, "sources", [])[:8],
+                "condition_specific_guidance": condition_specific_lifestyle,
+                "general_principles": [
+                    "Mediterranean diet pattern for most conditions",
+                    "Regular sleep schedule (7-9 hours for adults)",
+                    "Stress management techniques (meditation, yoga)",
+                    "Social support and community engagement",
+                    "Smoking cessation if applicable",
+                    "Moderate alcohol consumption guidelines"
+                ],
+                "behavioral_change_strategies": [
+                    "Set specific, measurable, achievable goals",
+                    "Track progress with apps or journals",
+                    "Build gradual habit changes",
+                    "Seek professional support when needed",
+                    "Address barriers to lifestyle changes"
+                ]
+            }
+
+        except Exception as e:
+            logger.warning(f"Lifestyle recommendation error: {e}")
+            return {
+                "evidence_based_guidelines": [],
+                "condition_specific_guidance": [],
+                "general_principles": ["Consult healthcare provider for personalized lifestyle guidance"],
+                "error": str(e)
+            }
+
+    def _get_condition_specific_lifestyle(self, query: str, focus_areas: list[str]) -> list[dict[str, Any]]:
+        """Get condition-specific lifestyle recommendations based on evidence"""
+        recommendations = []
+        query_lower = query.lower()
+        
+        # Cardiovascular health
+        if any(term in query_lower for term in ["cardiovascular", "heart", "cardiac", "hypertension", "cholesterol"]):
+            recommendations.append({
+                "condition_category": "Cardiovascular Health",
+                "dietary_recommendations": [
+                    "DASH diet or Mediterranean diet pattern",
+                    "Reduce sodium intake (<2300mg daily, ideally <1500mg)",
+                    "Increase fruits, vegetables, whole grains, lean proteins",
+                    "Limit saturated fats, trans fats, added sugars",
+                    "Include omega-3 fatty acids (fish, nuts, seeds)"
+                ],
+                "lifestyle_modifications": [
+                    "Regular physical activity (150 min/week moderate intensity)",
+                    "Maintain healthy weight (BMI 18.5-24.9)",
+                    "Stress management techniques",
+                    "Adequate sleep (7-9 hours)",
+                    "Smoking cessation",
+                    "Limit alcohol consumption"
+                ],
+                "monitoring_parameters": [
+                    "Blood pressure tracking",
+                    "Cholesterol levels",
+                    "Weight monitoring",
+                    "Physical activity logs"
+                ]
+            })
+
+        # Diabetes management
+        if any(term in query_lower for term in ["diabetes", "glucose", "insulin", "blood sugar"]):
+            recommendations.append({
+                "condition_category": "Diabetes Management",
+                "dietary_recommendations": [
+                    "Carbohydrate counting and portion control",
+                    "Choose complex carbohydrates over simple sugars",
+                    "Include high-fiber foods",
+                    "Regular meal timing",
+                    "Limit processed foods and refined sugars",
+                    "Moderate healthy fats (avocado, nuts, olive oil)"
+                ],
+                "lifestyle_modifications": [
+                    "Regular physical activity (aerobic + resistance training)",
+                    "Weight management",
+                    "Consistent sleep schedule",
+                    "Stress reduction techniques",
+                    "Regular blood glucose monitoring",
+                    "Foot care and skin care"
+                ],
+                "monitoring_parameters": [
+                    "Blood glucose levels",
+                    "HbA1c testing",
+                    "Weight and BMI",
+                    "Blood pressure",
+                    "Cholesterol levels"
+                ]
+            })
+
+        return recommendations
+
+    async def _integrate_public_health_apis(self, query: str, focus_areas: list[str]) -> dict[str, Any]:
+        """Integrate free public health APIs for additional resources"""
+        try:
+            resources = {
+                "myhealthfinder_resources": [],
+                "exercise_database": [],
+                "nutrition_data": [],
+                "government_guidelines": []
+            }
+
+            # For now, provide structured resource links that would be populated by actual API calls
+            # This sets up the framework for future API integration
+            query_lower = query.lower()
+
+            if any(term in query_lower for term in ["exercise", "physical", "therapy", "fitness"]):
+                resources["exercise_database"] = [
+                    {
+                        "resource_type": "Exercise Database",
+                        "description": "Evidence-based exercise protocols",
+                        "source": "ExerciseDB API (to be integrated)",
+                        "exercises_available": "1000+ evidence-based exercises",
+                        "categories": ["Cardio", "Strength", "Flexibility", "Rehabilitation"]
+                    }
+                ]
+
+            if any(term in query_lower for term in ["nutrition", "diet", "food", "eating"]):
+                resources["nutrition_data"] = [
+                    {
+                        "resource_type": "USDA Food Database",
+                        "description": "Comprehensive nutritional information",
+                        "source": "USDA FoodData Central API (to be integrated)",
+                        "data_points": "Calories, macronutrients, micronutrients",
+                        "food_items": "400,000+ food items"
+                    }
+                ]
+
+            # MyHealthfinder API resources
+            resources["myhealthfinder_resources"] = [
+                {
+                    "resource_type": "Health Topic Information",
+                    "description": "Consumer health information from federal agencies",
+                    "source": "MyHealthfinder API (to be integrated)",
+                    "topics_covered": "Prevention, screening, lifestyle",
+                    "audience": "Consumers and healthcare providers"
+                }
+            ]
+
+            return resources
+
+        except Exception as e:
+            logger.warning(f"Public API integration error: {e}")
+            return {"error": str(e), "resources_available": False}
+
+    async def _synthesize_treatment_recommendations(
+        self,
+        query: str,
+        literature_result: Any,
+        physical_therapy: dict[str, Any],
+        lifestyle: dict[str, Any],
+        public_resources: dict[str, Any],
+        clinical_context: dict[str, Any]
+    ) -> str:
+        """Synthesize all treatment recommendations into a comprehensive plan"""
+        try:
+            synthesis_prompt = f"""You are a clinical expert synthesizing treatment recommendations based on current evidence.
+
+Query: "{query}"
+
+Available Evidence:
+- Literature sources: {len(getattr(literature_result, 'sources', []))} clinical studies/guidelines
+- Physical therapy protocols: {len(physical_therapy.get('condition_specific_approaches', []))} evidence-based approaches
+- Lifestyle interventions: {len(lifestyle.get('condition_specific_guidance', []))} evidence-based recommendations
+
+Create a comprehensive, actionable treatment plan that:
+
+1. **Prioritizes evidence-based interventions** from strongest to moderate evidence
+2. **Provides specific, actionable recommendations** (not vague advice)
+3. **Includes implementation timelines** and progression steps
+4. **Addresses potential barriers** to implementation
+5. **Emphasizes safety considerations** and when to seek professional help
+6. **Uses a conversational, professional tone** suitable for patient education
+
+Structure the response with:
+- **Immediate Actions** (first 1-2 weeks)
+- **Short-term Goals** (1-3 months) 
+- **Long-term Management** (3+ months)
+- **Red Flags** (when to seek immediate medical attention)
+- **Professional Referrals** recommended
+
+Write as if counseling a patient with evidence-based, actionable guidance.
+"""
+
+            synthesis_response = await self.llm_client.generate(
+                model=config.get_model_for_task("clinical"),
+                prompt=synthesis_prompt,
+                options={"temperature": 0.2, "max_tokens": 2000},
+            )
+
+            return synthesis_response.get("response", "Unable to generate treatment synthesis.")
+
+        except Exception as e:
+            logger.warning(f"Treatment synthesis failed: {e}")
+            return f"## Treatment Recommendations for: {query}\n\nBasic evidence-based approaches were identified. Please consult healthcare professionals for personalized treatment planning."
+
+    def _calculate_recommendations_confidence(
+        self,
+        literature_result: Any,
+        physical_therapy: dict[str, Any],
+        lifestyle: dict[str, Any]
+    ) -> float:
+        """Calculate confidence score for treatment recommendations"""
+        confidence_factors = []
+
+        # Literature evidence strength
+        if hasattr(literature_result, "confidence_score"):
+            confidence_factors.append(literature_result.confidence_score * 0.4)
+        
+        # Physical therapy evidence
+        if physical_therapy.get("evidence_based_protocols"):
+            confidence_factors.append(0.8 * 0.3)  # High confidence for PT protocols
+        
+        # Lifestyle evidence
+        if lifestyle.get("evidence_based_guidelines"):
+            confidence_factors.append(0.7 * 0.3)  # Good confidence for lifestyle guidelines
+
+        return sum(confidence_factors) if confidence_factors else 0.6
+
+    def _create_formatted_treatment_plan(
+        self,
+        query: str,
+        treatment_synthesis: str,
+        literature_result: Any,
+        physical_therapy: dict[str, Any],
+        lifestyle: dict[str, Any],
+        public_resources: dict[str, Any]
+    ) -> str:
+        """Create formatted treatment plan for orchestrator compatibility"""
+        formatted_lines = []
+
+        # Header
+        formatted_lines.append(f"# Evidence-Based Treatment Plan: {query}")
+        formatted_lines.append("")
+
+        # Main treatment synthesis
+        if treatment_synthesis:
+            formatted_lines.append("## Comprehensive Treatment Approach")
+            formatted_lines.append(treatment_synthesis)
+            formatted_lines.append("")
+
+        # Physical therapy section
+        if physical_therapy.get("condition_specific_approaches"):
+            formatted_lines.append("## Physical Therapy & Exercise Recommendations")
+            for approach in physical_therapy["condition_specific_approaches"]:
+                formatted_lines.append(f"### {approach.get('condition_category', 'Physical Therapy')}")
+                formatted_lines.append(f"**Evidence Level:** {approach.get('evidence_level', 'Moderate')}")
+                
+                if approach.get("recommended_exercises"):
+                    formatted_lines.append("**Recommended Exercises:**")
+                    for exercise in approach["recommended_exercises"]:
+                        formatted_lines.append(f"- {exercise}")
+                
+                if approach.get("frequency"):
+                    formatted_lines.append(f"**Frequency:** {approach['frequency']}")
+                
+                formatted_lines.append("")
+
+        # Lifestyle modifications section
+        if lifestyle.get("condition_specific_guidance"):
+            formatted_lines.append("## Lifestyle & Dietary Recommendations")
+            for guidance in lifestyle["condition_specific_guidance"]:
+                formatted_lines.append(f"### {guidance.get('condition_category', 'General Health')}")
+                
+                if guidance.get("dietary_recommendations"):
+                    formatted_lines.append("**Dietary Guidelines:**")
+                    for dietary in guidance["dietary_recommendations"]:
+                        formatted_lines.append(f"- {dietary}")
+                
+                if guidance.get("lifestyle_modifications"):
+                    formatted_lines.append("**Lifestyle Changes:**")
+                    for modification in guidance["lifestyle_modifications"]:
+                        formatted_lines.append(f"- {modification}")
+                
+                formatted_lines.append("")
+
+        # Evidence sources
+        literature_sources = getattr(literature_result, "sources", [])
+        if literature_sources:
+            formatted_lines.append("## Supporting Evidence")
+            for i, source in enumerate(literature_sources[:8], 1):
+                title = source.get("title", "Clinical Research")
+                journal = source.get("journal", "")
+                year = source.get("publication_date", "")
+                
+                formatted_lines.append(f"**{i}.** {title}")
+                if journal:
+                    journal_info = journal
+                    if year:
+                        journal_info += f" ({year})"
+                    formatted_lines.append(f"   *{journal_info}*")
+                formatted_lines.append("")
+
+        # Medical disclaimer
+        formatted_lines.append("---")
+        formatted_lines.append("**IMPORTANT MEDICAL DISCLAIMER:**")
+        formatted_lines.append("This treatment plan provides evidence-based educational information only. It does not constitute personalized medical advice, diagnosis, or treatment recommendations. Individual responses to treatments vary significantly. Always consult qualified healthcare professionals before implementing any treatment plan. Professional medical assessment is required for personalized care planning.")
+
+        return "\n".join(formatted_lines)
+
     def get_agent_capabilities(self) -> dict[str, Any]:
         """Return agent capabilities for discovery and routing"""
         return {
@@ -1574,26 +2130,39 @@ Enhanced query:"""
                 "literature_synthesis",
                 "evidence_based_research",
                 "systematic_review_support",
-                "meta_analysis_support"
+                "meta_analysis_support",
+                "treatment_recommendation_protocols",
+                "physical_therapy_guidance",
+                "lifestyle_modification_support",
+                "actionable_clinical_guidance"
             ],
             "supported_query_types": [
                 "literature_research", 
                 "differential_diagnosis",
                 "drug_interaction", 
                 "clinical_guidelines",
-                "comprehensive_research"
+                "comprehensive_research",
+                "treatment_recommendation",
+                "lifestyle_guidance"
             ],
             "mcp_tools": [
                 "search-pubmed",
                 "search-trials", 
                 "get-drug-info",
                 "search-icd10",  # Future capability
-                "search-billing-codes"  # Future capability
+                "search-billing-codes",  # Future capability
+                "lifestyle-api",  # Future capability
+                "exercise-api",  # Future capability
+                "nutrition-api"  # Future capability
             ],
+            "dual_functionality": {
+                "information_seeking": "Comprehensive literature research and evidence synthesis",
+                "actionable_guidance": "Evidence-based treatment protocols and lifestyle recommendations"
+            },
             "conversation_support": True,
             "source_deduplication": True,
             "phi_compliant": True,
-            "medical_disclaimer": "Provides research assistance only, not medical advice"
+            "medical_disclaimer": "Provides research assistance and evidence-based educational guidance only, not personalized medical advice"
         }
 
     async def health_check(self) -> dict[str, Any]:
