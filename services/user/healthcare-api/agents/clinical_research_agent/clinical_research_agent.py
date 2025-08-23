@@ -68,6 +68,11 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         self.mcp_client = mcp_client
         self.llm_client = llm_client
         self.current_step = 0
+        
+        # Conversation state management
+        self._conversation_memory: dict[str, dict[str, Any]] = {}
+        self._source_cache: dict[str, dict[str, Any]] = {}
+        self._topic_history: dict[str, list[str]] = {}
 
         # Log agent initialization with healthcare context
         log_healthcare_event(
@@ -664,6 +669,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
 
         This is the primary entry point for clinical research queries from the pipeline.
         Provides comprehensive medical literature search, clinical reasoning, and evidence synthesis.
+        Enhanced with conversation state management for follow-up questions.
 
         MEDICAL DISCLAIMER: This agent provides medical research assistance and clinical data
         analysis only. It searches medical literature, clinical trials, drug interactions, and
@@ -681,6 +687,9 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             Dict containing research results, sources, and medical disclaimers
         """
         try:
+            # Enhance query with conversation context for follow-up questions
+            enhanced_query = await self._enhance_query_with_context(query, session_id)
+            
             # Log the research query with healthcare context
             log_healthcare_event(
                 logger,
@@ -690,6 +699,8 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
                     "agent": "clinical_research",
                     "user_id": user_id,
                     "session_id": session_id,
+                    "original_query": query,
+                    "enhanced_query": enhanced_query if enhanced_query != query else None,
                     "query_type": "research_query",
                     "phi_monitoring": True,
                     "medical_research_support": True,
@@ -703,36 +714,43 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
                 await self.mcp_client._ensure_connected()
 
             # Analyze query to determine appropriate processing approach
-            query_analysis = await self._analyze_research_query(query)
+            query_analysis = await self._analyze_research_query(enhanced_query)
 
-            # Create clinical context from analysis
+            # Create clinical context from analysis including conversation context
+            conversation_context = self._get_conversation_context(session_id)
             clinical_context = {
                 "user_id": user_id,
                 "session_id": session_id,
                 "query_analysis": query_analysis,
                 "research_focus": query_analysis.get("focus_areas", []),
+                "conversation_context": conversation_context,
+                "original_query": query,
+                "enhanced_query": enhanced_query,
             }
 
             # Route to appropriate processing method based on query type
             if query_analysis.get("query_type") == "differential_diagnosis":
                 result = await self._process_differential_diagnosis(
-                    query,
+                    enhanced_query,
                     clinical_context,
                     session_id,
                 )
             elif query_analysis.get("query_type") == "drug_interaction":
                 result = await self._process_drug_interaction(
-                    query,
+                    enhanced_query,
                     clinical_context,
                     session_id,
                 )
             else:
                 # Default to comprehensive research with MCP tools for all other queries
                 result = await self._process_comprehensive_research(
-                    query,
+                    enhanced_query,
                     clinical_context,
                     session_id,
                 )
+
+            # Update conversation state with results for future follow-up questions
+            await self._update_conversation_state(session_id, query, result)
 
             # Add pipeline-specific response formatting
             pipeline_response = {
@@ -1002,12 +1020,18 @@ Respond only with valid JSON.
                     elif "sources" in result:
                         sources.extend(result["sources"])
 
-            return {
+            # Ensure orchestrator compatibility with standardized response format
+            result = {
+                "success": True,
                 "research_type": "comprehensive_research",
                 "query": query,
                 "session_id": session_id,
                 "formatted_summary": formatted_summary,  # Key addition for orchestrator
                 "sources": sources,  # Key addition for orchestrator
+                "agent_name": "clinical_research",
+                "agent_type": "clinical_research",
+                "total_sources": len(sources),
+                "search_confidence": reasoning_result.confidence_score if hasattr(reasoning_result, 'confidence_score') else 0.8,
                 "research_stages": research_stages,
                 "medical_reasoning": {
                     "reasoning_type": reasoning_result.reasoning_type,
@@ -1033,6 +1057,8 @@ Respond only with valid JSON.
                 ],
                 "generated_at": reasoning_result.generated_at.isoformat(),
             }
+            
+            return result
 
         except Exception as e:
             return self._create_error_response(
@@ -1047,63 +1073,395 @@ Respond only with valid JSON.
         reasoning_result: Any,
     ) -> str:
         """
-        Synthesize findings from multiple research stages into coherent summary
-        """
-        # Collect findings from successful research stages
-        findings = []
-
-        for stage in research_stages:
-            if stage.get("success") and stage.get("result"):
-                stage_name = stage.get("stage", "unknown")
-                result_data = stage.get("result", {})
-
-                # Parse MCP response using universal parser to fix "Untitled" issue
-                if stage_name == "pubmed_search":
-                    parsed_articles = parse_pubmed_response(result_data)
-                    articles = parsed_articles[:5]  # Top 5 articles
-                    findings.append(
-                        f"Literature Review ({len(articles)} studies): "
-                        + "; ".join(
-                            [article.get("title", "Untitled")[:100] for article in articles]
-                        )
-                    )
-
-                elif stage_name == "trials_search":
-                    parsed_trials = parse_clinical_trials_response(result_data)
-                    trials = parsed_trials[:3]  # Top 3 trials
-                    findings.append(
-                        f"Clinical Trials ({len(trials)} trials): "
-                        + "; ".join([trial.get("title", "Untitled")[:100] for trial in trials])
-                    )
-
-        # Add reasoning insights
-        if hasattr(reasoning_result, "final_assessment"):
-            findings.append(f"Clinical Assessment: {reasoning_result.final_assessment}")
-
-        # Create synthesis prompt for LLM
-        synthesis_prompt = f"""
-        Research Query: {query}
+        Synthesize findings from multiple research stages into conversational, comprehensive summary
         
-        Research Findings:
-        {chr(10).join(f"- {finding}" for finding in findings)}
-        
-        Provide a comprehensive research synthesis including:
-        1. Key findings and evidence quality
-        2. Clinical implications and relevance
-        3. Gaps in current evidence
+        Enhanced to provide natural, conversational responses while maintaining scientific accuracy
         """
+        # Enhanced source processing for conversational synthesis
+        source_analysis = self._analyze_sources_for_conversation(research_stages)
+        
+        # Build conversational synthesis prompt
+        synthesis_prompt = f"""You are a clinical research specialist providing a conversational summary of medical literature findings.
+
+Query: "{query}"
+
+Available Research Sources:
+{self._format_sources_for_synthesis(source_analysis)}
+
+Clinical Assessment:
+{getattr(reasoning_result, 'final_assessment', 'No clinical assessment available')}
+
+Provide a comprehensive, conversational response that:
+
+1. **Opens with a direct answer** to the user's question in natural language
+2. **Organizes information by clinical relevance** (not by source type)
+3. **Uses conversational transitions** between topics
+4. **Formats sections intelligently**:
+   - Use headers (##) for major topics
+   - Use bullet points for lists of findings
+   - Use paragraphs for explanations
+   - Use emphasis (**bold**) for key clinical points
+5. **Synthesizes across source types** rather than listing them separately
+6. **Maintains scientific accuracy** while being accessible
+7. **Ends with practical implications** when appropriate
+
+Write as if explaining to a healthcare professional in a consultation setting.
+Avoid formal academic language - use clear, professional conversation style.
+"""
 
         try:
-            synthesis_response = await self.llm_client.chat(
-                model="llama3.1:8b",
-                messages=[{"role": "user", "content": synthesis_prompt}],
-                options={"temperature": 0.1},
+            synthesis_response = await self.llm_client.generate(
+                model=config.get_model_for_task("clinical"),
+                prompt=synthesis_prompt,
+                options={"temperature": 0.2, "max_tokens": 1500},  # Higher token limit for comprehensive responses
             )
-            return synthesis_response.get("message", {}).get(
-                "content", "Research synthesis completed."
+            
+            conversational_summary = synthesis_response.get("response", "")
+            
+            # Post-process to ensure quality
+            if len(conversational_summary.strip()) < 100:
+                # Fallback to structured summary if LLM response is too short
+                return self._create_structured_fallback_summary(query, source_analysis, reasoning_result)
+            
+            return conversational_summary
+            
+        except Exception as e:
+            logger.warning(f"LLM synthesis failed: {e}, using structured fallback")
+            return self._create_structured_fallback_summary(query, source_analysis, reasoning_result)
+
+    def _analyze_sources_for_conversation(self, research_stages: list[dict[str, Any]]) -> dict[str, Any]:
+        """Analyze and categorize sources for conversational synthesis"""
+        analysis = {
+            "pubmed_articles": [],
+            "clinical_trials": [],
+            "fda_data": [],
+            "total_sources": 0,
+            "key_topics": [],
+            "evidence_strength": "limited"
+        }
+        
+        for stage in research_stages:
+            if not stage.get("success") or not stage.get("result"):
+                continue
+                
+            stage_name = stage.get("stage", "unknown")
+            result_data = stage.get("result", {})
+            
+            if stage_name == "pubmed_search":
+                articles = parse_pubmed_response(result_data)
+                analysis["pubmed_articles"] = articles[:8]  # Top 8 articles for synthesis
+                analysis["total_sources"] += len(articles)
+                
+                # Extract key topics from titles and abstracts
+                for article in articles[:5]:
+                    title = article.get("title", "").lower()
+                    abstract = article.get("abstract", "").lower()
+                    # Simple keyword extraction for topics
+                    for text in [title, abstract]:
+                        if any(term in text for term in ["efficacy", "effective", "treatment"]):
+                            analysis["key_topics"].append("treatment_efficacy")
+                        if any(term in text for term in ["safety", "adverse", "side effect"]):
+                            analysis["key_topics"].append("safety")
+                        if any(term in text for term in ["mechanism", "pathway", "receptor"]):
+                            analysis["key_topics"].append("mechanism")
+            
+            elif stage_name == "trials_search":
+                trials = parse_clinical_trials_response(result_data)
+                analysis["clinical_trials"] = trials[:5]  # Top 5 trials
+                analysis["total_sources"] += len(trials)
+        
+        # Determine evidence strength
+        if analysis["total_sources"] >= 10:
+            analysis["evidence_strength"] = "substantial"
+        elif analysis["total_sources"] >= 5:
+            analysis["evidence_strength"] = "moderate"
+        
+        # Deduplicate topics
+        analysis["key_topics"] = list(set(analysis["key_topics"]))
+        
+        return analysis
+    
+    def _format_sources_for_synthesis(self, source_analysis: dict[str, Any]) -> str:
+        """Format sources in a way that's useful for LLM synthesis"""
+        formatted_sources = []
+        
+        # PubMed articles
+        for article in source_analysis["pubmed_articles"]:
+            title = article.get("title", "Untitled")
+            authors = article.get("authors", [])
+            journal = article.get("journal", "")
+            year = article.get("publication_date", "")
+            abstract = article.get("abstract", "")
+            
+            author_text = ", ".join(authors[:3]) if isinstance(authors, list) and authors else "Unknown authors"
+            
+            formatted_sources.append(f"""
+**Research Article**: {title}
+- Authors: {author_text}
+- Journal: {journal} ({year})
+- Key findings: {abstract[:300]}...
+""")
+        
+        # Clinical trials
+        for trial in source_analysis["clinical_trials"]:
+            title = trial.get("title", "Untitled")
+            status = trial.get("overall_status", "Unknown")
+            condition = trial.get("condition", "")
+            intervention = trial.get("intervention_name", "")
+            
+            formatted_sources.append(f"""
+**Clinical Trial**: {title}
+- Status: {status}
+- Condition: {condition}
+- Intervention: {intervention}
+""")
+        
+        summary_text = f"Total sources: {source_analysis['total_sources']}, Evidence strength: {source_analysis['evidence_strength']}"
+        if source_analysis['key_topics']:
+            summary_text += f", Key topics: {', '.join(source_analysis['key_topics'])}"
+        
+        return summary_text + "\n\n" + "\n".join(formatted_sources)
+    
+    def _create_structured_fallback_summary(self, query: str, source_analysis: dict[str, Any], reasoning_result: Any) -> str:
+        """Create structured fallback when LLM synthesis fails"""
+        summary_parts = []
+        
+        summary_parts.append(f"## Clinical Research Summary: {query}")
+        summary_parts.append("")
+        
+        if source_analysis["total_sources"] > 0:
+            summary_parts.append(f"Based on analysis of {source_analysis['total_sources']} medical sources with {source_analysis['evidence_strength']} evidence strength:")
+            summary_parts.append("")
+            
+            # Key findings from PubMed
+            if source_analysis["pubmed_articles"]:
+                summary_parts.append("### Research Literature Findings")
+                for i, article in enumerate(source_analysis["pubmed_articles"][:5], 1):
+                    title = article.get("title", "Research finding")
+                    summary_parts.append(f"{i}. **{title}**")
+                    if article.get("abstract"):
+                        abstract_summary = article["abstract"][:200] + "..." if len(article["abstract"]) > 200 else article["abstract"]
+                        summary_parts.append(f"   - {abstract_summary}")
+                summary_parts.append("")
+            
+            # Clinical trials
+            if source_analysis["clinical_trials"]:
+                summary_parts.append("### Clinical Trial Evidence")
+                for trial in source_analysis["clinical_trials"][:3]:
+                    title = trial.get("title", "Clinical trial")
+                    status = trial.get("overall_status", "Unknown status")
+                    summary_parts.append(f"- **{title}** (Status: {status})")
+                summary_parts.append("")
+            
+            # Clinical assessment
+            if hasattr(reasoning_result, "final_assessment") and reasoning_result.final_assessment:
+                summary_parts.append("### Clinical Assessment")
+                summary_parts.append(reasoning_result.final_assessment)
+                summary_parts.append("")
+        else:
+            summary_parts.append("No medical literature sources found for this specific query.")
+            summary_parts.append("")
+        
+        summary_parts.append("**Note**: This information is for educational purposes only. Always consult healthcare professionals for medical advice.")
+        
+        return "\n".join(summary_parts)
+
+    async def _update_conversation_state(self, session_id: str, query: str, result: dict[str, Any]) -> None:
+        """Update conversation memory and source cache for follow-up questions"""
+        # Initialize conversation memory for this session if needed
+        if session_id not in self._conversation_memory:
+            self._conversation_memory[session_id] = {
+                "queries": [],
+                "topics_discussed": [],
+                "sources_used": [],
+                "last_updated": datetime.utcnow().isoformat()
+            }
+        
+        # Update conversation memory
+        memory = self._conversation_memory[session_id]
+        memory["queries"].append({
+            "query": query,
+            "timestamp": datetime.utcnow().isoformat(),
+            "topics": self._extract_topics_from_query(query)
+        })
+        
+        # Keep only last 10 queries to manage memory
+        memory["queries"] = memory["queries"][-10:]
+        
+        # Extract and cache sources from result
+        sources = []
+        if "sources" in result:
+            sources.extend(result["sources"])
+        elif "supporting_literature" in result:
+            for lit in result["supporting_literature"]:
+                if "sources" in lit:
+                    sources.extend(lit["sources"])
+        
+        # Cache sources with deduplication
+        source_cache_key = f"{session_id}_sources"
+        if source_cache_key not in self._source_cache:
+            self._source_cache[source_cache_key] = {"sources": [], "last_updated": datetime.utcnow().isoformat()}
+        
+        cached_sources = self._source_cache[source_cache_key]["sources"]
+        
+        # Add new sources with deduplication
+        for source in sources:
+            if not self._is_duplicate_source(source, cached_sources):
+                cached_sources.append(source)
+        
+        # Keep only last 50 sources to manage memory
+        self._source_cache[source_cache_key]["sources"] = cached_sources[-50:]
+        self._source_cache[source_cache_key]["last_updated"] = datetime.utcnow().isoformat()
+        
+        # Update topics history
+        if session_id not in self._topic_history:
+            self._topic_history[session_id] = []
+        
+        query_topics = self._extract_topics_from_query(query)
+        for topic in query_topics:
+            if topic not in self._topic_history[session_id]:
+                self._topic_history[session_id].append(topic)
+        
+        # Keep only last 20 topics
+        self._topic_history[session_id] = self._topic_history[session_id][-20:]
+    
+    def _extract_topics_from_query(self, query: str) -> list[str]:
+        """Extract key medical topics from query for conversation tracking"""
+        query_lower = query.lower()
+        topics = []
+        
+        # Medical condition keywords
+        condition_keywords = [
+            "diabetes", "hypertension", "cancer", "depression", "anxiety", 
+            "infection", "inflammation", "cardiovascular", "respiratory", "neurological"
+        ]
+        
+        # Treatment keywords
+        treatment_keywords = [
+            "treatment", "therapy", "medication", "drug", "surgery", "intervention"
+        ]
+        
+        # Research keywords
+        research_keywords = [
+            "study", "trial", "research", "evidence", "systematic review", "meta-analysis"
+        ]
+        
+        for keyword_list, category in [
+            (condition_keywords, "condition"),
+            (treatment_keywords, "treatment"), 
+            (research_keywords, "research")
+        ]:
+            for keyword in keyword_list:
+                if keyword in query_lower:
+                    topics.append(f"{category}:{keyword}")
+        
+        return topics
+    
+    def _is_duplicate_source(self, new_source: dict[str, Any], cached_sources: list[dict[str, Any]]) -> bool:
+        """Check if a source is already cached to avoid duplication"""
+        new_title = new_source.get("title", "").lower().strip()
+        new_url = new_source.get("url", "").strip()
+        new_doi = new_source.get("doi", "").strip()
+        
+        if not new_title and not new_url and not new_doi:
+            return False  # Can't determine duplicates without identifiers
+        
+        for cached_source in cached_sources:
+            cached_title = cached_source.get("title", "").lower().strip()
+            cached_url = cached_source.get("url", "").strip()
+            cached_doi = cached_source.get("doi", "").strip()
+            
+            # Check for exact matches
+            if new_doi and cached_doi and new_doi == cached_doi:
+                return True
+            if new_url and cached_url and new_url == cached_url:
+                return True
+            if new_title and cached_title and new_title == cached_title:
+                return True
+            
+            # Check for very similar titles (90% similarity)
+            if new_title and cached_title and len(new_title) > 10:
+                similarity = self._calculate_title_similarity(new_title, cached_title)
+                if similarity > 0.9:
+                    return True
+        
+        return False
+    
+    def _calculate_title_similarity(self, title1: str, title2: str) -> float:
+        """Calculate similarity between two titles using word overlap"""
+        words1 = set(title1.lower().split())
+        words2 = set(title2.lower().split())
+        
+        if not words1 or not words2:
+            return 0.0
+        
+        intersection = words1.intersection(words2)
+        union = words1.union(words2)
+        
+        return len(intersection) / len(union) if union else 0.0
+    
+    def _get_conversation_context(self, session_id: str) -> dict[str, Any]:
+        """Get conversation context for follow-up questions"""
+        context = {
+            "previous_queries": [],
+            "discussed_topics": [],
+            "available_sources": 0,
+            "conversation_depth": 0
+        }
+        
+        if session_id in self._conversation_memory:
+            memory = self._conversation_memory[session_id]
+            context["previous_queries"] = [q["query"] for q in memory["queries"][-5:]]  # Last 5 queries
+            context["conversation_depth"] = len(memory["queries"])
+        
+        if session_id in self._topic_history:
+            context["discussed_topics"] = self._topic_history[session_id][-10:]  # Last 10 topics
+        
+        source_cache_key = f"{session_id}_sources"
+        if source_cache_key in self._source_cache:
+            context["available_sources"] = len(self._source_cache[source_cache_key]["sources"])
+        
+        return context
+    
+    async def _enhance_query_with_context(self, query: str, session_id: str) -> str:
+        """Enhance query with conversation context for better follow-up handling"""
+        context = self._get_conversation_context(session_id)
+        
+        if context["conversation_depth"] == 0:
+            # First query in conversation - no enhancement needed
+            return query
+        
+        # Build context-aware query enhancement
+        enhancement_prompt = f"""Previous conversation context:
+- Recent queries: {', '.join(context['previous_queries'][-3:])}
+- Topics discussed: {', '.join(context['discussed_topics'][-5:])}
+- Available cached sources: {context['available_sources']}
+
+Current query: "{query}"
+
+If this query is a follow-up question (asking for "more details", "tell me about", "what else", etc.), 
+enhance it by incorporating relevant context from the previous conversation.
+
+Enhanced query:"""
+
+        try:
+            response = await self.llm_client.generate(
+                model=config.get_model_for_task("clinical"),
+                prompt=enhancement_prompt,
+                options={"temperature": 0.1, "max_tokens": 200}
             )
-        except Exception:
-            return "Research synthesis completed with findings listed above."
+            
+            enhanced_query = response.get("response", "").strip()
+            
+            # Only use enhanced query if it's substantially different and reasonable
+            if enhanced_query and len(enhanced_query) > len(query) + 10 and len(enhanced_query) < 300:
+                logger.info(f"Enhanced follow-up query: {query[:50]} -> {enhanced_query[:50]}")
+                return enhanced_query
+            
+        except Exception as e:
+            logger.warning(f"Query enhancement failed: {e}")
+        
+        return query
 
     def _create_formatted_summary(
         self,
@@ -1202,3 +1560,69 @@ Respond only with valid JSON.
         )
 
         return "\n".join(formatted_lines)
+
+    def get_agent_capabilities(self) -> dict[str, Any]:
+        """Return agent capabilities for discovery and routing"""
+        return {
+            "agent_name": "clinical_research",
+            "agent_type": "research_assistant", 
+            "capabilities": [
+                "comprehensive_medical_research",
+                "clinical_trial_analysis",
+                "differential_diagnosis_support", 
+                "drug_interaction_analysis",
+                "literature_synthesis",
+                "evidence_based_research",
+                "systematic_review_support",
+                "meta_analysis_support"
+            ],
+            "supported_query_types": [
+                "literature_research", 
+                "differential_diagnosis",
+                "drug_interaction", 
+                "clinical_guidelines",
+                "comprehensive_research"
+            ],
+            "mcp_tools": [
+                "search-pubmed",
+                "search-trials", 
+                "get-drug-info",
+                "search-icd10",  # Future capability
+                "search-billing-codes"  # Future capability
+            ],
+            "conversation_support": True,
+            "source_deduplication": True,
+            "phi_compliant": True,
+            "medical_disclaimer": "Provides research assistance only, not medical advice"
+        }
+
+    async def health_check(self) -> dict[str, Any]:
+        """Agent health check for system monitoring"""
+        try:
+            # Basic connectivity tests
+            mcp_status = "connected" if self.mcp_client else "not_available"
+            llm_status = "connected" if self.llm_client else "not_available"
+            
+            # Memory status
+            memory_status = {
+                "active_conversations": len(self._conversation_memory),
+                "cached_sources": sum(len(cache["sources"]) for cache in self._source_cache.values()),
+                "topic_histories": len(self._topic_history)
+            }
+            
+            return {
+                "agent_name": "clinical_research",
+                "status": "healthy",
+                "mcp_client": mcp_status,
+                "llm_client": llm_status,
+                "memory_status": memory_status,
+                "capabilities": self.get_agent_capabilities(),
+                "last_check": datetime.utcnow().isoformat()
+            }
+        except Exception as e:
+            return {
+                "agent_name": "clinical_research", 
+                "status": "unhealthy",
+                "error": str(e),
+                "last_check": datetime.utcnow().isoformat()
+            }

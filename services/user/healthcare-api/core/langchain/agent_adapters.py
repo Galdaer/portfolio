@@ -32,33 +32,37 @@ logger = get_healthcare_logger("core.langchain.agent_adapters")
 def synthesize_answer_from_sources(query: str, sources: List[Dict[str, Any]]) -> str:
     """
     Synthesize a conclusive answer from medical sources.
-    
+
     Critical function to prevent LangChain iteration loops by ensuring
     agents return conclusive answers instead of just source lists.
-    
+
     Args:
         query: The original medical query
         sources: List of source dictionaries with medical information
-        
+
     Returns:
         Synthesized conclusive answer that prevents iteration loops
     """
     if not sources:
         return f"No medical information found for '{query}'."
-    
+
     # Extract key information from sources
     source_summaries = []
     pubmed_count = 0
     trial_count = 0
     fda_count = 0
-    
+
     for source in sources[:5]:  # Limit to top 5 sources for synthesis
         source_type = source.get("source_type", "unknown")
         title = source.get("title", "Untitled")
-        
+
         if source_type == "pubmed":
             pubmed_count += 1
-            abstract = source.get("abstract", "")[:200] + "..." if len(source.get("abstract", "")) > 200 else source.get("abstract", "")
+            abstract = (
+                source.get("abstract", "")[:200] + "..."
+                if len(source.get("abstract", "")) > 200
+                else source.get("abstract", "")
+            )
             if abstract:
                 source_summaries.append(f"Research: {title} - {abstract}")
         elif source_type == "clinical_trial":
@@ -77,10 +81,10 @@ def synthesize_answer_from_sources(query: str, sources: List[Dict[str, Any]]) ->
             summary = source.get("summary", source.get("abstract", ""))[:150]
             if summary:
                 source_summaries.append(f"{title} - {summary}...")
-    
+
     # Build conclusive answer
     answer_parts = []
-    
+
     # Add source overview
     source_overview = []
     if pubmed_count > 0:
@@ -89,46 +93,47 @@ def synthesize_answer_from_sources(query: str, sources: List[Dict[str, Any]]) ->
         source_overview.append(f"{trial_count} clinical trial{'s' if trial_count != 1 else ''}")
     if fda_count > 0:
         source_overview.append(f"{fda_count} FDA drug record{'s' if fda_count != 1 else ''}")
-    
+
     if source_overview:
         answer_parts.append(f"Based on {' and '.join(source_overview)}:")
-    
+
     # Add synthesized information
     if source_summaries:
         answer_parts.extend(source_summaries)
-    
+
     # Add medical disclaimer
     answer_parts.append(
         "\n**Medical Disclaimer**: This information is for educational purposes only. "
         "Always consult with healthcare professionals for medical advice."
     )
-    
+
     return "\n\n".join(answer_parts)
 
 
 def create_conclusive_agent_adapter(agent: Any, name: str):
     """
     Create agent adapter that prevents iteration loops.
-    
+
     This implements the pattern from the handoff document to ensure
     agents return conclusive answers instead of just source lists,
     preventing LangChain from hitting max_iterations (25).
-    
+
     Args:
         agent: Healthcare agent instance
         name: Agent name for tool registration
-        
+
     Returns:
         Function that provides conclusive answers
     """
+
     async def conclusive_agent(request: str) -> str:
         """Agent wrapper that always provides conclusive answers."""
-        
+
         logger.info(f"🔄 Processing conclusive request for {name}: {request[:100]}...")
-        
+
         try:
             # Parse request if it's JSON, otherwise use as string
-            if request.strip().startswith('{'):
+            if request.strip().startswith("{"):
                 try:
                     parsed_request = json.loads(request)
                     if isinstance(parsed_request, dict) and "query" in parsed_request:
@@ -139,20 +144,20 @@ def create_conclusive_agent_adapter(agent: Any, name: str):
                     query = request
             else:
                 query = request
-            
+
             # Call agent with proper format
-            if hasattr(agent, 'process_request'):
+            if hasattr(agent, "process_request"):
                 result = await agent.process_request({"query": query})
-            elif hasattr(agent, '_process_implementation'):
+            elif hasattr(agent, "_process_implementation"):
                 result = await agent._process_implementation({"query": query})
-            elif hasattr(agent, 'search'):
+            elif hasattr(agent, "search"):
                 result = await agent.search(query)
-            elif hasattr(agent, 'process'):
+            elif hasattr(agent, "process"):
                 result = await agent.process(query)
             else:
                 logger.error(f"Agent {name} has no recognizable processing method")
                 return f"CONCLUSIVE ANSWER: Agent {name} is not properly configured."
-            
+
             # CRITICAL: Use formatted_summary if available (medical search agent provides this)
             if isinstance(result, dict):
                 # First priority: Use the agent's formatted_summary if available
@@ -160,28 +165,30 @@ def create_conclusive_agent_adapter(agent: Any, name: str):
                     formatted_summary = result["formatted_summary"]
                     logger.info("✅ Using agent's formatted_summary for conclusive answer")
                     return f"CONCLUSIVE ANSWER: {formatted_summary}"
-                
+
                 # Second priority: Synthesize from sources
                 if "sources" in result and len(result["sources"]) > 0:
                     answer = synthesize_answer_from_sources(query, result["sources"])
-                    logger.info(f"✅ Synthesized conclusive answer from {len(result['sources'])} sources")
+                    logger.info(
+                        f"✅ Synthesized conclusive answer from {len(result['sources'])} sources"
+                    )
                     return f"CONCLUSIVE ANSWER: {answer}"
                 elif "sources" in result:
                     logger.info(f"⚠️ No sources found for query: {query[:50]}...")
                     return f"CONCLUSIVE ANSWER: No information found for '{query}'"
-            
+
             # Handle string responses
             if isinstance(result, str):
                 return f"CONCLUSIVE ANSWER: {result}"
-            
+
             # Handle other response types
             logger.info(f"✅ Processed {name} request, result type: {type(result)}")
             return f"CONCLUSIVE ANSWER: {str(result)}"
-            
+
         except Exception as e:
             logger.error(f"❌ Error in {name} conclusive adapter: {e}")
             return f"CONCLUSIVE ANSWER: Error processing request - {str(e)}"
-    
+
     return conclusive_agent
 
 
@@ -535,12 +542,21 @@ def create_general_healthcare_router(discovered_agents: dict[str, Any]) -> Struc
                     "text",
                 ],
                 "clinical_research": [
-                    "trial",
-                    "research",
-                    "protocol",
-                    "methodology",
-                    "data analysis",
-                    "statistics",
+                    "clinical trial",
+                    "research methodology", 
+                    "clinical study",
+                    "research protocol",
+                    "study design",
+                    "clinical investigation",
+                    "trial enrollment",
+                    "research analysis",
+                    "evidence synthesis",
+                    "systematic review",
+                    "meta-analysis",
+                    "research findings",
+                    "clinical evidence",
+                    "literature synthesis",
+                    "comprehensive research"
                 ],
                 "transcription": ["transcribe", "voice", "audio", "speech", "dictation", "record"],
                 "insurance_verification": [

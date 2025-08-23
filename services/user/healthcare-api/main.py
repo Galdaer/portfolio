@@ -15,14 +15,16 @@ import importlib
 import inspect
 import os
 import json
+from datetime import datetime
 from functools import lru_cache
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -33,6 +35,7 @@ from core.infrastructure.healthcare_logger import (
     setup_healthcare_logging,
 )
 from core.phi_sanitizer import sanitize_request_data, sanitize_response_data
+from config.transcription_config_loader import TRANSCRIPTION_CONFIG
 
 # Setup healthcare-compliant logging infrastructure
 setup_healthcare_logging(log_level=config.log_level.upper())
@@ -304,6 +307,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files for UI components
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 @app.head("/warm")
 @app.get("/warm")
@@ -344,6 +350,35 @@ async def warm() -> dict[str, Any]:
         ),
     }
 
+
+@app.get("/api/config/ui")
+async def get_ui_config():
+    """Get UI configuration for frontend applications"""
+    try:
+        from config.ui_config_loader import UI_CONFIG
+        
+        return {
+            "websocket_url": UI_CONFIG.api_integration.websocket_url,
+            "rest_api_url": UI_CONFIG.api_integration.rest_api_url,
+            "transcription_endpoint": UI_CONFIG.api_integration.transcription_endpoint,
+            "session_timeout_seconds": UI_CONFIG.session.timeout_seconds,
+            "chunk_interval_seconds": UI_CONFIG.session.chunk_interval_seconds,
+            "show_real_time_transcription": UI_CONFIG.user_experience.show_real_time_transcription,
+            "show_status_updates": UI_CONFIG.user_experience.show_status_updates,
+            "medical_disclaimer": UI_CONFIG.compliance.disclaimer_text if UI_CONFIG.compliance.show_medical_disclaimer else None
+        }
+    except Exception as e:
+        logger.error(f"Error loading UI config: {e}")
+        return {
+            "websocket_url": "ws://localhost:8000",
+            "rest_api_url": "http://localhost:8000", 
+            "transcription_endpoint": "/ws/transcription",
+            "session_timeout_seconds": 300,
+            "chunk_interval_seconds": 2,
+            "show_real_time_transcription": True,
+            "show_status_updates": True,
+            "medical_disclaimer": "⚠️ This system provides administrative transcription support only."
+        }
 
 @app.get("/health")
 async def health_check():
@@ -576,54 +611,53 @@ You must respond with a JSON object containing only the agent name. Do not inclu
         logger.error(f"Error in LLM agent selection: {e}")
         raise  # Don't mask LLM issues with fallbacks
 
+
 async def process_query(self, query: str, **kwargs) -> Dict[str, Any]:
     """Process a healthcare query using the appropriate agent."""
     try:
         # ...existing code...
-        
+
         # Process with selected agent
         result = await agent_func({"query": query, **kwargs})
-        
+
         # Format the response for human consumption
-        if isinstance(result, dict) and result.get('success'):
+        if isinstance(result, dict) and result.get("success"):
             formatted_response = self._format_agent_response(result)
             return {
                 "success": True,
                 "message": formatted_response,
                 "raw_data": result,  # Keep raw data for debugging
-                "agent_used": selected_agent
+                "agent_used": selected_agent,
             }
-        
+
         return result
-        
+
     except Exception as e:
         logger.error(f"❌ Error processing query: {str(e)}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}
+
 
 def _format_agent_response(self, response: Dict[str, Any]) -> str:
     """Format agent response for human-readable output."""
-    
+
     # Check if we already have a formatted summary
-    if 'formatted_summary' in response:
-        return response['formatted_summary']
-    
+    if "formatted_summary" in response:
+        return response["formatted_summary"]
+
     # Handle medical search responses
-    if response.get('agent_type') == 'search' and 'information_sources' in response:
-        sources = response.get('information_sources', [])
-        total = response.get('total_sources', len(sources))
-        
+    if response.get("agent_type") == "search" and "information_sources" in response:
+        sources = response.get("information_sources", [])
+        total = response.get("total_sources", len(sources))
+
         formatted = f"I found {total} relevant articles on cardiovascular health. Here are the most recent:\n\n"
-        
+
         for i, source in enumerate(sources[:10], 1):
-            title = source.get('title', 'No title')
-            authors = source.get('authors', [])
-            journal = source.get('journal', 'Unknown journal')
-            url = source.get('url', '')
-            abstract = source.get('abstract', 'No abstract available')
-            
+            title = source.get("title", "No title")
+            authors = source.get("authors", [])
+            journal = source.get("journal", "Unknown journal")
+            url = source.get("url", "")
+            abstract = source.get("abstract", "No abstract available")
+
             formatted += f"**{i}. {title}**\n"
             if authors:
                 formatted += f"   Authors: {', '.join(authors[:3])}"
@@ -633,19 +667,24 @@ def _format_agent_response(self, response: Dict[str, Any]) -> str:
             formatted += f"   Journal: {journal}\n"
             if url:
                 formatted += f"   [View on PubMed]({url})\n"
-            if abstract and abstract != 'No abstract available':
-                formatted += f"   Abstract: {abstract[:200]}...\n" if len(abstract) > 200 else f"   Abstract: {abstract}\n"
+            if abstract and abstract != "No abstract available":
+                formatted += (
+                    f"   Abstract: {abstract[:200]}...\n"
+                    if len(abstract) > 200
+                    else f"   Abstract: {abstract}\n"
+                )
             formatted += "\n"
-        
+
         # Add disclaimers
-        disclaimers = response.get('disclaimers', [])
+        disclaimers = response.get("disclaimers", [])
         if disclaimers:
             formatted += "\n---\n*" + "\n*".join(disclaimers) + "*"
-        
+
         return formatted
-    
+
     # Default formatting for other responses
     return json.dumps(response, indent=2)
+
 
 async def _call_agent_safely(
     agent: Any, request_data: dict[str, Any], timeout_s: float
@@ -1042,7 +1081,7 @@ async def chat(request: ChatRequest):
         logger.error(f"❌ Error in chat endpoint: {str(e)}")
         return {
             "response": "I apologize, but I encountered an error processing your request.",
-            "metadata": {"error": str(e)}
+            "metadata": {"error": str(e)},
         }
 
 
@@ -1113,6 +1152,308 @@ async def process_message(request: ProcessRequest) -> ProcessResponse:
                 formatted_response=f"❌ **System Error:** {error_msg}",
             )
         return ProcessResponse(status="error", error=error_msg)
+
+
+# Live Transcription WebSocket Management
+class SessionManager:
+    """Manage live transcription sessions for doctor-patient encounters"""
+    
+    def __init__(self):
+        self.active_sessions = {}
+        self.config = TRANSCRIPTION_CONFIG.session
+        
+    async def create_session(self, doctor_id: str, patient_context: dict = None) -> str:
+        """Create a new live transcription session"""
+        import uuid
+        from datetime import datetime
+        
+        session_id = f"{self.config.session_id_prefix}{str(uuid.uuid4())}"
+        self.active_sessions[session_id] = {
+            "doctor_id": doctor_id,
+            "patient_context": patient_context or {},
+            "start_time": datetime.utcnow(),
+            "transcription_buffer": [],
+            "status": "active",
+            "timeout_seconds": self.config.default_timeout_seconds
+        }
+        
+        logger.info(f"Created live transcription session {session_id} for doctor {doctor_id}")
+        return session_id
+        
+    async def end_session(self, session_id: str) -> dict:
+        """End a session and return full transcription"""
+        if session_id in self.active_sessions:
+            session = self.active_sessions[session_id]
+            session["status"] = "completed"
+            session["end_time"] = datetime.utcnow()
+            
+            full_transcription = " ".join([
+                chunk["text"] for chunk in session["transcription_buffer"]
+            ])
+            
+            logger.info(f"Ended transcription session {session_id}")
+            return {
+                "session_id": session_id,
+                "full_transcription": full_transcription,
+                "duration_minutes": (session["end_time"] - session["start_time"]).total_seconds() / 60,
+                "chunk_count": len(session["transcription_buffer"])
+            }
+        return {"error": "Session not found"}
+        
+    def get_session(self, session_id: str) -> dict:
+        """Get session information"""
+        return self.active_sessions.get(session_id, {})
+
+# Global session manager
+session_manager = SessionManager()
+
+
+@app.websocket("/ws/transcription/{doctor_id}")
+async def websocket_transcription(websocket: WebSocket, doctor_id: str):
+    """
+    WebSocket endpoint for live medical transcription during doctor-patient sessions
+    
+    Features:
+    - Real-time audio processing with WhisperLive integration
+    - PHI detection and sanitization
+    - Medical terminology processing
+    - Session management for encounter context
+    """
+    await websocket.accept()
+    
+    # Get transcription configuration
+    config = TRANSCRIPTION_CONFIG
+    
+    # Create transcription session
+    patient_context = {}  # Could be enhanced to receive patient context
+    session_id = await session_manager.create_session(doctor_id, patient_context)
+    
+    try:
+        # Send session initialization with configuration
+        await websocket.send_json({
+            "type": "session_start",
+            "session_id": session_id,
+            "doctor_id": doctor_id,
+            "message": "Live transcription session started",
+            "timeout_seconds": config.session.default_timeout_seconds,
+            "chunk_interval_seconds": config.session.audio_chunk_interval_seconds
+        })
+        
+        while True:
+            # Receive audio data from WebSocket
+            message = await websocket.receive_json()
+            
+            if message.get("type") == "audio_chunk":
+                # Process audio chunk for transcription
+                audio_data = message.get("audio_data", {})
+                result = await process_live_audio_chunk(session_id, doctor_id, audio_data)
+                
+                # Send transcription result back
+                await websocket.send_json({
+                    "type": "transcription_chunk",
+                    "session_id": session_id,
+                    "result": result
+                })
+                
+            elif message.get("type") == "end_session":
+                # End the session and generate final summary
+                session_summary = await session_manager.end_session(session_id)
+                
+                # Generate SOAP note if enabled and transcription is available
+                soap_note_result = None
+                if config.integration.soap_generation_enabled and session_summary.get("full_transcription"):
+                    soap_note_result = await generate_soap_note_from_session(
+                        session_id, doctor_id, session_summary
+                    )
+                
+                await websocket.send_json({
+                    "type": "session_end",
+                    "session_id": session_id,
+                    "summary": session_summary,
+                    "soap_note": soap_note_result,
+                    "soap_generation_enabled": config.integration.soap_generation_enabled
+                })
+                break
+                
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for doctor {doctor_id}, session {session_id}")
+        # Clean up session
+        await session_manager.end_session(session_id)
+    except Exception as e:
+        logger.error(f"WebSocket error for doctor {doctor_id}: {e}")
+        await websocket.close(code=1011, reason="Internal server error")
+
+
+async def process_live_audio_chunk(session_id: str, doctor_id: str, audio_data: dict) -> dict:
+    """Process a live audio chunk for transcription"""
+    try:
+        # Get the transcription agent
+        transcription_agent = discovered_agents.get("transcription")
+        if not transcription_agent:
+            logger.error("Transcription agent not found")
+            return {"error": "Transcription service unavailable"}
+            
+        # Prepare the request for the transcription agent
+        request_data = {
+            "audio_data": audio_data,
+            "session_id": session_id,
+            "doctor_id": doctor_id,
+            "real_time": True
+        }
+        
+        # Process with transcription agent
+        result = await transcription_agent.process_request(request_data)
+        
+        # Store in session buffer
+        session = session_manager.get_session(session_id)
+        if session and result.get("success"):
+            session["transcription_buffer"].append({
+                "timestamp": datetime.utcnow().isoformat(),
+                "text": result.get("transcription", ""),
+                "confidence": result.get("confidence", 0.0)
+            })
+            
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error processing live audio chunk: {e}")
+        return {"error": str(e), "success": False}
+
+
+async def generate_soap_note_from_session(session_id: str, doctor_id: str, session_summary: dict) -> dict:
+    """Generate SOAP note from completed transcription session"""
+    try:
+        # Get the SOAP notes agent
+        soap_notes_agent = discovered_agents.get("soap_notes")
+        if not soap_notes_agent:
+            logger.warning("SOAP notes agent not found, skipping SOAP generation")
+            return {"error": "SOAP notes service unavailable"}
+        
+        # Prepare request for SOAP notes agent
+        soap_request = {
+            "session_to_soap": {
+                "session_id": session_id,
+                "full_transcription": session_summary["full_transcription"],
+                "doctor_id": doctor_id,
+                "patient_id": "unknown",  # Could be enhanced to get from session context
+                "encounter_date": datetime.now().isoformat()
+            }
+        }
+        
+        # Generate SOAP note
+        soap_result = await soap_notes_agent.process_request(soap_request)
+        
+        if soap_result.get("success"):
+            logger.info(f"SOAP note generated for session {session_id}")
+            return {
+                "success": True,
+                "note_id": soap_result["note_id"],
+                "soap_note": soap_result["soap_note"],
+                "completeness_score": soap_result["completeness_score"],
+                "quality_recommendations": soap_result["quality_recommendations"]
+            }
+        else:
+            logger.error(f"SOAP note generation failed: {soap_result.get('error')}")
+            return {"error": soap_result.get("error", "SOAP generation failed")}
+        
+    except Exception as e:
+        logger.error(f"Error generating SOAP note from session {session_id}: {e}")
+        return {"error": str(e)}
+
+
+# Additional API endpoints for live transcription integration
+
+class GenerateSOAPRequest(BaseModel):
+    session_id: str
+    doctor_id: str
+    patient_id: str = "unknown"
+
+
+@app.post("/generate-soap-from-session")
+async def generate_soap_from_session_endpoint(request: GenerateSOAPRequest):
+    """
+    Generate SOAP note from a completed transcription session
+    
+    This endpoint allows manual generation of SOAP notes from transcription sessions
+    that may not have automatically generated them during the WebSocket session.
+    """
+    try:
+        # Get session data
+        session = session_manager.get_session(request.session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if session has transcription data
+        if not session.get("transcription_buffer"):
+            raise HTTPException(status_code=400, detail="No transcription data in session")
+        
+        # Create session summary
+        full_transcription = " ".join([
+            chunk["text"] for chunk in session["transcription_buffer"]
+        ])
+        
+        session_summary = {
+            "session_id": request.session_id,
+            "full_transcription": full_transcription,
+            "chunk_count": len(session["transcription_buffer"])
+        }
+        
+        # Generate SOAP note
+        soap_result = await generate_soap_note_from_session(
+            request.session_id, request.doctor_id, session_summary
+        )
+        
+        if soap_result.get("success"):
+            return {
+                "status": "success",
+                "session_id": request.session_id,
+                "soap_note": soap_result,
+                "transcription_length": len(full_transcription)
+            }
+        else:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"SOAP generation failed: {soap_result.get('error', 'Unknown error')}"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in SOAP generation endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/sessions/{session_id}")
+async def get_session_info(session_id: str):
+    """
+    Get information about a transcription session
+    
+    Returns session status, transcription buffer, and metadata.
+    """
+    try:
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Calculate session statistics
+        transcription_buffer = session.get("transcription_buffer", [])
+        total_text_length = sum(len(chunk.get("text", "")) for chunk in transcription_buffer)
+        
+        return {
+            "session_id": session_id,
+            "status": session.get("status", "unknown"),
+            "doctor_id": session.get("doctor_id"),
+            "start_time": session.get("start_time"),
+            "chunk_count": len(transcription_buffer),
+            "total_text_length": total_text_length,
+            "has_transcription": len(transcription_buffer) > 0
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

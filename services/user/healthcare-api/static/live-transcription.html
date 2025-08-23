@@ -316,16 +316,55 @@
         let transcriptLength = 0;
         let chunkCount = 0;
         let durationInterval = null;
+        let uiConfig = null;
         
+        // Load UI configuration from API
+        async function loadUIConfig() {
+            try {
+                const response = await fetch('/api/config/ui');
+                if (response.ok) {
+                    uiConfig = await response.json();
+                    console.log('UI config loaded:', uiConfig);
+                } else {
+                    console.warn('Failed to load UI config, using defaults');
+                    // Fallback configuration
+                    uiConfig = {
+                        websocket_url: 'ws://localhost:8000',
+                        transcription_endpoint: '/ws/transcription',
+                        session_timeout_seconds: 300,
+                        chunk_interval_seconds: 2,
+                        show_real_time_transcription: true,
+                        show_status_updates: true
+                    };
+                }
+            } catch (error) {
+                console.error('Error loading UI config:', error);
+                // Use fallback config
+                uiConfig = {
+                    websocket_url: 'ws://localhost:8000',
+                    transcription_endpoint: '/ws/transcription',
+                    session_timeout_seconds: 300,
+                    chunk_interval_seconds: 2,
+                    show_real_time_transcription: true,
+                    show_status_updates: true
+                };
+            }
+        }
+
         // WebSocket connection
-        function connectWebSocket() {
+        async function connectWebSocket() {
             const doctorId = document.getElementById('doctorId').value;
             if (!doctorId) {
                 showError('Please enter a Doctor ID');
                 return;
             }
             
-            const wsUrl = `ws://localhost:8000/ws/transcription/${doctorId}`;
+            // Ensure config is loaded
+            if (!uiConfig) {
+                await loadUIConfig();
+            }
+            
+            const wsUrl = `${uiConfig.websocket_url}${uiConfig.transcription_endpoint}/${doctorId}`;
             websocket = new WebSocket(wsUrl);
             
             websocket.onopen = function(event) {
@@ -573,8 +612,12 @@
             }, 5000);
         }
         
-        // Initialize
-        updateConnectionStatus('disconnected');
+        // Initialize configuration and UI when page loads
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadUIConfig();
+            updateConnectionStatus('disconnected');
+            console.log('Live Transcription UI initialized with config');
+        });
     </script>
 </body>
 </html>

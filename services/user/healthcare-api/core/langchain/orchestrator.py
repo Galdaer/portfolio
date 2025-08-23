@@ -16,7 +16,10 @@ from langchain_core.language_models import BaseChatModel
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 from core.langchain.agents import HealthcareLangChainAgent
-from core.langchain.agent_adapters import synthesize_answer_from_sources, create_conclusive_agent_adapter
+from core.langchain.agent_adapters import (
+    synthesize_answer_from_sources,
+    create_conclusive_agent_adapter,
+)
 
 logger = get_healthcare_logger("core.langchain.orchestrator")
 
@@ -321,36 +324,42 @@ class LangChainOrchestrator:
     ) -> Dict[str, Any]:
         """
         Process a healthcare query using conclusive agent adapters to prevent iteration loops.
-        
+
         This implements the pattern from the handoff document to ensure agents return
         conclusive answers instead of just source lists, preventing LangChain from
         hitting max_iterations (25).
-        
+
         Args:
             query: The user's healthcare-related query
             discovered_agents: Dictionary of available healthcare agents
             context: Optional context for the query
             show_sources: Whether to show sources in formatted_summary
-            
+
         Returns:
             Dictionary with conclusive answer, avoiding iteration loops
         """
         try:
             logger.info(f"🔄 Processing query with conclusive adapters: {query[:100]}...")
-            
-            # Determine the most appropriate agent for the query
+
+            # Determine the most appropriate agent for the query  
+            query_lower = query.lower()
             agent_name = "medical_search"  # Default to medical search for all medical queries
-            if "appointment" in query.lower() or "schedule" in query.lower():
-                agent_name = "scheduling"
-            elif "billing" in query.lower() or "insurance" in query.lower():
-                agent_name = "billing_helper"
-            elif "intake" in query.lower() or "registration" in query.lower():
-                agent_name = "intake"
-            elif "clinical trial" in query.lower() or "trial enrollment" in query.lower():
-                # Only use clinical_research for specific clinical trial queries
-                agent_name = "clinical_research"
-            # Note: "research" alone should go to medical_search for literature queries
             
+            if "appointment" in query_lower or "schedule" in query_lower:
+                agent_name = "scheduling"
+            elif "billing" in query_lower or "insurance" in query_lower:
+                agent_name = "billing_helper"
+            elif "intake" in query_lower or "registration" in query_lower:
+                agent_name = "intake"
+            elif any(term in query_lower for term in [
+                "clinical trial", "trial enrollment", "research methodology", "study design",
+                "clinical investigation", "systematic review", "meta-analysis", "evidence synthesis",
+                "comprehensive research", "literature synthesis", "clinical evidence"
+            ]):
+                # Use clinical_research for comprehensive research and clinical trial queries
+                agent_name = "clinical_research"
+            # Note: basic "research" queries still go to medical_search for simple literature lookups
+
             # Get the appropriate agent
             selected_agent = discovered_agents.get(agent_name)
             if not selected_agent:
@@ -365,63 +374,91 @@ class LangChainOrchestrator:
                         "agent_name": "orchestrator",
                         "agents_used": [],
                     }
-            
+
             logger.info(f"🎯 Selected agent: {agent_name}")
-            
+
             # Call the agent directly to get full result with sources
             raw_result = None
             sources = []
-            
+
             try:
-                if hasattr(selected_agent, 'process_request'):
+                if agent_name == "clinical_research" and hasattr(selected_agent, "process_research_query"):
+                    # Clinical research agent has its own specialized method
+                    raw_result = await selected_agent.process_research_query(
+                        query=query,
+                        user_id="orchestrator", 
+                        session_id="orchestrator_session"
+                    )
+                elif hasattr(selected_agent, "process_request"):
                     raw_result = await selected_agent.process_request({"query": query})
-                elif hasattr(selected_agent, '_process_implementation'):
+                elif hasattr(selected_agent, "_process_implementation"):
                     raw_result = await selected_agent._process_implementation({"query": query})
-                elif hasattr(selected_agent, 'search'):
+                elif hasattr(selected_agent, "search"):
                     raw_result = await selected_agent.search(query)
-                elif hasattr(selected_agent, 'process'):
+                elif hasattr(selected_agent, "process"):
                     raw_result = await selected_agent.process(query)
-                
+
                 # Extract formatted_summary and sources from the raw result
                 if isinstance(raw_result, dict):
+                    # Handle clinical research agent's nested response format
+                    if agent_name == "clinical_research" and "research_results" in raw_result:
+                        research_results = raw_result["research_results"]
+                        if "formatted_summary" in research_results and research_results["formatted_summary"]:
+                            answer_content = research_results["formatted_summary"]
+                            logger.info("✅ Using clinical research agent's formatted_summary")
+                        else:
+                            # Use research summary as fallback
+                            answer_content = research_results.get("research_summary", "Clinical research completed.")
+                        
+                        # Get sources from clinical research result
+                        if "sources" in research_results:
+                            sources = research_results["sources"]
+                        elif "supporting_literature" in research_results:
+                            sources = []
+                            for lit in research_results["supporting_literature"]:
+                                if "sources" in lit:
+                                    sources.extend(lit["sources"])
                     # Use agent's formatted_summary if available (preferred for medical search)
-                    if "formatted_summary" in raw_result and raw_result["formatted_summary"]:
+                    elif "formatted_summary" in raw_result and raw_result["formatted_summary"]:
                         answer_content = raw_result["formatted_summary"]
                         logger.info("✅ Using agent's formatted_summary")
                     else:
                         # Create conclusive adapter for synthesis if no formatted_summary
-                        conclusive_adapter = create_conclusive_agent_adapter(selected_agent, agent_name)
+                        conclusive_adapter = create_conclusive_agent_adapter(
+                            selected_agent, agent_name
+                        )
                         conclusive_result = await conclusive_adapter(query)
-                        
+
                         # Extract from CONCLUSIVE ANSWER prefix
                         if conclusive_result.startswith("CONCLUSIVE ANSWER: "):
-                            answer_content = conclusive_result[len("CONCLUSIVE ANSWER: "):]
+                            answer_content = conclusive_result[len("CONCLUSIVE ANSWER: ") :]
                         else:
                             answer_content = conclusive_result
-                    
+
                     # Get sources from the result - different agents use different keys
-                    if "sources" in raw_result:
-                        sources = raw_result["sources"]
-                    elif "information_sources" in raw_result:  # Medical search agent uses this
-                        sources = raw_result["information_sources"]
-                    elif "citations" in raw_result:
-                        sources = raw_result["citations"]
+                    if not sources:  # Only if not already set for clinical research
+                        if "sources" in raw_result:
+                            sources = raw_result["sources"]
+                        elif "information_sources" in raw_result:  # Medical search agent uses this
+                            sources = raw_result["information_sources"]
+                        elif "citations" in raw_result:
+                            sources = raw_result["citations"]
                 else:
                     # Fallback to conclusive adapter for non-dict results
                     conclusive_adapter = create_conclusive_agent_adapter(selected_agent, agent_name)
                     conclusive_result = await conclusive_adapter(query)
-                    
+
                     if conclusive_result.startswith("CONCLUSIVE ANSWER: "):
-                        answer_content = conclusive_result[len("CONCLUSIVE ANSWER: "):]
+                        answer_content = conclusive_result[len("CONCLUSIVE ANSWER: ") :]
                     else:
                         answer_content = conclusive_result
-                        
+
             except Exception as e:
                 logger.error(f"❌ Error calling agent {agent_name}: {e}")
                 answer_content = f"Error processing request with {agent_name}: {str(e)}"
-            
+
             logger.info(f"✅ Agent {agent_name} completed with {len(sources)} sources")
-            
+
             # Build structured result
             result = {
                 "success": True,
@@ -431,11 +468,14 @@ class LangChainOrchestrator:
                 "total_sources": len(sources),
                 "search_query": query,
             }
-            
+
             # Add PHI context for medical literature agents
-            if agent_name in ["medical_search", "clinical_research"] or "search" in agent_name.lower():
+            if (
+                agent_name in ["medical_search", "clinical_research"]
+                or "search" in agent_name.lower()
+            ):
                 result["phi_context"] = "medical_literature"
-            
+
             # Add citations if sources are available
             if sources:
                 result["citations"] = sources
@@ -443,7 +483,7 @@ class LangChainOrchestrator:
                 display_sources = True if show_sources is None else bool(show_sources)
                 if display_sources:
                     formatted = result.get("formatted_summary", "") or ""
-                    
+
                     # Check if the formatted_summary already contains source information
                     # (medical agents format their own sources with DOI links, authors, etc.)
                     has_existing_sources = (
@@ -453,7 +493,7 @@ class LangChainOrchestrator:
                         or "🔬" in formatted
                         or len(formatted) > 500  # Rich formatted summaries are typically longer
                     )
-                    
+
                     if not has_existing_sources:
                         # Only add basic source list if agent didn't provide rich formatting
                         lines = [formatted, "\n\nSources:"]
@@ -469,10 +509,12 @@ class LangChainOrchestrator:
                             lines.append(bullet)
                         result["formatted_summary"] = "\n".join(lines).strip()
                     else:
-                        logger.info(f"✅ Agent {agent_name} provided rich formatting, preserving original formatted_summary")
-            
+                        logger.info(
+                            f"✅ Agent {agent_name} provided rich formatting, preserving original formatted_summary"
+                        )
+
             return result
-            
+
         except Exception as e:
             logger.error(f"❌ Error in conclusive adapter processing: {e}")
             return {
