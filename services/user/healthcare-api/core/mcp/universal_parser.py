@@ -18,7 +18,9 @@ logger = get_healthcare_logger(__name__)
 
 
 def parse_mcp_response(
-    mcp_result: dict[str, Any], data_key: str = "articles", default_value: Any | None = None,
+    mcp_result: dict[str, Any],
+    data_key: str = "articles",
+    default_value: Any | None = None,
 ) -> list[dict[str, Any]] | dict[str, Any] | Any:
     """
     Universal MCP response parser for all healthcare tools.

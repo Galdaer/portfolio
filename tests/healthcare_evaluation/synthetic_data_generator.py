@@ -249,7 +249,8 @@ class SyntheticHealthcareDataGenerator:
             condition = {
                 "condition": self.fake.medical_condition(),
                 "diagnosed_date": self.fake.date_between(
-                    start_date="-10y", end_date="today",
+                    start_date="-10y",
+                    end_date="today",
                 ).isoformat(),
                 "status": self.fake.random_element(["Active", "Resolved", "Chronic"]),
             }
@@ -266,7 +267,8 @@ class SyntheticHealthcareDataGenerator:
                     ["Once daily", "Twice daily", "Three times daily", "As needed"],
                 ),
                 "prescribed_date": self.fake.date_between(
-                    start_date="-2y", end_date="today",
+                    start_date="-2y",
+                    end_date="today",
                 ).isoformat(),
             }
             current_medications.append(medication)
@@ -378,7 +380,9 @@ class SyntheticHealthcareDataGenerator:
         )
 
     def generate_dataset(
-        self, num_patients: int = 100, encounters_per_patient: int = 3,
+        self,
+        num_patients: int = 100,
+        encounters_per_patient: int = 3,
     ) -> dict[str, Any]:
         """Generate a complete synthetic healthcare dataset"""
 
@@ -435,5 +439,6 @@ if __name__ == "__main__":
     generator = SyntheticHealthcareDataGenerator()
     dataset = generator.generate_dataset(num_patients=50, encounters_per_patient=2)
     generator.save_dataset(
-        dataset, "/opt/intelluxe/data/evaluation/synthetic/healthcare_test_data.json",
+        dataset,
+        "/opt/intelluxe/data/evaluation/synthetic/healthcare_test_data.json",
     )

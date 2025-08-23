@@ -7,14 +7,14 @@
 search_parameters:
   # Maximum results per search type
   max_results:
-  summary_display_limit: 10
+  summary_display_limit:
     condition_info: 10
     symptom_literature: 15
     drug_information: 8
     clinical_references: 5
 
-  # Timeout settings (seconds)
-  timeouts:
+# Timeout settings (seconds)
+timeouts:
   scispacy_request: 15 # SciSpacy entity extraction timeout
   mcp_request: 45 # Individual MCP tool timeout (increased for stability)
   search_request: 60 # Individual search operation timeout (agent step)
@@ -23,11 +23,11 @@ search_parameters:
   max_concurrent_mcp: 2 # Limit concurrent MCP calls to reduce transport contention
 
   # Search query templates (technical formatting)
-  query_templates:
-    condition_info: "{concept} overview pathophysiology symptoms"
-    symptom_literature: "{symptom} presentation differential clinical features"
-    drug_information: "{drug_name} indications contraindications interactions"
-    clinical_guidelines: "{condition} clinical practice guidelines evidence"
+query_templates:
+  condition_info: "{concept} overview pathophysiology symptoms"
+  symptom_literature: "{symptom} presentation differential clinical features"
+  drug_information: "{drug_name} indications contraindications interactions"
+  clinical_guidelines: "{condition} clinical practice guidelines evidence"
 
 # =============================================================================
 # CLINICAL PREFERENCES (Doctor/Client Configurable)

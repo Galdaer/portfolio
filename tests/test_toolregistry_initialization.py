@@ -4,6 +4,7 @@ Diagnostic tests for ToolRegistry initialization and MCP tool discovery.
 These tests validate why the system might fall back to direct MCP tools
 by checking initialization sequence and available tools.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -57,7 +58,9 @@ async def test_toolregistry_execute_minimal_tool_if_available():
     from core.tools import tool_registry
 
     if not tool_registry._initialized:
-        pytest.xfail("ToolRegistry not initialized in this environment (MCP server only exists inside healthcare-api container).")
+        pytest.xfail(
+            "ToolRegistry not initialized in this environment (MCP server only exists inside healthcare-api container)."
+        )
 
     tools = await tool_registry.get_available_tools()
     names = [t.get("name") for t in tools if isinstance(t, dict)]

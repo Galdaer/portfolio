@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Medical Transcription</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .disclaimer {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-left: 4px solid #ffc107;
+            margin: 20px;
+            border-radius: 4px;
+        }
+        
+        .controls {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .control-group input, .control-group select {
+            width: 100%;
+            max-width: 300px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .button-group {
+            margin-top: 20px;
+        }
+        
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            transition: background-color 0.3s;
+        }
+        
+        .btn:hover {
+            background: #0056b3;
+        }
+        
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-success {
+            background: #28a745;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .status {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-indicator.connected {
+            background: #28a745;
+        }
+        
+        .status-indicator.disconnected {
+            background: #dc3545;
+        }
+        
+        .status-indicator.recording {
+            background: #ffc107;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .transcription-area {
+            display: flex;
+            min-height: 400px;
+        }
+        
+        .live-transcript {
+            flex: 1;
+            padding: 20px;
+            border-right: 1px solid #eee;
+        }
+        
+        .transcript-content {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            min-height: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+        
+        .soap-note {
+            flex: 1;
+            padding: 20px;
+        }
+        
+        .soap-note-content {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            min-height: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+        
+        .section-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            background: #e9ecef;
+            padding: 10px 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 Live Medical Transcription System</h1>
+            <p>Real-time transcription with automated SOAP note generation</p>
+        </div>
+        
+        <div class="disclaimer">
+            <strong>⚠️ Medical Disclaimer:</strong> This system provides administrative transcription support only. 
+            It does not provide medical advice, diagnosis, or treatment recommendations. All clinical content 
+            must be reviewed and validated by qualified healthcare professionals.
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="doctorId">Doctor ID:</label>
+                <input type="text" id="doctorId" value="dr_demo" placeholder="Enter your doctor ID">
+            </div>
+            
+            <div class="control-group">
+                <label for="patientId">Patient ID (Optional):</label>
+                <input type="text" id="patientId" placeholder="Enter patient ID">
+            </div>
+            
+            <div class="button-group">
+                <button class="btn" id="connectBtn" onclick="connectWebSocket()">Connect</button>
+                <button class="btn btn-success" id="startBtn" onclick="startRecording()" disabled>Start Recording</button>
+                <button class="btn btn-danger" id="stopBtn" onclick="stopRecording()" disabled>Stop Recording</button>
+                <button class="btn" id="endSessionBtn" onclick="endSession()" disabled>End Session</button>
+            </div>
+        </div>
+        
+        <div class="status">
+            <div>
+                <span class="status-indicator" id="connectionStatus"></span>
+                <span id="statusText">Disconnected</span>
+            </div>
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="sessionDuration">0:00</div>
+                    <div class="stat-label">Session Duration</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="transcriptLength">0</div>
+                    <div class="stat-label">Characters Transcribed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="chunkCount">0</div>
+                    <div class="stat-label">Audio Chunks</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="transcription-area">
+            <div class="live-transcript">
+                <div class="section-title">📝 Live Transcription</div>
+                <div class="transcript-content" id="transcriptContent">
+                    Click "Connect" and "Start Recording" to begin live transcription...
+                </div>
+            </div>
+            
+            <div class="soap-note">
+                <div class="section-title">📋 SOAP Note (Auto-generated)</div>
+                <div class="soap-note-content" id="soapNoteContent">
+                    SOAP note will be generated automatically when session ends...
+                </div>
+            </div>
+        </div>
+        
+        <div id="messages"></div>
+    </div>
+    
+    <script>
+        // Global variables
+        let websocket = null;
+        let sessionId = null;
+        let isRecording = false;
+        let startTime = null;
+        let transcriptLength = 0;
+        let chunkCount = 0;
+        let durationInterval = null;
+        
+        // WebSocket connection
+        function connectWebSocket() {
+            const doctorId = document.getElementById('doctorId').value;
+            if (!doctorId) {
+                showError('Please enter a Doctor ID');
+                return;
+            }
+            
+            const wsUrl = `ws://localhost:8000/ws/transcription/${doctorId}`;
+            websocket = new WebSocket(wsUrl);
+            
+            websocket.onopen = function(event) {
+                updateConnectionStatus('connected');
+                showSuccess('Connected to transcription service');
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('startBtn').disabled = false;
+            };
+            
+            websocket.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+                handleWebSocketMessage(message);
+            };
+            
+            websocket.onclose = function(event) {
+                updateConnectionStatus('disconnected');
+                showError('Disconnected from transcription service');
+                resetUI();
+            };
+            
+            websocket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                showError('Connection error occurred');
+                resetUI();
+            };
+        }
+        
+        function handleWebSocketMessage(message) {
+            switch (message.type) {
+                case 'session_start':
+                    sessionId = message.session_id;
+                    showSuccess(`Session started: ${sessionId}`);
+                    document.getElementById('endSessionBtn').disabled = false;
+                    break;
+                    
+                case 'transcription_chunk':
+                    handleTranscriptionChunk(message.result);
+                    break;
+                    
+                case 'session_end':
+                    handleSessionEnd(message);
+                    break;
+                    
+                default:
+                    console.log('Unknown message type:', message);
+            }
+        }
+        
+        function handleTranscriptionChunk(result) {
+            if (result.success && result.transcription) {
+                // Add transcription to display
+                const transcriptDiv = document.getElementById('transcriptContent');
+                const timestamp = new Date().toLocaleTimeString();
+                transcriptDiv.innerHTML += `[${timestamp}] ${result.transcription}\n`;
+                transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+                
+                // Update statistics
+                transcriptLength += result.transcription.length;
+                chunkCount++;
+                updateStats();
+                
+                // Highlight medical terms if present
+                if (result.medical_terms && result.medical_terms.length > 0) {
+                    console.log('Medical terms detected:', result.medical_terms);
+                }
+            }
+        }
+        
+        function handleSessionEnd(message) {
+            showSuccess('Session ended');
+            
+            // Display session summary
+            if (message.summary) {
+                console.log('Session summary:', message.summary);
+            }
+            
+            // Display SOAP note if generated
+            if (message.soap_note && message.soap_note.success) {
+                displaySOAPNote(message.soap_note);
+            }
+            
+            resetRecordingState();
+        }
+        
+        function displaySOAPNote(soapNote) {
+            const soapDiv = document.getElementById('soapNoteContent');
+            soapDiv.innerHTML = soapNote.soap_note || soapNote.formatted_note || 'SOAP note generation failed';
+            
+            if (soapNote.completeness_score) {
+                showSuccess(`SOAP Note generated (Quality Score: ${(soapNote.completeness_score * 100).toFixed(1)}%)`);
+            }
+        }
+        
+        // Recording controls
+        function startRecording() {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) {
+                showError('Not connected to transcription service');
+                return;
+            }
+            
+            isRecording = true;
+            startTime = Date.now();
+            updateConnectionStatus('recording');
+            
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            
+            // Start sending mock audio chunks (in real implementation, capture microphone)
+            startMockAudioCapture();
+            
+            // Start duration timer
+            durationInterval = setInterval(updateDuration, 1000);
+            
+            showSuccess('Recording started');
+        }
+        
+        function stopRecording() {
+            isRecording = false;
+            updateConnectionStatus('connected');
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            
+            if (durationInterval) {
+                clearInterval(durationInterval);
+            }
+            
+            showSuccess('Recording stopped');
+        }
+        
+        function endSession() {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                websocket.send(JSON.stringify({
+                    type: 'end_session'
+                }));
+            }
+            
+            if (isRecording) {
+                stopRecording();
+            }
+        }
+        
+        // Mock audio capture (replace with real microphone capture)
+        function startMockAudioCapture() {
+            if (!isRecording) return;
+            
+            // Simulate sending audio chunks every 2 seconds
+            setTimeout(() => {
+                if (isRecording && websocket && websocket.readyState === WebSocket.OPEN) {
+                    websocket.send(JSON.stringify({
+                        type: 'audio_chunk',
+                        audio_data: {
+                            format: 'webm',
+                            data: 'mock_audio_data_' + Date.now(),
+                            duration: 2.0
+                        }
+                    }));
+                    
+                    // Continue capturing
+                    startMockAudioCapture();
+                }
+            }, 2000);
+        }
+        
+        // UI updates
+        function updateConnectionStatus(status) {
+            const indicator = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('statusText');
+            
+            indicator.className = `status-indicator ${status}`;
+            
+            switch (status) {
+                case 'connected':
+                    statusText.textContent = 'Connected';
+                    break;
+                case 'recording':
+                    statusText.textContent = 'Recording...';
+                    break;
+                default:
+                    statusText.textContent = 'Disconnected';
+            }
+        }
+        
+        function updateStats() {
+            document.getElementById('transcriptLength').textContent = transcriptLength;
+            document.getElementById('chunkCount').textContent = chunkCount;
+        }
+        
+        function updateDuration() {
+            if (startTime) {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                document.getElementById('sessionDuration').textContent = 
+                    `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+        
+        function resetUI() {
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('endSessionBtn').disabled = true;
+            resetRecordingState();
+        }
+        
+        function resetRecordingState() {
+            isRecording = false;
+            sessionId = null;
+            startTime = null;
+            transcriptLength = 0;
+            chunkCount = 0;
+            
+            if (durationInterval) {
+                clearInterval(durationInterval);
+                durationInterval = null;
+            }
+            
+            document.getElementById('sessionDuration').textContent = '0:00';
+            document.getElementById('transcriptLength').textContent = '0';
+            document.getElementById('chunkCount').textContent = '0';
+        }
+        
+        // Message display
+        function showError(message) {
+            showMessage(message, 'error');
+        }
+        
+        function showSuccess(message) {
+            showMessage(message, 'success');
+        }
+        
+        function showMessage(message, type) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `${type}-message`;
+            messageDiv.textContent = message;
+            messagesDiv.appendChild(messageDiv);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 5000);
+        }
+        
+        // Initialize
+        updateConnectionStatus('disconnected');
+    </script>
+</body>
+</html>

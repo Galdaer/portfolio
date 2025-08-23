@@ -29,10 +29,10 @@ class PubMedDownloader:
 
         # FTP timeout and retry configuration
         self.connection_timeout = 30  # seconds
-        self.operation_timeout = 60   # seconds
-        self.download_timeout = 300   # seconds for large files
+        self.operation_timeout = 60  # seconds
+        self.download_timeout = 300  # seconds for large files
         self.max_retries = 3
-        self.retry_delay = 5          # seconds
+        self.retry_delay = 5  # seconds
 
     @contextmanager
     def ftp_connection(self, timeout: int | None = None) -> Iterator[ftplib.FTP]:
@@ -62,19 +62,31 @@ class PubMedDownloader:
                     with suppress(Exception):
                         ftp.close()
 
-    def retry_operation(self, operation_name: str, operation_func: Callable[..., list[str]], *args: Any, **kwargs: Any) -> list[str]:
+    def retry_operation(
+        self,
+        operation_name: str,
+        operation_func: Callable[..., list[str]],
+        *args: Any,
+        **kwargs: Any,
+    ) -> list[str]:
         """Retry an operation with exponential backoff"""
         for attempt in range(self.max_retries):
             try:
-                logger.debug(f"Attempting {operation_name} (attempt {attempt + 1}/{self.max_retries})")
+                logger.debug(
+                    f"Attempting {operation_name} (attempt {attempt + 1}/{self.max_retries})"
+                )
                 return operation_func(*args, **kwargs)
             except Exception as e:
                 if attempt == self.max_retries - 1:
-                    logger.exception(f"{operation_name} failed after {self.max_retries} attempts: {e}")
+                    logger.exception(
+                        f"{operation_name} failed after {self.max_retries} attempts: {e}"
+                    )
                     raise
 
-                wait_time = self.retry_delay * (2 ** attempt)
-                logger.warning(f"{operation_name} failed (attempt {attempt + 1}): {e}, retrying in {wait_time}s")
+                wait_time = self.retry_delay * (2**attempt)
+                logger.warning(
+                    f"{operation_name} failed (attempt {attempt + 1}): {e}, retrying in {wait_time}s"
+                )
                 time.sleep(wait_time)
 
         # This should never be reached due to the raise in the loop, but ensures type safety
@@ -83,6 +95,7 @@ class PubMedDownloader:
     async def download_baseline(self) -> list[str]:
         """Download PubMed baseline files with robust error handling"""
         logger.info("Starting PubMed baseline download")
+
         def download_operation() -> list[str]:
             with self.ftp_connection(self.connection_timeout) as ftp:
                 # Change to baseline directory
@@ -133,6 +146,7 @@ class PubMedDownloader:
     async def download_updates(self) -> list[str]:
         """Download PubMed update files with robust error handling"""
         logger.info("Starting PubMed updates download")
+
         def download_operation() -> list[str]:
             with self.ftp_connection(self.connection_timeout) as ftp:
                 # Change to updates directory

@@ -243,7 +243,9 @@ class TestHealthcareE2EWorkflows:
         async with httpx.AsyncClient() as client:
             # Execute intake
             intake_response = await client.post(
-                f"{e2e_framework.mcp_url}/mcp", json=intake_request, timeout=30.0,
+                f"{e2e_framework.mcp_url}/mcp",
+                json=intake_request,
+                timeout=30.0,
             )
 
             assert intake_response.status_code == 200
@@ -266,7 +268,9 @@ class TestHealthcareE2EWorkflows:
             }
 
             research_response = await client.post(
-                f"{e2e_framework.mcp_url}/mcp", json=research_request, timeout=30.0,
+                f"{e2e_framework.mcp_url}/mcp",
+                json=research_request,
+                timeout=30.0,
             )
 
             assert research_response.status_code == 200
@@ -289,7 +293,9 @@ class TestHealthcareE2EWorkflows:
             }
 
             document_response = await client.post(
-                f"{e2e_framework.mcp_url}/mcp", json=document_request, timeout=30.0,
+                f"{e2e_framework.mcp_url}/mcp",
+                json=document_request,
+                timeout=30.0,
             )
 
             assert document_response.status_code == 200
@@ -341,7 +347,8 @@ class TestHealthcareE2EWorkflows:
         ]
 
         session_id = await e2e_framework.chat_log_manager.create_session(
-            user_id="test_user_001", healthcare_context={"test_scenario": "phi_detection"},
+            user_id="test_user_001",
+            healthcare_context={"test_scenario": "phi_detection"},
         )
 
         for i, test_case in enumerate(phi_test_cases):
@@ -364,11 +371,15 @@ class TestHealthcareE2EWorkflows:
 
         # Test chat history retrieval with PHI filtering
         history_without_phi = await e2e_framework.chat_log_manager.get_chat_history(
-            session_id=session_id, user_id="test_user_001", include_phi=False,
+            session_id=session_id,
+            user_id="test_user_001",
+            include_phi=False,
         )
 
         history_with_phi = await e2e_framework.chat_log_manager.get_chat_history(
-            session_id=session_id, user_id="test_user_001", include_phi=True,
+            session_id=session_id,
+            user_id="test_user_001",
+            include_phi=True,
         )
 
         assert len(history_without_phi) == len(phi_test_cases)
@@ -412,7 +423,9 @@ class TestHealthcareE2EWorkflows:
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{e2e_framework.mcp_url}/mcp", json=transcription_request, timeout=30.0,
+                f"{e2e_framework.mcp_url}/mcp",
+                json=transcription_request,
+                timeout=30.0,
             )
 
             assert response.status_code == 200
@@ -468,7 +481,9 @@ class TestHealthcareE2EWorkflows:
         async with httpx.AsyncClient() as client:
             for _ in range(5):  # 5 requests
                 response = await client.post(
-                    f"{e2e_framework.mcp_url}/mcp", json=intake_request, timeout=30.0,
+                    f"{e2e_framework.mcp_url}/mcp",
+                    json=intake_request,
+                    timeout=30.0,
                 )
                 assert response.status_code == 200
 
@@ -518,7 +533,8 @@ class TestHealthcareSecurityCompliance:
         """Test audit logging for healthcare compliance"""
 
         session_id = await security_framework.chat_log_manager.create_session(
-            user_id="test_audit_user", healthcare_context={"audit_test": True},
+            user_id="test_audit_user",
+            healthcare_context={"audit_test": True},
         )
 
         # Log various message types
@@ -533,12 +549,16 @@ class TestHealthcareSecurityCompliance:
 
         for role, content in message_types:
             await security_framework.chat_log_manager.log_chat_message(
-                session_id=session_id, user_id="test_audit_user", role=role, content=content,
+                session_id=session_id,
+                user_id="test_audit_user",
+                role=role,
+                content=content,
             )
 
         # Retrieve audit trail
         history = await security_framework.chat_log_manager.get_chat_history(
-            session_id=session_id, user_id="test_audit_user",
+            session_id=session_id,
+            user_id="test_audit_user",
         )
 
         assert len(history) == 3
@@ -549,7 +569,8 @@ class TestHealthcareSecurityCompliance:
             assert any("Created at" in entry for entry in message.audit_trail)
 
         session_summary = await security_framework.chat_log_manager.end_session(
-            session_id, "test_audit_user",
+            session_id,
+            "test_audit_user",
         )
 
         assert "session_id" in session_summary

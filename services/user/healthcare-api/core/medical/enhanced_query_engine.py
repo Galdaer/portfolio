@@ -310,12 +310,15 @@ class EnhancedMedicalQueryEngine:
                             "title": article.get("title", ""),
                             "authors": article.get("authors", []),
                             "journal": article.get("journal", ""),
-                            "publication_date": article.get("date") or article.get("publication_date") or article.get("pubDate", ""),
+                            "publication_date": article.get("date")
+                            or article.get("publication_date")
+                            or article.get("pubDate", ""),
                             "pmid": article.get("pmid", ""),
                             "doi": article.get("doi", ""),
                             "abstract": article.get("abstract", ""),
                             "relevance_score": article.get("relevance_score", 0.0),
-                            "study_type": article.get("study_type") or article.get("publication_type", ""),
+                            "study_type": article.get("study_type")
+                            or article.get("publication_type", ""),
                             "evidence_level": self._determine_evidence_level(article),
                         },
                     )

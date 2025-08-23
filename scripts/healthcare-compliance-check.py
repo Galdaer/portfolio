@@ -689,7 +689,10 @@ Examples:
     )
 
     parser.add_argument(
-        "paths", nargs="*", default=["."], help="Paths to check (default: current directory)",
+        "paths",
+        nargs="*",
+        default=["."],
+        help="Paths to check (default: current directory)",
     )
 
     parser.add_argument("--config", help="Configuration file path")
@@ -702,13 +705,17 @@ Examples:
     )
 
     parser.add_argument(
-        "--strict", action="store_true", help="Strict mode: warnings are treated as errors",
+        "--strict",
+        action="store_true",
+        help="Strict mode: warnings are treated as errors",
     )
 
     parser.add_argument("--no-phi-check", action="store_true", help="Disable PHI pattern checking")
 
     parser.add_argument(
-        "--no-disclaimer-check", action="store_true", help="Disable medical disclaimer checking",
+        "--no-disclaimer-check",
+        action="store_true",
+        help="Disable medical disclaimer checking",
     )
 
     args = parser.parse_args()

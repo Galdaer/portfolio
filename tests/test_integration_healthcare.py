@@ -138,7 +138,9 @@ class TestHealthcareIntegration(HealthcareIntegrationTestBase):
 
     @pytest.mark.asyncio
     async def test_mcp_agent_bridge_intake(
-        self, synthetic_patient: dict[str, Any], test_session_context: dict[str, Any],
+        self,
+        synthetic_patient: dict[str, Any],
+        test_session_context: dict[str, Any],
     ) -> None:
         """Test MCP → Agent bridge for intake processing"""
         # Test MCP tool call to intake agent
@@ -239,7 +241,8 @@ class TestHealthcareIntegration(HealthcareIntegrationTestBase):
 
     @pytest.mark.asyncio
     async def test_mcp_transcription_agent_bridge(
-        self, test_session_context: dict[str, Any],
+        self,
+        test_session_context: dict[str, Any],
     ) -> None:
         """Test MCP → Transcription Agent bridge"""
         framework = PHISafeTestingFramework()
@@ -292,7 +295,9 @@ class TestHealthcareIntegration(HealthcareIntegrationTestBase):
 
     @pytest.mark.asyncio
     async def test_end_to_end_workflow(
-        self, synthetic_patient: dict[str, Any], test_session_context: dict[str, Any],
+        self,
+        synthetic_patient: dict[str, Any],
+        test_session_context: dict[str, Any],
     ) -> None:
         """Test complete workflow: MCP → Agents → Response"""
         framework = PHISafeTestingFramework()

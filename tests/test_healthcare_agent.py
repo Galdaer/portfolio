@@ -16,12 +16,16 @@ import subprocess
 def run_tests_in_container():
     """Run tests inside the healthcare-api container"""
     print("🐳 Running tests inside healthcare-api container...")
-    
+
     cmd = [
-        "docker", "exec", "-it", "healthcare-api",
-        "python3", "/app/tests/test_langchain_agent.py"
+        "docker",
+        "exec",
+        "-it",
+        "healthcare-api",
+        "python3",
+        "/app/tests/test_langchain_agent.py",
     ]
-    
+
     try:
         result = subprocess.run(cmd, check=True)
         print("✅ Container tests completed successfully")
@@ -34,23 +38,23 @@ def run_tests_in_container():
 def run_tests_locally():
     """Run tests locally"""
     print("🏠 Running tests locally...")
-    
+
     # Add healthcare-api to Python path
     healthcare_api_path = "/home/intelluxe/services/user/healthcare-api"
     if healthcare_api_path not in sys.path:
         sys.path.insert(0, healthcare_api_path)
-    
+
     # Import and run tests
     try:
         from tests.test_langchain_agent import run_all_tests, run_quick_test
         import asyncio
-        
+
         # Check if we should run quick test
         if "--quick" in sys.argv:
             run_quick_test()
         else:
             asyncio.run(run_all_tests())
-            
+
     except ImportError as e:
         print(f"❌ Failed to import test modules: {e}")
         print("💡 Try running with --docker to test inside container")
@@ -62,7 +66,7 @@ def main():
     """Main test runner"""
     print("🏥 Healthcare LangChain Agent Test Runner")
     print("=" * 45)
-    
+
     if "--docker" in sys.argv:
         run_tests_in_container()
     else:

@@ -11,48 +11,50 @@ import os
 import sys
 from pathlib import Path
 
+
 def setup_enhanced_logging():
     """Setup enhanced debug logging for all healthcare components"""
-    
+
     log_dir = Path("/home/intelluxe/logs")
     log_dir.mkdir(exist_ok=True)
-    
+
     # Define log files for different components
     log_files = {
         "response_formatting": log_dir / "response_formatting.log",
-        "phi_processing": log_dir / "phi_processing.log", 
+        "phi_processing": log_dir / "phi_processing.log",
         "agent_interactions": log_dir / "agent_interactions.log",
         "mcp_pipeline_detailed": log_dir / "mcp_pipeline_detailed.log",
         "literature_processing": log_dir / "literature_processing.log",
-        "summary_generation": log_dir / "summary_generation.log"
+        "summary_generation": log_dir / "summary_generation.log",
     }
-    
+
     # Create loggers with detailed formatting
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
     formatter = logging.Formatter(log_format)
-    
+
     loggers = {}
     for component, log_file in log_files.items():
         logger = logging.getLogger(f"healthcare.debug.{component}")
         logger.setLevel(logging.DEBUG)
-        
+
         # Create file handler
         handler = logging.FileHandler(log_file)
         handler.setLevel(logging.DEBUG)
         handler.setFormatter(formatter)
-        
+
         logger.addHandler(handler)
         loggers[component] = logger
-        
+
         print(f"✅ Enhanced logging enabled for {component}: {log_file}")
-    
+
     return loggers
+
 
 def create_log_monitoring_script():
     """Create a script to monitor all logs in real-time"""
-    
+
     monitor_script = Path("/home/intelluxe/scripts/monitor_logs.sh")
-    
+
     script_content = """#!/bin/bash
 # Enhanced Log Monitoring Script for Healthcare AI System
 
@@ -96,18 +98,19 @@ monitor_log "logs/summary_generation.log" "SUMMARY"
 # Wait for all background processes
 wait
 """
-    
+
     monitor_script.write_text(script_content)
     monitor_script.chmod(0o755)
-    
+
     print(f"✅ Log monitoring script created: {monitor_script}")
     return monitor_script
 
+
 def create_diagnostic_queries():
     """Create test queries to help diagnose the issue"""
-    
+
     queries_file = Path("/home/intelluxe/scripts/diagnostic_queries.txt")
-    
+
     diagnostic_queries = """
 # Diagnostic Queries for Healthcare Literature Search
 
@@ -132,23 +135,24 @@ def create_diagnostic_queries():
 - PHI processing ? (needs investigation)
 - Pipeline response selection ? (needs investigation)
 """
-    
+
     queries_file.write_text(diagnostic_queries)
     print(f"✅ Diagnostic queries created: {queries_file}")
 
+
 def main():
     """Main function to set up comprehensive debugging"""
-    
+
     print("🔧 Setting up enhanced debug logging for Healthcare AI System")
     print("=" * 60)
-    
+
     # Setup enhanced logging
     loggers = setup_enhanced_logging()
-    
+
     # Create monitoring tools
     monitor_script = create_log_monitoring_script()
     create_diagnostic_queries()
-    
+
     print("\n" + "=" * 60)
     print("🎯 Enhanced debugging setup complete!")
     print("\nNext steps:")
@@ -161,6 +165,7 @@ def main():
     print("- logs/phi_processing.log - PHI detection problems")
     print("- logs/literature_processing.log - Article processing issues")
     print("- logs/agent_medical_search.log - Agent execution flow")
+
 
 if __name__ == "__main__":
     main()

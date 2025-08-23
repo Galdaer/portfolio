@@ -102,8 +102,12 @@ class TestEnvironmentDetector:
 
     def test_require_environment_failure(self) -> None:
         """Test require_environment with non-matching environment"""
-        with patch.dict(os.environ, {"ENVIRONMENT": "development"}), pytest.raises(
-            RuntimeError, match="This operation requires production environment",
+        with (
+            patch.dict(os.environ, {"ENVIRONMENT": "development"}),
+            pytest.raises(
+                RuntimeError,
+                match="This operation requires production environment",
+            ),
         ):
             EnvironmentDetector.require_environment(Environment.PRODUCTION)
 

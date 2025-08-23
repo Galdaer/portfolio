@@ -76,7 +76,8 @@ class ClinicalTrialsDownloader:
 
             # Save batch to file
             batch_file = os.path.join(
-                self.data_dir, f"studies_batch_{start}_{start + len(studies) - 1}.json",
+                self.data_dir,
+                f"studies_batch_{start}_{start + len(studies) - 1}.json",
             )
 
             with open(batch_file, "w") as f:

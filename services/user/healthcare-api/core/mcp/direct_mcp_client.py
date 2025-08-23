@@ -49,11 +49,11 @@ class DirectMCPClient:
         postgres_user = os.getenv("POSTGRES_USER", "intelluxe")
         postgres_password = os.getenv("POSTGRES_PASSWORD", "secure_password")
         postgres_db = os.getenv("POSTGRES_DB", "intelluxe")
-        
+
         database_url = os.getenv("DATABASE_URL")
         if not database_url:
             database_url = f"postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}/{postgres_db}"
-        
+
         self.mcp_env = {
             **os.environ.copy(),  # Inherit parent environment
             "PATH": os.environ.get("PATH", ""),
@@ -91,7 +91,8 @@ class DirectMCPClient:
         container_indicators = [
             os.path.exists("/app"),  # Container app directory
             os.getenv("CONTAINER") == "healthcare-api",  # Explicit container flag
-            os.path.exists("/proc/1/cgroup") and "docker" in open("/proc/1/cgroup").read(),  # Docker cgroup
+            os.path.exists("/proc/1/cgroup")
+            and "docker" in open("/proc/1/cgroup").read(),  # Docker cgroup
         ]
         return any(container_indicators)
 
@@ -103,7 +104,9 @@ class DirectMCPClient:
             # Override incorrect index.js with stdio_entry.js for STDIO transport
             if env_path.endswith("index.js"):
                 env_path = env_path.replace("index.js", "stdio_entry.js")
-                logger.info(f"Corrected MCP server path from index.js to stdio_entry.js: {env_path}")
+                logger.info(
+                    f"Corrected MCP server path from index.js to stdio_entry.js: {env_path}"
+                )
             else:
                 logger.info(f"Using MCP server path from environment: {env_path}")
             return env_path
@@ -114,7 +117,9 @@ class DirectMCPClient:
                 logger.info(f"Container environment detected, using: {container_path}")
                 return container_path
             else:
-                logger.warning(f"Container environment but MCP server not found at {container_path}")
+                logger.warning(
+                    f"Container environment but MCP server not found at {container_path}"
+                )
                 return container_path  # Return anyway for clear error messaging
 
         # Host environment - check for built MCP server
@@ -123,7 +128,9 @@ class DirectMCPClient:
             return host_path
         else:
             logger.warning(f"Host environment - MCP server expected at {host_path} but not found")
-            logger.info("Note: MCP server is container-only by design. Expected when running from host.")
+            logger.info(
+                "Note: MCP server is container-only by design. Expected when running from host."
+            )
             return host_path  # Return for clear error messaging
 
     @asynccontextmanager
@@ -348,39 +355,39 @@ class DirectMCPClient:
     async def investigate_data_source(self, query: str) -> dict[str, Any]:
         """
         Determine if results come from local database or external APIs.
-        
+
         Implementation of Critical Discovery 3 from handoff document.
         Uses response time patterns and result counts for source determination.
         """
         import time
         from core.mcp.universal_parser import parse_mcp_response
-        
+
         start_time = time.time()
         result = await self.call_tool("search-pubmed", {"query": query})
         end_time = time.time()
-        
+
         response_time = end_time - start_time
-        
+
         # Pattern recognition for data source identification
         if response_time < 0.5:
             source_type = "cached_database"  # Fast responses = local database
         elif response_time > 5.0:
-            source_type = "external_api"     # Slow responses = API calls
+            source_type = "external_api"  # Slow responses = API calls
         else:
-            source_type = "hybrid"           # Mixed sources
-        
+            source_type = "hybrid"  # Mixed sources
+
         articles = parse_mcp_response(result, "articles")
         if len(articles) > 50:
             source_type += "_large_dataset"  # Database has comprehensive data
-        
+
         investigation_result = {
             "source_type": source_type,
             "response_time": response_time,
             "article_count": len(articles),
             "investigation_time": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "query": query
+            "query": query,
         }
-        
+
         logger.info(
             f"Data source investigation complete: {source_type}",
             extra={
@@ -389,11 +396,11 @@ class DirectMCPClient:
                     "query": query,
                     "response_time": response_time,
                     "article_count": len(articles),
-                    "source_type": source_type
+                    "source_type": source_type,
                 }
-            }
+            },
         )
-        
+
         return investigation_result
 
     async def debug_connection(self) -> None:

@@ -45,7 +45,7 @@ def _is_external_medical_content(content: str) -> bool:
     """
     Check if content appears to be external medical literature/research content
     or general medical terminology that should bypass PHI detection.
-    
+
     This includes content from:
     - Medical journals and publications
     - PubMed and other medical databases
@@ -55,9 +55,9 @@ def _is_external_medical_content(content: str) -> bool:
     """
     if not content or not isinstance(content, str):
         return False
-    
+
     content_lower = content.lower()
-    
+
     # Check for clear external medical source indicators
     external_indicators = [
         "pubmed.ncbi.nlm.nih.gov",
@@ -76,42 +76,77 @@ def _is_external_medical_content(content: str) -> bool:
         "pmid:",
         "issn:",
         "volume",
-        "issue"
+        "issue",
     ]
-    
+
     # Medical terminology that should be exempted from PHI detection
     medical_terms = [
-        "cardiovascular", "diabetes", "hypertension", "cancer", "treatment",
-        "prevention", "symptoms", "diagnosis", "therapy", "medication",
-        "research", "study", "clinical", "health", "disease", "condition",
-        "patient care", "healthcare", "medical", "guidelines", "protocol",
-        "intervention", "management", "prognosis", "pathology", "epidemiology",
-        "immunology", "neurology", "cardiology", "oncology", "psychiatry",
-        "pediatrics", "geriatrics", "surgery", "radiology", "pathophysiology"
+        "cardiovascular",
+        "diabetes",
+        "hypertension",
+        "cancer",
+        "treatment",
+        "prevention",
+        "symptoms",
+        "diagnosis",
+        "therapy",
+        "medication",
+        "research",
+        "study",
+        "clinical",
+        "health",
+        "disease",
+        "condition",
+        "patient care",
+        "healthcare",
+        "medical",
+        "guidelines",
+        "protocol",
+        "intervention",
+        "management",
+        "prognosis",
+        "pathology",
+        "epidemiology",
+        "immunology",
+        "neurology",
+        "cardiology",
+        "oncology",
+        "psychiatry",
+        "pediatrics",
+        "geriatrics",
+        "surgery",
+        "radiology",
+        "pathophysiology",
     ]
-    
+
     # Medical query patterns that indicate legitimate medical research
     medical_query_patterns = [
-        "find.*research", "recent.*studies", "treatment.*options",
-        "prevention.*strategies", "clinical.*guidelines", "medical.*literature",
-        "health.*information", "disease.*management", "therapeutic.*approaches"
+        "find.*research",
+        "recent.*studies",
+        "treatment.*options",
+        "prevention.*strategies",
+        "clinical.*guidelines",
+        "medical.*literature",
+        "health.*information",
+        "disease.*management",
+        "therapeutic.*approaches",
     ]
-    
+
     # Check if content contains clear external source indicators
     if any(indicator in content_lower for indicator in external_indicators):
         return True
-    
+
     # Check if content contains medical terminology
     if any(term in content_lower for term in medical_terms):
         logger.info(f"🏥 Medical terminology detected, exempting from PHI: {content[:50]}...")
         return True
-    
+
     # Check for medical query patterns
     for pattern in medical_query_patterns:
         if re.search(pattern, content_lower):
             logger.info(f"🔬 Medical query pattern detected, exempting from PHI: {content[:50]}...")
             return True
-    
+
     return False
 
 

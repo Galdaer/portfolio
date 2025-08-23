@@ -135,6 +135,7 @@ def _load_external_metadata() -> None:
 
 _load_external_metadata()
 
+
 def _high_priority_labels() -> set[str]:
     return {label for label, meta in ENTITY_METADATA.items() if meta.get("priority") == "high"}
 
@@ -185,8 +186,14 @@ def build_clinical_summary(enriched_entities: list[dict[str, Any]]) -> dict[str,
     if not any("priority" in e for e in enriched_entities):
         return None
     meds = [e["text"] for e in enriched_entities if e.get("type") == "SIMPLE_CHEMICAL"]
-    organs = [e["text"] for e in enriched_entities if e.get("type") in {"ORGAN", "ANATOMICAL_SYSTEM"}]
-    path = [e["text"] for e in enriched_entities if e.get("type") in {"CANCER", "PATHOLOGICAL_FORMATION"}]
+    organs = [
+        e["text"] for e in enriched_entities if e.get("type") in {"ORGAN", "ANATOMICAL_SYSTEM"}
+    ]
+    path = [
+        e["text"]
+        for e in enriched_entities
+        if e.get("type") in {"CANCER", "PATHOLOGICAL_FORMATION"}
+    ]
     genes = [e["text"] for e in enriched_entities if e.get("type") == "GENE_OR_GENE_PRODUCT"]
     return {
         "has_medication": bool(meds),
@@ -201,14 +208,18 @@ def build_clinical_summary(enriched_entities: list[dict[str, Any]]) -> dict[str,
     }
 
 
-def group_entities_by_type(enriched_entities: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+def group_entities_by_type(
+    enriched_entities: list[dict[str, Any]],
+) -> dict[str, list[dict[str, Any]]]:
     grouped: dict[str, list[dict[str, Any]]] = {}
     for e in enriched_entities:
         grouped.setdefault(e["type"], []).append(e)
     return grouped
 
 
-def filter_entities(enriched_entities: list[dict[str, Any]], types: list[str] | None) -> list[dict[str, Any]]:
+def filter_entities(
+    enriched_entities: list[dict[str, Any]], types: list[str] | None
+) -> list[dict[str, Any]]:
     if not types:
         return enriched_entities
     requested = {t.strip() for t in types if t.strip()}

@@ -2,6 +2,7 @@
 
 Pytest configuration and test utilities for healthcare AI system testing.
 """
+
 import os
 import sys
 
@@ -32,6 +33,7 @@ try:  # pragma: no cover - import guard
         MockHealthcareMCP,
     )
 except Exception:  # pragma: no cover - fallback stubs for isolated runs
+
     class MockHealthcareMCP:  # type: ignore
         async def health_check(self) -> dict[str, str]:
             return {"status": "healthy"}

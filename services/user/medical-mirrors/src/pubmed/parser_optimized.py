@@ -125,9 +125,18 @@ def extract_pub_date(article_elem: ET.Element) -> str:
 
                 # Convert month name to number if needed
                 month_map = {
-                    "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
-                    "May": "05", "Jun": "06", "Jul": "07", "Aug": "08",
-                    "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12",
+                    "Jan": "01",
+                    "Feb": "02",
+                    "Mar": "03",
+                    "Apr": "04",
+                    "May": "05",
+                    "Jun": "06",
+                    "Jul": "07",
+                    "Aug": "08",
+                    "Sep": "09",
+                    "Oct": "10",
+                    "Nov": "11",
+                    "Dec": "12",
                 }
                 if month in month_map:
                     month = month_map[month]
@@ -171,9 +180,13 @@ class OptimizedPubMedParser:
         if max_workers is None:
             max_workers = max(1, mp.cpu_count() // 2)
         self.max_workers = max_workers
-        logger.info(f"Initialized PubMed parser with {self.max_workers} workers (CPU cores: {mp.cpu_count()})")
+        logger.info(
+            f"Initialized PubMed parser with {self.max_workers} workers (CPU cores: {mp.cpu_count()})"
+        )
 
-    async def parse_xml_files_parallel(self, xml_files: list[str]) -> dict[str, list[dict[str, Any]]]:
+    async def parse_xml_files_parallel(
+        self, xml_files: list[str]
+    ) -> dict[str, list[dict[str, Any]]]:
         """Parse multiple XML files in parallel using all CPU cores"""
         logger.info(f"Parsing {len(xml_files)} XML files using {self.max_workers} cores")
 
@@ -207,7 +220,9 @@ class OptimizedPubMedParser:
             parsed_files[xml_file] = articles
             total_articles += len(articles)
 
-        logger.info(f"Parallel parsing completed: {total_articles} total articles from {len(parsed_files)} files")
+        logger.info(
+            f"Parallel parsing completed: {total_articles} total articles from {len(parsed_files)} files"
+        )
         return parsed_files
 
     def parse_xml_file(self, xml_file_path: str) -> list[dict]:

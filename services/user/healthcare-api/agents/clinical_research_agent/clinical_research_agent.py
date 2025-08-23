@@ -19,7 +19,11 @@ from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     log_healthcare_event,
 )
-from core.mcp.universal_parser import parse_mcp_response, parse_pubmed_response, parse_clinical_trials_response
+from core.mcp.universal_parser import (
+    parse_mcp_response,
+    parse_pubmed_response,
+    parse_clinical_trials_response,
+)
 from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType
 from core.reasoning.medical_reasoning_enhanced import EnhancedMedicalReasoning
 
@@ -114,7 +118,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         self.current_step = 0
         query = request.get("query", "")
         session_id = request.get("session_id", "default")
-        
+
         logger.info(f"🔬 Clinical Research Agent processing request: {query[:100]}...")
         logger.info(f"📊 Session ID: {session_id}")
 
@@ -132,13 +136,17 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
 
                 # Break if we have a complete result
                 if result.get("complete", False):
-                    logger.info(f"✅ Clinical research completed successfully in {self.current_step + 1} steps")
+                    logger.info(
+                        f"✅ Clinical research completed successfully in {self.current_step + 1} steps"
+                    )
                     break
 
                 self.current_step += 1
 
             if not result.get("complete", False):
-                logger.warning(f"⚠️ Clinical research reached max steps ({self.max_steps}) without completion")
+                logger.warning(
+                    f"⚠️ Clinical research reached max steps ({self.max_steps}) without completion"
+                )
 
             return result
 
@@ -983,7 +991,7 @@ Respond only with valid JSON.
             formatted_summary = self._create_formatted_summary(
                 query, research_stages, reasoning_result, research_summary
             )
-            
+
             # Extract sources for orchestrator
             sources = []
             for stage in research_stages:
@@ -1048,7 +1056,7 @@ Respond only with valid JSON.
             if stage.get("success") and stage.get("result"):
                 stage_name = stage.get("stage", "unknown")
                 result_data = stage.get("result", {})
-                
+
                 # Parse MCP response using universal parser to fix "Untitled" issue
                 if stage_name == "pubmed_search":
                     parsed_articles = parse_pubmed_response(result_data)
@@ -1091,7 +1099,9 @@ Respond only with valid JSON.
                 messages=[{"role": "user", "content": synthesis_prompt}],
                 options={"temperature": 0.1},
             )
-            return synthesis_response.get("message", {}).get("content", "Research synthesis completed.")
+            return synthesis_response.get("message", {}).get(
+                "content", "Research synthesis completed."
+            )
         except Exception:
             return "Research synthesis completed with findings listed above."
 
@@ -1100,44 +1110,44 @@ Respond only with valid JSON.
         query: str,
         research_stages: list[dict[str, Any]],
         reasoning_result: Any,
-        research_summary: str
+        research_summary: str,
     ) -> str:
         """
         Create a formatted summary compatible with the orchestrator and medical search agent style.
         This ensures the clinical research agent output matches expected formatting.
         """
         formatted_lines = []
-        
+
         # Header
         formatted_lines.append(f"# Clinical Research: {query}")
         formatted_lines.append("")
-        
+
         # Research summary
         if research_summary:
             formatted_lines.append("## Research Summary")
             formatted_lines.append(research_summary)
             formatted_lines.append("")
-        
+
         # Clinical assessment
-        if hasattr(reasoning_result, 'final_assessment') and reasoning_result.final_assessment:
+        if hasattr(reasoning_result, "final_assessment") and reasoning_result.final_assessment:
             formatted_lines.append("## Clinical Assessment")
             formatted_lines.append(reasoning_result.final_assessment)
             formatted_lines.append("")
-        
+
         # Key findings from successful research stages
         successful_stages = [s for s in research_stages if s.get("success")]
         if successful_stages:
             formatted_lines.append("## Literature Findings")
             formatted_lines.append("")
-            
+
             article_count = 0
             for stage in successful_stages:
                 result = stage.get("result", {})
                 articles = result.get("articles", [])
-                
+
                 for article in articles[:10]:  # Limit to top 10 articles
                     article_count += 1
-                    
+
                     # Format like medical search agent
                     title = article.get("title", "Untitled Research")
                     authors = article.get("authors", [])
@@ -1145,9 +1155,9 @@ Respond only with valid JSON.
                     pub_date = article.get("publication_date", "")
                     doi = article.get("doi", "")
                     abstract = article.get("abstract", "")
-                    
+
                     formatted_lines.append(f"### {article_count}. {title}")
-                    
+
                     if authors:
                         if isinstance(authors, list):
                             author_text = ", ".join(authors[:3])
@@ -1156,34 +1166,39 @@ Respond only with valid JSON.
                         else:
                             author_text = str(authors)
                         formatted_lines.append(f"**Authors:** {author_text}")
-                    
+
                     if journal:
                         journal_text = journal
                         if pub_date:
                             journal_text += f" ({pub_date})"
                         formatted_lines.append(f"**Journal:** {journal_text}")
-                    
+
                     # Only use DOI links
                     if doi:
                         formatted_lines.append(f"📄 **Full Article:** https://doi.org/{doi}")
-                    
+
                     if abstract:
                         # Truncate long abstracts
                         if len(abstract) > 300:
                             abstract = abstract[:300] + "..."
                         formatted_lines.append(f"**Abstract:** {abstract}")
-                    
+
                     formatted_lines.append("")
-        
+
         # Clinical recommendations
-        if hasattr(reasoning_result, 'clinical_recommendations') and reasoning_result.clinical_recommendations:
+        if (
+            hasattr(reasoning_result, "clinical_recommendations")
+            and reasoning_result.clinical_recommendations
+        ):
             formatted_lines.append("## Clinical Recommendations")
             for rec in reasoning_result.clinical_recommendations:
                 formatted_lines.append(f"- {rec}")
             formatted_lines.append("")
-        
+
         # Medical disclaimer
         formatted_lines.append("---")
-        formatted_lines.append("**Medical Disclaimer:** This research synthesis is for educational and informational purposes only. It does not constitute medical advice, diagnosis, or treatment recommendations. Always consult qualified healthcare professionals for medical decisions.")
-        
+        formatted_lines.append(
+            "**Medical Disclaimer:** This research synthesis is for educational and informational purposes only. It does not constitute medical advice, diagnosis, or treatment recommendations. Always consult qualified healthcare professionals for medical decisions."
+        )
+
         return "\n".join(formatted_lines)

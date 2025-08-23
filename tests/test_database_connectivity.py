@@ -4,6 +4,7 @@ Diagnostic tests for the medical database connectivity and schema presence.
 These tests are designed to run quickly and provide actionable diagnostics
 when the system falls back to direct MCP due to DB unavailability.
 """
+
 from __future__ import annotations
 
 import os
@@ -26,7 +27,9 @@ def test_postgres_env_variables_present():
         # password may be supplied via secret manager; tolerate missing but log
     ]
     missing = [k for k in required if not os.getenv(k)]
-    assert not missing, f"Missing DB env vars: {missing}. Configure environment or config.app.postgres_url"
+    assert not missing, (
+        f"Missing DB env vars: {missing}. Configure environment or config.app.postgres_url"
+    )
 
 
 def test_database_connection_factory_smoke():

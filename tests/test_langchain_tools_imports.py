@@ -17,8 +17,13 @@ def test_create_mcp_tools_import_only():
 
     class DummyMCP:
         async def call_tool(self, name: str, arguments: dict):  # pragma: no cover - no call path
-            return {"status": "success", "content": {"ok": True, "name": name, "arguments": arguments}}
+            return {
+                "status": "success",
+                "content": {"ok": True, "name": name, "arguments": arguments},
+            }
 
     tools = create_mcp_tools(DummyMCP())
     names = {t.name for t in tools}
-    assert {"search_medical_literature", "search_clinical_trials", "get_drug_information"}.issubset(names)
+    assert {"search_medical_literature", "search_clinical_trials", "get_drug_information"}.issubset(
+        names
+    )

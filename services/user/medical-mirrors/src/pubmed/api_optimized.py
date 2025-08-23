@@ -70,12 +70,16 @@ class OptimizedPubMedAPI:
         finally:
             db.close()
 
-    async def update_recent_articles(self, quick_test: bool = False, max_files: int | None = None) -> dict:
+    async def update_recent_articles(
+        self, quick_test: bool = False, max_files: int | None = None
+    ) -> dict:
         """
         Multi-core optimized update of recent PubMed articles
         Uses all available CPU cores for XML parsing and bulk database operations
         """
-        logger.info(f"Starting optimized PubMed update (quick_test={quick_test}, max_files={max_files})")
+        logger.info(
+            f"Starting optimized PubMed update (quick_test={quick_test}, max_files={max_files})"
+        )
 
         db = self.session_factory()
         update_log = UpdateLog(
@@ -129,7 +133,9 @@ class OptimizedPubMedAPI:
                 duplicate_count = len(all_articles) - len(deduplicated_articles)
 
                 if duplicate_count > 0:
-                    logger.info(f"Removed {duplicate_count} duplicate PMIDs, processing {len(deduplicated_articles)} unique articles")
+                    logger.info(
+                        f"Removed {duplicate_count} duplicate PMIDs, processing {len(deduplicated_articles)} unique articles"
+                    )
 
                 # Bulk store deduplicated articles
                 logger.info(f"Bulk storing {len(deduplicated_articles)} unique articles...")
@@ -198,7 +204,7 @@ class OptimizedPubMedAPI:
             stored_count = 0
 
             for i in range(0, len(articles), batch_size):
-                batch = articles[i:i + batch_size]
+                batch = articles[i : i + batch_size]
 
                 # Execute bulk insert for this batch
                 db.execute(stmt, batch)

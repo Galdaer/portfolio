@@ -93,7 +93,9 @@ class HealthcareIntegrationRunner:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    self.mcp_url, json=request_data, headers={"Content-Type": "application/json"},
+                    self.mcp_url,
+                    json=request_data,
+                    headers={"Content-Type": "application/json"},
                 )
 
                 if response.status_code != 200:
@@ -154,7 +156,9 @@ class HealthcareIntegrationRunner:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    self.mcp_url, json=request_data, headers={"Content-Type": "application/json"},
+                    self.mcp_url,
+                    json=request_data,
+                    headers={"Content-Type": "application/json"},
                 )
 
                 if response.status_code != 200:
@@ -219,7 +223,9 @@ class HealthcareIntegrationRunner:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    self.mcp_url, json=request_data, headers={"Content-Type": "application/json"},
+                    self.mcp_url,
+                    json=request_data,
+                    headers={"Content-Type": "application/json"},
                 )
 
                 if response.status_code != 200:
@@ -280,7 +286,9 @@ class HealthcareIntegrationRunner:
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    self.mcp_url, json=request_data, headers={"Content-Type": "application/json"},
+                    self.mcp_url,
+                    json=request_data,
+                    headers={"Content-Type": "application/json"},
                 )
 
                 if response.status_code != 200:

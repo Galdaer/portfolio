@@ -15,10 +15,10 @@ async def test_connectivity():
     """Test connectivity from MCP Pipeline perspective"""
     print("🔍 Testing MCP Pipeline → Healthcare API connectivity")
     print("-" * 55)
-    
+
     # This should match what the MCP Pipeline is doing
     base_url = "http://healthcare-api:8000"
-    
+
     try:
         async with aiohttp.ClientSession() as session:
             # Test 1: Health check
@@ -31,36 +31,38 @@ async def test_connectivity():
                         print(f"   📊 Health data: {health_data}")
             except Exception as e:
                 print(f"   ❌ Health check failed: {e}")
-            
+
             # Test 2: Process endpoint
             print("\n2️⃣ Testing /process endpoint...")
             try:
                 test_data = {
                     "message": "Hello, test message",
                     "user_id": "test_user",
-                    "session_id": "test_session"
+                    "session_id": "test_session",
                 }
-                
+
                 print(f"   📤 Sending: {test_data}")
-                
+
                 async with session.post(f"{base_url}/process", json=test_data) as response:
                     print(f"   📊 Status: {response.status}")
-                    
+
                     if response.status == 200:
                         result = await response.json()
                         print(f"   ✅ Success: {result}")
                     else:
                         error_text = await response.text()
                         print(f"   ❌ Error: {error_text}")
-                        
+
             except Exception as e:
                 print(f"   ❌ Process endpoint failed: {e}")
                 import traceback
+
                 traceback.print_exc()
-    
+
     except Exception as e:
         print(f"❌ Overall connection failed: {e}")
         import traceback
+
         traceback.print_exc()
 
 
@@ -68,7 +70,7 @@ def main():
     """Run connectivity test"""
     print("🏥 MCP Pipeline Connectivity Test")
     print("=" * 35)
-    
+
     try:
         asyncio.run(test_connectivity())
     except KeyboardInterrupt:
@@ -76,6 +78,7 @@ def main():
     except Exception as e:
         print(f"\n💥 Test crashed: {e}")
         import traceback
+
         traceback.print_exc()
 
 

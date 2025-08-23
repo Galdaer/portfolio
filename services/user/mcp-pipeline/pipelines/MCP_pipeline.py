@@ -51,14 +51,20 @@ if not logger.handlers:  # Basic config only if root not configured
 # ---------------------------------------------------------------------------
 class ChatRequest(BaseModel):
     """Incoming chat request payload from Open WebUI pipeline."""
+
     message: str = Field(..., description="User message or prompt text")
-    session_id: str | None = Field(None, description="Session identifier for continuity if provided")
+    session_id: str | None = Field(
+        None, description="Session identifier for continuity if provided"
+    )
     user_id: str | None = Field(None, description="End-user identifier (non-PHI opaque ID)")
-    meta: dict[str, Any] = Field(default_factory=dict, description="Arbitrary metadata forwarded without interpretation")
+    meta: dict[str, Any] = Field(
+        default_factory=dict, description="Arbitrary metadata forwarded without interpretation"
+    )
 
 
 class ForwardResult(BaseModel):
     """Standardized forwarder result wrapper."""
+
     status: str
     data: Any
     error: str | None = None
@@ -102,7 +108,9 @@ class HealthcareAPIClient:
 
         try:
             # Send HTTP POST request to healthcare-api
-            async with self.session.post(f"{self.base_url}/{endpoint}", json=data or {}) as response:
+            async with self.session.post(
+                f"{self.base_url}/{endpoint}", json=data or {}
+            ) as response:
                 if response.status == 200:
                     result = await response.json()
                     return {"status": "success", "result": result}
@@ -113,13 +121,18 @@ class HealthcareAPIClient:
             logger.error(f"Failed to send HTTP request to healthcare-api: {e}")
             return {"status": "error", "error": str(e)}
 
-    async def process_chat(self, message: str, user_id: str = None, session_id: str = None) -> dict[str, Any]:
+    async def process_chat(
+        self, message: str, user_id: str = None, session_id: str = None
+    ) -> dict[str, Any]:
         """Process chat message via healthcare-api HTTP endpoint"""
-        return await self.send_request("process", {
-            "message": message,
-            "user_id": user_id or "anonymous",
-            "session_id": session_id or "default",
-        })
+        return await self.send_request(
+            "process",
+            {
+                "message": message,
+                "user_id": user_id or "anonymous",
+                "session_id": session_id or "default",
+            },
+        )
 
     async def disconnect(self):
         """Disconnect from healthcare-api"""
@@ -150,7 +163,11 @@ class Pipeline:
     def pipelines(self):
         """Return list of available pipelines for Open WebUI."""
         return [
-            {"id": "healthcare-assistant", "name": "Healthcare Assistant", "description": "Healthcare AI assistant via stdio MCP"},
+            {
+                "id": "healthcare-assistant",
+                "name": "Healthcare Assistant",
+                "description": "Healthcare AI assistant via stdio MCP",
+            },
         ]
 
     async def pipe(self, user_message: str, model_id: str, messages: list, **kwargs):
@@ -199,7 +216,11 @@ class Pipeline:
 
             if isinstance(response_data, dict):
                 # Some healthcare-api responses nest the useful payload under 'result'
-                inner_data = response_data.get("result") if isinstance(response_data.get("result"), dict) else None
+                inner_data = (
+                    response_data.get("result")
+                    if isinstance(response_data.get("result"), dict)
+                    else None
+                )
                 payload = inner_data or response_data
 
                 # Prefer the explicit formatted_summary when present
@@ -207,7 +228,9 @@ class Pipeline:
 
                 # Optional: short header banner often returned separately
                 # It can live at the top-level of the healthcare-api response_data
-                header_source = response_data.get("formatted_response", "") or payload.get("response", "")
+                header_source = response_data.get("formatted_response", "") or payload.get(
+                    "response", ""
+                )
                 header = ""
                 if header_source and "🤖 **Medical Search Agent Response:**" in header_source:
                     header = "🤖 **Medical Search Agent Response:**\n\n"
@@ -225,7 +248,7 @@ class Pipeline:
                     )
             else:
                 response_text = str(response_data)
-            
+
             # Final fallback
             if not response_text or response_text == "{}":
                 response_text = "I processed your request but didn't get a clear response. Please try rephrasing your question."

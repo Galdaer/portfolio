@@ -16,10 +16,12 @@ import requests
 @dataclass
 class DownloadConfig:
     """Configuration for full medical data downloads"""
+
     base_dir: Path
     max_workers: int = 8
     verify_checksums: bool = True
     resume_downloads: bool = True
+
 
 class FullMedicalDownloader:
     """Downloads complete medical archives for comprehensive AI training"""
@@ -30,14 +32,16 @@ class FullMedicalDownloader:
 
         # Configure session with appropriate headers
         self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Accept-Encoding": "gzip, deflate",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1",
+            }
+        )
 
     def _setup_logging(self) -> logging.Logger:
         """Setup comprehensive download logging"""
@@ -188,6 +192,7 @@ class FullMedicalDownloader:
 
             # Save complete dataset
             import json
+
             output_file = trials_dir / "all_completed_trials_with_results.json"
             with open(output_file, "w") as f:
                 json.dump(all_studies, f, indent=2)
@@ -246,7 +251,9 @@ class FullMedicalDownloader:
 
         # WARNING: download.fda.gov domain is NXDOMAIN (domain does not exist)
         # This base URL is defunct - DISABLING this download section
-        self.logger.warning("FDA drug labels download DISABLED - download.fda.gov domain is defunct")
+        self.logger.warning(
+            "FDA drug labels download DISABLED - download.fda.gov domain is defunct"
+        )
         self.logger.info("Alternative: Research FDA main site for drug label data sources")
 
         # TODO: Find alternative FDA drug labels data source
@@ -286,11 +293,15 @@ class FullMedicalDownloader:
                 headers["Range"] = f"bytes={resume_pos}-"
 
             try:
-                response = self.session.get(url, headers=headers, stream=True, allow_redirects=True, timeout=30)
+                response = self.session.get(
+                    url, headers=headers, stream=True, allow_redirects=True, timeout=30
+                )
 
                 # Check for FDA apology/abuse detection pages
                 if "apology" in response.url or "abuse-detection" in response.url:
-                    self.logger.error(f"FDA blocked request for {url} - redirected to: {response.url}")
+                    self.logger.error(
+                        f"FDA blocked request for {url} - redirected to: {response.url}"
+                    )
                     return False
 
                 response.raise_for_status()
@@ -302,11 +313,15 @@ class FullMedicalDownloader:
                         local_path.unlink()  # Delete partial file
                     resume_pos = 0
                     headers = {}
-                    response = self.session.get(url, headers=headers, stream=True, allow_redirects=True, timeout=30)
+                    response = self.session.get(
+                        url, headers=headers, stream=True, allow_redirects=True, timeout=30
+                    )
 
                     # Check for FDA apology/abuse detection pages
                     if "apology" in response.url or "abuse-detection" in response.url:
-                        self.logger.error(f"FDA blocked request for {url} - redirected to: {response.url}")
+                        self.logger.error(
+                            f"FDA blocked request for {url} - redirected to: {response.url}"
+                        )
                         return False
 
                     response.raise_for_status()
@@ -384,6 +399,7 @@ class FullMedicalDownloader:
             if success:
                 # Extract the ZIP file
                 import zipfile
+
                 with zipfile.ZipFile(local_path, "r") as zip_ref:
                     zip_ref.extractall(orange_dir)
                 self.logger.info("Orange Book extracted successfully")
@@ -411,6 +427,7 @@ class FullMedicalDownloader:
             if success:
                 # Extract the ZIP file
                 import zipfile
+
                 with zipfile.ZipFile(local_path, "r") as zip_ref:
                     zip_ref.extractall(ndc_dir)
                 self.logger.info("NDC Directory extracted successfully")
@@ -429,7 +446,9 @@ class FullMedicalDownloader:
         drugs_dir.mkdir(parents=True, exist_ok=True)
 
         # Drugs@FDA from openFDA
-        drugs_url = "https://download.open.fda.gov/drug/drugsfda/drug-drugsfda-0001-of-0001.json.zip"
+        drugs_url = (
+            "https://download.open.fda.gov/drug/drugsfda/drug-drugsfda-0001-of-0001.json.zip"
+        )
         local_path = drugs_dir / "drugs_fda.zip"
 
         try:
@@ -438,6 +457,7 @@ class FullMedicalDownloader:
             if success:
                 # Extract the ZIP file
                 import zipfile
+
                 with zipfile.ZipFile(local_path, "r") as zip_ref:
                     zip_ref.extractall(drugs_dir)
                 self.logger.info("Drugs@FDA database extracted successfully")
@@ -462,16 +482,23 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Download complete medical archives")
-    parser.add_argument("--data-dir", default="/home/intelluxe/database/medical_complete",
-                        help="Directory to store complete medical data")
-    parser.add_argument("--estimate-only", action="store_true",
-                        help="Only show size estimates, don't download")
-    parser.add_argument("--pubmed-only", action="store_true",
-                        help="Download only complete PubMed data")
-    parser.add_argument("--clinicaltrials-only", action="store_true",
-                        help="Download only complete ClinicalTrials data")
-    parser.add_argument("--fda-only", action="store_true",
-                        help="Download only complete FDA data")
+    parser.add_argument(
+        "--data-dir",
+        default="/home/intelluxe/database/medical_complete",
+        help="Directory to store complete medical data",
+    )
+    parser.add_argument(
+        "--estimate-only", action="store_true", help="Only show size estimates, don't download"
+    )
+    parser.add_argument(
+        "--pubmed-only", action="store_true", help="Download only complete PubMed data"
+    )
+    parser.add_argument(
+        "--clinicaltrials-only",
+        action="store_true",
+        help="Download only complete ClinicalTrials data",
+    )
+    parser.add_argument("--fda-only", action="store_true", help="Download only complete FDA data")
 
     args = parser.parse_args()
 
@@ -523,6 +550,7 @@ def main():
     else:
         print("\n❌ Some downloads failed. Check logs for details.")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

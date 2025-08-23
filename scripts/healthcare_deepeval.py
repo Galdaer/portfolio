@@ -39,7 +39,8 @@ try:
 
     # Configure DeepEval to use local Ollama model
     ollama_model = OllamaModel(
-        model="qwen2.5:7b-instruct-q4_K_M", base_url="http://172.20.0.10:11434",
+        model="qwen2.5:7b-instruct-q4_K_M",
+        base_url="http://172.20.0.10:11434",
     )
     print("🤖 Using Ollama model: qwen2.5:7b-instruct-q4_K_M")
     print("🔗 Ollama endpoint: http://172.20.0.10:11434")
@@ -132,7 +133,8 @@ try:
 
         # Healthcare-specific analysis
         if "Hallucination" in metrics_results and isinstance(
-            metrics_results["Hallucination (lower=better)"], float,
+            metrics_results["Hallucination (lower=better)"],
+            float,
         ):
             hallucination_score = metrics_results["Hallucination (lower=better)"]
             if hallucination_score > 0.5:
@@ -145,7 +147,8 @@ try:
                 print(f"   ✅ Low hallucination risk: {hallucination_score:.2f}")
 
         if "Toxicity" in metrics_results and isinstance(
-            metrics_results["Toxicity (lower=better)"], float,
+            metrics_results["Toxicity (lower=better)"],
+            float,
         ):
             toxicity_score = metrics_results["Toxicity (lower=better)"]
             if toxicity_score > 0.7:

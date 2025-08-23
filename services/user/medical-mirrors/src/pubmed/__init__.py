@@ -6,4 +6,10 @@ from .downloader import PubMedDownloader
 from .parser import PubMedParser
 from .parser_optimized import OptimizedPubMedParser
 
-__all__ = ["PubMedAPI", "OptimizedPubMedAPI", "PubMedDownloader", "PubMedParser", "OptimizedPubMedParser"]
+__all__ = [
+    "PubMedAPI",
+    "OptimizedPubMedAPI",
+    "PubMedDownloader",
+    "PubMedParser",
+    "OptimizedPubMedParser",
+]

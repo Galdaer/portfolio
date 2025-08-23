@@ -122,7 +122,9 @@ class MockHealthcareLLM:
         self.max_tokens = 2048
 
     async def generate_response(
-        self, prompt: str, context: dict[str, Any] | None = None,
+        self,
+        prompt: str,
+        context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Mock LLM response generation"""
         self.call_count += 1
@@ -142,7 +144,9 @@ class MockHealthcareLLM:
         }
 
     async def stream_response(
-        self, prompt: str, context: dict[str, Any] | None = None,
+        self,
+        prompt: str,
+        context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Mock streaming LLM response"""
         self.call_count += 1
@@ -336,7 +340,9 @@ class HealthcareWorkflowTester:
             # Step 1: Register new patient
             headers = self.base.create_authenticated_request_headers(user)
             response = self.base.test_client.post(
-                "/agents/intake/register_patient", json=patient_data, headers=headers,
+                "/agents/intake/register_patient",
+                json=patient_data,
+                headers=headers,
             )
 
             if response.status_code == 200:
@@ -370,7 +376,9 @@ class HealthcareWorkflowTester:
             }
 
             appointment_response = self.base.test_client.post(
-                "/agents/intake/schedule_appointment", json=appointment_data, headers=headers,
+                "/agents/intake/schedule_appointment",
+                json=appointment_data,
+                headers=headers,
             )
 
             if appointment_response.status_code == 200:
@@ -501,7 +509,9 @@ class HealthcareLoadTester:
         return results
 
     async def _simulate_user_activity(
-        self, role: HealthcareRole, duration_seconds: int,
+        self,
+        role: HealthcareRole,
+        duration_seconds: int,
     ) -> dict[str, Any]:
         """Simulate individual user activity patterns"""
         user_results = {"requests": 0, "successful": 0, "failed": 0}

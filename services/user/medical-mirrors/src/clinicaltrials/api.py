@@ -26,7 +26,10 @@ class ClinicalTrialsAPI:
         self.parser = ClinicalTrialsParser()
 
     async def search_trials(
-        self, condition: str | None = None, location: str | None = None, max_results: int = 10,
+        self,
+        condition: str | None = None,
+        location: str | None = None,
+        max_results: int = 10,
     ) -> list[dict[str, Any]]:
         """
         Search clinical trials in local database
@@ -151,7 +154,9 @@ class ClinicalTrialsAPI:
         finally:
             db.close()
 
-    async def trigger_update(self, quick_test: bool = False, limit: int | None = None) -> dict[str, Any]:
+    async def trigger_update(
+        self, quick_test: bool = False, limit: int | None = None
+    ) -> dict[str, Any]:
         """Trigger ClinicalTrials data update"""
         if quick_test:
             logger.info(f"Triggering ClinicalTrials QUICK TEST update (limit={limit or 100})")
@@ -176,7 +181,9 @@ class ClinicalTrialsAPI:
                 # For quick test, download fewer batches
                 batch_limit = limit or 100
                 logger.info(f"Quick test mode: limiting to {batch_limit} trials")
-                update_files = await self.downloader.download_recent_updates(days=1)  # Only recent studies
+                update_files = await self.downloader.download_recent_updates(
+                    days=1
+                )  # Only recent studies
             else:
                 update_files = await self.downloader.download_recent_updates()
 
@@ -188,7 +195,7 @@ class ClinicalTrialsAPI:
 
                 # For quick test, limit number of trials processed
                 if quick_test and trials_processed + len(trials) > (limit or 100):
-                    trials = trials[:(limit or 100) - trials_processed]
+                    trials = trials[: (limit or 100) - trials_processed]
                     logger.info(f"Quick test: processing {len(trials)} trials from {json_file}")
 
                 processed = await self.store_trials(trials, db)

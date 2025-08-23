@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field
 try:
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
+
     MCP_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
@@ -58,14 +59,20 @@ if not logger.handlers:  # Basic config only if root not configured
 # ---------------------------------------------------------------------------
 class ChatRequest(BaseModel):
     """Incoming chat request payload from Open WebUI pipeline."""
+
     message: str = Field(..., description="User message or prompt text")
-    session_id: str | None = Field(None, description="Session identifier for continuity if provided")
+    session_id: str | None = Field(
+        None, description="Session identifier for continuity if provided"
+    )
     user_id: str | None = Field(None, description="End-user identifier (non-PHI opaque ID)")
-    meta: dict[str, Any] = Field(default_factory=dict, description="Arbitrary metadata forwarded without interpretation")
+    meta: dict[str, Any] = Field(
+        default_factory=dict, description="Arbitrary metadata forwarded without interpretation"
+    )
 
 
 class ForwardResult(BaseModel):
     """Standardized forwarder result wrapper."""
+
     status: str
     data: Any
     error: str | None = None
@@ -127,15 +134,20 @@ class HealthcareMCPClient:
             logger.error(f"Failed to call tool {tool_name}: {e}")
             return {"status": "error", "error": str(e)}
 
-    async def process_chat(self, message: str, user_id: str = None, session_id: str = None) -> dict[str, Any]:
+    async def process_chat(
+        self, message: str, user_id: str = None, session_id: str = None
+    ) -> dict[str, Any]:
         """Process chat message via healthcare-api"""
         try:
             # Use the clinical research agent's process_research_query method
-            result = await self.call_tool("process_research_query", {
-                "query": message,
-                "user_id": user_id or "anonymous",
-                "session_id": session_id or "default",
-            })
+            result = await self.call_tool(
+                "process_research_query",
+                {
+                    "query": message,
+                    "user_id": user_id or "anonymous",
+                    "session_id": session_id or "default",
+                },
+            )
             return result
         except Exception as e:
             logger.error(f"Failed to process chat: {e}")
@@ -177,7 +189,11 @@ class Pipeline:
     def pipelines(self):
         """Return list of available pipelines for Open WebUI."""
         return [
-            {"id": "healthcare-assistant", "name": "Healthcare Assistant", "description": "Healthcare AI assistant via stdio MCP"},
+            {
+                "id": "healthcare-assistant",
+                "name": "Healthcare Assistant",
+                "description": "Healthcare AI assistant via stdio MCP",
+            },
         ]
 
     async def pipe(self, user_message: str, model_id: str, messages: list, **kwargs):
@@ -225,10 +241,10 @@ class Pipeline:
             if isinstance(response_data, dict):
                 # Look for common response fields
                 response_text = (
-                    response_data.get("response") or
-                    response_data.get("research_summary") or
-                    response_data.get("message") or
-                    str(response_data)
+                    response_data.get("response")
+                    or response_data.get("research_summary")
+                    or response_data.get("message")
+                    or str(response_data)
                 )
             else:
                 response_text = str(response_data)

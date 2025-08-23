@@ -3,6 +3,7 @@
 No network calls are performed. These tests only verify that imports and
 basic constructors are available in the active environment/venv.
 """
+
 from __future__ import annotations
 
 from typing import Optional

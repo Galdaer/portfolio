@@ -27,6 +27,7 @@ SAMPLE_SOURCES = [
     },
 ]
 
+
 @pytest.mark.unit
 def test_generic_vs_medical_ranking_differs():
     query = "Therapy X randomized study"
@@ -41,11 +42,17 @@ def test_generic_vs_medical_ranking_differs():
     titles_generic = [s["title"] for s in generic_ranked]
     assert titles_generic != titles_medical or titles_medical[0] == "Systematic Review of Therapy X"
 
+
 @pytest.mark.unit
 def test_determine_evidence_level_mapping():
-    assert determine_evidence_level({"publication_type": "Systematic Review"}) == "systematic_review"
+    assert (
+        determine_evidence_level({"publication_type": "Systematic Review"}) == "systematic_review"
+    )
     assert determine_evidence_level({"publication_type": "Meta-Analysis"}) == "meta_analysis"
-    assert determine_evidence_level({"publication_type": "Randomized Controlled Trial"}) == "randomized_controlled_trial"
+    assert (
+        determine_evidence_level({"publication_type": "Randomized Controlled Trial"})
+        == "randomized_controlled_trial"
+    )
     assert determine_evidence_level({"publication_type": "Clinical Trial"}) == "clinical_study"
     assert determine_evidence_level({"publication_type": "Guideline"}) == "clinical_guideline"
     assert determine_evidence_level({"publication_type": "Review"}) == "review"

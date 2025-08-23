@@ -26,7 +26,10 @@ class FDAAPI:
         self.parser = FDAParser()
 
     async def search_drugs(
-        self, generic_name: str | None = None, ndc: str | None = None, max_results: int = 10,
+        self,
+        generic_name: str | None = None,
+        ndc: str | None = None,
+        max_results: int = 10,
     ) -> list[dict[str, Any]]:
         """
         Search FDA drugs in local database
@@ -193,8 +196,14 @@ class FDAAPI:
                     logger.info(f"Quick test limit reached: {total_processed} drugs processed")
                     break
 
-                remaining_limit = (drug_limit - total_processed) if (quick_test and drug_limit is not None) else None
-                processed = await self.process_fda_dataset(dataset_name, data_dir, db, quick_test_limit=remaining_limit)
+                remaining_limit = (
+                    (drug_limit - total_processed)
+                    if (quick_test and drug_limit is not None)
+                    else None
+                )
+                processed = await self.process_fda_dataset(
+                    dataset_name, data_dir, db, quick_test_limit=remaining_limit
+                )
                 total_processed += processed
 
             # Update log
@@ -221,7 +230,9 @@ class FDAAPI:
         finally:
             db.close()
 
-    async def process_fda_dataset(self, dataset_name: str, data_dir: str, db: Session, quick_test_limit: int | None = None) -> int:
+    async def process_fda_dataset(
+        self, dataset_name: str, data_dir: str, db: Session, quick_test_limit: int | None = None
+    ) -> int:
         """Process a specific FDA dataset"""
         logger.info(f"Processing FDA dataset: {dataset_name}")
 
@@ -232,7 +243,9 @@ class FDAAPI:
         try:
             for file in os.listdir(data_dir):
                 if quick_test_limit and processed_count >= quick_test_limit:
-                    logger.info(f"Quick test limit reached for {dataset_name}: {processed_count} drugs")
+                    logger.info(
+                        f"Quick test limit reached for {dataset_name}: {processed_count} drugs"
+                    )
                     break
 
                 file_path = os.path.join(data_dir, file)

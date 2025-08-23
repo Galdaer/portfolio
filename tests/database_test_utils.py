@@ -16,6 +16,7 @@ from typing import Any
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+
 # Define mock classes (always available for fallback)
 class MockCursor:
     def fetchall(self):
@@ -229,7 +230,9 @@ class SyntheticHealthcareData:
             ]
 
     def get_test_encounters(
-        self, patient_id: str | None = None, limit: int = 10,
+        self,
+        patient_id: str | None = None,
+        limit: int = 10,
     ) -> list[dict[str, Any]]:
         """Get synthetic encounter data for testing."""
         if not self.connection:
@@ -358,7 +361,8 @@ class HealthcareTestCase:
         if self.test_patients:
             # Get encounters for first test patient
             self.test_encounters = self.synthetic_data.get_test_encounters(
-                patient_id=self.test_patients[0]["patient_id"], limit=3,
+                patient_id=self.test_patients[0]["patient_id"],
+                limit=3,
             )
 
     def tearDown(self) -> None:

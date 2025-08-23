@@ -127,7 +127,11 @@ class Pipeline:
         ]
 
     async def pipe(
-        self, user_message: str, model_id: str, messages: list[dict], body: dict,
+        self,
+        user_message: str,
+        model_id: str,
+        messages: list[dict],
+        body: dict,
     ) -> str | Generator | Iterator:
         """Main pipeline processing function"""
         self.logger.info(f"Processing request for model: {model_id}")
@@ -189,7 +193,10 @@ class Pipeline:
         return any(keyword in message_lower for keyword in tool_keywords)
 
     async def process_with_tools(
-        self, session: ClientSession, user_message: str, messages: list[dict],
+        self,
+        session: ClientSession,
+        user_message: str,
+        messages: list[dict],
     ) -> str:
         """Process request that requires MCP tools"""
         try:

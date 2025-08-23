@@ -76,8 +76,12 @@ config = Config()
 # Use optimized multi-core parser if enabled
 if hasattr(config, "ENABLE_MULTICORE_PARSING") and config.ENABLE_MULTICORE_PARSING:
     max_workers = config.MAX_PARSER_WORKERS if config.MAX_PARSER_WORKERS > 0 else None
-    pubmed_api: PubMedAPI | OptimizedPubMedAPI = OptimizedPubMedAPI(SessionLocal, max_workers=max_workers)
-    logger.info(f"Using optimized multi-core PubMed parser (workers: {max_workers or 'auto-detect'})")
+    pubmed_api: PubMedAPI | OptimizedPubMedAPI = OptimizedPubMedAPI(
+        SessionLocal, max_workers=max_workers
+    )
+    logger.info(
+        f"Using optimized multi-core PubMed parser (workers: {max_workers or 'auto-detect'})"
+    )
 else:
     pubmed_api = PubMedAPI(SessionLocal)
     logger.info("Using standard single-threaded PubMed parser")
@@ -157,7 +161,9 @@ async def get_pubmed_article(pmid: str) -> dict[str, Any]:
 
 # ClinicalTrials Mirror Endpoints
 @app.get("/trials/search")
-async def search_trials(condition: str | None = None, location: str | None = None, max_results: int = 10) -> dict[str, Any]:
+async def search_trials(
+    condition: str | None = None, location: str | None = None, max_results: int = 10
+) -> dict[str, Any]:
     """
     Search ClinicalTrials.gov local mirror
     Matches interface of Healthcare MCP search-trials tool
@@ -185,7 +191,9 @@ async def get_trial_details(nct_id: str) -> dict[str, Any]:
 
 # FDA Mirror Endpoints
 @app.get("/fda/search")
-async def search_fda(generic_name: str | None = None, ndc: str | None = None, max_results: int = 10) -> dict[str, Any]:
+async def search_fda(
+    generic_name: str | None = None, ndc: str | None = None, max_results: int = 10
+) -> dict[str, Any]:
     """
     Search FDA databases local mirror
     Matches interface of Healthcare MCP get-drug-info tool
@@ -243,36 +251,55 @@ async def background_fda_update(quick_test: bool = False, limit: int | None = No
 
 
 @app.post("/update/pubmed")
-async def trigger_pubmed_update(background_tasks: BackgroundTasks, quick_test: bool = False, max_files: int | None = None) -> dict[str, Any]:
+async def trigger_pubmed_update(
+    background_tasks: BackgroundTasks, quick_test: bool = False, max_files: int | None = None
+) -> dict[str, Any]:
     """Trigger PubMed data update in background"""
     try:
         background_tasks.add_task(background_pubmed_update, quick_test, max_files)
-        logger.info(f"📚 PubMed update task queued (quick_test={quick_test}, max_files={max_files})")
-        return {"status": "update_started_in_background", "message": "PubMed update task queued successfully"}
+        logger.info(
+            f"📚 PubMed update task queued (quick_test={quick_test}, max_files={max_files})"
+        )
+        return {
+            "status": "update_started_in_background",
+            "message": "PubMed update task queued successfully",
+        }
     except Exception as e:
         logger.exception(f"PubMed update queuing failed: {e}")
         raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
 
 @app.post("/update/trials")
-async def trigger_trials_update(background_tasks: BackgroundTasks, quick_test: bool = False, limit: int | None = None) -> dict[str, Any]:
+async def trigger_trials_update(
+    background_tasks: BackgroundTasks, quick_test: bool = False, limit: int | None = None
+) -> dict[str, Any]:
     """Trigger ClinicalTrials data update in background"""
     try:
         background_tasks.add_task(background_trials_update, quick_test, limit)
-        logger.info(f"🧪 ClinicalTrials update task queued (quick_test={quick_test}, limit={limit})")
-        return {"status": "update_started_in_background", "message": "ClinicalTrials update task queued successfully"}
+        logger.info(
+            f"🧪 ClinicalTrials update task queued (quick_test={quick_test}, limit={limit})"
+        )
+        return {
+            "status": "update_started_in_background",
+            "message": "ClinicalTrials update task queued successfully",
+        }
     except Exception as e:
         logger.exception(f"Trials update queuing failed: {e}")
         raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
 
 @app.post("/update/fda")
-async def trigger_fda_update(background_tasks: BackgroundTasks, quick_test: bool = False, limit: int | None = None) -> dict[str, Any]:
+async def trigger_fda_update(
+    background_tasks: BackgroundTasks, quick_test: bool = False, limit: int | None = None
+) -> dict[str, Any]:
     """Trigger FDA data update in background"""
     try:
         background_tasks.add_task(background_fda_update, quick_test, limit)
         logger.info(f"💊 FDA update task queued (quick_test={quick_test}, limit={limit})")
-        return {"status": "update_started_in_background", "message": "FDA update task queued successfully"}
+        return {
+            "status": "update_started_in_background",
+            "message": "FDA update task queued successfully",
+        }
     except Exception as e:
         logger.exception(f"FDA update queuing failed: {e}")
         raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")

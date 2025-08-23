@@ -13,8 +13,11 @@ from typing import Any
 import requests
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
+
 
 class FixedMedicalDownloader:
     """Updated medical downloader with correct URLs and API endpoints"""
@@ -22,9 +25,11 @@ class FixedMedicalDownloader:
     def __init__(self, output_dir: Path):
         self.output_dir = Path(output_dir)
         self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Medical Research Bot",
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Medical Research Bot",
+            }
+        )
 
     def test_connectivity(self) -> dict[str, Any]:
         """Test connectivity to all medical data sources"""
@@ -39,7 +44,9 @@ class FixedMedicalDownloader:
 
         # Test FDA Orange Book (corrected URL)
         try:
-            response = self.session.head("https://www.fda.gov/media/76860/download?attachment", timeout=10)
+            response = self.session.head(
+                "https://www.fda.gov/media/76860/download?attachment", timeout=10
+            )
             results["fda_orange_book"] = {"status": response.status_code, "success": True}
         except Exception as e:
             results["fda_orange_book"] = {"status": "error", "success": False, "error": str(e)}
@@ -60,7 +67,9 @@ class FixedMedicalDownloader:
 
         # Test alternative FDA downloads via main site
         try:
-            response = self.session.head("https://www.fda.gov/drugs/drug-approvals-and-databases", timeout=10)
+            response = self.session.head(
+                "https://www.fda.gov/drugs/drug-approvals-and-databases", timeout=10
+            )
             results["fda_alt_downloads"] = {"status": response.status_code, "success": True}
         except Exception as e:
             results["fda_alt_downloads"] = {"status": "error", "success": False, "error": str(e)}
@@ -70,7 +79,7 @@ class FixedMedicalDownloader:
     def get_correct_fda_drug_label_urls(self) -> list[str]:
         """
         Research correct FDA drug label download URLs
-        
+
         The download.fda.gov domain appears to be defunct.
         Alternative: Look for drug labels via main FDA site.
         """
@@ -92,14 +101,16 @@ class FixedMedicalDownloader:
     def get_correct_clinicaltrials_params(self) -> dict[str, Any]:
         """
         Get updated ClinicalTrials.gov API v2 parameters
-        
+
         The current parameters are generating 400 Bad Request errors.
         """
         # Test basic API call first
         try:
-            response = self.session.get("https://clinicaltrials.gov/api/v2/studies",
-                                      params={"pageSize": 10, "countTotal": True},
-                                      timeout=10)
+            response = self.session.get(
+                "https://clinicaltrials.gov/api/v2/studies",
+                params={"pageSize": 10, "countTotal": True},
+                timeout=10,
+            )
             response.raise_for_status()
             logger.info("ClinicalTrials API v2 basic call successful")
 
@@ -119,9 +130,11 @@ class FixedMedicalDownloader:
 
                 # Try even simpler parameters
                 try:
-                    simple_response = self.session.get("https://clinicaltrials.gov/api/v2/studies",
-                                                     params={"pageSize": 10},
-                                                     timeout=10)
+                    simple_response = self.session.get(
+                        "https://clinicaltrials.gov/api/v2/studies",
+                        params={"pageSize": 10},
+                        timeout=10,
+                    )
                     simple_response.raise_for_status()
                     logger.info("Simplified ClinicalTrials API call successful")
 
@@ -165,6 +178,7 @@ class FixedMedicalDownloader:
 
             # Extract ZIP file
             import zipfile
+
             with zipfile.ZipFile(local_path, "r") as zip_ref:
                 zip_ref.extractall(orange_dir)
             logger.info("Orange Book extracted successfully")
@@ -186,19 +200,22 @@ class FixedMedicalDownloader:
 
             logger.info(f"Testing ClinicalTrials API with parameters: {corrected_params}")
 
-            response = self.session.get("https://clinicaltrials.gov/api/v2/studies",
-                                      params=corrected_params,
-                                      timeout=15)
+            response = self.session.get(
+                "https://clinicaltrials.gov/api/v2/studies", params=corrected_params, timeout=15
+            )
             response.raise_for_status()
 
             data = response.json()
-            logger.info(f"ClinicalTrials API test successful. Total studies: {data.get('totalCount', 'unknown')}")
+            logger.info(
+                f"ClinicalTrials API test successful. Total studies: {data.get('totalCount', 'unknown')}"
+            )
 
             return True
 
         except Exception as e:
             logger.exception(f"ClinicalTrials API test failed: {e}")
             return False
+
 
 def main():
     """Test and report on medical download connectivity issues"""
@@ -242,6 +259,7 @@ def main():
     logger.info("3. ClinicalTrials API: 🔄 NEEDS PARAMETER UPDATES")
     logger.info("4. PubMed downloads: ✅ WORKING CORRECTLY")
     logger.info("5. External drive storage: ✅ WORKING CORRECTLY")
+
 
 if __name__ == "__main__":
     main()

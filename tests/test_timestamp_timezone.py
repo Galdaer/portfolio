@@ -14,6 +14,7 @@ def test_full_health_timestamp_timezone(test_client: TestClient):
     # ISO 8601 with timezone ends with +00:00 or Z (we expect +00:00 after change)
     assert re.search(r"[T0-9:\.-]+\+00:00$", ts), f"Timestamp not timezone-aware: {ts}"
 
+
 @pytest.mark.unit
 def test_quick_health_timestamp_timezone(test_client: TestClient):
     # Seed cache

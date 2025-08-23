@@ -260,7 +260,9 @@ class HIPAAConfigValidator:
         return issues
 
     def _validate_hipaa_sections(
-        self, config_data: dict[str, Any], config_file: str,
+        self,
+        config_data: dict[str, Any],
+        config_file: str,
     ) -> list[HIPAAValidationIssue]:
         """Validate HIPAA-specific configuration sections"""
         issues = []
@@ -328,7 +330,9 @@ class HIPAAConfigValidator:
         return issues
 
     def _validate_healthcare_system_config(
-        self, config_data: dict[str, Any], config_file: str,
+        self,
+        config_data: dict[str, Any],
+        config_file: str,
     ) -> list[HIPAAValidationIssue]:
         """Validate healthcare system specific configuration"""
         issues: list[HIPAAValidationIssue] = []
@@ -418,7 +422,9 @@ class HIPAAConfigValidator:
         return issues
 
     def _validate_environment_requirements(
-        self, config_data: dict[str, Any], config_file: str,
+        self,
+        config_data: dict[str, Any],
+        config_file: str,
     ) -> list[HIPAAValidationIssue]:
         """Validate environment-specific requirements"""
         issues = []
@@ -446,7 +452,9 @@ class HIPAAConfigValidator:
         return issues
 
     def _validate_production_requirements(
-        self, config_data: dict[str, Any], config_file: str,
+        self,
+        config_data: dict[str, Any],
+        config_file: str,
     ) -> list[HIPAAValidationIssue]:
         """Validate production environment requirements"""
         issues = []
@@ -492,7 +500,9 @@ class HIPAAConfigValidator:
         return issues
 
     def _find_nested_section(
-        self, config_data: dict[str, Any], section_name: str,
+        self,
+        config_data: dict[str, Any],
+        section_name: str,
     ) -> dict[str, Any] | None:
         """Find nested configuration section"""
         # Direct lookup
@@ -703,7 +713,9 @@ Examples:
     )
 
     parser.add_argument(
-        "--strict", action="store_true", help="Strict mode: warnings are treated as errors",
+        "--strict",
+        action="store_true",
+        help="Strict mode: warnings are treated as errors",
     )
 
     args = parser.parse_args()

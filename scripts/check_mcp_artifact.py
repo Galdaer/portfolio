@@ -2,6 +2,7 @@
 Check for MCP build artifact and print guidance.
 Run: python3 scripts/check_mcp_artifact.py
 """
+
 from pathlib import Path
 
 MCP_STDIO = Path("services/user/healthcare-mcp/build/stdio_entry.js")

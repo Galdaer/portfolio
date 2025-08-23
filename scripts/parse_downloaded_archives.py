@@ -47,7 +47,9 @@ class MedicalArchiveParser:
             self.logger.info("💡 Service may be busy processing - try again in a few minutes")
             return False
 
-    def trigger_parse_pubmed(self, quick_test: bool = False, max_files: int | None = None) -> dict[str, Any]:
+    def trigger_parse_pubmed(
+        self, quick_test: bool = False, max_files: int | None = None
+    ) -> dict[str, Any]:
         """Trigger PubMed parsing of existing files"""
         try:
             params = {}
@@ -56,7 +58,9 @@ class MedicalArchiveParser:
             if max_files:
                 params["max_files"] = str(max_files)
 
-            self.logger.info(f"🚀 Triggering PubMed parsing (quick_test={quick_test}, max_files={max_files})")
+            self.logger.info(
+                f"🚀 Triggering PubMed parsing (quick_test={quick_test}, max_files={max_files})"
+            )
             try:
                 response = requests.post(
                     f"{self.api_base_url}/update/pubmed",
@@ -68,10 +72,14 @@ class MedicalArchiveParser:
                     result = response.json()
                     self.logger.info(f"✅ PubMed parsing triggered: {result}")
                     return result
-                self.logger.error(f"❌ PubMed parsing failed: {response.status_code} - {response.text}")
+                self.logger.error(
+                    f"❌ PubMed parsing failed: {response.status_code} - {response.text}"
+                )
                 return {"status": "error", "message": f"HTTP {response.status_code}"}
             except requests.exceptions.Timeout:
-                self.logger.info("⏳ PubMed parsing request sent (timeout normal - processing in background)")
+                self.logger.info(
+                    "⏳ PubMed parsing request sent (timeout normal - processing in background)"
+                )
                 return {"status": "queued", "message": "Background processing started"}
             except requests.exceptions.RequestException as e:
                 self.logger.error(f"❌ PubMed parsing request failed: {e}")
@@ -81,7 +89,9 @@ class MedicalArchiveParser:
             self.logger.error(f"❌ Unexpected error in PubMed parsing: {e}")
             return {"status": "error", "message": str(e)}
 
-    def trigger_parse_fda(self, quick_test: bool = False, limit: int | None = None) -> dict[str, Any]:
+    def trigger_parse_fda(
+        self, quick_test: bool = False, limit: int | None = None
+    ) -> dict[str, Any]:
         """Trigger FDA parsing of existing files"""
         try:
             params = {}
@@ -102,10 +112,14 @@ class MedicalArchiveParser:
                     result = response.json()
                     self.logger.info(f"✅ FDA parsing triggered: {result}")
                     return result
-                self.logger.error(f"❌ FDA parsing failed: {response.status_code} - {response.text}")
+                self.logger.error(
+                    f"❌ FDA parsing failed: {response.status_code} - {response.text}"
+                )
                 return {"status": "error", "message": f"HTTP {response.status_code}"}
             except requests.exceptions.Timeout:
-                self.logger.info("⏳ FDA parsing request sent (timeout normal - processing in background)")
+                self.logger.info(
+                    "⏳ FDA parsing request sent (timeout normal - processing in background)"
+                )
                 return {"status": "queued", "message": "Background processing started"}
             except requests.exceptions.RequestException as e:
                 self.logger.error(f"❌ FDA parsing request failed: {e}")
@@ -115,7 +129,9 @@ class MedicalArchiveParser:
             self.logger.error(f"❌ Unexpected error in FDA parsing: {e}")
             return {"status": "error", "message": str(e)}
 
-    def trigger_parse_trials(self, quick_test: bool = False, limit: int | None = None) -> dict[str, Any]:
+    def trigger_parse_trials(
+        self, quick_test: bool = False, limit: int | None = None
+    ) -> dict[str, Any]:
         """Trigger ClinicalTrials parsing of existing files"""
         try:
             params = {}
@@ -124,7 +140,9 @@ class MedicalArchiveParser:
             if limit:
                 params["limit"] = str(limit)
 
-            self.logger.info(f"🧪 Triggering ClinicalTrials parsing (quick_test={quick_test}, limit={limit})")
+            self.logger.info(
+                f"🧪 Triggering ClinicalTrials parsing (quick_test={quick_test}, limit={limit})"
+            )
             try:
                 response = requests.post(
                     f"{self.api_base_url}/update/trials",
@@ -136,10 +154,14 @@ class MedicalArchiveParser:
                     result = response.json()
                     self.logger.info(f"✅ ClinicalTrials parsing triggered: {result}")
                     return result
-                self.logger.error(f"❌ ClinicalTrials parsing failed: {response.status_code} - {response.text}")
+                self.logger.error(
+                    f"❌ ClinicalTrials parsing failed: {response.status_code} - {response.text}"
+                )
                 return {"status": "error", "message": f"HTTP {response.status_code}"}
             except requests.exceptions.Timeout:
-                self.logger.info("⏳ ClinicalTrials parsing request sent (timeout normal - processing in background)")
+                self.logger.info(
+                    "⏳ ClinicalTrials parsing request sent (timeout normal - processing in background)"
+                )
                 return {"status": "queued", "message": "Background processing started"}
             except requests.exceptions.RequestException as e:
                 self.logger.error(f"❌ ClinicalTrials parsing request failed: {e}")

@@ -25,6 +25,7 @@ try:
 except ImportError:
     pytest.skip("Database test utilities not available", allow_module_level=True)
 
+
 class TestEncryptionValidation(HealthcareTestCase):
     """Test encryption security validation functionality with database-backed data"""
 
@@ -97,21 +98,27 @@ class TestEncryptionValidation(HealthcareTestCase):
         # Create a key that's too short (16 bytes instead of 32)
         short_key = base64.b64encode(b"a" * 16).decode("utf-8")
 
-        with patch.dict(
-            os.environ,
-            {"MASTER_ENCRYPTION_KEY": short_key, "ENVIRONMENT": "development"},
-        ), pytest.raises(ValueError, match="MASTER_ENCRYPTION_KEY length error"):
+        with (
+            patch.dict(
+                os.environ,
+                {"MASTER_ENCRYPTION_KEY": short_key, "ENVIRONMENT": "development"},
+            ),
+            pytest.raises(ValueError, match="MASTER_ENCRYPTION_KEY length error"),
+        ):
             HealthcareEncryptionManager(self.test_connection)
 
     def test_invalid_master_key_not_base64(self) -> None:
         """Test invalid master key - not valid base64"""
-        with patch.dict(
-            os.environ,
-            {
-                "MASTER_ENCRYPTION_KEY": "not-valid-base64!@#",
-                "ENVIRONMENT": "development",
-            },
-        ), pytest.raises(ValueError, match="Master encryption key must be valid base64"):
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "MASTER_ENCRYPTION_KEY": "not-valid-base64!@#",
+                    "ENVIRONMENT": "development",
+                },
+            ),
+            pytest.raises(ValueError, match="Master encryption key must be valid base64"),
+        ):
             HealthcareEncryptionManager(self.test_connection)
 
     def test_production_requires_master_key(self) -> None:

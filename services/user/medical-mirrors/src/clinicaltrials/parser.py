@@ -115,13 +115,17 @@ class ClinicalTrialsParser:
             else:
                 # Legacy structure
                 title = self.extract_value(
-                    study_data, ["BriefTitle", "IdentificationModule", "BriefTitle"],
+                    study_data,
+                    ["BriefTitle", "IdentificationModule", "BriefTitle"],
                 )
                 status = self.extract_value(
-                    study_data, ["OverallStatus", "StatusModule", "OverallStatus"],
+                    study_data,
+                    ["OverallStatus", "StatusModule", "OverallStatus"],
                 )
                 phase = self.extract_value(study_data, ["Phase", "DesignModule", "Phase"])
-                study_type = self.extract_value(study_data, ["StudyType", "DesignModule", "StudyType"])
+                study_type = self.extract_value(
+                    study_data, ["StudyType", "DesignModule", "StudyType"]
+                )
 
                 # Extract conditions, interventions, locations, sponsors using legacy methods
                 conditions = self.extract_conditions(study_data)
@@ -131,7 +135,8 @@ class ClinicalTrialsParser:
 
                 # Extract dates
                 start_date = self.extract_value(
-                    study_data, ["StartDate", "StatusModule", "StartDateStruct", "StartDate"],
+                    study_data,
+                    ["StartDate", "StatusModule", "StartDateStruct", "StartDate"],
                 )
                 completion_date = self.extract_value(
                     study_data,

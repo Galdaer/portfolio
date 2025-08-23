@@ -22,7 +22,9 @@ async def test_minimal_orchestrator_process_smoke():
         async def call_tool(self, name: str, arguments: dict):  # pragma: no cover
             return {"status": "success", "content": {"ok": True}}
 
-    model = build_chat_model(OllamaConfig(model="llama3.1:8b", base_url="http://172.20.0.10:11434", temperature=0.0))
+    model = build_chat_model(
+        OllamaConfig(model="llama3.1:8b", base_url="http://172.20.0.10:11434", temperature=0.0)
+    )
     orch = LangChainOrchestrator(mcp_client=DummyMCP(), chat_model=model)
     result = await orch.process("test query")
     assert isinstance(result, dict)

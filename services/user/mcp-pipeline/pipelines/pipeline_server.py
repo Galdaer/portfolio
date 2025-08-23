@@ -62,8 +62,16 @@ async def list_pipelines():
         if hasattr(pipeline, "pipelines"):
             return pipeline.pipelines()
         return [
-            {"id": "mcp-healthcare", "name": "MCP Healthcare", "description": "Healthcare tools via MCP"},
-            {"id": "mcp-general", "name": "MCP General", "description": "General purpose MCP tool access"},
+            {
+                "id": "mcp-healthcare",
+                "name": "MCP Healthcare",
+                "description": "Healthcare tools via MCP",
+            },
+            {
+                "id": "mcp-general",
+                "name": "MCP General",
+                "description": "General purpose MCP tool access",
+            },
         ]
     except Exception as e:
         return JSONResponse(
@@ -86,8 +94,16 @@ async def list_models():
             pipelines_data = pipeline.pipelines()
         else:
             pipelines_data = [
-                {"id": "mcp-healthcare", "name": "MCP Healthcare", "description": "Healthcare tools via MCP"},
-                {"id": "mcp-general", "name": "MCP General", "description": "General purpose MCP tool access"},
+                {
+                    "id": "mcp-healthcare",
+                    "name": "MCP Healthcare",
+                    "description": "Healthcare tools via MCP",
+                },
+                {
+                    "id": "mcp-general",
+                    "name": "MCP General",
+                    "description": "General purpose MCP tool access",
+                },
             ]
         return {"object": "list", "data": models, "pipelines": pipelines_data}
     except Exception as e:
@@ -181,14 +197,16 @@ async def chat_completions(request: dict):
             "id": "healthcare-mcp-response",
             "object": "chat.completion",
             "model": model,
-            "choices": [{
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": str(response),
-                },
-                "finish_reason": "stop",
-            }],
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": str(response),
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
         }
 
     except Exception as e:

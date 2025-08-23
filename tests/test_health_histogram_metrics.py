@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 HISTO_PREFIX = "healthcare_health_check_duration_seconds"
 
+
 @pytest.mark.unit
 def test_health_check_latency_histogram_present(test_client: TestClient):
     # Run comprehensive health twice to ensure counts increment
@@ -32,7 +33,9 @@ def test_health_check_latency_histogram_present(test_client: TestClient):
         last = val
         values.append(val)
     # Expect final +Inf bucket equals _count
-    count_line = next((line for line in body.splitlines() if line.startswith(f"{HISTO_PREFIX}_count")), None)
+    count_line = next(
+        (line for line in body.splitlines() if line.startswith(f"{HISTO_PREFIX}_count")), None
+    )
     assert count_line is not None
     total_count = int(count_line.split()[-1])
     assert values[-1] == total_count

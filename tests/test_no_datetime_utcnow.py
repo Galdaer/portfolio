@@ -6,6 +6,7 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent / "services" / "user" / "healthcare-api"
 FORBIDDEN_PATTERN = re.compile(r"datetime\.utcnow\(")
 
+
 @pytest.mark.unit
 def test_no_datetime_utcnow_usage():
     """Ensure codebase does not use naive datetime.utcnow(), enforcing timezone aware now(timezone.utc)."""

@@ -25,40 +25,40 @@ def _as_str(val: object | None) -> str:
 
 def generate_source_url(source: Mapping[str, object]) -> str:
     """Generate URL for a source using DOI only"""
-    
+
     # PRIORITY 1: DOI - links to actual full article
     doi = _as_str(source.get("doi", "")).strip()
     if doi and doi.lower() not in ["", "no doi", "none"]:
         if doi.startswith("http"):
             return doi
         return f"https://doi.org/{doi}"
-    
+
     # PRIORITY 2: Direct URL if provided
     url = _as_str(source.get("url", "")).strip()
     if url and url not in ["", "#", "#database_record"]:
         return url
-    
+
     # PRIORITY 4: Source-type specific handling
     source_type = _as_str(source.get("source_type")).lower()
-    
+
     if source_type == "clinical_guideline" or "trial" in source_type:
         # Clinical trials
         nct_id = _as_str(source.get("nct_id")).strip()
         if nct_id:
             return f"https://clinicaltrials.gov/study/{nct_id}"
-    
+
     elif source_type == "drug_info":
         # FDA drug information
         ndc = _as_str(source.get("ndc")).strip()
         generic_name = _as_str(source.get("drug_name", source.get("generic_name", ""))).strip()
-        
+
         if ndc:
             return f"https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query={ndc}"
         elif generic_name:
             return f"https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query={generic_name.replace(' ', '+')}"
         else:
             return "https://dailymed.nlm.nih.gov/dailymed/"
-    
+
     # Fallback
     return "#"
 

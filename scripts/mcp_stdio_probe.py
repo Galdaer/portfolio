@@ -3,12 +3,14 @@
 Usage: python3 scripts/mcp_stdio_probe.py
 Relies on interfaces/open_webui/mcp_config.json for command/args under key 'healthcare_server'.
 """
+
 import asyncio
 import json
 from pathlib import Path
 from typing import Any
 
 CONFIG_PATH = Path("/home/intelluxe/interfaces/open_webui/mcp_config.json")
+
 
 async def main():
     try:
@@ -27,7 +29,9 @@ async def main():
     if not hc:
         print("healthcare_server entry missing in config")
         return 1
-    params = StdioServerParameters(command=hc["command"], args=hc.get("args", []), env=hc.get("env", {}))
+    params = StdioServerParameters(
+        command=hc["command"], args=hc.get("args", []), env=hc.get("env", {})
+    )
     async with stdio_client(params) as (read_stream, write_stream):  # type: ignore
         session = ClientSession(read_stream, write_stream)
         await session.initialize()
@@ -40,6 +44,7 @@ async def main():
                 name = t.get("name")
             print(" -", name)
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(asyncio.run(main()))

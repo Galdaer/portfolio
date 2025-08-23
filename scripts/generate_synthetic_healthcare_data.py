@@ -247,7 +247,9 @@ class SyntheticHealthcareDataGenerator:
         # Redis connection - REQUIRED
         try:
             self.redis_client = redis_module.Redis(
-                host="localhost", port=6379, decode_responses=True,
+                host="localhost",
+                port=6379,
+                decode_responses=True,
             )
             if self.redis_client:
                 self.redis_client.ping()
@@ -280,26 +282,31 @@ class SyntheticHealthcareDataGenerator:
         # Enhanced PHI-like patterns for proper detection testing
         # Break down SSN generation for readability
         ssn_group = random.randint(
-            SyntheticDataConstants.SSN_GROUP_MIN, SyntheticDataConstants.SSN_GROUP_MAX,
+            SyntheticDataConstants.SSN_GROUP_MIN,
+            SyntheticDataConstants.SSN_GROUP_MAX,
         )
         ssn_serial = random.randint(
-            SyntheticDataConstants.SSN_SERIAL_MIN, SyntheticDataConstants.SSN_SERIAL_MAX,
+            SyntheticDataConstants.SSN_SERIAL_MIN,
+            SyntheticDataConstants.SSN_SERIAL_MAX,
         )
         synthetic_ssn = f"{SyntheticDataConstants.SYNTHETIC_SSN_PREFIX}-{ssn_group}-{ssn_serial}"  # 555 prefix = synthetic SSN (reserved for test data)
 
         # Break down phone generation for readability
         phone_area = random.choice(SyntheticDataConstants.SYNTHETIC_PHONE_AREA_CODES)
         phone_prefix = random.randint(
-            SyntheticDataConstants.PHONE_PREFIX_MIN, SyntheticDataConstants.PHONE_PREFIX_MAX,
+            SyntheticDataConstants.PHONE_PREFIX_MIN,
+            SyntheticDataConstants.PHONE_PREFIX_MAX,
         )
         phone_line = random.randint(
-            SyntheticDataConstants.PHONE_LINE_MIN, SyntheticDataConstants.PHONE_LINE_MAX,
+            SyntheticDataConstants.PHONE_LINE_MIN,
+            SyntheticDataConstants.PHONE_LINE_MAX,
         )
         realistic_phone = f"({phone_area}) {phone_prefix}-{phone_line}"
 
         # Break down email generation for readability
         email_number = random.randint(
-            SyntheticDataConstants.EMAIL_NUMBER_MIN, SyntheticDataConstants.EMAIL_NUMBER_MAX,
+            SyntheticDataConstants.EMAIL_NUMBER_MIN,
+            SyntheticDataConstants.EMAIL_NUMBER_MAX,
         )
         synthetic_email = f"{first_name.lower()}.{last_name.lower()}{email_number}@{SyntheticDataConstants.SYNTHETIC_EMAIL_DOMAIN}"
 
@@ -516,7 +523,10 @@ class SyntheticHealthcareDataGenerator:
         }
 
     def generate_billing_claim(
-        self, patient_id: str, doctor_id: str, encounter_id: str,
+        self,
+        patient_id: str,
+        doctor_id: str,
+        encounter_id: str,
     ) -> dict[str, Any]:
         """Generate synthetic billing claim for Phase 2 business automation"""
         return {
@@ -534,7 +544,8 @@ class SyntheticHealthcareDataGenerator:
                 k=random.randint(1, 3),
             ),
             "diagnosis_codes": random.sample(
-                ["Z00.00", "I10", "E11.9", "M79.3", "R50.9"], k=random.randint(1, 2),
+                ["Z00.00", "I10", "E11.9", "M79.3", "R50.9"],
+                k=random.randint(1, 2),
             ),
             "claim_status": random.choice(
                 ["submitted", "approved", "denied", "pending", "resubmitted"],
@@ -974,10 +985,15 @@ def main() -> None:
     parser.add_argument("--doctors", type=int, default=25, help="Number of doctors to generate")
     parser.add_argument("--patients", type=int, default=100, help="Number of patients to generate")
     parser.add_argument(
-        "--encounters", type=int, default=300, help="Number of encounters to generate",
+        "--encounters",
+        type=int,
+        default=300,
+        help="Number of encounters to generate",
     )
     parser.add_argument(
-        "--output-dir", default="data/synthetic", help="Output directory for JSON files",
+        "--output-dir",
+        default="data/synthetic",
+        help="Output directory for JSON files",
     )
     parser.add_argument("--use-database", action="store_true", help="Also populate databases")
 

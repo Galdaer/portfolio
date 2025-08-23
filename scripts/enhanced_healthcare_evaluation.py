@@ -182,7 +182,8 @@ class AdvancedPHIDetector:
 
         # Compile synthetic marker patterns for performance
         self.compiled_synthetic_pattern = re.compile(
-            "|".join(f"({marker})" for marker in self.synthetic_markers), re.IGNORECASE,
+            "|".join(f"({marker})" for marker in self.synthetic_markers),
+            re.IGNORECASE,
         )
 
     def detect_phi_violations(self, text: str) -> list[EvaluationFinding]:
@@ -245,11 +246,13 @@ class MedicalAccuracyValidator:
 
         # Compile patterns for performance
         self.compiled_medical_advice_pattern = re.compile(
-            "|".join(f"({pattern})" for pattern in self.medical_advice_patterns), re.IGNORECASE,
+            "|".join(f"({pattern})" for pattern in self.medical_advice_patterns),
+            re.IGNORECASE,
         )
 
         self.compiled_disclaimer_pattern = re.compile(
-            "|".join(f"({pattern})" for pattern in self.appropriate_disclaimers), re.IGNORECASE,
+            "|".join(f"({pattern})" for pattern in self.appropriate_disclaimers),
+            re.IGNORECASE,
         )
 
         self.administrative_indicators = [
@@ -385,7 +388,10 @@ class EnhancedDeepEvalWrapper:
         }
 
     def evaluate_with_deepeval(
-        self, query: str, response: str, context: str | None = None,
+        self,
+        query: str,
+        response: str,
+        context: str | None = None,
     ) -> dict[str, float]:
         """Evaluate using DeepEval with healthcare-specific thresholds"""
         if not DEEPEVAL_AVAILABLE:
@@ -433,7 +439,10 @@ class EnhancedDeepEvalWrapper:
             return self._fallback_deepeval_evaluation(query, response, context)
 
     def _fallback_deepeval_evaluation(
-        self, query: str, response: str, context: str | None = None,
+        self,
+        query: str,
+        response: str,
+        context: str | None = None,
     ) -> dict[str, float]:
         """Fallback evaluation when DeepEval is unavailable"""
         metrics = {}
@@ -586,7 +595,9 @@ class ComprehensiveHealthcareEvaluator:
     """
 
     def __init__(
-        self, config: dict[str, Any], synthetic_data_path: str = "data/synthetic/",
+        self,
+        config: dict[str, Any],
+        synthetic_data_path: str = "data/synthetic/",
     ) -> None:
         # Validate no PHI in input data
         if self._contains_potential_phi(str(config)) or self._contains_potential_phi(
@@ -737,7 +748,9 @@ class ComprehensiveHealthcareEvaluator:
         return summary
 
     def _calculate_overall_score(
-        self, deepeval_metrics: dict[str, float], category_scores: dict[str, float],
+        self,
+        deepeval_metrics: dict[str, float],
+        category_scores: dict[str, float],
     ) -> float:
         """Calculate overall evaluation score"""
         deepeval_avg = (
@@ -750,7 +763,9 @@ class ComprehensiveHealthcareEvaluator:
         return (deepeval_avg + healthcare_avg) / 2
 
     def _calculate_weighted_score(
-        self, deepeval_metrics: dict[str, float], category_scores: dict[str, float],
+        self,
+        deepeval_metrics: dict[str, float],
+        category_scores: dict[str, float],
     ) -> float:
         """Calculate weighted score based on healthcare importance"""
         components = {

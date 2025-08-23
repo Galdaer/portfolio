@@ -121,7 +121,8 @@ class ExampleMigratedTest(HealthcareTestCase, unittest.TestCase):
         # Get synthetic lab results from database
         patient = self.get_sample_patient()
         lab_results = self.synthetic_data.get_test_lab_results(
-            patient_id=patient["patient_id"], limit=3,
+            patient_id=patient["patient_id"],
+            limit=3,
         )
 
         if lab_results:

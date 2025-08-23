@@ -117,7 +117,9 @@ class PubMedAPI:
         finally:
             db.close()
 
-    async def trigger_update(self, quick_test: bool = False, max_files: int | None = None) -> dict[str, Any]:
+    async def trigger_update(
+        self, quick_test: bool = False, max_files: int | None = None
+    ) -> dict[str, Any]:
         """Trigger PubMed data update"""
         if quick_test:
             logger.info(f"Triggering PubMed QUICK TEST update (max_files={max_files or 3})")

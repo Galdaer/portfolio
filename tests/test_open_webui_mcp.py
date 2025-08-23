@@ -238,7 +238,9 @@ if __name__ == "__main__":
 
     print(f"\n📁 Config file created: {config_path}")
     print("   Copy this to pipelines/data/mcp_config.json")
-    print("   Or use the pre-configured version at /home/intelluxe/interfaces/open_webui/mcp_config.json")
+    print(
+        "   Or use the pre-configured version at /home/intelluxe/interfaces/open_webui/mcp_config.json"
+    )
 
     # Optionally run the async test
     user_input = input("\n🧪 Run pipeline connectivity test? (y/n): ")

@@ -22,7 +22,6 @@ PHASE1_AVAILABLE = False
 medical_modules = {}
 
 try:
-
     # Import and store Phase 1 modules
     from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType
     from core.reasoning.medical_reasoning_enhanced import EnhancedMedicalReasoning
@@ -590,7 +589,8 @@ async def test_phase1_agent() -> None:
 
         try:
             response = await agent.process_healthcare_query(
-                str(test_case["query"]), list(test_case["context"]),
+                str(test_case["query"]),
+                list(test_case["context"]),
             )
 
             print("✅ Response generated:")

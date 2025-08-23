@@ -2,6 +2,7 @@
 Regression test: ensure AgentExecutor construction does not raise due to
 unsupported early_stopping_method in our installed LangChain version.
 """
+
 from __future__ import annotations
 
 import sys

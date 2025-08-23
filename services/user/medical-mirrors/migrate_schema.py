@@ -39,12 +39,14 @@ def run_migration():
             print("📊 Checking current schema...")
 
             # Check if tables exist
-            result = db.execute(text("""
+            result = db.execute(
+                text("""
                 SELECT table_name
                 FROM information_schema.tables
                 WHERE table_schema = 'public'
                 AND table_name IN ('pubmed_articles', 'clinical_trials', 'fda_drugs')
-            """))
+            """)
+            )
             existing_tables = [row[0] for row in result.fetchall()]
             print(f"   Found tables: {existing_tables}")
 
@@ -123,6 +125,7 @@ def run_migration():
             print(f"❌ Migration failed: {e}")
             db.rollback()
             sys.exit(1)
+
 
 if __name__ == "__main__":
     run_migration()

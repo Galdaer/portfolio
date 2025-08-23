@@ -10,7 +10,8 @@ class Config:
 
     # Database settings
     POSTGRES_URL: str = os.getenv(
-        "POSTGRES_URL", "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe",
+        "POSTGRES_URL",
+        "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe",
     )
 
     # Data source URLs
@@ -37,7 +38,9 @@ class Config:
 
     # Performance optimization settings
     ENABLE_MULTICORE_PARSING: bool = os.getenv("ENABLE_MULTICORE_PARSING", "true").lower() == "true"
-    MAX_PARSER_WORKERS: int = int(os.getenv("MAX_PARSER_WORKERS", "8"))  # Default to 8 cores (half of typical 16-core system)
+    MAX_PARSER_WORKERS: int = int(
+        os.getenv("MAX_PARSER_WORKERS", "8")
+    )  # Default to 8 cores (half of typical 16-core system)
 
     def get_pubmed_data_dir(self) -> str:
         """Get PubMed data directory"""

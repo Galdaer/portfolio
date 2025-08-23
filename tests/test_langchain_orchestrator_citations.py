@@ -57,7 +57,11 @@ async def test_orchestrator_appends_citations():
 
     result = await orch.process("test query")
     assert isinstance(result, dict)
-    assert "citations" in result and isinstance(result["citations"], list) and len(result["citations"]) >= 2
+    assert (
+        "citations" in result
+        and isinstance(result["citations"], list)
+        and len(result["citations"]) >= 2
+    )
     assert any(c.get("url") for c in result["citations"])  # has links
 
     formatted = result.get("formatted_summary", "")

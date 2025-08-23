@@ -9,6 +9,7 @@ Actions:
 
 This is a non-production diagnostic helper.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -36,7 +37,10 @@ async def main() -> int:
     setup_healthcare_logging(Path("logs"))
     log = logging.getLogger("healthcare.diag.mcp_probe")
 
-    log.info("Starting MCP connectivity probe", extra={"healthcare_context": {"operation_type": "mcp_probe_start"}})
+    log.info(
+        "Starting MCP connectivity probe",
+        extra={"healthcare_context": {"operation_type": "mcp_probe_start"}},
+    )
 
     # Preflight: Docker available and container running
     docker_path = shutil.which("docker")
@@ -47,11 +51,26 @@ async def main() -> int:
         return 2
 
     try:
-        ps = subprocess.run([docker_path, "ps", "--format", "{{.Names}}"], check=False, capture_output=True, text=True, timeout=6)
+        ps = subprocess.run(
+            [docker_path, "ps", "--format", "{{.Names}}"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=6,
+        )
         names = ps.stdout.strip().splitlines() if ps.returncode == 0 else []
         if "healthcare-mcp" not in names:
             msg = "Container 'healthcare-mcp' is not running"
-            log.error(msg, extra={"healthcare_context": {"docker_ps_rc": ps.returncode, "stdout": ps.stdout[-400:], "stderr": ps.stderr[-400:]}})
+            log.error(
+                msg,
+                extra={
+                    "healthcare_context": {
+                        "docker_ps_rc": ps.returncode,
+                        "stdout": ps.stdout[-400:],
+                        "stderr": ps.stderr[-400:],
+                    }
+                },
+            )
             print(f"PRECHECK ERROR: {msg}")
             return 2
     except Exception as e:
@@ -62,14 +81,19 @@ async def main() -> int:
     try:
         client = HealthcareMCPClient()
     except Exception as e:
-        log.error("Failed to initialize HealthcareMCPClient", extra={"healthcare_context": {"error": str(e)}})
+        log.error(
+            "Failed to initialize HealthcareMCPClient",
+            extra={"healthcare_context": {"error": str(e)}},
+        )
         print(f"INIT ERROR: {e}")
         return 2
 
     try:
         await client.connect()
     except Exception as e:
-        log.error("Failed to connect to MCP server", extra={"healthcare_context": {"error": str(e)}})
+        log.error(
+            "Failed to connect to MCP server", extra={"healthcare_context": {"error": str(e)}}
+        )
         print(f"CONNECT ERROR: {e}")
         return 3
 
@@ -81,7 +105,13 @@ async def main() -> int:
         if len(names) == 0:
             print("No tools discovered; showing recent healthcare-mcp logs for diagnostics...")
             try:
-                out = subprocess.run([docker_path, "logs", "--since", "2m", "--tail", "200", "healthcare-mcp"], check=False, capture_output=True, text=True, timeout=8)
+                out = subprocess.run(
+                    [docker_path, "logs", "--since", "2m", "--tail", "200", "healthcare-mcp"],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=8,
+                )
                 print("---- healthcare-mcp recent logs ----")
                 print(out.stdout[-4000:])
                 if out.stderr:
@@ -89,18 +119,32 @@ async def main() -> int:
                     print(out.stderr[-2000:])
             except Exception as log_err:
                 print(f"WARN: failed to fetch container logs: {log_err}")
-        log.info("Tool discovery complete", extra={"healthcare_context": {"operation_type": "mcp_probe_tools", "tool_count": len(names)}})
+        log.info(
+            "Tool discovery complete",
+            extra={
+                "healthcare_context": {
+                    "operation_type": "mcp_probe_tools",
+                    "tool_count": len(names),
+                }
+            },
+        )
         # Try to find a PubMed-like tool
         pubmed_tool = next((n for n in names if isinstance(n, str) and "pubmed" in n.lower()), None)
         if pubmed_tool:
             print(f"Calling tool: {pubmed_tool}")
             res = await asyncio.wait_for(
-                client.call_healthcare_tool(pubmed_tool, {"query": "asthma risk factors", "max_results": 3}),
+                client.call_healthcare_tool(
+                    pubmed_tool, {"query": "asthma risk factors", "max_results": 3}
+                ),
                 timeout=60,
             )
             preview = res
             if isinstance(res, dict):
-                preview = {k: (len(v) if isinstance(v, list) else type(v).__name__) for k, v in res.items() if k in ("articles", "count", "status")}
+                preview = {
+                    k: (len(v) if isinstance(v, list) else type(v).__name__)
+                    for k, v in res.items()
+                    if k in ("articles", "count", "status")
+                }
             print(f"RESULT PREVIEW: {preview}")
     except TimeoutError as e:
         log.error("Probe timeout", extra={"healthcare_context": {"error": str(e)}})
@@ -108,7 +152,13 @@ async def main() -> int:
         traceback.print_exception(type(e), e, e.__traceback__)
         # Tail container logs for hints
         try:
-            out = subprocess.run([docker_path, "logs", "--since", "2m", "--tail", "200", "healthcare-mcp"], check=False, capture_output=True, text=True, timeout=8)
+            out = subprocess.run(
+                [docker_path, "logs", "--since", "2m", "--tail", "200", "healthcare-mcp"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=8,
+            )
             print("---- healthcare-mcp recent logs ----")
             print(out.stdout[-4000:])
             if out.stderr:
@@ -132,7 +182,13 @@ async def main() -> int:
                 traceback.print_exception(type(ex), ex, ex.__traceback__)
         # Tail container logs for hints
         try:
-            out = subprocess.run([docker_path, "logs", "--since", "2m", "--tail", "200", "healthcare-mcp"], check=False, capture_output=True, text=True, timeout=8)
+            out = subprocess.run(
+                [docker_path, "logs", "--since", "2m", "--tail", "200", "healthcare-mcp"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=8,
+            )
             print("---- healthcare-mcp recent logs ----")
             print(out.stdout[-4000:])
             if out.stderr:
@@ -142,7 +198,9 @@ async def main() -> int:
             print(f"WARN: failed to fetch container logs: {log_err}")
     finally:
         await client.disconnect()
-        log.info("Probe complete", extra={"healthcare_context": {"operation_type": "mcp_probe_end"}})
+        log.info(
+            "Probe complete", extra={"healthcare_context": {"operation_type": "mcp_probe_end"}}
+        )
 
     return 0
 

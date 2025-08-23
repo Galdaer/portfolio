@@ -109,7 +109,9 @@ class HealthcareAgentSimulator:
         )
 
     async def simulate_scheduling_agent(
-        self, patient_data: dict[str, Any], appointment_type: str,
+        self,
+        patient_data: dict[str, Any],
+        appointment_type: str,
     ) -> AgentResponse:
         """Simulate appointment scheduling agent"""
         start_time = datetime.now()
@@ -180,7 +182,9 @@ class HealthcareAgentSimulator:
             }
 
             response = requests.post(
-                f"{self.ollama_base_url}/api/generate", json=payload, timeout=30,
+                f"{self.ollama_base_url}/api/generate",
+                json=payload,
+                timeout=30,
             )
             response.raise_for_status()
 
@@ -292,7 +296,8 @@ class MultiAgentHealthcareTests:
                     response = await self.agent_simulator.simulate_research_agent(query)
                 elif agent_name == "scheduling_agent":
                     response = await self.agent_simulator.simulate_scheduling_agent(
-                        scenario.patient_data, "follow-up",
+                        scenario.patient_data,
+                        "follow-up",
                     )
                 elif agent_name == "billing_agent":
                     encounter_data = {
@@ -330,7 +335,9 @@ class MultiAgentHealthcareTests:
         return results
 
     def _evaluate_workflow_success(
-        self, scenario: MultiAgentScenario, results: dict[str, Any],
+        self,
+        scenario: MultiAgentScenario,
+        results: dict[str, Any],
     ) -> bool:
         """Evaluate if workflow met success criteria"""
         criteria = scenario.success_criteria

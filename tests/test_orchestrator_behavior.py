@@ -16,7 +16,9 @@ class MockLLM:
     def __init__(self, agent_to_select: str):
         self.agent_to_select = agent_to_select
 
-    async def generate(self, model: str, prompt: str, format: Dict[str, Any], stream: bool = False) -> Dict[str, Any]:
+    async def generate(
+        self, model: str, prompt: str, format: Dict[str, Any], stream: bool = False
+    ) -> Dict[str, Any]:
         # Return a JSON string under 'response' with the selected agent name
         return {"response": json.dumps({"agent": self.agent_to_select})}
 
@@ -106,7 +108,9 @@ def test_fallback_trigger_on_agent_failure(client: TestClient) -> None:
 
 
 @pytest.mark.unit
-def test_timeout_behavior_triggers_fallback(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+def test_timeout_behavior_triggers_fallback(
+    monkeypatch: pytest.MonkeyPatch, client: TestClient
+) -> None:
     # Arrange: slow agent + small timeout via orchestrator config patch
     _set_globals({"slow": SlowAgent()}, "slow")
 
@@ -117,7 +121,10 @@ def test_timeout_behavior_triggers_fallback(monkeypatch: pytest.MonkeyPatch, cli
             "timeouts": {"router_selection": 1, "per_agent_default": 0.1, "per_agent_hard_cap": 1},
             "provenance": {"show_agent_header": True},
             "synthesis": {"prefer": ["formatted_summary", "message"]},
-            "fallback": {"agent_name": "base", "message_template": "Base fallback for '{user_message}'"},
+            "fallback": {
+                "agent_name": "base",
+                "message_template": "Base fallback for '{user_message}'",
+            },
         }
 
     monkeypatch.setattr(healthcare_main, "load_orchestrator_config", patched_load_config)
