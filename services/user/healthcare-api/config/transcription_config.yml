@@ -1,0 +1,76 @@
+# Transcription Service Configuration
+# Settings for live medical transcription, WebSocket connections, and audio processing
+
+# WebSocket and API Endpoints
+websocket:
+  base_url: "ws://localhost:8000"
+  health_check_url: "http://localhost:8000"
+  endpoint_path: "/ws/transcription"
+  connection_timeout_seconds: 30
+  heartbeat_interval_seconds: 30
+
+# Session Management
+session:
+  default_timeout_seconds: 300  # 5 minutes max session
+  cleanup_interval_seconds: 60  # Clean up expired sessions every minute
+  max_concurrent_sessions: 50
+  session_id_prefix: "session_"
+  audio_chunk_interval_seconds: 2  # Send audio chunks every 2 seconds
+
+# Audio Processing
+audio:
+  supported_formats: ["webm", "wav", "mp3", "m4a"]
+  max_chunk_size_bytes: 1048576  # 1MB
+  max_session_duration_seconds: 1800  # 30 minutes absolute max
+  quality_threshold: 0.7
+  noise_reduction_enabled: true
+
+# Transcription Quality and Confidence
+quality:
+  default_confidence_threshold: 0.85
+  high_confidence_threshold: 0.92
+  min_confidence_for_medical_terms: 0.88
+  max_confidence_cap: 0.98
+  confidence_boost_per_char: 0.001
+  
+# Medical Terminology Processing
+medical_terminology:
+  confidence_boost_factor: 1.15
+  specialized_terms_weight: 1.2
+  abbreviation_expansion_enabled: true
+  terminology_validation_enabled: true
+
+# Real-time Processing
+realtime:
+  processing_interval_ms: 100
+  batch_size: 5
+  enable_live_corrections: true
+  streaming_enabled: true
+
+# Integration Settings
+integration:
+  soap_generation_enabled: true
+  auto_save_transcriptions: true
+  mcp_integration_enabled: true
+  phi_detection_enabled: true
+
+# Development and Testing
+development:
+  mock_transcription_enabled: false
+  debug_audio_logging: false
+  save_audio_chunks: false  # For debugging only
+  test_mode: false
+
+# Error Handling and Retries
+error_handling:
+  max_retries: 3
+  retry_delay_seconds: 1
+  connection_retry_backoff_factor: 2.0
+  failed_chunk_retry_limit: 2
+
+# Performance Tuning
+performance:
+  concurrent_processing_limit: 10
+  memory_usage_limit_mb: 512
+  cpu_usage_limit_percent: 80
+  enable_performance_monitoring: true

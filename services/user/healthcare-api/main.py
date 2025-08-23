@@ -36,6 +36,7 @@ from core.infrastructure.healthcare_logger import (
 )
 from core.phi_sanitizer import sanitize_request_data, sanitize_response_data
 from config.transcription_config_loader import TRANSCRIPTION_CONFIG
+from core.config_monitor import initialize_hot_reload, shutdown_hot_reload, force_reload_configurations
 
 # Setup healthcare-compliant logging infrastructure
 setup_healthcare_logging(log_level=config.log_level.upper())
@@ -280,14 +281,33 @@ async def initialize_agents():
 async def lifespan(app: FastAPI):
     """Lifespan event handler for FastAPI application"""
     # Startup
-    await initialize_agents()
+    try:
+        # Initialize configuration hot-reload service
+        config_dir = Path(__file__).parent / "config"
+        await initialize_hot_reload(config_dir)
+        logger.info("Configuration hot-reload service started")
+        
+        # Initialize agents
+        await initialize_agents()
+        
+    except Exception as e:
+        logger.error(f"Error during startup: {e}")
+        raise
+    
     yield
+    
     # Shutdown
-    if healthcare_services:
-        try:
+    try:
+        # Shutdown hot-reload service
+        await shutdown_hot_reload()
+        logger.info("Configuration hot-reload service stopped")
+        
+        # Cleanup healthcare services
+        if healthcare_services:
             await healthcare_services.cleanup()
-        except Exception as e:
-            logger.error(f"Error during cleanup: {e}")
+            
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
 
 
 # FastAPI app for HTTP server
@@ -378,6 +398,37 @@ async def get_ui_config():
             "show_real_time_transcription": True,
             "show_status_updates": True,
             "medical_disclaimer": "⚠️ This system provides administrative transcription support only."
+        }
+
+@app.post("/api/config/reload")
+async def reload_configuration():
+    """Manually reload all configurations"""
+    try:
+        force_reload_configurations()
+        
+        # Also reload the global configuration objects
+        from config.ui_config_loader import reload_ui_config
+        from config.transcription_config_loader import reload_transcription_config
+        
+        ui_config = reload_ui_config()
+        transcription_config = reload_transcription_config()
+        
+        return {
+            "success": True,
+            "message": "All configurations reloaded successfully",
+            "reloaded_configs": [
+                "ui_config",
+                "transcription_config"
+            ],
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Configuration reload failed: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Configuration reload failed"
         }
 
 @app.get("/health")

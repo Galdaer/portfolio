@@ -1,0 +1,102 @@
+# Open WebUI Integration Configuration
+# Settings for Open WebUI actions, functions, and user interface components
+
+# Healthcare API Integration
+api_integration:
+  websocket_url: "ws://localhost:8000"
+  rest_api_url: "http://localhost:8000"
+  health_check_endpoint: "/health"
+  transcription_endpoint: "/ws/transcription"
+  soap_generation_endpoint: "/generate-soap-from-session"
+
+# Developer Configuration
+developer:
+  mode_enabled: true
+  debug_logging: true
+  test_users: ["justin", "jeff"]
+  default_test_user: "justin"
+  mock_transcription: false  # Set to true for testing without real audio
+  bypass_user_validation: true  # Allow fallback to test users
+
+# Open WebUI Action Settings
+action:
+  id: "medical_transcription"
+  name: "🎙️ Medical Transcription"
+  description: "Start live medical transcription with automatic SOAP note generation"
+  icon: "🎙️"
+  category: "Healthcare"
+  button_text: "Start Medical Transcription"
+
+# Session Management
+session:
+  timeout_seconds: 300  # 5 minutes max transcription session
+  chunk_interval_seconds: 2  # Send audio chunks every 2 seconds
+  auto_soap_generation: true
+  session_cleanup_enabled: true
+
+# User Experience
+user_experience:
+  show_real_time_transcription: true
+  show_status_updates: true
+  enable_progress_indicators: true
+  auto_scroll_enabled: true
+  
+# Medical Compliance
+compliance:
+  show_medical_disclaimer: true
+  disclaimer_text: |
+    ⚠️ This system provides administrative transcription support only.
+    It does not provide medical advice, diagnosis, or treatment recommendations.
+    All clinical content must be reviewed by qualified healthcare professionals.
+  phi_protection_enabled: true
+  audit_logging_enabled: true
+  healthcare_compliance_mode: true
+
+# Event Handling
+events:
+  emit_status_updates: true
+  emit_transcription_chunks: true
+  emit_session_events: true
+  emit_error_notifications: true
+
+# Error Handling
+error_handling:
+  connection_retry_attempts: 3
+  retry_delay_seconds: 2
+  show_detailed_errors: true  # In developer mode only
+  fallback_to_mock_on_failure: true  # In developer mode only
+
+# Performance Settings
+performance:
+  debounce_events_ms: 100
+  max_concurrent_sessions: 5  # Per user
+  memory_cleanup_interval_seconds: 30
+
+# UI Customization
+ui_customization:
+  primary_color: "#2563eb"  # Blue
+  success_color: "#16a34a"  # Green
+  warning_color: "#d97706"  # Amber
+  error_color: "#dc2626"    # Red
+  
+# Feature Flags
+features:
+  enable_audio_visualization: true
+  enable_session_history: true
+  enable_export_functionality: true
+  enable_real_time_editing: false  # Future feature
+  
+# Notifications
+notifications:
+  show_connection_status: true
+  show_transcription_quality: true
+  show_session_time_remaining: true
+  auto_hide_success_messages: true
+  message_display_duration_seconds: 5
+
+# Testing and Validation
+testing:
+  enable_test_mode: false
+  mock_session_data: false
+  validation_checks_enabled: true
+  performance_monitoring: true

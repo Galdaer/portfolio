@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 import websockets
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import sys
 import os
 
@@ -28,26 +28,95 @@ class Action:
     """
     
     class Valves(BaseModel):
-        """Configuration for Medical Transcription Action - loaded from config files"""
+        """Dynamic Configuration for Medical Transcription Action - editable via Open WebUI"""
         
-        # Healthcare API Configuration - loaded from UI_CONFIG
-        HEALTHCARE_API_URL: str = UI_CONFIG.api_integration.websocket_url
-        HEALTHCARE_REST_URL: str = UI_CONFIG.api_integration.rest_api_url
+        # === Healthcare API Configuration ===
+        HEALTHCARE_API_URL: str = Field(
+            default=UI_CONFIG.api_integration.websocket_url,
+            description="WebSocket URL for healthcare API connection"
+        )
+        HEALTHCARE_REST_URL: str = Field(
+            default=UI_CONFIG.api_integration.rest_api_url,
+            description="REST API URL for healthcare services"
+        )
         
-        # Developer Configuration - loaded from UI_CONFIG  
-        DEVELOPER_MODE: bool = UI_CONFIG.developer.mode_enabled
-        DEVELOPER_USERS: list = UI_CONFIG.developer.test_users
-        DEFAULT_TEST_USER: str = UI_CONFIG.developer.default_test_user
-        DEBUG_LOGGING: bool = UI_CONFIG.developer.debug_logging
-        MOCK_TRANSCRIPTION: bool = UI_CONFIG.developer.mock_transcription
+        # === Developer Configuration ===
+        DEVELOPER_MODE: bool = Field(
+            default=UI_CONFIG.developer.mode_enabled,
+            description="Enable developer mode with additional logging and test features"
+        )
+        DEVELOPER_USERS: list = Field(
+            default=UI_CONFIG.developer.test_users,
+            description="List of approved developer users for testing"
+        )
+        DEFAULT_TEST_USER: str = Field(
+            default=UI_CONFIG.developer.default_test_user,
+            description="Default user for testing when user detection fails"
+        )
+        DEBUG_LOGGING: bool = Field(
+            default=UI_CONFIG.developer.debug_logging,
+            description="Enable detailed debug logging for troubleshooting"
+        )
+        MOCK_TRANSCRIPTION: bool = Field(
+            default=UI_CONFIG.developer.mock_transcription,
+            description="Use mock transcription for testing without real audio processing"
+        )
         
-        # Transcription Settings - loaded from UI_CONFIG
-        TRANSCRIPTION_TIMEOUT: int = UI_CONFIG.session.timeout_seconds
-        CHUNK_INTERVAL: int = UI_CONFIG.session.chunk_interval_seconds
-        AUTO_SOAP_GENERATION: bool = UI_CONFIG.session.auto_soap_generation
+        # === Transcription Settings ===
+        TRANSCRIPTION_TIMEOUT: int = Field(
+            default=UI_CONFIG.session.timeout_seconds,
+            ge=60,
+            le=1800,
+            description="Maximum transcription session duration in seconds (1-30 minutes)"
+        )
+        CHUNK_INTERVAL: int = Field(
+            default=UI_CONFIG.session.chunk_interval_seconds,
+            ge=1,
+            le=10,
+            description="Audio chunk interval in seconds (1-10 seconds)"
+        )
+        AUTO_SOAP_GENERATION: bool = Field(
+            default=UI_CONFIG.session.auto_soap_generation,
+            description="Automatically generate SOAP notes from completed transcriptions"
+        )
         
-        # Medical Disclaimer - loaded from UI_CONFIG
-        MEDICAL_DISCLAIMER: str = UI_CONFIG.compliance.disclaimer_text
+        # === Medical Compliance ===
+        MEDICAL_DISCLAIMER: str = Field(
+            default=UI_CONFIG.compliance.disclaimer_text,
+            description="Medical disclaimer text shown to users"
+        )
+        SHOW_MEDICAL_DISCLAIMER: bool = Field(
+            default=UI_CONFIG.compliance.show_medical_disclaimer,
+            description="Display medical disclaimer to users"
+        )
+        PHI_PROTECTION_ENABLED: bool = Field(
+            default=UI_CONFIG.compliance.phi_protection_enabled,
+            description="Enable PHI (Protected Health Information) protection"
+        )
+        
+        # === User Experience ===
+        SHOW_REAL_TIME_TRANSCRIPTION: bool = Field(
+            default=UI_CONFIG.user_experience.show_real_time_transcription,
+            description="Show transcription results in real-time as they are processed"
+        )
+        SHOW_STATUS_UPDATES: bool = Field(
+            default=UI_CONFIG.user_experience.show_status_updates,
+            description="Show status updates during transcription sessions"
+        )
+        
+        # === Performance Settings ===
+        MAX_CONCURRENT_SESSIONS: int = Field(
+            default=UI_CONFIG.performance.max_concurrent_sessions,
+            ge=1,
+            le=20,
+            description="Maximum concurrent transcription sessions per user"
+        )
+        CONNECTION_RETRY_ATTEMPTS: int = Field(
+            default=UI_CONFIG.error_handling.connection_retry_attempts,
+            ge=1,
+            le=10,
+            description="Number of connection retry attempts on failure"
+        )
 
     def __init__(self):
         self.id = UI_CONFIG.action.id
@@ -59,6 +128,335 @@ class Action:
         self.logger = logging.getLogger(__name__)
         if self.valves.DEBUG_LOGGING:
             self.logger.setLevel(logging.DEBUG)
+    
+    def update_configuration(self, new_values: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update YAML configuration files with new values from Valves
+        This method is called when users change settings in the Open WebUI interface
+        """
+        try:
+            import yaml
+            from pathlib import Path
+            
+            config_path = Path('/home/intelluxe/services/user/healthcare-api/config/ui_config.yml')
+            
+            # Load current configuration
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config_data = yaml.safe_load(f)
+            
+            # Map valve fields to YAML structure
+            field_mappings = {
+                'HEALTHCARE_API_URL': ('api_integration', 'websocket_url'),
+                'HEALTHCARE_REST_URL': ('api_integration', 'rest_api_url'),
+                'DEVELOPER_MODE': ('developer', 'mode_enabled'),
+                'DEVELOPER_USERS': ('developer', 'test_users'),
+                'DEFAULT_TEST_USER': ('developer', 'default_test_user'),
+                'DEBUG_LOGGING': ('developer', 'debug_logging'),
+                'MOCK_TRANSCRIPTION': ('developer', 'mock_transcription'),
+                'TRANSCRIPTION_TIMEOUT': ('session', 'timeout_seconds'),
+                'CHUNK_INTERVAL': ('session', 'chunk_interval_seconds'),
+                'AUTO_SOAP_GENERATION': ('session', 'auto_soap_generation'),
+                'MEDICAL_DISCLAIMER': ('compliance', 'disclaimer_text'),
+                'SHOW_MEDICAL_DISCLAIMER': ('compliance', 'show_medical_disclaimer'),
+                'PHI_PROTECTION_ENABLED': ('compliance', 'phi_protection_enabled'),
+                'SHOW_REAL_TIME_TRANSCRIPTION': ('user_experience', 'show_real_time_transcription'),
+                'SHOW_STATUS_UPDATES': ('user_experience', 'show_status_updates'),
+                'MAX_CONCURRENT_SESSIONS': ('performance', 'max_concurrent_sessions'),
+                'CONNECTION_RETRY_ATTEMPTS': ('error_handling', 'connection_retry_attempts'),
+            }
+            
+            # Update configuration data
+            for valve_field, value in new_values.items():
+                if valve_field in field_mappings:
+                    section, key = field_mappings[valve_field]
+                    if section in config_data and isinstance(config_data[section], dict):
+                        config_data[section][key] = value
+                        self.logger.info(f"Updated {section}.{key} = {value}")
+            
+            # Create backup of current configuration
+            backup_path = config_path.with_suffix('.yml.backup')
+            with open(backup_path, 'w', encoding='utf-8') as f:
+                yaml.safe_dump(config_data, f, default_flow_style=False, sort_keys=False)
+            
+            # Write updated configuration
+            with open(config_path, 'w', encoding='utf-8') as f:
+                yaml.safe_dump(config_data, f, default_flow_style=False, sort_keys=False)
+            
+            # Reload configuration to validate changes
+            global UI_CONFIG
+            from config.ui_config_loader import load_ui_config
+            UI_CONFIG = load_ui_config()
+            
+            self.logger.info("Configuration updated successfully")
+            return {
+                "success": True,
+                "message": "Configuration updated successfully",
+                "updated_fields": list(new_values.keys()),
+                "backup_created": str(backup_path)
+            }
+            
+        except Exception as e:
+            error_msg = f"Failed to update configuration: {str(e)}"
+            self.logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "message": "Configuration update failed - check logs for details"
+            }
+    
+    def validate_configuration(self, values: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate configuration values before applying"""
+        errors = []
+        warnings = []
+        
+        # Validate URLs
+        if 'HEALTHCARE_API_URL' in values:
+            url = values['HEALTHCARE_API_URL']
+            if not (url.startswith('ws://') or url.startswith('wss://')):
+                errors.append("HEALTHCARE_API_URL must be a valid WebSocket URL (ws:// or wss://)")
+        
+        if 'HEALTHCARE_REST_URL' in values:
+            url = values['HEALTHCARE_REST_URL']
+            if not (url.startswith('http://') or url.startswith('https://')):
+                errors.append("HEALTHCARE_REST_URL must be a valid HTTP URL")
+        
+        # Validate timeouts
+        if 'TRANSCRIPTION_TIMEOUT' in values:
+            timeout = values['TRANSCRIPTION_TIMEOUT']
+            if timeout < 60:
+                errors.append("TRANSCRIPTION_TIMEOUT must be at least 60 seconds")
+            elif timeout > 1800:
+                errors.append("TRANSCRIPTION_TIMEOUT must not exceed 1800 seconds (30 minutes)")
+            elif timeout > 600:
+                warnings.append("TRANSCRIPTION_TIMEOUT over 10 minutes may impact user experience")
+        
+        # Validate user lists
+        if 'DEVELOPER_USERS' in values:
+            users = values['DEVELOPER_USERS']
+            if not isinstance(users, list) or len(users) == 0:
+                errors.append("DEVELOPER_USERS must be a non-empty list")
+            
+            if 'DEFAULT_TEST_USER' in values:
+                default_user = values['DEFAULT_TEST_USER']
+                if default_user not in users:
+                    warnings.append("DEFAULT_TEST_USER should be included in DEVELOPER_USERS list")
+        
+        return {
+            "valid": len(errors) == 0,
+            "errors": errors,
+            "warnings": warnings
+        }
+    
+    def rollback_configuration(self, backup_path: str = None) -> Dict[str, Any]:
+        """Rollback configuration to previous backup"""
+        try:
+            import yaml
+            from pathlib import Path
+            
+            config_path = Path('/home/intelluxe/services/user/healthcare-api/config/ui_config.yml')
+            
+            if backup_path:
+                backup_file = Path(backup_path)
+            else:
+                backup_file = config_path.with_suffix('.yml.backup')
+            
+            if not backup_file.exists():
+                return {
+                    "success": False,
+                    "error": "No backup file found",
+                    "message": "Cannot rollback - no backup available"
+                }
+            
+            # Restore from backup
+            with open(backup_file, 'r', encoding='utf-8') as f:
+                backup_data = yaml.safe_load(f)
+            
+            # Write restored configuration
+            with open(config_path, 'w', encoding='utf-8') as f:
+                yaml.safe_dump(backup_data, f, default_flow_style=False, sort_keys=False)
+            
+            # Reload configuration
+            global UI_CONFIG
+            from config.ui_config_loader import load_ui_config
+            UI_CONFIG = load_ui_config()
+            
+            self.logger.info(f"Configuration rolled back from {backup_file}")
+            return {
+                "success": True,
+                "message": f"Configuration restored from backup: {backup_file}",
+                "restored_from": str(backup_file)
+            }
+            
+        except Exception as e:
+            error_msg = f"Failed to rollback configuration: {str(e)}"
+            self.logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "message": "Configuration rollback failed"
+            }
+    
+    def create_configuration_snapshot(self) -> Dict[str, Any]:
+        """Create a timestamped configuration snapshot"""
+        try:
+            import yaml
+            from pathlib import Path
+            
+            config_path = Path('/home/intelluxe/services/user/healthcare-api/config/ui_config.yml')
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            snapshot_path = config_path.with_name(f'ui_config_snapshot_{timestamp}.yml')
+            
+            # Load current configuration
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config_data = yaml.safe_load(f)
+            
+            # Add snapshot metadata
+            config_data['_snapshot_metadata'] = {
+                'created_at': datetime.now().isoformat(),
+                'original_file': str(config_path),
+                'snapshot_type': 'manual'
+            }
+            
+            # Write snapshot
+            with open(snapshot_path, 'w', encoding='utf-8') as f:
+                yaml.safe_dump(config_data, f, default_flow_style=False, sort_keys=False)
+            
+            self.logger.info(f"Configuration snapshot created: {snapshot_path}")
+            return {
+                "success": True,
+                "message": f"Configuration snapshot created: {snapshot_path}",
+                "snapshot_path": str(snapshot_path),
+                "timestamp": timestamp
+            }
+            
+        except Exception as e:
+            error_msg = f"Failed to create configuration snapshot: {str(e)}"
+            self.logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "message": "Snapshot creation failed"
+            }
+    
+    def test_configuration(self, test_config: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Test configuration changes without applying them"""
+        try:
+            test_results = {
+                "connection_tests": [],
+                "validation_results": {},
+                "warnings": [],
+                "recommendations": []
+            }
+            
+            config_to_test = test_config or self.valves.dict()
+            
+            # Validate configuration
+            validation_result = self.validate_configuration(config_to_test)
+            test_results["validation_results"] = validation_result
+            
+            # Test WebSocket URL connectivity
+            if 'HEALTHCARE_API_URL' in config_to_test:
+                ws_url = config_to_test['HEALTHCARE_API_URL']
+                test_results["connection_tests"].append({
+                    "test": "websocket_connectivity",
+                    "url": ws_url,
+                    "status": "skipped",  # Would need async context for real test
+                    "message": f"WebSocket URL format: {ws_url}"
+                })
+            
+            # Test timeout settings
+            if 'TRANSCRIPTION_TIMEOUT' in config_to_test:
+                timeout = config_to_test['TRANSCRIPTION_TIMEOUT']
+                if timeout > 600:
+                    test_results["warnings"].append(
+                        f"Transcription timeout ({timeout}s) is quite long - may impact user experience"
+                    )
+                if timeout < 120:
+                    test_results["warnings"].append(
+                        f"Transcription timeout ({timeout}s) is short - may cut off longer sessions"
+                    )
+            
+            # Performance recommendations
+            if 'MAX_CONCURRENT_SESSIONS' in config_to_test:
+                max_sessions = config_to_test['MAX_CONCURRENT_SESSIONS']
+                if max_sessions > 10:
+                    test_results["recommendations"].append(
+                        "Consider system resources with high concurrent session limits"
+                    )
+            
+            # Developer mode checks
+            if config_to_test.get('DEVELOPER_MODE', False):
+                test_results["warnings"].append(
+                    "Developer mode enabled - disable in production for security"
+                )
+            
+            if config_to_test.get('DEBUG_LOGGING', False):
+                test_results["warnings"].append(
+                    "Debug logging enabled - may impact performance and create large log files"
+                )
+            
+            return {
+                "success": True,
+                "test_results": test_results,
+                "overall_status": "passed" if validation_result["valid"] else "failed",
+                "message": "Configuration testing completed"
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"Configuration testing failed: {str(e)}"
+            }
+    
+    def get_configuration_history(self) -> Dict[str, Any]:
+        """Get history of configuration changes"""
+        try:
+            import glob
+            from pathlib import Path
+            
+            config_dir = Path('/home/intelluxe/services/user/healthcare-api/config/')
+            
+            # Find all backup and snapshot files
+            backup_files = list(config_dir.glob('ui_config*.yml.backup'))
+            snapshot_files = list(config_dir.glob('ui_config_snapshot_*.yml'))
+            
+            history = {
+                "backups": [],
+                "snapshots": [],
+                "current_config": str(config_dir / 'ui_config.yml')
+            }
+            
+            # Process backup files
+            for backup_file in sorted(backup_files, key=lambda x: x.stat().st_mtime, reverse=True):
+                stat = backup_file.stat()
+                history["backups"].append({
+                    "file": str(backup_file),
+                    "created": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "size_bytes": stat.st_size
+                })
+            
+            # Process snapshot files  
+            for snapshot_file in sorted(snapshot_files, key=lambda x: x.stat().st_mtime, reverse=True):
+                stat = snapshot_file.stat()
+                history["snapshots"].append({
+                    "file": str(snapshot_file),
+                    "created": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "size_bytes": stat.st_size
+                })
+            
+            return {
+                "success": True,
+                "history": history,
+                "message": f"Found {len(backup_files)} backups and {len(snapshot_files)} snapshots"
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"Failed to get configuration history: {str(e)}"
+            }
 
     async def action(
         self, 

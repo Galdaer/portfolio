@@ -8,3 +8,5 @@ files:
   - medical_search_config.yaml
   - models.yml
   - orchestrator.yml
+  - transcription_config.yml
+  - ui_config.yml

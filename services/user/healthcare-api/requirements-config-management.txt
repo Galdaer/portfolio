@@ -1,0 +1,11 @@
+# Additional Requirements for Configuration Management
+# Install with: pip install -r requirements-config-management.txt
+
+# File system monitoring for hot-reload functionality
+watchdog>=3.0.0
+
+# YAML processing (may already be included in main requirements)
+PyYAML>=6.0
+
+# Pydantic for configuration validation (may already be included)
+pydantic>=2.0.0
