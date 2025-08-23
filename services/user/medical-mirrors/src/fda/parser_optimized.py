@@ -29,7 +29,7 @@ def parse_json_file_worker(json_file_path: str, dataset_type: str) -> tuple[str,
             records = parse_ndc_data_worker(data)
         elif dataset_type == "drugs_fda":
             records = parse_drugs_fda_data_worker(data)
-        elif dataset_type == "drug_labels":
+        elif dataset_type == "drug_labels" or dataset_type == "labels":
             records = parse_drug_labels_data_worker(data)
         elif dataset_type == "orange_book":
             # Orange Book is handled differently (CSV parsing)
@@ -373,8 +373,8 @@ class OptimizedFDAParser:
         try:
             import pandas as pd
             
-            # Read the Orange Book products file
-            df = pd.read_csv(csv_file_path, sep='\t', encoding='utf-8', low_memory=False)
+            # Read the Orange Book products file (uses ~ as delimiter)
+            df = pd.read_csv(csv_file_path, sep='~', encoding='utf-8', low_memory=False, on_bad_lines='skip')
             
             for _, row in df.iterrows():
                 drug = self._parse_orange_book_record(row)
@@ -394,16 +394,20 @@ class OptimizedFDAParser:
             # Extract fields (Orange Book has specific column names)
             ingredient = str(row.get("Ingredient", "")).strip()
             trade_name = str(row.get("Trade_Name", "")).strip()
-            applicant = str(row.get("Applicant", "")).strip()
+            applicant = str(row.get("Applicant_Full_Name", row.get("Applicant", ""))).strip()
             product_no = str(row.get("Product_No", "")).strip()
-            dosage_form = str(row.get("Form", "")).strip()
+            # DF;Route format like "AEROSOL, FOAM;RECTAL"
+            df_route = str(row.get("DF;Route", "")).strip()
+            dosage_form = df_route.split(';')[0] if ';' in df_route else df_route
+            route = df_route.split(';')[1] if ';' in df_route else ""
             strength = str(row.get("Strength", "")).strip()
+            approval_date = str(row.get("Approval_Date", "")).strip()
             
             if not ingredient:
                 return None
                 
             # Create search text
-            search_parts = [ingredient, trade_name, applicant, dosage_form, strength]
+            search_parts = [ingredient, trade_name, applicant, dosage_form, route, strength]
             search_text = " ".join([part for part in search_parts if part]).lower()
             
             return {
@@ -412,7 +416,7 @@ class OptimizedFDAParser:
                 "proprietary_name": trade_name,
                 "nonproprietary_name": ingredient,
                 "dosage_form_name": dosage_form,
-                "route_of_administration": "",
+                "route_of_administration": route,
                 "marketing_status": "Prescription",
                 "active_ingredients": ingredient,
                 "labeler_name": applicant,

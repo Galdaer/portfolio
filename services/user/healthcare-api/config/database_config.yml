@@ -1,0 +1,174 @@
+# Healthcare Database Configuration
+# Separates PHI/clinical data (private) from non-PHI operational data (public)
+#
+# MEDICAL DISCLAIMER: This configuration supports healthcare administrative
+# database operations. Proper security and PHI protection is mandatory.
+
+databases:
+  # Public database for non-PHI operational data
+  public:
+    name: intelluxe_public
+    host: ${PUBLIC_DB_HOST:-localhost}
+    port: ${PUBLIC_DB_PORT:-5432}
+    user: ${PUBLIC_DB_USER:-intelluxe_public}
+    password: ${PUBLIC_DB_PASSWORD}
+    ssl_mode: ${PUBLIC_DB_SSL_MODE:-require}
+    pool_size: 20
+    max_pool_size: 50
+    min_pool_size: 5
+    timeout: 30
+    description: "Non-PHI operational data including configurations, templates, analytics"
+    
+  # Private database for PHI and clinical data
+  private:
+    name: intelluxe_clinical
+    host: ${PRIVATE_DB_HOST:-localhost}
+    port: ${PRIVATE_DB_PORT:-5433}
+    user: ${PRIVATE_DB_USER:-intelluxe_clinical}
+    password: ${PRIVATE_DB_PASSWORD}
+    ssl_mode: ${PRIVATE_DB_SSL_MODE:-require}
+    encryption_at_rest: true
+    pool_size: 10
+    max_pool_size: 25
+    min_pool_size: 2
+    timeout: 30
+    audit_logging: true
+    connection_encryption: "TLS_1_3_MINIMUM"
+    description: "PHI and clinical data requiring HIPAA protection"
+
+security:
+  # Database access rules
+  phi_database: private
+  public_database: public
+  cross_db_joins: forbidden
+  audit_all_phi_access: true
+  max_connection_idle_time: 300  # 5 minutes
+  
+  # PHI protection settings
+  phi_access_requires_audit: true
+  phi_query_timeout: 60
+  failed_phi_access_alerts: true
+  
+  # Encryption requirements
+  private_db_encryption:
+    algorithm: "AES-256-GCM"
+    key_rotation_days: 90
+    backup_encryption: true
+    
+  # Audit configuration
+  audit:
+    log_all_queries: false
+    log_phi_queries: true
+    log_failed_access: true
+    retention_days: 2555  # 7 years for HIPAA
+    alert_on_suspicious_access: true
+
+# Connection pooling strategy
+connection_pools:
+  public:
+    strategy: "round_robin"
+    health_check_interval: 30
+    max_retries: 3
+    retry_delay: 1
+    
+  private:
+    strategy: "least_connections"
+    health_check_interval: 15
+    max_retries: 5
+    retry_delay: 2
+    connection_validation: strict
+    pre_ping: true
+
+# Environment-specific overrides
+environments:
+  development:
+    databases:
+      public:
+        ssl_mode: prefer
+        pool_size: 5
+      private:
+        ssl_mode: prefer
+        pool_size: 3
+        audit_logging: false
+        
+  testing:
+    databases:
+      public:
+        name: intelluxe_public_test
+        pool_size: 3
+      private:
+        name: intelluxe_clinical_test  
+        pool_size: 2
+        audit_logging: false
+        
+  production:
+    databases:
+      public:
+        ssl_mode: require
+        pool_size: 30
+      private:
+        ssl_mode: require
+        pool_size: 15
+        audit_logging: true
+        connection_encryption: "TLS_1_3_MINIMUM"
+        
+# Query routing rules
+routing:
+  # Tables that contain PHI (go to private database)
+  phi_tables:
+    - "appointments"
+    - "patient_scheduling_preferences" 
+    - "appointment_wait_times"
+    - "scheduling_clinical_notes"
+    - "patient_communications"
+    - "clinical_sessions"
+    - "transcription_records"
+    - "voice_intake_sessions"
+    
+  # Tables with non-PHI data (go to public database)
+  public_tables:
+    - "provider_schedules"
+    - "appointment_types"
+    - "appointment_slots"
+    - "scheduling_analytics"
+    - "scheduling_rules"
+    - "scheduling_integrations"
+    - "facility_resources"
+    - "system_configurations"
+    
+# Backup and recovery
+backup:
+  public:
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retention_days: 30
+    encryption: false
+    
+  private:
+    schedule: "0 1 * * *"  # Daily at 1 AM  
+    retention_days: 2555   # 7 years
+    encryption: true
+    encryption_key: ${BACKUP_ENCRYPTION_KEY}
+    verify_integrity: true
+    offsite_backup: true
+
+# Monitoring and alerting
+monitoring:
+  connection_pool_alerts:
+    high_usage_threshold: 80
+    connection_leak_threshold: 10
+    
+  performance_alerts:
+    slow_query_threshold_ms: 5000
+    connection_timeout_threshold: 30
+    
+  security_alerts:
+    failed_phi_access_count: 5
+    suspicious_access_patterns: true
+    unusual_query_patterns: true
+
+# Database migration settings
+migrations:
+  auto_migrate: false
+  backup_before_migration: true
+  rollback_on_failure: true
+  migration_timeout: 3600  # 1 hour
