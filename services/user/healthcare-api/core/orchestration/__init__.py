@@ -9,9 +9,24 @@ from .medical_workflow_state import (
     MedicalWorkflowStep,
 )
 
+from .workflow_orchestrator import (
+    WorkflowOrchestrator,
+    WorkflowType,
+    AgentSpecialization,
+    WorkflowStep,
+    WorkflowExecution,
+    workflow_orchestrator
+)
+
 __all__ = [
     "MedicalWorkflowState",
     "MedicalWorkflowStep",
     "MedicalWorkflowOrchestrator",
     "HealthcareMCPOrchestrator",
+    "WorkflowOrchestrator",
+    "WorkflowType", 
+    "AgentSpecialization",
+    "WorkflowStep",
+    "WorkflowExecution",
+    "workflow_orchestrator"
 ]
