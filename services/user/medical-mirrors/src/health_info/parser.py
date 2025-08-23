@@ -164,21 +164,21 @@ class HealthInfoParser:
             parsed = {
                 "fdc_id": fdc_id,
                 "description": description,
-                "scientific_name": raw_food.get("scientific_name", "").strip(),
-                "common_names": raw_food.get("common_names", "").strip(),
-                "food_category": raw_food.get("food_category", "").strip(),
+                "scientific_name": (raw_food.get("scientific_name") or "").strip(),
+                "common_names": (raw_food.get("common_names") or "").strip(),
+                "food_category": (raw_food.get("food_category") or "").strip(),
                 "nutrients": nutrients,
                 "nutrition_summary": self._create_nutrition_summary(nutrients),
-                "brand_owner": raw_food.get("brand_owner", "").strip(),
-                "ingredients": raw_food.get("ingredients", "").strip(),
+                "brand_owner": (raw_food.get("brand_owner") or "").strip(),
+                "ingredients": (raw_food.get("ingredients") or "").strip(),
                 "serving_size": raw_food.get("serving_size"),
-                "serving_size_unit": raw_food.get("serving_size_unit", "").strip(),
+                "serving_size_unit": (raw_food.get("serving_size_unit") or "").strip(),
                 "allergens": self._detect_allergens(raw_food),
                 "dietary_flags": self._determine_dietary_flags(raw_food),
                 "nutritional_density": self._calculate_nutritional_density(nutrients),
                 "source": raw_food.get("source", "usda_fooddata"),
                 "last_updated": raw_food.get("last_updated", datetime.now().isoformat()),
-                "search_text": raw_food.get("search_text", "").lower(),
+                "search_text": (raw_food.get("search_text") or "").lower(),
                 "item_type": "food_item"
             }
             

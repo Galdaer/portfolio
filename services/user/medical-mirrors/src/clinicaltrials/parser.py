@@ -6,6 +6,7 @@ Parses ClinicalTrials.gov JSON files and extracts study information
 import json
 import logging
 from typing import Any
+from validation_utils import validate_record, DataValidator
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +147,8 @@ class ClinicalTrialsParser:
             # Extract enrollment
             enrollment = self.extract_enrollment(study_data)
 
-            return {
+            # Create raw record
+            raw_record = {
                 "nct_id": nct_id,
                 "title": title or "",
                 "status": status or "",
@@ -160,6 +162,18 @@ class ClinicalTrialsParser:
                 "enrollment": enrollment,
                 "study_type": study_type or "",
             }
+            
+            # Validate record before returning
+            try:
+                validated_record = validate_record(
+                    raw_record, 
+                    'clinical_trials', 
+                    required_fields=['nct_id']  # NCT ID is required
+                )
+                return validated_record
+            except Exception as e:
+                logger.warning(f"Validation failed for study {nct_id}: {e}")
+                return None
 
         except Exception as e:
             logger.exception(f"Failed to parse study: {e}")

@@ -4,6 +4,7 @@ psycopg2-binary==2.9.9
 sqlalchemy==2.0.23
 alembic==1.12.1
 httpx==0.25.2
+aiohttp==3.9.1
 lxml==4.9.3
 beautifulsoup4==4.12.2
 pandas==2.1.3

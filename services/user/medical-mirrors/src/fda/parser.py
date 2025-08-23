@@ -7,6 +7,7 @@ import json
 import logging
 
 import pandas as pd
+from validation_utils import validate_record, DataValidator
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class FDAParser:
             return []
 
     def parse_ndc_record(self, ndc_data: dict) -> dict | None:
-        """Parse a single NDC record"""
+        """Parse a single NDC record with unified schema"""
         try:
             # Extract NDC code
             ndc = ndc_data.get("product_ndc")
@@ -61,17 +62,25 @@ class FDAParser:
             dosage_form = ndc_data.get("dosage_form", "")
             route = ndc_data.get("route", "")
 
-            # Extract active ingredients
+            # Extract active ingredients with strength
             ingredients = []
             active_ingredients = ndc_data.get("active_ingredients", [])
+            strength_parts = []
+            
             for ingredient in active_ingredients:
                 if isinstance(ingredient, dict):
                     name = ingredient.get("name")
+                    strength = ingredient.get("strength")
                     if name:
                         ingredients.append(name)
+                        if strength:
+                            strength_parts.append(f"{name} {strength}")
 
             # Determine primary name
             name = brand_name or generic_name or "Unknown"
+            
+            # Create strength string
+            strength = "; ".join(strength_parts) if strength_parts else ""
 
             return {
                 "ndc": ndc,
@@ -79,12 +88,23 @@ class FDAParser:
                 "generic_name": generic_name,
                 "brand_name": brand_name,
                 "manufacturer": manufacturer,
+                "applicant": "",  # Not in NDC data
                 "ingredients": ingredients,
+                "strength": strength,
                 "dosage_form": dosage_form,
                 "route": route,
+                "application_number": "",  # Not in NDC data
+                "product_number": "",  # Not in NDC data
                 "approval_date": "",  # Not in NDC data
                 "orange_book_code": "",  # Not in NDC data
+                "reference_listed_drug": "",  # Not in NDC data
                 "therapeutic_class": "",  # Not in NDC data
+                "pharmacologic_class": "",  # Not in NDC data
+                "data_sources": ["ndc"],
+                # Merge keys for data integration
+                "_merge_generic_name": generic_name.lower().strip() if generic_name else "",
+                "_merge_brand_name": brand_name.lower().strip() if brand_name else "",
+                "_merge_manufacturer": manufacturer.lower().strip() if manufacturer else "",
             }
 
         except Exception as e:
@@ -121,7 +141,7 @@ class FDAParser:
             return []
 
     def parse_drugs_fda_record(self, drugs_fda_data: dict) -> dict | None:
-        """Parse a single Drugs@FDA record"""
+        """Parse a single Drugs@FDA record with unified schema"""
         try:
             # Extract application number (use as identifier)
             app_number = drugs_fda_data.get("application_number")
@@ -129,22 +149,34 @@ class FDAParser:
                 return None
 
             # Extract drug information
-            brand_name = (
-                drugs_fda_data.get("openfda", {}).get("brand_name", [""])[0]
-                if drugs_fda_data.get("openfda", {}).get("brand_name")
-                else ""
+            openfda = drugs_fda_data.get("openfda", {})
+            brand_name = openfda.get("brand_name", [""])[0] if openfda.get("brand_name") else ""
+            generic_name = openfda.get("generic_name", [""])[0] if openfda.get("generic_name") else ""
+            
+            # Get sponsor/applicant information
+            sponsor = drugs_fda_data.get("sponsor_name", "")
+            
+            # Extract manufacturer from openfda if available, otherwise use sponsor
+            manufacturer = (
+                openfda.get("manufacturer_name", [""])[0] if openfda.get("manufacturer_name") 
+                else sponsor
             )
-            generic_name = (
-                drugs_fda_data.get("openfda", {}).get("generic_name", [""])[0]
-                if drugs_fda_data.get("openfda", {}).get("generic_name")
-                else ""
-            )
-            manufacturer = drugs_fda_data.get("sponsor_name", "")
 
             # Extract active ingredients
-            ingredients = []
-            if drugs_fda_data.get("openfda", {}).get("substance_name"):
-                ingredients = drugs_fda_data["openfda"]["substance_name"]
+            ingredients = openfda.get("substance_name", []) if openfda.get("substance_name") else []
+
+            # Extract therapeutic and pharmacologic class
+            therapeutic_class = ""
+            pharmacologic_class = ""
+            
+            if openfda.get("pharm_class_epc"):
+                pharmacologic_class = "; ".join(openfda["pharm_class_epc"])
+            elif openfda.get("pharm_class_moa"):
+                pharmacologic_class = "; ".join(openfda["pharm_class_moa"])
+            
+            # Extract route and dosage form
+            route = "; ".join(openfda.get("route", [])) if openfda.get("route") else ""
+            dosage_form = "; ".join(openfda.get("dosage_form", [])) if openfda.get("dosage_form") else ""
 
             # Extract approval date
             approval_date = ""
@@ -152,9 +184,9 @@ class FDAParser:
             if products and isinstance(products[0], dict):
                 approval_date = products[0].get("approval_date", "")
 
-            # Use application number as NDC (not ideal but needed for structure)
-            ndc = app_number
-            name = brand_name or generic_name or "Unknown"
+            # Create synthetic NDC using application number
+            ndc = f"FDA_{app_number}"
+            name = brand_name or generic_name or f"Application {app_number}"
 
             return {
                 "ndc": ndc,
@@ -162,12 +194,25 @@ class FDAParser:
                 "generic_name": generic_name,
                 "brand_name": brand_name,
                 "manufacturer": manufacturer,
+                "applicant": sponsor,
                 "ingredients": ingredients,
-                "dosage_form": "",  # Not in this dataset
-                "route": "",  # Not in this dataset
+                "strength": "",  # Not available in Drugs@FDA data
+                "dosage_form": dosage_form,
+                "route": route,
+                "application_number": app_number,
+                "product_number": "",  # Not available in this format
                 "approval_date": approval_date,
-                "orange_book_code": "",  # Not in this dataset
-                "therapeutic_class": "",  # Not in this dataset
+                "orange_book_code": "",  # Not in Drugs@FDA data
+                "reference_listed_drug": "",  # Not in Drugs@FDA data
+                "therapeutic_class": therapeutic_class,
+                "pharmacologic_class": pharmacologic_class,
+                "data_sources": ["drugs_fda"],
+                # Merge keys for data integration
+                "_merge_generic_name": generic_name.lower().strip() if generic_name else "",
+                "_merge_brand_name": brand_name.lower().strip() if brand_name else "",
+                "_merge_manufacturer": manufacturer.lower().strip() if manufacturer else "",
+                "_merge_applicant": sponsor.lower().strip() if sponsor else "",
+                "_merge_app_number": app_number,
             }
 
         except Exception as e:
@@ -233,20 +278,45 @@ class FDAParser:
             # Use full applicant name if available, otherwise short name
             manufacturer = applicant_full_name or applicant
 
-            return {
+            # Create raw record
+            raw_record = {
                 "ndc": ndc,
                 "name": name,
                 "generic_name": ingredient,
                 "brand_name": trade_name,
                 "manufacturer": manufacturer,
+                "applicant": applicant_full_name or applicant,
                 "ingredients": [ingredient] if ingredient else [],
+                "strength": strength,
                 "dosage_form": dosage_form.strip(),
                 "route": route.strip(),
+                "application_number": appl_no,
+                "product_number": orange_book_data.get("Product_No", ""),
                 "approval_date": approval_date,
                 "orange_book_code": te_code,
+                "reference_listed_drug": orange_book_data.get("RLD", ""),
                 "therapeutic_class": "",  # Not in Orange Book data
-                "strength": strength,  # Include strength information
+                "pharmacologic_class": "",  # Not in Orange Book data
+                "data_sources": ["orange_book"],
+                # Merge keys for data integration
+                "_merge_generic_name": ingredient.lower().strip() if ingredient else "",
+                "_merge_brand_name": trade_name.lower().strip() if trade_name else "",
+                "_merge_manufacturer": manufacturer.lower().strip() if manufacturer else "",
+                "_merge_applicant": (applicant_full_name or applicant).lower().strip() if (applicant_full_name or applicant) else "",
+                "_merge_app_number": appl_no,
             }
+            
+            # Validate record before returning
+            try:
+                validated_record = validate_record(
+                    raw_record, 
+                    'fda_drugs', 
+                    required_fields=['ndc', 'name']  # NDC and name are required
+                )
+                return validated_record
+            except Exception as e:
+                logger.warning(f"Validation failed for Orange Book drug {ndc}: {e}")
+                return None
 
         except Exception as e:
             logger.exception(f"Failed to parse Orange Book record: {e}")
@@ -336,3 +406,158 @@ class FDAParser:
         except Exception as e:
             logger.exception(f"Failed to parse drug label record: {e}")
             return None
+
+    def merge_drug_records(self, records: list[dict]) -> dict:
+        """
+        Merge multiple drug records from different sources into a unified record
+        Priority order: NDC Directory > Orange Book > Drugs@FDA > Labels
+        """
+        if not records:
+            return {}
+            
+        # Sort by data source priority
+        source_priority = {"ndc": 1, "orange_book": 2, "drugs_fda": 3, "labels": 4}
+        records = sorted(records, key=lambda r: min(source_priority.get(src, 5) for src in r.get("data_sources", [])))
+        
+        # Start with the highest priority record
+        merged = records[0].copy()
+        
+        # Remove merge keys from final result
+        merge_keys = [k for k in merged.keys() if k.startswith("_merge_")]
+        for key in merge_keys:
+            merged.pop(key, None)
+        
+        # Combine data_sources from all records
+        all_sources = set()
+        for record in records:
+            all_sources.update(record.get("data_sources", []))
+        merged["data_sources"] = list(all_sources)
+        
+        # Merge fields from other records, preferring non-empty values
+        for record in records[1:]:
+            for key, value in record.items():
+                if key.startswith("_merge_") or key == "data_sources":
+                    continue
+                    
+                # Skip if current value is already good
+                current_value = merged.get(key, "")
+                if current_value and current_value not in ["", "Unknown", []]:
+                    continue
+                
+                # Use new value if it's better
+                if value and value not in ["", "Unknown", []]:
+                    if key == "ingredients":
+                        # Merge ingredient lists
+                        current_ingredients = set(merged.get("ingredients", []))
+                        new_ingredients = set(value) if isinstance(value, list) else {value}
+                        merged["ingredients"] = list(current_ingredients.union(new_ingredients))
+                    elif key in ["strength", "therapeutic_class", "pharmacologic_class"]:
+                        # Combine text fields with semicolon separator
+                        if current_value and current_value != value:
+                            merged[key] = f"{current_value}; {value}"
+                        else:
+                            merged[key] = value
+                    else:
+                        # Replace with better value
+                        merged[key] = value
+        
+        # Prefer real NDC over synthetic ones
+        real_ndc = None
+        for record in records:
+            ndc = record.get("ndc", "")
+            if ndc and not ndc.startswith(("OB_", "FDA_")):
+                real_ndc = ndc
+                break
+        
+        if real_ndc:
+            merged["ndc"] = real_ndc
+        
+        # Update name if we have better info
+        generic = merged.get("generic_name", "")
+        brand = merged.get("brand_name", "")
+        current_name = merged.get("name", "")
+        
+        if brand and brand != current_name:
+            merged["name"] = brand
+        elif generic and generic != current_name and current_name in ["Unknown", ""]:
+            merged["name"] = generic
+            
+        return merged
+
+    def find_matching_records(self, drug_records: list[dict]) -> dict[str, list[dict]]:
+        """
+        Group drug records that represent the same drug from different sources
+        Returns dict mapping representative keys to lists of matching records
+        """
+        groups = {}
+        
+        for record in drug_records:
+            # Generate matching keys
+            merge_keys = []
+            
+            # Primary key: generic + brand name combination
+            generic = record.get("_merge_generic_name", "")
+            brand = record.get("_merge_brand_name", "")
+            if generic and brand:
+                merge_keys.append(f"generic_brand:{generic}#{brand}")
+            elif generic:
+                merge_keys.append(f"generic:{generic}")
+            elif brand:
+                merge_keys.append(f"brand:{brand}")
+            
+            # Secondary key: application number
+            app_num = record.get("_merge_app_number", "")
+            if app_num:
+                merge_keys.append(f"app:{app_num}")
+            
+            # Tertiary key: manufacturer + generic name
+            manufacturer = record.get("_merge_manufacturer", "")
+            applicant = record.get("_merge_applicant", "")
+            if (manufacturer or applicant) and generic:
+                company = manufacturer or applicant
+                merge_keys.append(f"company_generic:{company}#{generic}")
+            
+            # Add record to all matching groups
+            for key in merge_keys:
+                if key not in groups:
+                    groups[key] = []
+                groups[key].append(record)
+        
+        # Merge overlapping groups (records that match on multiple keys)
+        final_groups = {}
+        processed_record_ids = set()
+        
+        for key, records in groups.items():
+            if any(id(r) in processed_record_ids for r in records):
+                continue
+                
+            # Collect all record IDs that should be grouped together
+            all_record_ids = set(id(r) for r in records)
+            changed = True
+            
+            while changed:
+                changed = False
+                for other_key, other_records in groups.items():
+                    if other_key == key:
+                        continue
+                    # If any record overlaps, merge the groups
+                    if any(id(r) in all_record_ids for r in other_records):
+                        all_record_ids.update(id(r) for r in other_records)
+                        changed = True
+            
+            # Create final group from record IDs
+            record_list = [r for r in drug_records if id(r) in all_record_ids]
+            for record in record_list:
+                processed_record_ids.add(id(record))
+            
+            # Use the most descriptive key
+            best_key = key
+            for record in record_list:
+                ndc = record.get("ndc", "")
+                if ndc and not ndc.startswith(("OB_", "FDA_")):
+                    best_key = f"ndc:{ndc}"
+                    break
+            
+            final_groups[best_key] = record_list
+        
+        return final_groups

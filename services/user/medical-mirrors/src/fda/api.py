@@ -7,12 +7,19 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from fda.downloader import FDADownloader
-from fda.parser import FDAParser
+from .downloader import FDADownloader
+from .parser import FDAParser
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from database import FDADrug, UpdateLog
+from error_handling import (
+    ErrorCollector, 
+    retry_database_operation, 
+    safe_parse,
+    DatabaseError,
+    ParsingError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +74,10 @@ class FDAAPI:
 
             if params.get("search_term"):
                 search_query = text(f"""
-                    SELECT ndc, name, generic_name, brand_name, manufacturer, ingredients,
-                           dosage_form, route, approval_date, orange_book_code, therapeutic_class,
+                    SELECT ndc, name, generic_name, brand_name, manufacturer, applicant, 
+                           ingredients, strength, dosage_form, route, application_number,
+                           product_number, approval_date, orange_book_code, reference_listed_drug,
+                           therapeutic_class, pharmacologic_class, data_sources,
                            ts_rank(search_vector, plainto_tsquery(:search_term)) as rank
                     FROM fda_drugs
                     WHERE {where_clause}
@@ -77,8 +86,10 @@ class FDAAPI:
                 """)
             else:
                 search_query = text(f"""
-                    SELECT ndc, name, generic_name, brand_name, manufacturer, ingredients,
-                           dosage_form, route, approval_date, orange_book_code, therapeutic_class,
+                    SELECT ndc, name, generic_name, brand_name, manufacturer, applicant,
+                           ingredients, strength, dosage_form, route, application_number,
+                           product_number, approval_date, orange_book_code, reference_listed_drug,
+                           therapeutic_class, pharmacologic_class, data_sources,
                            0 as rank
                     FROM fda_drugs
                     WHERE {where_clause}
@@ -96,12 +107,19 @@ class FDAAPI:
                     "genericName": row.generic_name,
                     "brandName": row.brand_name,
                     "manufacturer": row.manufacturer,
+                    "applicant": row.applicant,
                     "ingredients": row.ingredients or [],
+                    "strength": row.strength,
                     "dosageForm": row.dosage_form,
                     "route": row.route,
+                    "applicationNumber": row.application_number,
+                    "productNumber": row.product_number,
                     "approvalDate": row.approval_date,
                     "orangeBookCode": row.orange_book_code,
+                    "referenceListedDrug": row.reference_listed_drug,
                     "therapeuticClass": row.therapeutic_class,
+                    "pharmacologicClass": row.pharmacologic_class,
+                    "dataSources": row.data_sources or [],
                 }
                 drugs.append(drug)
 
@@ -128,12 +146,19 @@ class FDAAPI:
                 "genericName": drug.generic_name,
                 "brandName": drug.brand_name,
                 "manufacturer": drug.manufacturer,
+                "applicant": drug.applicant,
                 "ingredients": drug.ingredients or [],
+                "strength": drug.strength,
                 "dosageForm": drug.dosage_form,
                 "route": drug.route,
+                "applicationNumber": drug.application_number,
+                "productNumber": drug.product_number,
                 "approvalDate": drug.approval_date,
                 "orangeBookCode": drug.orange_book_code,
+                "referenceListedDrug": drug.reference_listed_drug,
                 "therapeuticClass": drug.therapeutic_class,
+                "pharmacologicClass": drug.pharmacologic_class,
+                "dataSources": drug.data_sources or [],
             }
 
         finally:
@@ -255,7 +280,7 @@ class FDAAPI:
                     if quick_test_limit:
                         remaining = quick_test_limit - processed_count
                         drugs = drugs[:remaining]
-                    stored = await self.store_drugs(drugs, db)
+                    stored = await self.store_drugs_with_merging(drugs, db)
                     processed_count += stored
 
                 elif dataset_name == "drugs_fda" and file.endswith(".json"):
@@ -263,7 +288,7 @@ class FDAAPI:
                     if quick_test_limit:
                         remaining = quick_test_limit - processed_count
                         drugs = drugs[:remaining]
-                    stored = await self.store_drugs(drugs, db)
+                    stored = await self.store_drugs_with_merging(drugs, db)
                     processed_count += stored
 
                 elif dataset_name == "orange_book" and file.endswith((".csv", ".txt")):
@@ -271,7 +296,7 @@ class FDAAPI:
                     if quick_test_limit:
                         remaining = quick_test_limit - processed_count
                         drugs = drugs[:remaining]
-                    stored = await self.store_drugs(drugs, db)
+                    stored = await self.store_drugs_with_merging(drugs, db)
                     processed_count += stored
 
                 elif dataset_name == "labels" and file.endswith(".json"):
@@ -279,7 +304,7 @@ class FDAAPI:
                     if quick_test_limit:
                         remaining = quick_test_limit - processed_count
                         drugs = drugs[:remaining]
-                    stored = await self.store_drugs(drugs, db)
+                    stored = await self.store_drugs_with_merging(drugs, db)
                     processed_count += stored
 
             logger.info(f"Processed {processed_count} drugs from {dataset_name}")
@@ -292,6 +317,7 @@ class FDAAPI:
     async def store_drugs(self, drugs: list[dict], db: Session) -> int:
         """Store drugs in database using proper UPSERT to handle duplicates"""
         stored_count = 0
+        error_collector = ErrorCollector("FDA Drug Storage")
 
         for drug_data in drugs:
             try:
@@ -348,22 +374,178 @@ class FDAAPI:
                     logger.info(f"Stored batch: {stored_count} drugs")
 
             except Exception as e:
-                logger.exception(f"Failed to store drug {drug_data.get('ndc', 'unknown')}: {e}")
+                ndc = drug_data.get('ndc', 'unknown')
+                error_collector.record_error(e, record_id=ndc, context="storing drug")
                 db.rollback()
                 # Continue processing other drugs instead of failing completely
 
         # Final commit
         try:
             db.commit()
+            error_collector.record_success()
             logger.info(f"Successfully stored {stored_count} FDA drugs")
+        except Exception as e:
+            error_collector.record_error(e, context="final commit")
+            logger.exception(f"Final commit failed: {e}")
+            db.rollback()
+
+        # Log error summary
+        error_collector.log_summary(logger)
+
+        # Update search vectors
+        await self.update_search_vectors(db)
+
+        return stored_count
+
+    async def store_drugs_with_merging(self, drugs: list[dict], db: Session) -> int:
+        """Store drug data in database with intelligent merging from multiple sources"""
+        if not drugs:
+            return 0
+            
+        # Group drugs by matching records for merging
+        grouped_drugs = self.parser.find_matching_records(drugs)
+        stored_count = 0
+        
+        logger.info(f"Merging {len(drugs)} records into {len(grouped_drugs)} unified drug entries")
+
+        for group_key, drug_group in grouped_drugs.items():
+            try:
+                # Merge multiple records into one
+                merged_drug = self.parser.merge_drug_records(drug_group)
+                
+                if not merged_drug.get("ndc"):
+                    logger.warning(f"Skipping drug group without NDC: {group_key}")
+                    continue
+
+                # Use PostgreSQL UPSERT with enhanced fields
+                await self.upsert_enhanced_drug(merged_drug, db)
+                stored_count += 1
+
+                if stored_count % 500 == 0:
+                    logger.info(f"Processed {stored_count} merged drugs...")
+                    db.commit()
+
+            except Exception as e:
+                logger.warning(f"Failed to store drug group {group_key}: {e}")
+                continue
+
+        # Final commit
+        try:
+            db.commit()
+            logger.info(f"Successfully stored {stored_count} merged drug records")
         except Exception as e:
             logger.exception(f"Final commit failed: {e}")
             db.rollback()
 
         # Update search vectors
         await self.update_search_vectors(db)
-
         return stored_count
+
+    async def upsert_enhanced_drug(self, drug_data: dict, db: Session):
+        """Insert or update a drug record using PostgreSQL UPSERT with all enhanced fields"""
+        from sqlalchemy.dialects.postgresql import insert
+        
+        ndc = drug_data.get("ndc", "").strip()
+        if not ndc:
+            raise ValueError("NDC is required for drug upsert")
+
+        # Prepare data for insertion with all new fields
+        insert_data = {
+            "ndc": ndc,
+            "name": drug_data.get("name", ""),
+            "generic_name": drug_data.get("generic_name", ""),
+            "brand_name": drug_data.get("brand_name", ""),
+            "manufacturer": drug_data.get("manufacturer", ""),
+            "applicant": drug_data.get("applicant", ""),
+            "ingredients": drug_data.get("ingredients", []),
+            "strength": drug_data.get("strength", ""),
+            "dosage_form": drug_data.get("dosage_form", ""),
+            "route": drug_data.get("route", ""),
+            "application_number": drug_data.get("application_number", ""),
+            "product_number": drug_data.get("product_number", ""),
+            "approval_date": drug_data.get("approval_date", ""),
+            "orange_book_code": drug_data.get("orange_book_code", ""),
+            "reference_listed_drug": drug_data.get("reference_listed_drug", ""),
+            "therapeutic_class": drug_data.get("therapeutic_class", ""),
+            "pharmacologic_class": drug_data.get("pharmacologic_class", ""),
+            "data_sources": drug_data.get("data_sources", []),
+            "updated_at": datetime.utcnow(),
+        }
+
+        # Create intelligent UPSERT statement that merges data
+        stmt = insert(FDADrug).values(insert_data)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["ndc"],
+            set_={
+                # Always update basic fields
+                "name": stmt.excluded.name,
+                "updated_at": stmt.excluded.updated_at,
+                
+                # Conditionally update fields - prefer non-empty values
+                "generic_name": func.coalesce(
+                    func.nullif(stmt.excluded.generic_name, ''), 
+                    FDADrug.generic_name
+                ),
+                "brand_name": func.coalesce(
+                    func.nullif(stmt.excluded.brand_name, ''), 
+                    FDADrug.brand_name
+                ),
+                "manufacturer": func.coalesce(
+                    func.nullif(stmt.excluded.manufacturer, ''), 
+                    FDADrug.manufacturer
+                ),
+                "applicant": func.coalesce(
+                    func.nullif(stmt.excluded.applicant, ''), 
+                    FDADrug.applicant
+                ),
+                "strength": func.coalesce(
+                    func.nullif(stmt.excluded.strength, ''), 
+                    FDADrug.strength
+                ),
+                "dosage_form": func.coalesce(
+                    func.nullif(stmt.excluded.dosage_form, ''), 
+                    FDADrug.dosage_form
+                ),
+                "route": func.coalesce(
+                    func.nullif(stmt.excluded.route, ''), 
+                    FDADrug.route
+                ),
+                "application_number": func.coalesce(
+                    func.nullif(stmt.excluded.application_number, ''), 
+                    FDADrug.application_number
+                ),
+                "product_number": func.coalesce(
+                    func.nullif(stmt.excluded.product_number, ''), 
+                    FDADrug.product_number
+                ),
+                "approval_date": func.coalesce(
+                    func.nullif(stmt.excluded.approval_date, ''), 
+                    FDADrug.approval_date
+                ),
+                "orange_book_code": func.coalesce(
+                    func.nullif(stmt.excluded.orange_book_code, ''), 
+                    FDADrug.orange_book_code
+                ),
+                "reference_listed_drug": func.coalesce(
+                    func.nullif(stmt.excluded.reference_listed_drug, ''), 
+                    FDADrug.reference_listed_drug
+                ),
+                "therapeutic_class": func.coalesce(
+                    func.nullif(stmt.excluded.therapeutic_class, ''), 
+                    FDADrug.therapeutic_class
+                ),
+                "pharmacologic_class": func.coalesce(
+                    func.nullif(stmt.excluded.pharmacologic_class, ''), 
+                    FDADrug.pharmacologic_class
+                ),
+                
+                # For arrays, combine unique values
+                "ingredients": stmt.excluded.ingredients,
+                "data_sources": stmt.excluded.data_sources,
+            },
+        )
+
+        db.execute(stmt)
 
     async def update_search_vectors(self, db: Session) -> None:
         """Update full-text search vectors"""

@@ -10,7 +10,7 @@ from fastapi import HTTPException, Query
 from sqlalchemy import and_, desc, func, or_, text
 from sqlalchemy.orm import Session
 
-from ..database import get_db_session
+from database import get_db_session
 
 logger = logging.getLogger(__name__)
 

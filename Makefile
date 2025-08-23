@@ -55,8 +55,17 @@
 	   medical-mirrors-update-pubmed \
 	   medical-mirrors-update-trials \
 	   medical-mirrors-update-fda \
+	   medical-mirrors-update-icd10 \
+	   medical-mirrors-update-billing \
+	   medical-mirrors-update-health \
 	   medical-mirrors-progress \
 	   medical-mirrors-quick-test \
+	   medical-mirrors-test-pubmed \
+	   medical-mirrors-test-trials \
+	   medical-mirrors-test-fda \
+	   medical-mirrors-test-icd10 \
+	   medical-mirrors-test-billing \
+	   medical-mirrors-test-health \
 	   medical-mirrors-validate-downloads \
 	   medical-mirrors-debug-ncbi \
 	   medical-mirrors-clean-data \
@@ -643,31 +652,41 @@ medical-mirrors-health:
 	fi
 
 medical-mirrors-update:
-	@echo "🔄  Updating all Medical Mirrors databases"
-	@echo "   ⚠️  WARNING: This process will take HOURS and may hit rate limits!"
+	@echo "🔄  Updating ALL Medical Mirrors databases (6 data sources)"
+	@echo "   ⚠️  WARNING: This process will take MANY HOURS and may hit rate limits!"
+	@echo "   📊 Data sources: PubMed, ClinicalTrials, FDA, ICD-10, Billing Codes, Health Info"
 	@echo "   📊 Monitor progress: make medical-mirrors-progress"
 	@echo "   🛑 To stop: make medical-mirrors-stop"
 	@echo ""
 	@echo "   🔍 Testing service status first..."
 	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
 		echo "   ✅ Service responding"; \
-		echo "   🚀 Starting async update process..."; \
+		echo "   🚀 Starting async update process for all 6 data sources..."; \
 		curl -X POST http://localhost:8081/update/pubmed -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
 		echo "   📚 PubMed update started in background"; \
 		sleep 2; \
 		curl -X POST http://localhost:8081/update/trials -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
-		echo "   🧪 Trials update started in background"; \
+		echo "   🧪 ClinicalTrials update started in background"; \
 		sleep 2; \
 		curl -X POST http://localhost:8081/update/fda -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
 		echo "   💊 FDA update started in background"; \
-		echo "   ✅ All update requests sent asynchronously"; \
+		sleep 2; \
+		curl -X POST http://localhost:8081/update/icd10 -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
+		echo "   🏥 ICD-10 codes update started in background"; \
+		sleep 2; \
+		curl -X POST http://localhost:8081/update/billing -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
+		echo "   🏦 Billing codes update started in background"; \
+		sleep 2; \
+		curl -X POST http://localhost:8081/update/health-info -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
+		echo "   📋 Health info update started in background"; \
+		echo "   ✅ All 6 update requests sent asynchronously"; \
 		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
 		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
 	else \
 		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
 		exit 1; \
 	fi
-	@echo "✅ Update processes started - use 'make medical-mirrors-progress' to monitor" 
+	@echo "✅ All 6 data source update processes started - use 'make medical-mirrors-progress' to monitor" 
 
 medical-mirrors-update-pubmed:
 	@echo "📚  Updating PubMed database"
@@ -726,6 +745,60 @@ medical-mirrors-update-fda:
 		exit 1; \
 	fi
 	@echo "✅ FDA update started - monitor with 'make medical-mirrors-progress'"
+medical-mirrors-update-icd10:
+	@echo "🏥  Updating ICD-10 diagnostic codes"
+	@echo "   ⚠️  WARNING: ICD-10 database is comprehensive - this will take 30-60+ MINUTES!"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🏥 Starting async ICD-10 update..."; \
+		curl -X POST http://localhost:8081/update/icd10 -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
+		echo "   ✅ ICD-10 update started in background"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ ICD-10 update started - monitor with 'make medical-mirrors-progress'"
+medical-mirrors-update-billing:
+	@echo "🏦  Updating billing codes (CPT/HCPCS)"
+	@echo "   ⚠️  WARNING: Billing codes database is comprehensive - this will take 30-60+ MINUTES!"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🏦 Starting async billing codes update..."; \
+		curl -X POST http://localhost:8081/update/billing -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
+		echo "   ✅ Billing codes update started in background"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Billing codes update started - monitor with 'make medical-mirrors-progress'"
+medical-mirrors-update-health:
+	@echo "📋  Updating health information (topics, exercises, nutrition)"
+	@echo "   ⚠️  WARNING: Health info database is comprehensive - this will take 1-2+ HOURS!"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   📋 Starting async health info update..."; \
+		curl -X POST http://localhost:8081/update/health-info -H "Content-Type: application/json" --max-time 10 >/dev/null 2>&1 & \
+		echo "   ✅ Health info update started in background"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Health info update started - monitor with 'make medical-mirrors-progress'"
 
 medical-mirrors-progress:
 	@echo "📊  Medical Mirrors Update Progress"
@@ -744,10 +817,83 @@ medical-mirrors-progress:
 		sleep 10; \
 	done
 
+# Individual test commands for each data source
+medical-mirrors-test-pubmed:
+	@echo "📚  Testing PubMed update (3 files only)"
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   📚 Testing PubMed updates (3 files only)..."; \
+		curl -X POST "http://localhost:8081/update/pubmed?quick_test=true&max_files=3" -H "Content-Type: application/json" -m 10 2>/dev/null && echo "   ✅ PubMed test started" || echo "   ⚠️  PubMed request timed out (normal)"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+
+medical-mirrors-test-trials:
+	@echo "🧪  Testing Clinical Trials update (100 studies only)"
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🧪 Testing ClinicalTrials updates (100 studies only)..."; \
+		curl -X POST "http://localhost:8081/update/trials?quick_test=true&limit=100" -H "Content-Type: application/json" -m 10 2>/dev/null && echo "   ✅ Trials test started" || echo "   ⚠️  Trials request timed out (normal)"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+
+medical-mirrors-test-fda:
+	@echo "💊  Testing FDA update (1000 drugs only)"
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   💊 Testing FDA updates (1000 drugs only)..."; \
+		curl -X POST "http://localhost:8081/update/fda?quick_test=true&limit=1000" -H "Content-Type: application/json" -m 10 2>/dev/null && echo "   ✅ FDA test started" || echo "   ⚠️  FDA request timed out (normal)"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+
+medical-mirrors-test-icd10:
+	@echo "🏥  Testing ICD-10 update (100 codes only)"
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🏥 Testing ICD-10 updates (100 codes only)..."; \
+		curl -X POST "http://localhost:8081/update/icd10?quick_test=true" -H "Content-Type: application/json" -m 10 2>/dev/null && echo "   ✅ ICD-10 test started" || echo "   ⚠️  ICD-10 request timed out (normal)"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+
+medical-mirrors-test-billing:
+	@echo "🏦  Testing Billing codes update (100 codes only)"
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🏦 Testing Billing codes updates (100 codes only)..."; \
+		curl -X POST "http://localhost:8081/update/billing?quick_test=true" -H "Content-Type: application/json" -m 10 2>/dev/null && echo "   ✅ Billing test started" || echo "   ⚠️  Billing request timed out (normal)"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+
+medical-mirrors-test-health:
+	@echo "📋  Testing Health Info update (10 topics only)"
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   📋 Testing Health Info updates (10 topics only)..."; \
+		curl -X POST "http://localhost:8081/update/health-info?quick_test=true" -H "Content-Type: application/json" -m 10 2>/dev/null && echo "   ✅ Health Info test started" || echo "   ⚠️  Health Info request timed out (normal)"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+
 medical-mirrors-quick-test:
-	@echo "🚀  Quick test update (testing all 3 data sources with SMALL samples)"
+	@echo "🚀  Quick test update (testing all 6 data sources with SMALL samples)"
 	@echo "   ⚠️  This will download minimal subsets for fast testing only"
-	@echo "   📊 Sample sizes: PubMed=3 files, Trials=100 studies, FDA=1000 drugs"
+	@echo "   📊 Sample sizes: PubMed=3 files, Trials=100 studies, FDA=1000 drugs, ICD-10=100 codes, Billing=100 codes, Health=10 topics"
 	@echo ""
 	@echo "   🔍 Testing service status first..."
 	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
@@ -761,6 +907,15 @@ medical-mirrors-quick-test:
 		echo ""; \
 		echo "   💊 Testing FDA updates (1000 drugs only)..."; \
 		curl -X POST "http://localhost:8081/update/fda?quick_test=true&limit=1000" -H "Content-Type: application/json" -m 10 2>/dev/null && echo "   ✅ FDA request sent" || echo "   ⚠️  FDA request timed out (normal)"; \
+		echo ""; \
+		echo "   🏥 Testing ICD-10 updates (100 codes only)..."; \
+		curl -X POST "http://localhost:8081/update/icd10?quick_test=true" -H "Content-Type: application/json" -m 10 2>/dev/null && echo "   ✅ ICD-10 request sent" || echo "   ⚠️  ICD-10 request timed out (normal)"; \
+		echo ""; \
+		echo "   🏦 Testing Billing codes updates (100 codes only)..."; \
+		curl -X POST "http://localhost:8081/update/billing?quick_test=true" -H "Content-Type: application/json" -m 10 2>/dev/null && echo "   ✅ Billing request sent" || echo "   ⚠️  Billing request timed out (normal)"; \
+		echo ""; \
+		echo "   📋 Testing Health Info updates (10 topics only)..."; \
+		curl -X POST "http://localhost:8081/update/health-info?quick_test=true" -H "Content-Type: application/json" -m 10 2>/dev/null && echo "   ✅ Health Info request sent" || echo "   ⚠️  Health Info request timed out (normal)"; \
 		echo ""; \
 		echo "   ⏳ Waiting 15 seconds for optimized multi-core processing..."; \
 		sleep 15; \
@@ -1103,11 +1258,22 @@ help:
 	@echo ""
 	@echo "�  DATA UPDATES (WARNING: VERY TIME CONSUMING!):"
 	@echo "   make medical-mirrors-quick-test     - Quick test update (small dataset)"
-	@echo "   make medical-mirrors-update         - Update ALL databases (6-12+ hours!)"
+	@echo "   make medical-mirrors-update         - Update ALL 6 databases (8-15+ hours!)"
 	@echo "   make medical-mirrors-update-pubmed  - Update PubMed only (6-12+ hours!)"
 	@echo "   make medical-mirrors-update-trials  - Update ClinicalTrials (2-4+ hours!)"
 	@echo "   make medical-mirrors-update-fda     - Update FDA only (1-3+ hours!)"
+	@echo "   make medical-mirrors-update-icd10   - Update ICD-10 codes (30-60 mins)"
+	@echo "   make medical-mirrors-update-billing - Update billing codes (30-60 mins)"
+	@echo "   make medical-mirrors-update-health  - Update health info (1-2+ hours)"
 	@echo "   make medical-mirrors-progress       - Monitor update progress (real-time)"
+	@echo ""
+	@echo "🧪  INDIVIDUAL TEST COMMANDS (Quick testing for development):"
+	@echo "   make medical-mirrors-test-pubmed    - Test PubMed (3 files only)"
+	@echo "   make medical-mirrors-test-trials    - Test Clinical Trials (100 studies only)"
+	@echo "   make medical-mirrors-test-fda       - Test FDA (1000 drugs only)"
+	@echo "   make medical-mirrors-test-icd10     - Test ICD-10 (100 codes only)"
+	@echo "   make medical-mirrors-test-billing   - Test Billing codes (100 codes only)"
+	@echo "   make medical-mirrors-test-health    - Test Health Info (10 topics only)"
 	@echo ""
 	@echo "⚙️   SYSTEM MANAGEMENT:"
 	@echo "   make diagnostics   - Run comprehensive system diagnostics"

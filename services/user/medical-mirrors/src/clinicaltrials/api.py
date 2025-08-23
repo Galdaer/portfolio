@@ -258,9 +258,17 @@ class ClinicalTrialsAPI:
                 )
 
                 if existing:
-                    # Update existing trial
+                    # Update existing trial - only update fields with non-empty values
                     for key, value in trial_data.items():
-                        setattr(existing, key, value)
+                        # Only update if we have meaningful new data
+                        if value is not None and value != "" and value != [] and value != {}:
+                            # For string fields, don't overwrite with less informative values
+                            current_value = getattr(existing, key, None)
+                            if current_value and isinstance(current_value, str) and isinstance(value, str):
+                                # If current value is longer/more detailed, keep it
+                                if len(current_value) > len(value) and value.lower() in current_value.lower():
+                                    continue
+                            setattr(existing, key, value)
                     existing.updated_at = datetime.utcnow()
                 else:
                     # Create new trial

@@ -5,6 +5,10 @@ Provides unlimited access to PubMed, ClinicalTrials.gov, and FDA databases
 
 import logging
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -97,6 +101,11 @@ else:
 
 trials_api = ClinicalTrialsAPI(SessionLocal)
 fda_api = FDAAPI(SessionLocal)
+
+# Initialize new data source APIs (these don't need specific API classes since they use direct database operations)
+icd10_session_factory = SessionLocal
+billing_session_factory = SessionLocal
+health_info_session_factory = SessionLocal
 
 
 @app.get("/health")
@@ -462,6 +471,96 @@ async def background_fda_update(quick_test: bool = False, limit: int | None = No
         logger.exception(f"❌ FDA background update failed: {e}")
 
 
+async def background_icd10_update(quick_test: bool = False) -> None:
+    """Background task for ICD-10 codes update"""
+    try:
+        import subprocess
+        import os
+        
+        if quick_test:
+            logger.info("🏥 Starting ICD-10 codes background update (QUICK TEST - 100 codes)")
+        else:
+            logger.info("🏥 Starting ICD-10 codes background update")
+        
+        # Run the ICD-10 update script with quick_test parameter
+        script_path = "/app/update-scripts/update_icd10.sh"
+        if os.path.exists(script_path):
+            # Pass quick_test as environment variable
+            env = os.environ.copy()
+            env['QUICK_TEST'] = 'true' if quick_test else 'false'
+            
+            result = subprocess.run([script_path], capture_output=True, text=True, env=env)
+            if result.returncode == 0:
+                logger.info(f"✅ ICD-10 background update completed successfully")
+            else:
+                logger.error(f"❌ ICD-10 update script failed: {result.stderr}")
+        else:
+            logger.error(f"❌ ICD-10 update script not found: {script_path}")
+            
+    except Exception as e:
+        logger.exception(f"❌ ICD-10 background update failed: {e}")
+
+
+async def background_billing_update(quick_test: bool = False) -> None:
+    """Background task for billing codes update"""
+    try:
+        import subprocess
+        import os
+        
+        if quick_test:
+            logger.info("🏦 Starting billing codes background update (QUICK TEST - 100 codes)")
+        else:
+            logger.info("🏦 Starting billing codes background update")
+        
+        # Run the billing codes update script with quick_test parameter
+        script_path = "/app/update-scripts/update_billing.sh"
+        if os.path.exists(script_path):
+            # Pass quick_test as environment variable
+            env = os.environ.copy()
+            env['QUICK_TEST'] = 'true' if quick_test else 'false'
+            
+            result = subprocess.run([script_path], capture_output=True, text=True, env=env)
+            if result.returncode == 0:
+                logger.info(f"✅ Billing codes background update completed successfully")
+            else:
+                logger.error(f"❌ Billing codes update script failed: {result.stderr}")
+        else:
+            logger.error(f"❌ Billing codes update script not found: {script_path}")
+            
+    except Exception as e:
+        logger.exception(f"❌ Billing codes background update failed: {e}")
+
+
+async def background_health_info_update(quick_test: bool = False) -> None:
+    """Background task for health information update"""
+    try:
+        import subprocess
+        import os
+        
+        if quick_test:
+            logger.info("📋 Starting health information background update (QUICK TEST - 10 topics)")
+        else:
+            logger.info("📋 Starting health information background update")
+        
+        # Run the health info update script with quick_test parameter
+        script_path = "/app/update-scripts/update_health_info.sh"
+        if os.path.exists(script_path):
+            # Pass quick_test as environment variable
+            env = os.environ.copy()
+            env['QUICK_TEST'] = 'true' if quick_test else 'false'
+            
+            result = subprocess.run([script_path], capture_output=True, text=True, env=env)
+            if result.returncode == 0:
+                logger.info(f"✅ Health information background update completed successfully")
+            else:
+                logger.error(f"❌ Health info update script failed: {result.stderr}")
+        else:
+            logger.error(f"❌ Health info update script not found: {script_path}")
+            
+    except Exception as e:
+        logger.exception(f"❌ Health information background update failed: {e}")
+
+
 @app.post("/update/pubmed")
 async def trigger_pubmed_update(
     background_tasks: BackgroundTasks, quick_test: bool = False, max_files: int | None = None
@@ -514,6 +613,57 @@ async def trigger_fda_update(
         }
     except Exception as e:
         logger.exception(f"FDA update queuing failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
+
+
+@app.post("/update/icd10")
+async def trigger_icd10_update(
+    background_tasks: BackgroundTasks, quick_test: bool = False
+) -> dict[str, Any]:
+    """Trigger ICD-10 codes update in background"""
+    try:
+        background_tasks.add_task(background_icd10_update, quick_test)
+        logger.info(f"🏥 ICD-10 update task queued (quick_test={quick_test})")
+        return {
+            "status": "update_started_in_background",
+            "message": "ICD-10 codes update task queued successfully",
+        }
+    except Exception as e:
+        logger.exception(f"ICD-10 update queuing failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
+
+
+@app.post("/update/billing")
+async def trigger_billing_update(
+    background_tasks: BackgroundTasks, quick_test: bool = False
+) -> dict[str, Any]:
+    """Trigger billing codes update in background"""
+    try:
+        background_tasks.add_task(background_billing_update, quick_test)
+        logger.info(f"🏦 Billing codes update task queued (quick_test={quick_test})")
+        return {
+            "status": "update_started_in_background", 
+            "message": "Billing codes update task queued successfully",
+        }
+    except Exception as e:
+        logger.exception(f"Billing codes update queuing failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
+
+
+@app.post("/update/health-info")
+async def trigger_health_info_update(
+    background_tasks: BackgroundTasks, quick_test: bool = False
+) -> dict[str, Any]:
+    """Trigger health information update in background"""
+    try:
+        background_tasks.add_task(background_health_info_update, quick_test)
+        logger.info(f"📋 Health information update task queued (quick_test={quick_test})")
+        return {
+            "status": "update_started_in_background",
+            "message": "Health information update task queued successfully",
+        }
+    except Exception as e:
+        logger.exception(f"Health information update queuing failed: {e}")
         raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
 

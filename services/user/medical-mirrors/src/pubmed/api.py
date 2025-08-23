@@ -190,14 +190,40 @@ class PubMedAPI:
                 stmt = stmt.on_conflict_do_update(
                     index_elements=["pmid"],
                     set_={
-                        "title": stmt.excluded.title,
-                        "abstract": stmt.excluded.abstract,
-                        "authors": stmt.excluded.authors,
-                        "journal": stmt.excluded.journal,
-                        "pub_date": stmt.excluded.pub_date,
-                        "doi": stmt.excluded.doi,
-                        "mesh_terms": stmt.excluded.mesh_terms,
+                        # Always update these fields
                         "updated_at": stmt.excluded.updated_at,
+                        
+                        # Conditionally update fields - preserve existing non-empty values
+                        "title": func.coalesce(
+                            func.nullif(stmt.excluded.title, ''), 
+                            PubMedArticle.title
+                        ),
+                        "abstract": func.coalesce(
+                            func.nullif(stmt.excluded.abstract, ''), 
+                            PubMedArticle.abstract
+                        ),
+                        "journal": func.coalesce(
+                            func.nullif(stmt.excluded.journal, ''), 
+                            PubMedArticle.journal
+                        ),
+                        "pub_date": func.coalesce(
+                            func.nullif(stmt.excluded.pub_date, ''), 
+                            PubMedArticle.pub_date
+                        ),
+                        "doi": func.coalesce(
+                            func.nullif(stmt.excluded.doi, ''), 
+                            PubMedArticle.doi
+                        ),
+                        
+                        # For arrays, prefer new data if non-empty, otherwise keep existing
+                        "authors": func.coalesce(
+                            func.nullif(stmt.excluded.authors, '{}'), 
+                            PubMedArticle.authors
+                        ),
+                        "mesh_terms": func.coalesce(
+                            func.nullif(stmt.excluded.mesh_terms, '{}'), 
+                            PubMedArticle.mesh_terms
+                        ),
                     },
                 )
 

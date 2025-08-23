@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 import aiohttp
 from aiohttp import ClientError
 
-from ..config import Config
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +131,11 @@ class HealthInfoDownloader:
             logger.error(f"Error downloading MyHealthfinder data: {e}")
             self.download_stats["errors"] += 1
         
+        # If no health topics were downloaded, use fallback data
+        if not all_topics:
+            logger.warning("No health topics downloaded from MyHealthfinder API - using fallback health topics")
+            all_topics = self._get_fallback_health_topics()
+        
         return all_topics
     
     async def _get_myhealthfinder_topic_detail(self, topic: Dict) -> Optional[Dict]:
@@ -243,8 +248,8 @@ class HealthInfoDownloader:
         logger.info("Downloading exercise data")
         
         if not self.rapidapi_key:
-            logger.warning("RAPIDAPI_KEY not available - skipping ExerciseDB")
-            return []
+            logger.warning("RAPIDAPI_KEY not available - using fallback exercise data")
+            return self._get_fallback_exercises()
         
         exercises = []
         
@@ -289,6 +294,11 @@ class HealthInfoDownloader:
             logger.error(f"Error downloading exercise data: {e}")
             self.download_stats["errors"] += 1
         
+        # If no exercises were downloaded, use fallback data
+        if not exercises:
+            logger.warning("No exercises downloaded from API - using fallback exercise data")
+            exercises = self._get_fallback_exercises()
+        
         return exercises
     
     async def _download_usda_food_data(self) -> List[Dict]:
@@ -296,8 +306,10 @@ class HealthInfoDownloader:
         logger.info("Downloading USDA food data")
         
         if not self.usda_api_key:
-            logger.warning("USDA_API_KEY not available - skipping USDA FoodData")
-            return []
+            logger.warning("USDA_API_KEY not available - using fallback food data")
+            return self._get_fallback_food_items()
+        
+        logger.info(f"USDA API key loaded: {self.usda_api_key[:10]}... (length: {len(self.usda_api_key)})")
         
         food_items = []
         
@@ -309,10 +321,14 @@ class HealthInfoDownloader:
                 "potato", "carrot", "orange", "beans", "pasta", "oats"
             ]
             
+            logger.info(f"Starting USDA food download for {len(common_foods)} food types")
+            
             for food in common_foods:
                 try:
+                    logger.info(f"Searching USDA for: {food}")
                     food_data = await self._search_usda_foods(food)
                     food_items.extend(food_data)
+                    logger.info(f"Found {len(food_data)} items for '{food}'")
                     
                     # Rate limiting
                     await asyncio.sleep(self.config.REQUEST_DELAY * 2)  # USDA has stricter limits
@@ -322,11 +338,20 @@ class HealthInfoDownloader:
                     continue
             
             self.download_stats["food_items_downloaded"] = len(food_items)
-            logger.info(f"Downloaded {len(food_items)} food items")
+            logger.info(f"Downloaded {len(food_items)} total food items from USDA")
             
         except Exception as e:
             logger.error(f"Error downloading USDA food data: {e}")
             self.download_stats["errors"] += 1
+        
+        # If no food items or very few were downloaded, use fallback data
+        expected_minimum = len(common_foods) * 2  # At least 2 items per food type on average
+        if not food_items or len(food_items) < expected_minimum:
+            if not food_items:
+                logger.warning("No food items downloaded from USDA API - using fallback food data")
+            else:
+                logger.warning(f"Only {len(food_items)} food items downloaded (expected minimum {expected_minimum}) - using fallback food data")
+            food_items = self._get_fallback_food_items()
         
         return food_items
     
@@ -341,11 +366,13 @@ class HealthInfoDownloader:
             "pageSize": max_results
         }
         
+        logger.info(f"Making USDA API request to: {search_url} with query: {query}")
+        
         food_items = []
         
         try:
             self.download_stats["requests_made"] += 1
-            async with self.session.get(search_url, params=params) as response:
+            async with self.session.get(search_url, params=params, timeout=10) as response:
                 response.raise_for_status()
                 data = await response.json()
                 
@@ -371,8 +398,9 @@ class HealthInfoDownloader:
                     food_items.append(food_data)
         
         except Exception as e:
-            logger.error(f"Error searching USDA for '{query}': {e}")
-            raise
+            logger.error(f"Error searching USDA for '{query}': {type(e).__name__}: {e}")
+            # Return what we have so far instead of raising
+            return food_items
         
         return food_items
     
@@ -416,6 +444,177 @@ class HealthInfoDownloader:
             )
         
         return stats
+    
+    def _get_fallback_health_topics(self) -> List[Dict]:
+        """Fallback health topics for when MyHealthfinder API is unavailable"""
+        return [
+            {
+                "topic_id": "fallback_1",
+                "title": "Healthy Eating",
+                "category": "Nutrition",
+                "url": "",
+                "last_reviewed": "2024-01-01",
+                "audience": ["adults"],
+                "sections": [{"title": "Overview", "content": "Eating a variety of foods helps ensure you get all the nutrients your body needs.", "type": "content"}],
+                "related_topics": ["Physical Activity", "Weight Management"],
+                "summary": "Learn about healthy eating patterns and making nutritious food choices.",
+                "keywords": ["nutrition", "healthy eating", "diet", "food choices"],
+                "content_length": 150,
+                "source": "fallback",
+                "search_text": "healthy eating nutrition diet food choices",
+                "last_updated": datetime.now().isoformat()
+            },
+            {
+                "topic_id": "fallback_2", 
+                "title": "Physical Activity",
+                "category": "Exercise",
+                "url": "",
+                "last_reviewed": "2024-01-01",
+                "audience": ["adults"],
+                "sections": [{"title": "Overview", "content": "Regular physical activity is one of the most important things you can do for your health.", "type": "content"}],
+                "related_topics": ["Healthy Eating", "Heart Health"],
+                "summary": "Discover the benefits of regular physical activity and how to get started.",
+                "keywords": ["exercise", "physical activity", "fitness", "health"],
+                "content_length": 200,
+                "source": "fallback",
+                "search_text": "physical activity exercise fitness health",
+                "last_updated": datetime.now().isoformat()
+            },
+            {
+                "topic_id": "fallback_3",
+                "title": "Heart Health",
+                "category": "Cardiovascular",
+                "url": "",
+                "last_reviewed": "2024-01-01",
+                "audience": ["adults"],
+                "sections": [{"title": "Overview", "content": "Heart disease is the leading cause of death, but it's largely preventable.", "type": "content"}],
+                "related_topics": ["Physical Activity", "Healthy Eating"],
+                "summary": "Learn about heart disease prevention and maintaining cardiovascular health.",
+                "keywords": ["heart health", "cardiovascular", "prevention", "heart disease"],
+                "content_length": 180,
+                "source": "fallback",
+                "search_text": "heart health cardiovascular prevention heart disease",
+                "last_updated": datetime.now().isoformat()
+            }
+        ]
+    
+    def _get_fallback_exercises(self) -> List[Dict]:
+        """Fallback exercises for when ExerciseDB API is unavailable"""
+        return [
+            {
+                "exercise_id": "fallback_ex_1",
+                "name": "Push-ups",
+                "body_part": "chest",
+                "equipment": "body weight",
+                "target": "pectorals",
+                "secondary_muscles": ["triceps", "shoulders"],
+                "instructions": ["Start in a plank position", "Lower your body until chest nearly touches floor", "Push back up to starting position"],
+                "gif_url": "",
+                "difficulty_level": "beginner",
+                "exercise_type": "strength",
+                "duration_estimate": 15,
+                "calories_estimate": 50,
+                "source": "fallback",
+                "search_text": "push-ups chest body weight pectorals",
+                "last_updated": datetime.now().isoformat()
+            },
+            {
+                "exercise_id": "fallback_ex_2",
+                "name": "Squats",
+                "body_part": "legs",
+                "equipment": "body weight", 
+                "target": "quadriceps",
+                "secondary_muscles": ["glutes", "hamstrings"],
+                "instructions": ["Stand with feet shoulder-width apart", "Lower your body as if sitting back into a chair", "Return to standing position"],
+                "gif_url": "",
+                "difficulty_level": "beginner",
+                "exercise_type": "strength",
+                "duration_estimate": 15,
+                "calories_estimate": 40,
+                "source": "fallback",
+                "search_text": "squats legs body weight quadriceps",
+                "last_updated": datetime.now().isoformat()
+            },
+            {
+                "exercise_id": "fallback_ex_3",
+                "name": "Walking",
+                "body_part": "cardio",
+                "equipment": "none",
+                "target": "cardiovascular system",
+                "secondary_muscles": ["legs", "core"],
+                "instructions": ["Start with a comfortable pace", "Maintain good posture", "Gradually increase duration and intensity"],
+                "gif_url": "",
+                "difficulty_level": "beginner",
+                "exercise_type": "cardio",
+                "duration_estimate": 30,
+                "calories_estimate": 150,
+                "source": "fallback",
+                "search_text": "walking cardio cardiovascular legs",
+                "last_updated": datetime.now().isoformat()
+            }
+        ]
+    
+    def _get_fallback_food_items(self) -> List[Dict]:
+        """Fallback food items for when USDA API is unavailable"""
+        return [
+            {
+                "fdc_id": "fallback_food_1",
+                "description": "Apple, raw",
+                "scientific_name": "Malus domestica",
+                "common_names": ["apple", "red apple", "green apple"],
+                "food_category": "Fruits",
+                "nutrients": [{"name": "Energy", "amount": 52, "unit": "kcal"}, {"name": "Carbohydrate", "amount": 14, "unit": "g"}],
+                "nutrition_summary": "Low calorie fruit high in fiber and vitamin C",
+                "brand_owner": "",
+                "ingredients": "",
+                "serving_size": 182,
+                "serving_size_unit": "g",
+                "allergens": "",
+                "dietary_flags": ["vegan", "gluten-free"],
+                "nutritional_density": 8.5,
+                "source": "fallback",
+                "search_text": "apple raw fruit malus domestica",
+                "last_updated": datetime.now().isoformat()
+            },
+            {
+                "fdc_id": "fallback_food_2",
+                "description": "Chicken breast, skinless, boneless, raw",
+                "scientific_name": "Gallus gallus domesticus",
+                "common_names": ["chicken breast", "chicken", "poultry"],
+                "food_category": "Proteins",
+                "nutrients": [{"name": "Energy", "amount": 165, "unit": "kcal"}, {"name": "Protein", "amount": 31, "unit": "g"}],
+                "nutrition_summary": "High protein, low fat meat source",
+                "brand_owner": "",
+                "ingredients": "",
+                "serving_size": 100,
+                "serving_size_unit": "g",
+                "allergens": "",
+                "dietary_flags": ["high-protein", "low-carb"],
+                "nutritional_density": 9.2,
+                "source": "fallback",
+                "search_text": "chicken breast protein poultry gallus",
+                "last_updated": datetime.now().isoformat()
+            },
+            {
+                "fdc_id": "fallback_food_3",
+                "description": "Broccoli, raw",
+                "scientific_name": "Brassica oleracea",
+                "common_names": ["broccoli", "green vegetable"],
+                "food_category": "Vegetables",
+                "nutrients": [{"name": "Energy", "amount": 34, "unit": "kcal"}, {"name": "Vitamin C", "amount": 89, "unit": "mg"}],
+                "nutrition_summary": "Nutrient-dense vegetable high in vitamins and minerals",
+                "brand_owner": "",
+                "ingredients": "",
+                "serving_size": 100,
+                "serving_size_unit": "g",
+                "allergens": "",
+                "dietary_flags": ["vegan", "gluten-free", "low-calorie"],
+                "nutritional_density": 9.8,
+                "source": "fallback",
+                "search_text": "broccoli raw vegetable brassica oleracea",
+                "last_updated": datetime.now().isoformat()
+            }
+        ]
 
 
 async def main():

@@ -226,3 +226,166 @@ class PubMedDownloader:
                 xml_files.append(os.path.join(self.data_dir, file))
 
         return xml_files
+
+    async def download_complete_baseline(self) -> list[str]:
+        """
+        Download ALL PubMed baseline files for complete dataset.
+        
+        This method downloads the complete PubMed corpus instead of just 
+        the first 5 files like the regular download_baseline method.
+        Use for initial full setup or complete data refresh.
+        """
+        logger.info("Starting COMPLETE PubMed baseline download (~120GB)")
+
+        def download_complete_operation() -> list[str]:
+            with self.ftp_connection(self.connection_timeout) as ftp:
+                # Change to baseline directory
+                ftp.cwd(self.ftp_path)
+                logger.info(f"Changed to directory: {self.ftp_path}")
+
+                # Get complete list of baseline files
+                files: list[str] = []
+                ftp.retrlines("NLST", files.append)
+                xml_files = [f for f in files if f.endswith(".xml.gz")]
+
+                logger.info(f"Found {len(xml_files)} baseline files for COMPLETE download")
+                logger.warning("⚠️  This will download ALL baseline files (~120GB)")
+
+                # Download ALL baseline files (not limited to 5)
+                downloaded_files: list[str] = []
+                
+                for i, file in enumerate(xml_files, 1):
+                    local_path = os.path.join(self.data_dir, file)
+                    if not os.path.exists(local_path):
+                        logger.info(f"Downloading baseline file {i}/{len(xml_files)}: {file}")
+
+                        # Set longer timeout for large file downloads
+                        if hasattr(ftp, "sock") and ftp.sock:
+                            ftp.sock.settimeout(self.download_timeout)
+
+                        with open(local_path, "wb") as local_file:
+                            ftp.retrbinary(f"RETR {file}", local_file.write)
+
+                        logger.info(f"Successfully downloaded: {file}")
+                        downloaded_files.append(local_path)
+                    else:
+                        logger.info(f"File already exists: {file}")
+                        downloaded_files.append(local_path)
+
+                return downloaded_files
+
+        try:
+            downloaded_files = self.retry_operation("complete_baseline_download", download_complete_operation)
+            logger.info(f"Downloaded {len(downloaded_files)} complete baseline files")
+            return downloaded_files
+
+        except Exception as e:
+            logger.exception(f"Complete PubMed baseline download failed: {e}")
+            raise
+
+    async def download_complete_updates(self) -> list[str]:
+        """
+        Download ALL PubMed update files for complete dataset.
+        
+        This method downloads all available update files instead of just 
+        the recent 50 files like the regular download_updates method.
+        Use for complete data coverage.
+        """
+        logger.info("Starting COMPLETE PubMed updates download (~100GB)")
+
+        def download_complete_operation() -> list[str]:
+            with self.ftp_connection(self.connection_timeout) as ftp:
+                # Change to updates directory
+                ftp.cwd(self.update_path)
+                logger.info(f"Changed to directory: {self.update_path}")
+
+                # Get complete list of update files
+                files: list[str] = []
+                ftp.retrlines("NLST", files.append)
+                xml_files = [f for f in files if f.endswith(".xml.gz")]
+
+                logger.info(f"Found {len(xml_files)} update files for COMPLETE download")
+                logger.warning("⚠️  This will download ALL update files (~100GB)")
+
+                # Download ALL update files (not limited to recent 50)
+                downloaded_files: list[str] = []
+                
+                for i, file in enumerate(xml_files, 1):
+                    local_path = os.path.join(self.data_dir, f"updates_{file}")
+                    if not os.path.exists(local_path):
+                        logger.info(f"Downloading update file {i}/{len(xml_files)}: {file}")
+
+                        # Set longer timeout for large file downloads
+                        if hasattr(ftp, "sock") and ftp.sock:
+                            ftp.sock.settimeout(self.download_timeout)
+
+                        with open(local_path, "wb") as local_file:
+                            ftp.retrbinary(f"RETR {file}", local_file.write)
+
+                        logger.info(f"Successfully downloaded: {file}")
+                        downloaded_files.append(local_path)
+                    else:
+                        logger.info(f"Update file already exists: {file}")
+                        downloaded_files.append(local_path)
+
+                return downloaded_files
+
+        try:
+            downloaded_files = self.retry_operation("complete_updates_download", download_complete_operation)
+            logger.info(f"Downloaded {len(downloaded_files)} complete update files")
+            return downloaded_files
+
+        except Exception as e:
+            logger.exception(f"Complete PubMed updates download failed: {e}")
+            raise
+
+    async def download_complete_dataset(self) -> dict[str, Any]:
+        """
+        Download complete PubMed dataset (baseline + all updates).
+        
+        This is the master method for downloading the entire PubMed corpus
+        for offline database operation. Downloads ~220GB total.
+        
+        Returns:
+            Dictionary with download statistics and file lists
+        """
+        logger.info("Starting COMPLETE PubMed dataset download (~220GB)")
+        start_time = time.time()
+        
+        try:
+            # Download complete baseline files
+            baseline_files = await self.download_complete_baseline()
+            
+            # Download all update files  
+            update_files = await self.download_complete_updates()
+            
+            end_time = time.time()
+            duration = end_time - start_time
+            
+            total_files = len(baseline_files) + len(update_files)
+            
+            logger.info(f"✅ Complete PubMed dataset download finished!")
+            logger.info(f"   Baseline files: {len(baseline_files)}")
+            logger.info(f"   Update files: {len(update_files)}")
+            logger.info(f"   Total files: {total_files}")
+            logger.info(f"   Duration: {duration/3600:.1f} hours")
+            
+            return {
+                "status": "success",
+                "baseline_files": baseline_files,
+                "update_files": update_files,
+                "total_files": total_files,
+                "baseline_count": len(baseline_files),
+                "update_count": len(update_files),
+                "duration_seconds": duration,
+                "duration_hours": duration / 3600,
+                "estimated_size_gb": total_files * 0.1  # Rough estimate: ~100MB per file
+            }
+            
+        except Exception as e:
+            logger.exception(f"Complete PubMed dataset download failed: {e}")
+            return {
+                "status": "failed",
+                "error": str(e),
+                "duration_seconds": time.time() - start_time
+            }

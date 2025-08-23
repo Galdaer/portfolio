@@ -22,9 +22,10 @@ COPY src/ ./src/
 COPY migrations/ ./migrations/
 COPY update-scripts/ ./update-scripts/
 
-# Create data and logs directories
+# Create data and logs directories and set script permissions
 RUN mkdir -p /app/data /app/logs && \
-    chmod 755 /app/data /app/logs
+    chmod 755 /app/data /app/logs && \
+    chmod +x /app/update-scripts/*.sh
 
 # Set Python path
 ENV PYTHONPATH=/app/src

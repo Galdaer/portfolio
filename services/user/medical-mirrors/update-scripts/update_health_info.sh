@@ -11,7 +11,7 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 # Configuration
 LOG_FILE="/app/logs/health_info_update.log"
 LOCK_FILE="/tmp/health_info_update.lock"
-PYTHON_ENV="/app/venv/bin/python"
+PYTHON_ENV="/usr/local/bin/python"
 
 # Create logs directory if it doesn't exist
 mkdir -p /app/logs
@@ -44,6 +44,15 @@ log_message "Starting health information update"
 # Change to project directory
 cd "$PROJECT_DIR"
 
+# Handle quick test mode
+if [ "$QUICK_TEST" = "true" ]; then
+    log_message "Running health info update in QUICK TEST mode (limited to 10 topics)"
+    LIMIT_TOPICS=10
+else
+    log_message "Running health info update in FULL mode"
+    LIMIT_TOPICS=0
+fi
+
 # Update health information
 log_message "Downloading health information from multiple APIs"
 
@@ -52,11 +61,15 @@ import asyncio
 import sys
 import logging
 import os
+import json
 from src.health_info.downloader import HealthInfoDownloader
 from src.health_info.parser import HealthInfoParser
 from src.config import Config
 from src.database import get_db_session
 from sqlalchemy import text
+
+# Get limit from environment variable
+limit_topics = int(os.getenv('LIMIT_TOPICS', 0)) or $LIMIT_TOPICS
 
 # Set up logging
 logging.basicConfig(
@@ -89,12 +102,17 @@ async def update_health_information():
         
         logger.info(f'Parsing stats: {parsing_stats}')
         
+        # Limit for quick test
+        if limit_topics > 0:
+            logger.info(f'Limiting to first {limit_topics} topics for quick test')
+            if validated_data['health_topics']:
+                validated_data['health_topics'] = validated_data['health_topics'][:limit_topics]
+        
         # Insert into database
         with get_db_session() as db:
-            # Update health topics
+            # Upsert health topics
             if validated_data['health_topics']:
-                logger.info('Updating health topics')
-                db.execute(text('DELETE FROM health_topics'))
+                logger.info('Upserting health topics (preserving existing data)')
                 
                 for topic in validated_data['health_topics']:
                     db.execute(text('''
@@ -109,17 +127,32 @@ async def update_health_information():
                             :keywords, :content_length, :source, :search_text,
                             NOW()
                         )
+                        ON CONFLICT (topic_id) DO UPDATE SET
+                            -- Only update if we have better/more complete information
+                            title = COALESCE(NULLIF(EXCLUDED.title, ''), health_topics.title),
+                            category = COALESCE(NULLIF(EXCLUDED.category, ''), health_topics.category),
+                            url = COALESCE(NULLIF(EXCLUDED.url, ''), health_topics.url),
+                            last_reviewed = COALESCE(NULLIF(EXCLUDED.last_reviewed, ''), health_topics.last_reviewed),
+                            audience = COALESCE(EXCLUDED.audience, health_topics.audience),
+                            sections = COALESCE(EXCLUDED.sections, health_topics.sections),
+                            related_topics = COALESCE(EXCLUDED.related_topics, health_topics.related_topics),
+                            summary = COALESCE(NULLIF(EXCLUDED.summary, ''), health_topics.summary),
+                            keywords = COALESCE(EXCLUDED.keywords, health_topics.keywords),
+                            content_length = COALESCE(EXCLUDED.content_length, health_topics.content_length),
+                            source = COALESCE(NULLIF(EXCLUDED.source, ''), health_topics.source),
+                            search_text = COALESCE(NULLIF(EXCLUDED.search_text, ''), health_topics.search_text),
+                            last_updated = NOW()
                     '''), {
                         'topic_id': topic['topic_id'],
                         'title': topic['title'],
                         'category': topic['category'],
                         'url': topic['url'],
                         'last_reviewed': topic['last_reviewed'],
-                        'audience': topic['audience'],
-                        'sections': topic['sections'],
-                        'related_topics': topic['related_topics'],
+                        'audience': json.dumps(topic['audience']) if topic.get('audience') else '[]',
+                        'sections': json.dumps(topic['sections']) if topic.get('sections') else '[]',
+                        'related_topics': json.dumps(topic['related_topics']) if topic.get('related_topics') else '[]',
                         'summary': topic['summary'],
-                        'keywords': topic['keywords'],
+                        'keywords': json.dumps(topic['keywords']) if topic.get('keywords') else '[]',
                         'content_length': topic['content_length'],
                         'source': topic['source'],
                         'search_text': topic['search_text']
@@ -127,10 +160,9 @@ async def update_health_information():
                 
                 logger.info(f'Inserted {len(validated_data[\"health_topics\"])} health topics')
             
-            # Update exercises
+            # Upsert exercises
             if validated_data['exercises']:
-                logger.info('Updating exercises')
-                db.execute(text('DELETE FROM exercises'))
+                logger.info('Upserting exercises (preserving existing data)')
                 
                 for exercise in validated_data['exercises']:
                     db.execute(text('''
@@ -145,29 +177,44 @@ async def update_health_information():
                             :difficulty_level, :exercise_type, :duration_estimate,
                             :calories_estimate, :source, :search_text, NOW()
                         )
+                        ON CONFLICT (exercise_id) DO UPDATE SET
+                            -- Only update if we have better/more complete information
+                            name = COALESCE(NULLIF(EXCLUDED.name, ''), exercises.name),
+                            body_part = COALESCE(NULLIF(EXCLUDED.body_part, ''), exercises.body_part),
+                            equipment = COALESCE(NULLIF(EXCLUDED.equipment, ''), exercises.equipment),
+                            target = COALESCE(NULLIF(EXCLUDED.target, ''), exercises.target),
+                            secondary_muscles = COALESCE(EXCLUDED.secondary_muscles, exercises.secondary_muscles),
+                            instructions = COALESCE(EXCLUDED.instructions, exercises.instructions),
+                            gif_url = COALESCE(NULLIF(EXCLUDED.gif_url, ''), exercises.gif_url),
+                            difficulty_level = COALESCE(NULLIF(EXCLUDED.difficulty_level, ''), exercises.difficulty_level),
+                            exercise_type = COALESCE(NULLIF(EXCLUDED.exercise_type, ''), exercises.exercise_type),
+                            duration_estimate = COALESCE(EXCLUDED.duration_estimate, exercises.duration_estimate),
+                            calories_estimate = COALESCE(EXCLUDED.calories_estimate, exercises.calories_estimate),
+                            source = COALESCE(NULLIF(EXCLUDED.source, ''), exercises.source),
+                            search_text = COALESCE(NULLIF(EXCLUDED.search_text, ''), exercises.search_text),
+                            last_updated = NOW()
                     '''), {
                         'exercise_id': exercise['exercise_id'],
                         'name': exercise['name'],
                         'body_part': exercise['body_part'],
                         'equipment': exercise['equipment'],
                         'target': exercise['target'],
-                        'secondary_muscles': exercise['secondary_muscles'],
-                        'instructions': exercise['instructions'],
+                        'secondary_muscles': json.dumps(exercise['secondary_muscles']) if exercise.get('secondary_muscles') else '[]',
+                        'instructions': json.dumps(exercise['instructions']) if exercise.get('instructions') else '[]',
                         'gif_url': exercise['gif_url'],
-                        'difficulty_level': exercise['difficulty_level'],
-                        'exercise_type': exercise['exercise_type'],
-                        'duration_estimate': exercise['duration_estimate'],
-                        'calories_estimate': exercise['calories_estimate'],
+                        'difficulty_level': exercise.get('difficulty_level'),
+                        'exercise_type': exercise.get('exercise_type'),
+                        'duration_estimate': exercise.get('duration_estimate'),
+                        'calories_estimate': exercise.get('calories_estimate'),
                         'source': exercise['source'],
                         'search_text': exercise['search_text']
                     })
                 
                 logger.info(f'Inserted {len(validated_data[\"exercises\"])} exercises')
             
-            # Update food items
+            # Upsert food items
             if validated_data['food_items']:
-                logger.info('Updating food items')
-                db.execute(text('DELETE FROM food_items'))
+                logger.info('Upserting food items (preserving existing data)')
                 
                 for food in validated_data['food_items']:
                     db.execute(text('''
@@ -184,21 +231,39 @@ async def update_health_information():
                             :allergens, :dietary_flags, :nutritional_density,
                             :source, :search_text, NOW()
                         )
+                        ON CONFLICT (fdc_id) DO UPDATE SET
+                            -- Only update if we have better/more complete information
+                            description = COALESCE(NULLIF(EXCLUDED.description, ''), food_items.description),
+                            scientific_name = COALESCE(NULLIF(EXCLUDED.scientific_name, ''), food_items.scientific_name),
+                            common_names = COALESCE(NULLIF(EXCLUDED.common_names, ''), food_items.common_names),
+                            food_category = COALESCE(NULLIF(EXCLUDED.food_category, ''), food_items.food_category),
+                            nutrients = COALESCE(EXCLUDED.nutrients, food_items.nutrients),
+                            nutrition_summary = COALESCE(EXCLUDED.nutrition_summary, food_items.nutrition_summary),
+                            brand_owner = COALESCE(NULLIF(EXCLUDED.brand_owner, ''), food_items.brand_owner),
+                            ingredients = COALESCE(NULLIF(EXCLUDED.ingredients, ''), food_items.ingredients),
+                            serving_size = COALESCE(EXCLUDED.serving_size, food_items.serving_size),
+                            serving_size_unit = COALESCE(NULLIF(EXCLUDED.serving_size_unit, ''), food_items.serving_size_unit),
+                            allergens = COALESCE(EXCLUDED.allergens, food_items.allergens),
+                            dietary_flags = COALESCE(EXCLUDED.dietary_flags, food_items.dietary_flags),
+                            nutritional_density = COALESCE(EXCLUDED.nutritional_density, food_items.nutritional_density),
+                            source = COALESCE(NULLIF(EXCLUDED.source, ''), food_items.source),
+                            search_text = COALESCE(NULLIF(EXCLUDED.search_text, ''), food_items.search_text),
+                            last_updated = NOW()
                     '''), {
                         'fdc_id': food['fdc_id'],
                         'description': food['description'],
-                        'scientific_name': food['scientific_name'],
-                        'common_names': food['common_names'],
-                        'food_category': food['food_category'],
-                        'nutrients': food['nutrients'],
-                        'nutrition_summary': food['nutrition_summary'],
-                        'brand_owner': food['brand_owner'],
-                        'ingredients': food['ingredients'],
-                        'serving_size': food['serving_size'],
-                        'serving_size_unit': food['serving_size_unit'],
-                        'allergens': food['allergens'],
-                        'dietary_flags': food['dietary_flags'],
-                        'nutritional_density': food['nutritional_density'],
+                        'scientific_name': food.get('scientific_name'),
+                        'common_names': food.get('common_names'),
+                        'food_category': food.get('food_category'),
+                        'nutrients': json.dumps(food['nutrients']) if food.get('nutrients') else '[]',
+                        'nutrition_summary': json.dumps(food.get('nutrition_summary', {})),
+                        'brand_owner': food.get('brand_owner'),
+                        'ingredients': food.get('ingredients'),
+                        'serving_size': food.get('serving_size'),
+                        'serving_size_unit': food.get('serving_size_unit'),
+                        'allergens': json.dumps(food.get('allergens', [])),
+                        'dietary_flags': json.dumps(food.get('dietary_flags', [])),
+                        'nutritional_density': food.get('nutritional_density'),
                         'source': food['source'],
                         'search_text': food['search_text']
                     })
