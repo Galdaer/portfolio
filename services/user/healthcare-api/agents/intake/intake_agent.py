@@ -20,6 +20,7 @@ from core.infrastructure.healthcare_logger import (
 from core.infrastructure.phi_monitor import phi_monitor, sanitize_healthcare_data, scan_for_phi
 from core.enhanced_sessions import EnhancedSessionManager, PHIAwareConversationStorage
 from core.orchestration import WorkflowType, workflow_orchestrator
+from config.config_loader import get_healthcare_config
 
 logger = get_healthcare_logger("agent.intake")
 
@@ -456,6 +457,13 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         self.llm_client = llm_client
         self.config = config_override or {}
         
+        # Load healthcare configuration
+        try:
+            self.intake_config = get_healthcare_config().intake_agent
+        except Exception as e:
+            logger.warning(f"Could not load intake configuration: {e}, using defaults")
+            self.intake_config = self._get_default_config()
+        
         # Initialize transcription agent for voice processing
         self.transcription_agent = TranscriptionAgent(mcp_client=mcp_client, llm_client=llm_client)
         
@@ -808,17 +816,12 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
                 operation_type="phi_detection",
             )
 
-        # Validate required administrative fields
-        required_fields = [
-            "first_name",
-            "last_name",
-            "date_of_birth",
-            "contact_phone",
-            "contact_email",
-            "emergency_contact",
-            "insurance_primary",
-        ]
+        # Get configuration-based requirements
+        required_fields = self._get_required_fields("new_patient_registration")
+        required_documents = self._get_required_documents("new_patient_registration", "new")
+        next_steps_template = self._get_next_steps("new_patient_registration")
 
+        # Validate required fields
         for field in required_fields:
             if not patient_data.get(field):
                 validation_errors.append(f"Missing required field: {field}")
@@ -836,24 +839,11 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         next_steps = []
         if not validation_errors:
             patient_id = await self._create_patient_record(patient_data)
-            next_steps = [
-                "Complete insurance verification",
-                "Upload required documents",
-                "Schedule initial appointment",
-                "Complete health history questionnaire",
-            ]
+            next_steps = next_steps_template
             administrative_notes.append("Patient record created successfully")
         else:
             patient_id = None
             next_steps = ["Complete missing required information", "Resubmit registration form"]
-
-        # Required documents checklist
-        required_documents = [
-            "Government-issued photo ID",
-            "Insurance card (front and back)",
-            "List of current medications",
-            "Emergency contact information",
-        ]
 
         return IntakeResult(
             intake_id=intake_id,
@@ -1144,9 +1134,147 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         return len(digits_only) == 10
 
     def _generate_intake_id(self, intake_type: str) -> str:
-        """Generate unique intake ID"""
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        return f"INT_{intake_type.upper()}_{timestamp}"
+        """Generate intake ID with type prefix"""
+        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        return f"INTAKE_{intake_type.upper()}_{timestamp}"
+    
+    def _get_required_documents(self, intake_type: str, patient_type: str = "existing") -> list[str]:
+        """Get required documents from configuration based on intake and patient type"""
+        if hasattr(self.intake_config, 'document_requirements'):
+            doc_req = self.intake_config.document_requirements
+            
+            # Handle specific intake types
+            if intake_type == "insurance_verification":
+                return getattr(doc_req, 'insurance_verification', [])
+            elif intake_type == "appointment_scheduling":
+                return getattr(doc_req, 'appointment_scheduling', [])
+            elif intake_type == "general_intake":
+                return getattr(doc_req, 'general_intake', [])
+            
+            # Build comprehensive document list
+            documents = getattr(doc_req, 'base_documents', []).copy()
+            
+            if patient_type == "new":
+                documents.extend(getattr(doc_req, 'new_patient_additional', []))
+            
+            if intake_type == "specialist":
+                documents.extend(getattr(doc_req, 'specialist_additional', []))
+            
+            return documents
+        else:
+            # Default document requirements
+            return self._get_default_documents(intake_type, patient_type)
+    
+    def _get_next_steps(self, intake_type: str) -> list[str]:
+        """Get next steps from configuration based on intake type"""
+        if hasattr(self.intake_config, 'next_steps_templates'):
+            templates = self.intake_config.next_steps_templates
+            return templates.get(intake_type, templates.get("general_intake", []))
+        else:
+            return self._get_default_next_steps(intake_type)
+    
+    def _get_required_fields(self, intake_type: str) -> list[str]:
+        """Get required fields from configuration based on intake type"""
+        if hasattr(self.intake_config, 'required_fields'):
+            return self.intake_config.required_fields.get(intake_type, [])
+        else:
+            return self._get_default_required_fields(intake_type)
+    
+    
+    def _get_default_config(self) -> Any:
+        """Get default configuration when config loader fails"""
+        from types import SimpleNamespace
+        
+        default_config = SimpleNamespace()
+        default_config.document_requirements = SimpleNamespace()
+        default_config.document_requirements.base_documents = [
+            "Photo ID", "Insurance Card", "Emergency Contact Information"
+        ]
+        default_config.document_requirements.new_patient_additional = [
+            "Medical History Form", "Medication List", "Allergy Information"
+        ]
+        default_config.document_requirements.insurance_verification = [
+            "Current Insurance Card", "Photo ID"
+        ]
+        default_config.document_requirements.appointment_scheduling = [
+            "Insurance Verification"
+        ]
+        default_config.document_requirements.general_intake = [
+            "Completed Intake Form"
+        ]
+        
+        default_config.next_steps_templates = {
+            "new_patient_registration": [
+                "Complete registration forms",
+                "Schedule initial appointment",
+                "Upload required documents"
+            ],
+            "appointment_scheduling": [
+                "Verify insurance coverage",
+                "Confirm appointment time",
+                "Prepare for visit"
+            ],
+            "insurance_verification": [
+                "Review benefits",
+                "Confirm coverage details",
+                "Check copay requirements"
+            ],
+            "general_intake": [
+                "Review provided information",
+                "Complete any missing fields",
+                "Continue with process"
+            ]
+        }
+        
+        default_config.required_fields = {
+            "new_patient_registration": [
+                "first_name", "last_name", "date_of_birth",
+                "contact_phone", "contact_email", "insurance_primary"
+            ],
+            "appointment_scheduling": [
+                "patient_id", "appointment_type", "preferred_date", "preferred_time"
+            ],
+            "insurance_verification": [
+                "patient_id", "insurance_provider", "member_id", "group_number"
+            ],
+            "document_checklist": [
+                "patient_id", "checklist_type"
+            ],
+            "general_intake": [
+                "patient_id"
+            ]
+        }
+        
+        return default_config
+    
+    def _get_default_documents(self, intake_type: str, patient_type: str = "existing") -> list[str]:
+        """Get default document requirements when configuration is unavailable"""
+        config = self._get_default_config()
+        doc_req = config.document_requirements
+        
+        if intake_type == "insurance_verification":
+            return doc_req.insurance_verification
+        elif intake_type == "appointment_scheduling":
+            return doc_req.appointment_scheduling
+        elif intake_type == "general_intake":
+            return doc_req.general_intake
+        
+        documents = doc_req.base_documents.copy()
+        if patient_type == "new":
+            documents.extend(doc_req.new_patient_additional)
+        
+        return documents
+    
+    def _get_default_next_steps(self, intake_type: str) -> list[str]:
+        """Get default next steps when configuration is unavailable"""
+        config = self._get_default_config()
+        templates = config.next_steps_templates
+        return templates.get(intake_type, templates.get("general_intake", []))
+    
+    def _get_default_required_fields(self, intake_type: str) -> list[str]:
+        """Get default required fields when configuration is unavailable"""
+        config = self._get_default_config()
+        return config.required_fields.get(intake_type, [])
 
     def _format_intake_response(self, result: IntakeResult, session_id: str) -> dict[str, Any]:
         """Format intake result for API response"""

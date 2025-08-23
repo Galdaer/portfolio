@@ -76,7 +76,11 @@ class RealTimeInsuranceVerifier:
             "uhc": UnitedHealthAPIClient(), 
             "cigna": CignaAPIClient(),
             "aetna": AetnaAPIClient(),
-            "bcbs": BlueCrossBlueShieldAPIClient()
+            "bcbs": BlueCrossBlueShieldAPIClient(),
+            # Central Indiana providers
+            "iuhealth": IUHealthAPIClient(),
+            "mdwise": MDwiseAPIClient(),
+            "caresource": CareSourceAPIClient()
         }
         self.verification_cache = TTLCache(maxsize=500, ttl=1800)  # 30 min cache
         self.cache_manager = HealthcareCacheManager()
@@ -423,4 +427,111 @@ class BlueCrossBlueShieldAPIClient:
         return coverage_rules.get(
             service_code,
             CoverageResponse(covered=True, copay=35.0, coinsurance_rate=0.2, estimated_charge=175.0)
+        )
+
+# Central Indiana Insurance Provider API Clients
+
+class IUHealthAPIClient:
+    """IU Health Plans API client"""
+    
+    async def check_eligibility(self, member_id: str, service_date: date) -> EligibilityResponse:
+        await asyncio.sleep(0.1)
+        return EligibilityResponse(
+            is_active=True,
+            deductible_remaining=300.0,
+            out_of_pocket_max=1800.0,
+            out_of_pocket_met=400.0,
+            plan_type="PPO",
+            effective_date=date(2024, 1, 1)
+        )
+    
+    async def check_service_coverage(
+        self, 
+        member_id: str, 
+        service_code: str, 
+        provider_npi: str
+    ) -> CoverageResponse:
+        await asyncio.sleep(0.06)
+        
+        # IU Health typically has lower copays for IU Health system providers
+        coverage_rules = {
+            "99213": CoverageResponse(covered=True, copay=15.0, coinsurance_rate=0.0, estimated_charge=150.0),
+            "99214": CoverageResponse(covered=True, copay=15.0, coinsurance_rate=0.0, estimated_charge=200.0),
+            "73721": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.1, estimated_charge=400.0, requires_prior_auth=True),
+            "45378": CoverageResponse(covered=True, copay=100.0, coinsurance_rate=0.1, estimated_charge=800.0, requires_prior_auth=True)
+        }
+        
+        return coverage_rules.get(
+            service_code,
+            CoverageResponse(covered=True, copay=20.0, coinsurance_rate=0.15, estimated_charge=150.0)
+        )
+
+class MDwiseAPIClient:
+    """MDwise Medicaid API client"""
+    
+    async def check_eligibility(self, member_id: str, service_date: date) -> EligibilityResponse:
+        await asyncio.sleep(0.08)
+        return EligibilityResponse(
+            is_active=True,
+            deductible_remaining=0.0,  # Medicaid typically has no deductible
+            out_of_pocket_max=0.0,    # Medicaid typically has no out-of-pocket max
+            out_of_pocket_met=0.0,
+            plan_type="Medicaid",
+            effective_date=date(2024, 1, 1)
+        )
+    
+    async def check_service_coverage(
+        self, 
+        member_id: str, 
+        service_code: str, 
+        provider_npi: str
+    ) -> CoverageResponse:
+        await asyncio.sleep(0.05)
+        
+        # Medicaid typically has minimal or no copays
+        coverage_rules = {
+            "99213": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.0, estimated_charge=150.0),
+            "99214": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.0, estimated_charge=200.0),
+            "73721": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.0, estimated_charge=400.0, requires_prior_auth=True),
+            "45378": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.0, estimated_charge=800.0, requires_prior_auth=True)
+        }
+        
+        return coverage_rules.get(
+            service_code,
+            CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.0, estimated_charge=150.0)
+        )
+
+class CareSourceAPIClient:
+    """CareSource Medicaid/Medicare API client"""
+    
+    async def check_eligibility(self, member_id: str, service_date: date) -> EligibilityResponse:
+        await asyncio.sleep(0.09)
+        return EligibilityResponse(
+            is_active=True,
+            deductible_remaining=0.0,  # Medicaid/Medicare Advantage typically minimal deductible
+            out_of_pocket_max=1500.0, # Medicare Advantage may have OOP max
+            out_of_pocket_met=150.0,
+            plan_type="Medicare Advantage",
+            effective_date=date(2024, 1, 1)
+        )
+    
+    async def check_service_coverage(
+        self, 
+        member_id: str, 
+        service_code: str, 
+        provider_npi: str
+    ) -> CoverageResponse:
+        await asyncio.sleep(0.07)
+        
+        # CareSource typically has reasonable copays for Indiana market
+        coverage_rules = {
+            "99213": CoverageResponse(covered=True, copay=10.0, coinsurance_rate=0.0, estimated_charge=150.0),
+            "99214": CoverageResponse(covered=True, copay=15.0, coinsurance_rate=0.0, estimated_charge=200.0),
+            "73721": CoverageResponse(covered=True, copay=0.0, coinsurance_rate=0.2, estimated_charge=400.0, requires_prior_auth=True),
+            "45378": CoverageResponse(covered=True, copay=75.0, coinsurance_rate=0.1, estimated_charge=800.0, requires_prior_auth=True)
+        }
+        
+        return coverage_rules.get(
+            service_code,
+            CoverageResponse(covered=True, copay=15.0, coinsurance_rate=0.2, estimated_charge=150.0)
         )
