@@ -15,10 +15,15 @@ import yaml
 
 from agents import BaseHealthcareAgent
 from config.app import config
+from core.infrastructure.agent_metrics import AgentMetricsStore
+from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     log_healthcare_event,
 )
+from core.database.medical_db import MedicalDatabaseAccess
+from core.enhanced_sessions import EnhancedSessionManager
+from core.security.chat_log_manager import ChatLogManager
 from core.mcp.universal_parser import (
     parse_mcp_response,
     parse_pubmed_response,
@@ -68,6 +73,13 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         self.mcp_client = mcp_client
         self.llm_client = llm_client
         self.current_step = 0
+        
+        # Initialize shared healthcare infrastructure tools
+        self._metrics = AgentMetricsStore(agent_name="clinical_research")
+        self._cache_manager = HealthcareCacheManager()
+        self._medical_db = MedicalDatabaseAccess()
+        self._session_manager = EnhancedSessionManager()
+        self._chat_log_manager = ChatLogManager()
         
         # Conversation state management
         self._conversation_memory: dict[str, dict[str, Any]] = {}
@@ -687,6 +699,23 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             Dict containing research results, sources, and medical disclaimers
         """
         try:
+            # Check cache first for performance
+            import hashlib
+            cache_key = f"clinical_research:{hashlib.sha256(f"{query}:{session_id}".encode()).hexdigest()[:16]}"
+            try:
+                cached_result = await self._cache_manager.get(
+                    cache_key,
+                    security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE
+                )
+                if cached_result:
+                    await self._metrics.incr("cache_hits")
+                    logger.info(f"Cache hit for clinical research query: '{query[:50]}...'")
+                    return cached_result
+            except Exception as e:
+                logger.warning(f"Cache lookup failed: {e}")
+            
+            await self._metrics.incr("cache_misses")
+            
             # Enhance query with conversation context for follow-up questions
             enhanced_query = await self._enhance_query_with_context(query, session_id)
             
@@ -784,6 +813,21 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
                 ],
             }
 
+            # Cache the successful result
+            try:
+                await self._cache_manager.set(
+                    cache_key,
+                    pipeline_response,
+                    security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE,
+                    ttl_seconds=1800,  # 30 minutes cache for research results
+                    healthcare_context={
+                        "search_type": "clinical_research", 
+                        "query_type": query_analysis.get("query_type", "general")
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Failed to cache clinical research result: {e}")
+                
             # Log successful completion
             log_healthcare_event(
                 logger,
@@ -966,8 +1010,49 @@ Respond only with valid JSON.
         try:
             # Multi-stage research approach
             research_stages = []
+            
+            # Stage 0: Database-first pattern - check local medical databases
+            try:
+                # Search local PubMed database first
+                local_pubmed_articles = self._medical_db.search_pubmed_local(query, max_results=15)
+                if local_pubmed_articles:
+                    await self._metrics.incr("local_pubmed_hits")
+                    logger.info(f"Found {len(local_pubmed_articles)} articles in local PubMed database")
+                    
+                    research_stages.append({
+                        "stage": "local_pubmed_search",
+                        "source": "Local PubMed Database",
+                        "results_count": len(local_pubmed_articles),
+                        "articles": local_pubmed_articles[:10],  # Limit for performance
+                        "query": query,
+                        "data_freshness": "Local mirror - may not include latest publications"
+                    })
+                else:
+                    await self._metrics.incr("local_pubmed_misses")
+                    logger.info("No results in local PubMed database")
+                    
+                # Search local ClinicalTrials database
+                local_trials = self._medical_db.search_clinical_trials_local(query, max_results=10)
+                if local_trials:
+                    await self._metrics.incr("local_trials_hits")
+                    logger.info(f"Found {len(local_trials)} clinical trials in local database")
+                    
+                    research_stages.append({
+                        "stage": "local_trials_search",
+                        "source": "Local ClinicalTrials Database",
+                        "results_count": len(local_trials),
+                        "trials": local_trials,
+                        "query": query,
+                        "data_freshness": "Local mirror - may not include latest trials"
+                    })
+                else:
+                    await self._metrics.incr("local_trials_misses")
+                    
+            except Exception as e:
+                logger.warning(f"Local database search failed: {e}")
+                await self._metrics.incr("local_database_errors")
 
-            # Stage 1: Primary literature search via MCP tools
+            # Stage 1: Primary literature search via MCP tools (if local results insufficient)
             if hasattr(self.mcp_client, "call_tool"):
                 try:
                     pubmed_result = await self.mcp_client.call_tool(

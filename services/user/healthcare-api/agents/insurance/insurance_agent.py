@@ -10,6 +10,8 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from agents import BaseHealthcareAgent
+from core.infrastructure.agent_metrics import AgentMetricsStore
+from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     healthcare_log_method,
@@ -89,6 +91,10 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
         self.mcp_client = mcp_client
         self.llm_client = llm_client
         self.agent_type = "insurance_verification"
+        
+        # Initialize shared healthcare infrastructure tools
+        self._metrics = AgentMetricsStore(agent_name="insurance_verification")
+        self._cache_manager = HealthcareCacheManager()
         self.capabilities = [
             "eligibility_verification",
             "benefits_checking",

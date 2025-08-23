@@ -13,12 +13,15 @@ from datetime import datetime
 from typing import Any, Dict, List
 
 from agents import BaseHealthcareAgent
+from core.infrastructure.agent_metrics import AgentMetricsStore
+from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     healthcare_log_method,
     log_healthcare_event,
 )
 from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor, scan_for_phi
+from core.enhanced_sessions import EnhancedSessionManager
 
 logger = get_healthcare_logger("agent.soap_notes")
 
@@ -106,6 +109,11 @@ class SoapNotesAgent(BaseHealthcareAgent):
             agent_type="clinical_documentation",
         )
         self.logger = get_healthcare_logger(f"agent.{self.agent_name}")
+        
+        # Initialize shared healthcare infrastructure tools
+        self._metrics = AgentMetricsStore(agent_name="soap_notes")
+        self._cache_manager = HealthcareCacheManager()
+        self._session_manager = EnhancedSessionManager()
         
         # Initialize note templates
         self.note_templates = self._initialize_note_templates()

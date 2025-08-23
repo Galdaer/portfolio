@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from agents import BaseHealthcareAgent
+from core.infrastructure.agent_metrics import AgentMetricsStore
+from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
 from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
 from src.healthcare_mcp.phi_detection import PHIDetectionResult
 
@@ -51,6 +53,10 @@ class EnhancedDocumentProcessor(BaseHealthcareAgent):
         self.mcp_client = mcp_client
         self.llm_client = llm_client
         self.config = config_override or {}
+        
+        # Initialize shared healthcare infrastructure tools
+        self._metrics = AgentMetricsStore(agent_name="enhanced_document_processor")
+        self._cache_manager = HealthcareCacheManager()
         
         # Initialize document handlers
         self.handlers: Dict[str, BaseDocumentHandler] = {

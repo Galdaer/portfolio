@@ -24,7 +24,11 @@ if TYPE_CHECKING:
 
 from core.infrastructure.agent_context import new_agent_context
 from core.infrastructure.agent_metrics import AgentMetricsStore
+from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
 from core.infrastructure.healthcare_logger import get_healthcare_logger
+from core.database.medical_db import MedicalDatabaseAccess
+from core.enhanced_sessions import EnhancedSessionManager
+from core.security.chat_log_manager import ChatLogManager
 from core.mcp.universal_parser import parse_pubmed_response
 from core.medical import search_utils as medical_search_utils
 from core.medical.enhanced_query_engine import (
@@ -77,6 +81,18 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         self.mcp_client = mcp_client
         self.llm_client = llm_client
         self._metrics = AgentMetricsStore(agent_name="medical_search")
+        
+        # Initialize cache manager for performance
+        self._cache_manager = HealthcareCacheManager()
+        
+        # Initialize local medical database access for database-first pattern
+        self._medical_db = MedicalDatabaseAccess()
+        
+        # Initialize session manager for conversation continuity
+        self._session_manager = EnhancedSessionManager()
+        
+        # Initialize chat log manager for HIPAA-compliant audit trails
+        self._chat_log_manager = ChatLogManager()
 
         # Debug logging for initialization
         logger.info("MedicalLiteratureSearchAssistant initialized")
@@ -401,7 +417,23 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         search_query: str,
         search_context: dict[str, Any] | None = None,
     ) -> MedicalSearchResult:
-        """Core literature search logic using Enhanced Medical Query Engine (Phase 2)"""
+        """Core literature search logic using Enhanced Medical Query Engine (Phase 2) with caching and database-first pattern"""
+        
+        # Check cache first for performance
+        cache_key = f"medical_search:{hashlib.sha256(search_query.encode()).hexdigest()[:16]}"
+        try:
+            cached_result = await self._cache_manager.get(
+                cache_key, 
+                security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE
+            )
+            if cached_result:
+                await self._metrics.incr("cache_hits")
+                logger.info(f"Cache hit for medical search query: '{search_query[:50]}...'")
+                return cached_result
+        except Exception as e:
+            logger.warning(f"Cache lookup failed: {e}")
+            
+        await self._metrics.incr("cache_misses")
 
         # CRITICAL: Detect OpenWebUI prompt injections and reject them
         openwebui_prompts = [
@@ -443,6 +475,38 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             f"Processing legitimate medical search query with Enhanced Query Engine: '{search_query}'",
         )
 
+        # PHASE 1: Database-first pattern - check local medical database
+        try:
+            # Search local PubMed database first for better performance
+            local_articles = self._medical_db.search_pubmed_local(search_query, max_results=20)
+            if local_articles:
+                await self._metrics.incr("local_database_hits")
+                logger.info(f"Found {len(local_articles)} articles in local PubMed database")
+                
+                # Convert local results to search result format
+                search_result = self._convert_local_db_to_search_result(search_query, local_articles)
+                
+                # Cache the result for future use
+                try:
+                    await self._cache_manager.set(
+                        cache_key,
+                        search_result,
+                        security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE,
+                        ttl_seconds=3600,  # 1 hour cache
+                        healthcare_context={"search_type": "medical_literature", "data_source": "local_db"}
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to cache result: {e}")
+                    
+                return search_result
+            else:
+                await self._metrics.incr("local_database_misses")
+                logger.info("No results in local database, proceeding with Enhanced Query Engine")
+                
+        except Exception as e:
+            logger.warning(f"Local database search failed: {e}, proceeding with Enhanced Query Engine")
+            await self._metrics.incr("local_database_errors")
+        
         # PHASE 2: Use Enhanced Medical Query Engine for 25x more sophisticated search
         try:
             # Classify intent and map to QueryType
@@ -478,6 +542,18 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 f"Enhanced search completed - confidence: {enhanced_result.confidence_score:.2f}, "
                 f"sources: {len(enhanced_result.sources)}, limited to: {max_items}, entities: {len(enhanced_result.medical_entities)}",
             )
+            
+            # Cache the enhanced search result
+            try:
+                await self._cache_manager.set(
+                    cache_key,
+                    search_result,
+                    security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE,
+                    ttl_seconds=1800,  # 30 minutes cache for MCP results
+                    healthcare_context={"search_type": "medical_literature", "data_source": "enhanced_engine"}
+                )
+            except Exception as e:
+                logger.warning(f"Failed to cache enhanced result: {e}")
 
             return search_result
 
@@ -674,6 +750,52 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             disclaimers=enhanced_result.disclaimers,
             source_links=enhanced_result.source_links,
             generated_at=enhanced_result.generated_at,
+        )
+    
+    def _convert_local_db_to_search_result(
+        self, 
+        search_query: str, 
+        local_articles: list[dict[str, Any]]
+    ) -> MedicalSearchResult:
+        """Convert local database articles to MedicalSearchResult format"""
+        
+        # Convert local database articles to information_sources format
+        information_sources = []
+        for article in local_articles[:10]:  # Limit to 10 results
+            source = {
+                "title": article.get("title", "Untitled"),
+                "abstract": article.get("abstract", ""),
+                "authors": article.get("authors", []),
+                "journal": article.get("journal", ""),
+                "publication_date": article.get("pub_date", ""),
+                "pmid": article.get("pmid", ""),
+                "doi": article.get("doi", ""),
+                "mesh_terms": article.get("mesh_terms", []),
+                "source_type": "local_database",
+                "url": f"https://pubmed.ncbi.nlm.nih.gov/{article.get('pmid', '')}" if article.get('pmid') else ""
+            }
+            information_sources.append(source)
+        
+        # Generate source links
+        source_links = [src["url"] for src in information_sources if src.get("url")]
+        
+        # Calculate confidence based on number of results and recency
+        confidence = min(0.9, len(local_articles) / 20.0 + 0.1)
+        
+        return MedicalSearchResult(
+            search_id=self._generate_search_id(search_query),
+            search_query=search_query,
+            information_sources=information_sources,
+            related_conditions=[],  # Local DB doesn't provide condition info
+            drug_information=[],    # Local DB doesn't provide drug info
+            clinical_references=[],  # Local DB doesn't provide clinical refs
+            search_confidence=confidence,
+            disclaimers=self.disclaimers + [
+                "Results from local PubMed database mirror for improved performance.",
+                "Local database may not include the most recent publications."
+            ],
+            source_links=source_links,
+            generated_at=datetime.now(UTC),
         )
 
     def _format_response_by_intent(

@@ -12,6 +12,8 @@ from typing import Any
 from agents import BaseHealthcareAgent
 from agents.billing_helper.shared.billing_utils import SharedBillingUtils
 from core.financial.healthcare_financial_utils import HealthcareFinancialUtils
+from core.infrastructure.agent_metrics import AgentMetricsStore
+from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     healthcare_log_method,
@@ -87,6 +89,10 @@ class BillingHelperAgent(BaseHealthcareAgent):
         self.mcp_client = mcp_client
         self.llm_client = llm_client
         self.agent_type = "billing_helper"
+        
+        # Initialize shared healthcare infrastructure tools
+        self._metrics = AgentMetricsStore(agent_name="billing_helper")
+        self._cache_manager = HealthcareCacheManager()
         self.capabilities = [
             "claims_processing",
             "code_validation",

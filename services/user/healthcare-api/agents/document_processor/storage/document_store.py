@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
-from core.database.database_manager import DatabaseManager
+from core.dependencies import get_database_connection_context, DatabaseConnectionError
 from ..handlers.base_handler import DocumentProcessingResult
 
 
@@ -26,7 +26,7 @@ class DocumentStorage:
     def __init__(self):
         """Initialize document storage with database connection"""
         self.logger = get_healthcare_logger("document_processor.storage")
-        self.db_manager = DatabaseManager()
+        self._db_connection_context = get_database_connection_context
         
         # Storage configuration
         self.max_content_size = 50_000_000  # 50MB limit for document content

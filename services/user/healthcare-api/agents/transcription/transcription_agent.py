@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Any, cast
 
 from agents import BaseHealthcareAgent
+from core.infrastructure.agent_metrics import AgentMetricsStore
+from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     healthcare_log_method,
@@ -95,6 +97,10 @@ class TranscriptionAgent(BaseHealthcareAgent):
             agent_type="transcription",
         )
         self.logger = get_healthcare_logger(f"agent.{self.agent_name}")
+        
+        # Initialize shared healthcare infrastructure tools
+        self._metrics = AgentMetricsStore(agent_name="transcription")
+        self._cache_manager = HealthcareCacheManager()
         self.capabilities = [
             "audio_transcription",
             "clinical_note_generation",
