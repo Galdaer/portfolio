@@ -125,7 +125,11 @@ def parse_ndc_record_worker(ndc_data: Dict[str, Any]) -> Dict[str, Any] | None:
             "substance_name": generic_name,  # Use generic name as substance
             "strength": active_ingredients_str,  # Strength included in active ingredients
             "search_text": search_text,
-            "source": "ndc_directory"
+            "source": "ndc_directory",
+            # Merge fields for grouping
+            "_merge_generic_name": generic_name.lower().strip() if generic_name else "",
+            "_merge_brand_name": brand_name.lower().strip() if brand_name else "",
+            "_merge_manufacturer": labeler_name.lower().strip() if labeler_name else "",
         }
         
     except Exception as e:
@@ -199,7 +203,13 @@ def parse_drugs_fda_record_worker(drug_data: Dict[str, Any]) -> Dict[str, Any] |
             "substance_name": generic_name,
             "strength": "",  # Not readily available in this dataset
             "search_text": search_text,
-            "source": "drugs_fda"
+            "source": "drugs_fda",
+            # Merge fields for grouping
+            "_merge_generic_name": generic_name.lower().strip() if generic_name else "",
+            "_merge_brand_name": brand_name.lower().strip() if brand_name else "",
+            "_merge_manufacturer": sponsor_name.lower().strip() if sponsor_name else "",
+            "_merge_applicant": sponsor_name.lower().strip() if sponsor_name else "",
+            "_merge_app_number": application_number,
         }
         
     except Exception as e:
@@ -308,7 +318,11 @@ def parse_drug_label_record_worker(label_data: Dict[str, Any]) -> Dict[str, Any]
             "substance_name": generic_name,
             "strength": active_ingredients,  # Strength info is in active ingredients
             "search_text": search_text,
-            "source": "drug_labels"
+            "source": "drug_labels",
+            # Merge fields for grouping
+            "_merge_generic_name": generic_name.lower().strip() if generic_name else "",
+            "_merge_brand_name": brand_name.lower().strip() if brand_name else "",
+            "_merge_manufacturer": manufacturer.lower().strip() if manufacturer else "",
         }
         
     except Exception as e:
@@ -423,7 +437,13 @@ class OptimizedFDAParser:
                 "substance_name": ingredient,
                 "strength": strength,
                 "search_text": search_text,
-                "source": "orange_book"
+                "source": "orange_book",
+                # Merge fields for grouping
+                "_merge_generic_name": ingredient.lower().strip() if ingredient else "",
+                "_merge_brand_name": trade_name.lower().strip() if trade_name else "",
+                "_merge_manufacturer": applicant.lower().strip() if applicant else "",
+                "_merge_applicant": applicant.lower().strip() if applicant else "",
+                "_merge_app_number": product_no,
             }
             
         except Exception as e:

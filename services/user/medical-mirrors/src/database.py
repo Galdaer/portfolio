@@ -17,7 +17,7 @@ def get_database_url() -> str:
     """Get database URL from environment"""
     return os.getenv(
         "POSTGRES_URL",
-        "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe",
+        "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe_public",
     )
 
 

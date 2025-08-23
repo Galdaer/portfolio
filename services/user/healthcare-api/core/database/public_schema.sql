@@ -127,10 +127,11 @@ CREATE TABLE IF NOT EXISTS appointment_slots (
     reserved_until TIMESTAMPTZ,
     is_overbook BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_available_slots (slot_date, is_available, provider_id),
-    INDEX idx_slot_datetime (slot_date, slot_time)
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_available_slots ON appointment_slots (slot_date, is_available, provider_id);
+CREATE INDEX idx_slot_datetime ON appointment_slots (slot_date, slot_time);
 
 -- Scheduling rules and constraints
 CREATE TABLE IF NOT EXISTS scheduling_rules (
@@ -176,9 +177,10 @@ CREATE TABLE IF NOT EXISTS resource_reservations (
     reserved_to TIMESTAMPTZ NOT NULL,
     status VARCHAR(50) DEFAULT 'reserved',
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_resource_time (resource_id, reserved_from, reserved_to)
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_resource_time ON resource_reservations (resource_id, reserved_from, reserved_to);
 
 -- ============================================
 -- ANALYTICS AND METRICS (Aggregated, No PHI)

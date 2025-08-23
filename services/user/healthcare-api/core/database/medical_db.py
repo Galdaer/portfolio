@@ -3,7 +3,7 @@ Medical Database Access Layer
 
 Provides database-first access to local medical literature mirrors:
 - pubmed_articles
-- clinical_trials  
+- clinical_trials
 - fda_drugs
 - health_topics
 - food_items
@@ -15,13 +15,14 @@ This ensures rate limiting issues are avoided by using local data first.
 All medical reference data is stored in the PUBLIC database as it contains no PHI.
 """
 
-import json
-import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from datetime import datetime
 
 from core.database.secure_db_manager import get_db_manager, DatabaseType
 from core.infrastructure.healthcare_logger import get_healthcare_logger
+
+if TYPE_CHECKING:
+    from core.database.secure_db_manager import SecureDatabaseManager
 
 logger = get_healthcare_logger(__name__)
 
@@ -32,12 +33,15 @@ class MedicalDatabaseAccess:
     def __init__(self):
         """Initialize medical database access."""
         self.logger = logger
-        self.db_manager = None  # Will be initialized on first use
+        self.db_manager: Optional["SecureDatabaseManager"] = (
+            None  # Will be initialized on first use
+        )
 
-    async def _ensure_db_manager(self):
+    async def _ensure_db_manager(self) -> "SecureDatabaseManager":
         """Ensure database manager is initialized"""
         if self.db_manager is None:
             self.db_manager = await get_db_manager()
+        return self.db_manager
 
     async def search_pubmed_local(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
         """Search local PubMed articles database.
@@ -50,7 +54,7 @@ class MedicalDatabaseAccess:
             List of PubMed articles from local database
         """
         try:
-            await self._ensure_db_manager()
+            db_manager = await self._ensure_db_manager()
             self.logger.info(f"🔍 Searching local PubMed database: {query[:50]}...")
 
             # Use PostgreSQL full-text search
@@ -64,10 +68,13 @@ class MedicalDatabaseAccess:
             """
 
             # PubMed articles are in public database (no PHI)
-            rows = await self.db_manager.fetch(
-                search_sql, query, query, max_results,
+            rows = await db_manager.fetch(
+                search_sql,
+                query,
+                query,
+                max_results,
                 database=DatabaseType.PUBLIC,
-                tables=["pubmed_articles"]
+                tables=["pubmed_articles"],
             )
 
             articles = []
@@ -116,7 +123,7 @@ class MedicalDatabaseAccess:
             List of clinical trials from local database
         """
         try:
-            await self._ensure_db_manager()
+            db_manager = await self._ensure_db_manager()
             self.logger.info(f"🔍 Searching local clinical trials database: {query[:50]}...")
 
             # Search clinical trials with text search
@@ -131,10 +138,13 @@ class MedicalDatabaseAccess:
                 LIMIT $3
             """
 
-            rows = await self.db_manager.fetch(
-                search_sql, query, query, max_results,
+            rows = await db_manager.fetch(
+                search_sql,
+                query,
+                query,
+                max_results,
                 database=DatabaseType.PUBLIC,
-                tables=["clinical_trials"]
+                tables=["clinical_trials"],
             )
 
             trials = []
@@ -183,7 +193,9 @@ class MedicalDatabaseAccess:
             self.logger.error(f"Local clinical trials search error: {e}")
             return []
 
-    async def search_fda_drugs_local(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
+    async def search_fda_drugs_local(
+        self, query: str, max_results: int = 5
+    ) -> List[Dict[str, Any]]:
         """Search local FDA drugs database.
 
         Args:
@@ -194,28 +206,31 @@ class MedicalDatabaseAccess:
             List of FDA drugs from local database
         """
         try:
-            await self._ensure_db_manager()
+            db_manager = await self._ensure_db_manager()
             self.logger.info(f"🔍 Searching local FDA drugs database: {query[:50]}...")
 
             # Search FDA drugs with new unified schema
             search_sql = """
-                SELECT ndc, name, generic_name, brand_name, manufacturer, 
+                SELECT ndc, name, generic_name, brand_name, manufacturer,
                        ingredients, dosage_form, route, strength,
                        approval_date, application_number, therapeutic_class,
                        orange_book_code, reference_listed_drug, data_sources,
                        ts_rank(search_vector, plainto_tsquery($1)) as rank
                 FROM fda_drugs
                 WHERE search_vector @@ plainto_tsquery($2)
-                ORDER BY 
+                ORDER BY
                     rank DESC,
                     approval_date DESC NULLS LAST
                 LIMIT $3
             """
 
-            rows = await self.db_manager.fetch(
-                search_sql, query, query, max_results,
+            rows = await db_manager.fetch(
+                search_sql,
+                query,
+                query,
+                max_results,
                 database=DatabaseType.PUBLIC,
-                tables=["fda_drugs"]
+                tables=["fda_drugs"],
             )
 
             drugs = []
@@ -261,7 +276,7 @@ class MedicalDatabaseAccess:
             List of health topics from local database
         """
         try:
-            await self._ensure_db_manager()
+            db_manager = await self._ensure_db_manager()
             self.logger.info(f"🔍 Searching local health topics database: {query[:50]}...")
 
             # Search health topics with actual schema
@@ -276,17 +291,20 @@ class MedicalDatabaseAccess:
                 LIMIT $3
             """
 
-            rows = await self.db_manager.fetch(
-                search_sql, query, query, max_results,
+            rows = await db_manager.fetch(
+                search_sql,
+                query,
+                query,
+                max_results,
                 database=DatabaseType.PUBLIC,
-                tables=["health_topics"]
+                tables=["health_topics"],
             )
 
             topics = []
             for row in rows:
                 # Extract sections for common health info
                 sections = row["sections"] or {}
-                
+
                 topic = {
                     "topic_id": row["topic_id"] or "",
                     "title": row["title"] or "",
@@ -329,7 +347,7 @@ class MedicalDatabaseAccess:
             List of food items from local database
         """
         try:
-            await self._ensure_db_manager()
+            db_manager = await self._ensure_db_manager()
             self.logger.info(f"🔍 Searching local food items database: {query[:50]}...")
 
             # Search food items with JSONB fields
@@ -345,10 +363,13 @@ class MedicalDatabaseAccess:
                 LIMIT $3
             """
 
-            rows = await self.db_manager.fetch(
-                search_sql, query, query, max_results,
+            rows = await db_manager.fetch(
+                search_sql,
+                query,
+                query,
+                max_results,
                 database=DatabaseType.PUBLIC,
-                tables=["food_items"]
+                tables=["food_items"],
             )
 
             foods = []
@@ -356,7 +377,7 @@ class MedicalDatabaseAccess:
                 # Extract nutrition from JSONB
                 nutrition_summary = row["nutrition_summary"] or {}
                 nutrients = row["nutrients"] or {}
-                
+
                 food = {
                     "fdc_id": row["fdc_id"] or "",
                     "description": row["description"] or "",
@@ -392,8 +413,11 @@ class MedicalDatabaseAccess:
             return []
 
     async def search_exercises_local(
-        self, query: str, body_part: Optional[str] = None, 
-        equipment: Optional[str] = None, max_results: int = 10
+        self,
+        query: str,
+        body_part: Optional[str] = None,
+        equipment: Optional[str] = None,
+        max_results: int = 10,
     ) -> List[Dict[str, Any]]:
         """Search local exercises database.
 
@@ -407,26 +431,26 @@ class MedicalDatabaseAccess:
             List of exercises from local database
         """
         try:
-            await self._ensure_db_manager()
+            db_manager = await self._ensure_db_manager()
             self.logger.info(f"🔍 Searching local exercises database: {query[:50]}...")
 
             # Build search query with optional filters
             search_conditions = ["search_vector @@ plainto_tsquery($1)"]
             params = [query]
             param_count = 1
-            
+
             if body_part:
                 param_count += 1
                 search_conditions.append(f"body_part = ${param_count}")
                 params.append(body_part)
-                
+
             if equipment:
                 param_count += 1
                 search_conditions.append(f"equipment = ${param_count}")
                 params.append(equipment)
-            
+
             param_count += 1
-            params.append(max_results)
+            params.append(str(max_results))
 
             # Search exercises with actual schema
             search_sql = f"""
@@ -436,15 +460,13 @@ class MedicalDatabaseAccess:
                        calories_estimate,
                        ts_rank(search_vector, plainto_tsquery($1)) as rank
                 FROM exercises
-                WHERE {' AND '.join(search_conditions)}
+                WHERE {" AND ".join(search_conditions)}
                 ORDER BY rank DESC
                 LIMIT ${param_count}
             """
 
-            rows = await self.db_manager.fetch(
-                search_sql, *params,
-                database=DatabaseType.PUBLIC,
-                tables=["exercises"]
+            rows = await db_manager.fetch(
+                search_sql, *params, database=DatabaseType.PUBLIC, tables=["exercises"]
             )
 
             exercises = []
@@ -488,7 +510,7 @@ class MedicalDatabaseAccess:
             List of ICD-10 codes from local database
         """
         try:
-            await self._ensure_db_manager()
+            db_manager = await self._ensure_db_manager()
             self.logger.info(f"🔍 Searching local ICD-10 codes database: {query[:50]}...")
 
             if exact_match:
@@ -500,10 +522,8 @@ class MedicalDatabaseAccess:
                     WHERE code = $1
                     LIMIT 1
                 """
-                rows = await self.db_manager.fetch(
-                    search_sql, query.upper(),
-                    database=DatabaseType.PUBLIC,
-                    tables=["icd10_codes"]
+                rows = await db_manager.fetch(
+                    search_sql, query.upper(), database=DatabaseType.PUBLIC, tables=["icd10_codes"]
                 )
             else:
                 # Full-text search
@@ -516,10 +536,13 @@ class MedicalDatabaseAccess:
                     ORDER BY rank DESC, code_length ASC
                     LIMIT $3
                 """
-                rows = await self.db_manager.fetch(
-                    search_sql, query, query, max_results,
+                rows = await db_manager.fetch(
+                    search_sql,
+                    query,
+                    query,
+                    max_results,
                     database=DatabaseType.PUBLIC,
-                    tables=["icd10_codes"]
+                    tables=["icd10_codes"],
                 )
 
             codes = []
@@ -560,21 +583,21 @@ class MedicalDatabaseAccess:
             List of billing codes from local database
         """
         try:
-            await self._ensure_db_manager()
+            db_manager = await self._ensure_db_manager()
             self.logger.info(f"🔍 Searching local billing codes database: {query[:50]}...")
 
             # Build search query with optional code type filter
             search_conditions = ["search_vector @@ plainto_tsquery($1)"]
             params = [query]
             param_count = 1
-            
+
             if code_type:
                 param_count += 1
                 search_conditions.append(f"code_type = ${param_count}")
                 params.append(code_type.upper())
-            
+
             param_count += 1
-            params.append(max_results)
+            params.append(str(max_results))
 
             # Search billing codes with actual schema
             search_sql = f"""
@@ -583,15 +606,13 @@ class MedicalDatabaseAccess:
                        coverage_notes, gender_specific, age_specific,
                        ts_rank(search_vector, plainto_tsquery($1)) as rank
                 FROM billing_codes
-                WHERE {' AND '.join(search_conditions)}
+                WHERE {" AND ".join(search_conditions)}
                 ORDER BY rank DESC
                 LIMIT ${param_count}
             """
 
-            rows = await self.db_manager.fetch(
-                search_sql, *params,
-                database=DatabaseType.PUBLIC,
-                tables=["billing_codes"]
+            rows = await db_manager.fetch(
+                search_sql, *params, database=DatabaseType.PUBLIC, tables=["billing_codes"]
             )
 
             codes = []
@@ -605,7 +626,7 @@ class MedicalDatabaseAccess:
                         effective_date_str = str(effective_date)
                 else:
                     effective_date_str = ""
-                
+
                 termination_date = row["termination_date"]
                 if termination_date:
                     if hasattr(termination_date, "isoformat"):
@@ -614,7 +635,7 @@ class MedicalDatabaseAccess:
                         termination_date_str = str(termination_date)
                 else:
                     termination_date_str = ""
-                
+
                 code = {
                     "code": row["code"] or "",
                     "code_type": row["code_type"] or "",
@@ -646,23 +667,27 @@ class MedicalDatabaseAccess:
             Dictionary with table counts and status
         """
         try:
-            await self._ensure_db_manager()
-            
+            db_manager = await self._ensure_db_manager()
+
             # Get counts for all medical mirror tables
             status = {}
             tables = [
-                "pubmed_articles", "clinical_trials", "fda_drugs",
-                "health_topics", "food_items", "exercises",
-                "icd10_codes", "billing_codes", "update_logs"
+                "pubmed_articles",
+                "clinical_trials",
+                "fda_drugs",
+                "health_topics",
+                "food_items",
+                "exercises",
+                "icd10_codes",
+                "billing_codes",
+                "update_logs",
             ]
 
             for table in tables:
                 try:
                     count_sql = f"SELECT COUNT(*) as count FROM {table}"
-                    count = await self.db_manager.fetchval(
-                        count_sql,
-                        database=DatabaseType.PUBLIC,
-                        tables=[table]
+                    count = await db_manager.fetchval(
+                        count_sql, database=DatabaseType.PUBLIC, tables=[table]
                     )
                     status[table] = {"count": count, "available": True}
                 except Exception as e:
@@ -676,13 +701,11 @@ class MedicalDatabaseAccess:
                     WHERE status = 'success'
                     GROUP BY source
                 """
-                update_rows = await self.db_manager.fetch(
-                    update_sql,
-                    database=DatabaseType.PUBLIC,
-                    tables=["update_logs"]
+                update_rows = await db_manager.fetch(
+                    update_sql, database=DatabaseType.PUBLIC, tables=["update_logs"]
                 )
                 update_times = {
-                    row["source"]: row["last_update"].isoformat() if row["last_update"] else None 
+                    row["source"]: row["last_update"].isoformat() if row["last_update"] else None
                     for row in update_rows
                 }
             except:

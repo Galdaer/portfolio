@@ -518,46 +518,107 @@ class FDAParser:
                 merge_keys.append(f"company_generic:{company}#{generic}")
             
             # Add record to all matching groups
-            for key in merge_keys:
-                if key not in groups:
-                    groups[key] = []
-                groups[key].append(record)
+            if merge_keys:
+                for key in merge_keys:
+                    if key not in groups:
+                        groups[key] = []
+                    groups[key].append(record)
+            else:
+                # Handle records without merge keys - use NDC or fallback identifier
+                ndc = record.get("ndc", "")
+                if ndc:
+                    fallback_key = f"ndc_only:{ndc}"
+                else:
+                    # Generate a unique key for orphaned records
+                    fallback_key = f"orphan:{hash(str(record))}"
+                
+                if fallback_key not in groups:
+                    groups[fallback_key] = []
+                groups[fallback_key].append(record)
         
-        # Merge overlapping groups (records that match on multiple keys)
+        # Efficiently merge overlapping groups using Union-Find approach
+        logger.info(f"Building record-to-groups mapping for {len(groups)} groups")
+        
+        # Build record ID to groups mapping
+        record_to_groups = {}
+        total_records = 0
+        for key, records in groups.items():
+            total_records += len(records)
+            for record in records:
+                record_id = id(record)
+                if record_id not in record_to_groups:
+                    record_to_groups[record_id] = []
+                record_to_groups[record_id].append(key)
+        
+        # Count overlapping records for progress tracking
+        overlapping_records = sum(1 for group_keys in record_to_groups.values() if len(group_keys) > 1)
+        logger.info(f"Found {total_records} total records, {overlapping_records} have overlaps requiring merging")
+        
+        # Union-Find to merge overlapping groups
+        group_parent = {}  # group_key -> parent_group_key
+        
+        def find_group(group_key):
+            if group_key not in group_parent:
+                group_parent[group_key] = group_key
+                return group_key
+            if group_parent[group_key] != group_key:
+                group_parent[group_key] = find_group(group_parent[group_key])
+            return group_parent[group_key]
+        
+        def union_groups(group1, group2):
+            parent1 = find_group(group1)
+            parent2 = find_group(group2)
+            if parent1 != parent2:
+                group_parent[parent2] = parent1
+        
+        logger.info("Starting Union-Find merging process")
+        merge_operations = 0
+        
+        # Merge groups that share records
+        for record_id, group_keys in record_to_groups.items():
+            if len(group_keys) > 1:
+                # This record appears in multiple groups, merge them
+                first_group = group_keys[0]
+                for other_group in group_keys[1:]:
+                    union_groups(first_group, other_group)
+                    merge_operations += 1
+        
+        logger.info(f"Completed {merge_operations} Union-Find merge operations")
+        
+        logger.info(f"Starting final group consolidation for {len(groups)} initial groups")
+        
+        # Build final groups by collecting records under each root group
+        # Use sets to automatically handle deduplication during collection
         final_groups = {}
-        processed_record_ids = set()
+        record_id_to_record = {}  # Cache record ID to record mapping for efficiency
         
         for key, records in groups.items():
-            if any(id(r) in processed_record_ids for r in records):
-                continue
-                
-            # Collect all record IDs that should be grouped together
-            all_record_ids = set(id(r) for r in records)
-            changed = True
+            root_key = find_group(key)
+            if root_key not in final_groups:
+                final_groups[root_key] = set()  # Use set for automatic deduplication
             
-            while changed:
-                changed = False
-                for other_key, other_records in groups.items():
-                    if other_key == key:
-                        continue
-                    # If any record overlaps, merge the groups
-                    if any(id(r) in all_record_ids for r in other_records):
-                        all_record_ids.update(id(r) for r in other_records)
-                        changed = True
+            for record in records:
+                record_id = id(record)
+                final_groups[root_key].add(record_id)
+                record_id_to_record[record_id] = record
+        
+        logger.info(f"Consolidated into {len(final_groups)} final groups")
+        
+        # Convert sets back to lists and choose best keys
+        optimized_final_groups = {}
+        for root_key, record_ids in final_groups.items():
+            # Convert set of IDs back to list of records
+            unique_records = [record_id_to_record[record_id] for record_id in record_ids]
             
-            # Create final group from record IDs
-            record_list = [r for r in drug_records if id(r) in all_record_ids]
-            for record in record_list:
-                processed_record_ids.add(id(record))
-            
-            # Use the most descriptive key
-            best_key = key
-            for record in record_list:
+            # Choose the most descriptive key name while we have the records
+            best_key = root_key
+            for record in unique_records:
                 ndc = record.get("ndc", "")
                 if ndc and not ndc.startswith(("OB_", "FDA_")):
                     best_key = f"ndc:{ndc}"
                     break
             
-            final_groups[best_key] = record_list
+            optimized_final_groups[best_key] = unique_records
         
-        return final_groups
+        logger.info(f"Final deduplication complete: {sum(len(records) for records in optimized_final_groups.values())} unique records in {len(optimized_final_groups)} groups")
+        return optimized_final_groups

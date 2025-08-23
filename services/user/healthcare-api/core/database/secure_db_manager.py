@@ -103,29 +103,29 @@ class SecureDatabaseManager:
             # Create public database pool
             public_config = self.config["databases"]["public"]
             self.public_pool = await asyncpg.create_pool(
-                host=os.getenv("PUBLIC_DB_HOST", public_config.get("host", "localhost")),
-                port=int(os.getenv("PUBLIC_DB_PORT", public_config.get("port", 5432))),
-                user=os.getenv("PUBLIC_DB_USER", public_config.get("user")),
-                password=os.getenv("PUBLIC_DB_PASSWORD", public_config.get("password")),
+                host=os.getenv("PUBLIC_DB_HOST") or public_config.get("host", "localhost"),
+                port=int(os.getenv("PUBLIC_DB_PORT") or public_config.get("port", 5432)),
+                user=os.getenv("PUBLIC_DB_USER") or public_config.get("user", "intelluxe"),
+                password=os.getenv("PUBLIC_DB_PASSWORD") or public_config.get("password", "secure_password"),
                 database=public_config.get("name", "intelluxe_public"),
                 min_size=public_config.get("min_pool_size", 5),
                 max_size=public_config.get("max_pool_size", 50),
                 command_timeout=public_config.get("timeout", 30),
-                ssl=public_config.get("ssl_mode", "require") if public_config.get("ssl_mode") != "prefer" else None
+                ssl=None  # Disable SSL for local development
             )
             
             # Create private database pool with enhanced security
             private_config = self.config["databases"]["private"]
             self.private_pool = await asyncpg.create_pool(
-                host=os.getenv("PRIVATE_DB_HOST", private_config.get("host", "localhost")),
-                port=int(os.getenv("PRIVATE_DB_PORT", private_config.get("port", 5433))),
-                user=os.getenv("PRIVATE_DB_USER", private_config.get("user")),
-                password=os.getenv("PRIVATE_DB_PASSWORD", private_config.get("password")),
+                host=os.getenv("PRIVATE_DB_HOST") or private_config.get("host", "localhost"),
+                port=int(os.getenv("PRIVATE_DB_PORT") or private_config.get("port", 5432)),
+                user=os.getenv("PRIVATE_DB_USER") or private_config.get("user", "intelluxe"),
+                password=os.getenv("PRIVATE_DB_PASSWORD") or private_config.get("password", "secure_password"),
                 database=private_config.get("name", "intelluxe_clinical"),
                 min_size=private_config.get("min_pool_size", 2),
                 max_size=private_config.get("max_pool_size", 25),
                 command_timeout=private_config.get("timeout", 30),
-                ssl="require"  # Always require SSL for private database
+                ssl=None  # Disable SSL for local development (enable in production)
             )
             
             self.logger.info("Database pools initialized successfully")

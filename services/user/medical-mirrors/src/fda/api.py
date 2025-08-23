@@ -455,7 +455,7 @@ class FDAAPI:
                     continue
 
                 # Use PostgreSQL UPSERT with enhanced fields
-                await self.upsert_enhanced_drug(merged_drug, db)
+                self.upsert_enhanced_drug(merged_drug, db)
                 stored_count += 1
 
                 if stored_count % 500 == 0:
@@ -478,7 +478,7 @@ class FDAAPI:
         await self.update_search_vectors(db)
         return stored_count
 
-    async def upsert_enhanced_drug(self, drug_data: dict, db: Session):
+    def upsert_enhanced_drug(self, drug_data: dict, db: Session):
         """Insert or update a drug record using PostgreSQL UPSERT with all enhanced fields"""
         from sqlalchemy.dialects.postgresql import insert
         

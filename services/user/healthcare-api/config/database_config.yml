@@ -8,11 +8,11 @@ databases:
   # Public database for non-PHI operational data
   public:
     name: intelluxe_public
-    host: ${PUBLIC_DB_HOST:-localhost}
-    port: ${PUBLIC_DB_PORT:-5432}
-    user: ${PUBLIC_DB_USER:-intelluxe_public}
-    password: ${PUBLIC_DB_PASSWORD}
-    ssl_mode: ${PUBLIC_DB_SSL_MODE:-require}
+    host: localhost
+    port: 5432
+    user: intelluxe
+    password: secure_password
+    ssl_mode: prefer
     pool_size: 20
     max_pool_size: 50
     min_pool_size: 5
@@ -22,11 +22,11 @@ databases:
   # Private database for PHI and clinical data
   private:
     name: intelluxe_clinical
-    host: ${PRIVATE_DB_HOST:-localhost}
-    port: ${PRIVATE_DB_PORT:-5433}
-    user: ${PRIVATE_DB_USER:-intelluxe_clinical}
-    password: ${PRIVATE_DB_PASSWORD}
-    ssl_mode: ${PRIVATE_DB_SSL_MODE:-require}
+    host: localhost
+    port: 5432  # Using same PostgreSQL instance
+    user: intelluxe
+    password: secure_password
+    ssl_mode: prefer
     encryption_at_rest: true
     pool_size: 10
     max_pool_size: 25
