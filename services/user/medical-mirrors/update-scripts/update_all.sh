@@ -23,4 +23,16 @@ echo "$(date): Running ClinicalTrials update" >> $LOG_FILE
 echo "$(date): Running FDA update" >> $LOG_FILE
 /app/update-scripts/update_fda.sh
 
+# Run ICD-10 codes update
+echo "$(date): Running ICD-10 codes update" >> $LOG_FILE
+/app/update-scripts/update_icd10.sh
+
+# Run billing codes update
+echo "$(date): Running billing codes update" >> $LOG_FILE
+/app/update-scripts/update_billing.sh
+
+# Run health information update
+echo "$(date): Running health information update" >> $LOG_FILE
+/app/update-scripts/update_health_info.sh
+
 echo "$(date): Master update completed successfully" >> $LOG_FILE

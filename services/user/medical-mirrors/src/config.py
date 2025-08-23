@@ -18,11 +18,23 @@ class Config:
     PUBMED_FTP_BASE: str = "ftp://ftp.ncbi.nlm.nih.gov/pubmed/"
     CLINICALTRIALS_API: str = "https://clinicaltrials.gov/api/v2/studies"
     FDA_API_BASE: str = "https://api.fda.gov"
+    
+    # Medical coding APIs
+    NLM_ICD10_API: str = "https://clinicaltables.nlm.nih.gov/api/icd10cm/v3"
+    NLM_HCPCS_API: str = "https://clinicaltables.nlm.nih.gov/api/hcpcs/v3"
+    
+    # Health information APIs
+    MYHEALTHFINDER_API: str = "https://healthfinder.gov/developer/api"
+    EXERCISEDB_API: str = "https://exercisedb.p.rapidapi.com"
+    USDA_FOOD_API: str = "https://api.nal.usda.gov/fdc/v1"
 
     # Update schedules (in seconds)
     PUBMED_UPDATE_INTERVAL: int = 86400  # Daily
     TRIALS_UPDATE_INTERVAL: int = 604800  # Weekly
     FDA_UPDATE_INTERVAL: int = 2592000  # Monthly
+    ICD10_UPDATE_INTERVAL: int = 2592000  # Monthly (ICD codes change rarely)
+    BILLING_CODES_UPDATE_INTERVAL: int = 7776000  # Quarterly
+    HEALTH_INFO_UPDATE_INTERVAL: int = 604800  # Weekly
 
     # Rate limiting
     MAX_CONCURRENT_DOWNLOADS: int = 5
@@ -57,5 +69,23 @@ class Config:
     def get_fda_data_dir(self) -> str:
         """Get FDA data directory"""
         path = f"{self.DATA_DIR}/fda"
+        os.makedirs(path, exist_ok=True)
+        return path
+    
+    def get_icd10_data_dir(self) -> str:
+        """Get ICD-10 data directory"""
+        path = f"{self.DATA_DIR}/icd10"
+        os.makedirs(path, exist_ok=True)
+        return path
+    
+    def get_billing_codes_data_dir(self) -> str:
+        """Get billing codes data directory"""
+        path = f"{self.DATA_DIR}/billing_codes"
+        os.makedirs(path, exist_ok=True)
+        return path
+    
+    def get_health_info_data_dir(self) -> str:
+        """Get health information data directory"""
+        path = f"{self.DATA_DIR}/health_info"
         os.makedirs(path, exist_ok=True)
         return path

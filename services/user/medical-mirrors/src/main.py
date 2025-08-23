@@ -16,6 +16,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fda.api import FDAAPI
 from pubmed.api import PubMedAPI
 from pubmed.api_optimized import OptimizedPubMedAPI
+
+# Import new API modules
+from icd10.api import search_icd10_codes, get_icd10_code_details, get_icd10_categories, get_icd10_stats
+from billing_codes.api import search_billing_codes, get_billing_code_details, get_billing_categories, get_billing_stats
+from health_info.api import (
+    search_health_topics, search_exercises, search_foods,
+    get_health_topic_details, get_exercise_details, get_food_details,
+    get_health_info_stats
+)
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
@@ -217,6 +226,209 @@ async def get_drug_info(ndc: str) -> dict[str, Any]:
     except Exception as e:
         logger.exception(f"Drug info retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=f"Drug info retrieval failed: {str(e)}")
+
+
+# ICD-10 Diagnostic Codes Endpoints
+@app.get("/icd10/search")
+async def search_icd10(
+    query: str,
+    max_results: int = 10,
+    exact_match: bool = False,
+    category: str | None = None,
+    billable_only: bool = False
+) -> dict[str, Any]:
+    """
+    Search ICD-10 diagnostic codes local mirror
+    Matches interface of Healthcare MCP search-icd10 tool
+    """
+    try:
+        results = await search_icd10_codes(query, max_results, exact_match, category, billable_only)
+        return {"content": [{"type": "text", "text": str(results)}]}
+    except Exception as e:
+        logger.exception(f"ICD-10 search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"ICD-10 search failed: {str(e)}")
+
+
+@app.get("/icd10/code/{code}")
+async def get_icd10_details(code: str) -> dict[str, Any]:
+    """Get detailed information for a specific ICD-10 code"""
+    try:
+        details = await get_icd10_code_details(code)
+        return details
+    except Exception as e:
+        logger.exception(f"ICD-10 code lookup failed: {e}")
+        raise HTTPException(status_code=500, detail=f"ICD-10 lookup failed: {str(e)}")
+
+
+@app.get("/icd10/categories")
+async def get_icd10_categories_endpoint() -> dict[str, Any]:
+    """Get all ICD-10 categories and chapters"""
+    try:
+        return await get_icd10_categories()
+    except Exception as e:
+        logger.exception(f"ICD-10 categories failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Categories failed: {str(e)}")
+
+
+@app.get("/icd10/stats")
+async def get_icd10_stats_endpoint() -> dict[str, Any]:
+    """Get ICD-10 database statistics"""
+    try:
+        return await get_icd10_stats()
+    except Exception as e:
+        logger.exception(f"ICD-10 stats failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Stats failed: {str(e)}")
+
+
+# Billing Codes (CPT/HCPCS) Endpoints
+@app.get("/billing/search")
+async def search_billing(
+    query: str,
+    code_type: str | None = None,
+    max_results: int = 10,
+    active_only: bool = True,
+    category: str | None = None
+) -> dict[str, Any]:
+    """
+    Search medical billing codes local mirror
+    Matches interface of Healthcare MCP search-billing-codes tool
+    """
+    try:
+        results = await search_billing_codes(query, code_type, max_results, active_only, category)
+        return {"content": [{"type": "text", "text": str(results)}]}
+    except Exception as e:
+        logger.exception(f"Billing codes search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Billing search failed: {str(e)}")
+
+
+@app.get("/billing/code/{code}")
+async def get_billing_details(code: str) -> dict[str, Any]:
+    """Get detailed information for a specific billing code"""
+    try:
+        details = await get_billing_code_details(code)
+        return details
+    except Exception as e:
+        logger.exception(f"Billing code lookup failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Billing lookup failed: {str(e)}")
+
+
+@app.get("/billing/categories")
+async def get_billing_categories_endpoint(code_type: str | None = None) -> dict[str, Any]:
+    """Get all billing code categories"""
+    try:
+        return await get_billing_categories(code_type)
+    except Exception as e:
+        logger.exception(f"Billing categories failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Categories failed: {str(e)}")
+
+
+@app.get("/billing/stats")
+async def get_billing_stats_endpoint() -> dict[str, Any]:
+    """Get billing codes database statistics"""
+    try:
+        return await get_billing_stats()
+    except Exception as e:
+        logger.exception(f"Billing stats failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Stats failed: {str(e)}")
+
+
+# Health Information Endpoints
+@app.get("/health-topics/search")
+async def search_health_topics_endpoint(
+    query: str,
+    category: str | None = None,
+    audience: str | None = None,
+    max_results: int = 10
+) -> dict[str, Any]:
+    """
+    Search health topics from MyHealthfinder
+    Supports lifestyle and health information queries
+    """
+    try:
+        results = await search_health_topics(query, category, audience, max_results)
+        return {"content": [{"type": "text", "text": str(results)}]}
+    except Exception as e:
+        logger.exception(f"Health topics search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Health topics search failed: {str(e)}")
+
+
+@app.get("/health-topics/topic/{topic_id}")
+async def get_health_topic_details_endpoint(topic_id: str) -> dict[str, Any]:
+    """Get detailed information for a specific health topic"""
+    try:
+        return await get_health_topic_details(topic_id)
+    except Exception as e:
+        logger.exception(f"Health topic lookup failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Health topic lookup failed: {str(e)}")
+
+
+@app.get("/exercises/search")
+async def search_exercises_endpoint(
+    query: str,
+    body_part: str | None = None,
+    equipment: str | None = None,
+    difficulty: str | None = None,
+    max_results: int = 10
+) -> dict[str, Any]:
+    """
+    Search exercises from ExerciseDB
+    Supports physical therapy and fitness queries
+    """
+    try:
+        results = await search_exercises(query, body_part, equipment, difficulty, max_results)
+        return {"content": [{"type": "text", "text": str(results)}]}
+    except Exception as e:
+        logger.exception(f"Exercise search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Exercise search failed: {str(e)}")
+
+
+@app.get("/exercises/exercise/{exercise_id}")
+async def get_exercise_details_endpoint(exercise_id: str) -> dict[str, Any]:
+    """Get detailed information for a specific exercise"""
+    try:
+        return await get_exercise_details(exercise_id)
+    except Exception as e:
+        logger.exception(f"Exercise lookup failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Exercise lookup failed: {str(e)}")
+
+
+@app.get("/nutrition/search")
+async def search_foods_endpoint(
+    query: str,
+    food_category: str | None = None,
+    dietary_flags: str | None = None,
+    max_results: int = 10
+) -> dict[str, Any]:
+    """
+    Search food items from USDA FoodData Central
+    Supports nutrition and dietary queries
+    """
+    try:
+        results = await search_foods(query, food_category, dietary_flags, max_results)
+        return {"content": [{"type": "text", "text": str(results)}]}
+    except Exception as e:
+        logger.exception(f"Food search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Food search failed: {str(e)}")
+
+
+@app.get("/nutrition/food/{fdc_id}")
+async def get_food_details_endpoint(fdc_id: int) -> dict[str, Any]:
+    """Get detailed information for a specific food item"""
+    try:
+        return await get_food_details(fdc_id)
+    except Exception as e:
+        logger.exception(f"Food lookup failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Food lookup failed: {str(e)}")
+
+
+@app.get("/health-info/stats")
+async def get_health_info_stats_endpoint() -> dict[str, Any]:
+    """Get health information database statistics"""
+    try:
+        return await get_health_info_stats()
+    except Exception as e:
+        logger.exception(f"Health info stats failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Stats failed: {str(e)}")
 
 
 # Update endpoints for maintenance
