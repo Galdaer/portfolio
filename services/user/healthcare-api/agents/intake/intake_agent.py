@@ -17,6 +17,12 @@ from core.infrastructure.healthcare_logger import (
     healthcare_log_method,
     log_healthcare_event,
 )
+from core.infrastructure.agent_logging_utils import (
+    AgentWorkflowLogger,
+    enhanced_agent_method,
+    log_agent_query,
+    log_agent_cache_event,
+)
 from core.infrastructure.phi_monitor import phi_monitor, sanitize_healthcare_data, scan_for_phi
 from core.enhanced_sessions import EnhancedSessionManager, PHIAwareConversationStorage
 from core.orchestration import WorkflowType, workflow_orchestrator
@@ -700,7 +706,7 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         
         return response
 
-    @healthcare_log_method(operation_type="patient_intake", phi_risk_level="high")
+    @enhanced_agent_method(operation_type="patient_intake", phi_risk_level="high", track_performance=True)
     @healthcare_agent_log("intake")
     async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
         """
@@ -710,27 +716,45 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
         """
         session_id = request.get("session_id", "default")
         
+        # Initialize workflow logger for intake processing
+        workflow_logger = self.get_workflow_logger()
+        workflow_logger.start_workflow("intake_processing", {
+            "session_id": session_id,
+            "has_voice_session": "voice_session_id" in request,
+            "has_audio_data": "audio_data" in request,
+            "request_keys": list(request.keys())
+        })
+        
         # Check if this is a voice processing request
         if "voice_session_id" in request and "audio_data" in request:
+            workflow_logger.log_step("routing_to_voice_processing")
+            workflow_logger.finish_workflow("completed", {"routed_to": "voice_processing"})
             return await self.process_voice_input(request["voice_session_id"], request["audio_data"])
             
         elif "start_voice_intake" in request:
+            workflow_logger.log_step("starting_voice_intake")
             patient_id = request.get("patient_id", "unknown")
             intake_type = request.get("intake_type", "new_patient_registration")
+            workflow_logger.finish_workflow("completed", {"routed_to": "start_voice_intake"})
             return await self.start_voice_intake(patient_id, intake_type)
             
         elif "complete_voice_intake" in request:
+            workflow_logger.log_step("completing_voice_intake")
             voice_session_id = request.get("voice_session_id")
             if not voice_session_id:
+                workflow_logger.finish_workflow("failed", {"error": "missing_voice_session_id"})
                 return {
                     "success": False,
                     "error": "voice_session_id required for completing voice intake",
                     "disclaimers": self.disclaimers
                 }
+            workflow_logger.finish_workflow("completed", {"routed_to": "complete_voice_intake"})
             return await self.complete_voice_intake(voice_session_id)
 
         # PHI detection before processing
+        workflow_logger.log_step("phi_scanning")
         if scan_for_phi(request):
+            workflow_logger.log_step("phi_detected", level=logging.WARNING)
             log_healthcare_event(
                 logger,
                 25,  # PHI_ALERT level
@@ -740,11 +764,17 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
             )
 
         try:
+            workflow_logger.log_step("extract_intake_parameters")
             intake_type = request.get("intake_type", "new_patient_registration")
             patient_data = request.get("patient_data", {})
 
             # Sanitize patient data for logging
             sanitized_data = sanitize_healthcare_data(patient_data)
+            workflow_logger.log_step("sanitize_patient_data", {
+                "intake_type": intake_type,
+                "data_fields_count": len(sanitized_data)
+            })
+            
             log_healthcare_event(
                 logger,
                 logging.INFO,
@@ -757,20 +787,42 @@ class HealthcareIntakeAgent(BaseHealthcareAgent):
                 operation_type="intake_processing",
             )
 
+            workflow_logger.log_step("route_intake_processing", {"intake_type": intake_type})
+            
             if intake_type == "new_patient_registration":
+                workflow_logger.log_step("processing_new_patient_registration")
                 result = await self._process_new_patient_registration(patient_data, session_id)
             elif intake_type == "appointment_scheduling":
+                workflow_logger.log_step("processing_appointment_scheduling")
                 result = await self._process_appointment_scheduling(patient_data, session_id)
             elif intake_type == "insurance_verification":
+                workflow_logger.log_step("processing_insurance_verification")
                 result = await self._process_insurance_verification(patient_data, session_id)
             elif intake_type == "document_checklist":
+                workflow_logger.log_step("processing_document_checklist")
                 result = await self._process_document_checklist(patient_data, session_id)
             else:
+                workflow_logger.log_step("processing_general_intake")
                 result = await self._process_general_intake(patient_data, session_id)
 
-            return self._format_intake_response(result, session_id)
+            workflow_logger.log_step("format_intake_response", {
+                "result_status": result.status if result else "no_result",
+                "intake_id": result.intake_id if result else None,
+            })
+            
+            response = self._format_intake_response(result, session_id)
+            
+            workflow_logger.finish_workflow("completed", {
+                "final_status": result.status if result else "unknown",
+                "intake_id": result.intake_id if result else None,
+                "validation_errors_count": len(result.validation_errors) if result else 0,
+            })
+            
+            return response
 
         except Exception as e:
+            workflow_logger.finish_workflow("failed", error=e)
+            
             log_healthcare_event(
                 logger,
                 35,  # MEDICAL_ERROR level

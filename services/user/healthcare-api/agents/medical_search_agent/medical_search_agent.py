@@ -26,6 +26,12 @@ from core.infrastructure.agent_context import new_agent_context
 from core.infrastructure.agent_metrics import AgentMetricsStore
 from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
 from core.infrastructure.healthcare_logger import get_healthcare_logger
+from core.infrastructure.agent_logging_utils import (
+    AgentWorkflowLogger,
+    enhanced_agent_method,
+    log_agent_query,
+    log_agent_cache_event,
+)
 from core.database.medical_db import MedicalDatabaseAccess
 from core.enhanced_sessions import EnhancedSessionManager
 from core.security.chat_log_manager import ChatLogManager
@@ -349,6 +355,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             cleaned.append(term)
         return cleaned
 
+    @enhanced_agent_method(operation_type="medical_literature_search", phi_risk_level="medium", track_performance=True)
     async def search_medical_literature(
         self,
         search_query: str,
@@ -358,9 +365,22 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         Search medical literature like a medical librarian would
         Returns information about conditions, not diagnoses
         """
-        logger.info(f"search_medical_literature called with query: '{search_query}'")
+        # Generate query hash for tracking
+        query_hash = log_agent_query(self.agent_name, search_query, "literature_search")
+        
+        # Initialize workflow logger for medical search
+        workflow_logger = self.get_workflow_logger()
+        workflow_logger.start_workflow("medical_literature_search", {
+            "query_hash": query_hash,
+            "query_length": len(search_query),
+            "has_context": search_context is not None,
+            "context_keys": list(search_context.keys()) if search_context else [],
+        })
+
+        logger.info(f"search_medical_literature called with query: '{search_query}' (hash: {query_hash})")
 
         try:
+            workflow_logger.log_step("configure_search_timeout")
             # Get configurable timeout for entire search operation; prefer 'total_search' if present
             sp = getattr(search_config, "search_parameters", None)
             timeouts_cfg = getattr(sp, "timeouts", {}) if sp else {}
@@ -369,15 +389,36 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             total_timeout = (
                 timeouts_cfg.get("total_search") or timeouts_cfg.get("search_request") or 60
             )
+            
+            workflow_logger.log_performance_metric("search_timeout", total_timeout, "seconds")
+            workflow_logger.log_step("execute_literature_search", {
+                "timeout_seconds": total_timeout
+            })
 
             # Use asyncio.wait_for for overall timeout protection (module-level import)
             result = await asyncio.wait_for(
-                self._perform_literature_search(search_query, search_context),
+                self._perform_literature_search(search_query, search_context, workflow_logger),
                 timeout=total_timeout,
             )
+            
+            workflow_logger.log_step("search_completed", {
+                "result_id": result.search_id if result else None,
+                "sources_count": len(result.information_sources) if result else 0,
+                "confidence": result.search_confidence if result else 0.0,
+            })
+            
+            workflow_logger.finish_workflow("completed", {
+                "search_id": result.search_id if result else None,
+                "sources_count": len(result.information_sources) if result else 0,
+                "confidence": result.search_confidence if result else 0.0,
+                "query_hash": query_hash,
+            })
+            
             return result
 
         except TimeoutError:
+            workflow_logger.finish_workflow("failed", {"error": "timeout", "timeout_seconds": total_timeout})
+            
             logger.error(
                 f"Medical literature search timed out after {total_timeout}s for query: '{search_query[:100]}...'",
             )
@@ -397,6 +438,8 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 generated_at=datetime.now(UTC),
             )
         except Exception as e:
+            workflow_logger.finish_workflow("failed", error=e)
+            
             logger.error(f"Medical literature search failed: {e}")
             # Return empty result with error message
             return MedicalSearchResult(
@@ -416,10 +459,14 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         self,
         search_query: str,
         search_context: dict[str, Any] | None = None,
+        workflow_logger: AgentWorkflowLogger | None = None,
     ) -> MedicalSearchResult:
         """Core literature search logic using Enhanced Medical Query Engine (Phase 2) with caching and database-first pattern"""
         
         # Check cache first for performance
+        if workflow_logger:
+            workflow_logger.log_step("check_cache")
+        
         cache_key = f"medical_search:{hashlib.sha256(search_query.encode()).hexdigest()[:16]}"
         try:
             cached_result = await self._cache_manager.get(
@@ -428,12 +475,18 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             )
             if cached_result:
                 await self._metrics.incr("cache_hits")
+                log_agent_cache_event(self.agent_name, cache_key, hit=True, operation="lookup")
+                if workflow_logger:
+                    workflow_logger.log_step("cache_hit_found", {"cache_key_hash": cache_key[-8:]})
                 logger.info(f"Cache hit for medical search query: '{search_query[:50]}...'")
                 return cached_result
         except Exception as e:
             logger.warning(f"Cache lookup failed: {e}")
             
         await self._metrics.incr("cache_misses")
+        log_agent_cache_event(self.agent_name, cache_key, hit=False, operation="lookup")
+        if workflow_logger:
+            workflow_logger.log_step("cache_miss", {"proceeding_to": "database_search"})
 
         # CRITICAL: Detect OpenWebUI prompt injections and reject them
         openwebui_prompts = [

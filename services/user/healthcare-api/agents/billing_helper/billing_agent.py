@@ -4,6 +4,7 @@ Handles medical billing, claims processing, and coding assistance for administra
 """
 
 import logging
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -18,6 +19,12 @@ from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     healthcare_log_method,
     log_healthcare_event,
+)
+from core.infrastructure.agent_logging_utils import (
+    AgentWorkflowLogger,
+    enhanced_agent_method,
+    log_agent_query,
+    log_agent_cache_event,
 )
 from core.infrastructure.phi_monitor import (
     phi_monitor_decorator,
@@ -172,7 +179,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
             )
             raise
 
-    @healthcare_log_method(operation_type="claim_processing", phi_risk_level="medium")
+    @enhanced_agent_method(operation_type="claim_processing", phi_risk_level="medium", track_performance=True)
     @phi_monitor_decorator(risk_level="medium", operation_type="billing_processing")
     async def process_claim(self, claim_data: dict[str, Any]) -> BillingResult:
         """
@@ -187,7 +194,17 @@ class BillingHelperAgent(BaseHealthcareAgent):
         Medical Disclaimer: Administrative billing support only.
         Does not provide medical advice or clinical decision-making.
         """
+        # Initialize workflow logger for detailed claim processing tracking
+        workflow_logger = self.get_workflow_logger()
+        workflow_logger.start_workflow("claim_processing", {
+            "procedure_codes_count": len(claim_data.get("procedure_codes", [])),
+            "diagnosis_codes_count": len(claim_data.get("diagnosis_codes", [])),
+            "has_patient_id": "patient_id" in claim_data,
+            "has_provider_id": "provider_id" in claim_data,
+        })
+
         # Validate and sanitize input data for PHI protection
+        workflow_logger.log_step("phi_scanning", {"scanning_fields": list(claim_data.keys())})
         scan_for_phi(str(claim_data))
 
         processing_errors = []
@@ -195,12 +212,20 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
         try:
             # Validate required fields
+            workflow_logger.log_step("validate_required_fields", {
+                "required_fields": ["patient_id", "provider_id", "service_date", "procedure_codes"]
+            })
             required_fields = ["patient_id", "provider_id", "service_date", "procedure_codes"]
             for field in required_fields:
                 if field not in claim_data:
                     processing_errors.append(f"Missing required field: {field}")
 
             if processing_errors:
+                workflow_logger.log_step("validation_failed", {
+                    "error_count": len(processing_errors),
+                    "stage": "required_fields"
+                }, level=logging.WARNING)
+                workflow_logger.finish_workflow("failed", {"processing_errors": processing_errors})
                 return BillingResult(
                     billing_id=f"bill_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                     status="validation_failed",
@@ -213,32 +238,63 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 )
 
             # Validate CPT codes
+            workflow_logger.log_step("validate_cpt_codes", {
+                "code_count": len(claim_data.get("procedure_codes", []))
+            })
             cpt_validations = []
+            cpt_start_time = time.time()
             for code in claim_data.get("procedure_codes", []):
                 validation = await self.validate_cpt_code(code)
                 cpt_validations.append(validation)
                 if not validation.is_valid:
                     processing_errors.append(f"Invalid CPT code: {code}")
+            
+            workflow_logger.log_performance_metric("cpt_validation_time_ms", 
+                                                 (time.time() - cpt_start_time) * 1000, "ms")
 
-            # Validate ICD-10 codes
+            # Validate ICD-10 codes  
+            workflow_logger.log_step("validate_icd_codes", {
+                "code_count": len(claim_data.get("diagnosis_codes", []))
+            })
             icd_validations = []
+            icd_start_time = time.time()
             for code in claim_data.get("diagnosis_codes", []):
                 validation = await self.validate_icd_code(code)
                 icd_validations.append(validation)
                 if not validation.is_valid:
                     processing_errors.append(f"Invalid ICD-10 code: {code}")
+            
+            workflow_logger.log_performance_metric("icd_validation_time_ms", 
+                                                 (time.time() - icd_start_time) * 1000, "ms")
 
             # Calculate total amount
+            workflow_logger.log_step("calculate_claim_amount", {
+                "cpt_validations_count": len(cpt_validations)
+            })
             total_amount = self._calculate_claim_amount(claim_data, cpt_validations)
+            workflow_logger.log_performance_metric("calculated_amount", total_amount, "USD")
 
             # Generate claim number if validation passes
             if not processing_errors:
+                workflow_logger.log_step("generate_claim_number", {"status": "validation_passed"})
                 claim_number = f"CLM{datetime.now().strftime('%Y%m%d%H%M%S')}"
                 status = "processed"
                 compliance_validated = True
             else:
+                workflow_logger.log_step("claim_requires_correction", {
+                    "error_count": len(processing_errors)
+                }, level=logging.WARNING)
                 status = "requires_correction"
                 compliance_validated = False
+
+            # Finish workflow logging
+            workflow_logger.finish_workflow("completed", {
+                "final_status": status,
+                "claim_number": claim_number,
+                "total_amount": total_amount,
+                "compliance_validated": compliance_validated,
+                "error_count": len(processing_errors),
+            })
 
             log_healthcare_event(
                 logger,
@@ -269,6 +325,8 @@ class BillingHelperAgent(BaseHealthcareAgent):
             )
 
         except Exception as e:
+            workflow_logger.finish_workflow("failed", error=e)
+            
             log_healthcare_event(
                 logger,
                 logging.ERROR,
@@ -288,7 +346,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 metadata={"error_stage": "processing_exception"},
             )
 
-    @healthcare_log_method(operation_type="cpt_validation", phi_risk_level="low")
+    @enhanced_agent_method(operation_type="cpt_validation", phi_risk_level="low", track_performance=True)
     async def validate_cpt_code(self, cpt_code: str) -> CPTCodeValidation:
         """
         Validate CPT procedure code
@@ -343,7 +401,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
             billing_notes=[f"CPT code {clean_code} not found in database"],
         )
 
-    @healthcare_log_method(operation_type="icd_validation", phi_risk_level="low")
+    @enhanced_agent_method(operation_type="icd_validation", phi_risk_level="low", track_performance=True)
     async def validate_icd_code(self, icd_code: str) -> ICDCodeValidation:
         """
         Validate ICD-10 diagnosis code

@@ -1,0 +1,282 @@
+# Healthcare API Logging Configuration
+#
+# This configuration defines logging levels, formats, and specialized settings
+# for different healthcare agents and operations.
+#
+# MEDICAL DISCLAIMER: This logging configuration supports healthcare administrative
+# functions. It does not provide medical advice, diagnosis, or treatment recommendations.
+
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  healthcare_standard:
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    datefmt: "%Y-%m-%d %H:%M:%S"
+    
+  healthcare_detailed:
+    format: "%(asctime)s.%(msecs)03d - %(name)s - %(levelname)s - [%(funcName)s:%(lineno)d] - %(message)s"
+    datefmt: "%Y-%m-%d %H:%M:%S"
+    
+  healthcare_json:
+    class: pythonjsonlogger.jsonlogger.JsonFormatter
+    format: "%(asctime)s %(name)s %(levelname)s %(funcName)s %(lineno)d %(message)s"
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: WARNING
+    formatter: healthcare_standard
+    stream: ext://sys.stdout
+    
+  healthcare_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: healthcare_detailed
+    filename: logs/healthcare_system.log
+    maxBytes: 52428800  # 50MB
+    backupCount: 10
+    encoding: utf8
+    
+  agent_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: healthcare_detailed
+    filename: logs/agents.log
+    maxBytes: 26214400  # 25MB
+    backupCount: 5
+    encoding: utf8
+    
+  performance_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: healthcare_json
+    filename: logs/performance_metrics.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 3
+    encoding: utf8
+    
+  phi_alert_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: healthcare_detailed
+    filename: logs/phi_alerts.log
+    maxBytes: 5242880  # 5MB
+    backupCount: 20  # Keep more PHI alert logs for compliance
+    encoding: utf8
+    
+  audit_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: healthcare_json
+    filename: logs/audit_trail.log
+    maxBytes: 104857600  # 100MB
+    backupCount: 50  # Extended retention for audit compliance
+    encoding: utf8
+
+loggers:
+  # Main healthcare system logger
+  healthcare:
+    level: INFO
+    handlers: [healthcare_file, console]
+    propagate: false
+    
+  # Agent-specific loggers
+  healthcare.agent:
+    level: INFO
+    handlers: [agent_file, console]
+    propagate: false
+    
+  healthcare.agent.intake:
+    level: INFO
+    handlers: [agent_file]
+    propagate: true
+    
+  healthcare.agent.billing_helper:
+    level: INFO
+    handlers: [agent_file]
+    propagate: true
+    
+  healthcare.agent.document_processor:
+    level: INFO
+    handlers: [agent_file]
+    propagate: true
+    
+  healthcare.agent.medical_search:
+    level: INFO
+    handlers: [agent_file]
+    propagate: true
+    
+  healthcare.agent.scheduling_optimizer:
+    level: INFO
+    handlers: [agent_file]
+    propagate: true
+    
+  healthcare.agent.clinical_research:
+    level: INFO
+    handlers: [agent_file]
+    propagate: true
+    
+  healthcare.agent.transcription:
+    level: INFO
+    handlers: [agent_file]
+    propagate: true
+    
+  healthcare.agent.soap_notes:
+    level: INFO
+    handlers: [agent_file]
+    propagate: true
+    
+  healthcare.agent.insurance:
+    level: INFO
+    handlers: [agent_file]
+    propagate: true
+    
+  # Performance monitoring
+  healthcare.performance:
+    level: INFO
+    handlers: [performance_file]
+    propagate: false
+    
+  # PHI monitoring and alerts
+  healthcare.phi_monitor:
+    level: INFO
+    handlers: [phi_alert_file, console]
+    propagate: false
+    
+  # Audit trail logging
+  healthcare.audit:
+    level: INFO
+    handlers: [audit_file]
+    propagate: false
+    
+  # Infrastructure components
+  healthcare.infrastructure:
+    level: INFO
+    handlers: [healthcare_file]
+    propagate: true
+    
+  healthcare.infrastructure.mcp:
+    level: INFO
+    handlers: [healthcare_file]
+    propagate: true
+    
+  healthcare.infrastructure.database:
+    level: INFO
+    handlers: [healthcare_file]
+    propagate: true
+    
+  healthcare.infrastructure.cache:
+    level: INFO
+    handlers: [healthcare_file]
+    propagate: true
+
+# Development environment overrides
+development:
+  loggers:
+    healthcare:
+      level: DEBUG
+      handlers: [healthcare_file, console]
+    healthcare.agent:
+      level: DEBUG
+      handlers: [agent_file, console]
+  
+  handlers:
+    console:
+      level: DEBUG
+    healthcare_file:
+      level: DEBUG
+    agent_file:
+      level: DEBUG
+
+# Production environment overrides  
+production:
+  loggers:
+    healthcare:
+      level: INFO
+    healthcare.agent:
+      level: INFO
+      
+  handlers:
+    console:
+      level: ERROR  # Only errors to console in production
+    healthcare_file:
+      level: INFO
+    agent_file:
+      level: INFO
+
+# Testing environment overrides
+testing:
+  loggers:
+    healthcare:
+      level: WARNING
+    healthcare.agent:
+      level: INFO
+      
+  handlers:
+    console:
+      level: WARNING
+    healthcare_file:
+      level: INFO
+      
+# Agent-specific configurations
+agent_configs:
+  intake:
+    high_phi_risk: true
+    detailed_logging: true
+    performance_tracking: true
+    
+  billing_helper:
+    financial_data_logging: true
+    compliance_tracking: true
+    detailed_logging: true
+    
+  document_processor:
+    phi_risk: high
+    document_tracking: true
+    processing_metrics: true
+    
+  medical_search:
+    query_tracking: true
+    performance_critical: true
+    cache_monitoring: true
+    
+  scheduling_optimizer:
+    optimization_metrics: true
+    resource_tracking: true
+    
+  clinical_research:
+    research_tracking: true
+    external_api_monitoring: true
+    
+  transcription:
+    high_phi_risk: true
+    quality_metrics: true
+    
+  soap_notes:
+    high_phi_risk: true
+    template_tracking: true
+    
+  insurance:
+    external_api_monitoring: true
+    verification_tracking: true
+
+# Performance monitoring thresholds
+performance_thresholds:
+  slow_operation_ms: 5000
+  very_slow_operation_ms: 10000
+  memory_warning_mb: 512
+  memory_critical_mb: 1024
+  
+# PHI detection settings
+phi_detection:
+  log_phi_patterns: false  # Never log actual PHI patterns
+  log_phi_alerts: true     # Log when PHI is detected
+  quarantine_phi_logs: true  # Separate PHI-containing logs
+  
+# Audit settings
+audit:
+  log_all_operations: true
+  log_performance_metrics: true
+  log_external_calls: true
+  retention_days: 2555  # 7 years for HIPAA compliance

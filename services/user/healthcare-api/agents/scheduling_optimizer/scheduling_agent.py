@@ -16,6 +16,10 @@ from core.infrastructure.healthcare_logger import (
     healthcare_log_method,
     log_healthcare_event,
 )
+from core.infrastructure.agent_logging_utils import (
+    AgentWorkflowLogger,
+    enhanced_agent_method,
+)
 from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor, scan_for_phi
 
 logger = get_healthcare_logger("agent.scheduling_optimizer")
@@ -157,7 +161,7 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
             )
             raise
 
-    @healthcare_log_method(operation_type="scheduling_optimization", phi_risk_level="medium")
+    @enhanced_agent_method(operation_type="scheduling_optimization", phi_risk_level="medium", track_performance=True)
     @phi_monitor(risk_level="medium", operation_type="appointment_scheduling")
     async def schedule_appointment(self, appointment_request: dict[str, Any]) -> SchedulingResult:
         """
@@ -283,7 +287,7 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
                 metadata={"error_stage": "processing_exception"},
             )
 
-    @healthcare_log_method(operation_type="scheduling_optimization", phi_risk_level="medium")
+    @enhanced_agent_method(operation_type="slot_finding", phi_risk_level="medium", track_performance=True)
     async def find_available_slots(
         self,
         provider_id: str,
@@ -401,7 +405,7 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
         # Default: return earliest available slot
         return min(available_slots, key=lambda x: x.start_time)
 
-    @healthcare_log_method(operation_type="scheduling_optimization", phi_risk_level="medium")
+    @enhanced_agent_method(operation_type="schedule_optimization", phi_risk_level="medium", track_performance=True)
     async def optimize_provider_schedule(
         self,
         provider_id: str,

@@ -13,6 +13,10 @@ from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     log_healthcare_event,
 )
+from core.infrastructure.agent_logging_utils import (
+    AgentWorkflowLogger,
+    enhanced_agent_method,
+)
 
 logger = get_healthcare_logger("agent.document_processor")
 
@@ -112,6 +116,7 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
             )
             raise
 
+    @enhanced_agent_method(operation_type="document_processing", phi_risk_level="high", track_performance=True)
     async def _process_implementation(self, request: dict[str, Any]) -> dict[str, Any]:
         """
         Process document formatting request
@@ -119,25 +124,57 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
         MEDICAL DISCLAIMER: Document formatting only - not medical interpretation.
         """
         session_id = request.get("session_id", "default")
+        
+        # Initialize workflow logger for document processing pipeline
+        workflow_logger = self.get_workflow_logger()
+        workflow_logger.start_workflow("document_processing", {
+            "session_id": session_id,
+            "document_type": request.get("document_type", "soap_note"),
+            "has_document_data": "document_data" in request,
+        })
 
         try:
+            workflow_logger.log_step("extract_request_parameters")
             document_type = request.get("document_type", "soap_note")
             document_data = request.get("document_data", {})
 
+            workflow_logger.log_step("route_document_processing", {
+                "document_type": document_type,
+                "data_keys": list(document_data.keys())
+            })
+
             if document_type == "soap_note":
+                workflow_logger.log_step("processing_soap_note")
                 result = await self._process_soap_note(document_data, session_id)
             elif document_type == "medical_form":
+                workflow_logger.log_step("processing_medical_form")
                 result = await self._process_medical_form(document_data, session_id)
             elif document_type == "patient_summary":
+                workflow_logger.log_step("processing_patient_summary")
                 result = await self._process_patient_summary(document_data, session_id)
             elif document_type == "clinical_note":
+                workflow_logger.log_step("processing_clinical_note")
                 result = await self._process_clinical_note(document_data, session_id)
             else:
+                workflow_logger.log_step("processing_general_document")
                 result = await self._process_general_document(document_data, session_id)
 
-            return self._format_processing_response(result, session_id)
+            workflow_logger.log_step("format_response", {
+                "processing_status": result.status if result else "no_result"
+            })
+            
+            response = self._format_processing_response(result, session_id)
+            
+            workflow_logger.finish_workflow("completed", {
+                "final_status": result.status if result else "unknown",
+                "processing_id": result.processing_id if result else None,
+                "validation_errors_count": len(result.validation_results) if result else 0,
+            })
+            
+            return response
 
         except Exception as e:
+            workflow_logger.finish_workflow("failed", error=e)
             logger.exception(f"Document processing error: {e}")
             return self._create_error_response(f"Document processing failed: {str(e)}", session_id)
         finally:

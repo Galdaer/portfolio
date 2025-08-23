@@ -15,6 +15,7 @@ from typing import Any
 from core.dependencies import DatabaseConnectionError, get_database_connection
 from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
 from core.infrastructure.phi_monitor import sanitize_healthcare_data
+from core.infrastructure.agent_logging_utils import AgentWorkflowLogger, enhanced_agent_method
 from core.memory import memory_manager
 from core.models import model_registry
 from core.tools import tool_registry
@@ -51,12 +52,15 @@ class BaseHealthcareAgent(ABC):
         self.agent_type = agent_type
         self.mcp_client = mcp_client
         self.llm_client = llm_client
-        self.logger = logging.getLogger(f"agent.{agent_name}")
+        self.logger = get_healthcare_logger(f"agent.{agent_name}")
         self._session_id: str | None = None
         self._db_connection: Any = None
 
         # Register agent with performance tracking
         self._performance_metrics: dict[str, Any] = {}
+        
+        # Initialize workflow logger for enhanced agent logging
+        self._workflow_logger: AgentWorkflowLogger | None = None
 
         # Log agent creation with healthcare context
         log_healthcare_event(
@@ -361,6 +365,95 @@ class BaseHealthcareAgent(ABC):
         """Remove or redact sensitive information for logging - DEPRECATED: Use phi_monitor instead"""
         # Use the new PHI monitor for sanitization
         return sanitize_healthcare_data(data)
+
+    # Enhanced Logging Helper Methods
+    
+    def create_workflow_logger(self, session_id: str = None) -> AgentWorkflowLogger:
+        """
+        Create a workflow logger for structured agent logging.
+        
+        Args:
+            session_id: Optional session ID for tracking across requests
+            
+        Returns:
+            AgentWorkflowLogger instance configured for this agent
+        """
+        self._workflow_logger = AgentWorkflowLogger(
+            agent_name=self.agent_name,
+            session_id=session_id
+        )
+        return self._workflow_logger
+    
+    def get_workflow_logger(self) -> AgentWorkflowLogger:
+        """
+        Get the current workflow logger, creating one if needed.
+        
+        Returns:
+            Current workflow logger instance
+        """
+        if self._workflow_logger is None:
+            self._workflow_logger = self.create_workflow_logger()
+        return self._workflow_logger
+    
+    def log_agent_performance(self, metric_name: str, value: Any, unit: str = None) -> None:
+        """
+        Log a performance metric for this agent.
+        
+        Args:
+            metric_name: Name of the performance metric
+            value: Metric value
+            unit: Optional unit of measurement
+        """
+        # Store locally
+        self._performance_metrics[metric_name] = {
+            "value": value,
+            "unit": unit,
+            "timestamp": datetime.now().isoformat(),
+        }
+        
+        # Log with healthcare context
+        log_healthcare_event(
+            self.logger,
+            logging.INFO,
+            f"📊 Agent performance: {metric_name} = {value}" + (f" {unit}" if unit else ""),
+            context={
+                "agent": self.agent_name,
+                "metric_name": metric_name,
+                "metric_value": value,
+                "metric_unit": unit,
+            },
+            operation_type="agent_performance",
+        )
+    
+    def log_external_dependency(self, service: str, operation: str, 
+                              duration_ms: float, success: bool, 
+                              details: dict[str, Any] = None) -> None:
+        """
+        Log interactions with external dependencies for monitoring.
+        
+        Args:
+            service: External service name (e.g., "MCP", "Database", "LLM")
+            operation: Operation performed
+            duration_ms: Duration in milliseconds
+            success: Whether the operation succeeded
+            details: Additional details (will be PHI-sanitized)
+        """
+        sanitized_details = sanitize_healthcare_data(details or {})
+        
+        log_healthcare_event(
+            self.logger,
+            logging.INFO if success else logging.WARNING,
+            f"🔗 External dependency: {service}.{operation} ({'✅' if success else '❌'}) in {duration_ms:.2f}ms",
+            context={
+                "agent": self.agent_name,
+                "service": service,
+                "operation": operation,
+                "duration_ms": duration_ms,
+                "success": success,
+                "details": sanitized_details,
+            },
+            operation_type="external_dependency",
+        )
 
     async def cleanup(self) -> None:
         """Cleanup agent resources including database connections
