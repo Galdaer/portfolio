@@ -53,7 +53,7 @@ export class BillingCodesConnector {
         try {
             console.log('Billing codes search called with:', { query, maxResults, code_type: codeType });
 
-            const searchResults = await (cache 
+            const searchResults = await (cache && cacheKey
                 ? cache.getOrFetch(cacheKey, () => this.performSearch(query, maxResults, codeType))
                 : this.performSearch(query, maxResults, codeType)
             );
@@ -239,8 +239,7 @@ export class BillingCodesConnector {
                 headers: {
                     'Accept': 'application/json',
                     'User-Agent': 'Intelluxe-Healthcare-MCP/1.0'
-                },
-                timeout: 10000
+                }
             });
 
             if (!response.ok) {

@@ -70,7 +70,7 @@ export class HealthInfoConnector {
         try {
             console.log('Health topics search called with:', { query, maxResults });
 
-            const searchResults = await (cache 
+            const searchResults = await (cache && cacheKey
                 ? cache.getOrFetch(cacheKey, () => this.performHealthTopicsSearch(query, maxResults))
                 : this.performHealthTopicsSearch(query, maxResults)
             );
@@ -113,7 +113,7 @@ export class HealthInfoConnector {
         try {
             console.log('Exercise search called with:', { query, muscle_group, maxResults });
 
-            const searchResults = await (cache 
+            const searchResults = await (cache && cacheKey
                 ? cache.getOrFetch(cacheKey, () => this.performExerciseSearch(query, maxResults, muscle_group))
                 : this.performExerciseSearch(query, maxResults, muscle_group)
             );
@@ -156,7 +156,7 @@ export class HealthInfoConnector {
         try {
             console.log('Food items search called with:', { query, maxResults });
 
-            const searchResults = await (cache 
+            const searchResults = await (cache && cacheKey
                 ? cache.getOrFetch(cacheKey, () => this.performFoodSearch(query, maxResults))
                 : this.performFoodSearch(query, maxResults)
             );
@@ -445,8 +445,7 @@ export class HealthInfoConnector {
                 headers: {
                     'Accept': 'application/json',
                     'User-Agent': 'Intelluxe-Healthcare-MCP/1.0'
-                },
-                timeout: 10000
+                }
             });
 
             if (!response.ok) {

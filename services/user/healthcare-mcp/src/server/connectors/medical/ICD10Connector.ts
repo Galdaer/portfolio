@@ -47,7 +47,7 @@ export class ICD10Connector {
         try {
             console.log('ICD-10 search called with:', { query, maxResults, exact_match });
 
-            const searchResults = await (cache 
+            const searchResults = await (cache && cacheKey
                 ? cache.getOrFetch(cacheKey, () => this.performSearch(query, maxResults, exact_match))
                 : this.performSearch(query, maxResults, exact_match)
             );
@@ -243,8 +243,7 @@ export class ICD10Connector {
                 headers: {
                     'Accept': 'application/json',
                     'User-Agent': 'Intelluxe-Healthcare-MCP/1.0'
-                },
-                timeout: 10000
+                }
             });
 
             if (!response.ok) {
