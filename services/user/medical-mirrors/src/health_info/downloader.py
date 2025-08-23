@@ -244,8 +244,8 @@ class HealthInfoDownloader:
         return " ".join(search_parts).lower()
     
     async def _download_exercise_data(self) -> List[Dict]:
-        """Download exercise data from ExerciseDB API"""
-        logger.info("Downloading exercise data")
+        """Download exercise data from ExerciseDB API by body parts"""
+        logger.info("Downloading complete exercise data from ExerciseDB")
         
         if not self.rapidapi_key:
             logger.warning("RAPIDAPI_KEY not available - using fallback exercise data")
@@ -259,36 +259,72 @@ class HealthInfoDownloader:
                 "X-RapidAPI-Host": "exercisedb.p.rapidapi.com"
             }
             
-            # Get exercise list
-            exercises_url = f"{self.exercisedb_url}/exercises"
-            params = {"limit": "100"}  # Adjust based on API limits
-            
+            # First get all body parts available
+            logger.info("Getting available body parts from ExerciseDB")
             self.download_stats["requests_made"] += 1
-            async with self.session.get(exercises_url, headers=headers, params=params) as response:
+            
+            body_parts_url = f"{self.exercisedb_url}/exercises/bodyPartList"
+            async with self.session.get(body_parts_url, headers=headers, timeout=15) as response:
                 if response.status == 200:
-                    data = await response.json()
-                    
-                    for exercise in data:
-                        exercise_data = {
-                            "exercise_id": exercise.get("id", ""),
-                            "name": exercise.get("name", ""),
-                            "body_part": exercise.get("bodyPart", ""),
-                            "equipment": exercise.get("equipment", ""),
-                            "target": exercise.get("target", ""),
-                            "secondary_muscles": exercise.get("secondaryMuscles", []),
-                            "instructions": exercise.get("instructions", []),
-                            "gif_url": exercise.get("gifUrl", ""),
-                            "category": "exercise",
-                            "source": "exercisedb",
-                            "last_updated": datetime.now().isoformat(),
-                            "search_text": f"{exercise.get('name', '')} {exercise.get('bodyPart', '')} {exercise.get('target', '')}".lower()
-                        }
-                        exercises.append(exercise_data)
+                    body_parts = await response.json()
+                    logger.info(f"Found {len(body_parts)} body parts: {body_parts}")
                 else:
-                    logger.warning(f"ExerciseDB API returned status {response.status}")
+                    logger.warning(f"Failed to get body parts list: {response.status}")
+                    body_parts = ["back", "cardio", "chest", "lower arms", "lower legs", "neck", "shoulders", "upper arms", "upper legs", "waist"]
+            
+            # Download exercises for each body part
+            exercise_ids_seen = set()
+            
+            for body_part in body_parts:
+                logger.info(f"Downloading exercises for body part: {body_part}")
+                exercises_url = f"{self.exercisedb_url}/exercises/bodyPart/{body_part.replace(' ', '%20')}"
+                
+                self.download_stats["requests_made"] += 1
+                
+                try:
+                    async with self.session.get(exercises_url, headers=headers, timeout=15) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            logger.info(f"Body part '{body_part}' returned {len(data)} exercises")
+                            
+                            for exercise in data:
+                                exercise_id = exercise.get("id", "")
+                                
+                                # Skip duplicates
+                                if exercise_id in exercise_ids_seen:
+                                    continue
+                                exercise_ids_seen.add(exercise_id)
+                                
+                                exercise_data = {
+                                    "exercise_id": exercise_id,
+                                    "name": exercise.get("name", ""),
+                                    "body_part": exercise.get("bodyPart", ""),
+                                    "equipment": exercise.get("equipment", ""),
+                                    "target": exercise.get("target", ""),
+                                    "secondary_muscles": exercise.get("secondaryMuscles", []),
+                                    "instructions": exercise.get("instructions", []),
+                                    "gif_url": exercise.get("gifUrl", ""),
+                                    "category": "exercise",
+                                    "source": "exercisedb",
+                                    "last_updated": datetime.now().isoformat(),
+                                    "search_text": f"{exercise.get('name', '')} {exercise.get('bodyPart', '')} {exercise.get('target', '')}".lower()
+                                }
+                                exercises.append(exercise_data)
+                        elif response.status == 429:
+                            logger.warning("Rate limited - waiting before next request")
+                            await asyncio.sleep(5)
+                        else:
+                            logger.warning(f"Failed to get exercises for {body_part}: {response.status}")
+                    
+                    # Rate limiting between requests
+                    await asyncio.sleep(1)
+                    
+                except Exception as e:
+                    logger.error(f"Error downloading exercises for {body_part}: {e}")
+                    continue
             
             self.download_stats["exercises_downloaded"] = len(exercises)
-            logger.info(f"Downloaded {len(exercises)} exercises")
+            logger.info(f"Successfully downloaded {len(exercises)} total exercises from {len(body_parts)} body parts")
             
         except Exception as e:
             logger.error(f"Error downloading exercise data: {e}")
@@ -299,6 +335,74 @@ class HealthInfoDownloader:
             logger.warning("No exercises downloaded from API - using fallback exercise data")
             exercises = self._get_fallback_exercises()
         
+        return exercises
+    
+    async def _download_exercises_with_pagination(self, headers: dict, limit_per_page: int = 50) -> List[Dict]:
+        """Download exercises using pagination if the API supports it"""
+        logger.info("Downloading exercises with pagination")
+        exercises = []
+        offset = 0
+        max_retries = 20  # Maximum 20 pages * 50 = 1000 exercises
+        
+        while len(exercises) < 1500 and offset < max_retries:  # ExerciseDB has ~1300 exercises
+            try:
+                exercises_url = f"{self.exercisedb_url}/exercises"
+                params = {"limit": str(limit_per_page), "offset": str(offset * limit_per_page)}
+                
+                logger.info(f"Downloading page {offset + 1}, offset {offset * limit_per_page}")
+                self.download_stats["requests_made"] += 1
+                
+                async with self.session.get(exercises_url, headers=headers, params=params, timeout=15) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        
+                        if not data or len(data) == 0:
+                            logger.info("No more exercises found - pagination complete")
+                            break
+                        
+                        page_exercises = []
+                        for exercise in data:
+                            exercise_data = {
+                                "exercise_id": exercise.get("id", ""),
+                                "name": exercise.get("name", ""),
+                                "body_part": exercise.get("bodyPart", ""),
+                                "equipment": exercise.get("equipment", ""),
+                                "target": exercise.get("target", ""),
+                                "secondary_muscles": exercise.get("secondaryMuscles", []),
+                                "instructions": exercise.get("instructions", []),
+                                "gif_url": exercise.get("gifUrl", ""),
+                                "category": "exercise",
+                                "source": "exercisedb",
+                                "last_updated": datetime.now().isoformat(),
+                                "search_text": f"{exercise.get('name', '')} {exercise.get('bodyPart', '')} {exercise.get('target', '')}".lower()
+                            }
+                            page_exercises.append(exercise_data)
+                        
+                        exercises.extend(page_exercises)
+                        logger.info(f"Downloaded {len(page_exercises)} exercises from page {offset + 1} (total: {len(exercises)})")
+                        
+                        # If we got fewer than the limit, we've reached the end
+                        if len(data) < limit_per_page:
+                            logger.info("Reached end of exercise data")
+                            break
+                            
+                    elif response.status == 429:
+                        logger.warning("Rate limited - waiting 10 seconds")
+                        await asyncio.sleep(10)
+                        continue  # Retry same page
+                    else:
+                        logger.warning(f"API returned status {response.status} for page {offset + 1}")
+                        break
+                
+                # Rate limiting between requests
+                await asyncio.sleep(1)
+                offset += 1
+                
+            except Exception as e:
+                logger.error(f"Error downloading page {offset + 1}: {e}")
+                break
+        
+        logger.info(f"Pagination download complete: {len(exercises)} total exercises")
         return exercises
     
     async def _download_usda_food_data(self) -> List[Dict]:
@@ -446,54 +550,206 @@ class HealthInfoDownloader:
         return stats
     
     def _get_fallback_health_topics(self) -> List[Dict]:
-        """Fallback health topics for when MyHealthfinder API is unavailable"""
+        """Comprehensive fallback health topics for when MyHealthfinder API is unavailable"""
         return [
             {
-                "topic_id": "fallback_1",
+                "topic_id": "ht_001",
                 "title": "Healthy Eating",
                 "category": "Nutrition",
-                "url": "",
+                "url": "https://www.myplate.gov",
                 "last_reviewed": "2024-01-01",
-                "audience": ["adults"],
-                "sections": [{"title": "Overview", "content": "Eating a variety of foods helps ensure you get all the nutrients your body needs.", "type": "content"}],
-                "related_topics": ["Physical Activity", "Weight Management"],
-                "summary": "Learn about healthy eating patterns and making nutritious food choices.",
-                "keywords": ["nutrition", "healthy eating", "diet", "food choices"],
-                "content_length": 150,
-                "source": "fallback",
-                "search_text": "healthy eating nutrition diet food choices",
+                "audience": ["adults", "teens"],
+                "sections": [
+                    {"title": "Overview", "content": "Eating a variety of foods helps ensure you get all the nutrients your body needs.", "type": "content"},
+                    {"title": "Guidelines", "content": "Follow MyPlate recommendations: fill half your plate with fruits and vegetables, choose whole grains, lean proteins, and low-fat dairy.", "type": "recommendations"},
+                    {"title": "Tips", "content": "Read nutrition labels, limit processed foods, cook at home more often, and stay hydrated with water.", "type": "tips"}
+                ],
+                "related_topics": ["Physical Activity", "Weight Management", "Diabetes Prevention"],
+                "summary": "Learn about healthy eating patterns and making nutritious food choices following MyPlate guidelines.",
+                "keywords": ["nutrition", "healthy eating", "diet", "food choices", "myplate", "balanced meals"],
+                "content_length": 350,
+                "source": "curated",
+                "search_text": "healthy eating nutrition diet food choices myplate balanced meals",
                 "last_updated": datetime.now().isoformat()
             },
             {
-                "topic_id": "fallback_2", 
+                "topic_id": "ht_002", 
                 "title": "Physical Activity",
                 "category": "Exercise",
-                "url": "",
+                "url": "https://www.cdc.gov/physicalactivity/basics/adults/index.htm",
                 "last_reviewed": "2024-01-01",
-                "audience": ["adults"],
-                "sections": [{"title": "Overview", "content": "Regular physical activity is one of the most important things you can do for your health.", "type": "content"}],
-                "related_topics": ["Healthy Eating", "Heart Health"],
-                "summary": "Discover the benefits of regular physical activity and how to get started.",
-                "keywords": ["exercise", "physical activity", "fitness", "health"],
-                "content_length": 200,
-                "source": "fallback",
-                "search_text": "physical activity exercise fitness health",
+                "audience": ["adults", "teens", "seniors"],
+                "sections": [
+                    {"title": "Overview", "content": "Regular physical activity is one of the most important things you can do for your health.", "type": "content"},
+                    {"title": "Guidelines", "content": "Adults need at least 150 minutes of moderate-intensity aerobic activity and 2 days of muscle-strengthening activities per week.", "type": "recommendations"},
+                    {"title": "Benefits", "content": "Reduces risk of heart disease, diabetes, stroke, and some cancers. Improves mental health and helps maintain healthy weight.", "type": "benefits"}
+                ],
+                "related_topics": ["Healthy Eating", "Heart Health", "Weight Management", "Mental Health"],
+                "summary": "Discover the benefits of regular physical activity and how to get started with exercise recommendations.",
+                "keywords": ["exercise", "physical activity", "fitness", "health", "cardio", "strength training"],
+                "content_length": 400,
+                "source": "curated",
+                "search_text": "physical activity exercise fitness health cardio strength training",
                 "last_updated": datetime.now().isoformat()
             },
             {
-                "topic_id": "fallback_3",
+                "topic_id": "ht_003",
                 "title": "Heart Health",
                 "category": "Cardiovascular",
-                "url": "",
+                "url": "https://www.cdc.gov/heartdisease/prevention.htm",
                 "last_reviewed": "2024-01-01",
-                "audience": ["adults"],
-                "sections": [{"title": "Overview", "content": "Heart disease is the leading cause of death, but it's largely preventable.", "type": "content"}],
-                "related_topics": ["Physical Activity", "Healthy Eating"],
-                "summary": "Learn about heart disease prevention and maintaining cardiovascular health.",
-                "keywords": ["heart health", "cardiovascular", "prevention", "heart disease"],
-                "content_length": 180,
-                "source": "fallback",
-                "search_text": "heart health cardiovascular prevention heart disease",
+                "audience": ["adults", "seniors"],
+                "sections": [
+                    {"title": "Overview", "content": "Heart disease is the leading cause of death, but it's largely preventable through lifestyle changes.", "type": "content"},
+                    {"title": "Risk Factors", "content": "High blood pressure, high cholesterol, smoking, diabetes, obesity, poor diet, and physical inactivity increase heart disease risk.", "type": "risk_factors"},
+                    {"title": "Prevention", "content": "Eat healthy foods, maintain healthy weight, exercise regularly, don't smoke, limit alcohol, and manage stress.", "type": "prevention"}
+                ],
+                "related_topics": ["Physical Activity", "Healthy Eating", "Blood Pressure", "Cholesterol"],
+                "summary": "Learn about heart disease prevention and maintaining cardiovascular health through lifestyle changes.",
+                "keywords": ["heart health", "cardiovascular", "prevention", "heart disease", "blood pressure", "cholesterol"],
+                "content_length": 450,
+                "source": "curated",
+                "search_text": "heart health cardiovascular prevention heart disease blood pressure cholesterol",
+                "last_updated": datetime.now().isoformat()
+            },
+            {
+                "topic_id": "ht_004",
+                "title": "Mental Health",
+                "category": "Mental Health",
+                "url": "https://www.mentalhealth.gov",
+                "last_reviewed": "2024-01-01",
+                "audience": ["adults", "teens"],
+                "sections": [
+                    {"title": "Overview", "content": "Mental health includes emotional, psychological, and social well-being. It affects how we think, feel, and act.", "type": "content"},
+                    {"title": "Signs", "content": "Eating or sleeping too much or too little, pulling away from people, having little or no energy, feeling hopeless.", "type": "warning_signs"},
+                    {"title": "Support", "content": "Talk to someone you trust, get professional help if needed, practice self-care, connect with others.", "type": "support"}
+                ],
+                "related_topics": ["Physical Activity", "Stress Management", "Sleep Health"],
+                "summary": "Understanding mental health and knowing when and how to get help for mental health concerns.",
+                "keywords": ["mental health", "depression", "anxiety", "stress", "wellness", "therapy"],
+                "content_length": 380,
+                "source": "curated",
+                "search_text": "mental health depression anxiety stress wellness therapy",
+                "last_updated": datetime.now().isoformat()
+            },
+            {
+                "topic_id": "ht_005",
+                "title": "Sleep Health",
+                "category": "Sleep",
+                "url": "https://www.cdc.gov/sleep/about_sleep/why_it_matters.html",
+                "last_reviewed": "2024-01-01",
+                "audience": ["adults", "teens"],
+                "sections": [
+                    {"title": "Overview", "content": "Getting enough quality sleep is essential for good health and well-being.", "type": "content"},
+                    {"title": "Guidelines", "content": "Adults need 7-9 hours of sleep per night. Teens need 8-10 hours. Keep a consistent sleep schedule.", "type": "recommendations"},
+                    {"title": "Tips", "content": "Create a relaxing bedtime routine, keep bedroom dark and cool, avoid screens before bed, limit caffeine.", "type": "tips"}
+                ],
+                "related_topics": ["Mental Health", "Physical Activity", "Stress Management"],
+                "summary": "Learn about the importance of sleep and tips for getting better quality rest.",
+                "keywords": ["sleep", "rest", "insomnia", "sleep hygiene", "bedtime routine"],
+                "content_length": 320,
+                "source": "curated",
+                "search_text": "sleep rest insomnia sleep hygiene bedtime routine",
+                "last_updated": datetime.now().isoformat()
+            },
+            {
+                "topic_id": "ht_006",
+                "title": "Preventive Care",
+                "category": "Prevention",
+                "url": "https://www.healthfinder.gov/health-tools/my-health-finder",
+                "last_reviewed": "2024-01-01",
+                "audience": ["adults", "seniors"],
+                "sections": [
+                    {"title": "Overview", "content": "Preventive care includes checkups, screenings, and vaccines to help prevent illness and detect problems early.", "type": "content"},
+                    {"title": "Screenings", "content": "Regular screenings for blood pressure, cholesterol, diabetes, cancer, and other conditions based on age and risk factors.", "type": "screenings"},
+                    {"title": "Vaccines", "content": "Stay up to date with recommended vaccines including flu shot, COVID-19, and others based on age and health conditions.", "type": "vaccines"}
+                ],
+                "related_topics": ["Heart Health", "Cancer Prevention", "Immunizations"],
+                "summary": "Understanding the importance of preventive care including regular checkups, screenings, and vaccinations.",
+                "keywords": ["preventive care", "checkups", "screenings", "vaccines", "immunizations", "early detection"],
+                "content_length": 380,
+                "source": "curated",
+                "search_text": "preventive care checkups screenings vaccines immunizations early detection",
+                "last_updated": datetime.now().isoformat()
+            },
+            {
+                "topic_id": "ht_007",
+                "title": "Weight Management",
+                "category": "Weight",
+                "url": "https://www.cdc.gov/healthyweight/losing_weight/index.html",
+                "last_reviewed": "2024-01-01",
+                "audience": ["adults", "teens"],
+                "sections": [
+                    {"title": "Overview", "content": "Maintaining a healthy weight is important for overall health and can help prevent many health problems.", "type": "content"},
+                    {"title": "Healthy Weight", "content": "BMI between 18.5 and 24.9 is considered normal weight. Talk to your doctor about what's right for you.", "type": "guidelines"},
+                    {"title": "Tips", "content": "Focus on healthy eating and regular physical activity rather than quick fixes. Make gradual, sustainable changes.", "type": "tips"}
+                ],
+                "related_topics": ["Healthy Eating", "Physical Activity", "Diabetes Prevention"],
+                "summary": "Learn about maintaining a healthy weight through balanced eating and regular physical activity.",
+                "keywords": ["weight management", "healthy weight", "BMI", "obesity", "weight loss", "diet"],
+                "content_length": 350,
+                "source": "curated",
+                "search_text": "weight management healthy weight BMI obesity weight loss diet",
+                "last_updated": datetime.now().isoformat()
+            },
+            {
+                "topic_id": "ht_008",
+                "title": "Diabetes Prevention",
+                "category": "Diabetes",
+                "url": "https://www.cdc.gov/diabetes/prevention/index.html",
+                "last_reviewed": "2024-01-01",
+                "audience": ["adults", "seniors"],
+                "sections": [
+                    {"title": "Overview", "content": "Type 2 diabetes can often be prevented through healthy lifestyle choices.", "type": "content"},
+                    {"title": "Risk Factors", "content": "Being overweight, physically inactive, having prediabetes, family history, or being over 45 increases risk.", "type": "risk_factors"},
+                    {"title": "Prevention", "content": "Lose weight if overweight, be physically active, eat healthy foods, and get regular checkups.", "type": "prevention"}
+                ],
+                "related_topics": ["Weight Management", "Physical Activity", "Healthy Eating", "Blood Sugar"],
+                "summary": "Understanding diabetes risk factors and how to prevent type 2 diabetes through lifestyle changes.",
+                "keywords": ["diabetes prevention", "prediabetes", "blood sugar", "insulin resistance", "type 2 diabetes"],
+                "content_length": 370,
+                "source": "curated",
+                "search_text": "diabetes prevention prediabetes blood sugar insulin resistance type 2 diabetes",
+                "last_updated": datetime.now().isoformat()
+            },
+            {
+                "topic_id": "ht_009",
+                "title": "Cancer Prevention",
+                "category": "Cancer",
+                "url": "https://www.cancer.gov/about-cancer/causes-prevention",
+                "last_reviewed": "2024-01-01",
+                "audience": ["adults", "seniors"],
+                "sections": [
+                    {"title": "Overview", "content": "Many cancers can be prevented through healthy lifestyle choices and regular screening.", "type": "content"},
+                    {"title": "Prevention", "content": "Don't smoke, limit alcohol, maintain healthy weight, protect skin from sun, get vaccinated, get regular screenings.", "type": "prevention"},
+                    {"title": "Screenings", "content": "Regular screenings for breast, cervical, colorectal, and lung cancer can detect cancer early when treatment is most effective.", "type": "screenings"}
+                ],
+                "related_topics": ["Preventive Care", "Healthy Eating", "Physical Activity", "Tobacco Cessation"],
+                "summary": "Learn about cancer prevention strategies and the importance of regular cancer screenings.",
+                "keywords": ["cancer prevention", "cancer screening", "mammography", "colonoscopy", "skin cancer"],
+                "content_length": 400,
+                "source": "curated",
+                "search_text": "cancer prevention cancer screening mammography colonoscopy skin cancer",
+                "last_updated": datetime.now().isoformat()
+            },
+            {
+                "topic_id": "ht_010",
+                "title": "Tobacco Cessation",
+                "category": "Smoking",
+                "url": "https://www.cdc.gov/tobacco/quit_smoking/index.htm",
+                "last_reviewed": "2024-01-01",
+                "audience": ["adults", "teens"],
+                "sections": [
+                    {"title": "Overview", "content": "Quitting tobacco is one of the most important things you can do for your health.", "type": "content"},
+                    {"title": "Benefits", "content": "Quitting improves health immediately and reduces risk of heart disease, stroke, lung disease, and cancer.", "type": "benefits"},
+                    {"title": "Resources", "content": "Call 1-800-QUIT-NOW, use quitlines, try nicotine replacement therapy, talk to your doctor, get support from family and friends.", "type": "resources"}
+                ],
+                "related_topics": ["Heart Health", "Cancer Prevention", "Lung Health"],
+                "summary": "Information and resources for quitting smoking and tobacco use for better health.",
+                "keywords": ["quit smoking", "tobacco cessation", "nicotine replacement", "quitline", "smoking cessation"],
+                "content_length": 360,
+                "source": "curated",
+                "search_text": "quit smoking tobacco cessation nicotine replacement quitline smoking cessation",
                 "last_updated": datetime.now().isoformat()
             }
         ]

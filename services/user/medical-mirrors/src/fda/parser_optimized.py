@@ -113,19 +113,27 @@ def parse_ndc_record_worker(ndc_data: Dict[str, Any]) -> Dict[str, Any] | None:
         search_text = " ".join([part for part in search_parts if part]).lower()
         
         return {
-            "ndc_product_code": product_ndc,
+            "ndc": product_ndc,
+            "name": brand_name or generic_name or "Unknown",
+            "generic_name": generic_name,
+            "brand_name": brand_name,
+            "manufacturer": labeler_name,
+            "ingredients": active_ingredients_str.split("; ") if active_ingredients_str else [],
+            "dosage_form": dosage_form,
+            "route": route,
             "product_type": product_type,
+            "marketing_status": marketing_status,
+            "strength": active_ingredients_str,  # Strength included in active ingredients
+            "search_text": search_text,
+            "data_sources": ["ndc_directory"],
+            # Keep FDA-specific fields for compatibility
             "proprietary_name": brand_name,
             "nonproprietary_name": generic_name,
             "dosage_form_name": dosage_form,
             "route_of_administration": route,
-            "marketing_status": marketing_status,
             "active_ingredients": active_ingredients_str,
             "labeler_name": labeler_name,
-            "substance_name": generic_name,  # Use generic name as substance
-            "strength": active_ingredients_str,  # Strength included in active ingredients
-            "search_text": search_text,
-            "source": "ndc_directory",
+            "substance_name": generic_name,
             # Merge fields for grouping
             "_merge_generic_name": generic_name.lower().strip() if generic_name else "",
             "_merge_brand_name": brand_name.lower().strip() if brand_name else "",
@@ -191,19 +199,29 @@ def parse_drugs_fda_record_worker(drug_data: Dict[str, Any]) -> Dict[str, Any] |
         search_text = " ".join([part for part in search_parts if part]).lower()
         
         return {
-            "ndc_product_code": application_number,  # Using application number as identifier
+            "ndc": f"FDA_{application_number}",  # Using application number as synthetic identifier
+            "name": brand_name or generic_name or "Unknown",
+            "generic_name": generic_name,
+            "brand_name": brand_name,
+            "manufacturer": sponsor_name,
+            "ingredients": [generic_name] if generic_name else [],
+            "dosage_form": dosage_form,
+            "route": route,
+            "application_number": application_number,
+            "applicant": sponsor_name,
             "product_type": application_type,
+            "marketing_status": marketing_status,
+            "strength": "",  # Not readily available in this dataset
+            "search_text": search_text,
+            "data_sources": ["drugs_fda"],
+            # Keep FDA-specific fields for compatibility
             "proprietary_name": brand_name,
             "nonproprietary_name": generic_name,
             "dosage_form_name": dosage_form,
             "route_of_administration": route,
-            "marketing_status": marketing_status,
             "active_ingredients": generic_name,
             "labeler_name": sponsor_name,
             "substance_name": generic_name,
-            "strength": "",  # Not readily available in this dataset
-            "search_text": search_text,
-            "source": "drugs_fda",
             # Merge fields for grouping
             "_merge_generic_name": generic_name.lower().strip() if generic_name else "",
             "_merge_brand_name": brand_name.lower().strip() if brand_name else "",
@@ -306,19 +324,27 @@ def parse_drug_label_record_worker(label_data: Dict[str, Any]) -> Dict[str, Any]
         search_text = " ".join([part for part in search_parts if part]).lower()
         
         return {
-            "ndc_product_code": ndc_code,
+            "ndc": ndc_code,
+            "name": brand_name or generic_name or "Unknown",
+            "generic_name": generic_name,
+            "brand_name": brand_name,
+            "manufacturer": manufacturer,
+            "ingredients": active_ingredients.split("; ") if active_ingredients else [],
+            "dosage_form": dosage_form,
+            "route": route,
             "product_type": "HUMAN PRESCRIPTION DRUG",  # Most drug labels are prescription
+            "marketing_status": "Prescription",
+            "strength": active_ingredients,  # Strength info is in active ingredients
+            "search_text": search_text,
+            "data_sources": ["drug_labels"],
+            # Keep FDA-specific fields for compatibility
             "proprietary_name": brand_name,
             "nonproprietary_name": generic_name,
             "dosage_form_name": dosage_form,
             "route_of_administration": route,
-            "marketing_status": "Prescription",
             "active_ingredients": active_ingredients,
             "labeler_name": manufacturer,
             "substance_name": generic_name,
-            "strength": active_ingredients,  # Strength info is in active ingredients
-            "search_text": search_text,
-            "source": "drug_labels",
             # Merge fields for grouping
             "_merge_generic_name": generic_name.lower().strip() if generic_name else "",
             "_merge_brand_name": brand_name.lower().strip() if brand_name else "",
@@ -425,19 +451,30 @@ class OptimizedFDAParser:
             search_text = " ".join([part for part in search_parts if part]).lower()
             
             return {
-                "ndc_product_code": product_no,
+                "ndc": f"OB_{product_no}",  # Orange Book product number as synthetic identifier
+                "name": trade_name or ingredient or "Unknown",
+                "generic_name": ingredient,
+                "brand_name": trade_name,
+                "manufacturer": applicant,
+                "ingredients": [ingredient] if ingredient else [],
+                "dosage_form": dosage_form,
+                "route": route,
+                "product_number": product_no,
+                "applicant": applicant,
+                "approval_date": approval_date,
                 "product_type": "HUMAN PRESCRIPTION DRUG",
+                "marketing_status": "Prescription",
+                "strength": strength,
+                "search_text": search_text,
+                "data_sources": ["orange_book"],
+                # Keep FDA-specific fields for compatibility
                 "proprietary_name": trade_name,
                 "nonproprietary_name": ingredient,
                 "dosage_form_name": dosage_form,
                 "route_of_administration": route,
-                "marketing_status": "Prescription",
                 "active_ingredients": ingredient,
                 "labeler_name": applicant,
                 "substance_name": ingredient,
-                "strength": strength,
-                "search_text": search_text,
-                "source": "orange_book",
                 # Merge fields for grouping
                 "_merge_generic_name": ingredient.lower().strip() if ingredient else "",
                 "_merge_brand_name": trade_name.lower().strip() if trade_name else "",

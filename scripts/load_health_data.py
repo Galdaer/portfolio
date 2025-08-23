@@ -19,6 +19,7 @@ if medical_mirrors_src not in sys.path:
 try:
     from config import Config
     from health_info.parser import HealthInfoParser
+    from billing_codes.parser import BillingCodesParser
     from database import get_db_session
     from sqlalchemy import text
 except ImportError as e:
@@ -34,7 +35,8 @@ class HealthDataLoader:
         self.config = Config()
         self.data_dir = data_dir or self.config.DATA_DIR
         self.logger = self._setup_logging()
-        self.parser = HealthInfoParser()
+        self.health_parser = HealthInfoParser()
+        self.billing_parser = BillingCodesParser()
         
         # Statistics
         self.stats = {
@@ -42,6 +44,7 @@ class HealthDataLoader:
             "health_topics_loaded": 0,
             "exercises_loaded": 0, 
             "food_items_loaded": 0,
+            "billing_codes_loaded": 0,
             "total_items_loaded": 0,
             "errors": []
         }
@@ -63,9 +66,11 @@ class HealthDataLoader:
         """Find all complete health data JSON files"""
         json_files = {}
         
-        # Look for files in health_info subdirectory and data root
+        # Look for files in health_info, billing_codes/billing subdirectories and data root
         search_dirs = [
             os.path.join(self.data_dir, "health_info"),
+            os.path.join(self.data_dir, "billing_codes"),
+            os.path.join(self.data_dir, "billing"),
             self.data_dir
         ]
         
@@ -75,6 +80,7 @@ class HealthDataLoader:
                     if filename.startswith("all_") and filename.endswith("_complete.json"):
                         # Extract dataset type from filename
                         # all_health_topics_complete.json -> health_topics
+                        # all_billing_codes_complete.json -> billing_codes
                         dataset_type = filename.replace("all_", "").replace("_complete.json", "")
                         json_files[dataset_type] = os.path.join(search_dir, filename)
         
@@ -93,12 +99,24 @@ class HealthDataLoader:
                 raise ValueError("Missing metadata section")
             
             metadata = data['metadata']
-            dataset_type = metadata.get('dataset_type')
             
-            if dataset_type not in data:
-                raise ValueError(f"Missing dataset section: {dataset_type}")
+            # Handle both health data structure and billing codes structure
+            if 'dataset_type' in metadata:
+                # Health data structure
+                dataset_type = metadata.get('dataset_type')
+                if dataset_type not in data:
+                    raise ValueError(f"Missing dataset section: {dataset_type}")
+                item_count = metadata.get('total_items', 0)
+            elif 'total_codes' in metadata:
+                # Billing codes structure
+                dataset_type = 'billing_codes'
+                if 'codes' not in data:
+                    raise ValueError("Missing codes section in billing data")
+                item_count = metadata.get('total_codes', 0)
+            else:
+                raise ValueError("Unknown JSON structure - missing dataset_type or total_codes")
             
-            self.logger.info(f"Loaded {metadata.get('total_items', 0)} items of type {dataset_type}")
+            self.logger.info(f"Loaded {item_count} items of type {dataset_type}")
             return data
             
         except Exception as e:
@@ -118,31 +136,49 @@ class HealthDataLoader:
             self.logger.warning("No JSON files found! Make sure to run download scripts first.")
             return False
         
-        # Load each file
+        # Load health data files
         all_raw_data = {
             "health_topics": [],
             "exercises": [],
             "food_items": []
         }
         
+        # Load billing codes separately
+        billing_codes_raw = []
+        
         for dataset_type, file_path in json_files.items():
             if dataset_type in all_raw_data:
+                # Health data
                 file_data = self.load_json_file(file_path)
                 if file_data and dataset_type in file_data:
                     all_raw_data[dataset_type] = file_data[dataset_type]
                     self.stats['files_processed'] += 1
+            elif dataset_type == 'billing_codes':
+                # Billing codes data
+                file_data = self.load_json_file(file_path)
+                if file_data and 'codes' in file_data:
+                    billing_codes_raw.extend(file_data['codes'])
+                    self.stats['files_processed'] += 1
         
-        # Parse and validate using the fixed parser
-        self.logger.info("Parsing and validating health data with fixed parser")
-        validated_data = self.parser.parse_and_validate(all_raw_data)
-        parsing_stats = self.parser.get_parsing_stats()
+        # Parse and validate health data using the health parser
+        self.logger.info("Parsing and validating health data")
+        validated_health_data = self.health_parser.parse_and_validate(all_raw_data)
         
-        self.logger.info(f"Parsing stats: {parsing_stats}")
+        # Parse and validate billing codes using the billing parser
+        validated_billing_codes = []
+        if billing_codes_raw:
+            self.logger.info(f"Parsing and validating {len(billing_codes_raw)} billing codes")
+            validated_billing_codes = self.billing_parser.parse_and_validate(billing_codes_raw)
         
-        # Insert into database using the same logic as update_health_info.sh
-        return self._insert_into_database(validated_data)
+        # Insert into database
+        health_success = self._insert_health_data_into_database(validated_health_data)
+        billing_success = True
+        if validated_billing_codes:
+            billing_success = self._insert_billing_codes_into_database(validated_billing_codes)
+        
+        return health_success and billing_success
     
-    def _insert_into_database(self, validated_data: Dict[str, List[Dict]]) -> bool:
+    def _insert_health_data_into_database(self, validated_data: Dict[str, List[Dict]]) -> bool:
         """Insert validated data into database using medical-mirrors patterns"""
         self.logger.info("Inserting health data into database")
         
@@ -328,6 +364,104 @@ class HealthDataLoader:
             self.stats['errors'].append(f"Database insertion error: {e}")
             return False
 
+    def _insert_billing_codes_into_database(self, validated_codes: List[Dict]) -> bool:
+        """Insert validated billing codes into database using medical-mirrors patterns"""
+        self.logger.info("Inserting billing codes into database")
+        
+        try:
+            with get_db_session() as db:
+                self.logger.info('Upserting billing codes (preserving existing data)')
+                
+                # Use UPSERT with composite key (code + code_type) to preserve existing data
+                for code_data in validated_codes:
+                    db.execute(text('''
+                        INSERT INTO billing_codes (
+                            code, short_description, long_description, description,
+                            code_type, category, coverage_notes, effective_date,
+                            termination_date, is_active, modifier_required,
+                            gender_specific, age_specific, bilateral_indicator,
+                            source, search_text, last_updated, search_vector
+                        ) VALUES (
+                            :code, :short_description, :long_description, :description,
+                            :code_type, :category, :coverage_notes, :effective_date,
+                            :termination_date, :is_active, :modifier_required,
+                            :gender_specific, :age_specific, :bilateral_indicator,
+                            :source, :search_text, NOW(), 
+                            to_tsvector('english', COALESCE(:search_text, ''))
+                        )
+                        ON CONFLICT (code) DO UPDATE SET
+                            -- Only update if we have better/more complete information
+                            short_description = COALESCE(NULLIF(EXCLUDED.short_description, ''), billing_codes.short_description),
+                            long_description = COALESCE(NULLIF(EXCLUDED.long_description, ''), billing_codes.long_description),
+                            description = COALESCE(NULLIF(EXCLUDED.description, ''), billing_codes.description),
+                            category = COALESCE(NULLIF(EXCLUDED.category, ''), billing_codes.category),
+                            coverage_notes = COALESCE(NULLIF(EXCLUDED.coverage_notes, ''), billing_codes.coverage_notes),
+                            effective_date = COALESCE(EXCLUDED.effective_date, billing_codes.effective_date),
+                            termination_date = COALESCE(EXCLUDED.termination_date, billing_codes.termination_date),
+                            is_active = COALESCE(EXCLUDED.is_active, billing_codes.is_active),
+                            modifier_required = COALESCE(EXCLUDED.modifier_required, billing_codes.modifier_required),
+                            gender_specific = COALESCE(NULLIF(EXCLUDED.gender_specific, ''), billing_codes.gender_specific),
+                            age_specific = COALESCE(NULLIF(EXCLUDED.age_specific, ''), billing_codes.age_specific),
+                            bilateral_indicator = COALESCE(EXCLUDED.bilateral_indicator, billing_codes.bilateral_indicator),
+                            source = COALESCE(NULLIF(EXCLUDED.source, ''), billing_codes.source),
+                            search_text = COALESCE(NULLIF(EXCLUDED.search_text, ''), billing_codes.search_text),
+                            search_vector = to_tsvector('english', COALESCE(EXCLUDED.search_text, '')),
+                            last_updated = NOW()
+                    '''), {
+                        'code': code_data['code'],
+                        'short_description': code_data.get('short_description'),
+                        'long_description': code_data.get('long_description'),
+                        'description': code_data.get('description'),
+                        'code_type': code_data['code_type'],
+                        'category': code_data.get('category'),
+                        'coverage_notes': code_data.get('coverage_notes'),
+                        'effective_date': code_data['effective_date'] if code_data.get('effective_date') and code_data['effective_date'] != '' else None,
+                        'termination_date': code_data['termination_date'] if code_data.get('termination_date') and code_data['termination_date'] != '' else None,
+                        'is_active': code_data.get('is_active', True),
+                        'modifier_required': code_data.get('modifier_required', False),
+                        'gender_specific': code_data.get('gender_specific'),
+                        'age_specific': code_data.get('age_specific'),
+                        'bilateral_indicator': code_data.get('bilateral_indicator', False),
+                        'source': code_data.get('source'),
+                        'search_text': code_data.get('search_text')
+                    })
+                
+                db.commit()
+                
+                # Update statistics
+                result = db.execute(text('''
+                    SELECT 
+                        COUNT(*) as total,
+                        COUNT(CASE WHEN is_active = true THEN 1 END) as active,
+                        COUNT(CASE WHEN code_type = 'HCPCS' THEN 1 END) as hcpcs,
+                        COUNT(CASE WHEN code_type = 'CPT' THEN 1 END) as cpt
+                    FROM billing_codes
+                '''))
+                
+                stats = result.fetchone()
+                self.stats['billing_codes_loaded'] = len(validated_codes)
+                
+                # Update total to include billing codes
+                self.stats['total_items_loaded'] = (
+                    self.stats['health_topics_loaded'] +
+                    self.stats['exercises_loaded'] +
+                    self.stats['food_items_loaded'] +
+                    self.stats['billing_codes_loaded']
+                )
+                
+                self.logger.info(f'Successfully inserted {stats.total} billing codes total')
+                self.logger.info(f'  Active: {stats.active}, HCPCS: {stats.hcpcs}, CPT: {stats.cpt}')
+                self.logger.info(f'  Newly loaded: {len(validated_codes)}')
+                
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"Error inserting billing codes into database: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            self.stats['errors'].append(f"Billing codes database insert error: {e}")
+            return False
+
     def get_stats(self) -> Dict[str, Any]:
         """Get loading statistics"""
         return self.stats.copy()
@@ -363,6 +497,7 @@ if __name__ == "__main__":
     print(f"  Health topics: {stats['health_topics_loaded']}")
     print(f"  Exercises: {stats['exercises_loaded']}")
     print(f"  Food items: {stats['food_items_loaded']}")
+    print(f"  Billing codes: {stats['billing_codes_loaded']}")
     print(f"  Total items: {stats['total_items_loaded']}")
     
     if stats['errors']:

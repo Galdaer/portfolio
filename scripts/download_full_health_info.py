@@ -117,11 +117,21 @@ class CompleteHealthInfoDownloader:
                     "api_calls_made": base_stats.get("requests_made", 0),
                 })
                 
-                # Handle errors list separately
+                # Handle errors list separately 
                 existing_errors = self.stats.get("errors", [])
-                new_errors = [str(e) for e in base_stats.get("errors", [])]
-                if isinstance(existing_errors, list) and isinstance(new_errors, list):
+                base_errors = base_stats.get("errors", [])
+                
+                # Convert errors to list format if needed
+                if isinstance(base_errors, int):
+                    # If it's just a count, convert to generic list
+                    new_errors = [f"Download errors: {base_errors}"] if base_errors > 0 else []
+                else:
+                    new_errors = [str(e) for e in base_errors] if base_errors else []
+                
+                if isinstance(existing_errors, list):
                     self.stats["errors"] = existing_errors + new_errors
+                else:
+                    self.stats["errors"] = new_errors
                 
                 self.stats["end_time"] = time.time()
                 start_time = self.stats.get("start_time", 0)
