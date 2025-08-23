@@ -5,10 +5,14 @@ import { FhirClient } from "../connectors/fhir/FhirClient.js";
 import { ClinicalTrials } from "../connectors/medical/ClinicalTrials.js";
 import { FDA } from "../connectors/medical/FDA.js";
 import { PubMed } from "../connectors/medical/PubMed.js";
+import { ICD10Connector } from "../connectors/medical/ICD10Connector.js";
+import { BillingCodesConnector } from "../connectors/medical/BillingCodesConnector.js";
+import { HealthInfoConnector } from "../connectors/medical/HealthInfoConnector.js";
 import { TOOL_DEFINITIONS } from "../constants/tools.js";
 import { Auth } from "../utils/Auth.js";
 import { AuthConfig } from "../utils/AuthConfig.js";
 import { CacheManager } from "../utils/Cache.js";
+import { DatabaseManager } from "../utils/DatabaseManager.js";
 
 export class ToolHandler {
     private fhirClient: FhirClient;
@@ -16,17 +20,27 @@ export class ToolHandler {
     private pubmedApi: PubMed;
     private trialsApi: ClinicalTrials;
     private fdaApi: FDA;
+    private icd10Connector: ICD10Connector;
+    private billingCodesConnector: BillingCodesConnector;
+    private healthInfoConnector: HealthInfoConnector;
     private auth!: Auth;
     private authInitialized: boolean = false;
     private authConfig: AuthConfig;
+    private dbManager: DatabaseManager;
 
-    constructor(authConfig: AuthConfig, fhirClient: FhirClient, cache: CacheManager, pubmedApi: PubMed, trialsApi: ClinicalTrials, fdaApi: FDA) {
+    constructor(authConfig: AuthConfig, fhirClient: FhirClient, cache: CacheManager, pubmedApi: PubMed, trialsApi: ClinicalTrials, fdaApi: FDA, dbManager?: DatabaseManager) {
         this.authConfig = authConfig;
         this.cache = cache;
         this.fhirClient = fhirClient;
         this.pubmedApi = pubmedApi;
         this.trialsApi = trialsApi;
         this.fdaApi = fdaApi;
+        
+        // Initialize database manager and new connectors
+        this.dbManager = dbManager || DatabaseManager.fromEnvironment();
+        this.icd10Connector = new ICD10Connector(this.dbManager);
+        this.billingCodesConnector = new BillingCodesConnector(this.dbManager);
+        this.healthInfoConnector = new HealthInfoConnector(this.dbManager);
     }
 
     register(mcpServer: Server) {
@@ -49,7 +63,11 @@ export class ToolHandler {
         const name = String(rawName).replace(/_/g, "-");
 
         // Tools that don't require FHIR authentication
-        const noAuthTools = ["search-pubmed", "search-trials", "get-drug-info", "echo-test"];
+        const noAuthTools = [
+            "search-pubmed", "search-trials", "get-drug-info", "echo-test",
+            "search-icd10", "search-billing-codes", "lookup-code-details",
+            "search-health-topics", "search-exercises", "search-food-items"
+        ];
 
         if (noAuthTools.includes(name)) {
             // Handle non-auth tools directly
@@ -60,6 +78,18 @@ export class ToolHandler {
                     return await this.trialsApi.getTrials(request.params.arguments, this.cache);
                 case "get-drug-info":
                     return await this.fdaApi.getDrug(request.params.arguments, this.cache);
+                case "search-icd10":
+                    return await this.icd10Connector.searchCodes(request.params.arguments, this.cache);
+                case "search-billing-codes":
+                    return await this.billingCodesConnector.searchCodes(request.params.arguments, this.cache);
+                case "lookup-code-details":
+                    return await this.handleCodeDetailsLookup(request.params.arguments);
+                case "search-health-topics":
+                    return await this.healthInfoConnector.searchHealthTopics(request.params.arguments, this.cache);
+                case "search-exercises":
+                    return await this.healthInfoConnector.searchExercises(request.params.arguments, this.cache);
+                case "search-food-items":
+                    return await this.healthInfoConnector.searchFoodItems(request.params.arguments, this.cache);
                 case "echo-test":
                     return {
                         content: [{
@@ -156,6 +186,41 @@ export class ToolHandler {
                 }
             }
             throw new McpError(ErrorCode.InternalError, "Authentication error");
+        }
+    }
+
+    private async handleCodeDetailsLookup(args: any) {
+        const { code, code_type } = args;
+        
+        if (!code || !code_type) {
+            throw new McpError(ErrorCode.InvalidParams, "Both 'code' and 'code_type' are required");
+        }
+
+        try {
+            let result;
+            if (code_type === 'icd10') {
+                result = await this.icd10Connector.lookupCodeDetails(code);
+            } else if (code_type === 'hcpcs') {
+                result = await this.billingCodesConnector.lookupCodeDetails(code);
+            } else {
+                throw new McpError(ErrorCode.InvalidParams, "code_type must be 'icd10' or 'hcpcs'");
+            }
+
+            return {
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify(result || { error: `No details found for code: ${code}` }, null, 2)
+                }]
+            };
+        } catch (error) {
+            console.error(`Code details lookup error for ${code}:`, error);
+            return {
+                content: [{
+                    type: 'text',
+                    text: `Error looking up code details: ${error instanceof Error ? error.message : 'Unknown error'}`
+                }],
+                isError: true
+            };
         }
     }
 

@@ -242,5 +242,80 @@ export const TOOL_DEFINITIONS = [
             },
             required: ['genericName']
         }
+    },
+    {
+        name: 'search-icd10',
+        description: 'Search ICD-10 diagnostic codes. Use for finding diagnosis codes by condition name or validating existing codes.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                query: { type: 'string', description: 'Diagnostic term or ICD-10 code to search' },
+                max_results: { type: 'number', description: 'Maximum number of codes to return (default 10)' },
+                exact_match: { type: 'boolean', description: 'Require exact code match (default false)' }
+            },
+            required: ['query']
+        }
+    },
+    {
+        name: 'search-billing-codes',
+        description: 'Search medical billing codes (HCPCS/CPT). Use for finding procedure and billing codes.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                query: { type: 'string', description: 'Procedure term or billing code to search' },
+                code_type: { type: 'string', enum: ['hcpcs', 'cpt', 'all'], description: 'Type of codes to search (default all)' },
+                max_results: { type: 'number', description: 'Maximum number of codes to return (default 10)' }
+            },
+            required: ['query']
+        }
+    },
+    {
+        name: 'lookup-code-details',
+        description: 'Get detailed information for specific medical codes (ICD-10 or HCPCS).',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                code: { type: 'string', description: 'Specific medical code to lookup' },
+                code_type: { type: 'string', enum: ['icd10', 'hcpcs'], description: 'Type of code' }
+            },
+            required: ['code', 'code_type']
+        }
+    },
+    {
+        name: 'search-health-topics',
+        description: 'Search health information topics. Use for patient education and health guidance.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                query: { type: 'string', description: 'Health topic or condition to search' },
+                max_results: { type: 'number', description: 'Maximum number of topics to return (default 10)' }
+            },
+            required: ['query']
+        }
+    },
+    {
+        name: 'search-exercises',
+        description: 'Search exercise recommendations. Use for physical therapy and fitness guidance.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                query: { type: 'string', description: 'Exercise type or muscle group to search' },
+                muscle_group: { type: 'string', description: 'Specific muscle group to target' },
+                max_results: { type: 'number', description: 'Maximum number of exercises to return (default 10)' }
+            },
+            required: ['query']
+        }
+    },
+    {
+        name: 'search-food-items',
+        description: 'Search nutritional information. Use for dietary guidance and nutrition data.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                query: { type: 'string', description: 'Food item to search' },
+                max_results: { type: 'number', description: 'Maximum number of food items to return (default 10)' }
+            },
+            required: ['query']
+        }
     }
 ]; 

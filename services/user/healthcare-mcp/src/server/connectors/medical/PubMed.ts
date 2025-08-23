@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { Client } from 'pg';
+import { DatabaseManager } from '../../utils/DatabaseManager.js';
 import { CacheManager } from "../../utils/Cache.js";
 
 export interface PubMedArticle {
@@ -38,11 +38,12 @@ interface PubMedSummaryResponse {
 export class PubMed {
     private readonly baseUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
     private readonly apiKey?: string;
-    // No mirror HTTP. Database is the mirror.
+    private dbManager: DatabaseManager;
 
-    constructor(apiKey?: string) {
+    constructor(apiKey?: string, dbManager?: DatabaseManager) {
         // Only set apiKey if it's a real key
         this.apiKey = apiKey && apiKey !== 'optional_for_higher_rate_limits' ? apiKey : undefined;
+        this.dbManager = dbManager || DatabaseManager.fromEnvironment();
     } async getArticles(args: any, cache: CacheManager) {
         const { query } = args;
         const maxResults = Math.max(1, Math.min(100, Number(args?.maxResults ?? 25)));
@@ -102,8 +103,8 @@ export class PubMed {
             }
 
             // DATABASE-FIRST: Return database results immediately, test external APIs in background
-            try {
-                console.log('Searching local PostgreSQL database for PubMed articles');
+            if (this.dbManager.isAvailable()) {
+                console.log('Searching PubMed articles in PostgreSQL database');
                 const dbResults = await this.searchDatabase(query, maxResults);
 
                 // Start background validation of external API (don't await)
@@ -113,12 +114,15 @@ export class PubMed {
 
                 console.log(`Database returned ${dbResults.length} articles, background external validation started`);
                 return dbResults;
+            }
 
-            } catch (dbError) {
-                console.warn('Database search failed, falling back to external API:', dbError);
-                console.log('Using external PubMed API');
+            // FALLBACK: Use external API if database unavailable
+            if (this.dbManager.canFallback()) {
+                console.warn('Database unavailable, falling back to external PubMed API');
                 return await this.searchExternalAPI(query, maxResults);
             }
+
+            throw new Error('Neither database nor external API available for PubMed search');
         } catch (error) {
             console.error('PubMed search failed:', error);
             throw error;
@@ -155,32 +159,6 @@ export class PubMed {
 
     private async searchDatabase(query: string, maxResults: number): Promise<PubMedArticle[]> {
         try {
-            // Create a new connection for each query (simple approach)
-            // Prefer single DATABASE_URL; fall back to discrete vars WITHOUT secrets defaults.
-            const databaseUrl = process.env.DATABASE_URL?.trim();
-
-            let client: Client;
-            if (databaseUrl && databaseUrl.length > 0) {
-                client = new Client({ connectionString: databaseUrl });
-            } else {
-                const host = process.env.POSTGRES_HOST;
-                const portVal = process.env.POSTGRES_PORT;
-                const user = process.env.POSTGRES_USER;
-                const password = process.env.POSTGRES_PASSWORD;
-                const database = process.env.DATABASE_NAME;
-
-                // Validate required env when DATABASE_URL is not provided
-                if (!host || !user || !password || !database) {
-                    throw new Error(
-                        "Database configuration missing. Provide DATABASE_URL or POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, DATABASE_NAME in environment."
-                    );
-                }
-
-                const port = portVal ? parseInt(portVal, 10) : 5432; // 5432 default is non-secret
-                client = new Client({ host, port, user, password, database });
-            }
-
-            await client.connect();
 
             // Parse query for boolean OR logic
             const orTerms = query.split(/\s+OR\s+/i).map(term => term.trim()).filter(term => term.length > 0);
@@ -213,24 +191,26 @@ export class PubMed {
                 searchParams.push(maxResults);
 
             } else {
-                // Standard single-term search
+                // Standard single-term search with full-text search if available
                 console.log(`Executing single-term search for: "${query}"`);
 
                 searchQuery = `
-                    SELECT pmid, title, journal, pub_date, abstract, authors, doi
+                    SELECT pmid, title, journal, pub_date, abstract, authors, doi,
+                           COALESCE(ts_rank_cd(search_vector, plainto_tsquery('english', $1)), 0) as rank
                     FROM pubmed_articles 
-                    WHERE title ILIKE $1 
-                       OR abstract ILIKE $1 
-                       OR journal ILIKE $1
-                    ORDER BY pub_date DESC
-                    LIMIT $2
+                    WHERE search_vector @@ plainto_tsquery('english', $1)
+                       OR title ILIKE $2 
+                       OR abstract ILIKE $2 
+                       OR journal ILIKE $2
+                    ORDER BY rank DESC, pub_date DESC
+                    LIMIT $3
                 `;
 
                 const searchTerm = `%${query}%`;
-                searchParams = [searchTerm, maxResults];
+                searchParams = [query, searchTerm, maxResults];
             }
 
-            const result = await client.query(searchQuery, searchParams);
+            const result = await this.dbManager.query(searchQuery, searchParams);
 
             console.log(`Database search returned ${result.rows.length} articles`);
 
@@ -241,10 +221,9 @@ export class PubMed {
                 pubDate: row.pub_date || '',
                 abstract: row.abstract || '',
                 authors: row.authors ? (Array.isArray(row.authors) ? row.authors : [row.authors]) : [],
-                doi: row.doi || '' // Use DOI data from your database!
+                doi: row.doi || ''
             }));
 
-            await client.end();
             return articles;
 
         } catch (error) {

@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { Client } from 'pg';
+import { DatabaseManager } from '../../utils/DatabaseManager.js';
 import { CacheManager } from "../../utils/Cache.js";
 
 export interface ClinicalTrial {
@@ -19,9 +19,11 @@ interface ClinicalTrialsResponse {
 export class ClinicalTrials {
     private readonly baseUrl = 'https://clinicaltrials.gov/api/v2/studies';
     private readonly apiKey?: string;
+    private dbManager: DatabaseManager;
 
-    constructor(apiKey?: string) {
+    constructor(apiKey?: string, dbManager?: DatabaseManager) {
         this.apiKey = apiKey;
+        this.dbManager = dbManager || DatabaseManager.fromEnvironment();
     }
 
     async getTrials(args: any, cache: CacheManager) {
@@ -50,19 +52,27 @@ export class ClinicalTrials {
 
     async searchTrials(condition: string, location?: string, maxResults: number = 25): Promise<ClinicalTrial[]> {
         try {
-            // DATABASE-FIRST: Prefer local Postgres mirror
-            try {
-                console.log('Searching local PostgreSQL database for ClinicalTrials studies');
+            // DATABASE-FIRST: Return database results immediately, test external APIs in background
+            if (this.dbManager.isAvailable()) {
+                console.log('Searching clinical trials in PostgreSQL database');
                 const dbResults = await this.searchDatabase(condition, location, maxResults);
-                // Optionally kick off background external validation
-                this.validateExternalAPI(condition, location).catch(err => console.warn('Background ClinicalTrials external API validation failed:', err));
+
+                // Start background validation of external API (don't await)
+                this.validateExternalAPI(condition, location).catch(error => {
+                    console.warn('Background external API validation failed:', error);
+                });
+
                 console.log(`Database returned ${dbResults.length} trials, background external validation started`);
                 return dbResults;
-            } catch (dbError) {
-                console.warn('ClinicalTrials DB search failed, falling back to external API:', dbError);
-                // As a conservative fallback, use external API
+            }
+
+            // FALLBACK: Use external API if database unavailable
+            if (this.dbManager.canFallback()) {
+                console.warn('Database unavailable, falling back to external ClinicalTrials API');
                 return await this.searchExternalAPI(condition, location);
             }
+
+            throw new Error('Neither database nor external API available for clinical trials search');
         } catch (error) {
             console.error('ClinicalTrials search failed:', error);
             throw error;
@@ -94,76 +104,60 @@ export class ClinicalTrials {
     }
 
     private async searchDatabase(condition: string, location?: string, maxResults: number = 25): Promise<ClinicalTrial[]> {
-        // Prefer single DATABASE_URL; fall back to discrete vars WITHOUT secrets defaults.
-        const databaseUrl = process.env.DATABASE_URL?.trim();
+        try {
 
-        let client: Client;
-        if (databaseUrl && databaseUrl.length > 0) {
-            client = new Client({ connectionString: databaseUrl });
-        } else {
-            const host = process.env.POSTGRES_HOST;
-            const portVal = process.env.POSTGRES_PORT;
-            const user = process.env.POSTGRES_USER;
-            const password = process.env.POSTGRES_PASSWORD;
-            const database = process.env.DATABASE_NAME;
+            // Build flexible search across common fields; location filter optional
+            const params: any[] = [];
+            let idx = 1;
+            const likeCond = `%${condition}%`;
+            params.push(likeCond);
 
-            if (!host || !user || !password || !database) {
-                throw new Error("Database configuration missing. Provide DATABASE_URL or POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, DATABASE_NAME in environment.");
+            let where = `(title ILIKE $${idx} OR COALESCE(conditions::text,'') ILIKE $${idx})`;
+
+            if (location && location.trim()) {
+                idx += 1;
+                params.push(`%${location}%`);
+                where += ` AND (COALESCE(locations::text,'') ILIKE $${idx})`;
             }
 
-            const port = portVal ? parseInt(portVal, 10) : 5432;
-            client = new Client({ host, port, user, password, database });
-        }
-
-        const table = process.env.CLINICAL_TRIALS_TABLE || 'clinical_trials';
-
-        await client.connect();
-
-        // Build flexible search across common fields; location filter optional
-        const params: any[] = [];
-        let idx = 1;
-        const likeCond = `%${condition}%`;
-        params.push(likeCond);
-
-        let where = `(title ILIKE $${idx} OR COALESCE(conditions::text,'') ILIKE $${idx})`;
-
-        if (location && location.trim()) {
             idx += 1;
-            params.push(`%${location}%`);
-            where += ` AND (COALESCE(locations::text,'') ILIKE $${idx})`;
+            params.push(maxResults);
+
+            // Use full-text search if available, otherwise fall back to ILIKE
+            const query = `
+                SELECT 
+                    COALESCE(nct_id, nctid) AS nct_id,
+                    title,
+                    COALESCE(status, overall_status) AS status,
+                    phase,
+                    conditions,
+                    locations,
+                    COALESCE(last_updated, last_update_post_date) AS last_updated,
+                    COALESCE(ts_rank_cd(search_vector, plainto_tsquery('english', $1)), 0) as rank
+                FROM clinical_trials
+                WHERE (search_vector @@ plainto_tsquery('english', $1) OR ${where})
+                ORDER BY rank DESC, COALESCE(last_updated, last_update_post_date) DESC NULLS LAST
+                LIMIT $${idx}
+            `;
+
+            const result = await this.dbManager.query(query, params);
+
+            console.log(`Database search returned ${result.rows.length} clinical trials`);
+
+            return result.rows.map((row: any) => ({
+                nctId: row.nct_id || '',
+                title: row.title || '',
+                status: row.status || '',
+                phase: row.phase || '',
+                conditions: Array.isArray(row.conditions) ? row.conditions : (row.conditions ? [row.conditions] : []),
+                locations: Array.isArray(row.locations) ? row.locations : (row.locations ? [row.locations] : []),
+                lastUpdated: row.last_updated || ''
+            }));
+
+        } catch (error) {
+            console.error('Database search error:', error);
+            throw new Error(`Database search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-
-        idx += 1;
-        params.push(maxResults);
-
-        const query = `
-            SELECT 
-                COALESCE(nct_id, nctid) AS nct_id,
-                title,
-                COALESCE(status, overall_status) AS status,
-                phase,
-                conditions,
-                locations,
-                COALESCE(last_updated, last_update_post_date) AS last_updated
-            FROM ${table}
-            WHERE ${where}
-            ORDER BY COALESCE(last_updated, last_update_post_date) DESC NULLS LAST
-            LIMIT $${idx}
-        `;
-
-        const result = await client.query(query, params);
-
-        await client.end();
-
-        return result.rows.map((row: any) => ({
-            nctId: row.nct_id || '',
-            title: row.title || '',
-            status: row.status || '',
-            phase: row.phase || '',
-            conditions: Array.isArray(row.conditions) ? row.conditions : (row.conditions ? [row.conditions] : []),
-            locations: Array.isArray(row.locations) ? row.locations : (row.locations ? [row.locations] : []),
-            lastUpdated: row.last_updated || ''
-        }));
     }
 
     private async searchExternalAPI(condition: string, location?: string): Promise<ClinicalTrial[]> {

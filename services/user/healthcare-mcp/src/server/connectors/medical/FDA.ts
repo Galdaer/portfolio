@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { Client } from 'pg';
+import { DatabaseManager } from '../../utils/DatabaseManager.js';
 import { CacheManager } from "../../utils/Cache.js";
 
 export interface Generics {
@@ -21,7 +21,7 @@ export class FDA {
     private readonly maxRequestsPerMinute = 240;
     private readonly baseUrl = 'https://api.fda.gov/drug/ndc.json';
     private readonly apiKey?: string;
-    // No mirror HTTP. Database is the mirror.
+    private dbManager: DatabaseManager;
 
     private isRateLimited(): boolean {
         const now = Date.now();
@@ -33,8 +33,9 @@ export class FDA {
         return this.requestCount > this.maxRequestsPerMinute;
     }
 
-    constructor(apiKey?: string) {
+    constructor(apiKey?: string, dbManager?: DatabaseManager) {
         this.apiKey = apiKey;
+        this.dbManager = dbManager || DatabaseManager.fromEnvironment();
     }
 
     async getDrug(args: any, cache: CacheManager) {
@@ -66,15 +67,27 @@ export class FDA {
 
     async searchGenericName(genericName: string): Promise<Generics[]> {
         try {
-            // DATABASE-FIRST: Try local Postgres mirror first, then external API; background test external only
-            try {
+            // DATABASE-FIRST: Return database results immediately, test external APIs in background
+            if (this.dbManager.isAvailable()) {
+                console.log('Searching FDA drugs in PostgreSQL database');
                 const dbResults = await this.searchDatabase(genericName, 25);
-                this.validateExternalAPI(genericName).catch(err => console.warn('Background FDA external API validation failed:', err));
+
+                // Start background validation of external API (don't await)
+                this.validateExternalAPI(genericName).catch(error => {
+                    console.warn('Background external API validation failed:', error);
+                });
+
+                console.log(`Database returned ${dbResults.length} drugs, background external validation started`);
                 return dbResults;
-            } catch (dbError) {
-                console.warn('FDA DB search failed, falling back to external API:', dbError);
+            }
+
+            // FALLBACK: Use external API if database unavailable
+            if (this.dbManager.canFallback()) {
+                console.warn('Database unavailable, falling back to external FDA API');
                 return await this.searchExternalAPI(genericName);
             }
+
+            throw new Error('Neither database nor external API available for FDA drug search');
         } catch (error) {
             console.error('FDA search failed:', error);
             throw error;
@@ -106,55 +119,42 @@ export class FDA {
     }
 
     private async searchDatabase(genericName: string, maxResults: number): Promise<Generics[]> {
-        // Prefer single DATABASE_URL; fall back to discrete vars WITHOUT secrets defaults.
-        const databaseUrl = process.env.DATABASE_URL?.trim();
+        try {
+            const params: any[] = [`%${genericName}%`, genericName, maxResults];
+            
+            // Use full-text search if available, otherwise fall back to ILIKE
+            const query = `
+                SELECT 
+                    COALESCE(ndc, product_ndc) AS ndc,
+                    COALESCE(generic_name, generic) AS name,
+                    COALESCE(brand_name, labeler_name) AS label,
+                    COALESCE(brand_name, labeler_name) AS brand,
+                    COALESCE(active_ingredients, substances) AS ingredients,
+                    COALESCE(ts_rank_cd(search_vector, plainto_tsquery('english', $2)), 0) as rank
+                FROM fda_drugs
+                WHERE search_vector @@ plainto_tsquery('english', $2)
+                   OR COALESCE(generic_name, generic) ILIKE $1
+                   OR COALESCE(brand_name, labeler_name) ILIKE $1
+                ORDER BY rank DESC, ndc ASC
+                LIMIT $3
+            `;
 
-        let client: Client;
-        if (databaseUrl && databaseUrl.length > 0) {
-            client = new Client({ connectionString: databaseUrl });
-        } else {
-            const host = process.env.POSTGRES_HOST;
-            const portVal = process.env.POSTGRES_PORT;
-            const user = process.env.POSTGRES_USER;
-            const password = process.env.POSTGRES_PASSWORD;
-            const database = process.env.DATABASE_NAME;
+            const result = await this.dbManager.query(query, params);
 
-            if (!host || !user || !password || !database) {
-                throw new Error("Database configuration missing. Provide DATABASE_URL or POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, DATABASE_NAME in environment.");
-            }
+            console.log(`Database search returned ${result.rows.length} FDA drugs`);
 
-            const port = portVal ? parseInt(portVal, 10) : 5432;
-            client = new Client({ host, port, user, password, database });
+            return result.rows.map((row: any) => ({
+                ndc: row.ndc || '',
+                name: row.name || '',
+                label: row.label || '',
+                brand: row.brand || '',
+                ingredients: Array.isArray(row.ingredients) ? row.ingredients : (row.ingredients ? [row.ingredients] : [])
+            }));
+
+        } catch (error) {
+            console.error('Database search error:', error);
+            throw new Error(`Database search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-
-        const table = process.env.FDA_DRUGS_TABLE || 'fda_drugs';
-
-        await client.connect();
-
-        const params: any[] = [`%${genericName}%`, maxResults];
-        const query = `
-            SELECT 
-                COALESCE(ndc, product_ndc) AS ndc,
-                COALESCE(generic_name, generic) AS name,
-                COALESCE(brand_name, labeler_name) AS label,
-                COALESCE(brand_name, labeler_name) AS brand,
-                COALESCE(active_ingredients, substances) AS ingredients
-            FROM ${table}
-            WHERE COALESCE(generic_name, generic) ILIKE $1
-            ORDER BY ndc ASC
-            LIMIT $2
-        `;
-
-        const result = await client.query(query, params);
-        await client.end();
-
-        return result.rows.map((row: any) => ({
-            ndc: row.ndc || '',
-            name: row.name || '',
-            label: row.label || '',
-            brand: row.brand || '',
-            ingredients: Array.isArray(row.ingredients) ? row.ingredients : (row.ingredients ? [row.ingredients] : [])
-        }));
     }
 
     private async searchExternalAPI(genericName: string): Promise<Generics[]> {
