@@ -15,8 +15,7 @@ from typing import Any
 from error_handling import (
     ErrorCollector,
 )
-from sqlalchemy import func, text, String
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from database import DrugInformation, UpdateLog
@@ -34,7 +33,7 @@ class DrugAPI:
     def __init__(self, session_factory: Any, config: Any = None, enable_downloader: bool = True) -> None:
         self.session_factory = session_factory
         self.config = config
-        
+
         # Only initialize downloader if needed (for database-only operations, skip it)
         if enable_downloader:
             try:
@@ -44,7 +43,7 @@ class DrugAPI:
                 self.downloader = None
         else:
             self.downloader = None
-            
+
         self.parser = DrugParser()
 
         # Use optimized parser if multicore parsing is enabled
@@ -74,11 +73,11 @@ class DrugAPI:
             results = await self.search_consolidated_drugs(generic_name, max_results)
             logger.info(f"Found {len(results)} consolidated drugs")
             return results
-        
+
         # For NDC-only searches, we can search within the formulations JSON
         if ndc:
             return await self.search_by_ndc(ndc, max_results)
-        
+
         return []
 
     async def search_consolidated_drugs(
@@ -95,7 +94,7 @@ class DrugAPI:
         try:
             # Use full-text search and fuzzy matching for consolidated drugs
             search_query = """
-                SELECT 
+                SELECT
                     generic_name,
                     brand_names,
                     manufacturers,
@@ -116,45 +115,45 @@ class DrugAPI:
                 WHERE search_vector @@ plainto_tsquery('english', :search_term)
                    OR LOWER(generic_name) LIKE LOWER(:fuzzy_search)
                    OR EXISTS (
-                       SELECT 1 FROM unnest(brand_names) brand 
+                       SELECT 1 FROM unnest(brand_names) brand
                        WHERE LOWER(brand) LIKE LOWER(:fuzzy_search)
                    )
                 ORDER BY relevance DESC, confidence_score DESC
                 LIMIT :limit
             """
-            
+
             params = {
-                'search_term': generic_name,
-                'fuzzy_search': f"%{generic_name}%",
-                'limit': max_results
+                "search_term": generic_name,
+                "fuzzy_search": f"%{generic_name}%",
+                "limit": max_results,
             }
-            
+
             result = db.execute(text(search_query), params)
             rows = result.fetchall()
-            
+
             drugs = []
             for row in rows:
                 drug_data = {
-                    'generic_name': row.generic_name,
-                    'brand_names': row.brand_names or [],
-                    'manufacturers': row.manufacturers or [],
-                    'formulations': row.formulations or [],
-                    'therapeutic_class': row.therapeutic_class,
-                    'indications_and_usage': row.indications_and_usage,
-                    'mechanism_of_action': row.mechanism_of_action,
-                    'contraindications': row.contraindications or [],
-                    'warnings': row.warnings or [],
-                    'adverse_reactions': row.adverse_reactions or [],
-                    'drug_interactions': row.drug_interactions or {},
-                    'dosage_and_administration': row.dosage_and_administration,
-                    'total_formulations': row.total_formulations or 0,
-                    'confidence_score': float(row.confidence_score) if row.confidence_score else 0.0,
-                    'has_clinical_data': row.has_clinical_data,
-                    'data_source': 'consolidated',
-                    'relevance_score': float(row.relevance) if row.relevance else 0.0
+                    "generic_name": row.generic_name,
+                    "brand_names": row.brand_names or [],
+                    "manufacturers": row.manufacturers or [],
+                    "formulations": row.formulations or [],
+                    "therapeutic_class": row.therapeutic_class,
+                    "indications_and_usage": row.indications_and_usage,
+                    "mechanism_of_action": row.mechanism_of_action,
+                    "contraindications": row.contraindications or [],
+                    "warnings": row.warnings or [],
+                    "adverse_reactions": row.adverse_reactions or [],
+                    "drug_interactions": row.drug_interactions or {},
+                    "dosage_and_administration": row.dosage_and_administration,
+                    "total_formulations": row.total_formulations or 0,
+                    "confidence_score": float(row.confidence_score) if row.confidence_score else 0.0,
+                    "has_clinical_data": row.has_clinical_data,
+                    "data_source": "consolidated",
+                    "relevance_score": float(row.relevance) if row.relevance else 0.0,
                 }
                 drugs.append(drug_data)
-            
+
             return drugs
 
         except Exception as e:
@@ -177,7 +176,7 @@ class DrugAPI:
         try:
             # Search for NDCs within the formulations JSON array
             search_query = """
-                SELECT 
+                SELECT
                     generic_name,
                     brand_names,
                     manufacturers,
@@ -200,20 +199,20 @@ class DrugAPI:
                 )
                 LIMIT :limit
             """
-            
+
             result = db.execute(text(search_query), {"ndc": ndc, "limit": max_results})
             rows = result.fetchall()
-            
+
             drugs = []
             for row in rows:
                 # Find the specific formulation with this NDC
                 formulations = row.formulations or []
                 matching_formulation = None
                 for form in formulations:
-                    if form.get('ndc') == ndc:
+                    if form.get("ndc") == ndc:
                         matching_formulation = form
                         break
-                
+
                 drug = {
                     "genericName": row.generic_name,
                     "brandNames": row.brand_names or [],
@@ -230,7 +229,7 @@ class DrugAPI:
                     "confidenceScore": row.confidence_score,
                     "hasClinicalData": row.has_clinical_data,
                     # Include the specific matching formulation
-                    "matchingFormulation": matching_formulation
+                    "matchingFormulation": matching_formulation,
                 }
                 drugs.append(drug)
 
@@ -540,14 +539,14 @@ class DrugAPI:
 
         # Group drugs by matching records for merging
         grouped_drugs = self.parser.find_matching_records(drugs)
-        
+
         logger.info(f"Merging {len(drugs)} records into {len(grouped_drugs)} unified drug entries")
-        logger.info(f"Using high-performance parallel storage with batch operations")
+        logger.info("Using high-performance parallel storage with batch operations")
 
         # Merge all drugs first (CPU-intensive, do this before I/O)
         merged_drugs = []
         merge_failures = 0
-        
+
         for group_key, drug_group in grouped_drugs.items():
             try:
                 merged_drug = self.parser.merge_drug_records(drug_group)
@@ -567,7 +566,7 @@ class DrugAPI:
         ndc_seen = set()
         deduplicated_drugs = []
         duplicate_count = 0
-        
+
         for drug in merged_drugs:
             ndc = drug.get("ndc", "")
             if ndc and ndc not in ndc_seen:
@@ -575,7 +574,7 @@ class DrugAPI:
                 deduplicated_drugs.append(drug)
             else:
                 duplicate_count += 1
-        
+
         if duplicate_count > 0:
             logger.info(f"Removed {duplicate_count} duplicate NDCs, proceeding with {len(deduplicated_drugs)} unique drugs")
 
@@ -583,7 +582,7 @@ class DrugAPI:
 
         # Use parallel batch storage for maximum speed
         stored_count = await self.store_drugs_parallel_batched(deduplicated_drugs)
-        
+
         # Update search vectors
         await self.update_search_vectors(db)
         return stored_count
@@ -591,34 +590,34 @@ class DrugAPI:
     async def store_drugs_parallel_batched(self, drugs: list[dict]) -> int:
         """Store drugs using parallel workers with batch operations for maximum performance"""
         import asyncio
-        from concurrent.futures import ThreadPoolExecutor
         import threading
-        
+        from concurrent.futures import ThreadPoolExecutor
+
         if not drugs:
             return 0
-            
+
         # Configuration for high performance
         batch_size = 500  # Records per batch
         max_workers = 10  # Parallel database workers
-        
+
         # Create batches
         batches = [drugs[i:i + batch_size] for i in range(0, len(drugs), batch_size)]
         logger.info(f"Created {len(batches)} batches of {batch_size} drugs each for parallel processing")
-        
+
         # Thread-local storage for database sessions
         thread_local = threading.local()
-        
+
         def get_thread_db_session():
             """Get a database session for this thread"""
-            if not hasattr(thread_local, 'session'):
+            if not hasattr(thread_local, "session"):
                 thread_local.session = self.session_factory()
             return thread_local.session
-        
+
         def process_batch(batch_drugs: list[dict]) -> int:
             """Process a batch of drugs in a single database transaction"""
             thread_db = get_thread_db_session()
             batch_count = 0
-            
+
             try:
                 # Prepare all batch data
                 insert_data_list = []
@@ -626,27 +625,27 @@ class DrugAPI:
                     insert_data = self.prepare_drug_insert_data(drug_data)
                     if insert_data:
                         insert_data_list.append(insert_data)
-                
+
                 if insert_data_list:
                     # Use batch UPSERT for maximum speed
                     self.batch_upsert_drugs(insert_data_list, thread_db)
                     batch_count = len(insert_data_list)
-                    
+
                 thread_db.commit()
                 return batch_count
-                
+
             except Exception as e:
                 logger.exception(f"Failed to process batch: {e}")
                 thread_db.rollback()
                 return 0
-        
+
         # Process batches in parallel
         total_stored = 0
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all batches
-            future_to_batch = {executor.submit(process_batch, batch): i 
+            future_to_batch = {executor.submit(process_batch, batch): i
                              for i, batch in enumerate(batches)}
-            
+
             # Collect results as they complete
             completed_batches = 0
             for future in asyncio.as_completed([asyncio.wrap_future(f) for f in future_to_batch]):
@@ -654,13 +653,13 @@ class DrugAPI:
                     batch_stored = await future
                     total_stored += batch_stored
                     completed_batches += 1
-                    
+
                     if completed_batches % 5 == 0 or completed_batches == len(batches):
                         logger.info(f"Completed {completed_batches}/{len(batches)} batches, stored {total_stored} drugs")
-                        
+
                 except Exception as e:
                     logger.exception(f"Batch processing failed: {e}")
-        
+
         logger.info(f"Parallel batch storage completed: {total_stored} drugs stored using {max_workers} workers")
         return total_stored
 
@@ -698,7 +697,7 @@ class DrugAPI:
             "reference_listed_drug": get_non_empty_or_none(drug_data.get("reference_listed_drug")),
             "therapeutic_class": get_non_empty_or_none(drug_data.get("therapeutic_class")),
             "pharmacologic_class": get_non_empty_or_none(drug_data.get("pharmacologic_class")),
-            
+
             # Clinical information fields
             "contraindications": drug_data.get("contraindications", []),
             "warnings": drug_data.get("warnings", []),
@@ -710,7 +709,7 @@ class DrugAPI:
             "mechanism_of_action": get_non_empty_or_none(drug_data.get("mechanism_of_action")),
             "pharmacokinetics": get_non_empty_or_none(drug_data.get("pharmacokinetics")),
             "pharmacodynamics": get_non_empty_or_none(drug_data.get("pharmacodynamics")),
-            
+
             # Additional clinical fields
             "boxed_warning": get_non_empty_or_none(drug_data.get("boxed_warning")),
             "clinical_studies": get_non_empty_or_none(drug_data.get("clinical_studies")),
@@ -720,7 +719,7 @@ class DrugAPI:
             "nursing_mothers": get_non_empty_or_none(drug_data.get("nursing_mothers")),
             "overdosage": get_non_empty_or_none(drug_data.get("overdosage")),
             "nonclinical_toxicology": get_non_empty_or_none(drug_data.get("nonclinical_toxicology")),
-            
+
             "data_sources": drug_data.get("data_sources", []),
             "updated_at": datetime.utcnow(),
         }
@@ -731,7 +730,7 @@ class DrugAPI:
 
         # Use PostgreSQL's powerful ON CONFLICT DO UPDATE for batch operations
         stmt = insert(DrugInformation)
-        
+
         # Configure UPSERT with intelligent field merging
         stmt = stmt.on_conflict_do_update(
             index_elements=["ndc"],
@@ -743,59 +742,59 @@ class DrugAPI:
                 # Always update with new values if they're better (non-empty)
                 "generic_name": func.coalesce(
                     func.nullif(stmt.excluded.generic_name, ""),
-                    DrugInformation.generic_name
+                    DrugInformation.generic_name,
                 ),
                 "brand_name": func.coalesce(
                     func.nullif(stmt.excluded.brand_name, ""),
-                    DrugInformation.brand_name
+                    DrugInformation.brand_name,
                 ),
                 "manufacturer": func.coalesce(
                     func.nullif(stmt.excluded.manufacturer, ""),
-                    DrugInformation.manufacturer
+                    DrugInformation.manufacturer,
                 ),
                 "applicant": func.coalesce(
                     func.nullif(stmt.excluded.applicant, ""),
-                    DrugInformation.applicant
+                    DrugInformation.applicant,
                 ),
                 "strength": func.coalesce(
                     func.nullif(stmt.excluded.strength, ""),
-                    DrugInformation.strength
+                    DrugInformation.strength,
                 ),
                 "dosage_form": func.coalesce(
                     func.nullif(stmt.excluded.dosage_form, ""),
-                    DrugInformation.dosage_form
+                    DrugInformation.dosage_form,
                 ),
                 "route": func.coalesce(
                     func.nullif(stmt.excluded.route, ""),
-                    DrugInformation.route
+                    DrugInformation.route,
                 ),
                 "application_number": func.coalesce(
                     func.nullif(stmt.excluded.application_number, ""),
-                    DrugInformation.application_number
+                    DrugInformation.application_number,
                 ),
                 "product_number": func.coalesce(
                     func.nullif(stmt.excluded.product_number, ""),
-                    DrugInformation.product_number
+                    DrugInformation.product_number,
                 ),
                 "approval_date": func.coalesce(
                     func.nullif(stmt.excluded.approval_date, ""),
-                    DrugInformation.approval_date
+                    DrugInformation.approval_date,
                 ),
                 "orange_book_code": func.coalesce(
                     func.nullif(stmt.excluded.orange_book_code, ""),
-                    DrugInformation.orange_book_code
+                    DrugInformation.orange_book_code,
                 ),
                 "reference_listed_drug": func.coalesce(
                     func.nullif(stmt.excluded.reference_listed_drug, ""),
-                    DrugInformation.reference_listed_drug
+                    DrugInformation.reference_listed_drug,
                 ),
                 "therapeutic_class": func.coalesce(
                     func.nullif(stmt.excluded.therapeutic_class, ""),
-                    DrugInformation.therapeutic_class
+                    DrugInformation.therapeutic_class,
                 ),
                 "pharmacologic_class": func.coalesce(
                     func.nullif(stmt.excluded.pharmacologic_class, ""),
-                    DrugInformation.pharmacologic_class
+                    DrugInformation.pharmacologic_class,
                 ),
 
                 # Clinical information fields - always update with new data
@@ -806,57 +805,57 @@ class DrugAPI:
                 "drug_interactions": stmt.excluded.drug_interactions,
                 "indications_and_usage": func.coalesce(
                     func.nullif(stmt.excluded.indications_and_usage, ""),
-                    DrugInformation.indications_and_usage
+                    DrugInformation.indications_and_usage,
                 ),
                 "dosage_and_administration": func.coalesce(
                     func.nullif(stmt.excluded.dosage_and_administration, ""),
-                    DrugInformation.dosage_and_administration
+                    DrugInformation.dosage_and_administration,
                 ),
                 "mechanism_of_action": func.coalesce(
                     func.nullif(stmt.excluded.mechanism_of_action, ""),
-                    DrugInformation.mechanism_of_action
+                    DrugInformation.mechanism_of_action,
                 ),
                 "pharmacokinetics": func.coalesce(
                     func.nullif(stmt.excluded.pharmacokinetics, ""),
-                    DrugInformation.pharmacokinetics
+                    DrugInformation.pharmacokinetics,
                 ),
                 "pharmacodynamics": func.coalesce(
                     func.nullif(stmt.excluded.pharmacodynamics, ""),
-                    DrugInformation.pharmacodynamics
+                    DrugInformation.pharmacodynamics,
                 ),
-                
+
                 # Additional clinical fields - always update with new data if available
                 "boxed_warning": func.coalesce(
                     func.nullif(stmt.excluded.boxed_warning, ""),
-                    DrugInformation.boxed_warning
+                    DrugInformation.boxed_warning,
                 ),
                 "clinical_studies": func.coalesce(
                     func.nullif(stmt.excluded.clinical_studies, ""),
-                    DrugInformation.clinical_studies
+                    DrugInformation.clinical_studies,
                 ),
                 "pediatric_use": func.coalesce(
                     func.nullif(stmt.excluded.pediatric_use, ""),
-                    DrugInformation.pediatric_use
+                    DrugInformation.pediatric_use,
                 ),
                 "geriatric_use": func.coalesce(
                     func.nullif(stmt.excluded.geriatric_use, ""),
-                    DrugInformation.geriatric_use
+                    DrugInformation.geriatric_use,
                 ),
                 "pregnancy": func.coalesce(
                     func.nullif(stmt.excluded.pregnancy, ""),
-                    DrugInformation.pregnancy
+                    DrugInformation.pregnancy,
                 ),
                 "nursing_mothers": func.coalesce(
                     func.nullif(stmt.excluded.nursing_mothers, ""),
-                    DrugInformation.nursing_mothers
+                    DrugInformation.nursing_mothers,
                 ),
                 "overdosage": func.coalesce(
                     func.nullif(stmt.excluded.overdosage, ""),
-                    DrugInformation.overdosage
+                    DrugInformation.overdosage,
                 ),
                 "nonclinical_toxicology": func.coalesce(
                     func.nullif(stmt.excluded.nonclinical_toxicology, ""),
-                    DrugInformation.nonclinical_toxicology
+                    DrugInformation.nonclinical_toxicology,
                 ),
 
                 # For arrays, combine unique values
@@ -895,7 +894,7 @@ class DrugAPI:
             "reference_listed_drug": drug_data.get("reference_listed_drug", ""),
             "therapeutic_class": drug_data.get("therapeutic_class", ""),
             "pharmacologic_class": drug_data.get("pharmacologic_class", ""),
-            
+
             # Clinical information fields
             "contraindications": drug_data.get("contraindications", []),
             "warnings": drug_data.get("warnings", []),
@@ -907,7 +906,7 @@ class DrugAPI:
             "mechanism_of_action": drug_data.get("mechanism_of_action", ""),
             "pharmacokinetics": drug_data.get("pharmacokinetics", ""),
             "pharmacodynamics": drug_data.get("pharmacodynamics", ""),
-            
+
             # Additional clinical fields
             "boxed_warning": drug_data.get("boxed_warning", ""),
             "clinical_studies": drug_data.get("clinical_studies", ""),
@@ -917,7 +916,7 @@ class DrugAPI:
             "nursing_mothers": drug_data.get("nursing_mothers", ""),
             "overdosage": drug_data.get("overdosage", ""),
             "nonclinical_toxicology": drug_data.get("nonclinical_toxicology", ""),
-            
+
             "data_sources": drug_data.get("data_sources", []),
             "updated_at": datetime.utcnow(),
         }
@@ -934,59 +933,59 @@ class DrugAPI:
                 # Always update with new values if they're better (non-empty)
                 "generic_name": func.coalesce(
                     func.nullif(stmt.excluded.generic_name, ""),
-                    DrugInformation.generic_name
+                    DrugInformation.generic_name,
                 ),
                 "brand_name": func.coalesce(
                     func.nullif(stmt.excluded.brand_name, ""),
-                    DrugInformation.brand_name
+                    DrugInformation.brand_name,
                 ),
                 "manufacturer": func.coalesce(
                     func.nullif(stmt.excluded.manufacturer, ""),
-                    DrugInformation.manufacturer
+                    DrugInformation.manufacturer,
                 ),
                 "applicant": func.coalesce(
                     func.nullif(stmt.excluded.applicant, ""),
-                    DrugInformation.applicant
+                    DrugInformation.applicant,
                 ),
                 "strength": func.coalesce(
                     func.nullif(stmt.excluded.strength, ""),
-                    DrugInformation.strength
+                    DrugInformation.strength,
                 ),
                 "dosage_form": func.coalesce(
                     func.nullif(stmt.excluded.dosage_form, ""),
-                    DrugInformation.dosage_form
+                    DrugInformation.dosage_form,
                 ),
                 "route": func.coalesce(
                     func.nullif(stmt.excluded.route, ""),
-                    DrugInformation.route
+                    DrugInformation.route,
                 ),
                 "application_number": func.coalesce(
                     func.nullif(stmt.excluded.application_number, ""),
-                    DrugInformation.application_number
+                    DrugInformation.application_number,
                 ),
                 "product_number": func.coalesce(
                     func.nullif(stmt.excluded.product_number, ""),
-                    DrugInformation.product_number
+                    DrugInformation.product_number,
                 ),
                 "approval_date": func.coalesce(
                     func.nullif(stmt.excluded.approval_date, ""),
-                    DrugInformation.approval_date
+                    DrugInformation.approval_date,
                 ),
                 "orange_book_code": func.coalesce(
                     func.nullif(stmt.excluded.orange_book_code, ""),
-                    DrugInformation.orange_book_code
+                    DrugInformation.orange_book_code,
                 ),
                 "reference_listed_drug": func.coalesce(
                     func.nullif(stmt.excluded.reference_listed_drug, ""),
-                    DrugInformation.reference_listed_drug
+                    DrugInformation.reference_listed_drug,
                 ),
                 "therapeutic_class": func.coalesce(
                     func.nullif(stmt.excluded.therapeutic_class, ""),
-                    DrugInformation.therapeutic_class
+                    DrugInformation.therapeutic_class,
                 ),
                 "pharmacologic_class": func.coalesce(
                     func.nullif(stmt.excluded.pharmacologic_class, ""),
-                    DrugInformation.pharmacologic_class
+                    DrugInformation.pharmacologic_class,
                 ),
 
                 # Clinical information fields - always update with new data
@@ -997,57 +996,57 @@ class DrugAPI:
                 "drug_interactions": stmt.excluded.drug_interactions,
                 "indications_and_usage": func.coalesce(
                     func.nullif(stmt.excluded.indications_and_usage, ""),
-                    DrugInformation.indications_and_usage
+                    DrugInformation.indications_and_usage,
                 ),
                 "dosage_and_administration": func.coalesce(
                     func.nullif(stmt.excluded.dosage_and_administration, ""),
-                    DrugInformation.dosage_and_administration
+                    DrugInformation.dosage_and_administration,
                 ),
                 "mechanism_of_action": func.coalesce(
                     func.nullif(stmt.excluded.mechanism_of_action, ""),
-                    DrugInformation.mechanism_of_action
+                    DrugInformation.mechanism_of_action,
                 ),
                 "pharmacokinetics": func.coalesce(
                     func.nullif(stmt.excluded.pharmacokinetics, ""),
-                    DrugInformation.pharmacokinetics
+                    DrugInformation.pharmacokinetics,
                 ),
                 "pharmacodynamics": func.coalesce(
                     func.nullif(stmt.excluded.pharmacodynamics, ""),
-                    DrugInformation.pharmacodynamics
+                    DrugInformation.pharmacodynamics,
                 ),
-                
+
                 # Additional clinical fields - always update with new data if available
                 "boxed_warning": func.coalesce(
                     func.nullif(stmt.excluded.boxed_warning, ""),
-                    DrugInformation.boxed_warning
+                    DrugInformation.boxed_warning,
                 ),
                 "clinical_studies": func.coalesce(
                     func.nullif(stmt.excluded.clinical_studies, ""),
-                    DrugInformation.clinical_studies
+                    DrugInformation.clinical_studies,
                 ),
                 "pediatric_use": func.coalesce(
                     func.nullif(stmt.excluded.pediatric_use, ""),
-                    DrugInformation.pediatric_use
+                    DrugInformation.pediatric_use,
                 ),
                 "geriatric_use": func.coalesce(
                     func.nullif(stmt.excluded.geriatric_use, ""),
-                    DrugInformation.geriatric_use
+                    DrugInformation.geriatric_use,
                 ),
                 "pregnancy": func.coalesce(
                     func.nullif(stmt.excluded.pregnancy, ""),
-                    DrugInformation.pregnancy
+                    DrugInformation.pregnancy,
                 ),
                 "nursing_mothers": func.coalesce(
                     func.nullif(stmt.excluded.nursing_mothers, ""),
-                    DrugInformation.nursing_mothers
+                    DrugInformation.nursing_mothers,
                 ),
                 "overdosage": func.coalesce(
                     func.nullif(stmt.excluded.overdosage, ""),
-                    DrugInformation.overdosage
+                    DrugInformation.overdosage,
                 ),
                 "nonclinical_toxicology": func.coalesce(
                     func.nullif(stmt.excluded.nonclinical_toxicology, ""),
-                    DrugInformation.nonclinical_toxicology
+                    DrugInformation.nonclinical_toxicology,
                 ),
 
                 # For arrays, combine unique values

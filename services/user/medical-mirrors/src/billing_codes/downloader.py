@@ -185,7 +185,7 @@ class BillingCodesDownloader:
             logger.info(f"CPT code access limited (expected due to copyright): {e}")
 
         return all_codes
-        
+
     async def _search_billing_codes_paginated(
         self,
         query: str,
@@ -197,36 +197,36 @@ class BillingCodesDownloader:
         all_codes = []
         offset = 0
         batch_size = max_results_per_batch
-        
+
         while len(all_codes) < max_total_results:
             try:
                 # Get batch of results
                 batch_codes = await self._search_billing_codes(
-                    query, 
-                    code_type=code_type, 
-                    max_results=batch_size
+                    query,
+                    code_type=code_type,
+                    max_results=batch_size,
                 )
-                
+
                 if not batch_codes:
                     # No more results
                     break
-                    
+
                 all_codes.extend(batch_codes)
-                
+
                 # If we got fewer results than requested, we've reached the end
                 if len(batch_codes) < batch_size:
                     break
-                    
+
                 # Rate limiting between batches
                 await asyncio.sleep(0.5)
                 offset += batch_size
-                
+
                 logger.debug(f"Downloaded {len(all_codes)} codes so far for query '{query}'")
-                
+
             except Exception as e:
                 logger.warning(f"Pagination failed for query '{query}' at offset {offset}: {e}")
                 break
-                
+
         logger.info(f"Paginated search for '{query}' returned {len(all_codes)} total codes")
         return all_codes
 
@@ -284,19 +284,18 @@ class BillingCodesDownloader:
             # NLM HCPCS API returns: [total_count, codes, extra_data, display_strings]
             total_count = data[0] if len(data) > 0 else 0
             code_list = data[1] if len(data) > 1 else []
-            extra_data = data[2] if len(data) > 2 else None
+            data[2] if len(data) > 2 else None
             display_strings = data[3] if len(data) > 3 else []
 
             # Pair up codes with their descriptions from display strings
             for i, code in enumerate(code_list):
                 # Display strings format: [["CODE", "Description"], ...]
                 display_info = display_strings[i] if i < len(display_strings) else ["", ""]
-                
+
                 if isinstance(display_info, list) and len(display_info) >= 2:
-                    display_code = display_info[0]
+                    display_info[0]
                     description = display_info[1]
                 else:
-                    display_code = code
                     description = ""
 
                 billing_code = {
@@ -953,7 +952,7 @@ class BillingCodesDownloader:
                 response.raise_for_status()
                 return await response.json()
         except Exception as e:
-            logger.error(f"Failed to download HCPCS raw JSON: {e}")
+            logger.exception(f"Failed to download HCPCS raw JSON: {e}")
             return {}
 
     async def _download_cpt_raw_json(self) -> dict:
@@ -968,7 +967,7 @@ class BillingCodesDownloader:
                 {"code": "99213", "description": "Office visit, established patient", "type": "HCPCS"},
                 {"code": "99214", "description": "Office visit, established patient", "type": "HCPCS"},
             ],
-            "note": "This is fallback data for testing purposes only"
+            "note": "This is fallback data for testing purposes only",
         }
 
 

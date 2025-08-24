@@ -18,6 +18,7 @@ src_dir = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src_dir))
 
 from sqlalchemy import text
+
 from database import engine
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ def upgrade():
     with engine.connect() as conn:
         # Add clinical information columns
         add_clinical_fields(conn)
-        
+
         # Update search vector to include clinical fields
         update_search_vector_for_clinical_data(conn)
 
@@ -45,17 +46,17 @@ def add_clinical_fields(conn):
     clinical_columns = [
         # Safety and warnings (arrays for multiple entries)
         ("contraindications", "TEXT[]"),
-        ("warnings", "TEXT[]"), 
+        ("warnings", "TEXT[]"),
         ("precautions", "TEXT[]"),
         ("adverse_reactions", "TEXT[]"),
-        
+
         # Drug interactions (JSON for structured data)
         ("drug_interactions", "JSON"),
-        
+
         # Clinical usage information
         ("indications_and_usage", "TEXT"),
         ("dosage_and_administration", "TEXT"),
-        
+
         # Pharmacology information
         ("mechanism_of_action", "TEXT"),
         ("pharmacokinetics", "TEXT"),
@@ -103,7 +104,7 @@ def update_search_vector_for_clinical_data(conn):
                 COALESCE(array_to_string(NEW.ingredients, ' '), '') || ' ' ||
                 COALESCE(NEW.therapeutic_class, '') || ' ' ||
                 COALESCE(NEW.pharmacologic_class, '') || ' ' ||
-                
+
                 -- Clinical information (key for medical searches)
                 COALESCE(NEW.indications_and_usage, '') || ' ' ||
                 COALESCE(NEW.mechanism_of_action, '') || ' ' ||
@@ -135,7 +136,7 @@ def downgrade():
         # Remove clinical columns
         clinical_columns = [
             "contraindications",
-            "warnings", 
+            "warnings",
             "precautions",
             "adverse_reactions",
             "drug_interactions",

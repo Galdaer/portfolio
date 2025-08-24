@@ -19,9 +19,9 @@ if medical_mirrors_src not in sys.path:
 try:
     from billing_codes.parser import BillingCodesParser
     from billing_codes.smart_downloader import SmartBillingCodesDownloader
+    from health_info.parser import HealthInfoParser
     from icd10.parser import ICD10Parser
     from icd10.smart_downloader import SmartICD10Downloader
-    from health_info.parser import HealthInfoParser
     from sqlalchemy import text
 
     from config import Config
@@ -204,7 +204,7 @@ class HealthDataLoader:
         billing_success = True
         if validated_billing_codes:
             billing_success = self._insert_billing_codes_into_database(validated_billing_codes)
-            
+
         icd10_success = True
         if validated_icd10_codes:
             icd10_success = self._insert_icd10_codes_into_database(validated_icd10_codes)
@@ -522,10 +522,10 @@ class HealthDataLoader:
                             description = COALESCE(NULLIF(EXCLUDED.description, ''), icd10_codes.description),
                             category = COALESCE(NULLIF(EXCLUDED.category, ''), icd10_codes.category),
                             chapter = COALESCE(NULLIF(EXCLUDED.chapter, ''), icd10_codes.chapter),
-                            synonyms = CASE 
-                                WHEN EXCLUDED.synonyms IS NOT NULL AND jsonb_array_length(EXCLUDED.synonyms) > 0 
-                                THEN EXCLUDED.synonyms 
-                                ELSE icd10_codes.synonyms 
+                            synonyms = CASE
+                                WHEN EXCLUDED.synonyms IS NOT NULL AND jsonb_array_length(EXCLUDED.synonyms) > 0
+                                THEN EXCLUDED.synonyms
+                                ELSE icd10_codes.synonyms
                             END,
                             inclusion_notes = CASE
                                 WHEN EXCLUDED.inclusion_notes IS NOT NULL AND jsonb_array_length(EXCLUDED.inclusion_notes) > 0
@@ -550,24 +550,24 @@ class HealthDataLoader:
                             last_updated = NOW(),
                             search_vector = to_tsvector('english', COALESCE(EXCLUDED.search_text, icd10_codes.search_text, ''))
                     """), {
-                        'code': code_data.get('code'),
-                        'description': code_data.get('description'),
-                        'category': code_data.get('category', ''),
-                        'chapter': code_data.get('chapter', ''),
-                        'synonyms': json.dumps(code_data.get('synonyms', [])),
-                        'inclusion_notes': json.dumps(code_data.get('inclusion_notes', [])),
-                        'exclusion_notes': json.dumps(code_data.get('exclusion_notes', [])),
-                        'is_billable': code_data.get('is_billable', False),
-                        'code_length': code_data.get('code_length', 0),
-                        'parent_code': code_data.get('parent_code'),
-                        'children_codes': json.dumps(code_data.get('children_codes', [])),
-                        'source': code_data.get('source', 'unknown'),
-                        'search_text': code_data.get('search_text', ''),
+                        "code": code_data.get("code"),
+                        "description": code_data.get("description"),
+                        "category": code_data.get("category", ""),
+                        "chapter": code_data.get("chapter", ""),
+                        "synonyms": json.dumps(code_data.get("synonyms", [])),
+                        "inclusion_notes": json.dumps(code_data.get("inclusion_notes", [])),
+                        "exclusion_notes": json.dumps(code_data.get("exclusion_notes", [])),
+                        "is_billable": code_data.get("is_billable", False),
+                        "code_length": code_data.get("code_length", 0),
+                        "parent_code": code_data.get("parent_code"),
+                        "children_codes": json.dumps(code_data.get("children_codes", [])),
+                        "source": code_data.get("source", "unknown"),
+                        "search_text": code_data.get("search_text", ""),
                     })
 
                 # Get final count statistics
                 stats = db.execute(text("""
-                    SELECT 
+                    SELECT
                         COUNT(*) as total,
                         COUNT(*) FILTER (WHERE is_billable = true) as billable,
                         COUNT(*) FILTER (WHERE is_billable = false) as non_billable,
@@ -627,7 +627,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--force-fresh-billing",
-        action="store_true", 
+        action="store_true",
         help="Force fresh billing codes download (reset download states)",
     )
     parser.add_argument(
@@ -637,7 +637,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--force-fresh-icd10",
-        action="store_true", 
+        action="store_true",
         help="Force fresh ICD-10 codes download (reset download states)",
     )
 
@@ -652,55 +652,55 @@ if __name__ == "__main__":
     # Smart billing codes download if requested
     if args.smart_billing_download:
         print("\n🧠 Running smart billing codes download...")
-        
+
         async def run_smart_download():
             async with SmartBillingCodesDownloader(output_dir=Path(loader.data_dir) / "billing") as downloader:
                 summary = await downloader.download_all_billing_codes(force_fresh=args.force_fresh_billing)
-                
-                print(f"📊 Smart download completed:")
+
+                print("📊 Smart download completed:")
                 print(f"  Total codes: {summary.get('total_codes', 0):,}")
                 print(f"  Successful sources: {summary.get('successful_sources', 0)}")
                 print(f"  Failed sources: {summary.get('failed_sources', 0)}")
                 print(f"  Rate limited sources: {summary.get('rate_limited_sources', 0)}")
-                
-                if summary.get('rate_limited_sources', 0) > 0:
+
+                if summary.get("rate_limited_sources", 0) > 0:
                     print("💡 Tip: Run 'python3 scripts/smart_billing_download.py service' for automatic retries")
-                
-                return summary.get('total_codes', 0) > 0
-        
+
+                return summary.get("total_codes", 0) > 0
+
         import asyncio
         billing_success = asyncio.run(run_smart_download())
-        
+
         if not billing_success:
             print("⚠️  Smart billing download had issues, but continuing with existing data...")
 
     # Smart ICD-10 codes download if requested
     if args.smart_icd10_download:
         print("\n🏥 Running smart ICD-10 codes download...")
-        
+
         async def run_smart_icd10_download():
             async with SmartICD10Downloader(output_dir=Path(loader.data_dir) / "icd10") as downloader:
                 summary = await downloader.download_all_icd10_codes(force_fresh=args.force_fresh_icd10)
-                
-                print(f"📊 Smart ICD-10 download completed:")
+
+                print("📊 Smart ICD-10 download completed:")
                 print(f"  Total codes: {summary.get('total_codes', 0):,}")
                 print(f"  Successful sources: {summary.get('successful_sources', 0)}")
                 print(f"  Failed sources: {summary.get('failed_sources', 0)}")
                 print(f"  Rate limited sources: {summary.get('rate_limited_sources', 0)}")
-                
-                expected_vs_actual = summary.get('expected_vs_actual', {})
-                improvement = expected_vs_actual.get('improvement_over_fallback', 0)
+
+                expected_vs_actual = summary.get("expected_vs_actual", {})
+                improvement = expected_vs_actual.get("improvement_over_fallback", 0)
                 if improvement > 0:
                     print(f"  Improvement: +{improvement:,} codes over fallback")
-                
-                if summary.get('rate_limited_sources', 0) > 0:
+
+                if summary.get("rate_limited_sources", 0) > 0:
                     print("💡 Tip: Run 'python3 scripts/smart_icd10_download.py service' for automatic retries")
-                
-                return summary.get('total_codes', 0) > 0
-        
+
+                return summary.get("total_codes", 0) > 0
+
         import asyncio
         icd10_success = asyncio.run(run_smart_icd10_download())
-        
+
         if not icd10_success:
             print("⚠️  Smart ICD-10 download had issues, but continuing with existing data...")
 

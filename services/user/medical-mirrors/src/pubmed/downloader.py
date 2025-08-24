@@ -3,7 +3,6 @@ PubMed data downloader
 Downloads XML dumps from NCBI FTP and processes them
 """
 
-import asyncio
 import ftplib
 import gzip
 import logging
@@ -47,12 +46,12 @@ class PubMedDownloader:
             ftp = ftplib.FTP(timeout=timeout)
             ftp.connect(self.ftp_host)
             ftp.login()
-            
+
             # Enable passive mode for better NAT/firewall compatibility
             ftp.set_pasv(True)
-            
+
             # Set binary mode for better performance
-            ftp.voidcmd('TYPE I')
+            ftp.voidcmd("TYPE I")
 
             logger.info("FTP connection established successfully (passive mode, binary)")
             yield ftp
@@ -138,7 +137,7 @@ class PubMedDownloader:
                             file_size = ftp.size(file)
                         except Exception:
                             pass  # Size not available, continue without it
-                        
+
                         downloaded_bytes = 0
                         def progress_callback(data):
                             nonlocal downloaded_bytes
@@ -156,12 +155,12 @@ class PubMedDownloader:
                             def write_with_progress(data):
                                 progress_callback(data)
                                 local_file.write(data)
-                            
+
                             ftp.retrbinary(f"RETR {file}", write_with_progress, blocksize=self.ftp_buffer_size)
 
                         logger.info(f"✅ Downloaded: {file} ({downloaded_bytes//1024//1024}MB)")
                         downloaded_files.append(local_path)
-                        
+
                         # Rate limiting between downloads
                         if i < len(recent_files):  # Don't sleep after the last file
                             time.sleep(self.config.PUBMED_REQUEST_DELAY)
@@ -215,7 +214,7 @@ class PubMedDownloader:
 
                         logger.info(f"Successfully downloaded: {file}")
                         downloaded_files.append(local_path)
-                        
+
                         # Rate limiting between downloads
                         if i < len(recent_files):  # Don't sleep after the last file
                             time.sleep(self.config.PUBMED_REQUEST_DELAY)
@@ -299,7 +298,7 @@ class PubMedDownloader:
                     local_path = os.path.join(self.data_dir, file)
                     if not os.path.exists(local_path):
                         logger.info(f"📥 Downloading PubMed baseline file {i}/{len(xml_files)}: {file}")
-                        
+
                         # Set longer timeout for large file downloads
                         if hasattr(ftp, "sock") and ftp.sock:
                             ftp.sock.settimeout(self.download_timeout)
@@ -311,7 +310,7 @@ class PubMedDownloader:
                             file_size = ftp.size(file)
                         except Exception:
                             pass  # Size not available, continue without it
-                        
+
                         downloaded_bytes = 0
                         def progress_callback(data):
                             nonlocal downloaded_bytes
@@ -329,20 +328,20 @@ class PubMedDownloader:
                             def write_with_progress(data):
                                 progress_callback(data)
                                 local_file.write(data)
-                            
+
                             ftp.retrbinary(f"RETR {file}", write_with_progress, blocksize=self.ftp_buffer_size)
 
                         logger.info(f"✅ Downloaded: {file} ({downloaded_bytes//1024//1024}MB)")
                         downloaded_files.append(local_path)
-                        
+
                         # Rate limiting between downloads
                         if i < len(xml_files):  # Don't sleep after the last file
                             time.sleep(self.config.PUBMED_REQUEST_DELAY)
-                        
+
                         # Progress summary every 10 files
                         if i % 10 == 0:
                             logger.info(f"📈 Progress Summary: {i}/{len(xml_files)} files downloaded ({i/len(xml_files)*100:.1f}%)")
-                            
+
                     else:
                         logger.info(f"⏭️  File already exists: {file}")
                         downloaded_files.append(local_path)
@@ -399,7 +398,7 @@ class PubMedDownloader:
 
                         logger.info(f"Successfully downloaded: {file}")
                         downloaded_files.append(local_path)
-                        
+
                         # Rate limiting between downloads
                         if i < len(xml_files):  # Don't sleep after the last file
                             time.sleep(self.config.PUBMED_REQUEST_DELAY)

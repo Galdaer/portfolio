@@ -366,7 +366,7 @@ class ICD10Downloader:
                 response.raise_for_status()
                 return await response.json()
         except Exception as e:
-            logger.error(f"Failed to download ICD-10 raw JSON: {e}")
+            logger.exception(f"Failed to download ICD-10 raw JSON: {e}")
             return {}
 
     def _get_fallback_icd10_data(self) -> dict:
@@ -377,7 +377,7 @@ class ICD10Downloader:
                 {"code": "I10", "description": "Essential hypertension", "type": "ICD-10-CM"},
                 {"code": "Z00.00", "description": "Encounter for general adult medical examination without abnormal findings", "type": "ICD-10-CM"},
             ],
-            "note": "This is fallback data for testing purposes only"
+            "note": "This is fallback data for testing purposes only",
         }
 
 

@@ -438,9 +438,9 @@ class DrugParser:
             ndc = record.get("ndc", "")
             if ndc and not ndc.startswith(("OB_", "FDA_", "LABEL_")):
                 real_ndcs.add(ndc)
-        
+
         same_drug = len(real_ndcs) <= 1  # Either no real NDCs or all the same
-        
+
         # Merge fields from other records, preferring non-empty values
         for record in records[1:]:
             for key, value in record.items():
@@ -456,11 +456,11 @@ class DrugParser:
                 if value and value not in ["", "Unknown", []]:
                     # Fields that should only be merged for the same drug (same NDC)
                     source_specific_fields = ["approval_date", "orange_book_code", "application_number", "product_number"]
-                    
+
                     if key in source_specific_fields and not same_drug:
                         # Don't merge these fields across different drugs
                         continue
-                    
+
                     if key == "ingredients":
                         # Merge ingredient lists
                         current_ingredients = set(merged.get("ingredients", []))

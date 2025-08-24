@@ -3,9 +3,8 @@ ICD-10 codes parser and data processor with enhanced validation and smart downlo
 """
 
 import logging
-import re
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Set
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,7 @@ class ICD10Parser:
         self.duplicates_removed = 0
         self.hierarchy_built = 0
         self.source_conflicts_resolved = 0
-        
+
         # Chapter mapping for enhanced validation
         self.chapter_ranges = {
             "A": ("A00", "B99"), "B": ("A00", "B99"),  # Infectious diseases
@@ -44,12 +43,12 @@ class ICD10Parser:
             "Z": ("Z00", "Z99"),                        # Health status factors
         }
 
-    def parse_and_validate(self, raw_codes: List[Dict]) -> List[Dict]:
+    def parse_and_validate(self, raw_codes: list[dict]) -> list[dict]:
         """Parse and validate ICD-10 codes data with smart conflict resolution"""
         logger.info(f"Parsing and validating {len(raw_codes)} ICD-10 codes")
 
         validated_codes = []
-        seen_codes: Dict[str, Dict] = {}  # Store best version of each code
+        seen_codes: dict[str, dict] = {}  # Store best version of each code
 
         for raw_code in raw_codes:
             try:
@@ -57,7 +56,7 @@ class ICD10Parser:
 
                 if parsed_code and self._validate_code(parsed_code):
                     code_key = parsed_code["code"]
-                    
+
                     if code_key not in seen_codes:
                         # New code
                         seen_codes[code_key] = parsed_code
@@ -87,8 +86,8 @@ class ICD10Parser:
                    f"rejected {self.validation_errors} invalid codes")
 
         return validated_codes
-    
-    def _resolve_code_conflict(self, existing: Dict, new: Dict) -> Dict:
+
+    def _resolve_code_conflict(self, existing: dict, new: dict) -> dict:
         """Intelligently resolve conflicts between duplicate codes from different sources"""
         # Source priority (official sources take precedence)
         source_priority = {
@@ -100,12 +99,12 @@ class ICD10Parser:
             "nlm_clinical_tables": 5,
             "nlm_api": 4,
             "fallback": 1,
-            "unknown": 0
+            "unknown": 0,
         }
-        
+
         existing_priority = source_priority.get(existing.get("source", "unknown"), 0)
         new_priority = source_priority.get(new.get("source", "unknown"), 0)
-        
+
         # Use higher priority source as base
         if new_priority > existing_priority:
             base_code = new.copy()
@@ -113,43 +112,43 @@ class ICD10Parser:
         else:
             base_code = existing.copy()
             merge_from = new
-        
+
         # Merge additional information from lower priority source
         # Prefer longer/more detailed descriptions
         if len(merge_from.get("description", "")) > len(base_code.get("description", "")):
             base_code["description"] = merge_from["description"]
-        
+
         # Merge synonyms
         existing_synonyms = set(base_code.get("synonyms", []))
         new_synonyms = set(merge_from.get("synonyms", []))
         base_code["synonyms"] = list(existing_synonyms.union(new_synonyms))
-        
+
         # Merge inclusion/exclusion notes
         existing_inc = set(base_code.get("inclusion_notes", []))
         new_inc = set(merge_from.get("inclusion_notes", []))
         base_code["inclusion_notes"] = list(existing_inc.union(new_inc))
-        
+
         existing_exc = set(base_code.get("exclusion_notes", []))
         new_exc = set(merge_from.get("exclusion_notes", []))
         base_code["exclusion_notes"] = list(existing_exc.union(new_exc))
-        
+
         # Use more specific category if available
         if not base_code.get("category") and merge_from.get("category"):
             base_code["category"] = merge_from["category"]
-        
+
         # Update search text with merged information
         base_code["search_text"] = self._create_search_text(
-            base_code["code"], 
-            base_code["description"], 
-            base_code["synonyms"]
+            base_code["code"],
+            base_code["description"],
+            base_code["synonyms"],
         )
-        
+
         # Track source merge
         sources = [base_code.get("source", "unknown")]
         if merge_from.get("source") not in sources:
             sources.append(merge_from.get("source", "unknown"))
         base_code["merged_sources"] = sources
-        
+
         return base_code
 
     def _parse_single_code(self, raw_code: dict) -> dict | None:
@@ -186,12 +185,12 @@ class ICD10Parser:
                 "last_updated": datetime.now().isoformat(),
                 "search_text": self._create_search_text(normalized_code, description, raw_code.get("synonyms", [])),
             }
-            
+
             # Add any additional fields from source
             for key, value in raw_code.items():
                 if key not in parsed_code and value is not None:
                     parsed_code[key] = value
-            
+
             return parsed_code
 
 
@@ -209,18 +208,18 @@ class ICD10Parser:
             normalized = normalized[:3] + "." + normalized[3:]
 
         return normalized
-    
+
     def _determine_chapter_from_code(self, code: str) -> str:
         """Determine ICD-10 chapter range from code"""
         if not code:
             return ""
-        
+
         first_char = code[0].upper()
         chapter_range = self.chapter_ranges.get(first_char)
-        
+
         if chapter_range:
             return f"{chapter_range[0]}-{chapter_range[1]}"
-        
+
         return ""
 
     def _parse_synonyms(self, synonyms) -> list[str]:
@@ -402,10 +401,10 @@ class ICD10Parser:
         logger.info("ICD-10 hierarchy building completed")
         return codes
 
-    def get_parsing_stats(self) -> Dict[str, Any]:
+    def get_parsing_stats(self) -> dict[str, Any]:
         """Get comprehensive parsing statistics"""
         total_attempted = self.processed_codes + self.validation_errors
-        
+
         return {
             "processed_codes": self.processed_codes,
             "validation_errors": self.validation_errors,
@@ -423,10 +422,10 @@ class ICD10Parser:
             "conflict_resolution_rate": (
                 self.source_conflicts_resolved / self.duplicates_removed
                 if self.duplicates_removed > 0 else 0
-            )
+            ),
         }
-    
-    def analyze_code_distribution(self, codes: List[Dict]) -> Dict[str, Any]:
+
+    def analyze_code_distribution(self, codes: list[dict]) -> dict[str, Any]:
         """Analyze the distribution of ICD-10 codes"""
         analysis = {
             "total_codes": len(codes),
@@ -434,28 +433,28 @@ class ICD10Parser:
             "by_source": {},
             "billable_vs_non_billable": {"billable": 0, "non_billable": 0},
             "code_length_distribution": {},
-            "hierarchy_depth": {"category_codes": 0, "subcategory_codes": 0, "detailed_codes": 0}
+            "hierarchy_depth": {"category_codes": 0, "subcategory_codes": 0, "detailed_codes": 0},
         }
-        
+
         for code in codes:
             # Chapter analysis
             chapter = code.get("chapter", "Unknown")
             analysis["by_chapter"][chapter] = analysis["by_chapter"].get(chapter, 0) + 1
-            
+
             # Source analysis
             source = code.get("source", "unknown")
             analysis["by_source"][source] = analysis["by_source"].get(source, 0) + 1
-            
+
             # Billable analysis
             if code.get("is_billable", False):
                 analysis["billable_vs_non_billable"]["billable"] += 1
             else:
                 analysis["billable_vs_non_billable"]["non_billable"] += 1
-            
+
             # Code length analysis
             code_length = code.get("code_length", 0)
             analysis["code_length_distribution"][str(code_length)] = analysis["code_length_distribution"].get(str(code_length), 0) + 1
-            
+
             # Hierarchy depth analysis
             if code_length == 3:
                 analysis["hierarchy_depth"]["category_codes"] += 1
@@ -463,11 +462,11 @@ class ICD10Parser:
                 analysis["hierarchy_depth"]["subcategory_codes"] += 1
             elif code_length >= 5:
                 analysis["hierarchy_depth"]["detailed_codes"] += 1
-        
+
         # Sort by frequency
         analysis["by_chapter"] = dict(sorted(analysis["by_chapter"].items(), key=lambda x: x[1], reverse=True))
         analysis["by_source"] = dict(sorted(analysis["by_source"].items(), key=lambda x: x[1], reverse=True))
-        
+
         return analysis
 
 

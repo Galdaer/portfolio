@@ -7,9 +7,8 @@ import json
 import logging
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import aiohttp
 from aiohttp import ClientResponseError
@@ -43,7 +42,7 @@ class HealthInfoDownloader:
 
         # Progress tracking
         self.progress_file = Path(config.get_health_info_data_dir()) / "download_progress.json"
-        
+
         self.session = None
         self.download_stats = {
             "health_topics_downloaded": 0,
@@ -104,7 +103,7 @@ class HealthInfoDownloader:
             self.download_stats["errors"] += 1
             raise
 
-    def _load_progress(self) -> Dict:
+    def _load_progress(self) -> dict:
         """Load download progress from checkpoint file"""
         default_progress = {
             "last_update": datetime.now().isoformat(),
@@ -113,7 +112,7 @@ class HealthInfoDownloader:
                 "downloaded": [],
                 "failed": [],
                 "rate_limited_at": None,
-                "retry_after": None
+                "retry_after": None,
             },
             "exercises": {
                 "body_parts_completed": [],
@@ -121,27 +120,27 @@ class HealthInfoDownloader:
                 "target_completed": [],
                 "exercises_downloaded": [],
                 "rate_limited_at": None,
-                "retry_after": None
+                "retry_after": None,
             },
             "food_items": {
                 "queries_completed": [],
                 "items_downloaded": [],
                 "rate_limited_at": None,
-                "retry_after": None
-            }
+                "retry_after": None,
+            },
         }
-        
+
         if not self.progress_file.exists():
             return default_progress
-        
+
         try:
-            with open(self.progress_file, 'r') as f:
+            with open(self.progress_file) as f:
                 progress = json.load(f)
                 # Ensure all required keys exist
                 for key in default_progress:
                     if key not in progress:
                         progress[key] = default_progress[key]
-                for source in ['health_topics', 'exercises', 'food_items']:
+                for source in ["health_topics", "exercises", "food_items"]:
                     for subkey in default_progress[source]:
                         if subkey not in progress[source]:
                             progress[source][subkey] = default_progress[source][subkey]
@@ -150,29 +149,28 @@ class HealthInfoDownloader:
             logger.warning(f"Failed to load progress file: {e}, using defaults")
             return default_progress
 
-    def _save_progress(self, progress: Dict):
+    def _save_progress(self, progress: dict):
         """Save download progress to checkpoint file"""
         try:
             progress["last_update"] = datetime.now().isoformat()
-            with open(self.progress_file, 'w') as f:
+            with open(self.progress_file, "w") as f:
                 json.dump(progress, f, default=str)
             logger.debug(f"Progress saved to {self.progress_file}")
         except Exception as e:
-            logger.error(f"Failed to save progress: {e}")
+            logger.exception(f"Failed to save progress: {e}")
 
-    def _calculate_wait_time(self, source_progress: Dict) -> float:
+    def _calculate_wait_time(self, source_progress: dict) -> float:
         """Calculate how long to wait before retrying after rate limit"""
-        if not source_progress.get('rate_limited_at'):
+        if not source_progress.get("rate_limited_at"):
             return 0.0
-        
-        rate_limited_time = datetime.fromisoformat(source_progress['rate_limited_at'])
-        retry_after = source_progress.get('retry_after', 60)  # Default 1 minute
-        
+
+        rate_limited_time = datetime.fromisoformat(source_progress["rate_limited_at"])
+        retry_after = source_progress.get("retry_after", 60)  # Default 1 minute
+
         # Calculate elapsed time since rate limit
         elapsed = (datetime.now() - rate_limited_time).total_seconds()
-        remaining = max(0, retry_after - elapsed)
-        
-        return remaining
+        return max(0, retry_after - elapsed)
+
 
     async def _retry_with_backoff(self, func, *args, max_retries: int = 5, base_delay: float = 5.0, **kwargs):
         """Retry function with exponential backoff"""
@@ -183,9 +181,10 @@ class HealthInfoDownloader:
                 if e.status == 429:  # Rate limited
                     if attempt == max_retries - 1:
                         # Last attempt, raise custom exception with retry info
-                        retry_after = int(e.headers.get('Retry-After', '60'))
-                        raise RateLimitError(f"Rate limited after {max_retries} attempts", retry_after)
-                    
+                        retry_after = int(e.headers.get("Retry-After", "60"))
+                        msg = f"Rate limited after {max_retries} attempts"
+                        raise RateLimitError(msg, retry_after)
+
                     # Calculate exponential backoff delay (5, 10, 20, 40, 80 seconds, capped at 5 minutes)
                     delay = min(base_delay * (2 ** attempt), 300)
                     logger.info(f"Rate limited (attempt {attempt + 1}/{max_retries}), waiting {delay}s")
@@ -200,7 +199,7 @@ class HealthInfoDownloader:
                 delay = min(base_delay * (2 ** attempt), 60)
                 logger.warning(f"Error on attempt {attempt + 1}/{max_retries}: {e}, retrying in {delay}s")
                 await asyncio.sleep(delay)
-        
+
         # Should not reach here
         raise Exception("Max retries exceeded")
 
@@ -215,13 +214,13 @@ class HealthInfoDownloader:
         # Load progress
         progress = self._load_progress()
         exercises_progress = progress["exercises"]
-        
+
         # Check if we need to wait for rate limit
         wait_time = self._calculate_wait_time(exercises_progress)
         if wait_time > 0:
             logger.info(f"Rate limit active, waiting {wait_time:.1f}s before continuing")
             await asyncio.sleep(wait_time)
-            
+
         headers = {
             "X-RapidAPI-Key": self.rapidapi_key,
             "X-RapidAPI-Host": "exercisedb.p.rapidapi.com",
@@ -230,29 +229,29 @@ class HealthInfoDownloader:
         all_exercises = []
         exercise_ids_seen = set(exercises_progress.get("exercises_downloaded", []))
         total_unique_exercises = len(exercise_ids_seen)
-        
+
         logger.info(f"Resuming download - already have {total_unique_exercises} unique exercise IDs")
 
         try:
             # Strategy 1: Download by body parts
             body_parts = await self._get_exercisedb_body_parts(headers)
             await self._download_exercises_by_category(
-                headers, "bodyPart", body_parts, all_exercises, 
-                exercise_ids_seen, exercises_progress, progress
+                headers, "bodyPart", body_parts, all_exercises,
+                exercise_ids_seen, exercises_progress, progress,
             )
 
             # Strategy 2: Download by equipment types
             equipment_types = await self._get_exercisedb_equipment_types(headers)
             await self._download_exercises_by_category(
-                headers, "equipment", equipment_types, all_exercises, 
-                exercise_ids_seen, exercises_progress, progress
+                headers, "equipment", equipment_types, all_exercises,
+                exercise_ids_seen, exercises_progress, progress,
             )
 
             # Strategy 3: Download by target muscles
             target_muscles = await self._get_exercisedb_target_muscles(headers)
             await self._download_exercises_by_category(
-                headers, "target", target_muscles, all_exercises, 
-                exercise_ids_seen, exercises_progress, progress
+                headers, "target", target_muscles, all_exercises,
+                exercise_ids_seen, exercises_progress, progress,
             )
 
             # Clear rate limit markers if we completed successfully
@@ -285,116 +284,116 @@ class HealthInfoDownloader:
 
         return all_exercises
 
-    async def _get_exercisedb_body_parts(self, headers: dict) -> List[str]:
+    async def _get_exercisedb_body_parts(self, headers: dict) -> list[str]:
         """Get list of all available body parts from ExerciseDB"""
         try:
             url = f"{self.exercisedb_url}/exercises/bodyPartList"
             self.download_stats["requests_made"] += 1
-            
+
             response = await self._retry_with_backoff(
-                self.session.get, url, headers=headers, timeout=15
+                self.session.get, url, headers=headers, timeout=15,
             )
-            
+
             async with response as resp:
                 resp.raise_for_status()
                 body_parts = await resp.json()
                 logger.info(f"Found {len(body_parts)} body parts: {body_parts}")
                 return body_parts
-                
+
         except Exception as e:
             logger.warning(f"Failed to get body parts list: {e}, using fallback")
             return ["back", "cardio", "chest", "lower arms", "lower legs", "neck", "shoulders", "upper arms", "upper legs", "waist"]
 
-    async def _get_exercisedb_equipment_types(self, headers: dict) -> List[str]:
+    async def _get_exercisedb_equipment_types(self, headers: dict) -> list[str]:
         """Get list of all available equipment types from ExerciseDB"""
         try:
             url = f"{self.exercisedb_url}/exercises/equipmentList"
             self.download_stats["requests_made"] += 1
-            
+
             response = await self._retry_with_backoff(
-                self.session.get, url, headers=headers, timeout=15
+                self.session.get, url, headers=headers, timeout=15,
             )
-            
+
             async with response as resp:
                 resp.raise_for_status()
                 equipment_types = await resp.json()
                 logger.info(f"Found {len(equipment_types)} equipment types: {equipment_types}")
                 return equipment_types
-                
+
         except Exception as e:
             logger.warning(f"Failed to get equipment list: {e}, using fallback")
             # Fallback equipment types we discovered
             return ["barbell", "dumbbell", "body weight", "cable", "machine", "kettlebell", "resistance band", "stability ball", "medicine ball", "rope"]
 
-    async def _get_exercisedb_target_muscles(self, headers: dict) -> List[str]:
+    async def _get_exercisedb_target_muscles(self, headers: dict) -> list[str]:
         """Get list of all available target muscles from ExerciseDB"""
         try:
             url = f"{self.exercisedb_url}/exercises/targetList"
             self.download_stats["requests_made"] += 1
-            
+
             response = await self._retry_with_backoff(
-                self.session.get, url, headers=headers, timeout=15
+                self.session.get, url, headers=headers, timeout=15,
             )
-            
+
             async with response as resp:
                 resp.raise_for_status()
                 target_muscles = await resp.json()
                 logger.info(f"Found {len(target_muscles)} target muscles: {target_muscles}")
                 return target_muscles
-                
+
         except Exception as e:
             logger.warning(f"Failed to get target muscles list: {e}, using fallback")
             # Fallback target muscles we discovered
             return ["abductors", "abs", "biceps", "calves", "glutes", "hamstrings", "lats", "pectorals", "quads", "triceps", "delts"]
 
-    async def _download_exercises_by_category(self, headers: dict, category_type: str, categories: List[str], 
-                                            all_exercises: List[dict], exercise_ids_seen: set, 
+    async def _download_exercises_by_category(self, headers: dict, category_type: str, categories: list[str],
+                                            all_exercises: list[dict], exercise_ids_seen: set,
                                             exercises_progress: dict, progress: dict):
         """Download exercises for a specific category type (bodyPart, equipment, target)"""
         progress_key = f"{category_type.lower()}_completed"
         if progress_key not in exercises_progress:
             exercises_progress[progress_key] = []
-            
+
         completed_categories = set(exercises_progress[progress_key])
         pending_categories = [cat for cat in categories if cat not in completed_categories]
-        
+
         logger.info(f"📥 {category_type} strategy: {len(completed_categories)} completed, {len(pending_categories)} pending")
-        
+
         for i, category in enumerate(pending_categories):
             try:
                 logger.info(f"Downloading exercises for {category_type}: '{category}' ({i+1}/{len(pending_categories)})")
-                
+
                 # Build URL based on category type
-                safe_category = category.replace(' ', '%20').replace('/', '%2F')
+                safe_category = category.replace(" ", "%20").replace("/", "%2F")
                 url = f"{self.exercisedb_url}/exercises/{category_type}/{safe_category}"
-                
+
                 self.download_stats["requests_made"] += 1
-                
+
                 response = await self._retry_with_backoff(
-                    self.session.get, url, headers=headers, timeout=15
+                    self.session.get, url, headers=headers, timeout=15,
                 )
-                
+
                 async with response as resp:
                     resp.raise_for_status()
                     data = await resp.json()
-                    
+
                     new_exercises = 0
                     for exercise in data:
                         exercise_id = exercise.get("id", "")
                         if exercise_id and exercise_id not in exercise_ids_seen:
                             exercise_ids_seen.add(exercise_id)
                             new_exercises += 1
-                    
+
                     logger.info(f"✅ {category_type} '{category}': {len(data)} total, {new_exercises} new unique exercises")
-                    
+
                 # Mark this category as completed
                 exercises_progress[progress_key].append(category)
                 exercises_progress["exercises_downloaded"] = list(exercise_ids_seen)
                 self._save_progress(progress)
-                
+
                 # Rate limiting between requests
                 await asyncio.sleep(1)
-                
+
             except RateLimitError:
                 # Let the parent method handle rate limits
                 raise
@@ -402,31 +401,31 @@ class HealthInfoDownloader:
                 logger.warning(f"Failed to download exercises for {category_type} '{category}': {e}")
                 continue
 
-    async def _get_full_exercise_data(self, headers: dict, exercise_ids: List[str]) -> List[dict]:
+    async def _get_full_exercise_data(self, headers: dict, exercise_ids: list[str]) -> list[dict]:
         """Convert exercise IDs to full exercise data by fetching individual exercises"""
         logger.info(f"Converting {len(exercise_ids)} exercise IDs to full exercise data")
         all_exercises = []
-        
+
         # We'll get full data by querying one of the category endpoints and filtering
         # Since we know we have comprehensive coverage from all endpoints
-        
+
         try:
             # Get all exercises from body parts (most comprehensive single endpoint)
             body_parts = ["back", "cardio", "chest", "lower arms", "lower legs", "neck", "shoulders", "upper arms", "upper legs", "waist"]
-            
+
             for body_part in body_parts:
                 try:
                     url = f"{self.exercisedb_url}/exercises/bodyPart/{body_part.replace(' ', '%20')}"
                     self.download_stats["requests_made"] += 1
-                    
+
                     response = await self._retry_with_backoff(
-                        self.session.get, url, headers=headers, timeout=15
+                        self.session.get, url, headers=headers, timeout=15,
                     )
-                    
+
                     async with response as resp:
                         resp.raise_for_status()
                         data = await resp.json()
-                        
+
                         for exercise in data:
                             exercise_id = exercise.get("id", "")
                             if exercise_id in exercise_ids:
@@ -445,16 +444,16 @@ class HealthInfoDownloader:
                                     "search_text": f"{exercise.get('name', '')} {exercise.get('bodyPart', '')} {exercise.get('target', '')}".lower(),
                                 }
                                 all_exercises.append(exercise_data)
-                                
+
                     await asyncio.sleep(1)  # Rate limiting
-                    
+
                 except Exception as e:
                     logger.warning(f"Error fetching full data for body part {body_part}: {e}")
                     continue
-                    
+
         except Exception as e:
             logger.exception(f"Error converting exercise IDs to full data: {e}")
-            
+
         logger.info(f"Converted {len(all_exercises)} exercise IDs to full exercise data")
         return all_exercises
 
@@ -464,15 +463,15 @@ class HealthInfoDownloader:
 
         # Load progress
         progress = self._load_progress()
-        
+
         # Check if we're still rate limited
-        wait_time = self._calculate_wait_time(progress['health_topics'])
+        wait_time = self._calculate_wait_time(progress["health_topics"])
         if wait_time > 0:
             logger.info(f"Still rate limited, waiting {wait_time:.1f}s before retrying")
             await asyncio.sleep(wait_time)
             # Clear rate limit status after waiting
-            progress['health_topics']['rate_limited_at'] = None
-            progress['health_topics']['retry_after'] = None
+            progress["health_topics"]["rate_limited_at"] = None
+            progress["health_topics"]["retry_after"] = None
 
         all_topics = []
 
@@ -482,63 +481,64 @@ class HealthInfoDownloader:
             params = {"Type": "topic"}
 
             logger.info(f"Fetching topics list from {topics_url}")
-            
+
             self.download_stats["requests_made"] += 1
             topics_response = await self._retry_with_backoff(
-                self.session.get, topics_url, params=params
+                self.session.get, topics_url, params=params,
             )
-            
+
             async with topics_response as response:
                 response.raise_for_status()
                 data = await response.json()
-                
+
                 # Parse new API response structure
                 result = data.get("Result", {})
                 if result.get("Error") != "False":
-                    raise Exception(f"API returned error: {result}")
-                
+                    msg = f"API returned error: {result}"
+                    raise Exception(msg)
+
                 topics_data = result.get("Items", {}).get("Item", [])
-                progress['health_topics']['total'] = len(topics_data)
+                progress["health_topics"]["total"] = len(topics_data)
                 logger.info(f"Found {len(topics_data)} total health topics")
 
                 # Filter out already downloaded topics
-                downloaded_ids = set(progress['health_topics']['downloaded'])
-                pending_topics = [t for t in topics_data if t.get('Id') not in downloaded_ids]
-                
+                downloaded_ids = set(progress["health_topics"]["downloaded"])
+                pending_topics = [t for t in topics_data if t.get("Id") not in downloaded_ids]
+
                 logger.info(f"Already downloaded: {len(downloaded_ids)}, Pending: {len(pending_topics)}")
 
                 # Process each pending topic
                 for i, topic in enumerate(pending_topics):
                     try:
-                        topic_id = topic.get('Id')
+                        topic_id = topic.get("Id")
                         if not topic_id:
                             continue
-                            
+
                         logger.info(f"Downloading topic {i+1}/{len(pending_topics)}: {topic.get('Title', topic_id)}")
-                        
+
                         # Get detailed information for each topic
                         topic_detail = await self._get_myhealthfinder_topic_detail_v4(topic)
                         if topic_detail:
                             all_topics.append(topic_detail)
                             # Save progress immediately after each successful download
-                            progress['health_topics']['downloaded'].append(topic_id)
+                            progress["health_topics"]["downloaded"].append(topic_id)
                             self._save_progress(progress)
 
                         # Rate limiting between requests
                         await asyncio.sleep(self.config.REQUEST_DELAY)
 
                     except RateLimitError as e:
-                        logger.warning(f"Rate limited while downloading topics. Saving progress and stopping.")
-                        progress['health_topics']['rate_limited_at'] = datetime.now().isoformat()
-                        progress['health_topics']['retry_after'] = e.retry_after
+                        logger.warning("Rate limited while downloading topics. Saving progress and stopping.")
+                        progress["health_topics"]["rate_limited_at"] = datetime.now().isoformat()
+                        progress["health_topics"]["retry_after"] = e.retry_after
                         self._save_progress(progress)
                         break  # Stop processing but return partial results
                     except Exception as e:
                         logger.exception(f"Error processing topic {topic.get('Id')}: {e}")
                         # Add to failed list but continue with other topics
-                        topic_id = topic.get('Id')
-                        if topic_id and topic_id not in progress['health_topics']['failed']:
-                            progress['health_topics']['failed'].append(topic_id)
+                        topic_id = topic.get("Id")
+                        if topic_id and topic_id not in progress["health_topics"]["failed"]:
+                            progress["health_topics"]["failed"].append(topic_id)
                         continue
 
             self.download_stats["health_topics_downloaded"] = len(all_topics)
@@ -546,18 +546,18 @@ class HealthInfoDownloader:
 
         except RateLimitError as e:
             logger.warning(f"Rate limited during topics list fetch: {e}")
-            progress['health_topics']['rate_limited_at'] = datetime.now().isoformat()
-            progress['health_topics']['retry_after'] = e.retry_after
+            progress["health_topics"]["rate_limited_at"] = datetime.now().isoformat()
+            progress["health_topics"]["retry_after"] = e.retry_after
             self._save_progress(progress)
         except Exception as e:
             logger.exception(f"Error downloading MyHealthfinder data: {e}")
             self.download_stats["errors"] += 1
 
         # If no health topics were downloaded and none were previously downloaded, use fallback data
-        if not all_topics and not progress['health_topics']['downloaded']:
+        if not all_topics and not progress["health_topics"]["downloaded"]:
             logger.warning("No health topics downloaded from MyHealthfinder API - using fallback health topics")
             all_topics = self._get_fallback_health_topics()
-        elif progress['health_topics']['downloaded']:
+        elif progress["health_topics"]["downloaded"]:
             # We have partial data from previous runs, that's OK
             logger.info(f"Returning partial data: {len(all_topics)} new + {len(progress['health_topics']['downloaded'])} previously downloaded")
 
@@ -575,11 +575,11 @@ class HealthInfoDownloader:
             params = {"TopicId": topic_id}
 
             self.download_stats["requests_made"] += 1
-            
+
             detail_response = await self._retry_with_backoff(
-                self.session.get, detail_url, params=params
+                self.session.get, detail_url, params=params,
             )
-            
+
             async with detail_response as response:
                 response.raise_for_status()
                 data = await response.json()
@@ -594,9 +594,9 @@ class HealthInfoDownloader:
                 if not resources:
                     logger.warning(f"No resource data found for topic {topic_id}")
                     return None
-                
+
                 resource = resources[0]  # Take first resource
-                
+
                 # Extract sections from the new structure
                 sections = []
                 if "Sections" in resource:
@@ -606,13 +606,13 @@ class HealthInfoDownloader:
                             # Clean HTML content
                             content = section.get("Content", "")
                             # Remove HTML tags for cleaner storage
-                            content = re.sub(r'<[^>]+>', '', content)
-                            content = content.replace('&nbsp;', ' ').replace('&amp;', '&')
-                            
+                            content = re.sub(r"<[^>]+>", "", content)
+                            content = content.replace("&nbsp;", " ").replace("&amp;", "&")
+
                             sections.append({
                                 "title": section.get("Title", ""),
                                 "content": content,
-                                "type": "content"
+                                "type": "content",
                             })
 
                 # Extract related topics
@@ -626,7 +626,7 @@ class HealthInfoDownloader:
                                 related_topics.append(title)
 
                 # Create comprehensive topic data
-                topic_data = {
+                return {
                     "topic_id": topic_id,
                     "title": resource.get("Title", topic.get("Title", "")),
                     "category": resource.get("Categories", topic.get("ParentTopic", "General Health")),
@@ -640,22 +640,21 @@ class HealthInfoDownloader:
                     "content_length": sum(len(s.get("content", "")) for s in sections),
                     "source": "myhealthfinder",
                     "search_text": self._create_health_search_text_v4(topic, resource, sections),
-                    "last_updated": datetime.now().isoformat()
+                    "last_updated": datetime.now().isoformat(),
                 }
 
-                return topic_data
 
         except Exception as e:
             logger.exception(f"Error getting topic detail for {topic.get('Id')}: {e}")
             return None
 
-    def _extract_audience_v4(self, resource: dict) -> List[str]:
+    def _extract_audience_v4(self, resource: dict) -> list[str]:
         """Extract target audience from v4 API resource"""
         audiences = []
-        
+
         # Check content for audience indicators
         content_str = str(resource).lower()
-        
+
         # Check for age groups
         if any(word in content_str for word in ["adult", "grown-up"]):
             audiences.append("adults")
@@ -665,7 +664,7 @@ class HealthInfoDownloader:
             audiences.append("teens")
         if any(word in content_str for word in ["senior", "older", "elderly"]):
             audiences.append("seniors")
-        
+
         # Check for specific groups
         if "women" in content_str or "female" in content_str:
             audiences.append("women")
@@ -673,10 +672,10 @@ class HealthInfoDownloader:
             audiences.append("men")
         if "pregnant" in content_str or "pregnancy" in content_str:
             audiences.append("pregnant_women")
-        
+
         return audiences if audiences else ["general"]
 
-    def _create_summary_from_sections(self, sections: List[dict]) -> str:
+    def _create_summary_from_sections(self, sections: list[dict]) -> str:
         """Create a summary from the first section or overview"""
         for section in sections:
             title = section.get("title") or ""
@@ -687,7 +686,7 @@ class HealthInfoDownloader:
                 if len(content) > 200:
                     summary += "..."
                 return summary
-        
+
         # If no overview section, use first section
         if sections:
             content = sections[0].get("content", "")
@@ -695,44 +694,44 @@ class HealthInfoDownloader:
             if len(content) > 200:
                 summary += "..."
             return summary
-        
+
         return ""
 
-    def _extract_keywords_from_content(self, sections: List[dict]) -> List[str]:
+    def _extract_keywords_from_content(self, sections: list[dict]) -> list[str]:
         """Extract keywords from section content"""
         all_content = " ".join(s.get("content", "") for s in sections).lower()
-        
+
         # Common health-related keywords to look for
         health_keywords = [
             "health", "prevention", "treatment", "symptoms", "diagnosis", "disease",
             "exercise", "diet", "nutrition", "wellness", "medical", "screening",
-            "medication", "therapy", "care", "doctor", "hospital", "clinic"
+            "medication", "therapy", "care", "doctor", "hospital", "clinic",
         ]
-        
+
         found_keywords = []
         for keyword in health_keywords:
             if keyword in all_content:
                 found_keywords.append(keyword)
-        
+
         # Add title words as keywords
         title_words = []
         for section in sections:
             title = section.get("title") or ""
             if title:
-                words = re.findall(r'\b\w+\b', title.lower())
+                words = re.findall(r"\b\w+\b", title.lower())
                 title_words.extend([w for w in words if len(w) > 3])
-        
+
         return list(set(found_keywords + title_words))
 
-    def _create_health_search_text_v4(self, topic: dict, resource: dict, sections: List[dict]) -> str:
+    def _create_health_search_text_v4(self, topic: dict, resource: dict, sections: list[dict]) -> str:
         """Create searchable text for health topics using v4 data"""
         search_parts = [
             topic.get("Title", ""),
             resource.get("Title", ""),
             resource.get("Categories", ""),
-            " ".join(s.get("content", "") for s in sections)
+            " ".join(s.get("content", "") for s in sections),
         ]
-        
+
         return " ".join(search_parts).lower()
 
     async def _download_usda_food_data(self) -> list[dict]:
@@ -748,7 +747,7 @@ class HealthInfoDownloader:
         # Load progress
         progress = self._load_progress()
         food_progress = progress["food_items"]
-        
+
         # Check if we need to wait for rate limit
         wait_time = self._calculate_wait_time(food_progress)
         if wait_time > 0:
@@ -756,9 +755,9 @@ class HealthInfoDownloader:
             await asyncio.sleep(wait_time)
 
         all_food_items = food_progress.get("downloaded_items", [])
-        food_ids_seen = set(item["fdc_id"] for item in all_food_items if item.get("fdc_id"))
+        food_ids_seen = {item["fdc_id"] for item in all_food_items if item.get("fdc_id")}
         total_unique_foods = len(food_ids_seen)
-        
+
         logger.info(f"Resuming download - already have {total_unique_foods} unique food items")
 
         try:
@@ -766,13 +765,13 @@ class HealthInfoDownloader:
             food_queries = self._get_comprehensive_food_queries()
             completed_queries = set(food_progress.get("queries_completed", []))
             pending_queries = [query for query in food_queries if query not in completed_queries]
-            
+
             logger.info(f"📥 Food queries: {len(completed_queries)} completed, {len(pending_queries)} pending")
 
             # Download foods for each query with pagination
             await self._download_foods_with_pagination(
-                pending_queries, all_food_items, food_ids_seen, 
-                food_progress, progress
+                pending_queries, all_food_items, food_ids_seen,
+                food_progress, progress,
             )
 
             # Clear rate limit markers if we completed successfully
@@ -874,61 +873,61 @@ class HealthInfoDownloader:
 
         return extracted[:10]  # Limit to top 10 nutrients
 
-    def _get_comprehensive_food_queries(self) -> List[str]:
+    def _get_comprehensive_food_queries(self) -> list[str]:
         """Get comprehensive list of food search queries"""
         return [
             # Core proteins
             "chicken", "beef", "salmon", "tuna", "eggs", "turkey", "pork", "shrimp", "cod", "tilapia",
             "tofu", "tempeh", "beans", "lentils", "chickpeas", "black beans", "kidney beans", "quinoa",
-            
+
             # Dairy and alternatives
             "milk", "cheese", "yogurt", "butter", "cream", "cottage cheese", "mozzarella", "cheddar",
             "almond milk", "soy milk", "coconut milk", "oat milk", "ricotta", "feta",
-            
+
             # Grains and starches
             "rice", "bread", "pasta", "oats", "quinoa", "barley", "wheat", "corn", "millet", "buckwheat",
             "brown rice", "wild rice", "basmati rice", "jasmine rice", "couscous", "bulgur", "farro",
-            
+
             # Vegetables
             "broccoli", "spinach", "kale", "carrots", "sweet potato", "potato", "tomato", "onion",
             "bell pepper", "zucchini", "cauliflower", "brussels sprouts", "asparagus", "cabbage",
             "cucumber", "celery", "lettuce", "mushrooms", "eggplant", "squash", "pumpkin",
-            
+
             # Fruits
             "apple", "banana", "orange", "strawberry", "blueberry", "grapes", "pineapple", "mango",
             "avocado", "lemon", "lime", "grapefruit", "peach", "pear", "cherry", "watermelon",
             "cantaloupe", "kiwi", "papaya", "pomegranate", "blackberry", "raspberry",
-            
+
             # Nuts and seeds
             "almonds", "walnuts", "cashews", "pecans", "peanuts", "pistachios", "sunflower seeds",
             "chia seeds", "flax seeds", "pumpkin seeds", "sesame seeds", "hemp seeds",
-            
+
             # Oils and fats
             "olive oil", "coconut oil", "avocado oil", "canola oil", "butter", "ghee", "sesame oil",
-            
+
             # Pantry staples
             "flour", "sugar", "salt", "pepper", "garlic", "ginger", "cinnamon", "vanilla", "honey",
             "maple syrup", "vinegar", "soy sauce", "baking powder", "yeast",
-            
+
             # Ethnic and specialty foods
             "kimchi", "miso", "seaweed", "tahini", "hummus", "salsa", "pesto", "curry powder",
             "turmeric", "cumin", "paprika", "oregano", "basil", "thyme", "rosemary",
-            
+
             # Processed/convenience foods
             "cereal", "crackers", "granola", "soup", "frozen vegetables", "canned tomatoes",
-            "peanut butter", "almond butter", "jam", "pickles", "olives"
+            "peanut butter", "almond butter", "jam", "pickles", "olives",
         ]
 
-    async def _download_foods_with_pagination(self, queries: List[str], all_food_items: List[dict], 
+    async def _download_foods_with_pagination(self, queries: list[str], all_food_items: list[dict],
                                             food_ids_seen: set, food_progress: dict, progress: dict):
         """Download foods for each query with pagination support"""
         for i, query in enumerate(queries):
             try:
                 logger.info(f"Downloading foods for query: '{query}' ({i+1}/{len(queries)})")
-                
+
                 # Download with pagination (up to 4 pages = 200 items per query)
                 query_food_items = await self._search_usda_foods_paginated(query, max_pages=4)
-                
+
                 new_foods = 0
                 for food_item in query_food_items:
                     fdc_id = food_item.get("fdc_id")
@@ -936,18 +935,18 @@ class HealthInfoDownloader:
                         food_ids_seen.add(fdc_id)
                         all_food_items.append(food_item)
                         new_foods += 1
-                
+
                 logger.info(f"✅ Query '{query}': {len(query_food_items)} total, {new_foods} new unique foods")
-                
+
                 # Mark this query as completed and save progress
                 food_progress["queries_completed"].append(query)
                 food_progress["downloaded_items"] = all_food_items
                 self._save_progress(progress)
-                
+
                 # Rate limiting - USDA has 1000 requests/hour limit (0.36s minimum between requests)
                 # Use 3.6s delay to stay well under limit (1000 requests/hour = ~3.6s per request)
                 await asyncio.sleep(3.6)
-                
+
             except RateLimitError:
                 # Let the parent method handle rate limits
                 raise
@@ -955,11 +954,11 @@ class HealthInfoDownloader:
                 logger.warning(f"Failed to download foods for query '{query}': {e}")
                 continue
 
-    async def _search_usda_foods_paginated(self, query: str, max_pages: int = 4) -> List[dict]:
+    async def _search_usda_foods_paginated(self, query: str, max_pages: int = 4) -> list[dict]:
         """Search USDA foods with pagination support"""
         all_foods = []
         page_size = 50  # USDA allows up to 200, but 50 is more reliable
-        
+
         for page_num in range(1, max_pages + 1):
             try:
                 search_url = f"{self.usda_url}/foods/search"
@@ -970,26 +969,27 @@ class HealthInfoDownloader:
                     "pageSize": page_size,
                     "pageNumber": page_num,
                 }
-                
+
                 logger.debug(f"USDA API request: {query} (page {page_num})")
                 self.download_stats["requests_made"] += 1
-                
+
                 response = await self._retry_with_backoff(
-                    self.session.get, search_url, params=params, timeout=15
+                    self.session.get, search_url, params=params, timeout=15,
                 )
-                
+
                 async with response as resp:
                     if resp.status == 429:  # Rate limit exceeded
-                        retry_after = int(resp.headers.get('Retry-After', 3600))  # Default 1 hour
-                        raise RateLimitError(f"USDA API rate limit exceeded", retry_after)
+                        retry_after = int(resp.headers.get("Retry-After", 3600))  # Default 1 hour
+                        msg = "USDA API rate limit exceeded"
+                        raise RateLimitError(msg, retry_after)
                     resp.raise_for_status()
                     data = await resp.json()
-                    
+
                     foods = data.get("foods", [])
                     if not foods:
                         logger.debug(f"No more foods found for '{query}' at page {page_num}")
                         break
-                    
+
                     # Process foods into our standard format
                     page_foods = []
                     for food in foods:
@@ -1010,25 +1010,25 @@ class HealthInfoDownloader:
                             "search_text": f"{food.get('description', '')} {food.get('commonNames', '')}".lower(),
                         }
                         page_foods.append(food_data)
-                    
+
                     all_foods.extend(page_foods)
                     logger.debug(f"Page {page_num}: {len(page_foods)} foods (total: {len(all_foods)})")
-                    
+
                     # If we got fewer than page_size, we've reached the end
                     if len(foods) < page_size:
                         logger.debug(f"Reached end of results for '{query}' at page {page_num}")
                         break
-                
+
                 # USDA-specific rate limit (1000 requests/hour = 0.28 req/sec)
                 await asyncio.sleep(self.config.USDA_FOOD_REQUEST_DELAY)
-                
+
             except Exception as e:
                 logger.warning(f"Error fetching page {page_num} for '{query}': {e}")
                 break
-        
+
         return all_foods
 
-    async def _get_full_food_data(self, food_ids: List[str]) -> List[dict]:
+    async def _get_full_food_data(self, food_ids: list[str]) -> list[dict]:
         """Get full food data from food IDs (placeholder - food data is already complete)"""
         # For foods, we already have full data from the search results
         # This method exists for API consistency with exercises
@@ -1096,7 +1096,7 @@ class HealthInfoDownloader:
                 "source": "curated",
                 "search_text": "physical activity exercise fitness health cardio strength training",
                 "last_updated": datetime.now().isoformat(),
-            }
+            },
         ]
 
     def _get_fallback_exercises(self) -> list[dict]:

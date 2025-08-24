@@ -174,12 +174,12 @@ class DataValidator:
             return None
 
         doi_str = str(doi).strip()
-        
+
         # Standard DOI pattern: 10.xxxx/xxxxx
         standard_doi_pattern = r"^10\.\d{4,}/.+"
         if re.match(standard_doi_pattern, doi_str):
             return doi_str
-            
+
         # Handle common malformed DOIs missing "10." prefix
         # If it looks like a DOI but missing 10. prefix, try to fix it
         missing_prefix_pattern = r"^\d{4,}/.+"
@@ -187,7 +187,7 @@ class DataValidator:
             fixed_doi = f"10.{doi_str}"
             logger.debug(f"Fixed DOI missing prefix: {doi_str} -> {fixed_doi}")
             return fixed_doi
-            
+
         # For other formats, log warning but return as-is
         logger.warning(f"Invalid DOI format: {doi_str}")
         return doi_str

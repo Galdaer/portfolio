@@ -134,7 +134,7 @@ class DrugDownloader:
                 raise Exception("No drug label partitions available")
 
             logger.info(f"Found {len(label_partitions)} drug label partitions to download")
-            
+
             # Prepare extract directory
             extract_dir = os.path.join(self.data_dir, "labels")
             os.makedirs(extract_dir, exist_ok=True)
@@ -220,16 +220,15 @@ class DrugDownloader:
             "progress": {
                 "completed": 0,
                 "total_sources": 4,  # orange_book, ndc, drugs_fda, labels
-                "completion_rate": 0.0
+                "completion_rate": 0.0,
             },
-            "status": "ready"
+            "status": "ready",
         }
 
     async def reset_download_state(self):
         """Reset download state"""
         logger.info("Reset download state for FDA downloader")
         # Implementation would clear any cached state
-        pass
 
     async def close(self) -> None:
         """Close HTTP session"""

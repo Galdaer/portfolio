@@ -16,10 +16,10 @@ def _extract_text_field(field_data) -> str:
     """Extract text from various field formats in drug labels"""
     if not field_data:
         return ""
-    
+
     if isinstance(field_data, str):
         return field_data.strip()
-    elif isinstance(field_data, list):
+    if isinstance(field_data, list):
         # Handle list of strings or complex objects
         text_parts = []
         for item in field_data:
@@ -43,21 +43,21 @@ def _extract_text_field(field_data) -> str:
                     text_parts.append(str(item))
             else:
                 text_parts.append(str(item))
-        
+
         return "; ".join([part for part in text_parts if part]).strip()
-    elif isinstance(field_data, dict):
+    if isinstance(field_data, dict):
         # Handle various dict structures
         if "text" in field_data:
             text_content = field_data["text"]
             if isinstance(text_content, str):
                 return text_content.strip()
-            elif isinstance(text_content, list):
+            if isinstance(text_content, list):
                 return "; ".join([str(t) for t in text_content if t]).strip()
         elif "content" in field_data:
             content = field_data["content"]
             if isinstance(content, str):
                 return content.strip()
-            elif isinstance(content, list):
+            if isinstance(content, list):
                 return "; ".join([str(c) for c in content if c]).strip()
         elif "general" in field_data:
             # Handle dosage_and_administration structure
@@ -71,13 +71,14 @@ def _extract_text_field(field_data) -> str:
             readable_parts = []
             for key, value in field_data.items():
                 if value:
-                    if isinstance(value, (list, dict)):
+                    if isinstance(value, list | dict):
                         readable_parts.append(f"{key}: {len(value) if isinstance(value, list) else 'complex'} items")
                     else:
                         readable_parts.append(f"{key}: {str(value)[:100]}")
             return "; ".join(readable_parts).strip() if readable_parts else str(field_data).strip()
     else:
         return str(field_data).strip()
+    return None
 
 
 def parse_json_file_worker(json_file_path: str, dataset_type: str) -> tuple[str, list[dict[str, Any]]]:
@@ -165,7 +166,7 @@ def parse_ndc_record_worker(ndc_data: dict[str, Any]) -> dict[str, Any] | None:
 
         # Marketing status
         marketing_status = str(ndc_data.get("marketing_status", "")).strip()
-        
+
         # Extract therapeutic class from pharm_class field
         therapeutic_class = ""
         pharm_class_list = ndc_data.get("pharm_class", [])
@@ -269,16 +270,16 @@ def parse_drugs_fda_record_worker(drug_data: dict[str, Any]) -> dict[str, Any] |
         if applications:
             app = applications[0] if isinstance(applications, list) else applications
             application_type = str(app.get("application_type", "")).strip()
-        
+
         # Extract approval date from submissions (earliest approval date)
         approval_date = ""
         submissions = drug_data.get("submissions", [])
         approval_dates = []
-        
+
         for submission in submissions:
             status = submission.get("submission_status", "")
             status_date = submission.get("submission_status_date", "")
-            
+
             # Look for approved submissions
             if status in ["AP", "APPROVED"] and status_date:
                 try:
@@ -286,13 +287,13 @@ def parse_drugs_fda_record_worker(drug_data: dict[str, Any]) -> dict[str, Any] |
                     year = status_date[:4]
                     month = status_date[4:6]
                     day = status_date[6:8]
-                    
+
                     if len(year) == 4 and len(month) == 2 and len(day) == 2:
                         # Store as sortable date for finding earliest
                         approval_dates.append((status_date, f"{month}/{day}/{year}"))
                 except:
                     continue
-        
+
         # Use the earliest approval date
         if approval_dates:
             approval_dates.sort()  # Sort by YYYYMMDD format
@@ -368,7 +369,7 @@ def parse_drug_label_record_worker(label_data: dict[str, Any]) -> dict[str, Any]
     try:
         # Extract product information from openfda object (where it actually is)
         openfda = label_data.get("openfda", {})
-        
+
         # Extract NDC codes from openfda.product_ndc
         product_ndc = openfda.get("product_ndc", [])
         if isinstance(product_ndc, list) and product_ndc:
@@ -434,7 +435,7 @@ def parse_drug_label_record_worker(label_data: dict[str, Any]) -> dict[str, Any]
             dosage_form = str(dosage_form_list[0]).strip()
         elif isinstance(dosage_form_list, str):
             dosage_form = dosage_form_list.strip()
-        
+
         # Try dosage_form_name as fallback
         if not dosage_form:
             dosage_form_name_list = openfda.get("dosage_form_name", [])
@@ -445,52 +446,52 @@ def parse_drug_label_record_worker(label_data: dict[str, Any]) -> dict[str, Any]
 
         # Extract clinical information from drug labels (use actual field names)
         contraindications = _extract_text_field(label_data.get("contraindications"))
-        
+
         # Use warnings_and_cautions instead of warnings (actual field name)
         warnings = _extract_text_field(label_data.get("warnings_and_cautions"))
         if not warnings:
             # Fallback to warnings if available
             warnings = _extract_text_field(label_data.get("warnings"))
-        
-        # Get adverse reactions 
+
+        # Get adverse reactions
         adverse_reactions = _extract_text_field(label_data.get("adverse_reactions"))
-        
+
         # Extract drug interactions from multiple possible fields
         drug_interactions_text = ""
         interaction_sources = []
-        
+
         if label_data.get("drug_interactions"):
             interaction_sources.append(_extract_text_field(label_data.get("drug_interactions")))
         if label_data.get("drug_and_or_laboratory_test_interactions"):
             interaction_sources.append(_extract_text_field(label_data.get("drug_and_or_laboratory_test_interactions")))
         if label_data.get("drug_interactions_table"):
             interaction_sources.append(_extract_text_field(label_data.get("drug_interactions_table")))
-            
+
         if interaction_sources:
             drug_interactions_text = "; ".join([source for source in interaction_sources if source])
-        
+
         # Extract precautions from multiple possible fields
         precautions_text = ""
         precaution_sources = []
-        
+
         if label_data.get("precautions"):
             precaution_sources.append(_extract_text_field(label_data.get("precautions")))
         if label_data.get("general_precautions"):
             precaution_sources.append(_extract_text_field(label_data.get("general_precautions")))
-            
+
         if precaution_sources:
             precautions_text = "; ".join([source for source in precaution_sources if source])
-        
+
         # Clinical data from actual fields
         indications_and_usage = _extract_text_field(label_data.get("indications_and_usage"))
         dosage_and_administration = _extract_text_field(label_data.get("dosage_and_administration"))
-        
+
         # Extract pharmacology information
         clinical_pharmacology = _extract_text_field(label_data.get("clinical_pharmacology"))
         mechanism_of_action = _extract_text_field(label_data.get("mechanism_of_action"))
         pharmacokinetics = _extract_text_field(label_data.get("pharmacokinetics"))
         pharmacodynamics = _extract_text_field(label_data.get("pharmacodynamics"))
-        
+
         # If mechanism/pharmacokinetics/pharmacodynamics aren't separate, try to extract from clinical_pharmacology
         if not mechanism_of_action and clinical_pharmacology:
             if "mechanism of action" in clinical_pharmacology.lower():
@@ -501,7 +502,7 @@ def parse_drug_label_record_worker(label_data: dict[str, Any]) -> dict[str, Any]
         if not pharmacodynamics and clinical_pharmacology:
             if "pharmacodynamics" in clinical_pharmacology.lower():
                 pharmacodynamics = clinical_pharmacology
-        
+
         # Extract additional clinical fields that we weren't capturing before
         boxed_warning = _extract_text_field(label_data.get("boxed_warning"))
         clinical_studies = _extract_text_field(label_data.get("clinical_studies"))
@@ -511,7 +512,7 @@ def parse_drug_label_record_worker(label_data: dict[str, Any]) -> dict[str, Any]
         nursing_mothers = _extract_text_field(label_data.get("nursing_mothers"))
         overdosage = _extract_text_field(label_data.get("overdosage"))
         nonclinical_toxicology = _extract_text_field(label_data.get("nonclinical_toxicology"))
-        
+
         # Try alternative field names for better coverage
         if not warnings:
             warnings = _extract_text_field(label_data.get("warnings_and_precautions"))
@@ -519,7 +520,7 @@ def parse_drug_label_record_worker(label_data: dict[str, Any]) -> dict[str, Any]
             precautions_text = _extract_text_field(label_data.get("warnings_and_precautions"))
             if not precautions_text:
                 precautions_text = _extract_text_field(label_data.get("special_populations"))
-        
+
         # Try additional drug interaction field names
         if not drug_interactions_text:
             alt_interactions = []
@@ -529,19 +530,19 @@ def parse_drug_label_record_worker(label_data: dict[str, Any]) -> dict[str, Any]
                     alt_interactions.append(field_value)
             if alt_interactions:
                 drug_interactions_text = "; ".join(alt_interactions)
-        
+
         # Extract approval date from effective_time if available
         approval_date = ""
         effective_time = label_data.get("effective_time", "")
         if effective_time and len(str(effective_time)) == 8:  # Format: YYYYMMDD
             try:
                 year = effective_time[:4]
-                month = effective_time[4:6] 
+                month = effective_time[4:6]
                 day = effective_time[6:8]
                 approval_date = f"{month}/{day}/{year}"
             except:
                 pass
-        
+
         # Extract therapeutic class from openfda.pharm_class_epc
         therapeutic_class = ""
         pharm_class_epc_list = openfda.get("pharm_class_epc", [])
@@ -581,7 +582,7 @@ def parse_drug_label_record_worker(label_data: dict[str, Any]) -> dict[str, Any]
             "strength": active_ingredients,  # Strength info is in active ingredients
             "therapeutic_class": therapeutic_class,  # Extracted from openfda.pharm_class_epc
             "approval_date": approval_date,  # Extracted from effective_time
-            
+
             # Clinical information from labels
             "contraindications": [contraindications] if contraindications else [],
             "warnings": [warnings] if warnings else [],
@@ -593,7 +594,7 @@ def parse_drug_label_record_worker(label_data: dict[str, Any]) -> dict[str, Any]
             "mechanism_of_action": mechanism_of_action,
             "pharmacokinetics": pharmacokinetics,
             "pharmacodynamics": pharmacodynamics,
-            
+
             # Additional clinical fields
             "boxed_warning": boxed_warning,
             "clinical_studies": clinical_studies,
@@ -603,7 +604,7 @@ def parse_drug_label_record_worker(label_data: dict[str, Any]) -> dict[str, Any]
             "nursing_mothers": nursing_mothers,
             "overdosage": overdosage,
             "nonclinical_toxicology": nonclinical_toxicology,
-            
+
             "search_text": search_text,
             "data_sources": ["drug_labels"],
             # Keep FDA-specific fields for compatibility
@@ -703,7 +704,7 @@ class OptimizedDrugParser:
             return ""
         str_value = str(value).strip()
         # Handle pandas nan values
-        if str_value.lower() in ['nan', 'none', 'null']:
+        if str_value.lower() in ["nan", "none", "null"]:
             return ""
         return str_value
 
@@ -721,7 +722,7 @@ class OptimizedDrugParser:
             route = df_route.split(";")[1] if ";" in df_route else ""
             strength = self._clean_field_value(row.get("Strength", ""))
             approval_date = self._clean_field_value(row.get("Approval_Date", ""))
-            
+
             # Extract additional Orange Book fields with nan cleaning
             te_code = self._clean_field_value(row.get("TE_Code", ""))  # Therapeutic Equivalence Code
             rld = self._clean_field_value(row.get("RLD", ""))  # Reference Listed Drug

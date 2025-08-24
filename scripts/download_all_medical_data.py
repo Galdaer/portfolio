@@ -25,6 +25,7 @@ import signal
 import sys
 import time
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -192,12 +193,12 @@ class MedicalDataOrchestrator:
             "api_dependencies": ["icd10", "billing", "health_info", "enhanced_drug_sources"],
             "enhanced_sources": {
                 "dailymed": "FDA drug labeling with special populations data",
-                "clinical_trials": "ClinicalTrials.gov special populations studies", 
+                "clinical_trials": "ClinicalTrials.gov special populations studies",
                 "openfda_faers": "OpenFDA adverse events reporting system",
                 "rxclass": "NLM RxClass therapeutic drug classifications",
                 "drugcentral": "DrugCentral mechanism of action and targets (PostgreSQL)",
                 "ddinter": "DDInter 2.0 drug-drug interactions (web scraping)",
-                "lactmed": "LactMed breastfeeding safety via NCBI E-utilities"
+                "lactmed": "LactMed breastfeeding safety via NCBI E-utilities",
             },
             "api_keys_required": {
                 "RAPIDAPI_KEY": "ExerciseDB data (optional)",
@@ -311,7 +312,7 @@ class MedicalDataOrchestrator:
             download_with_semaphore(name, info)
             for name, info in sources.items()
         ]
-        
+
         # Store tasks for interrupt handling
         self.running_tasks = tasks
 
@@ -321,21 +322,21 @@ class MedicalDataOrchestrator:
         except KeyboardInterrupt:
             self.interrupted = True
             self.logger.info("🛑 Interrupt received, gracefully stopping downloads...")
-            
+
             # Cancel all running tasks
             for task in tasks:
                 if not task.done():
                     task.cancel()
-            
+
             # Wait for cancellation to complete
             await asyncio.gather(*tasks, return_exceptions=True)
-            
+
             self.logger.info("📋 Download summary saved before exit")
             self.save_orchestration_report()
-            
+
             print("\n🔄 To resume downloads later, run the same command again")
             print("   All completed downloads are saved and will be skipped")
-            
+
             raise
 
         # Process results
@@ -383,7 +384,7 @@ class MedicalDataOrchestrator:
             # Stream output in real-time with timeout
             stdout_lines = []
             timeout = source_info["estimated_hours"] * 3600 * 2  # 2x estimated time
-            
+
             try:
                 # Read output line by line and display immediately
                 async def stream_output():
@@ -392,19 +393,19 @@ class MedicalDataOrchestrator:
                         line = await process.stdout.readline()
                         if not line:
                             break
-                        
+
                         line_str = line.decode("utf-8", errors="replace").rstrip()
                         stdout_lines.append(line_str)
-                        
+
                         # Print with source prefix for parallel downloads
                         print(f"[{source_name}] {line_str}", flush=True)
-                
+
                 # Run streaming with timeout
                 await asyncio.wait_for(
                     asyncio.gather(stream_output(), process.wait()),
-                    timeout=timeout
+                    timeout=timeout,
                 )
-                
+
             except TimeoutError:
                 # Kill the process if it takes too long
                 process.kill()
@@ -527,7 +528,7 @@ def setup_signal_handlers(orchestrator):
         print(f"\n🛑 Received signal {signum}, initiating graceful shutdown...")
         orchestrator.interrupted = True
         # The actual cancellation happens in the async code
-        
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 

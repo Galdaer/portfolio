@@ -22,9 +22,9 @@ from billing_codes.api import (
     search_billing_codes,
 )
 from clinicaltrials.api import ClinicalTrialsAPI
+from drugs.api import DrugAPI
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from drugs.api import DrugAPI
 from health_info.api import (
     get_exercise_details,
     get_food_details,
@@ -149,7 +149,7 @@ async def get_status() -> dict[str, Any]:
     try:
         pubmed_status = await pubmed_api.get_status()
         trials_status = await trials_api.get_status()
-        drug_status = await drug_api.get_status()
+        await drug_api.get_status()
 
         return {
             "service": "medical-mirrors",
