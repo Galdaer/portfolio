@@ -232,7 +232,18 @@ class SmartOpenFDAFAERSDownloader:
                     break
                     
                 response.raise_for_status()
-                data = response.json()
+                
+                # Parse JSON response with error handling
+                try:
+                    data = response.json()
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON response for {drug_name}: {e}")
+                    logger.error(f"Response content: {response.text[:500]}...")
+                    break
+                
+                if not isinstance(data, dict):
+                    logger.error(f"Expected dict response, got {type(data)}: {data}")
+                    break
                 
                 results = data.get('results', [])
                 if not results:
@@ -242,9 +253,18 @@ class SmartOpenFDAFAERSDownloader:
                 
                 # Track report IDs
                 for result in results:
-                    report_id = result.get('primarysourcecountry', {}).get('safetyreportid')
-                    if report_id:
-                        self.state.downloaded_reports.add(report_id)
+                    if isinstance(result, dict):
+                        # Try multiple possible fields for unique report ID
+                        report_id = None
+                        for field_name in ['safetyreportid', 'receiptdate', 'receiptdateformat']:
+                            if field_name in result:
+                                report_id = result.get(field_name)
+                                break
+                        
+                        if report_id:
+                            self.state.downloaded_reports.add(str(report_id))
+                    else:
+                        logger.warning(f"Unexpected result type: {type(result)}, value: {result}")
                 
                 logger.debug(f"Downloaded batch for {drug_name}: {len(results)} reports")
                 

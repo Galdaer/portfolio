@@ -91,10 +91,10 @@ async def run_download(args, logger):
         # Show initial status
         initial_status = await downloader.get_download_status()
         total_files = len(downloader.baseline_files) + len(downloader.update_files)
-        completed_files = len([f for f in downloader.all_articles if f.get('downloaded')])
+        completed_files = initial_status['progress']['completed']
         
-        logger.info(f"Initial status: {completed_files}/{total_files} files downloaded")
-        logger.info(f"Total articles parsed: {len(downloader.all_articles)}")
+        logger.info(f"Initial status: {completed_files}/{initial_status['progress']['total_sources']} sources completed")
+        logger.info(f"Total files tracked: {total_files}")
         
         if initial_status.get('ready_for_retry'):
             logger.info("Previous failed downloads detected - resuming with smart retry")
@@ -122,17 +122,18 @@ async def run_download(args, logger):
             duration = datetime.now() - start_time
             
             logger.info("✅ PubMed download completed successfully!")
-            logger.info(f"   Articles downloaded: {len(downloader.all_articles)}")
-            logger.info(f"   Files processed: {final_status['progress']['completed']}")
+            logger.info(f"   Sources completed: {final_status['progress']['completed']}")
+            logger.info(f"   Files processed: {len(downloader.baseline_files) + len(downloader.update_files)}")
             logger.info(f"   Total duration: {duration}")
-            logger.info(f"   Average speed: {len(downloader.all_articles) / duration.total_seconds():.1f} articles/sec")
+            logger.info(f"   Completion rate: {final_status['progress']['completion_rate']:.1f}%")
             
             # Save final state
             state_file = args.data_dir / "pubmed_download_state.json"
             with open(state_file, 'w') as f:
                 json.dump({
                     'completion_time': datetime.now().isoformat(),
-                    'total_articles': len(downloader.all_articles),
+                    'total_files': len(downloader.baseline_files) + len(downloader.update_files),
+                    'sources_completed': final_status['progress']['completed'],
                     'duration_seconds': duration.total_seconds(),
                     'final_status': final_status
                 }, f, indent=2)
@@ -143,17 +144,27 @@ async def run_download(args, logger):
             # Handle graceful shutdown on interrupt
             duration = datetime.now() - start_time
             logger.warning("⚠️  Download interrupted by user")
-            logger.info(f"   Partial progress: {len(downloader.all_articles)} articles downloaded")
+            
+            try:
+                partial_status = await downloader.get_download_status()
+                logger.info(f"   Sources completed: {partial_status['progress']['completed']}")
+            except Exception:
+                logger.info("   Partial progress information unavailable")
+                
             logger.info(f"   Time elapsed: {duration}")
             
             # Save interrupt state for resume
             interrupt_file = args.data_dir / "pubmed_download_interrupted.json"
             interrupt_info = {
                 'interrupt_time': datetime.now().isoformat(),
-                'partial_articles': len(downloader.all_articles),
+                'partial_files': len(downloader.baseline_files) + len(downloader.update_files),
                 'duration_seconds': duration.total_seconds(),
-                'state': await downloader.get_download_status()
             }
+            
+            try:
+                interrupt_info['state'] = await downloader.get_download_status()
+            except Exception:
+                interrupt_info['state'] = 'unavailable'
             
             with open(interrupt_file, 'w') as f:
                 json.dump(interrupt_info, f, indent=2)
@@ -169,11 +180,16 @@ async def run_download(args, logger):
             
             # Save error state for analysis
             error_file = args.data_dir / "pubmed_download_errors.json"
+            try:
+                partial_status = await downloader.get_download_status()
+            except Exception:
+                partial_status = {"error": "Failed to get status"}
+                
             error_info = {
                 'error_time': datetime.now().isoformat(),
                 'error_message': str(e),
-                'partial_articles': len(downloader.all_articles),
-                'state': await downloader.get_download_status()
+                'partial_files': len(downloader.baseline_files) + len(downloader.update_files),
+                'partial_status': partial_status
             }
             
             with open(error_file, 'w') as f:
@@ -194,8 +210,9 @@ async def show_status(args, logger):
         
         print(f"\n📊 PubMed Download Status")
         print(f"   Output directory: {args.data_dir}")
-        print(f"   Articles downloaded: {len(downloader.all_articles)}")
+        print(f"   Files tracked: {len(downloader.baseline_files) + len(downloader.update_files)}")
         print(f"   Progress: {status['progress']['completed']}/{status['progress']['total_sources']} sources")
+        print(f"   Completion rate: {status['progress']['completion_rate']:.1f}%")
         print(f"   State: {status.get('state', 'unknown')}")
         
         if status.get('ready_for_retry'):

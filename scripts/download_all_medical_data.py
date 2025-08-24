@@ -3,13 +3,14 @@
 Master Medical Data Orchestrator
 Coordinates complete downloads of all medical data sources for offline database operation
 
-This script orchestrates all 6 medical data sources:
+This script orchestrates all 7 medical data sources:
 1. PubMed (~220GB) - Medical literature
 2. ClinicalTrials.gov (~500MB) - Clinical trials
 3. FDA (~22GB) - Drug databases
 4. ICD-10 - Diagnostic codes
 5. Billing Codes (HCPCS/CPT) - Medical billing
 6. Health Information - Topics, exercises, nutrition
+7. Enhanced Drug Sources (~52MB) - DailyMed, FAERS, RxClass, DrugCentral, DDInter, LactMed
 
 Uses the same configuration and patterns as the medical-mirrors service
 for consistency with the existing database schema and architecture.
@@ -130,6 +131,14 @@ class MedicalDataOrchestrator:
                 "parallel_safe": True,  # Multiple APIs
                 "estimated_hours": 0.3,
             },
+            "enhanced_drug_sources": {
+                "script": "smart_enhanced_drug_download.py",
+                "size_estimate": "~52MB",
+                "description": "Enhanced drug sources: DailyMed, ClinicalTrials, FAERS, RxClass, DrugCentral, DDInter, LactMed",
+                "priority": 7,  # After main medical sources
+                "parallel_safe": True,  # All have rate limiting and state management
+                "estimated_hours": 0.4,
+            },
         }
 
         # Overall statistics
@@ -170,20 +179,30 @@ class MedicalDataOrchestrator:
 
     def estimate_total_requirements(self) -> dict[str, Any]:
         """Estimate total download requirements"""
-        total_size_gb = 220 + 22 + 0.5 + 0.05 + 0.03 + 0.1  # Approximate
+        total_size_gb = 220 + 22 + 0.5 + 0.05 + 0.03 + 0.1 + 0.052  # Added enhanced drug sources (52MB)
         total_hours = sum(source["estimated_hours"] for source in self.data_sources.values())
 
         return {
             "total_size_gb": total_size_gb,
             "estimated_hours_sequential": total_hours,
-            "estimated_hours_parallel": max(6, 2.5),  # Limited by PubMed and some parallel
+            "estimated_hours_parallel": max(6, 2.9),  # Limited by PubMed, slightly longer due to enhanced sources
             "disk_space_required": total_size_gb * 1.2,  # 20% buffer
             "sources_count": len(self.data_sources),
             "large_downloads": ["pubmed", "fda"],
-            "api_dependencies": ["icd10", "billing", "health_info"],
+            "api_dependencies": ["icd10", "billing", "health_info", "enhanced_drug_sources"],
+            "enhanced_sources": {
+                "dailymed": "FDA drug labeling with special populations data",
+                "clinical_trials": "ClinicalTrials.gov special populations studies", 
+                "openfda_faers": "OpenFDA adverse events reporting system",
+                "rxclass": "NLM RxClass therapeutic drug classifications",
+                "drugcentral": "DrugCentral mechanism of action and targets (PostgreSQL)",
+                "ddinter": "DDInter 2.0 drug-drug interactions (web scraping)",
+                "lactmed": "LactMed breastfeeding safety via NCBI E-utilities"
+            },
             "api_keys_required": {
                 "RAPIDAPI_KEY": "ExerciseDB data (optional)",
                 "USDA_API_KEY": "USDA nutrition data (optional)",
+                "PUBMED_API_KEY": "Higher rate limits for LactMed (optional)",
             },
         }
 
@@ -526,7 +545,7 @@ def main():
     parser.add_argument(
         "--sources",
         nargs="*",
-        choices=["pubmed", "fda", "clinicaltrials", "icd10", "billing", "health_info"],
+        choices=["pubmed", "fda", "clinicaltrials", "icd10", "billing", "health_info", "enhanced_drug_sources"],
         help="Specific sources to download (default: all)",
     )
     parser.add_argument(

@@ -38,6 +38,7 @@ class SmartBillingCodesDownloader:
         # Smart retry configuration
         self.max_concurrent_sources = 3
         self.retry_interval = 300  # 5 minutes between retry checks
+        self.total_downloaded = 0  # Total codes downloaded
         self.max_daily_retries = 24  # Max retries per source per day
         
         # Results tracking - track downloaded files, NOT parsed codes
@@ -535,7 +536,7 @@ class SmartBillingCodesDownloader:
             "timestamp": datetime.now().isoformat(),
             "progress": progress,
             "ready_for_retry": ready_sources,
-            "total_codes_downloaded": self.total_downloaded,
+            "total_codes_downloaded": getattr(self, 'total_downloaded', 0),
             "next_retry_times": {}
         }
         
