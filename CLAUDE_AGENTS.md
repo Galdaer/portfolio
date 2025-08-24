@@ -390,12 +390,34 @@ SAFETY REQUIREMENTS:
 
 ## Usage Instructions
 
-To use these agents effectively:
+These agents are **automatically invoked** by Claude Code when appropriate tasks are detected through the Task tool. The system uses pattern matching on keywords and task descriptions to select the right agent.
 
-1. **Copy the relevant agent instructions** to your Claude Code prompt when working on specific components
-2. **Combine agents** when working on cross-cutting concerns (e.g., Agent Implementation + Security)
-3. **Reference the codebase paths** mentioned in each agent for context
-4. **Follow the established patterns** rather than inventing new approaches
+### Automatic Agent Invocation
+
+Claude Code will automatically use these agents when it detects matching patterns:
+
+1. **MirrorAgent**: For data mirror services, smart downloaders, medical data integration
+2. **DataConsolidationAgent**: For data duplication issues, consolidation strategies, hybrid databases
+3. **MCPToolDeveloper**: For MCP tool development, healthcare-mcp server work, stdio debugging
+4. **healthcare-agent-implementer**: For healthcare agent creation/modification, HIPAA compliance
+5. **InfraSecurityAgent**: For PHI protection, security implementations, compliance tasks
+6. **ConfigDeployment**: For system configuration, deployment, service management
+7. **LangChainOrchestration**: For orchestration layer work, agent routing, workflow management
+
+### Manual Agent Invocation
+
+If automatic invocation doesn't occur, you can manually trigger by asking:
+- "Use the MirrorAgent to implement this data source"
+- "Use the DataConsolidationAgent to fix these duplicate records"
+- "Use the healthcare-agent-implementer to create a new SOAP notes agent"
+
+### Agent Selection Criteria
+
+Agents are selected based on:
+- **Keywords** in user requests (mirror, duplication, MCP tool, healthcare agent, etc.)
+- **Task complexity** (specialized agents for complex multi-step tasks)
+- **Domain expertise** (medical data vs. security vs. configuration)
+- **Architecture patterns** (following established codebase patterns)
 
 ## Quick Reference
 

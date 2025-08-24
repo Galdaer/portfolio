@@ -125,6 +125,71 @@ The system uses dynamic service discovery from `services/user/` directory:
 
 The system includes specialized Claude Code agents for complex development tasks. See [CLAUDE_AGENTS.md](CLAUDE_AGENTS.md) for detailed agent descriptions and usage patterns.
 
+### Agent Usage Policy
+
+When working on this codebase, you should PROACTIVELY use the Task tool to invoke specialized agents for complex tasks:
+
+- **MirrorAgent**: Automatically use for any medical data mirror implementation, smart downloaders, data source integration, or consolidation work
+- **DataConsolidationAgent**: Automatically use when analyzing data duplication, designing consolidation strategies, or implementing hybrid database architectures
+- **MCPToolDeveloper**: Automatically use when adding/modifying MCP tools or debugging MCP communication
+- **healthcare-agent-implementer**: Automatically use when creating/modifying healthcare agents in the Intelluxe AI system
+- **InfraSecurityAgent**: Automatically use for PHI protection, security implementations, and HIPAA compliance tasks
+- **ConfigDeployment**: Automatically use for deployment, configuration management, and service setup tasks
+- **LangChainOrchestration**: Automatically use for orchestration layer work and agent routing
+
+You should invoke these agents using the Task tool with the appropriate subagent_type parameter rather than attempting complex specialized work directly.
+
+### Proactive Agent Selection
+
+For EVERY user request, analyze if it matches these patterns and automatically invoke the appropriate agent:
+
+1. **Data Operations** (mirror, download, smart downloader, data source, medical data, consolidation, duplication) → MirrorAgent or DataConsolidationAgent
+2. **Healthcare Agent Work** (new agent, modify agent, BaseHealthcareAgent, MCP integration) → healthcare-agent-implementer  
+3. **MCP Tool Development** (MCP tool, healthcare-mcp, stdio communication, tool debugging) → MCPToolDeveloper
+4. **Security/PHI** (PHI protection, HIPAA compliance, security, infrastructure) → InfraSecurityAgent
+5. **Configuration/Deployment** (deployment, configuration, service management, .conf files) → ConfigDeployment
+6. **Orchestration** (agent routing, LangChain, orchestrator) → LangChainOrchestration
+
+Use the Task tool to invoke agents rather than attempting the work directly when the task complexity warrants specialized knowledge.
+
+### Agent Invocation Examples
+
+**Medical Data Source Implementation:**
+```
+When user asks: "I need to add a new PubMed data source"
+You should: Immediately invoke MirrorAgent using Task tool with:
+- subagent_type: "MirrorAgent"
+- description: "Implement PubMed data mirror"
+- prompt: "User needs to add new PubMed data source. Follow smart downloader patterns and integrate with medical-mirrors service."
+```
+
+**Data Consolidation Tasks:**
+```
+When user asks: "Fix the duplicate drug records" or "These records have too much duplication"
+You should: Immediately invoke DataConsolidationAgent using Task tool with:
+- subagent_type: "DataConsolidationAgent" 
+- description: "Analyze and fix data duplication"
+- prompt: "User has data duplication issues. Analyze duplication patterns and implement consolidation using hybrid database architecture."
+```
+
+**Healthcare Agent Development:**
+```
+When user asks: "Create a SOAP notes agent" or "Modify the transcription agent"
+You should: Immediately invoke healthcare-agent-implementer using Task tool with:
+- subagent_type: "healthcare-agent-implementer"
+- description: "Implement healthcare agent"
+- prompt: "User needs healthcare agent work. Follow BaseHealthcareAgent patterns with MCP integration and HIPAA compliance."
+```
+
+**MCP Tool Work:**
+```
+When user asks: "Add a new MCP tool" or "Fix MCP communication issues"
+You should: Immediately invoke MCPToolDeveloper using Task tool with:
+- subagent_type: "MCPToolDeveloper"
+- description: "Implement MCP tool"
+- prompt: "User needs MCP tool development. Follow healthcare-mcp patterns with database-first approach and API fallback."
+```
+
 ## Development Patterns
 
 ### Configuration Management

@@ -30,6 +30,12 @@
 !/.vscode/keybindings.json
 !/.vscode/settings.json
 
+# === CLAUDE CODE AGENTS ===
+!/.claude/
+!/.claude/agents/
+!/.claude/agents/*
+!/.claude/agents/*.md
+
 # === SOURCE CODE DIRECTORIES ===
 # Core application structure
 !/agents/
