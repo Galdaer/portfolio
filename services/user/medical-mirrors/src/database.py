@@ -6,7 +6,7 @@ import os
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
-from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
+from sqlalchemy.dialects.postgresql import ARRAY, JSON, TSVECTOR
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -107,6 +107,22 @@ class FDADrug(Base):  # type: ignore[misc,valid-type]
     # Classification
     therapeutic_class = Column(Text)  # Therapeutic classification
     pharmacologic_class = Column(Text)  # Pharmacologic class
+
+    # Clinical information (from drug labels)
+    contraindications = Column(ARRAY(String))  # Contraindications
+    warnings = Column(ARRAY(String))  # Warnings and precautions
+    precautions = Column(ARRAY(String))  # Precautions
+    adverse_reactions = Column(ARRAY(String))  # Adverse reactions
+    drug_interactions = Column(JSON)  # Drug interactions (structured)
+    
+    # Clinical usage
+    indications_and_usage = Column(Text)  # Indications and usage
+    dosage_and_administration = Column(Text)  # Dosage and administration
+    
+    # Pharmacology
+    mechanism_of_action = Column(Text)  # Mechanism of action
+    pharmacokinetics = Column(Text)  # Pharmacokinetics
+    pharmacodynamics = Column(Text)  # Pharmacodynamics
 
     # Data sources tracking
     data_sources = Column(ARRAY(String))  # Track which sources contributed: ndc, orange_book, drugs_fda, labels

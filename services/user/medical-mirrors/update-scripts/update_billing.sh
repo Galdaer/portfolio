@@ -61,8 +61,9 @@ import asyncio
 import sys
 import os
 import logging
-from src.billing_codes.downloader import BillingCodesDownloader
-from src.billing_codes.parser import BillingCodesParser
+import json
+from pathlib import Path
+from src.billing_codes.smart_downloader import SmartBillingCodesDownloader
 from src.config import Config
 from src.database import get_db_session
 from sqlalchemy import text
@@ -86,37 +87,48 @@ async def update_billing_codes():
     config = Config()
     
     try:
-        # Download codes
-        async with BillingCodesDownloader(config) as downloader:
-            logger.info('Starting billing codes download')
-            raw_codes = await downloader.download_all_codes()
-            download_stats = downloader.get_download_stats()
+        # Use smart downloader with automatic state management and retries
+        output_dir = Path('/app/data/billing_codes')
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        async with SmartBillingCodesDownloader(output_dir=output_dir, config=config) as downloader:
+            logger.info('Starting smart billing codes download with automatic retry handling')
             
-            logger.info(f'Downloaded {len(raw_codes)} raw codes')
-            logger.info(f'Download stats: {download_stats}')
-        
-        # Parse and validate
-        parser = BillingCodesParser()
-        validated_codes = parser.parse_and_validate(raw_codes)
-        parsing_stats = parser.get_parsing_stats()
-        
-        logger.info(f'Parsed {len(validated_codes)} validated codes')
-        logger.info(f'Parsing stats: {parsing_stats}')
+            # Force fresh download if QUICK_TEST to avoid using cached state
+            force_fresh = bool(limit_codes > 0)
+            
+            summary = await downloader.download_all_billing_codes(force_fresh=force_fresh)
+            
+            logger.info(f'Smart download completed: {summary[\"total_codes\"]} codes from {summary[\"successful_sources\"]} sources')
+            logger.info(f'Success rate: {summary[\"success_rate\"]:.1f}%')
+            
+            if summary[\"failed_sources\"] > 0:
+                logger.warning(f'Failed sources: {summary[\"failed_sources\"]} (will retry automatically)')
+            
+            if summary[\"rate_limited_sources\"] > 0:
+                logger.info(f'Rate limited sources: {summary[\"rate_limited_sources\"]} (will retry in background)')
+            
+        # Load the downloaded and validated codes
+        all_codes_file = output_dir / 'all_billing_codes_complete.json'
+        if not all_codes_file.exists():
+            logger.error('No billing codes were downloaded')
+            return False
+            
+        with open(all_codes_file, 'r') as f:
+            validated_codes = json.load(f)
         
         # Limit for quick test
         if limit_codes > 0:
             logger.info(f'Limiting to first {limit_codes} codes for quick test')
             validated_codes = validated_codes[:limit_codes]
         
-        # Organize by category
-        categorized_codes = parser.organize_by_category(validated_codes)
-        logger.info(f'Organized into {len(categorized_codes)} categories')
+        logger.info(f'Processing {len(validated_codes)} validated codes for database insertion')
         
         # Insert/Update into database using UPSERT  
         with get_db_session() as db:
             logger.info('Upserting billing codes (preserving existing data)')
             
-            # Use UPSERT with composite key (code + code_type) to preserve existing data
+            # Use UPSERT to preserve existing data and only update with better information
             for code_data in validated_codes:
                 db.execute(text('''
                     INSERT INTO billing_codes (
@@ -137,6 +149,7 @@ async def update_billing_codes():
                         short_description = COALESCE(NULLIF(EXCLUDED.short_description, ''), billing_codes.short_description),
                         long_description = COALESCE(NULLIF(EXCLUDED.long_description, ''), billing_codes.long_description),
                         description = COALESCE(NULLIF(EXCLUDED.description, ''), billing_codes.description),
+                        code_type = COALESCE(NULLIF(EXCLUDED.code_type, ''), billing_codes.code_type),
                         category = COALESCE(NULLIF(EXCLUDED.category, ''), billing_codes.category),
                         coverage_notes = COALESCE(NULLIF(EXCLUDED.coverage_notes, ''), billing_codes.coverage_notes),
                         effective_date = COALESCE(EXCLUDED.effective_date, billing_codes.effective_date),
@@ -150,39 +163,31 @@ async def update_billing_codes():
                         search_text = COALESCE(NULLIF(EXCLUDED.search_text, ''), billing_codes.search_text),
                         last_updated = NOW()
                 '''), {
-                    'code': code_data['code'],
-                    'short_description': code_data.get('short_description'),
-                    'long_description': code_data.get('long_description'),
-                    'description': code_data.get('description'),
-                    'code_type': code_data['code_type'],
-                    'category': code_data.get('category'),
-                    'coverage_notes': code_data.get('coverage_notes'),
-                    'effective_date': code_data['effective_date'] if code_data.get('effective_date') and code_data['effective_date'] != '' else None,
-                    'termination_date': code_data['termination_date'] if code_data.get('termination_date') and code_data['termination_date'] != '' else None,
+                    'code': code_data.get('code', ''),
+                    'short_description': code_data.get('short_description', ''),
+                    'long_description': code_data.get('long_description', ''),
+                    'description': code_data.get('description', ''),
+                    'code_type': code_data.get('code_type', ''),
+                    'category': code_data.get('category', ''),
+                    'coverage_notes': code_data.get('coverage_notes', ''),
+                    'effective_date': code_data.get('effective_date') if code_data.get('effective_date') and code_data.get('effective_date') != '' else None,
+                    'termination_date': code_data.get('termination_date') if code_data.get('termination_date') and code_data.get('termination_date') != '' else None,
                     'is_active': code_data.get('is_active', True),
                     'modifier_required': code_data.get('modifier_required', False),
-                    'gender_specific': code_data.get('gender_specific'),
-                    'age_specific': code_data.get('age_specific'),
+                    'gender_specific': code_data.get('gender_specific', ''),
+                    'age_specific': code_data.get('age_specific', ''),
                     'bilateral_indicator': code_data.get('bilateral_indicator', False),
-                    'source': code_data.get('source'),
-                    'search_text': code_data.get('search_text')
+                    'source': code_data.get('source', 'smart_billing_codes_downloader'),
+                    'search_text': code_data.get('search_text', code_data.get('description', ''))
                 })
             
             db.commit()
             
             # Update statistics
-            result = db.execute(text('''
-                SELECT 
-                    COUNT(*) as total,
-                    COUNT(CASE WHEN is_active = true THEN 1 END) as active,
-                    COUNT(CASE WHEN code_type = 'HCPCS' THEN 1 END) as hcpcs,
-                    COUNT(CASE WHEN code_type = 'CPT' THEN 1 END) as cpt
-                FROM billing_codes
-            '''))
+            result = db.execute(text('SELECT COUNT(*) as total FROM billing_codes'))
+            total_count = result.fetchone().total
             
-            stats = result.fetchone()
-            logger.info(f'Successfully inserted {stats.total} billing codes')
-            logger.info(f'  Active: {stats.active}, HCPCS: {stats.hcpcs}, CPT: {stats.cpt}')
+            logger.info(f'Successfully inserted {total_count} billing codes')
         
         logger.info('Billing codes update completed successfully')
         return True

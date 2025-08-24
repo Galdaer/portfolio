@@ -12,6 +12,31 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _extract_text_field(field_data) -> str:
+    """Extract text from various field formats in drug labels"""
+    if not field_data:
+        return ""
+    
+    if isinstance(field_data, str):
+        return field_data.strip()
+    elif isinstance(field_data, list):
+        if len(field_data) == 1 and isinstance(field_data[0], str):
+            return field_data[0].strip()
+        else:
+            return "; ".join([str(item) for item in field_data if item]).strip()
+    elif isinstance(field_data, dict):
+        # Some fields might be dictionaries, extract text content
+        if "text" in field_data:
+            return str(field_data["text"]).strip()
+        elif "content" in field_data:
+            return str(field_data["content"]).strip()
+        else:
+            # Convert dict to string representation
+            return str(field_data).strip()
+    else:
+        return str(field_data).strip()
+
+
 def parse_json_file_worker(json_file_path: str, dataset_type: str) -> tuple[str, list[dict[str, Any]]]:
     """Worker function for multiprocessing JSON parsing"""
     try:
@@ -98,6 +123,11 @@ def parse_ndc_record_worker(ndc_data: dict[str, Any]) -> dict[str, Any] | None:
         # Marketing status
         marketing_status = str(ndc_data.get("marketing_status", "")).strip()
 
+        # Validate that we have meaningful data - skip records without drug names
+        if not generic_name and not brand_name:
+            logger.debug(f"Skipping NDC record {product_ndc} - no drug names")
+            return None
+
         # Create search text for full-text search
         search_parts = [
             product_ndc, generic_name, brand_name, labeler_name,
@@ -183,6 +213,11 @@ def parse_drugs_fda_record_worker(drug_data: dict[str, Any]) -> dict[str, Any] |
         if applications:
             app = applications[0] if isinstance(applications, list) else applications
             application_type = str(app.get("application_type", "")).strip()
+
+        # Validate that we have meaningful data - skip records without drug names
+        if not generic_name and not brand_name:
+            logger.debug(f"Skipping Drugs@FDA record {application_number} - no drug names")
+            return None
 
         # Create search text
         search_parts = [
@@ -309,6 +344,37 @@ def parse_drug_label_record_worker(label_data: dict[str, Any]) -> dict[str, Any]
         else:
             active_ingredients = ""
 
+        # Extract clinical information from drug labels
+        contraindications = _extract_text_field(label_data.get("contraindications"))
+        warnings = _extract_text_field(label_data.get("warnings"))
+        precautions = _extract_text_field(label_data.get("precautions"))
+        adverse_reactions = _extract_text_field(label_data.get("adverse_reactions"))
+        drug_interactions = _extract_text_field(label_data.get("drug_interactions"))
+        indications_and_usage = _extract_text_field(label_data.get("indications_and_usage"))
+        dosage_and_administration = _extract_text_field(label_data.get("dosage_and_administration"))
+        
+        # Extract pharmacology information
+        clinical_pharmacology = label_data.get("clinical_pharmacology", "")
+        mechanism_of_action = _extract_text_field(label_data.get("mechanism_of_action"))
+        pharmacokinetics = _extract_text_field(label_data.get("pharmacokinetics"))
+        pharmacodynamics = _extract_text_field(label_data.get("pharmacodynamics"))
+        
+        # If mechanism/pharmacokinetics/pharmacodynamics aren't separate, try to extract from clinical_pharmacology
+        if not mechanism_of_action and clinical_pharmacology:
+            if "mechanism of action" in clinical_pharmacology.lower():
+                mechanism_of_action = clinical_pharmacology
+        if not pharmacokinetics and clinical_pharmacology:
+            if "pharmacokinetics" in clinical_pharmacology.lower():
+                pharmacokinetics = clinical_pharmacology
+        if not pharmacodynamics and clinical_pharmacology:
+            if "pharmacodynamics" in clinical_pharmacology.lower():
+                pharmacodynamics = clinical_pharmacology
+
+        # Validate that we have meaningful data - skip records without drug names
+        if not generic_name and not brand_name:
+            logger.debug(f"Skipping drug label record {ndc_code} - no drug names")
+            return None
+
         # Create search text
         search_parts = [
             ndc_code, brand_name, generic_name, manufacturer,
@@ -328,6 +394,19 @@ def parse_drug_label_record_worker(label_data: dict[str, Any]) -> dict[str, Any]
             "product_type": "HUMAN PRESCRIPTION DRUG",  # Most drug labels are prescription
             "marketing_status": "Prescription",
             "strength": active_ingredients,  # Strength info is in active ingredients
+            
+            # Clinical information from labels
+            "contraindications": [contraindications] if contraindications else [],
+            "warnings": [warnings] if warnings else [],
+            "precautions": [precautions] if precautions else [],
+            "adverse_reactions": [adverse_reactions] if adverse_reactions else [],
+            "drug_interactions": {"interactions": drug_interactions} if drug_interactions else {},
+            "indications_and_usage": indications_and_usage,
+            "dosage_and_administration": dosage_and_administration,
+            "mechanism_of_action": mechanism_of_action,
+            "pharmacokinetics": pharmacokinetics,
+            "pharmacodynamics": pharmacodynamics,
+            
             "search_text": search_text,
             "data_sources": ["drug_labels"],
             # Keep FDA-specific fields for compatibility
@@ -435,8 +514,14 @@ class OptimizedFDAParser:
             route = df_route.split(";")[1] if ";" in df_route else ""
             strength = str(row.get("Strength", "")).strip()
             approval_date = str(row.get("Approval_Date", "")).strip()
+            
+            # Extract additional Orange Book fields
+            te_code = str(row.get("TE_Code", "")).strip()  # Therapeutic Equivalence Code
+            rld = str(row.get("RLD", "")).strip()  # Reference Listed Drug
+            appl_no = str(row.get("Appl_No", "")).strip()  # Application Number
 
-            if not ingredient:
+            # Validate that we have meaningful data - skip records without drug names
+            if not ingredient and not trade_name:
                 return None
 
             # Create search text
@@ -455,6 +540,9 @@ class OptimizedFDAParser:
                 "product_number": product_no,
                 "applicant": applicant,
                 "approval_date": approval_date,
+                "application_number": appl_no,  # FDA application number
+                "orange_book_code": te_code,  # Therapeutic equivalence code
+                "reference_listed_drug": rld,  # Reference listed drug flag
                 "product_type": "HUMAN PRESCRIPTION DRUG",
                 "marketing_status": "Prescription",
                 "strength": strength,
@@ -473,7 +561,7 @@ class OptimizedFDAParser:
                 "_merge_brand_name": trade_name.lower().strip() if trade_name else "",
                 "_merge_manufacturer": applicant.lower().strip() if applicant else "",
                 "_merge_applicant": applicant.lower().strip() if applicant else "",
-                "_merge_app_number": product_no,
+                "_merge_app_number": appl_no or product_no,
             }
 
         except Exception as e:

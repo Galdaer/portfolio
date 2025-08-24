@@ -10,7 +10,8 @@ from typing import Any
 from error_handling import (
     ErrorCollector,
 )
-from sqlalchemy import func, text
+from sqlalchemy import func, text, String
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
 from database import FDADrug, UpdateLog
@@ -498,6 +499,19 @@ class FDAAPI:
             "reference_listed_drug": drug_data.get("reference_listed_drug", ""),
             "therapeutic_class": drug_data.get("therapeutic_class", ""),
             "pharmacologic_class": drug_data.get("pharmacologic_class", ""),
+            
+            # Clinical information fields
+            "contraindications": drug_data.get("contraindications", []),
+            "warnings": drug_data.get("warnings", []),
+            "precautions": drug_data.get("precautions", []),
+            "adverse_reactions": drug_data.get("adverse_reactions", []),
+            "drug_interactions": drug_data.get("drug_interactions", {}),
+            "indications_and_usage": drug_data.get("indications_and_usage", ""),
+            "dosage_and_administration": drug_data.get("dosage_and_administration", ""),
+            "mechanism_of_action": drug_data.get("mechanism_of_action", ""),
+            "pharmacokinetics": drug_data.get("pharmacokinetics", ""),
+            "pharmacodynamics": drug_data.get("pharmacodynamics", ""),
+            
             "data_sources": drug_data.get("data_sources", []),
             "updated_at": datetime.utcnow(),
         }
@@ -511,62 +525,89 @@ class FDAAPI:
                 "name": stmt.excluded.name,
                 "updated_at": stmt.excluded.updated_at,
 
-                # Conditionally update fields - prefer non-empty values
+                # Always update with new values if they're better (non-empty)
                 "generic_name": func.coalesce(
                     func.nullif(stmt.excluded.generic_name, ""),
-                    FDADrug.generic_name,
+                    FDADrug.generic_name
                 ),
                 "brand_name": func.coalesce(
                     func.nullif(stmt.excluded.brand_name, ""),
-                    FDADrug.brand_name,
+                    FDADrug.brand_name
                 ),
                 "manufacturer": func.coalesce(
                     func.nullif(stmt.excluded.manufacturer, ""),
-                    FDADrug.manufacturer,
+                    FDADrug.manufacturer
                 ),
                 "applicant": func.coalesce(
                     func.nullif(stmt.excluded.applicant, ""),
-                    FDADrug.applicant,
+                    FDADrug.applicant
                 ),
                 "strength": func.coalesce(
                     func.nullif(stmt.excluded.strength, ""),
-                    FDADrug.strength,
+                    FDADrug.strength
                 ),
                 "dosage_form": func.coalesce(
                     func.nullif(stmt.excluded.dosage_form, ""),
-                    FDADrug.dosage_form,
+                    FDADrug.dosage_form
                 ),
                 "route": func.coalesce(
                     func.nullif(stmt.excluded.route, ""),
-                    FDADrug.route,
+                    FDADrug.route
                 ),
                 "application_number": func.coalesce(
                     func.nullif(stmt.excluded.application_number, ""),
-                    FDADrug.application_number,
+                    FDADrug.application_number
                 ),
                 "product_number": func.coalesce(
                     func.nullif(stmt.excluded.product_number, ""),
-                    FDADrug.product_number,
+                    FDADrug.product_number
                 ),
                 "approval_date": func.coalesce(
                     func.nullif(stmt.excluded.approval_date, ""),
-                    FDADrug.approval_date,
+                    FDADrug.approval_date
                 ),
                 "orange_book_code": func.coalesce(
                     func.nullif(stmt.excluded.orange_book_code, ""),
-                    FDADrug.orange_book_code,
+                    FDADrug.orange_book_code
                 ),
                 "reference_listed_drug": func.coalesce(
                     func.nullif(stmt.excluded.reference_listed_drug, ""),
-                    FDADrug.reference_listed_drug,
+                    FDADrug.reference_listed_drug
                 ),
                 "therapeutic_class": func.coalesce(
                     func.nullif(stmt.excluded.therapeutic_class, ""),
-                    FDADrug.therapeutic_class,
+                    FDADrug.therapeutic_class
                 ),
                 "pharmacologic_class": func.coalesce(
                     func.nullif(stmt.excluded.pharmacologic_class, ""),
-                    FDADrug.pharmacologic_class,
+                    FDADrug.pharmacologic_class
+                ),
+
+                # Clinical information fields - always update with new data
+                "contraindications": stmt.excluded.contraindications,
+                "warnings": stmt.excluded.warnings,
+                "precautions": stmt.excluded.precautions,
+                "adverse_reactions": stmt.excluded.adverse_reactions,
+                "drug_interactions": stmt.excluded.drug_interactions,
+                "indications_and_usage": func.coalesce(
+                    func.nullif(stmt.excluded.indications_and_usage, ""),
+                    FDADrug.indications_and_usage
+                ),
+                "dosage_and_administration": func.coalesce(
+                    func.nullif(stmt.excluded.dosage_and_administration, ""),
+                    FDADrug.dosage_and_administration
+                ),
+                "mechanism_of_action": func.coalesce(
+                    func.nullif(stmt.excluded.mechanism_of_action, ""),
+                    FDADrug.mechanism_of_action
+                ),
+                "pharmacokinetics": func.coalesce(
+                    func.nullif(stmt.excluded.pharmacokinetics, ""),
+                    FDADrug.pharmacokinetics
+                ),
+                "pharmacodynamics": func.coalesce(
+                    func.nullif(stmt.excluded.pharmacodynamics, ""),
+                    FDADrug.pharmacodynamics
                 ),
 
                 # For arrays, combine unique values

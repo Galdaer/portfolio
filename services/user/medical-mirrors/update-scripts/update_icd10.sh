@@ -62,8 +62,8 @@ import sys
 import os
 import logging
 import json
-from src.icd10.downloader import ICD10Downloader
-from src.icd10.parser import ICD10Parser
+from pathlib import Path
+from src.icd10.smart_downloader import SmartICD10Downloader
 from src.config import Config
 from src.database import get_db_session
 from sqlalchemy import text
@@ -87,37 +87,49 @@ async def update_icd10_codes():
     config = Config()
     
     try:
-        # Download codes
-        async with ICD10Downloader(config) as downloader:
-            logger.info('Starting ICD-10 download')
-            raw_codes = await downloader.download_all_codes()
-            download_stats = downloader.get_download_stats()
+        # Use smart downloader with automatic state management and retries
+        output_dir = Path('/app/data/icd10')
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        async with SmartICD10Downloader(output_dir=output_dir, config=config) as downloader:
+            logger.info('Starting smart ICD-10 download with automatic retry handling')
             
-            logger.info(f'Downloaded {len(raw_codes)} raw codes')
-            logger.info(f'Download stats: {download_stats}')
-        
-        # Parse and validate
-        parser = ICD10Parser()
-        validated_codes = parser.parse_and_validate(raw_codes)
-        parsing_stats = parser.get_parsing_stats()
-        
-        logger.info(f'Parsed {len(validated_codes)} validated codes')
-        logger.info(f'Parsing stats: {parsing_stats}')
+            # Force fresh download if QUICK_TEST to avoid using cached state
+            force_fresh = bool(limit_codes > 0)
+            
+            summary = await downloader.download_all_icd10_codes(force_fresh=force_fresh)
+            
+            logger.info(f'Smart download completed: {summary[\"total_codes\"]} codes from {summary[\"successful_sources\"]} sources')
+            logger.info(f'Success rate: {summary[\"success_rate\"]:.1f}%')
+            
+            if summary[\"failed_sources\"] > 0:
+                logger.warning(f'Failed sources: {summary[\"failed_sources\"]} (will retry automatically)')
+            
+            if summary[\"rate_limited_sources\"] > 0:
+                logger.info(f'Rate limited sources: {summary[\"rate_limited_sources\"]} (will retry in background)')
+            
+        # Load the downloaded and validated codes
+        all_codes_file = output_dir / 'all_icd10_codes_complete.json'
+        if not all_codes_file.exists():
+            logger.error('No ICD-10 codes were downloaded')
+            return False
+            
+        with open(all_codes_file, 'r') as f:
+            validated_codes = json.load(f)
         
         # Limit for quick test
         if limit_codes > 0:
             logger.info(f'Limiting to first {limit_codes} codes for quick test')
             validated_codes = validated_codes[:limit_codes]
         
-        # Build hierarchy
-        codes_with_hierarchy = parser.build_hierarchy(validated_codes)
+        logger.info(f'Processing {len(validated_codes)} validated codes for database insertion')
         
         # Insert/Update into database using UPSERT
         with get_db_session() as db:
             logger.info('Upserting ICD-10 codes (preserving existing data)')
             
             # Use UPSERT to preserve existing data and only update with better information
-            for code_data in codes_with_hierarchy:
+            for code_data in validated_codes:
                 db.execute(text('''
                     INSERT INTO icd10_codes (
                         code, description, category, chapter, synonyms,
@@ -146,19 +158,19 @@ async def update_icd10_codes():
                         search_text = COALESCE(NULLIF(EXCLUDED.search_text, ''), icd10_codes.search_text),
                         last_updated = NOW()
                 '''), {
-                    'code': code_data['code'],
-                    'description': code_data['description'],
-                    'category': code_data['category'],
-                    'chapter': code_data['chapter'],
-                    'synonyms': json.dumps(code_data['synonyms']) if code_data['synonyms'] else '[]',
-                    'inclusion_notes': json.dumps(code_data['inclusion_notes']) if code_data['inclusion_notes'] else '[]',
-                    'exclusion_notes': json.dumps(code_data['exclusion_notes']) if code_data['exclusion_notes'] else '[]',
-                    'is_billable': code_data['is_billable'],
-                    'code_length': code_data['code_length'],
-                    'parent_code': code_data['parent_code'],
-                    'children_codes': json.dumps(code_data['children_codes']) if code_data['children_codes'] else '[]',
-                    'source': code_data['source'],
-                    'search_text': code_data['search_text']
+                    'code': code_data.get('code', ''),
+                    'description': code_data.get('description', ''),
+                    'category': code_data.get('category', ''),
+                    'chapter': code_data.get('chapter', ''),
+                    'synonyms': json.dumps(code_data.get('synonyms', [])),
+                    'inclusion_notes': json.dumps(code_data.get('inclusion_notes', [])),
+                    'exclusion_notes': json.dumps(code_data.get('exclusion_notes', [])),
+                    'is_billable': code_data.get('is_billable', False),
+                    'code_length': code_data.get('code_length', 0),
+                    'parent_code': code_data.get('parent_code', ''),
+                    'children_codes': json.dumps(code_data.get('children_codes', [])),
+                    'source': code_data.get('source', 'smart_icd10_downloader'),
+                    'search_text': code_data.get('search_text', code_data.get('description', ''))
                 })
             
             db.commit()

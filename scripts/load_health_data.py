@@ -18,6 +18,9 @@ if medical_mirrors_src not in sys.path:
 
 try:
     from billing_codes.parser import BillingCodesParser
+    from billing_codes.smart_downloader import SmartBillingCodesDownloader
+    from icd10.parser import ICD10Parser
+    from icd10.smart_downloader import SmartICD10Downloader
     from health_info.parser import HealthInfoParser
     from sqlalchemy import text
 
@@ -38,6 +41,7 @@ class HealthDataLoader:
         self.logger = self._setup_logging()
         self.health_parser = HealthInfoParser()
         self.billing_parser = BillingCodesParser()
+        self.icd10_parser = ICD10Parser()
 
         # Statistics
         self.stats = {
@@ -46,6 +50,7 @@ class HealthDataLoader:
             "exercises_loaded": 0,
             "food_items_loaded": 0,
             "billing_codes_loaded": 0,
+            "icd10_codes_loaded": 0,
             "total_items_loaded": 0,
             "errors": [],
         }
@@ -67,11 +72,12 @@ class HealthDataLoader:
         """Find all complete health data JSON files"""
         json_files = {}
 
-        # Look for files in health_info, billing_codes/billing subdirectories and data root
+        # Look for files in health_info, billing_codes/billing, icd10 subdirectories and data root
         search_dirs = [
             os.path.join(self.data_dir, "health_info"),
             os.path.join(self.data_dir, "billing_codes"),
             os.path.join(self.data_dir, "billing"),
+            os.path.join(self.data_dir, "icd10"),
             self.data_dir,
         ]
 
@@ -145,8 +151,9 @@ class HealthDataLoader:
             "food_items": [],
         }
 
-        # Load billing codes separately
+        # Load billing codes and ICD-10 codes separately
         billing_codes_raw = []
+        icd10_codes_raw = []
 
         for dataset_type, file_path in json_files.items():
             if dataset_type in all_raw_data:
@@ -161,6 +168,20 @@ class HealthDataLoader:
                 if file_data and "codes" in file_data:
                     billing_codes_raw.extend(file_data["codes"])
                     self.stats["files_processed"] += 1
+                elif file_data and isinstance(file_data, list):
+                    # Direct array of codes
+                    billing_codes_raw.extend(file_data)
+                    self.stats["files_processed"] += 1
+            elif dataset_type == "icd10_codes":
+                # ICD-10 codes data
+                file_data = self.load_json_file(file_path)
+                if file_data and "codes" in file_data:
+                    icd10_codes_raw.extend(file_data["codes"])
+                    self.stats["files_processed"] += 1
+                elif file_data and isinstance(file_data, list):
+                    # Direct array of codes
+                    icd10_codes_raw.extend(file_data)
+                    self.stats["files_processed"] += 1
 
         # Parse and validate health data using the health parser
         self.logger.info("Parsing and validating health data")
@@ -172,13 +193,23 @@ class HealthDataLoader:
             self.logger.info(f"Parsing and validating {len(billing_codes_raw)} billing codes")
             validated_billing_codes = self.billing_parser.parse_and_validate(billing_codes_raw)
 
+        # Parse and validate ICD-10 codes using the ICD-10 parser
+        validated_icd10_codes = []
+        if icd10_codes_raw:
+            self.logger.info(f"Parsing and validating {len(icd10_codes_raw)} ICD-10 codes")
+            validated_icd10_codes = self.icd10_parser.parse_and_validate(icd10_codes_raw)
+
         # Insert into database
         health_success = self._insert_health_data_into_database(validated_health_data)
         billing_success = True
         if validated_billing_codes:
             billing_success = self._insert_billing_codes_into_database(validated_billing_codes)
+            
+        icd10_success = True
+        if validated_icd10_codes:
+            icd10_success = self._insert_icd10_codes_into_database(validated_icd10_codes)
 
-        return health_success and billing_success
+        return health_success and billing_success and icd10_success
 
     def _insert_health_data_into_database(self, validated_data: dict[str, list[dict]]) -> bool:
         """Insert validated data into database using medical-mirrors patterns"""
@@ -464,6 +495,115 @@ class HealthDataLoader:
             self.stats["errors"].append(f"Billing codes database insert error: {e}")
             return False
 
+    def _insert_icd10_codes_into_database(self, validated_codes: list[dict]) -> bool:
+        """Insert validated ICD-10 codes into database using medical-mirrors patterns"""
+        self.logger.info("Inserting ICD-10 codes into database")
+
+        try:
+            with get_db_session() as db:
+                self.logger.info("Upserting ICD-10 codes (preserving existing data)")
+
+                # Use UPSERT with composite key (code) to preserve existing data
+                for code_data in validated_codes:
+                    db.execute(text("""
+                        INSERT INTO icd10_codes (
+                            code, description, category, chapter, synonyms,
+                            inclusion_notes, exclusion_notes, is_billable, code_length,
+                            parent_code, children_codes, source, search_text,
+                            last_updated, search_vector
+                        ) VALUES (
+                            :code, :description, :category, :chapter, :synonyms,
+                            :inclusion_notes, :exclusion_notes, :is_billable, :code_length,
+                            :parent_code, :children_codes, :source, :search_text,
+                            NOW(), to_tsvector('english', COALESCE(:search_text, ''))
+                        )
+                        ON CONFLICT (code) DO UPDATE SET
+                            -- Only update if we have better/more complete information
+                            description = COALESCE(NULLIF(EXCLUDED.description, ''), icd10_codes.description),
+                            category = COALESCE(NULLIF(EXCLUDED.category, ''), icd10_codes.category),
+                            chapter = COALESCE(NULLIF(EXCLUDED.chapter, ''), icd10_codes.chapter),
+                            synonyms = CASE 
+                                WHEN EXCLUDED.synonyms IS NOT NULL AND jsonb_array_length(EXCLUDED.synonyms) > 0 
+                                THEN EXCLUDED.synonyms 
+                                ELSE icd10_codes.synonyms 
+                            END,
+                            inclusion_notes = CASE
+                                WHEN EXCLUDED.inclusion_notes IS NOT NULL AND jsonb_array_length(EXCLUDED.inclusion_notes) > 0
+                                THEN EXCLUDED.inclusion_notes
+                                ELSE icd10_codes.inclusion_notes
+                            END,
+                            exclusion_notes = CASE
+                                WHEN EXCLUDED.exclusion_notes IS NOT NULL AND jsonb_array_length(EXCLUDED.exclusion_notes) > 0
+                                THEN EXCLUDED.exclusion_notes
+                                ELSE icd10_codes.exclusion_notes
+                            END,
+                            is_billable = COALESCE(EXCLUDED.is_billable, icd10_codes.is_billable),
+                            code_length = COALESCE(EXCLUDED.code_length, icd10_codes.code_length),
+                            parent_code = COALESCE(NULLIF(EXCLUDED.parent_code, ''), icd10_codes.parent_code),
+                            children_codes = CASE
+                                WHEN EXCLUDED.children_codes IS NOT NULL AND jsonb_array_length(EXCLUDED.children_codes) > 0
+                                THEN EXCLUDED.children_codes
+                                ELSE icd10_codes.children_codes
+                            END,
+                            source = EXCLUDED.source,
+                            search_text = COALESCE(NULLIF(EXCLUDED.search_text, ''), icd10_codes.search_text),
+                            last_updated = NOW(),
+                            search_vector = to_tsvector('english', COALESCE(EXCLUDED.search_text, icd10_codes.search_text, ''))
+                    """), {
+                        'code': code_data.get('code'),
+                        'description': code_data.get('description'),
+                        'category': code_data.get('category', ''),
+                        'chapter': code_data.get('chapter', ''),
+                        'synonyms': json.dumps(code_data.get('synonyms', [])),
+                        'inclusion_notes': json.dumps(code_data.get('inclusion_notes', [])),
+                        'exclusion_notes': json.dumps(code_data.get('exclusion_notes', [])),
+                        'is_billable': code_data.get('is_billable', False),
+                        'code_length': code_data.get('code_length', 0),
+                        'parent_code': code_data.get('parent_code'),
+                        'children_codes': json.dumps(code_data.get('children_codes', [])),
+                        'source': code_data.get('source', 'unknown'),
+                        'search_text': code_data.get('search_text', ''),
+                    })
+
+                # Get final count statistics
+                stats = db.execute(text("""
+                    SELECT 
+                        COUNT(*) as total,
+                        COUNT(*) FILTER (WHERE is_billable = true) as billable,
+                        COUNT(*) FILTER (WHERE is_billable = false) as non_billable,
+                        COUNT(*) FILTER (WHERE code_length = 3) as category_codes,
+                        COUNT(*) FILTER (WHERE code_length >= 4) as detailed_codes
+                    FROM icd10_codes
+                """)).fetchone()
+
+                # Commit all changes
+                db.commit()
+
+                self.stats["icd10_codes_loaded"] = len(validated_codes)
+
+                # Update total to include ICD-10 codes
+                self.stats["total_items_loaded"] = (
+                    self.stats["health_topics_loaded"] +
+                    self.stats["exercises_loaded"] +
+                    self.stats["food_items_loaded"] +
+                    self.stats["billing_codes_loaded"] +
+                    self.stats["icd10_codes_loaded"]
+                )
+
+                self.logger.info(f"Successfully inserted {stats.total} ICD-10 codes total")
+                self.logger.info(f"  Billable: {stats.billable}, Non-billable: {stats.non_billable}")
+                self.logger.info(f"  Category codes: {stats.category_codes}, Detailed codes: {stats.detailed_codes}")
+                self.logger.info(f"  Newly loaded: {len(validated_codes)}")
+
+                return True
+
+        except Exception as e:
+            self.logger.exception(f"Error inserting ICD-10 codes into database: {e}")
+            import traceback
+            self.logger.exception(traceback.format_exc())
+            self.stats["errors"].append(f"ICD-10 codes database insert error: {e}")
+            return False
+
     def get_stats(self) -> dict[str, Any]:
         """Get loading statistics"""
         return self.stats.copy()
@@ -480,6 +620,26 @@ if __name__ == "__main__":
         type=str,
         help="Custom data directory (default: /app/data)",
     )
+    parser.add_argument(
+        "--smart-billing-download",
+        action="store_true",
+        help="Use smart billing codes downloader to get latest codes before loading",
+    )
+    parser.add_argument(
+        "--force-fresh-billing",
+        action="store_true", 
+        help="Force fresh billing codes download (reset download states)",
+    )
+    parser.add_argument(
+        "--smart-icd10-download",
+        action="store_true",
+        help="Use smart ICD-10 codes downloader to get latest codes before loading",
+    )
+    parser.add_argument(
+        "--force-fresh-icd10",
+        action="store_true", 
+        help="Force fresh ICD-10 codes download (reset download states)",
+    )
 
     args = parser.parse_args()
 
@@ -488,6 +648,61 @@ if __name__ == "__main__":
 
     print("📥 Loading health information data into medical-mirrors database...")
     print(f"📁 Data directory: {loader.data_dir}")
+
+    # Smart billing codes download if requested
+    if args.smart_billing_download:
+        print("\n🧠 Running smart billing codes download...")
+        
+        async def run_smart_download():
+            async with SmartBillingCodesDownloader(output_dir=Path(loader.data_dir) / "billing") as downloader:
+                summary = await downloader.download_all_billing_codes(force_fresh=args.force_fresh_billing)
+                
+                print(f"📊 Smart download completed:")
+                print(f"  Total codes: {summary.get('total_codes', 0):,}")
+                print(f"  Successful sources: {summary.get('successful_sources', 0)}")
+                print(f"  Failed sources: {summary.get('failed_sources', 0)}")
+                print(f"  Rate limited sources: {summary.get('rate_limited_sources', 0)}")
+                
+                if summary.get('rate_limited_sources', 0) > 0:
+                    print("💡 Tip: Run 'python3 scripts/smart_billing_download.py service' for automatic retries")
+                
+                return summary.get('total_codes', 0) > 0
+        
+        import asyncio
+        billing_success = asyncio.run(run_smart_download())
+        
+        if not billing_success:
+            print("⚠️  Smart billing download had issues, but continuing with existing data...")
+
+    # Smart ICD-10 codes download if requested
+    if args.smart_icd10_download:
+        print("\n🏥 Running smart ICD-10 codes download...")
+        
+        async def run_smart_icd10_download():
+            async with SmartICD10Downloader(output_dir=Path(loader.data_dir) / "icd10") as downloader:
+                summary = await downloader.download_all_icd10_codes(force_fresh=args.force_fresh_icd10)
+                
+                print(f"📊 Smart ICD-10 download completed:")
+                print(f"  Total codes: {summary.get('total_codes', 0):,}")
+                print(f"  Successful sources: {summary.get('successful_sources', 0)}")
+                print(f"  Failed sources: {summary.get('failed_sources', 0)}")
+                print(f"  Rate limited sources: {summary.get('rate_limited_sources', 0)}")
+                
+                expected_vs_actual = summary.get('expected_vs_actual', {})
+                improvement = expected_vs_actual.get('improvement_over_fallback', 0)
+                if improvement > 0:
+                    print(f"  Improvement: +{improvement:,} codes over fallback")
+                
+                if summary.get('rate_limited_sources', 0) > 0:
+                    print("💡 Tip: Run 'python3 scripts/smart_icd10_download.py service' for automatic retries")
+                
+                return summary.get('total_codes', 0) > 0
+        
+        import asyncio
+        icd10_success = asyncio.run(run_smart_icd10_download())
+        
+        if not icd10_success:
+            print("⚠️  Smart ICD-10 download had issues, but continuing with existing data...")
 
     # Load data
     success = loader.load_all_health_data()
@@ -500,6 +715,7 @@ if __name__ == "__main__":
     print(f"  Exercises: {stats['exercises_loaded']}")
     print(f"  Food items: {stats['food_items_loaded']}")
     print(f"  Billing codes: {stats['billing_codes_loaded']}")
+    print(f"  ICD-10 codes: {stats['icd10_codes_loaded']}")
     print(f"  Total items: {stats['total_items_loaded']}")
 
     if stats["errors"]:
