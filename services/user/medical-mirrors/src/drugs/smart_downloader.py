@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 import time
 
-from fda.smart_downloader import SmartFDADownloader
+from .downloader import DrugDownloader
 from .rxclass_downloader import SmartRxClassDownloader
 from config import Config
 
@@ -85,7 +85,7 @@ class SmartDrugDownloader:
         """Async context manager entry"""
         # Initialize source-specific downloaders
         if self.sources['fda']:
-            self.fda_downloader = SmartFDADownloader(
+            self.fda_downloader = DrugDownloader(
                 output_dir=self.output_dir / "fda",
                 config=self.config
             )
