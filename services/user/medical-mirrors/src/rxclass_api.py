@@ -189,7 +189,7 @@ async def enhance_drug_therapeutic_classes(db_session_factory, batch_size: int =
         
         result = db.execute(text("""
             SELECT DISTINCT generic_name, ndc
-            FROM fda_drugs 
+            FROM drug_information 
             WHERE (therapeutic_class IS NULL OR therapeutic_class = '')
               AND generic_name IS NOT NULL 
               AND generic_name != ''
@@ -230,7 +230,7 @@ async def enhance_drug_therapeutic_classes(db_session_factory, batch_size: int =
             if primary_class:
                 # Update all drugs with this generic name
                 update_result = db.execute(text("""
-                    UPDATE fda_drugs 
+                    UPDATE drug_information 
                     SET therapeutic_class = :therapeutic_class,
                         updated_at = NOW()
                     WHERE generic_name = :generic_name 

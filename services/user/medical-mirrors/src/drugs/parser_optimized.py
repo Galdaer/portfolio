@@ -625,7 +625,7 @@ def parse_drug_label_record_worker(label_data: dict[str, Any]) -> dict[str, Any]
         return None
 
 
-class OptimizedFDAParser:
+class OptimizedDrugParser:
     """Multi-core FDA data parser with parallel processing"""
 
     def __init__(self, max_workers: int | None = None):

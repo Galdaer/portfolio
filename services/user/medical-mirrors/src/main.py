@@ -24,7 +24,7 @@ from billing_codes.api import (
 from clinicaltrials.api import ClinicalTrialsAPI
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fda.api import FDAAPI
+from drugs.api import DrugAPI
 from health_info.api import (
     get_exercise_details,
     get_food_details,
@@ -115,7 +115,7 @@ else:
     logger.info("Using standard single-threaded PubMed parser")
 
 trials_api = ClinicalTrialsAPI(SessionLocal, config)
-fda_api = FDAAPI(SessionLocal, config)
+drug_api = DrugAPI(SessionLocal, config)
 
 # Initialize new data source APIs (these don't need specific API classes since they use direct database operations)
 icd10_session_factory = SessionLocal
@@ -149,7 +149,7 @@ async def get_status() -> dict[str, Any]:
     try:
         pubmed_status = await pubmed_api.get_status()
         trials_status = await trials_api.get_status()
-        fda_status = await fda_api.get_status()
+        drug_status = await drug_api.get_status()
 
         return {
             "service": "medical-mirrors",
@@ -223,7 +223,7 @@ async def get_trial_details(nct_id: str) -> dict[str, Any]:
 
 
 # FDA Mirror Endpoints
-@app.get("/fda/search")
+@app.get("/drugs/search")
 async def search_fda(
     generic_name: str | None = None, ndc: str | None = None, max_results: int = 10,
 ) -> dict[str, Any]:
@@ -232,18 +232,18 @@ async def search_fda(
     Matches interface of Healthcare MCP get-drug-info tool
     """
     try:
-        results = await fda_api.search_drugs(generic_name, ndc, max_results)
+        results = await drug_api.search_drugs(generic_name, ndc, max_results)
         return {"content": [{"type": "text", "text": str(results)}]}
     except Exception as e:
         logger.exception(f"FDA search failed: {e}")
         raise HTTPException(status_code=500, detail=f"FDA search failed: {str(e)}")
 
 
-@app.get("/fda/drug/{ndc}")
+@app.get("/drugs/drug/{ndc}")
 async def get_drug_info(ndc: str) -> dict[str, Any]:
     """Get specific drug information by NDC"""
     try:
-        drug = await fda_api.get_drug(ndc)
+        drug = await drug_api.get_drug(ndc)
         if not drug:
             raise HTTPException(status_code=404, detail="Drug not found")
         return drug
@@ -478,7 +478,7 @@ async def background_fda_update(quick_test: bool = False, limit: int | None = No
     """Background task for FDA update"""
     try:
         logger.info("🚀 Starting FDA background update")
-        result = await fda_api.trigger_update(quick_test=quick_test, limit=limit)
+        result = await drug_api.trigger_update(quick_test=quick_test, limit=limit)
         logger.info(f"✅ FDA background update completed: {result}")
     except Exception as e:
         logger.exception(f"❌ FDA background update failed: {e}")

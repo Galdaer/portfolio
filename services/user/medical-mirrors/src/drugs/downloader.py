@@ -1,5 +1,5 @@
 """
-FDA data downloader
+Drug information downloader
 Downloads FDA Orange Book, NDC Directory, and Drug@FDA databases
 """
 
@@ -14,7 +14,7 @@ from config import Config
 logger = logging.getLogger(__name__)
 
 
-class FDADownloader:
+class DrugDownloader:
     """Downloads FDA drug databases"""
 
     def __init__(self) -> None:

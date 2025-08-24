@@ -10,16 +10,16 @@ export interface Generics {
     ingredients: string[];
 }
 
-interface FDAResponse {
+interface DrugInfoResponse {
     results: Generics[];
 }
 
-export class FDA {
+export class DrugInfo {
     private lastRequestTime = 0;
     private requestCount = 0;
     private readonly rateLimitWindow = 60000; // 1 minute
     private readonly maxRequestsPerMinute = 240;
-    private readonly baseUrl = 'https://api.fda.gov/drug/ndc.json';
+    private readonly baseUrl = 'http://172.20.0.20:8081/drugs/search';
     private readonly apiKey?: string;
     private dbManager: DatabaseManager;
 
@@ -69,7 +69,7 @@ export class FDA {
         try {
             // DATABASE-FIRST: Return database results immediately, test external APIs in background
             if (this.dbManager.isAvailable()) {
-                console.log('Searching FDA drugs in PostgreSQL database');
+                console.log('Searching drug information in PostgreSQL database');
                 const dbResults = await this.searchDatabase(genericName, 25);
 
                 // Start background validation of external API (don't await)
@@ -81,40 +81,40 @@ export class FDA {
                 return dbResults;
             }
 
-            // FALLBACK: Use external API if database unavailable
+            // FALLBACK: Use medical-mirrors API if database unavailable
             if (this.dbManager.canFallback()) {
-                console.warn('Database unavailable, falling back to external FDA API');
-                return await this.searchExternalAPI(genericName);
+                console.warn('Database unavailable, falling back to medical-mirrors drug API');
+                return await this.searchMedicalMirrorsAPI(genericName);
             }
 
-            throw new Error('Neither database nor external API available for FDA drug search');
+            throw new Error('Neither database nor medical-mirrors API available for drug search');
         } catch (error) {
-            console.error('FDA search failed:', error);
+            console.error('Drug search failed:', error);
             throw error;
         }
     }
 
     /**
-     * Background validation of external FDA API connectivity
+     * Background validation of medical-mirrors API connectivity
      */
     private async validateExternalAPI(genericName: string): Promise<void> {
         const timeout = 10000; // 10 second timeout for background checks
 
         try {
-            console.log('[BACKGROUND] Testing external FDA API connectivity...');
+            console.log('[BACKGROUND] Testing medical-mirrors API connectivity...');
 
             const externalPromise = Promise.race([
-                this.searchExternalAPI(genericName),
+                this.searchMedicalMirrorsAPI(genericName),
                 new Promise<never>((_, reject) =>
-                    setTimeout(() => reject(new Error('External FDA API timeout')), timeout)
+                    setTimeout(() => reject(new Error('Medical-mirrors API timeout')), timeout)
                 )
             ]);
 
             const externalResults = await externalPromise;
-            console.log(`[BACKGROUND] ✅ External FDA API healthy - returned ${externalResults.length} drugs`);
+            console.log(`[BACKGROUND] ✅ Medical-mirrors API healthy - returned ${externalResults.length} drugs`);
 
         } catch (externalError) {
-            console.warn(`[BACKGROUND] ⚠️  External FDA API failed: ${externalError instanceof Error ? externalError.message : 'Unknown error'}`);
+            console.warn(`[BACKGROUND] ⚠️  Medical-mirrors API failed: ${externalError instanceof Error ? externalError.message : 'Unknown error'}`);
         }
     }
 
@@ -131,7 +131,7 @@ export class FDA {
                     COALESCE(brand_name, labeler_name) AS brand,
                     COALESCE(active_ingredients, substances) AS ingredients,
                     COALESCE(ts_rank_cd(search_vector, plainto_tsquery('english', $2)), 0) as rank
-                FROM fda_drugs
+                FROM drug_information
                 WHERE search_vector @@ plainto_tsquery('english', $2)
                    OR COALESCE(generic_name, generic) ILIKE $1
                    OR COALESCE(brand_name, labeler_name) ILIKE $1
@@ -141,7 +141,7 @@ export class FDA {
 
             const result = await this.dbManager.query(query, params);
 
-            console.log(`Database search returned ${result.rows.length} FDA drugs`);
+            console.log(`Database search returned ${result.rows.length} drugs`);
 
             return result.rows.map((row: any) => ({
                 ndc: row.ndc || '',
@@ -157,18 +157,30 @@ export class FDA {
         }
     }
 
-    private async searchExternalAPI(genericName: string): Promise<Generics[]> {
+    private async searchMedicalMirrorsAPI(genericName: string): Promise<Generics[]> {
         const url = new URL(this.baseUrl);
-        url.searchParams.append('search', `generic_name:"${genericName}"`)
+        url.searchParams.append('generic_name', genericName);
+        url.searchParams.append('max_results', '25');
 
-
-        // Rate limiting: 240 requests/minute without API key
-        if (!this.apiKey && this.isRateLimited()) {
-            throw new Error('FDA API rate limit reached. Consider getting free API key at https://open.fda.gov/apis/authentication/');
-        }
         const response = await fetch(url);
-        const data = await response.json() as FDAResponse;
-
-        return data.results;
+        
+        if (!response.ok) {
+            throw new Error(`Medical-mirrors API error: ${response.status}`);
+        }
+        
+        const data = await response.json() as any;
+        
+        // Medical-mirrors returns {status: "success", data: [...]} format
+        if (data.status === 'success' && Array.isArray(data.data)) {
+            return data.data.map((drug: any) => ({
+                ndc: drug.ndc || '',
+                name: drug.generic_name || drug.name || '',
+                label: drug.brand_name || drug.manufacturer || '',
+                brand: drug.brand_name || '',
+                ingredients: drug.ingredients || []
+            }));
+        }
+        
+        return [];
     }
 }

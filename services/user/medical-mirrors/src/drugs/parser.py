@@ -12,7 +12,7 @@ from validation_utils import validate_record
 logger = logging.getLogger(__name__)
 
 
-class FDAParser:
+class DrugParser:
     """Parses FDA database files and extracts drug data"""
 
     def __init__(self) -> None:
@@ -310,7 +310,7 @@ class FDAParser:
             try:
                 return validate_record(
                     raw_record,
-                    "fda_drugs",
+                    "drug_information",
                     required_fields=["ndc", "name"],  # NDC and name are required
                 )
             except Exception as e:

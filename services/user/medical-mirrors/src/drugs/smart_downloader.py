@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Any
 import time
 import httpx
 
-from .downloader import FDADownloader
+from .downloader import DrugDownloader
 from .parser import FDAParser
 from config import Config
 
@@ -57,7 +57,7 @@ class FDADownloadState:
         self.daily_retry_counts[source][today] = self.get_daily_retry_count(source) + 1
 
 
-class SmartFDADownloader:
+class SmartDrugDownloader:
     """Smart downloader that coordinates FDA downloads with state management"""
     
     def __init__(self, output_dir: Optional[Path] = None, config: Optional[Config] = None):
@@ -67,7 +67,7 @@ class SmartFDADownloader:
         
         # Initialize components
         self.state = FDADownloadState()
-        self.downloader = FDADownloader()
+        self.downloader = DrugDownloader()
         self.parser = FDAParser()
         
         # Smart retry configuration
@@ -395,7 +395,7 @@ class SmartFDADownloader:
     
     async def _save_results(self):
         """Save all validated drugs to JSON file"""
-        output_file = self.output_dir / 'all_fda_drugs_complete.json'
+        output_file = self.output_dir / 'all_drug_information_complete.json'
         
         try:
             with open(output_file, 'w') as f:

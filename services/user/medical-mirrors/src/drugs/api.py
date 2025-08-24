@@ -1,6 +1,11 @@
 """
-FDA API for local mirror
-Provides search functionality matching Healthcare MCP interface
+Drug Information API for local mirror
+Provides comprehensive drug search functionality matching Healthcare MCP interface
+
+Includes data from:
+- FDA sources: NDC Directory, Orange Book, Drugs@FDA, drug labels
+- NLM RxClass: Therapeutic classifications
+- Future sources: DailyMed, drug interaction databases
 """
 
 import logging
@@ -14,17 +19,17 @@ from sqlalchemy import func, text, String
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
-from database import FDADrug, UpdateLog
+from database import DrugInformation, UpdateLog
 
-from .downloader import FDADownloader
-from .parser import FDAParser
-from .parser_optimized import OptimizedFDAParser
+from .downloader import DrugDownloader
+from .parser import DrugParser
+from .parser_optimized import OptimizedDrugParser
 
 logger = logging.getLogger(__name__)
 
 
-class FDAAPI:
-    """Local FDA API matching Healthcare MCP interface"""
+class DrugAPI:
+    """Local drug information API matching Healthcare MCP interface"""
 
     def __init__(self, session_factory: Any, config: Any = None, enable_downloader: bool = True) -> None:
         self.session_factory = session_factory
@@ -33,20 +38,20 @@ class FDAAPI:
         # Only initialize downloader if needed (for database-only operations, skip it)
         if enable_downloader:
             try:
-                self.downloader = FDADownloader()
+                self.downloader = DrugDownloader()  # TODO: Rename to DrugDownloader
             except Exception as e:
-                logger.warning(f"Failed to initialize FDADownloader: {e}. Continuing without downloader.")
+                logger.warning(f"Failed to initialize drug downloader: {e}. Continuing without downloader.")
                 self.downloader = None
         else:
             self.downloader = None
             
-        self.parser = FDAParser()
+        self.parser = DrugParser()
 
         # Use optimized parser if multicore parsing is enabled
         if config and getattr(config, "ENABLE_MULTICORE_PARSING", False):
             max_workers = getattr(config, "FDA_MAX_WORKERS", None)
-            self.optimized_parser = OptimizedFDAParser(max_workers=max_workers)
-            logger.info(f"Using optimized FDA parser with {max_workers or 'auto'} workers")
+            self.optimized_parser = OptimizedDrugParser(max_workers=max_workers)
+            logger.info(f"Using optimized drug parser with {max_workers or 'auto'} workers")
         else:
             self.optimized_parser = None
 
@@ -154,7 +159,7 @@ class FDAAPI:
         """Get specific drug by NDC"""
         db = self.session_factory()
         try:
-            drug = db.query(FDADrug).filter(FDADrug.ndc == ndc).first()
+            drug = db.query(DrugInformation).filter(DrugInformation.ndc == ndc).first()
             if not drug:
                 return None
 
@@ -187,7 +192,7 @@ class FDAAPI:
         db = self.session_factory()
         try:
             # Get total drug count
-            total_count = db.query(func.count(FDADrug.ndc)).scalar()
+            total_count = db.query(func.count(DrugInformation.ndc)).scalar()
 
             # Get last update info
             last_update = (
@@ -390,7 +395,7 @@ class FDAAPI:
                 }
 
                 # Create UPSERT statement
-                stmt = insert(FDADrug).values(insert_data)
+                stmt = insert(DrugInformation).values(insert_data)
                 stmt = stmt.on_conflict_do_update(
                     index_elements=["ndc"],
                     set_={
@@ -637,7 +642,7 @@ class FDAAPI:
         from sqlalchemy.dialects.postgresql import insert
 
         # Use PostgreSQL's powerful ON CONFLICT DO UPDATE for batch operations
-        stmt = insert(FDADrug)
+        stmt = insert(DrugInformation)
         
         # Configure UPSERT with intelligent field merging
         stmt = stmt.on_conflict_do_update(
@@ -650,59 +655,59 @@ class FDAAPI:
                 # Always update with new values if they're better (non-empty)
                 "generic_name": func.coalesce(
                     func.nullif(stmt.excluded.generic_name, ""),
-                    FDADrug.generic_name
+                    DrugInformation.generic_name
                 ),
                 "brand_name": func.coalesce(
                     func.nullif(stmt.excluded.brand_name, ""),
-                    FDADrug.brand_name
+                    DrugInformation.brand_name
                 ),
                 "manufacturer": func.coalesce(
                     func.nullif(stmt.excluded.manufacturer, ""),
-                    FDADrug.manufacturer
+                    DrugInformation.manufacturer
                 ),
                 "applicant": func.coalesce(
                     func.nullif(stmt.excluded.applicant, ""),
-                    FDADrug.applicant
+                    DrugInformation.applicant
                 ),
                 "strength": func.coalesce(
                     func.nullif(stmt.excluded.strength, ""),
-                    FDADrug.strength
+                    DrugInformation.strength
                 ),
                 "dosage_form": func.coalesce(
                     func.nullif(stmt.excluded.dosage_form, ""),
-                    FDADrug.dosage_form
+                    DrugInformation.dosage_form
                 ),
                 "route": func.coalesce(
                     func.nullif(stmt.excluded.route, ""),
-                    FDADrug.route
+                    DrugInformation.route
                 ),
                 "application_number": func.coalesce(
                     func.nullif(stmt.excluded.application_number, ""),
-                    FDADrug.application_number
+                    DrugInformation.application_number
                 ),
                 "product_number": func.coalesce(
                     func.nullif(stmt.excluded.product_number, ""),
-                    FDADrug.product_number
+                    DrugInformation.product_number
                 ),
                 "approval_date": func.coalesce(
                     func.nullif(stmt.excluded.approval_date, ""),
-                    FDADrug.approval_date
+                    DrugInformation.approval_date
                 ),
                 "orange_book_code": func.coalesce(
                     func.nullif(stmt.excluded.orange_book_code, ""),
-                    FDADrug.orange_book_code
+                    DrugInformation.orange_book_code
                 ),
                 "reference_listed_drug": func.coalesce(
                     func.nullif(stmt.excluded.reference_listed_drug, ""),
-                    FDADrug.reference_listed_drug
+                    DrugInformation.reference_listed_drug
                 ),
                 "therapeutic_class": func.coalesce(
                     func.nullif(stmt.excluded.therapeutic_class, ""),
-                    FDADrug.therapeutic_class
+                    DrugInformation.therapeutic_class
                 ),
                 "pharmacologic_class": func.coalesce(
                     func.nullif(stmt.excluded.pharmacologic_class, ""),
-                    FDADrug.pharmacologic_class
+                    DrugInformation.pharmacologic_class
                 ),
 
                 # Clinical information fields - always update with new data
@@ -713,57 +718,57 @@ class FDAAPI:
                 "drug_interactions": stmt.excluded.drug_interactions,
                 "indications_and_usage": func.coalesce(
                     func.nullif(stmt.excluded.indications_and_usage, ""),
-                    FDADrug.indications_and_usage
+                    DrugInformation.indications_and_usage
                 ),
                 "dosage_and_administration": func.coalesce(
                     func.nullif(stmt.excluded.dosage_and_administration, ""),
-                    FDADrug.dosage_and_administration
+                    DrugInformation.dosage_and_administration
                 ),
                 "mechanism_of_action": func.coalesce(
                     func.nullif(stmt.excluded.mechanism_of_action, ""),
-                    FDADrug.mechanism_of_action
+                    DrugInformation.mechanism_of_action
                 ),
                 "pharmacokinetics": func.coalesce(
                     func.nullif(stmt.excluded.pharmacokinetics, ""),
-                    FDADrug.pharmacokinetics
+                    DrugInformation.pharmacokinetics
                 ),
                 "pharmacodynamics": func.coalesce(
                     func.nullif(stmt.excluded.pharmacodynamics, ""),
-                    FDADrug.pharmacodynamics
+                    DrugInformation.pharmacodynamics
                 ),
                 
                 # Additional clinical fields - always update with new data if available
                 "boxed_warning": func.coalesce(
                     func.nullif(stmt.excluded.boxed_warning, ""),
-                    FDADrug.boxed_warning
+                    DrugInformation.boxed_warning
                 ),
                 "clinical_studies": func.coalesce(
                     func.nullif(stmt.excluded.clinical_studies, ""),
-                    FDADrug.clinical_studies
+                    DrugInformation.clinical_studies
                 ),
                 "pediatric_use": func.coalesce(
                     func.nullif(stmt.excluded.pediatric_use, ""),
-                    FDADrug.pediatric_use
+                    DrugInformation.pediatric_use
                 ),
                 "geriatric_use": func.coalesce(
                     func.nullif(stmt.excluded.geriatric_use, ""),
-                    FDADrug.geriatric_use
+                    DrugInformation.geriatric_use
                 ),
                 "pregnancy": func.coalesce(
                     func.nullif(stmt.excluded.pregnancy, ""),
-                    FDADrug.pregnancy
+                    DrugInformation.pregnancy
                 ),
                 "nursing_mothers": func.coalesce(
                     func.nullif(stmt.excluded.nursing_mothers, ""),
-                    FDADrug.nursing_mothers
+                    DrugInformation.nursing_mothers
                 ),
                 "overdosage": func.coalesce(
                     func.nullif(stmt.excluded.overdosage, ""),
-                    FDADrug.overdosage
+                    DrugInformation.overdosage
                 ),
                 "nonclinical_toxicology": func.coalesce(
                     func.nullif(stmt.excluded.nonclinical_toxicology, ""),
-                    FDADrug.nonclinical_toxicology
+                    DrugInformation.nonclinical_toxicology
                 ),
 
                 # For arrays, combine unique values
@@ -830,7 +835,7 @@ class FDAAPI:
         }
 
         # Create intelligent UPSERT statement that merges data
-        stmt = insert(FDADrug).values(insert_data)
+        stmt = insert(DrugInformation).values(insert_data)
         stmt = stmt.on_conflict_do_update(
             index_elements=["ndc"],
             set_={
@@ -841,59 +846,59 @@ class FDAAPI:
                 # Always update with new values if they're better (non-empty)
                 "generic_name": func.coalesce(
                     func.nullif(stmt.excluded.generic_name, ""),
-                    FDADrug.generic_name
+                    DrugInformation.generic_name
                 ),
                 "brand_name": func.coalesce(
                     func.nullif(stmt.excluded.brand_name, ""),
-                    FDADrug.brand_name
+                    DrugInformation.brand_name
                 ),
                 "manufacturer": func.coalesce(
                     func.nullif(stmt.excluded.manufacturer, ""),
-                    FDADrug.manufacturer
+                    DrugInformation.manufacturer
                 ),
                 "applicant": func.coalesce(
                     func.nullif(stmt.excluded.applicant, ""),
-                    FDADrug.applicant
+                    DrugInformation.applicant
                 ),
                 "strength": func.coalesce(
                     func.nullif(stmt.excluded.strength, ""),
-                    FDADrug.strength
+                    DrugInformation.strength
                 ),
                 "dosage_form": func.coalesce(
                     func.nullif(stmt.excluded.dosage_form, ""),
-                    FDADrug.dosage_form
+                    DrugInformation.dosage_form
                 ),
                 "route": func.coalesce(
                     func.nullif(stmt.excluded.route, ""),
-                    FDADrug.route
+                    DrugInformation.route
                 ),
                 "application_number": func.coalesce(
                     func.nullif(stmt.excluded.application_number, ""),
-                    FDADrug.application_number
+                    DrugInformation.application_number
                 ),
                 "product_number": func.coalesce(
                     func.nullif(stmt.excluded.product_number, ""),
-                    FDADrug.product_number
+                    DrugInformation.product_number
                 ),
                 "approval_date": func.coalesce(
                     func.nullif(stmt.excluded.approval_date, ""),
-                    FDADrug.approval_date
+                    DrugInformation.approval_date
                 ),
                 "orange_book_code": func.coalesce(
                     func.nullif(stmt.excluded.orange_book_code, ""),
-                    FDADrug.orange_book_code
+                    DrugInformation.orange_book_code
                 ),
                 "reference_listed_drug": func.coalesce(
                     func.nullif(stmt.excluded.reference_listed_drug, ""),
-                    FDADrug.reference_listed_drug
+                    DrugInformation.reference_listed_drug
                 ),
                 "therapeutic_class": func.coalesce(
                     func.nullif(stmt.excluded.therapeutic_class, ""),
-                    FDADrug.therapeutic_class
+                    DrugInformation.therapeutic_class
                 ),
                 "pharmacologic_class": func.coalesce(
                     func.nullif(stmt.excluded.pharmacologic_class, ""),
-                    FDADrug.pharmacologic_class
+                    DrugInformation.pharmacologic_class
                 ),
 
                 # Clinical information fields - always update with new data
@@ -904,57 +909,57 @@ class FDAAPI:
                 "drug_interactions": stmt.excluded.drug_interactions,
                 "indications_and_usage": func.coalesce(
                     func.nullif(stmt.excluded.indications_and_usage, ""),
-                    FDADrug.indications_and_usage
+                    DrugInformation.indications_and_usage
                 ),
                 "dosage_and_administration": func.coalesce(
                     func.nullif(stmt.excluded.dosage_and_administration, ""),
-                    FDADrug.dosage_and_administration
+                    DrugInformation.dosage_and_administration
                 ),
                 "mechanism_of_action": func.coalesce(
                     func.nullif(stmt.excluded.mechanism_of_action, ""),
-                    FDADrug.mechanism_of_action
+                    DrugInformation.mechanism_of_action
                 ),
                 "pharmacokinetics": func.coalesce(
                     func.nullif(stmt.excluded.pharmacokinetics, ""),
-                    FDADrug.pharmacokinetics
+                    DrugInformation.pharmacokinetics
                 ),
                 "pharmacodynamics": func.coalesce(
                     func.nullif(stmt.excluded.pharmacodynamics, ""),
-                    FDADrug.pharmacodynamics
+                    DrugInformation.pharmacodynamics
                 ),
                 
                 # Additional clinical fields - always update with new data if available
                 "boxed_warning": func.coalesce(
                     func.nullif(stmt.excluded.boxed_warning, ""),
-                    FDADrug.boxed_warning
+                    DrugInformation.boxed_warning
                 ),
                 "clinical_studies": func.coalesce(
                     func.nullif(stmt.excluded.clinical_studies, ""),
-                    FDADrug.clinical_studies
+                    DrugInformation.clinical_studies
                 ),
                 "pediatric_use": func.coalesce(
                     func.nullif(stmt.excluded.pediatric_use, ""),
-                    FDADrug.pediatric_use
+                    DrugInformation.pediatric_use
                 ),
                 "geriatric_use": func.coalesce(
                     func.nullif(stmt.excluded.geriatric_use, ""),
-                    FDADrug.geriatric_use
+                    DrugInformation.geriatric_use
                 ),
                 "pregnancy": func.coalesce(
                     func.nullif(stmt.excluded.pregnancy, ""),
-                    FDADrug.pregnancy
+                    DrugInformation.pregnancy
                 ),
                 "nursing_mothers": func.coalesce(
                     func.nullif(stmt.excluded.nursing_mothers, ""),
-                    FDADrug.nursing_mothers
+                    DrugInformation.nursing_mothers
                 ),
                 "overdosage": func.coalesce(
                     func.nullif(stmt.excluded.overdosage, ""),
-                    FDADrug.overdosage
+                    DrugInformation.overdosage
                 ),
                 "nonclinical_toxicology": func.coalesce(
                     func.nullif(stmt.excluded.nonclinical_toxicology, ""),
-                    FDADrug.nonclinical_toxicology
+                    DrugInformation.nonclinical_toxicology
                 ),
 
                 # For arrays, combine unique values
@@ -996,7 +1001,7 @@ class FDAAPI:
         db = self.session_factory()
         try:
             # Check if data already exists
-            count = db.query(func.count(FDADrug.ndc)).scalar()
+            count = db.query(func.count(DrugInformation.ndc)).scalar()
             if count > 0:
                 logger.info(f"FDA data already exists: {count} drugs")
                 return {"status": "already_initialized", "drug_count": count}
@@ -1023,3 +1028,5 @@ class FDAAPI:
             raise
         finally:
             db.close()
+
+

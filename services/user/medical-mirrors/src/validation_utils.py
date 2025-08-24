@@ -44,7 +44,7 @@ class DataValidator:
         },
 
         # FDA Drugs
-        "fda_drugs": {
+        "drug_information": {
             "ndc": 50,
             "dosage_form": 200,
             "route": 200,
@@ -218,15 +218,15 @@ class DataValidator:
 
         # Allow synthetic NDCs (starting with OB_, DF_, etc)
         if ndc_str.startswith(("OB_", "DF_", "DL_")):
-            return cls.validate_string_length(ndc_str, "ndc", "fda_drugs")
+            return cls.validate_string_length(ndc_str, "ndc", "drug_information")
 
         # Real NDC format validation (various formats allowed)
         # Remove hyphens and spaces for validation
         clean_ndc = re.sub(r"[-\s]", "", ndc_str)
         if clean_ndc.isdigit() and len(clean_ndc) >= 10:
-            return cls.validate_string_length(ndc_str, "ndc", "fda_drugs")
+            return cls.validate_string_length(ndc_str, "ndc", "drug_information")
         logger.warning(f"Invalid NDC format: {ndc}")
-        return cls.validate_string_length(ndc_str, "ndc", "fda_drugs")  # Allow but log warning
+        return cls.validate_string_length(ndc_str, "ndc", "drug_information")  # Allow but log warning
 
     @classmethod
     def validate_icd10_code(cls, code: str) -> str | None:

@@ -71,10 +71,16 @@ class ClinicalTrial(Base):  # type: ignore[misc,valid-type]
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class FDADrug(Base):  # type: ignore[misc,valid-type]
-    """FDA drug information table - unified data from all FDA sources"""
+class DrugInformation(Base):  # type: ignore[misc,valid-type]
+    """Drug information table - unified data from all drug sources
+    
+    Includes data from:
+    - FDA sources: NDC Directory, Orange Book, Drugs@FDA, drug labels
+    - NLM RxClass: Therapeutic classifications (EPC, ATC, MoA, PE)
+    - Future sources: DailyMed, drug interaction databases
+    """
 
-    __tablename__ = "fda_drugs"
+    __tablename__ = "drug_information"
 
     ndc = Column(String(50), primary_key=True)  # Real NDC from NDC Directory or synthetic from Orange Book
 
@@ -156,3 +162,5 @@ class UpdateLog(Base):  # type: ignore[misc,valid-type]
     error_message = Column(Text)
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime)
+
+

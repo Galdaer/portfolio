@@ -3,7 +3,7 @@ import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError } fr
 import { parseClinicianQuery } from "../../query-parser.js";
 import { FhirClient } from "../connectors/fhir/FhirClient.js";
 import { ClinicalTrials } from "../connectors/medical/ClinicalTrials.js";
-import { FDA } from "../connectors/medical/FDA.js";
+import { DrugInfo } from "../connectors/medical/DrugInfo.js";
 import { PubMed } from "../connectors/medical/PubMed.js";
 import { ICD10Connector } from "../connectors/medical/ICD10Connector.js";
 import { BillingCodesConnector } from "../connectors/medical/BillingCodesConnector.js";
@@ -19,7 +19,7 @@ export class ToolHandler {
     private cache: CacheManager;
     private pubmedApi: PubMed;
     private trialsApi: ClinicalTrials;
-    private fdaApi: FDA;
+    private drugInfoApi: DrugInfo;
     private icd10Connector: ICD10Connector;
     private billingCodesConnector: BillingCodesConnector;
     private healthInfoConnector: HealthInfoConnector;
@@ -28,13 +28,13 @@ export class ToolHandler {
     private authConfig: AuthConfig;
     private dbManager: DatabaseManager;
 
-    constructor(authConfig: AuthConfig, fhirClient: FhirClient, cache: CacheManager, pubmedApi: PubMed, trialsApi: ClinicalTrials, fdaApi: FDA, dbManager?: DatabaseManager) {
+    constructor(authConfig: AuthConfig, fhirClient: FhirClient, cache: CacheManager, pubmedApi: PubMed, trialsApi: ClinicalTrials, drugInfoApi: DrugInfo, dbManager?: DatabaseManager) {
         this.authConfig = authConfig;
         this.cache = cache;
         this.fhirClient = fhirClient;
         this.pubmedApi = pubmedApi;
         this.trialsApi = trialsApi;
-        this.fdaApi = fdaApi;
+        this.drugInfoApi = drugInfoApi;
         
         // Initialize database manager and new connectors
         this.dbManager = dbManager || DatabaseManager.fromEnvironment();
@@ -77,7 +77,7 @@ export class ToolHandler {
                 case "search-trials":
                     return await this.trialsApi.getTrials(request.params.arguments, this.cache);
                 case "get-drug-info":
-                    return await this.fdaApi.getDrug(request.params.arguments, this.cache);
+                    return await this.drugInfoApi.getDrug(request.params.arguments, this.cache);
                 case "search-icd10":
                     return await this.icd10Connector.searchCodes(request.params.arguments, this.cache);
                 case "search-billing-codes":
@@ -281,7 +281,7 @@ export class ToolHandler {
                     return await this.trialsApi.getTrials(params, this.cache);
                 case 'get-drug-info':
                 case 'search_fda_drugs':
-                    return await this.fdaApi.getDrug(params, this.cache);
+                    return await this.drugInfoApi.getDrug(params, this.cache);
                 case 'get_fhir_patient':
                     return await this.handleFHIRPatientGet(params);
                 case 'search_fhir_resources':

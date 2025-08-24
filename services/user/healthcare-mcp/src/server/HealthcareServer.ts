@@ -2,7 +2,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { FhirClient } from "./connectors/fhir/FhirClient.js";
 import { ClinicalTrials } from "./connectors/medical/ClinicalTrials.js";
-import { FDA } from "./connectors/medical/FDA.js";
+import { DrugInfo } from "./connectors/medical/DrugInfo.js";
 import { PubMed } from "./connectors/medical/PubMed.js";
 import { OllamaHandler } from "./handlers/OllamaHandler.js";
 import { ToolHandler } from "./handlers/ToolHandler.js";
@@ -16,7 +16,7 @@ export class HealthcareServer {
     private cache: CacheManager;
     private pubmedApi: PubMed;
     private trialsApi: ClinicalTrials;
-    private fdaApi: FDA;
+    private drugInfoApi: DrugInfo;
     private ollamaHandler: OllamaHandler;
 
     constructor(
@@ -25,7 +25,7 @@ export class HealthcareServer {
         fhirURL: string,
         pubmedAPIKey?: string,
         trialsAPIKey?: string,
-        fdaAPIKey?: string,
+        drugInfoAPIKey?: string,
         ollamaApiUrl: string = process.env.OLLAMA_URL || "http://172.20.0.10:11434",
         ollamaModel: string = (process.env.OLLAMA_MODEL || "llama3.1:8b")
     ) {
@@ -34,10 +34,10 @@ export class HealthcareServer {
         this.cache = new CacheManager();
         this.pubmedApi = new PubMed(pubmedAPIKey || "optional_for_higher_rate_limits");
         this.trialsApi = new ClinicalTrials(trialsAPIKey);
-        this.fdaApi = new FDA(fdaAPIKey);
+        this.drugInfoApi = new DrugInfo(drugInfoAPIKey);
         this.ollamaHandler = new OllamaHandler(ollamaApiUrl, ollamaModel);
 
-        this.toolHandler = new ToolHandler(authConfig, this.fhirClient, this.cache, this.pubmedApi, this.trialsApi, this.fdaApi);
+        this.toolHandler = new ToolHandler(authConfig, this.fhirClient, this.cache, this.pubmedApi, this.trialsApi, this.drugInfoApi);
 
         this.setupHandlers();
         this.setupErrorHandling();

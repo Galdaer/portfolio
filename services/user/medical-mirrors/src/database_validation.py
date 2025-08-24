@@ -124,68 +124,68 @@ class DatabaseValidator:
         # Required fields
         try:
             validated["ndc"] = DataValidator.validate_required_field(
-                record.get("ndc"), "ndc", "fda_drugs",
+                record.get("ndc"), "ndc", "drug_information",
             )
             validated["ndc"] = DataValidator.validate_ndc(validated["ndc"])
             if not validated["ndc"]:
                 raise ValidationError("Invalid NDC format")
 
             validated["name"] = DataValidator.validate_required_field(
-                record.get("name"), "name", "fda_drugs",
+                record.get("name"), "name", "drug_information",
             )
         except ValidationError:
             raise
 
         # String fields with length limits
         validated["generic_name"] = DataValidator.validate_string_length(
-            record.get("generic_name"), "generic_name", "fda_drugs",
+            record.get("generic_name"), "generic_name", "drug_information",
         )
         validated["brand_name"] = DataValidator.validate_string_length(
-            record.get("brand_name"), "brand_name", "fda_drugs",
+            record.get("brand_name"), "brand_name", "drug_information",
         )
         validated["manufacturer"] = DataValidator.validate_string_length(
-            record.get("manufacturer"), "manufacturer", "fda_drugs",
+            record.get("manufacturer"), "manufacturer", "drug_information",
         )
         validated["applicant"] = DataValidator.validate_string_length(
-            record.get("applicant"), "applicant", "fda_drugs",
+            record.get("applicant"), "applicant", "drug_information",
         )
         validated["strength"] = DataValidator.validate_string_length(
-            record.get("strength"), "strength", "fda_drugs",
+            record.get("strength"), "strength", "drug_information",
         )
         validated["dosage_form"] = DataValidator.validate_string_length(
-            record.get("dosage_form"), "dosage_form", "fda_drugs",
+            record.get("dosage_form"), "dosage_form", "drug_information",
         )
         validated["route"] = DataValidator.validate_string_length(
-            record.get("route"), "route", "fda_drugs",
+            record.get("route"), "route", "drug_information",
         )
         validated["application_number"] = DataValidator.validate_string_length(
-            record.get("application_number"), "application_number", "fda_drugs",
+            record.get("application_number"), "application_number", "drug_information",
         )
         validated["product_number"] = DataValidator.validate_string_length(
-            record.get("product_number"), "product_number", "fda_drugs",
+            record.get("product_number"), "product_number", "drug_information",
         )
         validated["approval_date"] = DataValidator.validate_string_length(
-            record.get("approval_date"), "approval_date", "fda_drugs",
+            record.get("approval_date"), "approval_date", "drug_information",
         )
         validated["orange_book_code"] = DataValidator.validate_string_length(
-            record.get("orange_book_code"), "orange_book_code", "fda_drugs",
+            record.get("orange_book_code"), "orange_book_code", "drug_information",
         )
         validated["reference_listed_drug"] = DataValidator.validate_string_length(
-            record.get("reference_listed_drug"), "reference_listed_drug", "fda_drugs",
+            record.get("reference_listed_drug"), "reference_listed_drug", "drug_information",
         )
         validated["therapeutic_class"] = DataValidator.validate_string_length(
-            record.get("therapeutic_class"), "therapeutic_class", "fda_drugs",
+            record.get("therapeutic_class"), "therapeutic_class", "drug_information",
         )
         validated["pharmacologic_class"] = DataValidator.validate_string_length(
-            record.get("pharmacologic_class"), "pharmacologic_class", "fda_drugs",
+            record.get("pharmacologic_class"), "pharmacologic_class", "drug_information",
         )
 
         # Array fields
         validated["ingredients"] = DataValidator.validate_array_field(
-            record.get("ingredients"), "ingredients", "fda_drugs",
+            record.get("ingredients"), "ingredients", "drug_information",
         )
         validated["data_sources"] = DataValidator.validate_array_field(
-            record.get("data_sources"), "data_sources", "fda_drugs",
+            record.get("data_sources"), "data_sources", "drug_information",
         )
 
         return validated
@@ -325,7 +325,7 @@ def validate_record_for_table(record: dict[str, Any], table_name: str) -> dict[s
             return DatabaseValidator.validate_pubmed_article(record)
         if table_name == "clinical_trials":
             return DatabaseValidator.validate_clinical_trial(record)
-        if table_name == "fda_drugs":
+        if table_name == "drug_information":
             return DatabaseValidator.validate_fda_drug(record)
         if table_name == "icd10_codes":
             return DatabaseValidator.validate_icd10_code(record)
