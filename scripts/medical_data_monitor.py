@@ -23,6 +23,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import signal
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Progress tracking imports
 import psutil

@@ -10,6 +10,10 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add medical-mirrors src to path
 sys.path.append('/home/intelluxe/services/user/medical-mirrors/src')
@@ -114,9 +118,9 @@ async def run_download(args, logger):
         
         try:
             # Run the smart download
-            result = await downloader.download_and_parse_all(
-                max_concurrent=args.max_concurrent,
-                **download_options
+            result = await downloader.download_all_fda_data(
+                force_fresh=args.force_fresh,
+                complete_dataset=True
             )
             
             # Get final status

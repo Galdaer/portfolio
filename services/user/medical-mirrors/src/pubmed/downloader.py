@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 class PubMedDownloader:
     """Downloads PubMed XML data from NCBI FTP"""
 
-    def __init__(self) -> None:
-        self.config = Config()
+    def __init__(self, config=None) -> None:
+        self.config = config or Config()
         self.ftp_host = "ftp.ncbi.nlm.nih.gov"
         self.ftp_path = "/pubmed/baseline/"
         self.update_path = "/pubmed/updatefiles/"

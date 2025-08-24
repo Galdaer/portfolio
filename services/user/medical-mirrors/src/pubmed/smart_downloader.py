@@ -65,7 +65,9 @@ class SmartPubMedDownloader:
         
         # Initialize components
         self.state = PubMedDownloadState()
-        self.downloader = PubMedDownloader()
+        self.downloader = PubMedDownloader(config)
+        # Override downloader's data directory to use our output directory
+        self.downloader.data_dir = str(self.output_dir)
         self.parser = PubMedParser()
         
         # Smart retry configuration
@@ -317,6 +319,42 @@ class SmartPubMedDownloader:
         except Exception as e:
             logger.error(f"Failed to save results: {e}")
             raise
+    
+    async def get_download_status(self) -> Dict[str, Any]:
+        """Get current download status and progress"""
+        # Load saved state if available
+        self._load_state()
+        
+        total_sources = 2  # baseline + updates
+        completed = self.state.successful_sources
+        
+        status = {
+            "timestamp": datetime.now().isoformat(),
+            "progress": {
+                "completed": completed,
+                "total_sources": total_sources,
+                "completion_rate": (completed / total_sources) * 100 if total_sources > 0 else 0
+            },
+            "ready_for_retry": [],
+            "total_articles_downloaded": len(self.all_articles),
+            "next_retry_times": {},
+            "baseline_files": len(self.baseline_files),
+            "update_files": len(self.update_files)
+        }
+        
+        # Check which sources are ready for retry
+        sources = ['pubmed_baseline', 'pubmed_updates']
+        for source in sources:
+            if not self.state.is_rate_limited(source):
+                if self.state.get_daily_retry_count(source) < self.max_daily_retries:
+                    status["ready_for_retry"].append(source)
+            else:
+                # Add retry time for rate-limited sources
+                retry_time = self.state.retry_after.get(source)
+                if retry_time:
+                    status["next_retry_times"][source] = retry_time
+        
+        return status
     
     def _get_summary(self) -> Dict[str, Any]:
         """Get download summary statistics"""

@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 class DrugDownloader:
     """Downloads FDA drug databases"""
 
-    def __init__(self) -> None:
-        self.config = Config()
+    def __init__(self, config=None) -> None:
+        self.config = config or Config()
         self.data_dir = self.config.get_fda_data_dir()
         self.session = httpx.AsyncClient(timeout=60.0)
 

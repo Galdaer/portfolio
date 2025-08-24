@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 class ClinicalTrialsDownloader:
     """Downloads ClinicalTrials.gov study data"""
 
-    def __init__(self) -> None:
-        self.config = Config()
+    def __init__(self, config=None) -> None:
+        self.config = config or Config()
         self.api_base = self.config.CLINICALTRIALS_API
         self.data_dir = self.config.get_trials_data_dir()
         self.session = httpx.AsyncClient(timeout=30.0)

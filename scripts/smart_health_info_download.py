@@ -10,6 +10,10 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add medical-mirrors src to path
 sys.path.append('/home/intelluxe/services/user/medical-mirrors/src')

@@ -10,6 +10,10 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add medical-mirrors src to path
 sys.path.append('/home/intelluxe/services/user/medical-mirrors/src')
@@ -107,9 +111,9 @@ async def run_download(args, logger):
             if not args.baseline_only:
                 logger.info("Phase 1: Downloading baseline PubMed files")
             
-            await downloader.download_and_parse_all(
-                baseline_only=args.baseline_only,
-                max_concurrent=args.max_concurrent
+            result = await downloader.download_all_pubmed_data(
+                force_fresh=args.force_fresh,
+                complete_dataset=True
             )
             
             # Get final status

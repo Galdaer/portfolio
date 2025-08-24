@@ -9,6 +9,10 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add medical-mirrors src to path
 sys.path.append('/home/intelluxe/services/user/medical-mirrors/src')
@@ -29,7 +33,7 @@ async def main():
                        help="Force fresh download (reset all states)")
     parser.add_argument("--verbose", "-v", action="store_true",
                        help="Enable verbose logging")
-    parser.add_argument("--output-dir", type=Path,
+    parser.add_argument("--data-dir", type=Path,
                        default=Path("/home/intelluxe/database/medical_complete/icd10"),
                        help="Output directory for downloaded data")
     
@@ -45,7 +49,7 @@ async def main():
     logger = logging.getLogger(__name__)
     
     # Ensure output directory exists
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    args.data_dir.mkdir(parents=True, exist_ok=True)
     
     try:
         if args.command == "download":
@@ -73,7 +77,7 @@ async def run_download(args, logger):
     """Run smart download of ICD-10 codes"""
     logger.info("Starting smart ICD-10 codes download")
     
-    async with SmartICD10Downloader(output_dir=args.output_dir) as downloader:
+    async with SmartICD10Downloader(output_dir=args.data_dir) as downloader:
         # Show initial status
         initial_status = await downloader.get_download_status()
         logger.info(f"Initial status: {initial_status['progress']['completed']}/"
@@ -141,7 +145,7 @@ async def run_download(args, logger):
                 print(f"  Estimated completion: {completion_estimate['estimated_completion']}")
         
         # Save summary report
-        report_file = args.output_dir / f"download_report_{start_time.strftime('%Y%m%d_%H%M%S')}.json"
+        report_file = args.data_dir / f"download_report_{start_time.strftime('%Y%m%d_%H%M%S')}.json"
         with open(report_file, 'w') as f:
             json.dump({
                 'start_time': start_time.isoformat(),
@@ -157,7 +161,7 @@ async def run_download(args, logger):
 
 async def show_status(args, logger):
     """Show current download status"""
-    async with SmartICD10Downloader(output_dir=args.output_dir) as downloader:
+    async with SmartICD10Downloader(output_dir=args.data_dir) as downloader:
         status = await downloader.get_download_status()
         
         print(json.dumps(status, indent=2, default=str))
@@ -175,7 +179,7 @@ async def reset_downloads(args, logger):
     """Reset all download states"""
     logger.info("Resetting all ICD-10 download states")
     
-    async with SmartICD10Downloader(output_dir=args.output_dir) as downloader:
+    async with SmartICD10Downloader(output_dir=args.data_dir) as downloader:
         downloader._reset_all_states()
         logger.info("All ICD-10 download states have been reset")
         
@@ -189,7 +193,7 @@ async def analyze_codes(args, logger):
     """Analyze downloaded ICD-10 codes"""
     logger.info("Analyzing downloaded ICD-10 codes")
     
-    async with SmartICD10Downloader(output_dir=args.output_dir) as downloader:
+    async with SmartICD10Downloader(output_dir=args.data_dir) as downloader:
         # Load existing codes
         await downloader._load_existing_results()
         
@@ -235,7 +239,7 @@ async def analyze_codes(args, logger):
             print(f"  {category}: {count:,} ({percentage:.1f}%)")
         
         # Save analysis report
-        analysis_file = args.output_dir / f"analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        analysis_file = args.data_dir / f"analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         with open(analysis_file, 'w') as f:
             json.dump(stats, f, indent=2, default=str)
         

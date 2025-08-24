@@ -12,7 +12,7 @@ import time
 import httpx
 
 from .downloader import DrugDownloader
-from .parser import FDAParser
+from .parser import DrugParser
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -67,8 +67,10 @@ class SmartDrugDownloader:
         
         # Initialize components
         self.state = FDADownloadState()
-        self.downloader = DrugDownloader()
-        self.parser = FDAParser()
+        self.downloader = DrugDownloader(config)
+        # Override downloader's data directory to use our output directory
+        self.downloader.data_dir = str(self.output_dir)
+        self.parser = DrugParser()
         
         # Smart retry configuration
         self.retry_interval = 1200  # 20 minutes between retry checks for large downloads
@@ -419,6 +421,41 @@ class SmartDrugDownloader:
         except Exception as e:
             logger.error(f"Failed to save results: {e}")
             raise
+    
+    async def get_download_status(self) -> Dict[str, Any]:
+        """Get current download status and progress"""
+        # Load saved state if available
+        self._load_state()
+        
+        total_sources = len(self.datasets)
+        completed = len(self.state.completed_datasets)
+        
+        status = {
+            "timestamp": datetime.now().isoformat(),
+            "progress": {
+                "completed": completed,
+                "total_sources": total_sources,
+                "completion_rate": (completed / total_sources) * 100 if total_sources > 0 else 0
+            },
+            "ready_for_retry": [],
+            "total_drugs_downloaded": len(self.all_drugs),
+            "next_retry_times": {},
+            "completed_datasets": list(self.state.completed_datasets)
+        }
+        
+        # Check which sources are ready for retry
+        for source in self.datasets.keys():
+            if source not in self.state.completed_datasets:
+                if not self.state.is_rate_limited(source):
+                    if self.state.get_daily_retry_count(source) < self.max_daily_retries:
+                        status["ready_for_retry"].append(source)
+                else:
+                    # Add retry time for rate-limited sources
+                    retry_time = self.state.retry_after.get(source)
+                    if retry_time:
+                        status["next_retry_times"][source] = retry_time
+        
+        return status
     
     def _get_summary(self) -> Dict[str, Any]:
         """Get download summary statistics"""
