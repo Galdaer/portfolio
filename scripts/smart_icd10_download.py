@@ -147,10 +147,10 @@ async def run_download(args, logger):
         
         # Display results
         print("\n" + "="*60)
-        print("SMART ICD-10 CODES DOWNLOAD SUMMARY")
+        print("SMART ICD-10 FILES DOWNLOAD SUMMARY")
         print("="*60)
         print(f"Duration: {(end_time - start_time).total_seconds():.1f} seconds")
-        print(f"Total codes downloaded: {summary['total_codes']:,}")
+        print(f"Total files downloaded: {summary['total_files']:,}")
         print(f"Successful sources: {summary['successful_sources']}")
         print(f"Failed sources: {summary['failed_sources']}")
         print(f"Rate limited sources: {summary['rate_limited_sources']}")
@@ -164,20 +164,20 @@ async def run_download(args, logger):
             print(f"  Actual: {expected_vs_actual.get('actual_total', 0):,}")
             improvement = expected_vs_actual.get('improvement_over_fallback', 0)
             if improvement > 0:
-                print(f"  Improvement: +{improvement:,} codes over fallback")
+                print(f"  Improvement: +{improvement:,} files over fallback")
         
         if summary.get('by_source_breakdown'):
             print(f"\n📁 Breakdown by source:")
             for source, count in summary['by_source_breakdown'].items():
-                print(f"  {source}: {count:,} codes")
+                print(f"  {source}: {count:,} files")
         
-        if summary.get('parser_stats'):
-            stats = summary['parser_stats']
-            print(f"\n🔍 Parser statistics:")
-            print(f"  Processed: {stats.get('processed_codes', 0):,}")
-            print(f"  Validation errors: {stats.get('validation_errors', 0):,}")
-            print(f"  Duplicates removed: {stats.get('duplicates_removed', 0):,}")
-            print(f"  Source conflicts resolved: {stats.get('source_conflicts_resolved', 0):,}")
+        if summary.get('download_stats'):
+            stats = summary['download_stats']
+            print(f"\n📥 Download statistics:")
+            print(f"  Files processed: {stats.get('files_processed', 0):,}")
+            print(f"  Download errors: {stats.get('download_errors', 0):,}")
+            print(f"  Files verified: {stats.get('files_verified', 0):,}")
+            print(f"  Size downloaded: {stats.get('total_size_mb', 0):.1f} MB")
             print(f"  Success rate: {stats.get('success_rate', 0):.1%}")
         
         # Show which sources might need retry
@@ -244,56 +244,47 @@ async def reset_downloads(args, logger):
 
 
 async def analyze_codes(args, logger):
-    """Analyze downloaded ICD-10 codes"""
-    logger.info("Analyzing downloaded ICD-10 codes")
+    """Analyze downloaded ICD-10 files"""
+    logger.info("Analyzing downloaded ICD-10 files")
     
     async with SmartICD10Downloader(output_dir=args.data_dir) as downloader:
-        # Load existing codes
+        # Load existing files
         await downloader._load_existing_results()
         
-        if not downloader.all_codes:
-            print("No ICD-10 codes found. Run download first.")
+        if not downloader.downloaded_files:
+            print("No ICD-10 files found. Run download first.")
             return
         
         # Get detailed statistics
-        stats = await downloader.get_codes_statistics()
+        stats = await downloader.get_file_statistics()
         
         print("\n" + "="*50)
-        print("ICD-10 CODES ANALYSIS")
+        print("ICD-10 FILES ANALYSIS")
         print("="*50)
         
-        print(f"Total codes: {stats['total_codes']:,}")
+        print(f"Total files: {stats['total_files']:,}")
         
         print(f"\n📂 By Source:")
-        for source, count in stats['by_source'].items():
-            percentage = (count / stats['total_codes']) * 100
-            print(f"  {source}: {count:,} ({percentage:.1f}%)")
+        for source, info in stats['by_source'].items():
+            file_size = info.get('size_mb', 0)
+            print(f"  {source}: {info['file_count']:,} files ({file_size:.1f} MB)")
         
-        print(f"\n📊 By Chapter (Top 10):")
-        chapter_items = list(stats['by_chapter'].items())[:10]
-        for chapter, count in chapter_items:
-            percentage = (count / stats['total_codes']) * 100
-            print(f"  {chapter}: {count:,} ({percentage:.1f}%)")
+        print(f"\n📊 File Types:")
+        for file_type, count in stats.get('file_types', {}).items():
+            percentage = (count / stats['total_files']) * 100
+            print(f"  {file_type}: {count:,} ({percentage:.1f}%)")
         
-        print(f"\n💰 Billable vs Non-Billable:")
-        billable = stats['billable_vs_non_billable']
-        total = billable['billable'] + billable['non_billable']
-        print(f"  Billable: {billable['billable']:,} ({billable['billable']/total*100:.1f}%)")
-        print(f"  Non-billable: {billable['non_billable']:,} ({billable['non_billable']/total*100:.1f}%)")
+        print(f"\n📏 File Size Distribution:")
+        for size_range, count in sorted(stats.get('size_distribution', {}).items()):
+            percentage = (count / stats['total_files']) * 100
+            print(f"  {size_range}: {count:,} ({percentage:.1f}%)")
         
-        print(f"\n📏 Code Length Distribution:")
-        for length, count in sorted(stats['code_length_distribution'].items()):
-            percentage = (count / stats['total_codes']) * 100
-            print(f"  {length} characters: {count:,} ({percentage:.1f}%)")
-        
-        print(f"\n🌳 Most Common Categories (Top 10):")
-        category_items = list(stats['most_common_categories'].items())[:10]
-        for category, count in category_items:
-            percentage = (count / stats['total_codes']) * 100
-            print(f"  {category}: {count:,} ({percentage:.1f}%)")
+        print(f"\n📅 Download Timestamps:")
+        for source, timestamp in stats.get('download_times', {}).items():
+            print(f"  {source}: {timestamp}")
         
         # Save analysis report
-        analysis_file = args.data_dir / f"analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        analysis_file = args.data_dir / f"file_analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         with open(analysis_file, 'w') as f:
             json.dump(stats, f, indent=2, default=str)
         

@@ -145,10 +145,10 @@ async def run_download(args, logger):
         
         # Display results
         print("\n" + "="*50)
-        print("SMART BILLING CODES DOWNLOAD SUMMARY")
+        print("SMART BILLING FILES DOWNLOAD SUMMARY")
         print("="*50)
         print(f"Duration: {(end_time - start_time).total_seconds():.1f} seconds")
-        print(f"Total codes downloaded: {summary['total_codes']:,}")
+        print(f"Total files downloaded: {summary['total_files']:,}")
         print(f"Successful sources: {summary['successful_sources']}")
         print(f"Failed sources: {summary['failed_sources']}")
         print(f"Rate limited sources: {summary['rate_limited_sources']}")
@@ -157,15 +157,16 @@ async def run_download(args, logger):
         if summary.get('by_source_breakdown'):
             print(f"\nBreakdown by source:")
             for source, count in summary['by_source_breakdown'].items():
-                print(f"  {source}: {count:,} codes")
+                print(f"  {source}: {count:,} files")
         
-        if summary.get('parser_stats'):
-            stats = summary['parser_stats']
-            print(f"\nParser statistics:")
-            print(f"  Processed: {stats['processed_codes']:,}")
-            print(f"  Validation errors: {stats['validation_errors']:,}")
-            print(f"  Duplicates removed: {stats['duplicates_removed']:,}")
-            print(f"  Success rate: {stats['success_rate']:.1%}")
+        if summary.get('download_stats'):
+            stats = summary['download_stats']
+            print(f"\nDownload statistics:")
+            print(f"  Files processed: {stats.get('files_processed', 0):,}")
+            print(f"  Download errors: {stats.get('download_errors', 0):,}")
+            print(f"  Files verified: {stats.get('files_verified', 0):,}")
+            print(f"  Size downloaded: {stats.get('total_size_mb', 0):.1f} MB")
+            print(f"  Success rate: {stats.get('success_rate', 0):.1%}")
         
         # Show which sources might need retry
         final_status = await downloader.get_download_status()
