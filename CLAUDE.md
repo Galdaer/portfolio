@@ -136,6 +136,10 @@ When working on this codebase, you should PROACTIVELY use the Task tool to invok
 - **InfraSecurityAgent**: Automatically use for PHI protection, security implementations, and HIPAA compliance tasks
 - **ConfigDeployment**: Automatically use for deployment, configuration management, and service setup tasks
 - **LangChainOrchestration**: Automatically use for orchestration layer work and agent routing
+- **TestAutomationAgent**: Automatically use for test writing, test automation, creating unit/integration tests, test coverage, and generating test scenarios
+- **TestOrganizationAgent**: Automatically use for organizing tests, test structure optimization, test refactoring, and test maintenance
+- **HealthcareTestAgent**: Automatically use for HIPAA testing, PHI testing, healthcare compliance, medical workflow testing, and healthcare evaluation
+- **TestMaintenanceAgent**: Automatically use for test failures, flaky tests, test debugging, test optimization, and test performance issues
 
 You should invoke these agents using the Task tool with the appropriate subagent_type parameter rather than attempting complex specialized work directly.
 
@@ -149,6 +153,10 @@ For EVERY user request, analyze if it matches these patterns and automatically i
 4. **Security/PHI** (PHI protection, HIPAA compliance, security, infrastructure) → InfraSecurityAgent
 5. **Configuration/Deployment** (deployment, configuration, service management, .conf files) → ConfigDeployment
 6. **Orchestration** (agent routing, LangChain, orchestrator) → LangChainOrchestration
+7. **Test Creation** (test writing, create tests, test automation, generate tests, test scenarios) → TestAutomationAgent
+8. **Test Organization** (organize tests, test structure, test refactoring, test cleanup, duplicate tests) → TestOrganizationAgent
+9. **Healthcare Testing** (HIPAA testing, PHI testing, compliance tests, medical workflow testing) → HealthcareTestAgent
+10. **Test Issues** (test failures, flaky tests, test debugging, slow tests, test maintenance) → TestMaintenanceAgent
 
 Use the Task tool to invoke agents rather than attempting the work directly when the task complexity warrants specialized knowledge.
 
@@ -188,6 +196,42 @@ You should: Immediately invoke MCPToolDeveloper using Task tool with:
 - subagent_type: "MCPToolDeveloper"
 - description: "Implement MCP tool"
 - prompt: "User needs MCP tool development. Follow healthcare-mcp patterns with database-first approach and API fallback."
+```
+
+**Test Creation:**
+```
+When user asks: "Write tests for the transcription agent" or "Create unit tests"
+You should: Immediately invoke TestAutomationAgent using Task tool with:
+- subagent_type: "TestAutomationAgent"
+- description: "Generate healthcare tests"
+- prompt: "User needs test creation. Generate HIPAA-compliant tests using synthetic PHI-safe data with proper fixtures and healthcare scenarios."
+```
+
+**Test Organization:**
+```
+When user asks: "Organize our test files" or "Clean up duplicate tests"
+You should: Immediately invoke TestOrganizationAgent using Task tool with:
+- subagent_type: "TestOrganizationAgent"
+- description: "Organize test structure"
+- prompt: "User needs test organization. Analyze test structure, remove duplicates, and organize following healthcare testing patterns."
+```
+
+**Healthcare Compliance Testing:**
+```
+When user asks: "Test PHI detection" or "Validate HIPAA compliance"
+You should: Immediately invoke HealthcareTestAgent using Task tool with:
+- subagent_type: "HealthcareTestAgent"
+- description: "Healthcare compliance testing"
+- prompt: "User needs healthcare-specific testing. Create HIPAA compliance tests, PHI detection validation, and medical workflow tests."
+```
+
+**Test Maintenance:**
+```
+When user asks: "Fix failing tests" or "Why are tests flaky?"
+You should: Immediately invoke TestMaintenanceAgent using Task tool with:
+- subagent_type: "TestMaintenanceAgent"
+- description: "Fix test issues"
+- prompt: "User has test reliability issues. Analyze test failures, identify flaky tests, and provide optimization recommendations."
 ```
 
 ## Development Patterns
@@ -322,3 +366,74 @@ Guidelines for efficient and storage-conscious downloads:
 - E2E tests: Full workflow testing
 - Healthcare evaluation tests: AI-specific validation
 - Security tests: PHI detection and encryption
+- Storage Management Scripts
+
+  The Intelluxe AI system has custom storage management scripts:
+  - /home/intelluxe/scripts/cleanup_medical_downloads.py - Removes duplicate uncompressed files (use --dry-run first,
+  then --execute)
+  - /home/intelluxe/scripts/disk_space_monitor.py - Monitors disk usage and provides recommendations
+  - /home/intelluxe/scripts/automated_cleanup.sh - Automated cleanup for cron jobs
+  - /home/intelluxe/scripts/download_utils.py - Utilities to prevent download bloat
+  These scripts recovered 101.7GB by removing duplicate uncompressed PubMed files while preserving compressed versions.
+- Download Best Practices
+
+    CRITICAL for medical data downloads:
+    - NEVER use indent= parameter in json.dump() - causes massive storage bloat
+    - Always keep compressed (.gz) files and remove uncompressed duplicates
+    - Monitor disk space during downloads using check_disk_space() from download_utils.py
+    - PubMed downloads can consume 200GB+ so always check space first
+    - Use streaming parsers for large XML/JSON files to avoid memory issues
+- Medical Data Storage Stats
+
+  Medical data storage requirements (approximate):
+  - PubMed: 115GB compressed (was 217GB with duplicates)
+  - ClinicalTrials: 25GB
+  - FDA: 30GB
+  - Total medical_complete directory: ~172GB after optimization
+  Run python3 scripts/disk_space_monitor.py for current usage
+- Agent Usage Patterns
+
+  Specialized agents in .claude/agents/ for complex tasks:
+  - StorageOptimizationAgent: Use for disk space issues, cleanup, compression
+  - DownloadOrchestrationAgent: Use for bulk downloads, monitoring, bloat prevention
+  - MirrorAgent: Enhanced with storage management patterns
+  - DataConsolidationAgent: Enhanced with filesystem duplicate detection
+  These agents should be invoked automatically via Task tool when keywords are detected.
+- Emergency Storage Commands
+
+  If disk space becomes critical:
+  1. Check usage: df -h /home/intelluxe/database/medical_complete
+  2. Find large files: find /home/intelluxe/database/medical_complete -type f -size +100M -exec ls -lh {} \;
+  3. Run cleanup dry-run: python3 scripts/cleanup_medical_downloads.py /home/intelluxe/database/medical_complete 
+  --dry-run
+  4. Execute cleanup: echo "yes" | python3 scripts/cleanup_medical_downloads.py 
+  /home/intelluxe/database/medical_complete --execute
+  5. Emergency automated cleanup: ./scripts/automated_cleanup.sh --force
+- Cleanup Success Pattern
+
+  Successfully recovered 101.7GB from PubMed directory by:
+  1. Removing pretty printing from all download scripts (indent= parameters)
+  2. Deleting 560 uncompressed XML files that had .gz counterparts
+  3. Preserving all 3,065 compressed files for data integrity
+  4. Creating monitoring and automation tools for future prevention
+  This pattern applies to all medical data directories.
+- Common Storage Issues
+
+  Storage bloat typically comes from:
+  1. Pretty-printed JSON/XML (indent=2 or indent=4 in json.dump)
+  2. Uncompressed files alongside compressed versions
+  3. Temporary download files (.tmp, .partial, .download)
+  4. Old backup files that were never cleaned up
+  Check with: python3 scripts/disk_space_monitor.py --save-report
+- Proactive Storage Monitoring
+
+  Set up weekly automated cleanup (add to crontab):
+  0 2 * * 0 /home/intelluxe/scripts/automated_cleanup.sh --force >> /var/log/medical_cleanup.log 2>&1
+
+  This will run every Sunday at 2 AM and only clean if disk usage > 70%
+- Download Timeout Handling
+  When downloads timeout (like clinical trials after 1 hour):
+  1. Check state file: /home/intelluxe/database/medical_complete/clinicaltrials/download_state.json
+  2. Resume with: python3 scripts/download_full_clinicaltrials.py
+  3. Common timeout causes: Rate limiting, large dataset, network issues
+  4. Adjust timeout in download_all_medical_data.py if needed (currently 2x estimated time)

@@ -25,6 +25,15 @@ New agents for storage optimization and download coordination:
 8. **StorageOptimizationAgent** - Disk space management and storage optimization
 9. **DownloadOrchestrationAgent** - Large-scale download coordination and monitoring
 
+### Testing and Quality Assurance Agents
+
+Specialized agents for comprehensive testing and quality assurance:
+
+10. **TestAutomationAgent** - Intelligent test writing and automation
+11. **TestOrganizationAgent** - Test structure optimization and maintenance  
+12. **HealthcareTestAgent** - HIPAA compliance and healthcare-specific testing
+13. **TestMaintenanceAgent** - Test debugging, optimization, and reliability
+
 ## 1. Healthcare Agent Implementation Agent
 
 Use this agent when implementing new healthcare agents or modifying existing ones.
@@ -541,3 +550,191 @@ Given the success of the recent cleanup work, always consider storage implicatio
 - **Prevent bloat** through proper JSON/XML formatting
 - **Use compression** for large files and archives
 - **Plan for growth** with automated cleanup and monitoring
+
+## 10. TestAutomationAgent
+
+Use this agent for intelligent test writing and automation across healthcare systems.
+
+**Trigger Keywords**: test writing, create tests, test automation, write unit tests, integration tests, test coverage, generate tests, test scenarios, pytest fixtures, mock data
+
+### Key Capabilities:
+- Generate comprehensive healthcare test suites following medical software patterns
+- Create HIPAA-compliant test scenarios with synthetic PHI-safe data
+- Generate pytest fixtures for common healthcare scenarios (patients, encounters, medical data)
+- Create test doubles and mocks for external medical APIs and services
+- Generate security and compliance test cases for PHI handling
+
+### Healthcare Testing Patterns:
+```python
+# Example healthcare pytest fixture generation
+@pytest.fixture
+def sample_patient_encounter():
+    """Generate synthetic patient encounter for testing."""
+    return {
+        "patient_id": "TEST_PT_001",
+        "encounter_id": "ENC_TEST_001", 
+        "chief_complaint": "Routine checkup",
+        "provider": "Dr. Test Provider",
+        "date": "2025-01-01",
+        "phi_safe": True
+    }
+
+# Example agent test generation
+def test_transcription_agent_phi_redaction():
+    """Test transcription agent properly redacts PHI."""
+    agent = TranscriptionAgent()
+    test_input = "Patient John Doe, SSN 123-45-6789"
+    result = agent.process(test_input)
+    
+    assert "123-45-6789" not in result["redacted_text"]
+    assert result["phi_detected"] is True
+    assert result["hipaa_compliant"] is True
+```
+
+## 11. TestOrganizationAgent
+
+Use this agent for test structure optimization and maintenance.
+
+**Trigger Keywords**: organize tests, test structure, test refactoring, test maintenance, test organization, test hierarchy, consolidate tests, test cleanup, duplicate tests, test directory structure
+
+### Key Capabilities:
+- Analyze and optimize test directory structures for healthcare systems
+- Identify and remove redundant test files and scenarios
+- Consolidate related tests into logical healthcare workflow groupings
+- Create test documentation and organization guidelines
+- Optimize test execution order and dependencies for CI/CD
+
+### Test Organization Patterns:
+```bash
+# Recommended healthcare test structure
+tests/
+├── unit/                    # Fast, isolated tests
+│   ├── agents/             # Healthcare agent unit tests
+│   ├── phi_detection/      # PHI detection unit tests
+│   └── medical_data/       # Medical data processing tests
+├── integration/            # Cross-component tests  
+│   ├── workflows/          # Healthcare workflow tests
+│   ├── database/           # Medical database integration
+│   └── api/               # Healthcare API integration
+├── compliance/             # HIPAA and security tests
+│   ├── phi_handling/       # PHI handling compliance
+│   ├── audit_logging/      # Audit trail validation
+│   └── access_control/     # RBAC and permissions
+└── e2e/                   # End-to-end healthcare workflows
+    ├── patient_journey/    # Complete patient workflows
+    └── clinical_workflows/ # Clinical decision support flows
+```
+
+## 12. HealthcareTestAgent
+
+Use this agent for specialized healthcare compliance and clinical testing.
+
+**Trigger Keywords**: HIPAA testing, PHI testing, healthcare compliance, medical workflow testing, clinical testing, healthcare evaluation, compliance tests, PHI detection tests, medical data validation, healthcare security testing, audit trail testing
+
+### Key Capabilities:
+- Generate HIPAA compliance test scenarios and validation
+- Create PHI detection and sanitization test cases
+- Test medical workflow integrity and clinical decision support
+- Validate healthcare AI using DeepEval with clinical scenarios
+- Create audit trail and access control compliance tests
+
+### Healthcare Compliance Testing:
+```python
+# Example PHI detection testing
+@pytest.mark.phi_compliance
+def test_phi_detection_comprehensive():
+    """Test PHI detection across various healthcare scenarios."""
+    phi_detector = PHIDetector()
+    
+    test_cases = [
+        ("Patient: John Doe, DOB: 01/01/1980", True),
+        ("MRN: 12345, Insurance: Blue Cross", True),
+        ("Diabetes management protocol", False),
+        ("Blood pressure medication", False)
+    ]
+    
+    for text, should_detect_phi in test_cases:
+        result = phi_detector.detect(text)
+        assert result.has_phi == should_detect_phi
+        if should_detect_phi:
+            assert result.confidence > 0.8
+            assert len(result.phi_items) > 0
+
+# Example clinical workflow testing  
+@pytest.mark.clinical_workflow
+def test_medication_interaction_detection():
+    """Test clinical decision support for drug interactions."""
+    cds_agent = ClinicalDecisionSupportAgent()
+    
+    # Test known dangerous interaction
+    medications = ["Warfarin", "Aspirin"] 
+    interactions = cds_agent.check_interactions(medications)
+    
+    assert len(interactions) > 0
+    assert interactions[0].severity in ["moderate", "major"]
+    assert "bleeding" in interactions[0].description.lower()
+```
+
+## 13. TestMaintenanceAgent
+
+Use this agent for test debugging, optimization, and reliability improvements.
+
+**Trigger Keywords**: test failures, failing tests, test debugging, test optimization, flaky tests, test performance, broken tests, test maintenance, test reliability, slow tests, test cleanup
+
+### Key Capabilities:
+- Analyze test failures and identify root causes
+- Detect and fix flaky tests that pass/fail inconsistently  
+- Optimize slow-running tests for better CI/CD performance
+- Update tests when healthcare workflows or compliance requirements change
+- Generate test health reports and maintenance recommendations
+
+### Test Maintenance Patterns:
+```python
+# Example flaky test detection
+def analyze_test_reliability(test_history):
+    """Identify unreliable healthcare tests."""
+    flaky_tests = []
+    
+    for test_name, results in test_history.items():
+        recent_runs = results[-20:]  # Last 20 executions
+        failure_rate = sum(1 for r in recent_runs if not r.passed) / len(recent_runs)
+        
+        # Identify inconsistent tests (sometimes pass, sometimes fail)
+        if 0.1 < failure_rate < 0.9:
+            flaky_tests.append({
+                "test": test_name,
+                "failure_rate": failure_rate,
+                "common_errors": extract_common_errors(recent_runs),
+                "suggested_fix": suggest_reliability_fix(test_name, recent_runs)
+            })
+    
+    return sorted(flaky_tests, key=lambda x: x["failure_rate"], reverse=True)
+
+# Example healthcare test updates
+def update_compliance_tests(regulation_changes):
+    """Update tests when HIPAA/compliance requirements change."""
+    affected_tests = find_compliance_tests()
+    
+    for test_file in affected_tests:
+        if requires_phi_update(test_file, regulation_changes):
+            update_phi_test_cases(test_file)
+        if requires_audit_update(test_file, regulation_changes):
+            update_audit_logging_tests(test_file)
+```
+
+### Testing Agent Coordination
+
+The testing agents work together to provide comprehensive test coverage:
+
+- **TestAutomationAgent** → **HealthcareTestAgent**: Generate healthcare-specific test scenarios
+- **TestOrganizationAgent** → **TestMaintenanceAgent**: Organize then maintain test health
+- **HealthcareTestAgent** → **TestMaintenanceAgent**: Compliance tests require ongoing maintenance
+- **TestMaintenanceAgent** → **TestAutomationAgent**: Replace broken tests with new ones
+
+### Testing Best Practices
+
+1. **Healthcare-First Testing**: Always consider PHI, HIPAA, and clinical accuracy
+2. **Synthetic Data**: Use only synthetic, PHI-safe data in all tests
+3. **Compliance Validation**: Include compliance checks in every healthcare workflow test  
+4. **Performance Monitoring**: Track test performance to prevent CI/CD slowdowns
+5. **Regular Maintenance**: Proactively maintain test health rather than reactive fixes
