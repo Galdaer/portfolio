@@ -27,6 +27,24 @@ class Config:
     MYHEALTHFINDER_API: str = "https://healthfinder.gov/developer/api"
     EXERCISEDB_API: str = "https://exercisedb.p.rapidapi.com"
     USDA_FOOD_API: str = "https://api.nal.usda.gov/fdc/v1"
+    
+    # Enhanced Drug Database APIs
+    DAILYMED_API_BASE_URL: str = os.getenv("DAILYMED_API_BASE_URL", "https://dailymed.nlm.nih.gov/dailymed/services")
+    CLINICAL_TRIALS_API_BASE_URL: str = os.getenv("CLINICAL_TRIALS_API_BASE_URL", "https://clinicaltrials.gov/api")
+    OPENFDA_FAERS_API_BASE_URL: str = os.getenv("OPENFDA_FAERS_API_BASE_URL", "https://api.fda.gov/drug/event.json")
+    RXCLASS_API_BASE_URL: str = os.getenv("RXCLASS_API_BASE_URL", "https://rxnav.nlm.nih.gov/REST/rxclass")
+    
+    # DrugCentral PostgreSQL Database Configuration
+    DRUGCENTRAL_DB_HOST: str = os.getenv("DRUGCENTRAL_DB_HOST", "unmtid-dbs.net")
+    DRUGCENTRAL_DB_PORT: int = int(os.getenv("DRUGCENTRAL_DB_PORT", "5433"))
+    DRUGCENTRAL_DB_NAME: str = os.getenv("DRUGCENTRAL_DB_NAME", "drugcentral")
+    DRUGCENTRAL_DB_USER: str = os.getenv("DRUGCENTRAL_DB_USER", "drugman")
+    DRUGCENTRAL_DB_PASSWORD: str = os.getenv("DRUGCENTRAL_DB_PASSWORD", "dosage")
+    
+    # Additional API configurations
+    DRUGCENTRAL_DATA_URL: str = os.getenv("DRUGCENTRAL_DATA_URL", "https://drugcentral.org/download")
+    DDINTER_API_BASE_URL: str = os.getenv("DDINTER_API_BASE_URL", "https://ddinter2.scbdd.com/api")
+    LACTMED_API_BASE_URL: str = os.getenv("LACTMED_API_BASE_URL", "https://eutils.ncbi.nlm.nih.gov/entrez/eutils")
 
     # Update schedules (in seconds)
     PUBMED_UPDATE_INTERVAL: int = 86400  # Daily
@@ -39,6 +57,21 @@ class Config:
     # Rate limiting
     MAX_CONCURRENT_DOWNLOADS: int = 5
     REQUEST_DELAY: float = 0.1  # Seconds between requests
+    
+    # Enhanced Drug API Rate Limiting
+    DAILYMED_RATE_LIMIT: int = int(os.getenv("DAILYMED_RATE_LIMIT", "20"))
+    CLINICAL_TRIALS_RATE_LIMIT: int = int(os.getenv("CLINICAL_TRIALS_RATE_LIMIT", "10"))
+    OPENFDA_RATE_LIMIT: int = int(os.getenv("OPENFDA_RATE_LIMIT", "20"))
+    RXCLASS_RATE_LIMIT: int = int(os.getenv("RXCLASS_RATE_LIMIT", "20"))
+    DDINTER_RATE_LIMIT: int = int(os.getenv("DDINTER_RATE_LIMIT", "5"))
+    LACTMED_RATE_LIMIT: int = int(os.getenv("LACTMED_RATE_LIMIT", "3"))
+    
+    # Global Drug API Configuration
+    DRUG_API_GLOBAL_RATE_LIMIT: int = int(os.getenv("DRUG_API_GLOBAL_RATE_LIMIT", "50"))
+    DRUG_API_RETRY_ATTEMPTS: int = int(os.getenv("DRUG_API_RETRY_ATTEMPTS", "3"))
+    DRUG_API_RETRY_BACKOFF: float = float(os.getenv("DRUG_API_RETRY_BACKOFF", "2"))
+    DRUG_API_TIMEOUT: int = int(os.getenv("DRUG_API_TIMEOUT", "30"))
+    DRUGCENTRAL_UPDATE_FREQUENCY: str = os.getenv("DRUGCENTRAL_UPDATE_FREQUENCY", "monthly")
 
     # Data paths
     DATA_DIR: str = os.getenv("DATA_DIR", "/home/intelluxe/database/medical_complete")
@@ -95,5 +128,53 @@ class Config:
     def get_health_info_data_dir(self) -> str:
         """Get health information data directory"""
         path = f"{self.DATA_DIR}/health_info"
+        os.makedirs(path, exist_ok=True)
+        return path
+    
+    def get_enhanced_drug_data_dir(self) -> str:
+        """Get enhanced drug data directory for new sources"""
+        path = f"{self.DATA_DIR}/enhanced_drug_data"
+        os.makedirs(path, exist_ok=True)
+        return path
+    
+    def get_dailymed_data_dir(self) -> str:
+        """Get DailyMed data directory"""
+        path = f"{self.DATA_DIR}/enhanced_drug_data/dailymed"
+        os.makedirs(path, exist_ok=True)
+        return path
+    
+    def get_clinical_trials_data_dir(self) -> str:
+        """Get ClinicalTrials.gov data directory"""
+        path = f"{self.DATA_DIR}/enhanced_drug_data/clinical_trials"
+        os.makedirs(path, exist_ok=True)
+        return path
+    
+    def get_openfda_faers_data_dir(self) -> str:
+        """Get OpenFDA FAERS data directory"""
+        path = f"{self.DATA_DIR}/enhanced_drug_data/openfda_faers"
+        os.makedirs(path, exist_ok=True)
+        return path
+    
+    def get_rxclass_data_dir(self) -> str:
+        """Get RxClass data directory"""
+        path = f"{self.DATA_DIR}/enhanced_drug_data/rxclass"
+        os.makedirs(path, exist_ok=True)
+        return path
+    
+    def get_drugcentral_data_dir(self) -> str:
+        """Get DrugCentral data directory"""
+        path = f"{self.DATA_DIR}/enhanced_drug_data/drugcentral"
+        os.makedirs(path, exist_ok=True)
+        return path
+    
+    def get_ddinter_data_dir(self) -> str:
+        """Get DDInter 2.0 data directory"""
+        path = f"{self.DATA_DIR}/enhanced_drug_data/ddinter"
+        os.makedirs(path, exist_ok=True)
+        return path
+    
+    def get_lactmed_data_dir(self) -> str:
+        """Get LactMed data directory"""
+        path = f"{self.DATA_DIR}/enhanced_drug_data/lactmed"
         os.makedirs(path, exist_ok=True)
         return path
