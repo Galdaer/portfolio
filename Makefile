@@ -1182,6 +1182,58 @@ test-ai:
 	@echo "🤖  Running healthcare AI evaluation tests"
 	python3 -m pytest tests/test_ai_evaluation.py -v --tb=short
 
+# Comprehensive Test Targets
+test-all:
+	@echo "🧪  Running ALL tests across the entire repository"
+	@echo "   📁 Main test directory..."
+	python3 -m pytest tests/ -v --tb=short
+	@echo "   🏥 Healthcare API tests..."
+	@if [ -d "services/user/healthcare-api/tests" ]; then \
+		cd services/user/healthcare-api && python3 -m pytest tests/ -v --tb=short; \
+	fi
+	@echo "   🔬 Medical mirrors tests..."
+	@if [ -f "services/user/medical-mirrors/test_integration.py" ]; then \
+		cd services/user/medical-mirrors && python3 -m pytest test_*.py -v --tb=short; \
+	fi
+	@echo "   📋 Interface tests..."
+	@if [ -d "interfaces/open_webui" ]; then \
+		cd interfaces/open_webui && python3 -m pytest test_*.py -v --tb=short; \
+	fi
+	@echo "   📥 Download script tests..."
+	@if [ -f "scripts/test_enhanced_drug_sources.py" ]; then \
+		cd scripts && python3 -m pytest test_*.py -v --tb=short; \
+	fi
+
+test-unit:
+	@echo "🧪  Running unit tests (fast, isolated)"
+	@python3 -m pytest tests/ -m "not integration and not e2e" -v --tb=short
+
+test-integration:
+	@echo "🧪  Running integration tests (cross-component)"
+	@python3 -m pytest tests/ -m "integration" -v --tb=short
+
+test-downloads:
+	@echo "📥  Testing download scripts and data processing"
+	@python3 -m pytest tests/downloads/ -v --tb=short
+	@if [ -f "scripts/test_enhanced_drug_sources.py" ]; then \
+		cd scripts && python3 test_enhanced_drug_sources.py; \
+	fi
+
+test-services:
+	@echo "🏥  Running service-specific tests"
+	@echo "   Healthcare API..."
+	@if [ -d "services/user/healthcare-api/tests" ]; then \
+		cd services/user/healthcare-api && python3 -m pytest tests/ -v --tb=short; \
+	fi
+	@echo "   Medical mirrors..."
+	@if [ -f "services/user/medical-mirrors/test_integration.py" ]; then \
+		cd services/user/medical-mirrors && python3 -m pytest test_*.py -v --tb=short; \
+	fi
+	@echo "   MCP pipeline..."
+	@if [ -f "services/user/mcp-pipeline/test_pipeline_connectivity.py" ]; then \
+		cd services/user/mcp-pipeline && python3 test_pipeline_connectivity.py; \
+	fi
+
 test-ai-report:
 	@echo "🤖  Running healthcare AI evaluation with detailed report"
 	python3 -m pytest tests/test_ai_evaluation.py -v --tb=long --capture=no

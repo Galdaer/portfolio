@@ -295,7 +295,10 @@ cd intelluxe-ai
 make dev-setup
 
 # Run tests
-make test
+make test          # Main test suite
+make test-all      # All tests across entire repository
+make test-unit     # Fast unit tests only
+make test-services # Service-specific tests
 
 # Check code quality
 make lint

@@ -1,13 +1,28 @@
 #!/usr/bin/env python3
 """
-Smart Drug Download script - integrates with medical-mirrors system
-Handles rate limits, large file downloads, and state persistence for all drug data sources
+Smart Enhanced Drug Sources Download Script
+Orchestrates all 7 enhanced drug source downloaders for comprehensive pharmaceutical data collection
+
+This script coordinates:
+1. DailyMed API (FDA Drug Labeling)
+2. ClinicalTrials.gov API (Special Populations)
+3. OpenFDA FAERS API (Adverse Events)
+4. RxClass API (Drug Classifications) 
+5. DrugCentral PostgreSQL (MOA/Targets)
+6. DDInter 2.0 (Drug-Drug Interactions)
+7. LactMed NCBI E-utilities (Breastfeeding Safety)
+
+Uses the same configuration and patterns as the medical-mirrors service
+for consistency with the existing database schema and architecture.
 """
 
+import argparse
 import asyncio
 import json
 import logging
+import os
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -16,10 +31,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Add medical-mirrors src to path
-sys.path.append('/home/intelluxe/services/user/medical-mirrors/src')
+medical_mirrors_src = str(Path(__file__).parent.parent / "services/user/medical-mirrors/src")
+if medical_mirrors_src not in sys.path:
+    sys.path.insert(0, medical_mirrors_src)
 
-from drugs.smart_downloader import SmartDrugDownloader
-from config import Config
+try:
+    from enhanced_drug_sources.dailymed_downloader import SmartDailyMedDownloader
+    from enhanced_drug_sources.clinical_trials_downloader import SmartClinicalTrialsDownloader
+    from enhanced_drug_sources.openfda_faers_downloader import SmartOpenFDAFAERSDownloader
+    from enhanced_drug_sources.rxclass_downloader import SmartRxClassDownloader
+    from enhanced_drug_sources.drugcentral_downloader import SmartDrugCentralDownloader
+    from enhanced_drug_sources.ddinter_downloader import SmartDDInterDownloader
+    from enhanced_drug_sources.lactmed_downloader import SmartLactMedDownloader
+    from config import Config
+except ImportError as e:
+    print(f"Failed to import enhanced drug sources modules: {e}")
+    print("Make sure medical-mirrors service is properly installed")
+    print(f"Looking for modules in: {medical_mirrors_src}")
+    sys.exit(1)
+
 
 # Override Config paths for local execution
 class LocalConfig(Config):
@@ -29,272 +59,474 @@ class LocalConfig(Config):
         self.LOGS_DIR = "/home/intelluxe/logs"
 
 
-async def main():
-    """Main entry point for smart drug download"""
-    import argparse
+class EnhancedDrugDownloadState:
+    """State management for enhanced drug downloads"""
     
-    parser = argparse.ArgumentParser(description="Smart Drug Database Downloader")
-    parser.add_argument("command", nargs="?", default="download", 
-                       choices=["download", "status", "reset"],
+    def __init__(self):
+        self.successful_sources = 0
+        self.failed_sources = 0
+        self.rate_limited_sources = 0
+        self.total_files_downloaded = 0
+        self.start_time = None
+        self.end_time = None
+        self.completed_sources = set()
+        self.source_results = {}
+        self.errors = []
+
+
+class SmartEnhancedDrugDownloader:
+    """
+    Orchestrates all enhanced drug source downloads with intelligent coordination.
+    
+    Manages parallel downloads, rate limiting coordination, progress tracking,
+    and error handling across all 7 enhanced pharmaceutical data sources.
+    """
+
+    def __init__(self, custom_data_dir: str = None):
+        # Use medical-mirrors Config for consistency with local paths
+        self.config = LocalConfig()
+        
+        # Allow custom data directory override
+        if custom_data_dir:
+            self.base_data_dir = Path(custom_data_dir)
+            self.base_data_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            self.base_data_dir = Path(self.config.DATA_DIR)
+
+        self.logger = self._setup_logging()
+        self.state = EnhancedDrugDownloadState()
+
+        # Define enhanced drug sources with their characteristics
+        self.enhanced_sources = {
+            "dailymed": {
+                "downloader_class": SmartDailyMedDownloader,
+                "description": "FDA Drug Labeling (special populations)",
+                "priority": 1,
+                "max_concurrent": 3,
+                "estimated_mb": 15,
+                "estimated_minutes": 5,
+            },
+            "clinical_trials": {
+                "downloader_class": SmartClinicalTrialsDownloader,
+                "description": "ClinicalTrials.gov Special Populations",
+                "priority": 2,
+                "max_concurrent": 2,
+                "estimated_mb": 25,
+                "estimated_minutes": 4,
+            },
+            "openfda_faers": {
+                "downloader_class": SmartOpenFDAFAERSDownloader,
+                "description": "OpenFDA FAERS Adverse Events",
+                "priority": 3,
+                "max_concurrent": 2,
+                "estimated_mb": 1,
+                "estimated_minutes": 3,
+            },
+            "rxclass": {
+                "downloader_class": SmartRxClassDownloader,
+                "description": "RxClass Drug Classifications",
+                "priority": 4,
+                "max_concurrent": 3,
+                "estimated_mb": 1,
+                "estimated_minutes": 2,
+            },
+            "drugcentral": {
+                "downloader_class": SmartDrugCentralDownloader,
+                "description": "DrugCentral PostgreSQL (MOA/Targets)",
+                "priority": 5,
+                "max_concurrent": 1,  # Database connection
+                "estimated_mb": 11,
+                "estimated_minutes": 3,
+            },
+            "ddinter": {
+                "downloader_class": SmartDDInterDownloader,
+                "description": "DDInter 2.0 Drug-Drug Interactions",
+                "priority": 6,
+                "max_concurrent": 1,  # Web scraping
+                "estimated_mb": 1,
+                "estimated_minutes": 2,
+            },
+            "lactmed": {
+                "downloader_class": SmartLactMedDownloader,
+                "description": "LactMed Breastfeeding Safety",
+                "priority": 7,
+                "max_concurrent": 1,  # NCBI rate limits
+                "estimated_mb": 1,
+                "estimated_minutes": 2,
+            },
+        }
+
+    def _setup_logging(self) -> logging.Logger:
+        """Setup comprehensive orchestration logging"""
+        logger = logging.getLogger("enhanced_drug_downloader")
+        logger.setLevel(logging.INFO)
+
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_formatter = logging.Formatter(
+            "%(asctime)s - %(levelname)s - %(message)s"
+        )
+        console_handler.setFormatter(console_formatter)
+        logger.addHandler(console_handler)
+
+        # File handler for detailed logs
+        log_dir = self.base_data_dir / "logs"
+        log_dir.mkdir(exist_ok=True)
+        log_file = log_dir / "enhanced_drug_download.log"
+        
+        file_handler = logging.FileHandler(log_file)
+        file_formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
+        )
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
+
+        logger.info(f"Enhanced drug download logging to: {log_file}")
+        return logger
+
+    def estimate_total_requirements(self) -> dict:
+        """Estimate total download requirements for all enhanced sources"""
+        total_mb = sum(source["estimated_mb"] for source in self.enhanced_sources.values())
+        total_minutes_sequential = sum(source["estimated_minutes"] for source in self.enhanced_sources.values())
+        total_minutes_parallel = max(source["estimated_minutes"] for source in self.enhanced_sources.values()) + 5
+
+        return {
+            "total_size_mb": total_mb,
+            "estimated_minutes_sequential": total_minutes_sequential,
+            "estimated_minutes_parallel": total_minutes_parallel,
+            "sources_count": len(self.enhanced_sources),
+            "database_sources": ["drugcentral"],
+            "api_sources": ["dailymed", "clinical_trials", "openfda_faers", "rxclass", "lactmed"],
+            "web_scraping_sources": ["ddinter"],
+        }
+
+    async def download_source(self, source_name: str, source_info: dict, test_drugs: list = None) -> dict:
+        """Download data from a single enhanced drug source"""
+        
+        self.logger.info(f"Starting {source_name}: {source_info['description']}")
+        
+        try:
+            downloader_class = source_info["downloader_class"]
+            max_concurrent = source_info["max_concurrent"]
+            
+            # Use enhanced_drug_data subdirectory for enhanced sources
+            output_dir = self.base_data_dir / "enhanced_drug_data" / source_name
+            
+            async with downloader_class(output_dir=output_dir, config=self.config) as downloader:
+                
+                if source_name == "drugcentral":
+                    # DrugCentral has different interface - downloads all data
+                    await downloader.download_mechanism_of_action_data()
+                    await downloader.download_drug_target_data() 
+                    await downloader.download_pharmacology_data()
+                    result = await downloader.get_download_summary()
+                    
+                elif source_name == "dailymed":
+                    result = await downloader.download_enhanced_drug_labeling(
+                        drug_names=test_drugs,
+                        max_concurrent=max_concurrent
+                    )
+                elif source_name == "clinical_trials":
+                    result = await downloader.download_special_population_studies(
+                        drug_names=test_drugs,
+                        max_concurrent=max_concurrent
+                    )
+                elif source_name == "openfda_faers":
+                    result = await downloader.download_special_population_adverse_events(
+                        drug_names=test_drugs,
+                        max_concurrent=max_concurrent
+                    )
+                elif source_name == "rxclass":
+                    result = await downloader.download_comprehensive_classifications(
+                        drug_names=test_drugs,
+                        max_concurrent=max_concurrent
+                    )
+                elif source_name == "ddinter":
+                    result = await downloader.download_drug_interactions_batch(
+                        drug_names=test_drugs,
+                        max_concurrent=max_concurrent
+                    )
+                elif source_name == "lactmed":
+                    result = await downloader.download_lactation_safety_batch(
+                        drug_names=test_drugs,
+                        max_concurrent=max_concurrent
+                    )
+                else:
+                    raise ValueError(f"Unknown source: {source_name}")
+                
+                files_downloaded = result.get('total_files', 0)
+                success_rate = result.get('success_rate', 0)
+                
+                self.logger.info(f"✅ {source_name}: {files_downloaded} files, {success_rate:.1f}% success")
+                
+                self.state.source_results[source_name] = result
+                self.state.completed_sources.add(source_name)
+                self.state.successful_sources += 1
+                self.state.total_files_downloaded += files_downloaded
+                
+                return result
+                
+        except Exception as e:
+            error_msg = f"Failed to download {source_name}: {e}"
+            self.logger.error(error_msg)
+            self.state.errors.append(error_msg)
+            self.state.failed_sources += 1
+            return {"error": str(e), "total_files": 0, "success_rate": 0}
+
+    async def download_all_enhanced_sources(self,
+                                          selected_sources: list = None,
+                                          parallel: bool = True,
+                                          test_drugs: list = None,
+                                          max_parallel: int = 3) -> dict:
+        """Download all or selected enhanced drug sources"""
+        
+        self.state.start_time = datetime.now()
+        
+        # Use default test drug set if none provided
+        if not test_drugs:
+            test_drugs = [
+                "acetaminophen", "ibuprofen", "aspirin", "metformin", "lisinopril",
+                "omeprazole", "simvastatin", "levothyroxine", "amlodipine", "metoprolol"
+            ]
+        
+        # Determine which sources to download
+        if selected_sources:
+            sources_to_download = {k: v for k, v in self.enhanced_sources.items() 
+                                 if k in selected_sources}
+        else:
+            sources_to_download = self.enhanced_sources
+
+        self.logger.info(f"Starting enhanced drug sources download")
+        self.logger.info(f"Sources: {', '.join(sources_to_download.keys())}")
+        self.logger.info(f"Test drugs: {test_drugs}")
+        self.logger.info(f"Parallel execution: {parallel} (max: {max_parallel})")
+
+        if parallel:
+            # Parallel execution with semaphore
+            semaphore = asyncio.Semaphore(max_parallel)
+            
+            async def download_with_semaphore(source_name, source_info):
+                async with semaphore:
+                    return await self.download_source(source_name, source_info, test_drugs)
+            
+            # Create tasks
+            tasks = [
+                download_with_semaphore(name, info) 
+                for name, info in sources_to_download.items()
+            ]
+            
+            # Execute all downloads
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+        else:
+            # Sequential execution (safer for debugging)
+            for source_name, source_info in sources_to_download.items():
+                await self.download_source(source_name, source_info, test_drugs)
+
+        self.state.end_time = datetime.now()
+        
+        return await self.get_final_summary()
+
+    async def get_final_summary(self) -> dict:
+        """Generate comprehensive final summary"""
+        
+        duration = None
+        if self.state.start_time and self.state.end_time:
+            duration = (self.state.end_time - self.state.start_time).total_seconds()
+
+        # Calculate total file sizes
+        total_size_mb = 0
+        for source_result in self.state.source_results.values():
+            if 'download_stats' in source_result:
+                total_size_mb += source_result['download_stats'].get('total_size_mb', 0)
+
+        return {
+            "summary": {
+                "total_sources": len(self.enhanced_sources),
+                "successful_sources": self.state.successful_sources,
+                "failed_sources": self.state.failed_sources,
+                "success_rate": (self.state.successful_sources / len(self.enhanced_sources)) * 100,
+                "total_files_downloaded": self.state.total_files_downloaded,
+                "total_size_mb": round(total_size_mb, 2),
+                "duration_seconds": round(duration, 1) if duration else None,
+            },
+            "by_source": self.state.source_results,
+            "completed_sources": list(self.state.completed_sources),
+            "errors": self.state.errors,
+            "requirements_met": {
+                "all_sources_attempted": True,
+                "majority_successful": self.state.successful_sources >= (len(self.enhanced_sources) * 0.7),
+                "critical_sources_working": all(s in self.state.completed_sources 
+                                              for s in ["dailymed", "drugcentral"]),
+            }
+        }
+
+    async def get_status(self) -> dict:
+        """Get current download status"""
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "sources_completed": len(self.state.completed_sources),
+            "sources_total": len(self.enhanced_sources),
+            "files_downloaded": self.state.total_files_downloaded,
+            "successful_sources": self.state.successful_sources,
+            "failed_sources": self.state.failed_sources,
+            "errors_count": len(self.state.errors),
+            "currently_running": self.state.start_time is not None and self.state.end_time is None
+        }
+
+
+async def main():
+    """Main entry point for enhanced drug sources download orchestration"""
+    
+    parser = argparse.ArgumentParser(
+        description="Enhanced Drug Sources Download Orchestrator",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s download                    # Download all enhanced drug sources
+  %(prog)s download --sources dailymed,rxclass  # Download specific sources
+  %(prog)s status                      # Show current status
+  %(prog)s test                        # Quick test of all sources
+  
+Enhanced Drug Sources:
+  dailymed         - FDA Drug Labeling (special populations)
+  clinical_trials  - ClinicalTrials.gov Special Populations  
+  openfda_faers    - OpenFDA FAERS Adverse Events
+  rxclass          - RxClass Drug Classifications
+  drugcentral      - DrugCentral PostgreSQL (MOA/Targets)
+  ddinter          - DDInter 2.0 Drug-Drug Interactions
+  lactmed          - LactMed Breastfeeding Safety
+        """
+    )
+    
+    parser.add_argument("command", nargs="?", default="download",
+                       choices=["download", "status", "test", "estimate"],
                        help="Command to execute")
     parser.add_argument("--data-dir", type=Path,
                        default=Path("/home/intelluxe/database/medical_complete"),
                        help="Output directory for downloaded data")
-    parser.add_argument("--force-fresh", action="store_true", 
-                       help="Force fresh download (reset all states)")
+    parser.add_argument("--sources", type=str,
+                       help="Comma-separated list of sources to download")
+    parser.add_argument("--sequential", action="store_true",
+                       help="Download sources sequentially (safer, slower)")
+    parser.add_argument("--max-parallel", type=int, default=3,
+                       help="Maximum parallel downloads")
+    parser.add_argument("--test-drugs", type=str,
+                       help="Comma-separated list of test drugs")
     parser.add_argument("--verbose", "-v", action="store_true",
                        help="Enable verbose logging")
-    parser.add_argument("--fda-only", action="store_true",
-                       help="Download only FDA drug data")
-    parser.add_argument("--rxclass-only", action="store_true",
-                       help="Download only RxClass therapeutic classifications")
-    parser.add_argument("--max-concurrent", type=int, default=5,
-                       help="Maximum concurrent downloads")
     
     args = parser.parse_args()
     
-    # Setup logging
-    log_level = logging.DEBUG if args.verbose else logging.INFO
-    logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    # Setup logging level
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+        
+    # Parse arguments
+    selected_sources = None
+    if args.sources:
+        selected_sources = [s.strip() for s in args.sources.split(",")]
+        
+    test_drugs = None
+    if args.test_drugs:
+        test_drugs = [d.strip() for d in args.test_drugs.split(",")]
     
-    logger = logging.getLogger(__name__)
-    
-    # Ensure output directory exists
-    args.data_dir.mkdir(parents=True, exist_ok=True)
+    # Initialize orchestrator
+    orchestrator = SmartEnhancedDrugDownloader(str(args.data_dir))
     
     try:
-        if args.command == "download":
-            await run_download(args, logger)
-        elif args.command == "status":
-            await show_status(args, logger)
-        elif args.command == "reset":
-            await reset_downloads(args, logger)
+        if args.command == "estimate":
+            # Show requirements estimate
+            requirements = orchestrator.estimate_total_requirements()
+            print("\n📊 Enhanced Drug Sources Requirements Estimate:")
+            print(f"   • Total sources: {requirements['sources_count']}")
+            print(f"   • Estimated size: {requirements['total_size_mb']} MB")
+            print(f"   • Sequential time: {requirements['estimated_minutes_sequential']} minutes")
+            print(f"   • Parallel time: {requirements['estimated_minutes_parallel']} minutes")
+            print(f"   • API sources: {len(requirements['api_sources'])}")
+            print(f"   • Database sources: {len(requirements['database_sources'])}")
+            print(f"   • Web scraping sources: {len(requirements['web_scraping_sources'])}")
             
-    except KeyboardInterrupt:
-        logger.info("Operation cancelled by user")
-        sys.exit(0)
-    except Exception as e:
-        logger.error(f"Error: {e}")
-        if args.verbose:
-            logger.exception("Full traceback:")
-        sys.exit(1)
-
-
-async def run_download(args, logger):
-    """Run smart download of drug data from all sources"""
-    logger.info("Starting smart drug database download (FDA + RxClass)")
-    
-    local_config = LocalConfig()
-    async with SmartDrugDownloader(output_dir=args.data_dir, config=local_config) as downloader:
-        # Show initial status
-        initial_status = await downloader.get_download_status()
-        logger.info(f"Initial status: {initial_status['progress']['completed']}/"
-                   f"{initial_status['progress']['total_sources']} sources completed")
-        
-        if initial_status.get('ready_for_retry'):
-            logger.info("Previous failed downloads detected - resuming with smart retry")
-        
-        if args.force_fresh:
-            logger.info("Force fresh download requested - clearing all state")
-            await downloader.reset_download_state()
-        
-        # Configure download scope
-        sources = None
-        if args.fda_only:
-            sources = ['fda']
-            logger.info("Downloading FDA drug data only")
-        elif args.rxclass_only:
-            sources = ['rxclass']
-            logger.info("Downloading RxClass therapeutic classifications only")
-        else:
-            logger.info("Downloading complete drug databases (FDA + RxClass)")
-        
-        # Start the download process
-        logger.info("Beginning smart download process...")
-        start_time = datetime.now()
-        
-        try:
-            # Run the unified smart download
-            result = await downloader.download_all_drug_data(
-                force_fresh=args.force_fresh,
-                complete_dataset=True,
-                sources=sources
+        elif args.command == "status":
+            # Show current status
+            status = await orchestrator.get_status()
+            print(f"\n📈 Enhanced Drug Sources Status:")
+            print(f"   • Sources completed: {status['sources_completed']}/{status['sources_total']}")
+            print(f"   • Files downloaded: {status['files_downloaded']}")
+            print(f"   • Successful sources: {status['successful_sources']}")
+            print(f"   • Failed sources: {status['failed_sources']}")
+            print(f"   • Currently running: {status['currently_running']}")
+            
+        elif args.command == "test":
+            # Quick test with minimal data
+            test_drugs = ["aspirin", "ibuprofen", "acetaminophen"]
+            print(f"\n🧪 Testing all enhanced drug sources with drugs: {test_drugs}")
+            
+            result = await orchestrator.download_all_enhanced_sources(
+                selected_sources=selected_sources,
+                parallel=not args.sequential,
+                test_drugs=test_drugs,
+                max_parallel=args.max_parallel
             )
             
-            # Get final status
-            final_status = await downloader.get_download_status()
-            duration = datetime.now() - start_time
+            summary = result["summary"]
+            print(f"\n📊 Test Results Summary:")
+            print(f"   • Sources tested: {summary['total_sources']}")
+            print(f"   • Successful: {summary['successful_sources']}")
+            print(f"   • Failed: {summary['failed_sources']}")
+            print(f"   • Success rate: {summary['success_rate']:.1f}%")
+            print(f"   • Files downloaded: {summary['total_files_downloaded']}")
+            print(f"   • Total size: {summary['total_size_mb']} MB")
+            if summary['duration_seconds']:
+                print(f"   • Duration: {summary['duration_seconds']:.1f} seconds")
             
-            logger.info("✅ Drug download completed successfully!")
-            logger.info(f"   Sources processed: {result.get('total_sources_processed', 0)}")
-            logger.info(f"   Drugs processed: {result.get('total_drugs_processed', 0)}")
-            logger.info(f"   Success rate: {result.get('success_rate', 0):.1f}%")
-            logger.info(f"   Total duration: {duration}")
+        else:
+            # Full download
+            print("\n🚀 Starting Enhanced Drug Sources Download...")
             
-            # Save final state
-            state_file = args.data_dir / "drug_download_state.json"
-            with open(state_file, 'w') as f:
-                json.dump({
-                    'completion_time': datetime.now().isoformat(),
-                    'total_drugs': result.get('total_drugs_processed', 0),
-                    'duration_seconds': duration.total_seconds(),
-                    'final_status': final_status,
-                    'download_result': result
-                }, f, indent=2)
+            result = await orchestrator.download_all_enhanced_sources(
+                selected_sources=selected_sources,
+                parallel=not args.sequential,
+                test_drugs=test_drugs,
+                max_parallel=args.max_parallel
+            )
             
-            logger.info(f"Download state saved to: {state_file}")
+            summary = result["summary"]
+            print(f"\n🎉 Download Complete!")
+            print(f"   • Total sources: {summary['total_sources']}")
+            print(f"   • Successful: {summary['successful_sources']}")
+            print(f"   • Failed: {summary['failed_sources']}")
+            print(f"   • Success rate: {summary['success_rate']:.1f}%")
+            print(f"   • Total files: {summary['total_files_downloaded']}")
+            print(f"   • Total size: {summary['total_size_mb']} MB")
+            if summary['duration_seconds']:
+                print(f"   • Duration: {summary['duration_seconds']:.1f} seconds")
             
-        except KeyboardInterrupt:
-            # Handle graceful shutdown on interrupt
-            duration = datetime.now() - start_time
-            logger.warning("⚠️  Download interrupted by user")
+            # Show any errors
+            if result["errors"]:
+                print(f"\n❌ Errors encountered:")
+                for error in result["errors"]:
+                    print(f"   • {error}")
             
-            try:
-                partial_status = await downloader.get_download_status()
-                logger.info(f"   Sources completed: {partial_status['progress']['completed']}")
-            except Exception:
-                logger.info("   Partial progress information unavailable")
-            
-            logger.info(f"   Time elapsed: {duration}")
-            
-            # Save interrupt state for resume
-            interrupt_file = args.data_dir / "drug_download_interrupted.json"
-            interrupt_info = {
-                'interrupt_time': datetime.now().isoformat(),
-                'duration_seconds': duration.total_seconds(),
-            }
-            
-            try:
-                interrupt_info['state'] = await downloader.get_download_status()
-            except Exception:
-                interrupt_info['state'] = 'unavailable'
-            
-            with open(interrupt_file, 'w') as f:
-                json.dump(interrupt_info, f, indent=2)
-            
-            logger.info(f"📁 Interrupted state saved to: {interrupt_file}")
-            logger.info("💡 Resume with the same command - download will continue from last checkpoint")
-            
-            # Exit cleanly
-            raise
-            
-        except Exception as e:
-            logger.error(f"Download failed: {e}")
-            
-            # Save error state for analysis
-            error_file = args.data_dir / "drug_download_errors.json"
-            try:
-                partial_status = await downloader.get_download_status()
-            except Exception:
-                partial_status = {"error": "Failed to get status"}
+            # Determine exit code
+            requirements_met = result["requirements_met"]
+            if requirements_met["majority_successful"] and requirements_met["critical_sources_working"]:
+                print(f"\n✅ Enhanced drug sources download completed successfully!")
+                return 0
+            else:
+                print(f"\n⚠️  Enhanced drug sources download completed with issues.")
+                return 1
                 
-            error_info = {
-                'error_time': datetime.now().isoformat(),
-                'error_message': str(e),
-                'partial_status': partial_status
-            }
-            
-            with open(error_file, 'w') as f:
-                json.dump(error_info, f, indent=2)
-            
-            logger.info(f"Error state saved to: {error_file}")
-            logger.info("You can resume the download later using the same command")
-            raise
-
-
-async def show_status(args, logger):
-    """Show current download status"""
-    logger.info("Checking drug download status")
-    
-    local_config = LocalConfig()
-    async with SmartDrugDownloader(output_dir=args.data_dir, config=local_config) as downloader:
-        status = await downloader.get_download_status()
+    except KeyboardInterrupt:
+        print(f"\n⏹️  Download interrupted by user")
+        return 130
         
-        print(f"\n📊 Drug Database Download Status")
-        print(f"   Output directory: {args.data_dir}")
-        print(f"   Progress: {status['progress']['completed']}/{status['progress']['total_sources']} sources")
-        print(f"   Completion rate: {status['progress']['completion_rate']:.1f}%")
-        print(f"   Total drugs processed: {status.get('total_drugs_processed', 0)}")
-        
-        if status.get('ready_for_retry'):
-            print(f"   ⚠️  Ready for retry: {len(status['ready_for_retry'])} sources")
-        
-        if status.get('next_retry_times'):
-            print(f"   🚫 Rate limited sources: {len(status['next_retry_times'])}")
-        
-        # Show source-specific details
-        source_details = status.get('source_details', {})
-        if source_details:
-            print(f"\n📋 Source Details:")
-            for source_name, source_status in source_details.items():
-                print(f"   {source_name.upper()}:")
-                if 'progress' in source_status:
-                    source_progress = source_status['progress']
-                    print(f"     Progress: {source_progress.get('completed', 0)}/{source_progress.get('total_sources', 0)}")
-                    print(f"     Completion: {source_progress.get('completion_rate', 0):.1f}%")
-        
-        # Check for downloaded files
-        data_files = []
-        for pattern in ["**/*.json", "**/*.zip", "**/*.txt", "**/*.csv"]:
-            data_files.extend(args.data_dir.glob(pattern))
-        
-        if data_files:
-            total_size = sum(f.stat().st_size for f in data_files) / (1024 * 1024)  # MB
-            print(f"   💾 Downloaded files: {len(data_files)} ({total_size:.1f} MB)")
-        
-        # Check for state files
-        state_file = args.data_dir / "drug_download_state.json"
-        error_file = args.data_dir / "drug_download_errors.json"
-        
-        if state_file.exists():
-            with open(state_file) as f:
-                state_data = json.load(f)
-            print(f"   ✅ Last completion: {state_data.get('completion_time', 'Unknown')}")
-            print(f"   📈 Last run drugs: {state_data.get('total_drugs', 0)}")
-        
-        if error_file.exists():
-            with open(error_file) as f:
-                error_data = json.load(f)
-            print(f"   ❌ Last error: {error_data.get('error_time', 'Unknown')}")
-            print(f"   💾 Error message: {error_data.get('error_message', 'Unknown')}")
-
-
-async def reset_downloads(args, logger):
-    """Reset download state and start fresh"""
-    logger.info("Resetting drug download state")
-    
-    local_config = LocalConfig()
-    async with SmartDrugDownloader(output_dir=args.data_dir, config=local_config) as downloader:
-        await downloader.reset_download_state()
-        
-        # Remove state files
-        state_files = [
-            args.data_dir / "drug_download_state.json",
-            args.data_dir / "drug_download_errors.json",
-            args.data_dir / "drug_download_interrupted.json"
-        ]
-        
-        for state_file in state_files:
-            if state_file.exists():
-                state_file.unlink()
-                logger.info(f"Removed: {state_file}")
-        
-        # Optionally remove downloaded data files
-        response = input("Remove all downloaded drug data files? [y/N]: ")
-        if response.lower() in ['y', 'yes']:
-            patterns = ["**/*.json", "**/*.zip", "**/*.txt", "**/*.csv"]
-            for pattern in patterns:
-                data_files = list(args.data_dir.glob(pattern))
-                for data_file in data_files:
-                    if data_file.name not in ['drug_download_state.json', 'drug_download_errors.json']:
-                        data_file.unlink()
-                        logger.info(f"Removed: {data_file}")
-        
-        logger.info("✅ Drug download state reset - ready for fresh download")
+    except Exception as e:
+        print(f"\n❌ Download failed with error: {e}")
+        orchestrator.logger.error(f"Fatal error: {e}", exc_info=True)
+        return 1
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    exit_code = asyncio.run(main())
+    sys.exit(exit_code)
