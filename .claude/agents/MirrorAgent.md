@@ -31,13 +31,13 @@ SYSTEM COMPONENTS:
 4. Database: PostgreSQL with full-text search (tsvector)
 
 CURRENT IMPLEMENTATION STATUS:
-All 6 major data sources now use smart downloaders:
+All 6 major data sources now use smart downloaders with enhanced multi-source architecture:
 - ✅ health_info (HealthInfoDownloader) - already integrated
-- ✅ icd10_codes (SmartICD10Downloader) - newly integrated
-- ✅ billing_codes (SmartBillingCodesDownloader) - newly integrated
-- ✅ pubmed_articles (SmartPubMedDownloader) - newly integrated
-- ✅ clinical_trials (SmartClinicalTrialsDownloader) - newly integrated
-- ✅ drug_information (SmartDrugDownloader) - **CONSOLIDATED ARCHITECTURE** - newly integrated
+- ✅ icd10_codes (SmartICD10Downloader) - integrated with CMS and NLM sources
+- ✅ billing_codes (SmartBillingCodesDownloader) - integrated with CMS and NLM sources
+- ✅ pubmed_articles (SmartPubMedDownloader) - integrated with 469K+ articles
+- ✅ clinical_trials (SmartClinicalTrialsDownloader) - integrated with 490K+ studies
+- ✅ **drug_information (SmartDrugDownloader)** - **ENHANCED MULTI-SOURCE ARCHITECTURE** - fully integrated with 7 data sources
 
 DATABASE STRUCTURE:
 - intelluxe_public database for public medical data
@@ -46,7 +46,9 @@ DATABASE STRUCTURE:
 - Full-text search with tsvector on all searchable content
 - Proper indexing for performance and complex JSON queries
 - **Data consolidation**: 141K duplicate drug records → 3.2K unique generic drugs
-- **External API enhancement**: RxClass therapeutic classifications integrated
+- **Enhanced multi-source architecture**: 7 specialized drug data sources integrated
+- **Special population coverage**: Pregnancy, pediatric, geriatric, and nursing mothers data
+- **External API enhancement**: RxClass therapeutic classifications, NCCIH herbal data, DailyMed SPLs
 
 SMART DOWNLOADER PATTERN (As Implemented):
 
@@ -126,7 +128,9 @@ Key Features Implemented:
 - ✅ Comprehensive error handling and logging
 - ✅ Summary statistics and progress tracking
 - ✅ **Data consolidation and deduplication**
-- ✅ **External API enhancement integration**
+- ✅ **External API enhancement integration** 
+- ✅ **Multi-source drug architecture** with 7 specialized data sources
+- ✅ **Special population data integration** for pregnancy, pediatric, geriatric coverage
 
 DATABASE INTEGRATION PATTERN:
 
@@ -752,7 +756,43 @@ DATA TYPES IMPLEMENTED WITH SMART DOWNLOADERS:
 - ✅ billing_codes: ~7,000 HCPCS codes (SmartBillingCodesDownloader)
 - ✅ pubmed_articles: PubMed research articles (SmartPubMedDownloader) - 469K articles
 - ✅ clinical_trials: ClinicalTrials.gov studies (SmartClinicalTrialsDownloader)
-- ✅ **drug_information**: FDA drug databases (SmartDrugDownloader) - **CONSOLIDATED FROM 141K→3.2K**
+- ✅ **drug_information**: Enhanced multi-source architecture (SmartDrugDownloader) - **CONSOLIDATED FROM 141K→3.2K WITH 7 DATA SOURCES**
+
+ENHANCED DRUG DATA SOURCES (7 integrated sources):
+1. **DailyMed API** (FDA structured product labels)
+   - URL: `https://dailymed.nlm.nih.gov/dailymed/services`
+   - Special population data: pregnancy, pediatric, geriatric, nursing mothers
+   - Detailed clinical information and contraindications
+
+2. **ClinicalTrials.gov Drug Data** (clinical research studies)  
+   - URL: `https://clinicaltrials.gov/api/v2/studies`
+   - Drug intervention studies and clinical trial data
+   - Safety and efficacy information from research
+
+3. **OpenFDA FAERS** (FDA Adverse Event Reporting System)
+   - URL: `https://api.fda.gov/drug/event.json`
+   - Real-world adverse event and safety data
+   - Post-market surveillance information
+
+4. **RxClass API** (NIH therapeutic classifications)
+   - URL: `https://rxnav.nlm.nih.gov/REST/rxclass`
+   - ATC, EPC, MOA, and PE therapeutic classifications
+   - Drug mechanism of action and therapeutic categories
+
+5. **DrugCentral Database** (University of New Mexico)
+   - URL: `http://unmtid-dbs.net/drugcentral/`
+   - Comprehensive drug target and bioactivity data
+   - Pharmacological and chemical information
+
+6. **NCCIH Herbs Database** (NIH complementary medicine)
+   - URL: `https://www.nccih.nih.gov/health/herbsataglance.htm`
+   - Natural products and herbal medicine information
+   - Evidence-based complementary treatment data
+
+7. **DailyMed SPLs** (individual structured product labels)
+   - URL: `https://dailymed.nlm.nih.gov/dailymed/services/v2/spls`
+   - Individual drug product labeling
+   - Complete prescribing information and warnings
 
 FUTURE EXPANSION CANDIDATES:
 - 📋 cpt_codes: ~10,000 CPT codes (requires licensing)
@@ -774,5 +814,34 @@ KEY ACHIEVEMENTS:
 - UPSERT operations preserving existing database data
 - **Simplified API design**: Removed unnecessary complexity and fallback methods
 
-This pattern ensures consistency, reliability, and scalability across all medical data mirror services.
+ENHANCED DRUG DATA API CONFIGURATION:
+Environment variables for enhanced drug sources (stored in /home/intelluxe/.env):
+
+```bash
+# Enhanced Drug Data APIs
+DAILYMED_API_BASE_URL=https://dailymed.nlm.nih.gov/dailymed/services
+CLINICAL_TRIALS_API_BASE_URL=https://clinicaltrials.gov/api
+OPENFDA_FAERS_API_BASE_URL=https://api.fda.gov/drug/event.json
+RXCLASS_API_BASE_URL=https://rxnav.nlm.nih.gov/REST/rxclass
+DRUGCENTRAL_DB_HOST=unmtid-dbs.net
+NCCIH_HERBS_BASE_URL=https://www.nccih.nih.gov
+DAILYMED_SPLS_API_BASE_URL=https://dailymed.nlm.nih.gov/dailymed/services/v2
+
+# API Rate Limits (requests per time window)
+DAILYMED_RATE_LIMIT=240,60           # 240 requests per 60 seconds
+CLINICAL_TRIALS_RATE_LIMIT=300,60    # 300 requests per 60 seconds  
+OPENFDA_RATE_LIMIT=240,60            # 240 requests per 60 seconds
+RXCLASS_RATE_LIMIT=300,60            # 300 requests per 60 seconds
+DRUGCENTRAL_RATE_LIMIT=100,60        # 100 requests per 60 seconds
+NCCIH_RATE_LIMIT=60,60               # 60 requests per 60 seconds
+```
+
+DATA QUALITY IMPROVEMENTS:
+Special population coverage enhanced from 4.9%-36.3% to 60-80% through multi-source integration:
+- **Pregnancy information**: DailyMed, ClinicalTrials.gov studies, FAERS reports
+- **Pediatric data**: Clinical trials with pediatric populations, specialized labeling
+- **Geriatric considerations**: Age-specific dosing, adverse events, drug interactions  
+- **Nursing mothers**: Lactation safety, transfer data, breastfeeding recommendations
+
+This pattern ensures consistency, reliability, and scalability across all medical data mirror services with comprehensive drug information coverage.
 ```

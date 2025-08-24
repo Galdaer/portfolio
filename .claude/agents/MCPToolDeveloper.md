@@ -32,8 +32,8 @@ MCP SERVER STRUCTURE:
 CURRENT DATA SOURCES (PostgreSQL + API):
 - PubMed: Medical literature (pubmed_articles table)
 - ClinicalTrials: Clinical studies (clinical_trials table)
-- FDA: Drug information (fda_drugs table)
-- ICD-10: Diagnostic codes (icd10_codes table)
+- **Enhanced Drug Information**: Consolidated drug data with 7 sources (drug_information table)
+- ICD-10: Diagnostic codes (icd10_codes table)  
 - HCPCS: Billing codes (billing_codes table)
 - Health Topics: Patient education (health_topics table)
 - Exercises: Physical therapy data (exercises table)
@@ -172,8 +172,37 @@ export class YourConnector {
         }));
     }
 
+    // Example for enhanced drug information queries
+    private async searchDrugDatabase(query: string, maxResults: number): Promise<any[]> {
+        const drugSearchQuery = `
+            SELECT id, generic_name, brand_names, therapeutic_class,
+                   indications_and_usage, formulations,
+                   ts_rank_cd(search_vector, plainto_tsquery('english', $1)) as rank
+            FROM drug_information
+            WHERE search_vector @@ plainto_tsquery('english', $1)
+               OR generic_name ILIKE $2
+               OR $2 = ANY(brand_names)
+            ORDER BY rank DESC, generic_name
+            LIMIT $3
+        `;
+        
+        const searchTerm = `%${query}%`;
+        const result = await this.dbManager.query(drugSearchQuery, [query, searchTerm, maxResults]);
+        
+        return result.rows.map(row => ({
+            id: row.id,
+            generic_name: row.generic_name,
+            brand_names: row.brand_names,
+            therapeutic_class: row.therapeutic_class,
+            indications: row.indications_and_usage,
+            formulations: row.formulations
+        }));
+    }
+
     private async searchExternalAPI(query: string, maxResults: number): Promise<any[]> {
-        // External API implementation
+        // External API implementation with enhanced drug data fallback
+        // Enhanced drug APIs provide better coverage with 7 sources:
+        // DailyMed, ClinicalTrials.gov, OpenFDA FAERS, RxClass, DrugCentral, NCCIH, SPLs
         // Return structured data similar to database format
     }
 
