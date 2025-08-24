@@ -5,7 +5,7 @@ Database configuration and models for medical mirrors
 import os
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text, create_engine
 from sqlalchemy.dialects.postgresql import ARRAY, JSON, TSVECTOR
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
@@ -71,8 +71,8 @@ class ClinicalTrial(Base):  # type: ignore[misc,valid-type]
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class DrugInformation(Base):  # type: ignore[misc,valid-type]
-    """Drug information table - unified data from all drug sources
+class DrugInformationDetail(Base):  # type: ignore[misc,valid-type]
+    """Detailed drug information table - all original records from sources
     
     Includes data from:
     - FDA sources: NDC Directory, Orange Book, Drugs@FDA, drug labels
@@ -80,7 +80,7 @@ class DrugInformation(Base):  # type: ignore[misc,valid-type]
     - Future sources: DailyMed, drug interaction databases
     """
 
-    __tablename__ = "drug_information"
+    __tablename__ = "drug_information_old"
 
     ndc = Column(String(50), primary_key=True)  # Real NDC from NDC Directory or synthetic from Orange Book
 
@@ -147,6 +147,64 @@ class DrugInformation(Base):  # type: ignore[misc,valid-type]
     search_vector = Column(TSVECTOR)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class DrugInformation(Base):  # type: ignore[misc,valid-type]
+    """Consolidated drug information table - single record per generic drug
+    
+    This table consolidates the 141K drug_information records into ~20K unique
+    generic drugs, solving the massive duplication problem while preserving
+    all formulation details in structured format.
+    """
+    
+    __tablename__ = "drug_information"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    generic_name = Column(Text, nullable=False, unique=True)  # Normalized generic name
+    
+    # Aggregated product variations
+    brand_names = Column(ARRAY(String), default=[])  # All brand names for this generic
+    manufacturers = Column(ARRAY(String), default=[])  # All manufacturers
+    formulations = Column(JSON, default=[])  # [{strength, dosage_form, route, ndc, brand_name, manufacturer}]
+    
+    # Consolidated clinical information (single authoritative values)
+    therapeutic_class = Column(Text)  # Most common/authoritative value
+    indications_and_usage = Column(Text)  # Longest/most complete version
+    mechanism_of_action = Column(Text)  # Longest/most complete version
+    contraindications = Column(ARRAY(String), default=[])  # Merged unique values
+    warnings = Column(ARRAY(String), default=[])  # Merged unique values
+    precautions = Column(ARRAY(String), default=[])  # Merged unique values
+    adverse_reactions = Column(ARRAY(String), default=[])  # Merged unique values
+    drug_interactions = Column(JSON, default={})  # Merged interaction data
+    
+    # Additional clinical fields (consolidated)
+    dosage_and_administration = Column(Text)
+    pharmacokinetics = Column(Text)
+    pharmacodynamics = Column(Text)
+    boxed_warning = Column(Text)
+    clinical_studies = Column(Text)
+    pediatric_use = Column(Text)
+    geriatric_use = Column(Text)
+    pregnancy = Column(Text)
+    nursing_mothers = Column(Text)
+    overdosage = Column(Text)
+    nonclinical_toxicology = Column(Text)
+    
+    # Regulatory information (aggregated)
+    approval_dates = Column(ARRAY(String), default=[])  # All approval dates found
+    orange_book_codes = Column(ARRAY(String), default=[])  # All therapeutic equivalence codes
+    application_numbers = Column(ARRAY(String), default=[])  # All FDA application numbers
+    
+    # Metadata and quality metrics
+    total_formulations = Column(Integer, default=0)
+    data_sources = Column(ARRAY(String), default=[])  # All contributing sources
+    confidence_score = Column(Float, default=0.0)  # Quality metric (0.0-1.0)
+    has_clinical_data = Column(Boolean, default=False)  # Boolean for clinical data availability
+    
+    # Search and timestamps
+    search_vector = Column(TSVECTOR)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class UpdateLog(Base):  # type: ignore[misc,valid-type]

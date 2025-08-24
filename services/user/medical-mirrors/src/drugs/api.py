@@ -19,7 +19,7 @@ from sqlalchemy import func, text, String
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
-from database import DrugInformation, UpdateLog
+from database import DrugInformation, DrugInformationDetail, UpdateLog
 
 from .downloader import DrugDownloader
 from .parser import DrugParser
@@ -62,16 +62,119 @@ class DrugAPI:
         max_results: int = 10,
     ) -> list[dict[str, Any]]:
         """
-        Search FDA drugs in local database
+        Search drug information in consolidated database (preferred) or detailed database (fallback)
         Matches the interface of Healthcare MCP get-drug-info tool
         """
         logger.info(
-            f"Searching FDA drugs for generic_name: {generic_name}, ndc: {ndc}, max_results: {max_results}",
+            f"Searching drug information for generic_name: {generic_name}, ndc: {ndc}, max_results: {max_results}",
         )
+
+        # Try consolidated data first (much more efficient and cleaner)
+        if generic_name:
+            consolidated_results = await self.search_consolidated_drugs(generic_name, max_results)
+            if consolidated_results:
+                logger.info(f"Found {len(consolidated_results)} consolidated drugs")
+                return consolidated_results
+        
+        # Fallback to detailed search for NDC or when consolidated data not available
+        return await self.search_detailed_drugs(generic_name, ndc, max_results)
+
+    async def search_consolidated_drugs(
+        self,
+        generic_name: str,
+        max_results: int = 10,
+    ) -> list[dict[str, Any]]:
+        """
+        Search in the consolidated drugs table (preferred method)
+        Returns clean, deduplicated results with rich formulation data
+        """
 
         db = self.session_factory()
         try:
-            # Build search query
+            # Use full-text search and fuzzy matching for consolidated drugs
+            search_query = """
+                SELECT 
+                    generic_name,
+                    brand_names,
+                    manufacturers,
+                    formulations,
+                    therapeutic_class,
+                    indications_and_usage,
+                    mechanism_of_action,
+                    contraindications,
+                    warnings,
+                    adverse_reactions,
+                    drug_interactions,
+                    dosage_and_administration,
+                    total_formulations,
+                    confidence_score,
+                    has_clinical_data,
+                    ts_rank_cd(search_vector, plainto_tsquery('english', :search_term)) as relevance
+                FROM drug_information
+                WHERE search_vector @@ plainto_tsquery('english', :search_term)
+                   OR LOWER(generic_name) LIKE LOWER(:fuzzy_search)
+                   OR EXISTS (
+                       SELECT 1 FROM unnest(brand_names) brand 
+                       WHERE LOWER(brand) LIKE LOWER(:fuzzy_search)
+                   )
+                ORDER BY relevance DESC, confidence_score DESC
+                LIMIT :limit
+            """
+            
+            params = {
+                'search_term': generic_name,
+                'fuzzy_search': f"%{generic_name}%",
+                'limit': max_results
+            }
+            
+            result = db.execute(text(search_query), params)
+            rows = result.fetchall()
+            
+            drugs = []
+            for row in rows:
+                drug_data = {
+                    'generic_name': row.generic_name,
+                    'brand_names': row.brand_names or [],
+                    'manufacturers': row.manufacturers or [],
+                    'formulations': row.formulations or [],
+                    'therapeutic_class': row.therapeutic_class,
+                    'indications_and_usage': row.indications_and_usage,
+                    'mechanism_of_action': row.mechanism_of_action,
+                    'contraindications': row.contraindications or [],
+                    'warnings': row.warnings or [],
+                    'adverse_reactions': row.adverse_reactions or [],
+                    'drug_interactions': row.drug_interactions or {},
+                    'dosage_and_administration': row.dosage_and_administration,
+                    'total_formulations': row.total_formulations or 0,
+                    'confidence_score': float(row.confidence_score) if row.confidence_score else 0.0,
+                    'has_clinical_data': row.has_clinical_data,
+                    'data_source': 'consolidated',
+                    'relevance_score': float(row.relevance) if row.relevance else 0.0
+                }
+                drugs.append(drug_data)
+            
+            return drugs
+
+        except Exception as e:
+            logger.exception(f"Consolidated drug search failed: {e}")
+            return []
+        finally:
+            db.close()
+
+    async def search_detailed_drugs(
+        self,
+        generic_name: str | None = None,
+        ndc: str | None = None,
+        max_results: int = 10,
+    ) -> list[dict[str, Any]]:
+        """
+        Search in the detailed drug_information table (fallback method)
+        Returns the original detailed results with potential duplicates
+        """
+        logger.info(f"Using detailed search fallback for generic_name: {generic_name}, ndc: {ndc}")
+
+        db = self.session_factory()
+        try:
             query_parts = []
             params: dict[str, str] = {
                 "limit": str(max_results),
@@ -102,7 +205,7 @@ class DrugAPI:
                            product_number, approval_date, orange_book_code, reference_listed_drug,
                            therapeutic_class, pharmacologic_class, data_sources,
                            ts_rank(search_vector, plainto_tsquery(:search_term)) as rank
-                    FROM fda_drugs
+                    FROM drug_information_old
                     WHERE {where_clause}
                     ORDER BY rank DESC, approval_date DESC
                     LIMIT :limit
@@ -114,7 +217,7 @@ class DrugAPI:
                            product_number, approval_date, orange_book_code, reference_listed_drug,
                            therapeutic_class, pharmacologic_class, data_sources,
                            0 as rank
-                    FROM fda_drugs
+                    FROM drug_information_old
                     WHERE {where_clause}
                     ORDER BY approval_date DESC
                     LIMIT :limit
@@ -146,12 +249,12 @@ class DrugAPI:
                 }
                 drugs.append(drug)
 
-            logger.info(f"Found {len(drugs)} drugs")
+            logger.info(f"Found {len(drugs)} detailed drugs")
             return drugs
 
         except Exception as e:
-            logger.exception(f"FDA search failed: {e}")
-            raise
+            logger.exception(f"Detailed drug search failed: {e}")
+            return []
         finally:
             db.close()
 
