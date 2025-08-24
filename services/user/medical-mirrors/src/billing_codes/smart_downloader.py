@@ -13,7 +13,7 @@ import time
 from .download_state_manager import DownloadStateManager, DownloadStatus
 from .cms_downloader import CMSHCPCSDownloader
 from .downloader import BillingCodesDownloader
-# No parser import - this is a DOWNLOADER, not a parser
+from .parser import BillingCodesParser
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class SmartBillingCodesDownloader:
         
         # Initialize components
         self.state_manager = DownloadStateManager()
-        # No parser - this is a DOWNLOADER, not a parser
+        self.parser = BillingCodesParser()
         
         # Download sources
         self.cms_downloader: Optional[CMSHCPCSDownloader] = None
@@ -43,6 +43,7 @@ class SmartBillingCodesDownloader:
         
         # Results tracking - track downloaded files, NOT parsed codes
         self.downloaded_files: Dict[str, str] = {}  # source -> file_path
+        self.all_codes: Dict[str, List[Any]] = {}  # source -> codes list
         self.total_files_downloaded = 0
         
     async def __aenter__(self):
@@ -257,12 +258,20 @@ class SmartBillingCodesDownloader:
                 return False
             
             # Download just this specific CMS source
+            if not self.cms_downloader or not hasattr(self.cms_downloader, 'CMS_URLS'):
+                logger.error("CMS downloader not properly initialized")
+                return False
+                
             url = self.cms_downloader.CMS_URLS.get(cms_source)
             if not url:
                 logger.error(f"No URL found for CMS source: {cms_source}")
                 return False
             
             # Download content
+            if not hasattr(self.cms_downloader, '_download_with_retry'):
+                logger.error("CMS downloader missing _download_with_retry method")
+                return False
+                
             content = await self.cms_downloader._download_with_retry(url, source)
             if not content:
                 return False
@@ -293,6 +302,10 @@ class SmartBillingCodesDownloader:
         try:
             if source == "nlm_hcpcs_api":
                 # Download raw JSON from NLM HCPCS API
+                if not self.nlm_downloader or not hasattr(self.nlm_downloader, '_download_hcpcs_raw_json'):
+                    logger.error("NLM downloader not properly initialized or missing _download_hcpcs_raw_json method")
+                    return False
+                    
                 json_data = await self.nlm_downloader._download_hcpcs_raw_json()
                 if json_data:
                     # Save raw JSON file - NO PARSING
@@ -317,6 +330,10 @@ class SmartBillingCodesDownloader:
                     
             elif source == "nlm_cpt_api":
                 # Download raw JSON from NLM CPT API
+                if not self.nlm_downloader or not hasattr(self.nlm_downloader, '_download_cpt_raw_json'):
+                    logger.error("NLM downloader not properly initialized or missing _download_cpt_raw_json method")
+                    return False
+                    
                 json_data = await self.nlm_downloader._download_cpt_raw_json()
                 if json_data:
                     # Save raw JSON file - NO PARSING
@@ -352,6 +369,9 @@ class SmartBillingCodesDownloader:
                         logger.error(f"Failed to save placeholder file {output_file}: {e}")
                         self.state_manager.mark_failed(source, f"Failed to save file: {e}")
                         return False
+            else:
+                logger.error(f"Unknown NLM source: {source}")
+                return False
                     
         except Exception as e:
             logger.error(f"Error downloading NLM source {source}: {e}")
@@ -366,6 +386,10 @@ class SmartBillingCodesDownloader:
     async def _download_fallback_source(self) -> bool:
         """Save fallback billing codes data as JSON file - NO PARSING"""
         try:
+            if not self.nlm_downloader or not hasattr(self.nlm_downloader, '_get_fallback_billing_data'):
+                logger.error("NLM downloader not properly initialized or missing _get_fallback_billing_data method")
+                return False
+                
             fallback_data = self.nlm_downloader._get_fallback_billing_data()
             if fallback_data:
                 # Save fallback data as JSON file - NO PARSING

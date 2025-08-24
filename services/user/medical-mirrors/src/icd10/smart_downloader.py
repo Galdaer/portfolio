@@ -41,6 +41,7 @@ class SmartICD10Downloader:
         
         # Results tracking - track downloaded files, NOT parsed codes
         self.downloaded_files: Dict[str, str] = {}  # source -> file_path
+        self.all_codes: Dict[str, List[Any]] = {}  # source -> codes list
         self.total_files_downloaded = 0
         
     async def __aenter__(self):
@@ -186,7 +187,7 @@ class SmartICD10Downloader:
         if not active_sources:
             logger.info("No ICD-10 sources need downloading")
             # Load existing completed results
-            await self._load_existing_results()
+            await self._load_existing_files()
             results["total_codes"] = sum(len(codes) for codes in self.all_codes.values())
             return results
         
@@ -274,12 +275,20 @@ class SmartICD10Downloader:
                 return False
             
             # Download just this specific source
+            if not self.cms_downloader or not hasattr(self.cms_downloader, 'CMS_URLS'):
+                logger.error("CMS ICD-10 downloader not properly initialized")
+                return False
+                
             url = self.cms_downloader.CMS_URLS.get(cms_source)
             if not url:
                 logger.error(f"No URL found for ICD-10 source: {cms_source}")
                 return False
             
             # Download raw content and save to file
+            if not hasattr(self.cms_downloader, '_download_with_retry'):
+                logger.error("CMS ICD-10 downloader missing _download_with_retry method")
+                return False
+                
             content = await self.cms_downloader._download_with_retry(url, source)
             if not content:
                 return False
@@ -310,6 +319,10 @@ class SmartICD10Downloader:
         try:
             if source == "nlm_icd10_api":
                 # Download raw JSON response from NLM API
+                if not self.nlm_downloader or not hasattr(self.nlm_downloader, 'download_raw_json'):
+                    logger.error("NLM ICD-10 downloader not properly initialized or missing download_raw_json method")
+                    return False
+                    
                 json_data = await self.nlm_downloader.download_raw_json()
                 if json_data:
                     # Save raw JSON file - NO PARSING
@@ -331,6 +344,9 @@ class SmartICD10Downloader:
                 else:
                     self.state_manager.mark_failed(source, "No JSON data retrieved from NLM")
                     return False
+            else:
+                logger.error(f"Unknown NLM source: {source}")
+                return False
                     
         except Exception as e:
             logger.error(f"Error downloading NLM source {source}: {e}")
@@ -345,6 +361,10 @@ class SmartICD10Downloader:
     async def _download_fallback_source(self) -> bool:
         """Save fallback ICD-10 data as JSON file - NO PARSING"""
         try:
+            if not self.nlm_downloader or not hasattr(self.nlm_downloader, '_get_fallback_icd10_data'):
+                logger.error("NLM ICD-10 downloader not properly initialized or missing _get_fallback_icd10_data method")
+                return False
+                
             fallback_data = self.nlm_downloader._get_fallback_icd10_data()
             if fallback_data:
                 # Save fallback data as JSON file - NO PARSING
@@ -499,7 +519,7 @@ class SmartICD10Downloader:
                     
                     if results["successful"]:
                         logger.info(f"Successfully retried {len(results['successful'])} ICD-10 sources")
-                        await self._save_consolidated_results()
+                        logger.info("ICD-10 retry downloads completed successfully")
                 
                 else:
                     logger.debug("No ICD-10 sources ready for retry")
@@ -545,7 +565,7 @@ class SmartICD10Downloader:
     async def get_codes_statistics(self) -> Dict[str, Any]:
         """Get detailed statistics about downloaded ICD-10 codes"""
         if not self.all_codes:
-            await self._load_existing_results()
+            await self._load_existing_files()
         
         stats = {
             "total_codes": sum(len(codes) for codes in self.all_codes.values()),

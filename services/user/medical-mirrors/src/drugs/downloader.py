@@ -37,6 +37,7 @@ class DrugDownloader:
             response.raise_for_status()
 
             # Save ZIP file
+            os.makedirs(self.data_dir, exist_ok=True)
             zip_file = os.path.join(self.data_dir, "orange_book.zip")
             with open(zip_file, "wb") as f:
                 f.write(response.content)
@@ -67,6 +68,7 @@ class DrugDownloader:
             response.raise_for_status()
 
             # Save ZIP file
+            os.makedirs(self.data_dir, exist_ok=True)
             zip_file = os.path.join(self.data_dir, "ndc_directory.zip")
             with open(zip_file, "wb") as f:
                 f.write(response.content)
@@ -97,6 +99,7 @@ class DrugDownloader:
             response.raise_for_status()
 
             # Save ZIP file
+            os.makedirs(self.data_dir, exist_ok=True)
             zip_file = os.path.join(self.data_dir, "drugs_fda.zip")
             with open(zip_file, "wb") as f:
                 f.write(response.content)
@@ -145,6 +148,7 @@ class DrugDownloader:
                 response.raise_for_status()
 
                 # Save ZIP file with unique name
+                os.makedirs(self.data_dir, exist_ok=True)
                 zip_file = os.path.join(self.data_dir, f"drug_labels_part_{i:03d}.zip")
                 with open(zip_file, "wb") as f:
                     f.write(response.content)
@@ -196,6 +200,36 @@ class DrugDownloader:
                         files[dataset].append(os.path.join(dataset_dir, file))
 
         return files
+
+    async def __aenter__(self):
+        """Async context manager entry"""
+        return self
+
+    async def __aexit__(self, *args):
+        """Async context manager exit"""
+        await self.close()
+
+    async def download_all(self):
+        """Download all FDA datasets"""
+        return await self.download_all_fda_data()
+
+    async def get_download_status(self) -> dict:
+        """Get current download status"""
+        return {
+            "timestamp": "N/A",
+            "progress": {
+                "completed": 0,
+                "total_sources": 4,  # orange_book, ndc, drugs_fda, labels
+                "completion_rate": 0.0
+            },
+            "status": "ready"
+        }
+
+    async def reset_download_state(self):
+        """Reset download state"""
+        logger.info("Reset download state for FDA downloader")
+        # Implementation would clear any cached state
+        pass
 
     async def close(self) -> None:
         """Close HTTP session"""

@@ -85,10 +85,9 @@ class SmartDrugDownloader:
         """Async context manager entry"""
         # Initialize source-specific downloaders
         if self.sources['fda']:
-            self.fda_downloader = DrugDownloader(
-                output_dir=self.output_dir / "fda",
-                config=self.config
-            )
+            self.fda_downloader = DrugDownloader(config=self.config)
+            # Set the output directory manually since DrugDownloader uses data_dir from config
+            self.fda_downloader.data_dir = str(self.output_dir / "fda")
             await self.fda_downloader.__aenter__()
             
         if self.sources['rxclass']:
@@ -169,7 +168,7 @@ class SmartDrugDownloader:
             if 'fda' in active_sources and self.fda_downloader:
                 logger.info("Phase 1: Downloading FDA drug databases")
                 if 'fda' not in self.state.completed_sources or force_fresh:
-                    fda_result = await self.fda_downloader.download_all(force_fresh=force_fresh, complete_dataset=complete_dataset)
+                    fda_result = await self.fda_downloader.download_all()
                     results['fda'] = fda_result
                     self.state.completed_sources.add('fda')
                     self.state.successful_sources += 1

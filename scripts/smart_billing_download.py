@@ -148,7 +148,7 @@ async def run_download(args, logger):
         print("SMART BILLING FILES DOWNLOAD SUMMARY")
         print("="*50)
         print(f"Duration: {(end_time - start_time).total_seconds():.1f} seconds")
-        print(f"Total files downloaded: {summary['total_files']:,}")
+        print(f"Total files downloaded: {summary.get('total_files', 0):,}")
         print(f"Successful sources: {summary['successful_sources']}")
         print(f"Failed sources: {summary['failed_sources']}")
         print(f"Rate limited sources: {summary['rate_limited_sources']}")

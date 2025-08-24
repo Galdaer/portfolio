@@ -358,6 +358,29 @@ class ICD10Downloader:
         ]
 
 
+    async def download_raw_json(self) -> dict:
+        """Download raw ICD-10 data as JSON"""
+        await self._ensure_session()
+        try:
+            async with self.session.get(f"{self.base_url}/search") as response:
+                response.raise_for_status()
+                return await response.json()
+        except Exception as e:
+            logger.error(f"Failed to download ICD-10 raw JSON: {e}")
+            return {}
+
+    def _get_fallback_icd10_data(self) -> dict:
+        """Get fallback ICD-10 codes data"""
+        return {
+            "fallback_icd10_codes": [
+                {"code": "E11.9", "description": "Type 2 diabetes mellitus without complications", "type": "ICD-10-CM"},
+                {"code": "I10", "description": "Essential hypertension", "type": "ICD-10-CM"},
+                {"code": "Z00.00", "description": "Encounter for general adult medical examination without abnormal findings", "type": "ICD-10-CM"},
+            ],
+            "note": "This is fallback data for testing purposes only"
+        }
+
+
 async def main():
     """Test the ICD-10 downloader"""
     logging.basicConfig(level=logging.INFO)

@@ -945,6 +945,33 @@ class BillingCodesDownloader:
         ]
 
 
+    async def _download_hcpcs_raw_json(self) -> dict:
+        """Download raw HCPCS data as JSON"""
+        await self._ensure_session()
+        try:
+            async with self.session.get(f"{self.hcpcs_url}/search") as response:
+                response.raise_for_status()
+                return await response.json()
+        except Exception as e:
+            logger.error(f"Failed to download HCPCS raw JSON: {e}")
+            return {}
+
+    async def _download_cpt_raw_json(self) -> dict:
+        """Download raw CPT data as JSON (placeholder - CPT codes are copyrighted)"""
+        logger.warning("CPT codes are copyrighted and not freely available")
+        return {"note": "CPT codes not available due to copyright restrictions"}
+
+    def _get_fallback_billing_data(self) -> dict:
+        """Get fallback billing codes data"""
+        return {
+            "fallback_hcpcs_codes": [
+                {"code": "99213", "description": "Office visit, established patient", "type": "HCPCS"},
+                {"code": "99214", "description": "Office visit, established patient", "type": "HCPCS"},
+            ],
+            "note": "This is fallback data for testing purposes only"
+        }
+
+
 async def main():
     """Test the billing codes downloader"""
     logging.basicConfig(level=logging.INFO)
