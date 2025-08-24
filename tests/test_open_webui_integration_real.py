@@ -13,8 +13,6 @@ Created: August 17, 2025
 Purpose: Test real Open WebUI medical search integration without container dependencies
 """
 
-import asyncio
-import json
 import sys
 from pathlib import Path
 
@@ -23,15 +21,14 @@ project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
 try:
-    import requests
     import aiohttp
+    import requests
 except ImportError:
     print("Installing required packages...")
     import subprocess
 
     subprocess.check_call([sys.executable, "-m", "pip", "install", "requests", "aiohttp"])
     import requests
-    import aiohttp
 
 
 class TestOpenWebUIMedicalSearchIntegration:
@@ -67,7 +64,7 @@ class TestOpenWebUIMedicalSearchIntegration:
                 {
                     "role": "user",
                     "content": "Find recent research on cardiovascular health and prevention",
-                }
+                },
             ],
             "temperature": 0.1,
             "max_tokens": 2000,
@@ -150,7 +147,7 @@ class TestOpenWebUIMedicalSearchIntegration:
             print(issue)
 
         # Show a preview of the content
-        print(f"\n📄 Response Preview (first 500 chars):")
+        print("\n📄 Response Preview (first 500 chars):")
         print("-" * 50)
         print(content[:500] + "..." if len(content) > 500 else content)
         print("-" * 50)
@@ -228,26 +225,25 @@ class TestOpenWebUIMedicalSearchIntegration:
         total_queries = len(all_results)
 
         print(
-            f"📊 Query Success Rate: {passed_queries}/{total_queries} ({passed_queries / total_queries * 100:.0f}%)"
+            f"📊 Query Success Rate: {passed_queries}/{total_queries} ({passed_queries / total_queries * 100:.0f}%)",
         )
 
         if response_ok and passed_queries == total_queries:
             print("\n🎉 ALL TESTS PASSED!")
             print("✅ Open WebUI medical search integration is working correctly")
             return True
-        else:
-            print(f"\n⚠️ Issues Found:")
-            for query, success, issues, _ in all_results:
-                if not success:
-                    print(f"  - {query}: {', '.join(issues)}")
+        print("\n⚠️ Issues Found:")
+        for query, success, issues, _ in all_results:
+            if not success:
+                print(f"  - {query}: {', '.join(issues)}")
 
-            print(f"\n🔧 Next Steps:")
-            print("1. Check DOI prioritization in medical search agent")
-            print("2. Verify publication date handling")
-            print("3. Ensure abstract inclusion")
-            print("4. Test with real medical queries in Open WebUI")
+        print("\n🔧 Next Steps:")
+        print("1. Check DOI prioritization in medical search agent")
+        print("2. Verify publication date handling")
+        print("3. Ensure abstract inclusion")
+        print("4. Test with real medical queries in Open WebUI")
 
-            return False
+        return False
 
 
 def main():
@@ -258,10 +254,9 @@ def main():
     if success:
         print("\n✅ Open WebUI medical search integration validated!")
         return 0
-    else:
-        print("\n❌ Integration issues found - see summary above")
-        return 1
+    print("\n❌ Integration issues found - see summary above")
+    return 1
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

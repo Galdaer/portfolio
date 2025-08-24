@@ -7,7 +7,8 @@ import gzip
 import logging
 import xml.etree.ElementTree as ET
 from typing import Any
-from validation_utils import validate_record, DataValidator
+
+from validation_utils import validate_record
 
 logger = logging.getLogger(__name__)
 
@@ -107,15 +108,14 @@ class PubMedParser:
                 "doi": doi,
                 "mesh_terms": mesh_terms,
             }
-            
+
             # Validate record before returning
             try:
-                validated_record = validate_record(
-                    raw_record, 
-                    'pubmed_articles', 
-                    required_fields=['pmid']  # PMID is required
+                return validate_record(
+                    raw_record,
+                    "pubmed_articles",
+                    required_fields=["pmid"],  # PMID is required
                 )
-                return validated_record
             except Exception as e:
                 logger.warning(f"Validation failed for article {pmid}: {e}")
                 return None

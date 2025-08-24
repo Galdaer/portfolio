@@ -4,11 +4,9 @@ Health information API endpoints for medical mirrors service
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional
 
 from fastapi import HTTPException, Query
-from sqlalchemy import and_, desc, func, or_, text
-from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from database import get_db_session
 
@@ -17,17 +15,17 @@ logger = logging.getLogger(__name__)
 
 class HealthInfoAPI:
     """API for health information (topics, exercises, nutrition) search and lookup"""
-    
+
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-    
+
     async def search_health_topics(
         self,
         query: str,
-        category: Optional[str] = None,
-        audience: Optional[str] = None,
-        max_results: int = 10
-    ) -> Dict:
+        category: str | None = None,
+        audience: str | None = None,
+        max_results: int = 10,
+    ) -> dict:
         """Search health topics from MyHealthfinder"""
         try:
             with get_db_session() as db:
@@ -39,32 +37,32 @@ class HealthInfoAPI:
                     FROM health_topics
                     WHERE search_vector @@ plainto_tsquery(:query)
                 """
-                
+
                 conditions = []
                 params = {"query": query, "max_results": min(max_results, 50)}
-                
+
                 if category:
                     conditions.append("UPPER(category) = UPPER(:category)")
                     params["category"] = category
-                
+
                 if audience:
                     conditions.append("UPPER(:audience) = ANY(UPPER(audience::text)::text[])")
                     params["audience"] = audience
-                
+
                 where_clause = ""
                 if conditions:
                     where_clause = "AND " + " AND ".join(conditions)
-                
+
                 final_query = f"""
                     {base_query}
                     {where_clause}
                     ORDER BY rank DESC, title
                     LIMIT :max_results
                 """
-                
+
                 result = db.execute(text(final_query), params)
                 rows = result.fetchall()
-                
+
                 topics = []
                 for row in rows:
                     topic = {
@@ -79,33 +77,33 @@ class HealthInfoAPI:
                         "content_length": row.content_length or 0,
                         "last_updated": row.last_updated.isoformat() if row.last_updated else None,
                         "relevance_score": float(row.rank) if row.rank else 0.0,
-                        "item_type": "health_topic"
+                        "item_type": "health_topic",
                     }
                     topics.append(topic)
-                
+
                 return {
                     "topics": topics,
                     "total_results": len(topics),
                     "search_query": query,
                     "filters": {
                         "category": category,
-                        "audience": audience
+                        "audience": audience,
                     },
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
                 }
-        
+
         except Exception as e:
-            logger.error(f"Error searching health topics: {e}")
+            logger.exception(f"Error searching health topics: {e}")
             raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
-    
+
     async def search_exercises(
         self,
         query: str,
-        body_part: Optional[str] = None,
-        equipment: Optional[str] = None,
-        difficulty: Optional[str] = None,
-        max_results: int = 10
-    ) -> Dict:
+        body_part: str | None = None,
+        equipment: str | None = None,
+        difficulty: str | None = None,
+        max_results: int = 10,
+    ) -> dict:
         """Search exercises from ExerciseDB"""
         try:
             with get_db_session() as db:
@@ -118,36 +116,36 @@ class HealthInfoAPI:
                     FROM exercises
                     WHERE search_vector @@ plainto_tsquery(:query)
                 """
-                
+
                 conditions = []
                 params = {"query": query, "max_results": min(max_results, 50)}
-                
+
                 if body_part:
                     conditions.append("UPPER(body_part) = UPPER(:body_part)")
                     params["body_part"] = body_part
-                
+
                 if equipment:
                     conditions.append("UPPER(equipment) = UPPER(:equipment)")
                     params["equipment"] = equipment
-                
+
                 if difficulty:
                     conditions.append("UPPER(difficulty_level) = UPPER(:difficulty)")
                     params["difficulty"] = difficulty
-                
+
                 where_clause = ""
                 if conditions:
                     where_clause = "AND " + " AND ".join(conditions)
-                
+
                 final_query = f"""
                     {base_query}
                     {where_clause}
                     ORDER BY rank DESC, name
                     LIMIT :max_results
                 """
-                
+
                 result = db.execute(text(final_query), params)
                 rows = result.fetchall()
-                
+
                 exercises = []
                 for row in rows:
                     exercise = {
@@ -164,10 +162,10 @@ class HealthInfoAPI:
                         "gif_url": row.gif_url or "",
                         "last_updated": row.last_updated.isoformat() if row.last_updated else None,
                         "relevance_score": float(row.rank) if row.rank else 0.0,
-                        "item_type": "exercise"
+                        "item_type": "exercise",
                     }
                     exercises.append(exercise)
-                
+
                 return {
                     "exercises": exercises,
                     "total_results": len(exercises),
@@ -175,22 +173,22 @@ class HealthInfoAPI:
                     "filters": {
                         "body_part": body_part,
                         "equipment": equipment,
-                        "difficulty": difficulty
+                        "difficulty": difficulty,
                     },
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
                 }
-        
+
         except Exception as e:
-            logger.error(f"Error searching exercises: {e}")
+            logger.exception(f"Error searching exercises: {e}")
             raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
-    
+
     async def search_foods(
         self,
         query: str,
-        food_category: Optional[str] = None,
-        dietary_flags: Optional[str] = None,
-        max_results: int = 10
-    ) -> Dict:
+        food_category: str | None = None,
+        dietary_flags: str | None = None,
+        max_results: int = 10,
+    ) -> dict:
         """Search food items from USDA FoodData Central"""
         try:
             with get_db_session() as db:
@@ -203,32 +201,32 @@ class HealthInfoAPI:
                     FROM food_items
                     WHERE search_vector @@ plainto_tsquery(:query)
                 """
-                
+
                 conditions = []
                 params = {"query": query, "max_results": min(max_results, 50)}
-                
+
                 if food_category:
                     conditions.append("UPPER(food_category) LIKE UPPER(:food_category)")
                     params["food_category"] = f"%{food_category}%"
-                
+
                 if dietary_flags:
                     conditions.append("UPPER(:dietary_flags) = ANY(UPPER(dietary_flags::text)::text[])")
                     params["dietary_flags"] = dietary_flags
-                
+
                 where_clause = ""
                 if conditions:
                     where_clause = "AND " + " AND ".join(conditions)
-                
+
                 final_query = f"""
                     {base_query}
                     {where_clause}
                     ORDER BY rank DESC, description
                     LIMIT :max_results
                 """
-                
+
                 result = db.execute(text(final_query), params)
                 rows = result.fetchall()
-                
+
                 foods = []
                 for row in rows:
                     food = {
@@ -244,26 +242,26 @@ class HealthInfoAPI:
                         "brand_owner": row.brand_owner or "",
                         "last_updated": row.last_updated.isoformat() if row.last_updated else None,
                         "relevance_score": float(row.rank) if row.rank else 0.0,
-                        "item_type": "food_item"
+                        "item_type": "food_item",
                     }
                     foods.append(food)
-                
+
                 return {
                     "foods": foods,
                     "total_results": len(foods),
                     "search_query": query,
                     "filters": {
                         "food_category": food_category,
-                        "dietary_flags": dietary_flags
+                        "dietary_flags": dietary_flags,
                     },
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
                 }
-        
+
         except Exception as e:
-            logger.error(f"Error searching foods: {e}")
+            logger.exception(f"Error searching foods: {e}")
             raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
-    
-    async def get_health_topic_details(self, topic_id: str) -> Dict:
+
+    async def get_health_topic_details(self, topic_id: str) -> dict:
         """Get detailed information for a specific health topic"""
         try:
             with get_db_session() as db:
@@ -274,13 +272,13 @@ class HealthInfoAPI:
                     FROM health_topics
                     WHERE topic_id = :topic_id
                 """), {"topic_id": topic_id})
-                
+
                 row = result.fetchone()
-                
+
                 if not row:
                     raise HTTPException(status_code=404, detail=f"Health topic '{topic_id}' not found")
-                
-                topic_details = {
+
+                return {
                     "topic_id": row.topic_id,
                     "title": row.title,
                     "category": row.category or "",
@@ -293,18 +291,17 @@ class HealthInfoAPI:
                     "keywords": row.keywords or [],
                     "content_length": row.content_length or 0,
                     "last_updated": row.last_updated.isoformat() if row.last_updated else None,
-                    "source": row.source or "myhealthfinder"
+                    "source": row.source or "myhealthfinder",
                 }
-                
-                return topic_details
-                
+
+
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error getting health topic details for '{topic_id}': {e}")
+            logger.exception(f"Error getting health topic details for '{topic_id}': {e}")
             raise HTTPException(status_code=500, detail=f"Lookup error: {str(e)}")
-    
-    async def get_exercise_details(self, exercise_id: str) -> Dict:
+
+    async def get_exercise_details(self, exercise_id: str) -> dict:
         """Get detailed information for a specific exercise"""
         try:
             with get_db_session() as db:
@@ -316,13 +313,13 @@ class HealthInfoAPI:
                     FROM exercises
                     WHERE exercise_id = :exercise_id
                 """), {"exercise_id": exercise_id})
-                
+
                 row = result.fetchone()
-                
+
                 if not row:
                     raise HTTPException(status_code=404, detail=f"Exercise '{exercise_id}' not found")
-                
-                exercise_details = {
+
+                return {
                     "exercise_id": row.exercise_id,
                     "name": row.name,
                     "body_part": row.body_part or "",
@@ -336,18 +333,17 @@ class HealthInfoAPI:
                     "calories_estimate": row.calories_estimate or "",
                     "gif_url": row.gif_url or "",
                     "last_updated": row.last_updated.isoformat() if row.last_updated else None,
-                    "source": row.source or "exercisedb"
+                    "source": row.source or "exercisedb",
                 }
-                
-                return exercise_details
-                
+
+
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error getting exercise details for '{exercise_id}': {e}")
+            logger.exception(f"Error getting exercise details for '{exercise_id}': {e}")
             raise HTTPException(status_code=500, detail=f"Lookup error: {str(e)}")
-    
-    async def get_food_details(self, fdc_id: int) -> Dict:
+
+    async def get_food_details(self, fdc_id: int) -> dict:
         """Get detailed information for a specific food item"""
         try:
             with get_db_session() as db:
@@ -360,13 +356,13 @@ class HealthInfoAPI:
                     FROM food_items
                     WHERE fdc_id = :fdc_id
                 """), {"fdc_id": fdc_id})
-                
+
                 row = result.fetchone()
-                
+
                 if not row:
                     raise HTTPException(status_code=404, detail=f"Food item '{fdc_id}' not found")
-                
-                food_details = {
+
+                return {
                     "fdc_id": row.fdc_id,
                     "description": row.description,
                     "scientific_name": row.scientific_name or "",
@@ -382,18 +378,17 @@ class HealthInfoAPI:
                     "dietary_flags": row.dietary_flags or [],
                     "nutritional_density": row.nutritional_density or 0,
                     "last_updated": row.last_updated.isoformat() if row.last_updated else None,
-                    "source": row.source or "usda_fooddata"
+                    "source": row.source or "usda_fooddata",
                 }
-                
-                return food_details
-                
+
+
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error getting food details for '{fdc_id}': {e}")
+            logger.exception(f"Error getting food details for '{fdc_id}': {e}")
             raise HTTPException(status_code=500, detail=f"Lookup error: {str(e)}")
-    
-    async def get_stats(self) -> Dict:
+
+    async def get_stats(self) -> dict:
         """Get health information database statistics"""
         try:
             with get_db_session() as db:
@@ -403,7 +398,7 @@ class HealthInfoAPI:
                            COUNT(DISTINCT category) as total_categories
                     FROM health_topics
                 """)).fetchone()
-                
+
                 # Exercises stats
                 exercises_stats = db.execute(text("""
                     SELECT COUNT(*) as total_exercises,
@@ -411,34 +406,34 @@ class HealthInfoAPI:
                            COUNT(DISTINCT equipment) as equipment_types
                     FROM exercises
                 """)).fetchone()
-                
+
                 # Food items stats
                 foods_stats = db.execute(text("""
                     SELECT COUNT(*) as total_foods,
                            COUNT(DISTINCT food_category) as food_categories
                     FROM food_items
                 """)).fetchone()
-                
+
                 return {
                     "health_topics": {
                         "total_topics": topics_stats.total_topics if topics_stats else 0,
-                        "total_categories": topics_stats.total_categories if topics_stats else 0
+                        "total_categories": topics_stats.total_categories if topics_stats else 0,
                     },
                     "exercises": {
                         "total_exercises": exercises_stats.total_exercises if exercises_stats else 0,
                         "body_parts": exercises_stats.body_parts if exercises_stats else 0,
-                        "equipment_types": exercises_stats.equipment_types if exercises_stats else 0
+                        "equipment_types": exercises_stats.equipment_types if exercises_stats else 0,
                     },
                     "food_items": {
                         "total_foods": foods_stats.total_foods if foods_stats else 0,
-                        "food_categories": foods_stats.food_categories if foods_stats else 0
+                        "food_categories": foods_stats.food_categories if foods_stats else 0,
                     },
                     "data_sources": ["myhealthfinder", "exercisedb", "usda_fooddata"],
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
                 }
-                
+
         except Exception as e:
-            logger.error(f"Error getting health info stats: {e}")
+            logger.exception(f"Error getting health info stats: {e}")
             raise HTTPException(status_code=500, detail=f"Stats error: {str(e)}")
 
 
@@ -447,28 +442,28 @@ health_info_api = HealthInfoAPI()
 
 async def search_health_topics(
     query: str = Query(..., description="Search term"),
-    category: Optional[str] = Query(None, description="Filter by category"),
-    audience: Optional[str] = Query(None, description="Filter by audience"),
-    max_results: int = Query(10, ge=1, le=50, description="Maximum results to return")
+    category: str | None = Query(None, description="Filter by category"),
+    audience: str | None = Query(None, description="Filter by audience"),
+    max_results: int = Query(10, ge=1, le=50, description="Maximum results to return"),
 ):
     """Search health topics"""
     return await health_info_api.search_health_topics(query, category, audience, max_results)
 
 async def search_exercises(
     query: str = Query(..., description="Search term"),
-    body_part: Optional[str] = Query(None, description="Filter by body part"),
-    equipment: Optional[str] = Query(None, description="Filter by equipment"),
-    difficulty: Optional[str] = Query(None, description="Filter by difficulty"),
-    max_results: int = Query(10, ge=1, le=50, description="Maximum results to return")
+    body_part: str | None = Query(None, description="Filter by body part"),
+    equipment: str | None = Query(None, description="Filter by equipment"),
+    difficulty: str | None = Query(None, description="Filter by difficulty"),
+    max_results: int = Query(10, ge=1, le=50, description="Maximum results to return"),
 ):
     """Search exercises"""
     return await health_info_api.search_exercises(query, body_part, equipment, difficulty, max_results)
 
 async def search_foods(
     query: str = Query(..., description="Search term"),
-    food_category: Optional[str] = Query(None, description="Filter by food category"),
-    dietary_flags: Optional[str] = Query(None, description="Filter by dietary flags"),
-    max_results: int = Query(10, ge=1, le=50, description="Maximum results to return")
+    food_category: str | None = Query(None, description="Filter by food category"),
+    dietary_flags: str | None = Query(None, description="Filter by dietary flags"),
+    max_results: int = Query(10, ge=1, le=50, description="Maximum results to return"),
 ):
     """Search food items"""
     return await health_info_api.search_foods(query, food_category, dietary_flags, max_results)

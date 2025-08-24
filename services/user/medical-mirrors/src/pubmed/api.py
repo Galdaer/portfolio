@@ -118,7 +118,7 @@ class PubMedAPI:
             db.close()
 
     async def trigger_update(
-        self, quick_test: bool = False, max_files: int | None = None
+        self, quick_test: bool = False, max_files: int | None = None,
     ) -> dict[str, Any]:
         """Trigger PubMed data update"""
         if quick_test:
@@ -192,37 +192,37 @@ class PubMedAPI:
                     set_={
                         # Always update these fields
                         "updated_at": stmt.excluded.updated_at,
-                        
+
                         # Conditionally update fields - preserve existing non-empty values
                         "title": func.coalesce(
-                            func.nullif(stmt.excluded.title, ''), 
-                            PubMedArticle.title
+                            func.nullif(stmt.excluded.title, ""),
+                            PubMedArticle.title,
                         ),
                         "abstract": func.coalesce(
-                            func.nullif(stmt.excluded.abstract, ''), 
-                            PubMedArticle.abstract
+                            func.nullif(stmt.excluded.abstract, ""),
+                            PubMedArticle.abstract,
                         ),
                         "journal": func.coalesce(
-                            func.nullif(stmt.excluded.journal, ''), 
-                            PubMedArticle.journal
+                            func.nullif(stmt.excluded.journal, ""),
+                            PubMedArticle.journal,
                         ),
                         "pub_date": func.coalesce(
-                            func.nullif(stmt.excluded.pub_date, ''), 
-                            PubMedArticle.pub_date
+                            func.nullif(stmt.excluded.pub_date, ""),
+                            PubMedArticle.pub_date,
                         ),
                         "doi": func.coalesce(
-                            func.nullif(stmt.excluded.doi, ''), 
-                            PubMedArticle.doi
+                            func.nullif(stmt.excluded.doi, ""),
+                            PubMedArticle.doi,
                         ),
-                        
+
                         # For arrays, prefer new data if non-empty, otherwise keep existing
                         "authors": func.coalesce(
-                            func.nullif(stmt.excluded.authors, '{}'), 
-                            PubMedArticle.authors
+                            func.nullif(stmt.excluded.authors, "{}"),
+                            PubMedArticle.authors,
                         ),
                         "mesh_terms": func.coalesce(
-                            func.nullif(stmt.excluded.mesh_terms, '{}'), 
-                            PubMedArticle.mesh_terms
+                            func.nullif(stmt.excluded.mesh_terms, "{}"),
+                            PubMedArticle.mesh_terms,
                         ),
                     },
                 )

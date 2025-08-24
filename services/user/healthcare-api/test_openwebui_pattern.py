@@ -7,8 +7,8 @@ that direct agent testing might miss.
 """
 
 import asyncio
-import json
 import sys
+
 import httpx
 
 sys.path.insert(0, "/app")  # Container path
@@ -49,14 +49,14 @@ async def test_http_api_endpoints():
             }
 
             response = await client.post(
-                f"{base_url}/process", json=query_data, headers={"Content-Type": "application/json"}
+                f"{base_url}/process", json=query_data, headers={"Content-Type": "application/json"},
             )
 
             print(f"   📡 Response status: {response.status_code}")
 
             if response.status_code == 200:
                 result = response.json()
-                print(f"   ✅ Query successful")
+                print("   ✅ Query successful")
                 print(f"   📝 Response keys: {list(result.keys())}")
 
                 if "formatted_summary" in result:
@@ -64,7 +64,7 @@ async def test_http_api_endpoints():
                     print(f"   📄 Summary length: {len(summary)} characters")
                     print(f"   🔍 Preview: {summary[:100]}...")
                 else:
-                    print(f"   ⚠️  Missing formatted_summary in response")
+                    print("   ⚠️  Missing formatted_summary in response")
                     return False
 
             else:
@@ -91,7 +91,7 @@ async def test_http_api_endpoints():
 
             if response.status_code == 200:
                 result = response.json()
-                print(f"   ✅ LangChain query successful")
+                print("   ✅ LangChain query successful")
                 print(f"   📝 Response keys: {list(result.keys())}")
             else:
                 print(f"   ⚠️  LangChain endpoint: {response.status_code} - {response.text[:200]}")
@@ -120,7 +120,7 @@ async def test_in_container():
         # Use the same query that might be causing issues
         result = await agent.process("Hello, test medical query")
 
-        print(f"   ✅ Direct agent call successful")
+        print("   ✅ Direct agent call successful")
         print(f"   📊 Result type: {type(result)}")
         print(f"   📝 Result keys: {list(result.keys()) if isinstance(result, dict) else 'N/A'}")
 

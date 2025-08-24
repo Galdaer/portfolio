@@ -4,9 +4,8 @@ Test Open WebUI compatible endpoints in healthcare-api
 """
 
 import asyncio
-import json
+
 import aiohttp
-import pytest
 
 
 class TestOpenWebUIEndpoints:
@@ -25,9 +24,8 @@ class TestOpenWebUIEndpoints:
                         data = await response.json()
                         print(f"   ✅ Health check passed: {data}")
                         return True
-                    else:
-                        print(f"   ❌ Health check failed: {response.status}")
-                        return False
+                    print(f"   ❌ Health check failed: {response.status}")
+                    return False
         except Exception as e:
             print(f"   ❌ Health check error: {e}")
             return False
@@ -42,10 +40,9 @@ class TestOpenWebUIEndpoints:
                         data = await response.json()
                         print(f"   ✅ Pipelines endpoint: {data}")
                         return True
-                    else:
-                        text = await response.text()
-                        print(f"   ❌ Pipelines endpoint failed: {response.status} - {text}")
-                        return False
+                    text = await response.text()
+                    print(f"   ❌ Pipelines endpoint failed: {response.status} - {text}")
+                    return False
         except Exception as e:
             print(f"   ❌ Pipelines endpoint error: {e}")
             return False
@@ -60,10 +57,9 @@ class TestOpenWebUIEndpoints:
                         data = await response.json()
                         print(f"   ✅ Models endpoint: {data}")
                         return True
-                    else:
-                        text = await response.text()
-                        print(f"   ❌ Models endpoint failed: {response.status} - {text}")
-                        return False
+                    text = await response.text()
+                    print(f"   ❌ Models endpoint failed: {response.status} - {text}")
+                    return False
         except Exception as e:
             print(f"   ❌ Models endpoint error: {e}")
             return False
@@ -78,10 +74,9 @@ class TestOpenWebUIEndpoints:
                         data = await response.json()
                         print(f"   ✅ Tools endpoint: {data}")
                         return True
-                    else:
-                        text = await response.text()
-                        print(f"   ❌ Tools endpoint failed: {response.status} - {text}")
-                        return False
+                    text = await response.text()
+                    print(f"   ❌ Tools endpoint failed: {response.status} - {text}")
+                    return False
         except Exception as e:
             print(f"   ❌ Tools endpoint error: {e}")
             return False
@@ -106,13 +101,12 @@ class TestOpenWebUIEndpoints:
                         data = await response.json()
                         print("   ✅ Chat completions endpoint working!")
                         print(
-                            f"   📋 Response preview: {data.get('choices', [{}])[0].get('message', {}).get('content', '')[:200]}..."
+                            f"   📋 Response preview: {data.get('choices', [{}])[0].get('message', {}).get('content', '')[:200]}...",
                         )
                         return True
-                    else:
-                        text = await response.text()
-                        print(f"   ❌ Chat completions failed: {response.status} - {text}")
-                        return False
+                    text = await response.text()
+                    print(f"   ❌ Chat completions failed: {response.status} - {text}")
+                    return False
         except Exception as e:
             print(f"   ❌ Chat completions error: {e}")
             return False
@@ -127,22 +121,20 @@ class TestOpenWebUIEndpoints:
                 "temperature": 0.7,
             }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{self.base_url}/chat/completions",
-                    json=test_request,
-                    headers={"Content-Type": "application/json"},
-                ) as response:
-                    if response.status == 200:
-                        await response.json()  # Consume response
-                        print("   ✅ Alternative chat completions endpoint working!")
-                        return True
-                    else:
-                        text = await response.text()
-                        print(
-                            f"   ❌ Alternative chat completions failed: {response.status} - {text}"
-                        )
-                        return False
+            async with aiohttp.ClientSession() as session, session.post(
+                f"{self.base_url}/chat/completions",
+                json=test_request,
+                headers={"Content-Type": "application/json"},
+            ) as response:
+                if response.status == 200:
+                    await response.json()  # Consume response
+                    print("   ✅ Alternative chat completions endpoint working!")
+                    return True
+                text = await response.text()
+                print(
+                    f"   ❌ Alternative chat completions failed: {response.status} - {text}",
+                )
+                return False
         except Exception as e:
             print(f"   ❌ Alternative chat completions error: {e}")
             return False

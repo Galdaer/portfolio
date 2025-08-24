@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+
 import pytest
 
 
@@ -15,15 +16,16 @@ def _add_service_paths() -> None:
 @pytest.mark.asyncio
 async def test_minimal_orchestrator_process_smoke():
     _add_service_paths()
-    from core.langchain.orchestrator import LangChainOrchestrator  # type: ignore
     from local_llm.ollama_client import OllamaConfig, build_chat_model  # type: ignore
+
+    from core.langchain.orchestrator import LangChainOrchestrator  # type: ignore
 
     class DummyMCP:
         async def call_tool(self, name: str, arguments: dict):  # pragma: no cover
             return {"status": "success", "content": {"ok": True}}
 
     model = build_chat_model(
-        OllamaConfig(model="llama3.1:8b", base_url="http://172.20.0.10:11434", temperature=0.0)
+        OllamaConfig(model="llama3.1:8b", base_url="http://172.20.0.10:11434", temperature=0.0),
     )
     orch = LangChainOrchestrator(mcp_client=DummyMCP(), chat_model=model)
     result = await orch.process("test query")

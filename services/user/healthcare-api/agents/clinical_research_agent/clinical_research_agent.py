@@ -15,22 +15,21 @@ import yaml
 
 from agents import BaseHealthcareAgent
 from config.app import config
+from core.database.medical_db import MedicalDatabaseAccess
+from core.enhanced_sessions import EnhancedSessionManager
 from core.infrastructure.agent_metrics import AgentMetricsStore
-from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
+from core.infrastructure.healthcare_cache import CacheSecurityLevel, HealthcareCacheManager
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     log_healthcare_event,
 )
-from core.database.medical_db import MedicalDatabaseAccess
-from core.enhanced_sessions import EnhancedSessionManager
-from core.security.chat_log_manager import ChatLogManager
 from core.mcp.universal_parser import (
-    parse_mcp_response,
-    parse_pubmed_response,
     parse_clinical_trials_response,
+    parse_pubmed_response,
 )
 from core.medical.enhanced_query_engine import EnhancedMedicalQueryEngine, QueryType
 from core.reasoning.medical_reasoning_enhanced import EnhancedMedicalReasoning
+from core.security.chat_log_manager import ChatLogManager
 
 logger = get_healthcare_logger("agent.research_assistant")
 
@@ -56,7 +55,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         config_override: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(
-            mcp_client, llm_client, agent_name="clinical_research", agent_type="research_assistant"
+            mcp_client, llm_client, agent_name="clinical_research", agent_type="research_assistant",
         )
 
         # Load configuration
@@ -73,14 +72,14 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
         self.mcp_client = mcp_client
         self.llm_client = llm_client
         self.current_step = 0
-        
+
         # Initialize shared healthcare infrastructure tools
         self._metrics = AgentMetricsStore(agent_name="clinical_research")
         self._cache_manager = HealthcareCacheManager()
         self._medical_db = MedicalDatabaseAccess()
         self._session_manager = EnhancedSessionManager()
         self._chat_log_manager = ChatLogManager()
-        
+
         # Conversation state management
         self._conversation_memory: dict[str, dict[str, Any]] = {}
         self._source_cache: dict[str, dict[str, Any]] = {}
@@ -154,7 +153,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
                 # Break if we have a complete result
                 if result.get("complete", False):
                     logger.info(
-                        f"✅ Clinical research completed successfully in {self.current_step + 1} steps"
+                        f"✅ Clinical research completed successfully in {self.current_step + 1} steps",
                     )
                     break
 
@@ -162,13 +161,13 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
 
             if not result.get("complete", False):
                 logger.warning(
-                    f"⚠️ Clinical research reached max steps ({self.max_steps}) without completion"
+                    f"⚠️ Clinical research reached max steps ({self.max_steps}) without completion",
                 )
 
             return result
 
         except Exception as e:
-            logger.error(f"❌ Clinical research processing error: {str(e)}")
+            logger.exception(f"❌ Clinical research processing error: {str(e)}")
             session_id = request.get("session_id", "default")
             return self._create_error_response(f"Processing error: {str(e)}", session_id)
 
@@ -196,7 +195,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             else:
                 # Route all other queries (including literature_research) to comprehensive research with MCP tools
                 result = await self._process_comprehensive_research(
-                    query, clinical_context, session_id
+                    query, clinical_context, session_id,
                 )
 
             # Mark as complete
@@ -705,7 +704,7 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
             try:
                 cached_result = await self._cache_manager.get(
                     cache_key,
-                    security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE
+                    security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE,
                 )
                 if cached_result:
                     await self._metrics.incr("cache_hits")
@@ -713,12 +712,12 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
                     return cached_result
             except Exception as e:
                 logger.warning(f"Cache lookup failed: {e}")
-            
+
             await self._metrics.incr("cache_misses")
-            
+
             # Enhance query with conversation context for follow-up questions
             enhanced_query = await self._enhance_query_with_context(query, session_id)
-            
+
             # Log the research query with healthcare context
             log_healthcare_event(
                 logger,
@@ -821,13 +820,13 @@ class ClinicalResearchAgent(BaseHealthcareAgent):
                     security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE,
                     ttl_seconds=1800,  # 30 minutes cache for research results
                     healthcare_context={
-                        "search_type": "clinical_research", 
-                        "query_type": query_analysis.get("query_type", "general")
-                    }
+                        "search_type": "clinical_research",
+                        "query_type": query_analysis.get("query_type", "general"),
+                    },
                 )
             except Exception as e:
                 logger.warning(f"Failed to cache clinical research result: {e}")
-                
+
             # Log successful completion
             log_healthcare_event(
                 logger,
@@ -901,7 +900,7 @@ Query: "{query}"
 
 Analyze this query and respond with a JSON object containing:
 1. query_type: One of ["differential_diagnosis", "drug_interaction", "literature_research", "comprehensive_research", "treatment_recommendation", "lifestyle_guidance"]
-2. intent_category: One of ["information_seeking", "actionable_guidance"] 
+2. intent_category: One of ["information_seeking", "actionable_guidance"]
 3. focus_areas: Array of relevant medical specialties or focus areas
 4. complexity_score: Float from 0.1 to 1.0 indicating query complexity
 5. recommended_tools: Array of MCP tools to use (e.g., ["search-pubmed", "search-trials", "get-drug-info", "lifestyle-api", "exercise-api"])
@@ -911,7 +910,7 @@ Analyze this query and respond with a JSON object containing:
 
 Guidelines for classification:
 - **Information-seeking queries**: "what causes diabetes?", "research on heart disease", "studies about medication X"
-  - Use "literature_research" or "comprehensive_research" 
+  - Use "literature_research" or "comprehensive_research"
   - Tools: ["search-pubmed", "search-trials"]
 
 - **Actionable guidance queries**: "physical therapy for back pain", "lifestyle changes for cardiovascular health", "exercises for diabetes management"
@@ -923,7 +922,7 @@ Guidelines for classification:
   - Use "differential_diagnosis"
 
 - **Medication queries**: drug interactions, side effects, dosing
-  - Use "drug_interaction" 
+  - Use "drug_interaction"
   - Tools: ["get-drug-info", "search-pubmed"]
 
 Respond only with valid JSON.
@@ -951,7 +950,7 @@ Respond only with valid JSON.
                 complexity_score = float(analysis_result.get("complexity_score", 0.6))
                 recommended_tools = analysis_result.get("recommended_tools", ["search-pubmed"])
                 research_strategy = analysis_result.get(
-                    "research_strategy", "Comprehensive literature search"
+                    "research_strategy", "Comprehensive literature search",
                 )
                 urgency_level = analysis_result.get("urgency_level", "medium")
                 requires_treatment_guidance = bool(analysis_result.get("requires_treatment_guidance", False))
@@ -1010,7 +1009,7 @@ Respond only with valid JSON.
         try:
             # Multi-stage research approach
             research_stages = []
-            
+
             # Stage 0: Database-first pattern - check local medical databases
             try:
                 # Search local PubMed database first
@@ -1018,36 +1017,36 @@ Respond only with valid JSON.
                 if local_pubmed_articles:
                     await self._metrics.incr("local_pubmed_hits")
                     logger.info(f"Found {len(local_pubmed_articles)} articles in local PubMed database")
-                    
+
                     research_stages.append({
                         "stage": "local_pubmed_search",
                         "source": "Local PubMed Database",
                         "results_count": len(local_pubmed_articles),
                         "articles": local_pubmed_articles[:10],  # Limit for performance
                         "query": query,
-                        "data_freshness": "Local mirror - may not include latest publications"
+                        "data_freshness": "Local mirror - may not include latest publications",
                     })
                 else:
                     await self._metrics.incr("local_pubmed_misses")
                     logger.info("No results in local PubMed database")
-                    
+
                 # Search local ClinicalTrials database
                 local_trials = self._medical_db.search_clinical_trials_local(query, max_results=10)
                 if local_trials:
                     await self._metrics.incr("local_trials_hits")
                     logger.info(f"Found {len(local_trials)} clinical trials in local database")
-                    
+
                     research_stages.append({
                         "stage": "local_trials_search",
                         "source": "Local ClinicalTrials Database",
                         "results_count": len(local_trials),
                         "trials": local_trials,
                         "query": query,
-                        "data_freshness": "Local mirror - may not include latest trials"
+                        "data_freshness": "Local mirror - may not include latest trials",
                     })
                 else:
                     await self._metrics.incr("local_trials_misses")
-                    
+
             except Exception as e:
                 logger.warning(f"Local database search failed: {e}")
                 await self._metrics.incr("local_database_errors")
@@ -1065,7 +1064,7 @@ Respond only with valid JSON.
                             "tool": "search-pubmed",
                             "result": pubmed_result,
                             "success": True,
-                        }
+                        },
                     )
                 except Exception as mcp_error:
                     logger.warning(f"MCP tool search-pubmed failed: {mcp_error}")
@@ -1075,7 +1074,7 @@ Respond only with valid JSON.
                             "tool": "search-pubmed",
                             "error": str(mcp_error),
                             "success": False,
-                        }
+                        },
                     )
 
                 # Stage 2: Clinical trial search via MCP tools
@@ -1090,7 +1089,7 @@ Respond only with valid JSON.
                             "tool": "search-trials",
                             "result": trials_result,
                             "success": True,
-                        }
+                        },
                     )
                 except Exception as mcp_error:
                     logger.warning(f"MCP tool search-trials failed: {mcp_error}")
@@ -1100,7 +1099,7 @@ Respond only with valid JSON.
                             "tool": "search-trials",
                             "error": str(mcp_error),
                             "success": False,
-                        }
+                        },
                     )
 
             # Stage 3: Enhanced medical reasoning using existing capabilities
@@ -1119,7 +1118,7 @@ Respond only with valid JSON.
 
             # Create formatted summary for orchestrator compatibility
             formatted_summary = self._create_formatted_summary(
-                query, research_stages, reasoning_result, research_summary
+                query, research_stages, reasoning_result, research_summary,
             )
 
             # Extract sources for orchestrator
@@ -1133,7 +1132,7 @@ Respond only with valid JSON.
                         sources.extend(result["sources"])
 
             # Ensure orchestrator compatibility with standardized response format
-            result = {
+            return {
                 "success": True,
                 "research_type": "comprehensive_research",
                 "query": query,
@@ -1143,7 +1142,7 @@ Respond only with valid JSON.
                 "agent_name": "clinical_research",
                 "agent_type": "clinical_research",
                 "total_sources": len(sources),
-                "search_confidence": reasoning_result.confidence_score if hasattr(reasoning_result, 'confidence_score') else 0.8,
+                "search_confidence": reasoning_result.confidence_score if hasattr(reasoning_result, "confidence_score") else 0.8,
                 "research_stages": research_stages,
                 "medical_reasoning": {
                     "reasoning_type": reasoning_result.reasoning_type,
@@ -1169,8 +1168,7 @@ Respond only with valid JSON.
                 ],
                 "generated_at": reasoning_result.generated_at.isoformat(),
             }
-            
-            return result
+
 
         except Exception as e:
             return self._create_error_response(
@@ -1186,12 +1184,12 @@ Respond only with valid JSON.
     ) -> str:
         """
         Synthesize findings from multiple research stages into conversational, comprehensive summary
-        
+
         Enhanced to provide natural, conversational responses while maintaining scientific accuracy
         """
         # Enhanced source processing for conversational synthesis
         source_analysis = self._analyze_sources_for_conversation(research_stages)
-        
+
         # Build conversational synthesis prompt
         synthesis_prompt = f"""You are a clinical research specialist providing a conversational summary of medical literature findings.
 
@@ -1227,16 +1225,16 @@ Avoid formal academic language - use clear, professional conversation style.
                 prompt=synthesis_prompt,
                 options={"temperature": 0.2, "max_tokens": 1500},  # Higher token limit for comprehensive responses
             )
-            
+
             conversational_summary = synthesis_response.get("response", "")
-            
+
             # Post-process to ensure quality
             if len(conversational_summary.strip()) < 100:
                 # Fallback to structured summary if LLM response is too short
                 return self._create_structured_fallback_summary(query, source_analysis, reasoning_result)
-            
+
             return conversational_summary
-            
+
         except Exception as e:
             logger.warning(f"LLM synthesis failed: {e}, using structured fallback")
             return self._create_structured_fallback_summary(query, source_analysis, reasoning_result)
@@ -1249,21 +1247,21 @@ Avoid formal academic language - use clear, professional conversation style.
             "fda_data": [],
             "total_sources": 0,
             "key_topics": [],
-            "evidence_strength": "limited"
+            "evidence_strength": "limited",
         }
-        
+
         for stage in research_stages:
             if not stage.get("success") or not stage.get("result"):
                 continue
-                
+
             stage_name = stage.get("stage", "unknown")
             result_data = stage.get("result", {})
-            
+
             if stage_name == "pubmed_search":
                 articles = parse_pubmed_response(result_data)
                 analysis["pubmed_articles"] = articles[:8]  # Top 8 articles for synthesis
                 analysis["total_sources"] += len(articles)
-                
+
                 # Extract key topics from titles and abstracts
                 for article in articles[:5]:
                     title = article.get("title", "").lower()
@@ -1276,27 +1274,27 @@ Avoid formal academic language - use clear, professional conversation style.
                             analysis["key_topics"].append("safety")
                         if any(term in text for term in ["mechanism", "pathway", "receptor"]):
                             analysis["key_topics"].append("mechanism")
-            
+
             elif stage_name == "trials_search":
                 trials = parse_clinical_trials_response(result_data)
                 analysis["clinical_trials"] = trials[:5]  # Top 5 trials
                 analysis["total_sources"] += len(trials)
-        
+
         # Determine evidence strength
         if analysis["total_sources"] >= 10:
             analysis["evidence_strength"] = "substantial"
         elif analysis["total_sources"] >= 5:
             analysis["evidence_strength"] = "moderate"
-        
+
         # Deduplicate topics
         analysis["key_topics"] = list(set(analysis["key_topics"]))
-        
+
         return analysis
-    
+
     def _format_sources_for_synthesis(self, source_analysis: dict[str, Any]) -> str:
         """Format sources in a way that's useful for LLM synthesis"""
         formatted_sources = []
-        
+
         # PubMed articles
         for article in source_analysis["pubmed_articles"]:
             title = article.get("title", "Untitled")
@@ -1304,47 +1302,47 @@ Avoid formal academic language - use clear, professional conversation style.
             journal = article.get("journal", "")
             year = article.get("publication_date", "")
             abstract = article.get("abstract", "")
-            
+
             author_text = ", ".join(authors[:3]) if isinstance(authors, list) and authors else "Unknown authors"
-            
+
             formatted_sources.append(f"""
 **Research Article**: {title}
 - Authors: {author_text}
 - Journal: {journal} ({year})
 - Key findings: {abstract[:300]}...
 """)
-        
+
         # Clinical trials
         for trial in source_analysis["clinical_trials"]:
             title = trial.get("title", "Untitled")
             status = trial.get("overall_status", "Unknown")
             condition = trial.get("condition", "")
             intervention = trial.get("intervention_name", "")
-            
+
             formatted_sources.append(f"""
 **Clinical Trial**: {title}
 - Status: {status}
 - Condition: {condition}
 - Intervention: {intervention}
 """)
-        
+
         summary_text = f"Total sources: {source_analysis['total_sources']}, Evidence strength: {source_analysis['evidence_strength']}"
-        if source_analysis['key_topics']:
+        if source_analysis["key_topics"]:
             summary_text += f", Key topics: {', '.join(source_analysis['key_topics'])}"
-        
+
         return summary_text + "\n\n" + "\n".join(formatted_sources)
-    
+
     def _create_structured_fallback_summary(self, query: str, source_analysis: dict[str, Any], reasoning_result: Any) -> str:
         """Create structured fallback when LLM synthesis fails"""
         summary_parts = []
-        
+
         summary_parts.append(f"## Clinical Research Summary: {query}")
         summary_parts.append("")
-        
+
         if source_analysis["total_sources"] > 0:
             summary_parts.append(f"Based on analysis of {source_analysis['total_sources']} medical sources with {source_analysis['evidence_strength']} evidence strength:")
             summary_parts.append("")
-            
+
             # Key findings from PubMed
             if source_analysis["pubmed_articles"]:
                 summary_parts.append("### Research Literature Findings")
@@ -1355,7 +1353,7 @@ Avoid formal academic language - use clear, professional conversation style.
                         abstract_summary = article["abstract"][:200] + "..." if len(article["abstract"]) > 200 else article["abstract"]
                         summary_parts.append(f"   - {abstract_summary}")
                 summary_parts.append("")
-            
+
             # Clinical trials
             if source_analysis["clinical_trials"]:
                 summary_parts.append("### Clinical Trial Evidence")
@@ -1364,7 +1362,7 @@ Avoid formal academic language - use clear, professional conversation style.
                     status = trial.get("overall_status", "Unknown status")
                     summary_parts.append(f"- **{title}** (Status: {status})")
                 summary_parts.append("")
-            
+
             # Clinical assessment
             if hasattr(reasoning_result, "final_assessment") and reasoning_result.final_assessment:
                 summary_parts.append("### Clinical Assessment")
@@ -1373,9 +1371,9 @@ Avoid formal academic language - use clear, professional conversation style.
         else:
             summary_parts.append("No medical literature sources found for this specific query.")
             summary_parts.append("")
-        
+
         summary_parts.append("**Note**: This information is for educational purposes only. Always consult healthcare professionals for medical advice.")
-        
+
         return "\n".join(summary_parts)
 
     async def _update_conversation_state(self, session_id: str, query: str, result: dict[str, Any]) -> None:
@@ -1386,20 +1384,20 @@ Avoid formal academic language - use clear, professional conversation style.
                 "queries": [],
                 "topics_discussed": [],
                 "sources_used": [],
-                "last_updated": datetime.utcnow().isoformat()
+                "last_updated": datetime.utcnow().isoformat(),
             }
-        
+
         # Update conversation memory
         memory = self._conversation_memory[session_id]
         memory["queries"].append({
             "query": query,
             "timestamp": datetime.utcnow().isoformat(),
-            "topics": self._extract_topics_from_query(query)
+            "topics": self._extract_topics_from_query(query),
         })
-        
+
         # Keep only last 10 queries to manage memory
         memory["queries"] = memory["queries"][-10:]
-        
+
         # Extract and cache sources from result
         sources = []
         if "sources" in result:
@@ -1408,81 +1406,81 @@ Avoid formal academic language - use clear, professional conversation style.
             for lit in result["supporting_literature"]:
                 if "sources" in lit:
                     sources.extend(lit["sources"])
-        
+
         # Cache sources with deduplication
         source_cache_key = f"{session_id}_sources"
         if source_cache_key not in self._source_cache:
             self._source_cache[source_cache_key] = {"sources": [], "last_updated": datetime.utcnow().isoformat()}
-        
+
         cached_sources = self._source_cache[source_cache_key]["sources"]
-        
+
         # Add new sources with deduplication
         for source in sources:
             if not self._is_duplicate_source(source, cached_sources):
                 cached_sources.append(source)
-        
+
         # Keep only last 50 sources to manage memory
         self._source_cache[source_cache_key]["sources"] = cached_sources[-50:]
         self._source_cache[source_cache_key]["last_updated"] = datetime.utcnow().isoformat()
-        
+
         # Update topics history
         if session_id not in self._topic_history:
             self._topic_history[session_id] = []
-        
+
         query_topics = self._extract_topics_from_query(query)
         for topic in query_topics:
             if topic not in self._topic_history[session_id]:
                 self._topic_history[session_id].append(topic)
-        
+
         # Keep only last 20 topics
         self._topic_history[session_id] = self._topic_history[session_id][-20:]
-    
+
     def _extract_topics_from_query(self, query: str) -> list[str]:
         """Extract key medical topics from query for conversation tracking"""
         query_lower = query.lower()
         topics = []
-        
+
         # Medical condition keywords
         condition_keywords = [
-            "diabetes", "hypertension", "cancer", "depression", "anxiety", 
-            "infection", "inflammation", "cardiovascular", "respiratory", "neurological"
+            "diabetes", "hypertension", "cancer", "depression", "anxiety",
+            "infection", "inflammation", "cardiovascular", "respiratory", "neurological",
         ]
-        
+
         # Treatment keywords
         treatment_keywords = [
-            "treatment", "therapy", "medication", "drug", "surgery", "intervention"
+            "treatment", "therapy", "medication", "drug", "surgery", "intervention",
         ]
-        
+
         # Research keywords
         research_keywords = [
-            "study", "trial", "research", "evidence", "systematic review", "meta-analysis"
+            "study", "trial", "research", "evidence", "systematic review", "meta-analysis",
         ]
-        
+
         for keyword_list, category in [
             (condition_keywords, "condition"),
-            (treatment_keywords, "treatment"), 
-            (research_keywords, "research")
+            (treatment_keywords, "treatment"),
+            (research_keywords, "research"),
         ]:
             for keyword in keyword_list:
                 if keyword in query_lower:
                     topics.append(f"{category}:{keyword}")
-        
+
         return topics
-    
+
     def _is_duplicate_source(self, new_source: dict[str, Any], cached_sources: list[dict[str, Any]]) -> bool:
         """Check if a source is already cached to avoid duplication"""
         new_title = new_source.get("title", "").lower().strip()
         new_url = new_source.get("url", "").strip()
         new_doi = new_source.get("doi", "").strip()
-        
+
         if not new_title and not new_url and not new_doi:
             return False  # Can't determine duplicates without identifiers
-        
+
         for cached_source in cached_sources:
             cached_title = cached_source.get("title", "").lower().strip()
             cached_url = cached_source.get("url", "").strip()
             cached_doi = cached_source.get("doi", "").strip()
-            
+
             # Check for exact matches
             if new_doi and cached_doi and new_doi == cached_doi:
                 return True
@@ -1490,59 +1488,59 @@ Avoid formal academic language - use clear, professional conversation style.
                 return True
             if new_title and cached_title and new_title == cached_title:
                 return True
-            
+
             # Check for very similar titles (90% similarity)
             if new_title and cached_title and len(new_title) > 10:
                 similarity = self._calculate_title_similarity(new_title, cached_title)
                 if similarity > 0.9:
                     return True
-        
+
         return False
-    
+
     def _calculate_title_similarity(self, title1: str, title2: str) -> float:
         """Calculate similarity between two titles using word overlap"""
         words1 = set(title1.lower().split())
         words2 = set(title2.lower().split())
-        
+
         if not words1 or not words2:
             return 0.0
-        
+
         intersection = words1.intersection(words2)
         union = words1.union(words2)
-        
+
         return len(intersection) / len(union) if union else 0.0
-    
+
     def _get_conversation_context(self, session_id: str) -> dict[str, Any]:
         """Get conversation context for follow-up questions"""
         context = {
             "previous_queries": [],
             "discussed_topics": [],
             "available_sources": 0,
-            "conversation_depth": 0
+            "conversation_depth": 0,
         }
-        
+
         if session_id in self._conversation_memory:
             memory = self._conversation_memory[session_id]
             context["previous_queries"] = [q["query"] for q in memory["queries"][-5:]]  # Last 5 queries
             context["conversation_depth"] = len(memory["queries"])
-        
+
         if session_id in self._topic_history:
             context["discussed_topics"] = self._topic_history[session_id][-10:]  # Last 10 topics
-        
+
         source_cache_key = f"{session_id}_sources"
         if source_cache_key in self._source_cache:
             context["available_sources"] = len(self._source_cache[source_cache_key]["sources"])
-        
+
         return context
-    
+
     async def _enhance_query_with_context(self, query: str, session_id: str) -> str:
         """Enhance query with conversation context for better follow-up handling"""
         context = self._get_conversation_context(session_id)
-        
+
         if context["conversation_depth"] == 0:
             # First query in conversation - no enhancement needed
             return query
-        
+
         # Build context-aware query enhancement
         enhancement_prompt = f"""Previous conversation context:
 - Recent queries: {', '.join(context['previous_queries'][-3:])}
@@ -1551,7 +1549,7 @@ Avoid formal academic language - use clear, professional conversation style.
 
 Current query: "{query}"
 
-If this query is a follow-up question (asking for "more details", "tell me about", "what else", etc.), 
+If this query is a follow-up question (asking for "more details", "tell me about", "what else", etc.),
 enhance it by incorporating relevant context from the previous conversation.
 
 Enhanced query:"""
@@ -1560,19 +1558,19 @@ Enhanced query:"""
             response = await self.llm_client.generate(
                 model=config.get_model_for_task("clinical"),
                 prompt=enhancement_prompt,
-                options={"temperature": 0.1, "max_tokens": 200}
+                options={"temperature": 0.1, "max_tokens": 200},
             )
-            
+
             enhanced_query = response.get("response", "").strip()
-            
+
             # Only use enhanced query if it's substantially different and reasonable
             if enhanced_query and len(enhanced_query) > len(query) + 10 and len(enhanced_query) < 300:
                 logger.info(f"Enhanced follow-up query: {query[:50]} -> {enhanced_query[:50]}")
                 return enhanced_query
-            
+
         except Exception as e:
             logger.warning(f"Query enhancement failed: {e}")
-        
+
         return query
 
     def _create_formatted_summary(
@@ -1668,7 +1666,7 @@ Enhanced query:"""
         # Medical disclaimer
         formatted_lines.append("---")
         formatted_lines.append(
-            "**Medical Disclaimer:** This research synthesis is for educational and informational purposes only. It does not constitute medical advice, diagnosis, or treatment recommendations. Always consult qualified healthcare professionals for medical decisions."
+            "**Medical Disclaimer:** This research synthesis is for educational and informational purposes only. It does not constitute medical advice, diagnosis, or treatment recommendations. Always consult qualified healthcare professionals for medical decisions.",
         )
 
         return "\n".join(formatted_lines)
@@ -1691,7 +1689,7 @@ Enhanced query:"""
         try:
             query_analysis = clinical_context.get("query_analysis", {})
             focus_areas = query_analysis.get("focus_areas", ["general_medicine"])
-            
+
             # Stage 1: Evidence-based literature search for treatment protocols
             literature_search_query = f"{query} evidence-based treatment protocols clinical guidelines"
             literature_result = await self.query_engine.process_medical_query(
@@ -1703,17 +1701,17 @@ Enhanced query:"""
 
             # Stage 2: Physical therapy and exercise recommendations
             physical_therapy_recommendations = await self._get_physical_therapy_recommendations(
-                query, focus_areas, clinical_context
+                query, focus_areas, clinical_context,
             )
 
             # Stage 3: Lifestyle and nutrition guidance
             lifestyle_recommendations = await self._get_lifestyle_recommendations(
-                query, focus_areas, clinical_context
+                query, focus_areas, clinical_context,
             )
 
             # Stage 4: Free public API integration for additional resources
             public_api_resources = await self._integrate_public_health_apis(
-                query, focus_areas
+                query, focus_areas,
             )
 
             # Stage 5: Generate comprehensive treatment recommendations
@@ -1723,7 +1721,7 @@ Enhanced query:"""
                 physical_therapy_recommendations,
                 lifestyle_recommendations,
                 public_api_resources,
-                clinical_context
+                clinical_context,
             )
 
             # Create formatted treatment plan
@@ -1733,7 +1731,7 @@ Enhanced query:"""
                 literature_result,
                 physical_therapy_recommendations,
                 lifestyle_recommendations,
-                public_api_resources
+                public_api_resources,
             )
 
             return {
@@ -1746,14 +1744,14 @@ Enhanced query:"""
                 "evidence_based_protocols": {
                     "literature_sources": getattr(literature_result, "sources", [])[:10],
                     "confidence_score": getattr(literature_result, "confidence_score", 0.7),
-                    "guidelines_found": len(getattr(literature_result, "sources", []))
+                    "guidelines_found": len(getattr(literature_result, "sources", [])),
                 },
                 "physical_therapy": physical_therapy_recommendations,
                 "lifestyle_guidance": lifestyle_recommendations,
                 "public_resources": public_api_resources,
                 "clinical_focus_areas": focus_areas,
                 "recommendations_confidence": self._calculate_recommendations_confidence(
-                    literature_result, physical_therapy_recommendations, lifestyle_recommendations
+                    literature_result, physical_therapy_recommendations, lifestyle_recommendations,
                 ),
                 "disclaimers": [
                     "MEDICAL DISCLAIMER: These recommendations are educational and informational only.",
@@ -1775,7 +1773,7 @@ Enhanced query:"""
         self,
         query: str,
         focus_areas: list[str],
-        clinical_context: dict[str, Any]
+        clinical_context: dict[str, Any],
     ) -> dict[str, Any]:
         """Get evidence-based physical therapy recommendations"""
         try:
@@ -1799,13 +1797,13 @@ Enhanced query:"""
                     "Start with supervised sessions before home programs",
                     "Progressive loading and gradual exercise advancement",
                     "Pain monitoring during activity modification",
-                    "Regular reassessment of functional goals"
+                    "Regular reassessment of functional goals",
                 ],
                 "contraindications_to_consider": [
                     "Acute injury phases may require rest before active therapy",
                     "Certain cardiovascular conditions require medical clearance",
-                    "Neurological conditions need specialized PT assessment"
-                ]
+                    "Neurological conditions need specialized PT assessment",
+                ],
             }
 
         except Exception as e:
@@ -1814,14 +1812,14 @@ Enhanced query:"""
                 "evidence_based_protocols": [],
                 "condition_specific_approaches": [],
                 "general_recommendations": ["Consult physical therapist for personalized assessment"],
-                "error": str(e)
+                "error": str(e),
             }
 
     def _get_condition_specific_pt_protocols(self, query: str, focus_areas: list[str]) -> list[dict[str, Any]]:
         """Get condition-specific physical therapy protocols based on evidence"""
         protocols = []
         query_lower = query.lower()
-        
+
         # Cardiovascular conditions
         if any(term in query_lower for term in ["cardiovascular", "heart", "cardiac", "circulation"]):
             protocols.append({
@@ -1831,14 +1829,14 @@ Enhanced query:"""
                     "Supervised aerobic exercise (walking, cycling, swimming)",
                     "Resistance training with light-moderate weights",
                     "Flexibility and stretching programs",
-                    "Progressive exercise intensity based on cardiac capacity"
+                    "Progressive exercise intensity based on cardiac capacity",
                 ],
                 "frequency": "150 minutes moderate aerobic activity per week",
                 "special_considerations": [
                     "Medical clearance required for cardiac patients",
                     "Heart rate monitoring during exercise",
-                    "Recognition of cardiac symptoms during activity"
-                ]
+                    "Recognition of cardiac symptoms during activity",
+                ],
             })
 
         # Musculoskeletal conditions
@@ -1850,14 +1848,14 @@ Enhanced query:"""
                     "Core strengthening exercises (planks, bridges)",
                     "Spinal mobility and flexibility exercises",
                     "Progressive resistance training",
-                    "Functional movement patterns"
+                    "Functional movement patterns",
                 ],
                 "frequency": "3-4 sessions per week, 20-30 minutes",
                 "special_considerations": [
                     "Avoid exercises that increase spinal flexion during acute phases",
                     "Progress gradually from passive to active movements",
-                    "Include ergonomic and posture education"
-                ]
+                    "Include ergonomic and posture education",
+                ],
             })
 
         # Diabetes and metabolic conditions
@@ -1869,15 +1867,15 @@ Enhanced query:"""
                     "Regular aerobic exercise (brisk walking, swimming)",
                     "Resistance training 2-3 times per week",
                     "Flexibility exercises",
-                    "Balance training for fall prevention"
+                    "Balance training for fall prevention",
                 ],
                 "frequency": "At least 150 minutes moderate aerobic activity per week",
                 "special_considerations": [
                     "Blood glucose monitoring before/after exercise",
                     "Proper foot care and footwear",
                     "Gradual exercise progression",
-                    "Recognition of hypoglycemia symptoms"
-                ]
+                    "Recognition of hypoglycemia symptoms",
+                ],
             })
 
         return protocols
@@ -1886,7 +1884,7 @@ Enhanced query:"""
         self,
         query: str,
         focus_areas: list[str],
-        clinical_context: dict[str, Any]
+        clinical_context: dict[str, Any],
     ) -> dict[str, Any]:
         """Get evidence-based lifestyle recommendations"""
         try:
@@ -1911,15 +1909,15 @@ Enhanced query:"""
                     "Stress management techniques (meditation, yoga)",
                     "Social support and community engagement",
                     "Smoking cessation if applicable",
-                    "Moderate alcohol consumption guidelines"
+                    "Moderate alcohol consumption guidelines",
                 ],
                 "behavioral_change_strategies": [
                     "Set specific, measurable, achievable goals",
                     "Track progress with apps or journals",
                     "Build gradual habit changes",
                     "Seek professional support when needed",
-                    "Address barriers to lifestyle changes"
-                ]
+                    "Address barriers to lifestyle changes",
+                ],
             }
 
         except Exception as e:
@@ -1928,14 +1926,14 @@ Enhanced query:"""
                 "evidence_based_guidelines": [],
                 "condition_specific_guidance": [],
                 "general_principles": ["Consult healthcare provider for personalized lifestyle guidance"],
-                "error": str(e)
+                "error": str(e),
             }
 
     def _get_condition_specific_lifestyle(self, query: str, focus_areas: list[str]) -> list[dict[str, Any]]:
         """Get condition-specific lifestyle recommendations based on evidence"""
         recommendations = []
         query_lower = query.lower()
-        
+
         # Cardiovascular health
         if any(term in query_lower for term in ["cardiovascular", "heart", "cardiac", "hypertension", "cholesterol"]):
             recommendations.append({
@@ -1945,7 +1943,7 @@ Enhanced query:"""
                     "Reduce sodium intake (<2300mg daily, ideally <1500mg)",
                     "Increase fruits, vegetables, whole grains, lean proteins",
                     "Limit saturated fats, trans fats, added sugars",
-                    "Include omega-3 fatty acids (fish, nuts, seeds)"
+                    "Include omega-3 fatty acids (fish, nuts, seeds)",
                 ],
                 "lifestyle_modifications": [
                     "Regular physical activity (150 min/week moderate intensity)",
@@ -1953,14 +1951,14 @@ Enhanced query:"""
                     "Stress management techniques",
                     "Adequate sleep (7-9 hours)",
                     "Smoking cessation",
-                    "Limit alcohol consumption"
+                    "Limit alcohol consumption",
                 ],
                 "monitoring_parameters": [
                     "Blood pressure tracking",
                     "Cholesterol levels",
                     "Weight monitoring",
-                    "Physical activity logs"
-                ]
+                    "Physical activity logs",
+                ],
             })
 
         # Diabetes management
@@ -1973,7 +1971,7 @@ Enhanced query:"""
                     "Include high-fiber foods",
                     "Regular meal timing",
                     "Limit processed foods and refined sugars",
-                    "Moderate healthy fats (avocado, nuts, olive oil)"
+                    "Moderate healthy fats (avocado, nuts, olive oil)",
                 ],
                 "lifestyle_modifications": [
                     "Regular physical activity (aerobic + resistance training)",
@@ -1981,15 +1979,15 @@ Enhanced query:"""
                     "Consistent sleep schedule",
                     "Stress reduction techniques",
                     "Regular blood glucose monitoring",
-                    "Foot care and skin care"
+                    "Foot care and skin care",
                 ],
                 "monitoring_parameters": [
                     "Blood glucose levels",
                     "HbA1c testing",
                     "Weight and BMI",
                     "Blood pressure",
-                    "Cholesterol levels"
-                ]
+                    "Cholesterol levels",
+                ],
             })
 
         return recommendations
@@ -2001,7 +1999,7 @@ Enhanced query:"""
                 "myhealthfinder_resources": [],
                 "exercise_database": [],
                 "nutrition_data": [],
-                "government_guidelines": []
+                "government_guidelines": [],
             }
 
             # For now, provide structured resource links that would be populated by actual API calls
@@ -2015,8 +2013,8 @@ Enhanced query:"""
                         "description": "Evidence-based exercise protocols",
                         "source": "ExerciseDB API (to be integrated)",
                         "exercises_available": "1000+ evidence-based exercises",
-                        "categories": ["Cardio", "Strength", "Flexibility", "Rehabilitation"]
-                    }
+                        "categories": ["Cardio", "Strength", "Flexibility", "Rehabilitation"],
+                    },
                 ]
 
             if any(term in query_lower for term in ["nutrition", "diet", "food", "eating"]):
@@ -2026,8 +2024,8 @@ Enhanced query:"""
                         "description": "Comprehensive nutritional information",
                         "source": "USDA FoodData Central API (to be integrated)",
                         "data_points": "Calories, macronutrients, micronutrients",
-                        "food_items": "400,000+ food items"
-                    }
+                        "food_items": "400,000+ food items",
+                    },
                 ]
 
             # MyHealthfinder API resources
@@ -2037,8 +2035,8 @@ Enhanced query:"""
                     "description": "Consumer health information from federal agencies",
                     "source": "MyHealthfinder API (to be integrated)",
                     "topics_covered": "Prevention, screening, lifestyle",
-                    "audience": "Consumers and healthcare providers"
-                }
+                    "audience": "Consumers and healthcare providers",
+                },
             ]
 
             return resources
@@ -2054,7 +2052,7 @@ Enhanced query:"""
         physical_therapy: dict[str, Any],
         lifestyle: dict[str, Any],
         public_resources: dict[str, Any],
-        clinical_context: dict[str, Any]
+        clinical_context: dict[str, Any],
     ) -> str:
         """Synthesize all treatment recommendations into a comprehensive plan"""
         try:
@@ -2078,7 +2076,7 @@ Create a comprehensive, actionable treatment plan that:
 
 Structure the response with:
 - **Immediate Actions** (first 1-2 weeks)
-- **Short-term Goals** (1-3 months) 
+- **Short-term Goals** (1-3 months)
 - **Long-term Management** (3+ months)
 - **Red Flags** (when to seek immediate medical attention)
 - **Professional Referrals** recommended
@@ -2102,7 +2100,7 @@ Write as if counseling a patient with evidence-based, actionable guidance.
         self,
         literature_result: Any,
         physical_therapy: dict[str, Any],
-        lifestyle: dict[str, Any]
+        lifestyle: dict[str, Any],
     ) -> float:
         """Calculate confidence score for treatment recommendations"""
         confidence_factors = []
@@ -2110,11 +2108,11 @@ Write as if counseling a patient with evidence-based, actionable guidance.
         # Literature evidence strength
         if hasattr(literature_result, "confidence_score"):
             confidence_factors.append(literature_result.confidence_score * 0.4)
-        
+
         # Physical therapy evidence
         if physical_therapy.get("evidence_based_protocols"):
             confidence_factors.append(0.8 * 0.3)  # High confidence for PT protocols
-        
+
         # Lifestyle evidence
         if lifestyle.get("evidence_based_guidelines"):
             confidence_factors.append(0.7 * 0.3)  # Good confidence for lifestyle guidelines
@@ -2128,7 +2126,7 @@ Write as if counseling a patient with evidence-based, actionable guidance.
         literature_result: Any,
         physical_therapy: dict[str, Any],
         lifestyle: dict[str, Any],
-        public_resources: dict[str, Any]
+        public_resources: dict[str, Any],
     ) -> str:
         """Create formatted treatment plan for orchestrator compatibility"""
         formatted_lines = []
@@ -2149,15 +2147,15 @@ Write as if counseling a patient with evidence-based, actionable guidance.
             for approach in physical_therapy["condition_specific_approaches"]:
                 formatted_lines.append(f"### {approach.get('condition_category', 'Physical Therapy')}")
                 formatted_lines.append(f"**Evidence Level:** {approach.get('evidence_level', 'Moderate')}")
-                
+
                 if approach.get("recommended_exercises"):
                     formatted_lines.append("**Recommended Exercises:**")
                     for exercise in approach["recommended_exercises"]:
                         formatted_lines.append(f"- {exercise}")
-                
+
                 if approach.get("frequency"):
                     formatted_lines.append(f"**Frequency:** {approach['frequency']}")
-                
+
                 formatted_lines.append("")
 
         # Lifestyle modifications section
@@ -2165,17 +2163,17 @@ Write as if counseling a patient with evidence-based, actionable guidance.
             formatted_lines.append("## Lifestyle & Dietary Recommendations")
             for guidance in lifestyle["condition_specific_guidance"]:
                 formatted_lines.append(f"### {guidance.get('condition_category', 'General Health')}")
-                
+
                 if guidance.get("dietary_recommendations"):
                     formatted_lines.append("**Dietary Guidelines:**")
                     for dietary in guidance["dietary_recommendations"]:
                         formatted_lines.append(f"- {dietary}")
-                
+
                 if guidance.get("lifestyle_modifications"):
                     formatted_lines.append("**Lifestyle Changes:**")
                     for modification in guidance["lifestyle_modifications"]:
                         formatted_lines.append(f"- {modification}")
-                
+
                 formatted_lines.append("")
 
         # Evidence sources
@@ -2186,7 +2184,7 @@ Write as if counseling a patient with evidence-based, actionable guidance.
                 title = source.get("title", "Clinical Research")
                 journal = source.get("journal", "")
                 year = source.get("publication_date", "")
-                
+
                 formatted_lines.append(f"**{i}.** {title}")
                 if journal:
                     journal_info = journal
@@ -2206,11 +2204,11 @@ Write as if counseling a patient with evidence-based, actionable guidance.
         """Return agent capabilities for discovery and routing"""
         return {
             "agent_name": "clinical_research",
-            "agent_type": "research_assistant", 
+            "agent_type": "research_assistant",
             "capabilities": [
                 "comprehensive_medical_research",
                 "clinical_trial_analysis",
-                "differential_diagnosis_support", 
+                "differential_diagnosis_support",
                 "drug_interaction_analysis",
                 "literature_synthesis",
                 "evidence_based_research",
@@ -2219,35 +2217,35 @@ Write as if counseling a patient with evidence-based, actionable guidance.
                 "treatment_recommendation_protocols",
                 "physical_therapy_guidance",
                 "lifestyle_modification_support",
-                "actionable_clinical_guidance"
+                "actionable_clinical_guidance",
             ],
             "supported_query_types": [
-                "literature_research", 
+                "literature_research",
                 "differential_diagnosis",
-                "drug_interaction", 
+                "drug_interaction",
                 "clinical_guidelines",
                 "comprehensive_research",
                 "treatment_recommendation",
-                "lifestyle_guidance"
+                "lifestyle_guidance",
             ],
             "mcp_tools": [
                 "search-pubmed",
-                "search-trials", 
+                "search-trials",
                 "get-drug-info",
                 "search-icd10",  # Future capability
                 "search-billing-codes",  # Future capability
                 "lifestyle-api",  # Future capability
                 "exercise-api",  # Future capability
-                "nutrition-api"  # Future capability
+                "nutrition-api",  # Future capability
             ],
             "dual_functionality": {
                 "information_seeking": "Comprehensive literature research and evidence synthesis",
-                "actionable_guidance": "Evidence-based treatment protocols and lifestyle recommendations"
+                "actionable_guidance": "Evidence-based treatment protocols and lifestyle recommendations",
             },
             "conversation_support": True,
             "source_deduplication": True,
             "phi_compliant": True,
-            "medical_disclaimer": "Provides research assistance and evidence-based educational guidance only, not personalized medical advice"
+            "medical_disclaimer": "Provides research assistance and evidence-based educational guidance only, not personalized medical advice",
         }
 
     async def health_check(self) -> dict[str, Any]:
@@ -2256,14 +2254,14 @@ Write as if counseling a patient with evidence-based, actionable guidance.
             # Basic connectivity tests
             mcp_status = "connected" if self.mcp_client else "not_available"
             llm_status = "connected" if self.llm_client else "not_available"
-            
+
             # Memory status
             memory_status = {
                 "active_conversations": len(self._conversation_memory),
                 "cached_sources": sum(len(cache["sources"]) for cache in self._source_cache.values()),
-                "topic_histories": len(self._topic_history)
+                "topic_histories": len(self._topic_history),
             }
-            
+
             return {
                 "agent_name": "clinical_research",
                 "status": "healthy",
@@ -2271,12 +2269,12 @@ Write as if counseling a patient with evidence-based, actionable guidance.
                 "llm_client": llm_status,
                 "memory_status": memory_status,
                 "capabilities": self.get_agent_capabilities(),
-                "last_check": datetime.utcnow().isoformat()
+                "last_check": datetime.utcnow().isoformat(),
             }
         except Exception as e:
             return {
-                "agent_name": "clinical_research", 
+                "agent_name": "clinical_research",
                 "status": "unhealthy",
                 "error": str(e),
-                "last_check": datetime.utcnow().isoformat()
+                "last_check": datetime.utcnow().isoformat(),
             }

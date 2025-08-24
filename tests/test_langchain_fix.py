@@ -5,7 +5,6 @@ Test script for the LangChain agent scratchpad fix
 
 import asyncio
 import sys
-import os
 
 # Add the healthcare-api to the path
 sys.path.insert(0, "/home/intelluxe/services/user/healthcare-api")
@@ -47,8 +46,7 @@ async def test_langchain_agent():
             if "agent_scratchpad" in error_msg and "list of base messages" in error_msg:
                 print("🔴 CRITICAL: The agent_scratchpad error is still occurring!")
                 return False
-            else:
-                print("🟡 Different error - not the scratchpad issue")
+            print("🟡 Different error - not the scratchpad issue")
 
         return result["success"]
 

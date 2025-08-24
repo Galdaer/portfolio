@@ -7,7 +7,7 @@ import json
 import logging
 
 import pandas as pd
-from validation_utils import validate_record, DataValidator
+from validation_utils import validate_record
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ class FDAParser:
             ingredients = []
             active_ingredients = ndc_data.get("active_ingredients", [])
             strength_parts = []
-            
+
             for ingredient in active_ingredients:
                 if isinstance(ingredient, dict):
                     name = ingredient.get("name")
@@ -78,7 +78,7 @@ class FDAParser:
 
             # Determine primary name
             name = brand_name or generic_name or "Unknown"
-            
+
             # Create strength string
             strength = "; ".join(strength_parts) if strength_parts else ""
 
@@ -152,13 +152,13 @@ class FDAParser:
             openfda = drugs_fda_data.get("openfda", {})
             brand_name = openfda.get("brand_name", [""])[0] if openfda.get("brand_name") else ""
             generic_name = openfda.get("generic_name", [""])[0] if openfda.get("generic_name") else ""
-            
+
             # Get sponsor/applicant information
             sponsor = drugs_fda_data.get("sponsor_name", "")
-            
+
             # Extract manufacturer from openfda if available, otherwise use sponsor
             manufacturer = (
-                openfda.get("manufacturer_name", [""])[0] if openfda.get("manufacturer_name") 
+                openfda.get("manufacturer_name", [""])[0] if openfda.get("manufacturer_name")
                 else sponsor
             )
 
@@ -168,12 +168,12 @@ class FDAParser:
             # Extract therapeutic and pharmacologic class
             therapeutic_class = ""
             pharmacologic_class = ""
-            
+
             if openfda.get("pharm_class_epc"):
                 pharmacologic_class = "; ".join(openfda["pharm_class_epc"])
             elif openfda.get("pharm_class_moa"):
                 pharmacologic_class = "; ".join(openfda["pharm_class_moa"])
-            
+
             # Extract route and dosage form
             route = "; ".join(openfda.get("route", [])) if openfda.get("route") else ""
             dosage_form = "; ".join(openfda.get("dosage_form", [])) if openfda.get("dosage_form") else ""
@@ -305,15 +305,14 @@ class FDAParser:
                 "_merge_applicant": (applicant_full_name or applicant).lower().strip() if (applicant_full_name or applicant) else "",
                 "_merge_app_number": appl_no,
             }
-            
+
             # Validate record before returning
             try:
-                validated_record = validate_record(
-                    raw_record, 
-                    'fda_drugs', 
-                    required_fields=['ndc', 'name']  # NDC and name are required
+                return validate_record(
+                    raw_record,
+                    "fda_drugs",
+                    required_fields=["ndc", "name"],  # NDC and name are required
                 )
-                return validated_record
             except Exception as e:
                 logger.warning(f"Validation failed for Orange Book drug {ndc}: {e}")
                 return None
@@ -414,36 +413,36 @@ class FDAParser:
         """
         if not records:
             return {}
-            
+
         # Sort by data source priority
         source_priority = {"ndc": 1, "orange_book": 2, "drugs_fda": 3, "labels": 4}
         records = sorted(records, key=lambda r: min(source_priority.get(src, 5) for src in r.get("data_sources", [])) if r.get("data_sources") else 5)
-        
+
         # Start with the highest priority record
         merged = records[0].copy()
-        
+
         # Remove merge keys from final result
-        merge_keys = [k for k in merged.keys() if k.startswith("_merge_")]
+        merge_keys = [k for k in merged if k.startswith("_merge_")]
         for key in merge_keys:
             merged.pop(key, None)
-        
+
         # Combine data_sources from all records
         all_sources = set()
         for record in records:
             all_sources.update(record.get("data_sources", []))
         merged["data_sources"] = list(all_sources)
-        
+
         # Merge fields from other records, preferring non-empty values
         for record in records[1:]:
             for key, value in record.items():
                 if key.startswith("_merge_") or key == "data_sources":
                     continue
-                    
+
                 # Skip if current value is already good
                 current_value = merged.get(key, "")
                 if current_value and current_value not in ["", "Unknown", []]:
                     continue
-                
+
                 # Use new value if it's better
                 if value and value not in ["", "Unknown", []]:
                     if key == "ingredients":
@@ -460,7 +459,7 @@ class FDAParser:
                     else:
                         # Replace with better value
                         merged[key] = value
-        
+
         # Prefer real NDC over synthetic ones
         real_ndc = None
         for record in records:
@@ -468,20 +467,20 @@ class FDAParser:
             if ndc and not ndc.startswith(("OB_", "FDA_")):
                 real_ndc = ndc
                 break
-        
+
         if real_ndc:
             merged["ndc"] = real_ndc
-        
+
         # Update name if we have better info
         generic = merged.get("generic_name", "")
         brand = merged.get("brand_name", "")
         current_name = merged.get("name", "")
-        
+
         if brand and brand != current_name:
             merged["name"] = brand
         elif generic and generic != current_name and current_name in ["Unknown", ""]:
             merged["name"] = generic
-            
+
         return merged
 
     def find_matching_records(self, drug_records: list[dict]) -> dict[str, list[dict]]:
@@ -490,11 +489,11 @@ class FDAParser:
         Returns dict mapping representative keys to lists of matching records
         """
         groups = {}
-        
+
         for record in drug_records:
             # Generate matching keys
             merge_keys = []
-            
+
             # Primary key: generic + brand name combination
             generic = record.get("_merge_generic_name", "")
             brand = record.get("_merge_brand_name", "")
@@ -504,19 +503,19 @@ class FDAParser:
                 merge_keys.append(f"generic:{generic}")
             elif brand:
                 merge_keys.append(f"brand:{brand}")
-            
+
             # Secondary key: application number
             app_num = record.get("_merge_app_number", "")
             if app_num:
                 merge_keys.append(f"app:{app_num}")
-            
+
             # Tertiary key: manufacturer + generic name
             manufacturer = record.get("_merge_manufacturer", "")
             applicant = record.get("_merge_applicant", "")
             if (manufacturer or applicant) and generic:
                 company = manufacturer or applicant
                 merge_keys.append(f"company_generic:{company}#{generic}")
-            
+
             # Add record to all matching groups
             if merge_keys:
                 for key in merge_keys:
@@ -531,14 +530,14 @@ class FDAParser:
                 else:
                     # Generate a unique key for orphaned records
                     fallback_key = f"orphan:{hash(str(record))}"
-                
+
                 if fallback_key not in groups:
                     groups[fallback_key] = []
                 groups[fallback_key].append(record)
-        
+
         # Since we now use unique keys, no Union-Find merging is needed
         total_records = sum(len(records) for records in groups.values())
         logger.info(f"Created {len(groups)} unique drug groups from {total_records} records")
-        
+
         # Return the groups directly without Union-Find merging
         return groups

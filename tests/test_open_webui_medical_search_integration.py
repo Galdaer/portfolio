@@ -9,23 +9,24 @@ Created: August 17, 2025
 Purpose: Validate end-to-end medical search display improvements
 """
 
-import sys
 import asyncio
+import sys
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, UTC
 
 # Add healthcare-api to path
 healthcare_api_path = Path(__file__).resolve().parent.parent / "services/user/healthcare-api"
 sys.path.insert(0, str(healthcare_api_path))
 
 try:
+    import ollama
+
     from agents.medical_search_agent.medical_search_agent import (
         MedicalLiteratureSearchAssistant,
         MedicalSearchResult,
     )
     from core.langchain.agent_adapters import create_conclusive_agent_adapter
     from core.mcp.direct_mcp_client import DirectMCPClient
-    import ollama
 except ImportError as e:
     print(f"Import error: {e}")
     print("Skipping Open WebUI integration tests - imports not available")
@@ -104,7 +105,7 @@ class TestOpenWebUIMedicalSearchIntegration:
             }
 
             formatted_response = agent._format_response_by_intent(
-                "information_request", intent_cfg, search_result, self.test_query
+                "information_request", intent_cfg, search_result, self.test_query,
             )
 
             print(f"✅ Formatted response generated: {len(formatted_response)} characters")
@@ -245,7 +246,7 @@ class TestOpenWebUIMedicalSearchIntegration:
             assert isinstance(source["title"], str), f"Article {i} title should be string"
             assert isinstance(source["abstract"], str), f"Article {i} abstract should be string"
 
-            print(f"    ✅ All metadata present and correct types")
+            print("    ✅ All metadata present and correct types")
 
         print("✅ All articles have complete metadata")
 
@@ -285,7 +286,7 @@ class TestOpenWebUIMedicalSearchIntegration:
 
             # Test agent integration
             formatted_response = self.test_medical_search_agent_formatting()
-            conclusive_response = self.test_conclusive_adapter_preserves_formatting()
+            self.test_conclusive_adapter_preserves_formatting()
 
             print("\n🎉 All Open WebUI integration tests completed!")
             print("\nSummary of Validated Features:")
@@ -296,7 +297,7 @@ class TestOpenWebUIMedicalSearchIntegration:
             print("✅ Conclusive adapter preservation")
 
             if formatted_response:
-                print(f"\n📊 Sample formatted response preview:")
+                print("\n📊 Sample formatted response preview:")
                 print(formatted_response[:300] + "...")
 
             return True
@@ -314,10 +315,9 @@ def main():
     if success:
         print("\n✅ Open WebUI medical search integration validated!")
         return 0
-    else:
-        print("\n❌ Some tests failed")
-        return 1
+    print("\n❌ Some tests failed")
+    return 1
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

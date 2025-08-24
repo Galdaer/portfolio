@@ -16,21 +16,23 @@ Compliance notes
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING
 
-from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
-from langchain_core.outputs import ChatResult
 from langchain_ollama import ChatOllama
+
+if TYPE_CHECKING:
+    from langchain_core.language_models import BaseChatModel
+    from langchain_core.outputs import ChatResult
 
 
 @dataclass(frozen=True)
 class OllamaConfig:
     model: str
-    base_url: Optional[str] = None  # e.g., "http://172.20.0.10:11434"
+    base_url: str | None = None  # e.g., "http://172.20.0.10:11434"
     temperature: float = 0.0
-    seed: Optional[int] = 0
-    num_ctx: Optional[int] = None
+    seed: int | None = 0
+    num_ctx: int | None = None
     timeout: float = 30.0  # Add timeout to config
 
     def validate(self) -> None:

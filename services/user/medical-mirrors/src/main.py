@@ -5,6 +5,7 @@ Provides unlimited access to PubMed, ClinicalTrials.gov, and FDA databases
 
 import logging
 import os
+
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -14,21 +15,35 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import uvicorn
+from billing_codes.api import (
+    get_billing_categories,
+    get_billing_code_details,
+    get_billing_stats,
+    search_billing_codes,
+)
 from clinicaltrials.api import ClinicalTrialsAPI
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fda.api import FDAAPI
-from pubmed.api import PubMedAPI
-from pubmed.api_optimized import OptimizedPubMedAPI
+from health_info.api import (
+    get_exercise_details,
+    get_food_details,
+    get_health_info_stats,
+    get_health_topic_details,
+    search_exercises,
+    search_foods,
+    search_health_topics,
+)
 
 # Import new API modules
-from icd10.api import search_icd10_codes, get_icd10_code_details, get_icd10_categories, get_icd10_stats
-from billing_codes.api import search_billing_codes, get_billing_code_details, get_billing_categories, get_billing_stats
-from health_info.api import (
-    search_health_topics, search_exercises, search_foods,
-    get_health_topic_details, get_exercise_details, get_food_details,
-    get_health_info_stats
+from icd10.api import (
+    get_icd10_categories,
+    get_icd10_code_details,
+    get_icd10_stats,
+    search_icd10_codes,
 )
+from pubmed.api import PubMedAPI
+from pubmed.api_optimized import OptimizedPubMedAPI
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
@@ -90,10 +105,10 @@ config = Config()
 if hasattr(config, "ENABLE_MULTICORE_PARSING") and config.ENABLE_MULTICORE_PARSING:
     max_workers = config.MAX_PARSER_WORKERS if config.MAX_PARSER_WORKERS > 0 else None
     pubmed_api: PubMedAPI | OptimizedPubMedAPI = OptimizedPubMedAPI(
-        SessionLocal, max_workers=max_workers
+        SessionLocal, max_workers=max_workers,
     )
     logger.info(
-        f"Using optimized multi-core PubMed parser (workers: {max_workers or 'auto-detect'})"
+        f"Using optimized multi-core PubMed parser (workers: {max_workers or 'auto-detect'})",
     )
 else:
     pubmed_api = PubMedAPI(SessionLocal)
@@ -180,7 +195,7 @@ async def get_pubmed_article(pmid: str) -> dict[str, Any]:
 # ClinicalTrials Mirror Endpoints
 @app.get("/trials/search")
 async def search_trials(
-    condition: str | None = None, location: str | None = None, max_results: int = 10
+    condition: str | None = None, location: str | None = None, max_results: int = 10,
 ) -> dict[str, Any]:
     """
     Search ClinicalTrials.gov local mirror
@@ -210,7 +225,7 @@ async def get_trial_details(nct_id: str) -> dict[str, Any]:
 # FDA Mirror Endpoints
 @app.get("/fda/search")
 async def search_fda(
-    generic_name: str | None = None, ndc: str | None = None, max_results: int = 10
+    generic_name: str | None = None, ndc: str | None = None, max_results: int = 10,
 ) -> dict[str, Any]:
     """
     Search FDA databases local mirror
@@ -244,7 +259,7 @@ async def search_icd10(
     max_results: int = 10,
     exact_match: bool = False,
     category: str | None = None,
-    billable_only: bool = False
+    billable_only: bool = False,
 ) -> dict[str, Any]:
     """
     Search ICD-10 diagnostic codes local mirror
@@ -262,8 +277,7 @@ async def search_icd10(
 async def get_icd10_details(code: str) -> dict[str, Any]:
     """Get detailed information for a specific ICD-10 code"""
     try:
-        details = await get_icd10_code_details(code)
-        return details
+        return await get_icd10_code_details(code)
     except Exception as e:
         logger.exception(f"ICD-10 code lookup failed: {e}")
         raise HTTPException(status_code=500, detail=f"ICD-10 lookup failed: {str(e)}")
@@ -296,7 +310,7 @@ async def search_billing(
     code_type: str | None = None,
     max_results: int = 10,
     active_only: bool = True,
-    category: str | None = None
+    category: str | None = None,
 ) -> dict[str, Any]:
     """
     Search medical billing codes local mirror
@@ -314,8 +328,7 @@ async def search_billing(
 async def get_billing_details(code: str) -> dict[str, Any]:
     """Get detailed information for a specific billing code"""
     try:
-        details = await get_billing_code_details(code)
-        return details
+        return await get_billing_code_details(code)
     except Exception as e:
         logger.exception(f"Billing code lookup failed: {e}")
         raise HTTPException(status_code=500, detail=f"Billing lookup failed: {str(e)}")
@@ -347,7 +360,7 @@ async def search_health_topics_endpoint(
     query: str,
     category: str | None = None,
     audience: str | None = None,
-    max_results: int = 10
+    max_results: int = 10,
 ) -> dict[str, Any]:
     """
     Search health topics from MyHealthfinder
@@ -377,7 +390,7 @@ async def search_exercises_endpoint(
     body_part: str | None = None,
     equipment: str | None = None,
     difficulty: str | None = None,
-    max_results: int = 10
+    max_results: int = 10,
 ) -> dict[str, Any]:
     """
     Search exercises from ExerciseDB
@@ -406,7 +419,7 @@ async def search_foods_endpoint(
     query: str,
     food_category: str | None = None,
     dietary_flags: str | None = None,
-    max_results: int = 10
+    max_results: int = 10,
 ) -> dict[str, Any]:
     """
     Search food items from USDA FoodData Central
@@ -474,29 +487,29 @@ async def background_fda_update(quick_test: bool = False, limit: int | None = No
 async def background_icd10_update(quick_test: bool = False) -> None:
     """Background task for ICD-10 codes update"""
     try:
-        import subprocess
         import os
-        
+        import subprocess
+
         if quick_test:
             logger.info("🏥 Starting ICD-10 codes background update (QUICK TEST - 100 codes)")
         else:
             logger.info("🏥 Starting ICD-10 codes background update")
-        
+
         # Run the ICD-10 update script with quick_test parameter
         script_path = "/app/update-scripts/update_icd10.sh"
         if os.path.exists(script_path):
             # Pass quick_test as environment variable
             env = os.environ.copy()
-            env['QUICK_TEST'] = 'true' if quick_test else 'false'
-            
-            result = subprocess.run([script_path], capture_output=True, text=True, env=env)
+            env["QUICK_TEST"] = "true" if quick_test else "false"
+
+            result = subprocess.run([script_path], check=False, capture_output=True, text=True, env=env)
             if result.returncode == 0:
-                logger.info(f"✅ ICD-10 background update completed successfully")
+                logger.info("✅ ICD-10 background update completed successfully")
             else:
                 logger.error(f"❌ ICD-10 update script failed: {result.stderr}")
         else:
             logger.error(f"❌ ICD-10 update script not found: {script_path}")
-            
+
     except Exception as e:
         logger.exception(f"❌ ICD-10 background update failed: {e}")
 
@@ -504,29 +517,29 @@ async def background_icd10_update(quick_test: bool = False) -> None:
 async def background_billing_update(quick_test: bool = False) -> None:
     """Background task for billing codes update"""
     try:
-        import subprocess
         import os
-        
+        import subprocess
+
         if quick_test:
             logger.info("🏦 Starting billing codes background update (QUICK TEST - 100 codes)")
         else:
             logger.info("🏦 Starting billing codes background update")
-        
+
         # Run the billing codes update script with quick_test parameter
         script_path = "/app/update-scripts/update_billing.sh"
         if os.path.exists(script_path):
             # Pass quick_test as environment variable
             env = os.environ.copy()
-            env['QUICK_TEST'] = 'true' if quick_test else 'false'
-            
-            result = subprocess.run([script_path], capture_output=True, text=True, env=env)
+            env["QUICK_TEST"] = "true" if quick_test else "false"
+
+            result = subprocess.run([script_path], check=False, capture_output=True, text=True, env=env)
             if result.returncode == 0:
-                logger.info(f"✅ Billing codes background update completed successfully")
+                logger.info("✅ Billing codes background update completed successfully")
             else:
                 logger.error(f"❌ Billing codes update script failed: {result.stderr}")
         else:
             logger.error(f"❌ Billing codes update script not found: {script_path}")
-            
+
     except Exception as e:
         logger.exception(f"❌ Billing codes background update failed: {e}")
 
@@ -534,42 +547,42 @@ async def background_billing_update(quick_test: bool = False) -> None:
 async def background_health_info_update(quick_test: bool = False) -> None:
     """Background task for health information update"""
     try:
-        import subprocess
         import os
-        
+        import subprocess
+
         if quick_test:
             logger.info("📋 Starting health information background update (QUICK TEST - 10 topics)")
         else:
             logger.info("📋 Starting health information background update")
-        
+
         # Run the health info update script with quick_test parameter
         script_path = "/app/update-scripts/update_health_info.sh"
         if os.path.exists(script_path):
             # Pass quick_test as environment variable
             env = os.environ.copy()
-            env['QUICK_TEST'] = 'true' if quick_test else 'false'
-            
-            result = subprocess.run([script_path], capture_output=True, text=True, env=env)
+            env["QUICK_TEST"] = "true" if quick_test else "false"
+
+            result = subprocess.run([script_path], check=False, capture_output=True, text=True, env=env)
             if result.returncode == 0:
-                logger.info(f"✅ Health information background update completed successfully")
+                logger.info("✅ Health information background update completed successfully")
             else:
                 logger.error(f"❌ Health info update script failed: {result.stderr}")
         else:
             logger.error(f"❌ Health info update script not found: {script_path}")
-            
+
     except Exception as e:
         logger.exception(f"❌ Health information background update failed: {e}")
 
 
 @app.post("/update/pubmed")
 async def trigger_pubmed_update(
-    background_tasks: BackgroundTasks, quick_test: bool = False, max_files: int | None = None
+    background_tasks: BackgroundTasks, quick_test: bool = False, max_files: int | None = None,
 ) -> dict[str, Any]:
     """Trigger PubMed data update in background"""
     try:
         background_tasks.add_task(background_pubmed_update, quick_test, max_files)
         logger.info(
-            f"📚 PubMed update task queued (quick_test={quick_test}, max_files={max_files})"
+            f"📚 PubMed update task queued (quick_test={quick_test}, max_files={max_files})",
         )
         return {
             "status": "update_started_in_background",
@@ -582,13 +595,13 @@ async def trigger_pubmed_update(
 
 @app.post("/update/trials")
 async def trigger_trials_update(
-    background_tasks: BackgroundTasks, quick_test: bool = False, limit: int | None = None
+    background_tasks: BackgroundTasks, quick_test: bool = False, limit: int | None = None,
 ) -> dict[str, Any]:
     """Trigger ClinicalTrials data update in background"""
     try:
         background_tasks.add_task(background_trials_update, quick_test, limit)
         logger.info(
-            f"🧪 ClinicalTrials update task queued (quick_test={quick_test}, limit={limit})"
+            f"🧪 ClinicalTrials update task queued (quick_test={quick_test}, limit={limit})",
         )
         return {
             "status": "update_started_in_background",
@@ -601,7 +614,7 @@ async def trigger_trials_update(
 
 @app.post("/update/fda")
 async def trigger_fda_update(
-    background_tasks: BackgroundTasks, quick_test: bool = False, limit: int | None = None
+    background_tasks: BackgroundTasks, quick_test: bool = False, limit: int | None = None,
 ) -> dict[str, Any]:
     """Trigger FDA data update in background"""
     try:
@@ -618,7 +631,7 @@ async def trigger_fda_update(
 
 @app.post("/update/icd10")
 async def trigger_icd10_update(
-    background_tasks: BackgroundTasks, quick_test: bool = False
+    background_tasks: BackgroundTasks, quick_test: bool = False,
 ) -> dict[str, Any]:
     """Trigger ICD-10 codes update in background"""
     try:
@@ -635,14 +648,14 @@ async def trigger_icd10_update(
 
 @app.post("/update/billing")
 async def trigger_billing_update(
-    background_tasks: BackgroundTasks, quick_test: bool = False
+    background_tasks: BackgroundTasks, quick_test: bool = False,
 ) -> dict[str, Any]:
     """Trigger billing codes update in background"""
     try:
         background_tasks.add_task(background_billing_update, quick_test)
         logger.info(f"🏦 Billing codes update task queued (quick_test={quick_test})")
         return {
-            "status": "update_started_in_background", 
+            "status": "update_started_in_background",
             "message": "Billing codes update task queued successfully",
         }
     except Exception as e:
@@ -652,7 +665,7 @@ async def trigger_billing_update(
 
 @app.post("/update/health-info")
 async def trigger_health_info_update(
-    background_tasks: BackgroundTasks, quick_test: bool = False
+    background_tasks: BackgroundTasks, quick_test: bool = False,
 ) -> dict[str, Any]:
     """Trigger health information update in background"""
     try:

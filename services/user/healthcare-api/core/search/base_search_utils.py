@@ -14,9 +14,11 @@ content domain correctness.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 __all__ = [
     "normalize_query_terms",
@@ -81,7 +83,7 @@ def basic_rank_sources(sources: list[dict[str, Any]], query: str) -> list[dict[s
                 str(src.get("title", "")),
                 str(src.get("abstract", "")),
                 str(src.get("summary", "")),
-            ]
+            ],
         ).lower()
         hits = sum(1 for t in terms if t in blob)
         overlap = (hits / len(terms)) if terms else 0.0

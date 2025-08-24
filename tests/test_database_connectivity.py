@@ -7,9 +7,11 @@ when the system falls back to direct MCP due to DB unavailability.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from pathlib import Path
+
 import pytest
 
 # Ensure healthcare-api package is importable
@@ -61,7 +63,6 @@ def test_database_connection_and_tables(monkeypatch):
     If the connection fails (e.g., server not running in host env), mark as xfail
     with a clear reason so CI/devs know it's environment-related.
     """
-    import psycopg2
     from src.security.database_factory import (
         PostgresConnectionFactory,
     )
@@ -99,7 +100,5 @@ def test_database_connection_and_tables(monkeypatch):
         # At least one table should exist in a properly provisioned env
         assert any(exists.values()), f"No core medical tables found: {exists}"
     finally:
-        try:
+        with contextlib.suppress(Exception):
             conn.close()
-        except Exception:
-            pass

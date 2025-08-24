@@ -5,10 +5,10 @@ Loads and validates transcription service configuration from YAML files
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, validator
 
 
 @dataclass
@@ -34,7 +34,7 @@ class SessionConfig:
 @dataclass
 class AudioConfig:
     """Audio processing configuration"""
-    supported_formats: List[str]
+    supported_formats: list[str]
     max_chunk_size_bytes: int
     max_session_duration_seconds: int
     quality_threshold: float
@@ -107,7 +107,7 @@ class PerformanceConfig:
 
 class TranscriptionConfig(BaseModel):
     """Complete transcription service configuration"""
-    
+
     websocket: WebSocketConfig
     session: SessionConfig
     audio: AudioConfig
@@ -119,7 +119,7 @@ class TranscriptionConfig(BaseModel):
     error_handling: ErrorHandlingConfig
     performance: PerformanceConfig
 
-    @validator('quality')
+    @validator("quality")
     def validate_quality_thresholds(cls, v):
         """Validate confidence thresholds are within valid ranges"""
         if not 0.0 <= v.default_confidence_threshold <= 1.0:
@@ -130,7 +130,7 @@ class TranscriptionConfig(BaseModel):
             raise ValueError("default_confidence_threshold cannot be higher than high_confidence_threshold")
         return v
 
-    @validator('performance')
+    @validator("performance")
     def validate_performance_limits(cls, v):
         """Validate performance limits are reasonable"""
         if v.memory_usage_limit_mb < 64:
@@ -142,22 +142,23 @@ class TranscriptionConfig(BaseModel):
 
 def load_transcription_config(config_path: str | Path | None = None) -> TranscriptionConfig:
     """Load transcription configuration from YAML file"""
-    
+
     if config_path is None:
         config_path = Path(__file__).parent / "transcription_config.yml"
-    
+
     config_path = Path(config_path)
-    
+
     if not config_path.exists():
-        raise FileNotFoundError(f"Transcription config file not found: {config_path}")
-    
+        msg = f"Transcription config file not found: {config_path}"
+        raise FileNotFoundError(msg)
+
     try:
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, encoding="utf-8") as f:
             config_data = yaml.safe_load(f)
-        
+
         if not isinstance(config_data, dict):
             raise ValueError("Config file must contain a YAML dictionary")
-            
+
         # Create configuration objects
         return TranscriptionConfig(
             websocket=WebSocketConfig(**config_data.get("websocket", {})),
@@ -169,39 +170,42 @@ def load_transcription_config(config_path: str | Path | None = None) -> Transcri
             integration=IntegrationConfig(**config_data.get("integration", {})),
             development=DevelopmentConfig(**config_data.get("development", {})),
             error_handling=ErrorHandlingConfig(**config_data.get("error_handling", {})),
-            performance=PerformanceConfig(**config_data.get("performance", {}))
+            performance=PerformanceConfig(**config_data.get("performance", {})),
         )
-        
+
     except yaml.YAMLError as e:
-        raise ValueError(f"Invalid YAML in transcription config: {e}")
+        msg = f"Invalid YAML in transcription config: {e}"
+        raise ValueError(msg)
     except TypeError as e:
-        raise ValueError(f"Invalid transcription configuration structure: {e}")
+        msg = f"Invalid transcription configuration structure: {e}"
+        raise ValueError(msg)
 
 
 def update_transcription_config_yaml(config_updates: dict[str, Any], config_path: str | Path | None = None) -> bool:
     """Update transcription configuration YAML file with new values"""
-    
+
     if config_path is None:
         config_path = Path(__file__).parent / "transcription_config.yml"
-    
+
     config_path = Path(config_path)
-    
+
     if not config_path.exists():
-        raise FileNotFoundError(f"Transcription config file not found: {config_path}")
-    
+        msg = f"Transcription config file not found: {config_path}"
+        raise FileNotFoundError(msg)
+
     try:
         # Load current configuration
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, encoding="utf-8") as f:
             config_data = yaml.safe_load(f)
-        
+
         if not isinstance(config_data, dict):
             raise ValueError("Config file must contain a YAML dictionary")
-        
+
         # Create backup
-        backup_path = config_path.with_suffix('.yml.backup')
-        with open(backup_path, 'w', encoding='utf-8') as f:
+        backup_path = config_path.with_suffix(".yml.backup")
+        with open(backup_path, "w", encoding="utf-8") as f:
             yaml.safe_dump(config_data, f, default_flow_style=False, sort_keys=False)
-        
+
         # Apply updates - deep merge
         def deep_update(base_dict, update_dict):
             for key, value in update_dict.items():
@@ -209,17 +213,18 @@ def update_transcription_config_yaml(config_updates: dict[str, Any], config_path
                     deep_update(base_dict[key], value)
                 else:
                     base_dict[key] = value
-        
+
         deep_update(config_data, config_updates)
-        
+
         # Write updated configuration
-        with open(config_path, 'w', encoding='utf-8') as f:
+        with open(config_path, "w", encoding="utf-8") as f:
             yaml.safe_dump(config_data, f, default_flow_style=False, sort_keys=False)
-        
+
         return True
-        
+
     except Exception as e:
-        raise ValueError(f"Failed to update transcription configuration: {e}")
+        msg = f"Failed to update transcription configuration: {e}"
+        raise ValueError(msg)
 
 
 def reload_transcription_config() -> TranscriptionConfig:
@@ -231,72 +236,72 @@ def reload_transcription_config() -> TranscriptionConfig:
 
 def create_default_transcription_config() -> dict[str, Any]:
     """Create default transcription configuration for fallback"""
-    
+
     return {
         "websocket": {
             "base_url": "ws://localhost:8000",
             "health_check_url": "http://localhost:8000",
             "endpoint_path": "/ws/transcription",
             "connection_timeout_seconds": 30,
-            "heartbeat_interval_seconds": 30
+            "heartbeat_interval_seconds": 30,
         },
         "session": {
             "default_timeout_seconds": 300,
             "cleanup_interval_seconds": 60,
             "max_concurrent_sessions": 50,
             "session_id_prefix": "session_",
-            "audio_chunk_interval_seconds": 2
+            "audio_chunk_interval_seconds": 2,
         },
         "audio": {
             "supported_formats": ["webm", "wav", "mp3", "m4a"],
             "max_chunk_size_bytes": 1048576,
             "max_session_duration_seconds": 1800,
             "quality_threshold": 0.7,
-            "noise_reduction_enabled": True
+            "noise_reduction_enabled": True,
         },
         "quality": {
             "default_confidence_threshold": 0.85,
             "high_confidence_threshold": 0.92,
             "min_confidence_for_medical_terms": 0.88,
             "max_confidence_cap": 0.98,
-            "confidence_boost_per_char": 0.001
+            "confidence_boost_per_char": 0.001,
         },
         "medical_terminology": {
             "confidence_boost_factor": 1.15,
             "specialized_terms_weight": 1.2,
             "abbreviation_expansion_enabled": True,
-            "terminology_validation_enabled": True
+            "terminology_validation_enabled": True,
         },
         "realtime": {
             "processing_interval_ms": 100,
             "batch_size": 5,
             "enable_live_corrections": True,
-            "streaming_enabled": True
+            "streaming_enabled": True,
         },
         "integration": {
             "soap_generation_enabled": True,
             "auto_save_transcriptions": True,
             "mcp_integration_enabled": True,
-            "phi_detection_enabled": True
+            "phi_detection_enabled": True,
         },
         "development": {
             "mock_transcription_enabled": False,
             "debug_audio_logging": False,
             "save_audio_chunks": False,
-            "test_mode": False
+            "test_mode": False,
         },
         "error_handling": {
             "max_retries": 3,
             "retry_delay_seconds": 1,
             "connection_retry_backoff_factor": 2.0,
-            "failed_chunk_retry_limit": 2
+            "failed_chunk_retry_limit": 2,
         },
         "performance": {
             "concurrent_processing_limit": 10,
             "memory_usage_limit_mb": 512,
             "cpu_usage_limit_percent": 80,
-            "enable_performance_monitoring": True
-        }
+            "enable_performance_monitoring": True,
+        },
     }
 
 
@@ -317,5 +322,5 @@ except (FileNotFoundError, ValueError) as e:
         integration=IntegrationConfig(**default_config["integration"]),
         development=DevelopmentConfig(**default_config["development"]),
         error_handling=ErrorHandlingConfig(**default_config["error_handling"]),
-        performance=PerformanceConfig(**default_config["performance"])
+        performance=PerformanceConfig(**default_config["performance"]),
     )

@@ -9,16 +9,15 @@ from datetime import datetime, timedelta
 from typing import Any, cast
 
 from agents import BaseHealthcareAgent
+from core.infrastructure.agent_logging_utils import (
+    enhanced_agent_method,
+)
 from core.infrastructure.agent_metrics import AgentMetricsStore
-from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
+from core.infrastructure.healthcare_cache import HealthcareCacheManager
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     healthcare_log_method,
     log_healthcare_event,
-)
-from core.infrastructure.agent_logging_utils import (
-    AgentWorkflowLogger,
-    enhanced_agent_method,
 )
 from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor, scan_for_phi
 
@@ -91,7 +90,7 @@ class SchedulingOptimizerAgent(BaseHealthcareAgent):
         self.mcp_client = mcp_client
         self.llm_client = llm_client
         self.agent_type = "scheduling_optimizer"
-        
+
         # Initialize shared healthcare infrastructure tools
         self._metrics = AgentMetricsStore(agent_name="scheduling_optimizer")
         self._cache_manager = HealthcareCacheManager()

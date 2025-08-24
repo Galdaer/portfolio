@@ -42,7 +42,7 @@ class HealthcareMCPClient:
                 "LOG_LEVEL": os.getenv("LOG_LEVEL", "info"),
             }
             logger.info(
-                f"MCP environment configured with API keys and service URLs: {list(self.env.keys())}"
+                f"MCP environment configured with API keys and service URLs: {list(self.env.keys())}",
             )
             self.use_local_server = True
         else:
@@ -93,10 +93,11 @@ class HealthcareMCPClient:
             init_response = json.loads(init_response_data.decode())
 
             if "error" in init_response:
-                raise RuntimeError(f"MCP initialization failed: {init_response['error']}")
+                msg = f"MCP initialization failed: {init_response['error']}"
+                raise RuntimeError(msg)
 
             logger.debug(
-                f"MCP initialized successfully: {init_response.get('result', {}).get('serverInfo', {})}"
+                f"MCP initialized successfully: {init_response.get('result', {}).get('serverInfo', {})}",
             )
 
             # Send tool call
@@ -109,7 +110,7 @@ class HealthcareMCPClient:
 
             # CRITICAL DEBUG: Log the exact tool message being sent
             logger.error(
-                f"CRITICAL DEBUG - Tool message being sent: {json.dumps(tool_msg, indent=2)}"
+                f"CRITICAL DEBUG - Tool message being sent: {json.dumps(tool_msg, indent=2)}",
             )
 
             proc.stdin.write((json.dumps(tool_msg) + "\n").encode())
@@ -121,7 +122,7 @@ class HealthcareMCPClient:
 
             # DEBUG: Log the exact response structure
             logger.info(
-                f"DEBUG: Raw tool response for {tool_name}: {json.dumps(tool_response, indent=2)[:500]}..."
+                f"DEBUG: Raw tool response for {tool_name}: {json.dumps(tool_response, indent=2)[:500]}...",
             )
 
             # Clean shutdown
@@ -134,18 +135,17 @@ class HealthcareMCPClient:
 
             result = tool_response.get("result", {})
             logger.info(
-                f"DEBUG: Extracted result for {tool_name}: {json.dumps(result, indent=2)[:500]}..."
+                f"DEBUG: Extracted result for {tool_name}: {json.dumps(result, indent=2)[:500]}...",
             )
             logger.info(f"MCP tool call completed successfully: {tool_name}")
             return result
 
         except Exception as e:
-            logger.error(f"MCP subprocess call failed: {e}")
+            logger.exception(f"MCP subprocess call failed: {e}")
             return {"status": "error", "error": str(e)}
 
     async def _ensure_connected(self) -> None:
         """Compatibility no-op: connections are established per-call."""
-        pass
 
     async def connect(self) -> None:
         """No-op connect for compatibility (connections are created per call)."""
@@ -155,7 +155,7 @@ class HealthcareMCPClient:
                 "healthcare_context": {
                     "operation_type": "mcp_connect",
                     "server_path": self.mcp_server_path,
-                    "env_keys": sorted(list(self.env.keys())),
+                    "env_keys": sorted(self.env.keys()),
                 },
             },
         )
@@ -182,7 +182,7 @@ class HealthcareMCPClient:
                     tools = tools_response.get("tools", [])  # type: ignore[assignment]
             logger.info(f"Discovered {len(tools)} MCP tools")
         except TimeoutError:
-            logger.error(
+            logger.exception(
                 "Timeout while listing MCP tools (possible stdout banner contamination). Ensure the MCP stdio server does not print human-readable logs to stdout; use stderr for banners.",
                 extra={
                     "healthcare_context": {
@@ -224,7 +224,7 @@ class HealthcareMCPClient:
 
             # Read initialize response
             init_response_data = await proc.stdout.readline()
-            init_response = json.loads(init_response_data.decode())
+            json.loads(init_response_data.decode())
 
             # Send tools/list message
             list_msg = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
@@ -252,7 +252,7 @@ class HealthcareMCPClient:
             return []
 
     async def call_healthcare_tool(
-        self, tool_name: str, arguments: dict[str, Any] | None = None
+        self, tool_name: str, arguments: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Healthcare convenience wrapper returning raw result or error payload."""
         result = await self.call_tool(tool_name, arguments)

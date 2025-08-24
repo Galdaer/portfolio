@@ -10,18 +10,17 @@ for consistency with the existing database schema and architecture.
 import argparse
 import asyncio
 import ftplib
-import gzip
 import logging
 import os
 import sys
 import time
+from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, suppress
 from pathlib import Path
-from typing import Any, Callable, Iterator
 
 # Type checking imports
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from medical_mirrors_types import Config
@@ -35,7 +34,7 @@ else:
         from config import Config
     except ImportError as e:
         print(f"Failed to import medical-mirrors modules: {e}")
-        print(f"Make sure medical-mirrors service is properly installed")
+        print("Make sure medical-mirrors service is properly installed")
         print(f"Looking for modules in: {medical_mirrors_src}")
         sys.exit(1)
 
@@ -43,7 +42,7 @@ else:
 class CompletePubMedDownloader:
     """
     Downloads complete PubMed archive for local database caching.
-    
+
     Based on the existing medical-mirrors PubMedDownloader but enhanced
     for complete archive downloads instead of incremental updates.
     """
@@ -54,23 +53,23 @@ class CompletePubMedDownloader:
         self.ftp_host = "ftp.ncbi.nlm.nih.gov"
         self.baseline_path = "/pubmed/baseline/"
         self.updates_path = "/pubmed/updatefiles/"
-        
+
         # Allow custom data directory override
         if custom_data_dir:
             self.data_dir = custom_data_dir
             os.makedirs(self.data_dir, exist_ok=True)
         else:
             self.data_dir = self.config.get_pubmed_data_dir()
-        
+
         self.logger = self._setup_logging()
-        
+
         # Use same timeout/retry patterns as existing downloader
         self.connection_timeout = 30  # seconds
         self.operation_timeout = 60  # seconds
         self.download_timeout = 300  # seconds for large files
         self.max_retries = 3
         self.retry_delay = 5  # seconds
-        
+
         # Download statistics
         self.stats = {
             "baseline_files_downloaded": 0,
@@ -78,7 +77,7 @@ class CompletePubMedDownloader:
             "total_size_downloaded": 0,
             "start_time": None,
             "end_time": None,
-            "errors": []
+            "errors": [],
         }
 
     def _setup_logging(self) -> logging.Logger:
@@ -88,7 +87,7 @@ class CompletePubMedDownloader:
 
         handler = logging.StreamHandler()
         formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)
@@ -134,19 +133,19 @@ class CompletePubMedDownloader:
         for attempt in range(self.config.max_retries):
             try:
                 self.logger.debug(
-                    f"Attempting {operation_name} (attempt {attempt + 1}/{self.config.max_retries})"
+                    f"Attempting {operation_name} (attempt {attempt + 1}/{self.config.max_retries})",
                 )
                 return operation_func(*args, **kwargs)
             except Exception as e:
                 if attempt == self.config.max_retries - 1:
                     self.logger.exception(
-                        f"{operation_name} failed after {self.config.max_retries} attempts: {e}"
+                        f"{operation_name} failed after {self.config.max_retries} attempts: {e}",
                     )
                     raise
 
                 wait_time = self.config.retry_delay * (2**attempt)
                 self.logger.warning(
-                    f"{operation_name} failed (attempt {attempt + 1}): {e}, retrying in {wait_time}s"
+                    f"{operation_name} failed (attempt {attempt + 1}): {e}, retrying in {wait_time}s",
                 )
                 time.sleep(wait_time)
 
@@ -176,22 +175,22 @@ class CompletePubMedDownloader:
 
             self.stats["end_time"] = time.time()
             duration = self.stats["end_time"] - self.stats["start_time"]
-            
+
             total_files = len(baseline_files) + len(update_files)
-            
-            self.logger.info(f"✅ Complete PubMed download finished!")
+
+            self.logger.info("✅ Complete PubMed download finished!")
             self.logger.info(f"   Baseline files: {len(baseline_files)}")
             self.logger.info(f"   Update files: {len(update_files)}")
             self.logger.info(f"   Total files: {total_files}")
             self.logger.info(f"   Duration: {duration/3600:.1f} hours")
-            
+
             return {
                 "status": "success",
                 "baseline_files": len(baseline_files),
                 "update_files": len(update_files),
                 "total_files": total_files,
                 "duration_hours": duration / 3600,
-                "errors": self.stats["errors"]
+                "errors": self.stats["errors"],
             }
 
         except Exception as e:
@@ -200,7 +199,7 @@ class CompletePubMedDownloader:
             return {
                 "status": "failed",
                 "error": str(e),
-                "partial_stats": self.stats
+                "partial_stats": self.stats,
             }
 
     async def download_complete_baseline(self) -> list[str]:
@@ -227,15 +226,15 @@ class CompletePubMedDownloader:
 
                 with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
                     futures = []
-                    
+
                     for i, file in enumerate(xml_files, 1):
                         local_path = baseline_dir / file
                         future = executor.submit(
-                            self._download_single_file, 
-                            ftp, 
-                            file, 
-                            local_path, 
-                            f"baseline {i}/{len(xml_files)}"
+                            self._download_single_file,
+                            ftp,
+                            file,
+                            local_path,
+                            f"baseline {i}/{len(xml_files)}",
                         )
                         futures.append((future, local_path))
 
@@ -245,7 +244,7 @@ class CompletePubMedDownloader:
                             if future.result():
                                 downloaded_files.append(str(local_path))
                         except Exception as e:
-                            self.logger.error(f"Failed to download {local_path.name}: {e}")
+                            self.logger.exception(f"Failed to download {local_path.name}: {e}")
                             self.stats["errors"].append(f"Baseline {local_path.name}: {e}")
 
                 return downloaded_files
@@ -283,15 +282,15 @@ class CompletePubMedDownloader:
 
                 with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
                     futures = []
-                    
+
                     for i, file in enumerate(xml_files, 1):
                         local_path = updates_dir / file
                         future = executor.submit(
-                            self._download_single_file, 
-                            ftp, 
-                            file, 
-                            local_path, 
-                            f"update {i}/{len(xml_files)}"
+                            self._download_single_file,
+                            ftp,
+                            file,
+                            local_path,
+                            f"update {i}/{len(xml_files)}",
                         )
                         futures.append((future, local_path))
 
@@ -301,7 +300,7 @@ class CompletePubMedDownloader:
                             if future.result():
                                 downloaded_files.append(str(local_path))
                         except Exception as e:
-                            self.logger.error(f"Failed to download {local_path.name}: {e}")
+                            self.logger.exception(f"Failed to download {local_path.name}: {e}")
                             self.stats["errors"].append(f"Update {local_path.name}: {e}")
 
                 return downloaded_files
@@ -331,12 +330,12 @@ class CompletePubMedDownloader:
 
             # Open file in append mode if resuming
             mode = "ab" if resume_pos > 0 else "wb"
-            
+
             with open(local_path, mode) as local_file:
                 # Use REST command for resume
                 if resume_pos > 0:
                     ftp.voidcmd(f"REST {resume_pos}")
-                
+
                 def write_callback(data):
                     local_file.write(data)
                     self.stats["total_size_downloaded"] += len(data)
@@ -348,7 +347,7 @@ class CompletePubMedDownloader:
             return True
 
         except Exception as e:
-            self.logger.error(f"❌ Failed to download {filename}: {e}")
+            self.logger.exception(f"❌ Failed to download {filename}: {e}")
             # Clean up partial file on error
             if local_path.exists() and not self.config.resume_downloads:
                 local_path.unlink()
@@ -357,19 +356,19 @@ class CompletePubMedDownloader:
     def get_download_stats(self) -> dict[str, Any]:
         """Get comprehensive download statistics"""
         stats = self.stats.copy()
-        
+
         if stats["start_time"] and stats["end_time"]:
             duration = stats["end_time"] - stats["start_time"]
             stats["duration_seconds"] = duration
             stats["duration_hours"] = duration / 3600
-            
+
             total_files = stats["baseline_files_downloaded"] + stats["update_files_downloaded"]
             stats["total_files"] = total_files
-            
+
             if duration > 0:
                 stats["files_per_second"] = total_files / duration
                 stats["mb_per_second"] = (stats["total_size_downloaded"] / 1024 / 1024) / duration
-        
+
         return stats
 
 
@@ -377,22 +376,22 @@ def main():
     """Main function for complete PubMed download"""
     parser = argparse.ArgumentParser(
         description="Download complete PubMed archive for offline operation",
-        epilog="Uses medical-mirrors configuration for database compatibility"
+        epilog="Uses medical-mirrors configuration for database compatibility",
     )
     parser.add_argument(
         "--data-dir",
         type=str,
-        help="Directory to store complete PubMed data (default: medical-mirrors config)"
+        help="Directory to store complete PubMed data (default: medical-mirrors config)",
     )
     parser.add_argument(
         "--baseline-only",
         action="store_true",
-        help="Download only baseline files (~120GB)"
+        help="Download only baseline files (~120GB)",
     )
     parser.add_argument(
         "--updates-only",
         action="store_true",
-        help="Download only update files (~100GB)"
+        help="Download only update files (~100GB)",
     )
 
     args = parser.parse_args()
@@ -428,15 +427,15 @@ def main():
 
     # Show download statistics
     stats = downloader.get_download_stats()
-    print(f"\n📊 Download Statistics:")
+    print("\n📊 Download Statistics:")
     print(f"   Total size: {stats.get('total_size_downloaded', 0) / 1024 / 1024 / 1024:.1f} GB")
     print(f"   Speed: {stats.get('mb_per_second', 0):.1f} MB/s")
     print(f"   Errors: {len(stats.get('errors', []))}")
-    
+
     # Show next steps
-    print(f"\n📋 Next Steps:")
-    print(f"   1. Parse downloaded files: python scripts/parse_downloaded_archives.py pubmed")
-    print(f"   2. Or use medical-mirrors API: POST /update/pubmed")
+    print("\n📋 Next Steps:")
+    print("   1. Parse downloaded files: python scripts/parse_downloaded_archives.py pubmed")
+    print("   2. Or use medical-mirrors API: POST /update/pubmed")
     print(f"   3. Files stored in: {downloader.data_dir}")
 
 

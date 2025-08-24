@@ -54,11 +54,11 @@ class ChatRequest(BaseModel):
 
     message: str = Field(..., description="User message or prompt text")
     session_id: str | None = Field(
-        None, description="Session identifier for continuity if provided"
+        None, description="Session identifier for continuity if provided",
     )
     user_id: str | None = Field(None, description="End-user identifier (non-PHI opaque ID)")
     meta: dict[str, Any] = Field(
-        default_factory=dict, description="Arbitrary metadata forwarded without interpretation"
+        default_factory=dict, description="Arbitrary metadata forwarded without interpretation",
     )
 
 
@@ -93,7 +93,7 @@ class HealthcareAPIClient:
             logger.info("Connected to healthcare-api via HTTP")
 
         except Exception as e:
-            logger.error(f"Failed to connect to healthcare-api: {e}")
+            logger.exception(f"Failed to connect to healthcare-api: {e}")
             raise
 
     async def ensure_connection(self):
@@ -109,7 +109,7 @@ class HealthcareAPIClient:
         try:
             # Send HTTP POST request to healthcare-api
             async with self.session.post(
-                f"{self.base_url}/{endpoint}", json=data or {}
+                f"{self.base_url}/{endpoint}", json=data or {},
             ) as response:
                 if response.status == 200:
                     result = await response.json()
@@ -118,11 +118,11 @@ class HealthcareAPIClient:
                 return {"status": "error", "error": f"HTTP {response.status}: {error_text}"}
 
         except Exception as e:
-            logger.error(f"Failed to send HTTP request to healthcare-api: {e}")
+            logger.exception(f"Failed to send HTTP request to healthcare-api: {e}")
             return {"status": "error", "error": str(e)}
 
     async def process_chat(
-        self, message: str, user_id: str = None, session_id: str = None
+        self, message: str, user_id: str = None, session_id: str = None,
     ) -> dict[str, Any]:
         """Process chat message via healthcare-api HTTP endpoint"""
         return await self.send_request(
@@ -140,7 +140,7 @@ class HealthcareAPIClient:
             if self.session and not self.session.closed:
                 await self.session.close()
         except Exception as e:
-            logger.error(f"Error disconnecting: {e}")
+            logger.exception(f"Error disconnecting: {e}")
         finally:
             self.session = None
 
@@ -229,7 +229,7 @@ class Pipeline:
                 # Optional: short header banner often returned separately
                 # It can live at the top-level of the healthcare-api response_data
                 header_source = response_data.get("formatted_response", "") or payload.get(
-                    "response", ""
+                    "response", "",
                 )
                 header = ""
                 if header_source and "🤖 **Medical Search Agent Response:**" in header_source:
@@ -256,10 +256,10 @@ class Pipeline:
             return response_text
 
         except TimeoutError:
-            logger.error("Pipeline timeout")
+            logger.exception("Pipeline timeout")
             return "I'm having trouble processing your request right now. The request timed out."
         except Exception as e:
-            logger.error(f"Pipeline error: {e}")
+            logger.exception(f"Pipeline error: {e}")
             return f"I'm having trouble processing your request right now. Error: {str(e)}"
 
     async def on_startup(self):

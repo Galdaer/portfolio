@@ -10,11 +10,8 @@ Tests the actual production architecture:
 This is the ONLY architecture that matters for production.
 """
 
-import asyncio
 import subprocess
 import sys
-import time
-from typing import Optional
 
 
 class ContainerHealthcareTest:
@@ -31,7 +28,7 @@ class ContainerHealthcareTest:
         try:
             result = subprocess.run(
                 ["make", "healthcare-api-build"],
-                cwd="/home/intelluxe",
+                check=False, cwd="/home/intelluxe",
                 capture_output=True,
                 text=True,
                 timeout=300,
@@ -40,9 +37,8 @@ class ContainerHealthcareTest:
             if result.returncode == 0:
                 print("✅ Container built successfully")
                 return True
-            else:
-                print(f"❌ Container build failed: {result.stderr}")
-                return False
+            print(f"❌ Container build failed: {result.stderr}")
+            return False
 
         except Exception as e:
             print(f"❌ Container build error: {e}")
@@ -66,7 +62,7 @@ class ContainerHealthcareTest:
                     "-s",
                     "http://172.20.0.10:11434/api/version",
                 ],
-                capture_output=True,
+                check=False, capture_output=True,
                 text=True,
                 timeout=30,
             )
@@ -74,9 +70,8 @@ class ContainerHealthcareTest:
             if result.returncode == 0:
                 print("✅ Container can reach Ollama")
                 return True
-            else:
-                print(f"❌ Container cannot reach Ollama: {result.stderr}")
-                return False
+            print(f"❌ Container cannot reach Ollama: {result.stderr}")
+            return False
 
         except Exception as e:
             print(f"❌ Ollama connectivity test error: {e}")
@@ -98,7 +93,7 @@ class ContainerHealthcareTest:
             ]
             input_data = '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}\n'
             result = subprocess.run(
-                cmd, input=input_data, capture_output=True, text=True, timeout=30
+                cmd, check=False, input=input_data, capture_output=True, text=True, timeout=30,
             )
 
             # Combine stdout and stderr since MCP server logs to stderr
@@ -106,10 +101,9 @@ class ContainerHealthcareTest:
             if result.returncode == 0 and '"result"' in output and "tools" in output:
                 print("✅ MCP server responds correctly")
                 return True
-            else:
-                print(f"❌ MCP server error (exit code {result.returncode})")
-                print(f"❌ Combined output: {output[:500]}...")
-                return False
+            print(f"❌ MCP server error (exit code {result.returncode})")
+            print(f"❌ Combined output: {output[:500]}...")
+            return False
 
         except Exception as e:
             print(f"❌ MCP server test error: {e}")
@@ -137,20 +131,20 @@ async def test_agent():
     try:
         from core.langchain.agents import HealthcareLangChainAgent
         from core.mcp.direct_mcp_client import DirectMCPClient
-        
+
         print("📋 Initializing MCP client...")
         mcp_client = DirectMCPClient()
-        
+
         print("🤖 Initializing LangChain agent...")
         agent = HealthcareLangChainAgent(
             mcp_client=mcp_client,
             verbose=True,
             model="llama3.1:8b"
         )
-        
+
         print("💬 Testing simple medical query...")
         result = await agent.process("What are common symptoms of type 2 diabetes?")
-        
+
         if result.get("success"):
             print("✅ Agent processing successful!")
             print(f"📄 Response preview: {result.get('formatted_summary', '')[:200]}...")
@@ -159,7 +153,7 @@ async def test_agent():
             print(f"❌ Agent processing failed: {result.get('error', 'Unknown error')}")
             print(f"🔧 Error type: {result.get('error_type', 'Unknown')}")
             return False
-            
+
     except Exception as e:
         print(f"❌ Agent test error: {e}")
         import traceback
@@ -184,7 +178,7 @@ sys.exit(0 if success else 1)
                     "-c",
                     test_script,
                 ],
-                capture_output=True,
+                check=False, capture_output=True,
                 text=True,
                 timeout=60,
             )
@@ -196,9 +190,8 @@ sys.exit(0 if success else 1)
             if result.returncode == 0:
                 print("✅ LangChain agent test successful!")
                 return True
-            else:
-                print(f"❌ LangChain agent test failed (exit code: {result.returncode})")
-                return False
+            print(f"❌ LangChain agent test failed (exit code: {result.returncode})")
+            return False
 
         except subprocess.TimeoutExpired:
             print("❌ LangChain agent test timed out")
@@ -233,9 +226,8 @@ sys.exit(0 if success else 1)
         if passed == len(tests):
             print("🎉 ALL TESTS PASSED! Healthcare system is ready for production!")
             return True
-        else:
-            print("❌ Some tests failed. System needs fixes before production.")
-            return False
+        print("❌ Some tests failed. System needs fixes before production.")
+        return False
 
 
 def main():

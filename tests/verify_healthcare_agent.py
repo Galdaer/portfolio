@@ -7,7 +7,6 @@ This script tests the core components without complex test frameworks.
 
 import asyncio
 import sys
-import os
 
 # Add healthcare-api to path for local testing
 sys.path.insert(0, "/app")  # Container path
@@ -30,7 +29,7 @@ async def verify_setup():
         print(f"   ✅ MCP Client: {len(tools)} tools available")
 
         # Show a few tool names
-        for i, tool in enumerate(tools[:3]):
+        for _i, tool in enumerate(tools[:3]):
             name = tool.get("name", "Unknown")
             print(f"      - {name}")
 

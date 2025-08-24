@@ -6,24 +6,24 @@ Handles medical dictation processing, clinical note generation, and documentatio
 import asyncio
 import logging
 import os
+import re
 import tempfile
 import uuid
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
 from agents import BaseHealthcareAgent
+from config.transcription_config_loader import TRANSCRIPTION_CONFIG
 from core.infrastructure.agent_metrics import AgentMetricsStore
-from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
+from core.infrastructure.healthcare_cache import HealthcareCacheManager
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     healthcare_log_method,
     log_healthcare_event,
 )
 from core.infrastructure.phi_monitor import phi_monitor_decorator as phi_monitor, scan_for_phi
-from config.transcription_config_loader import TRANSCRIPTION_CONFIG
 
 logger = get_healthcare_logger("agent.transcription")
 
@@ -97,7 +97,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
             agent_type="transcription",
         )
         self.logger = get_healthcare_logger(f"agent.{self.agent_name}")
-        
+
         # Initialize shared healthcare infrastructure tools
         self._metrics = AgentMetricsStore(agent_name="transcription")
         self._cache_manager = HealthcareCacheManager()
@@ -415,15 +415,15 @@ class TranscriptionAgent(BaseHealthcareAgent):
     async def process_real_time_audio(self, audio_data: dict[str, Any], session_id: str, doctor_id: str) -> dict[str, Any]:
         """
         Process real-time audio chunks for live transcription during doctor-patient sessions
-        
+
         Args:
             audio_data: Dictionary containing audio chunk data (base64, format, etc.)
             session_id: Live transcription session ID
             doctor_id: Identifier for the healthcare provider
-            
+
         Returns:
             dict: Real-time transcription result with text, confidence, and medical terms
-            
+
         Medical Disclaimer: Administrative transcription support only.
         Real-time transcription for documentation purposes, not medical interpretation.
         """
@@ -434,14 +434,14 @@ class TranscriptionAgent(BaseHealthcareAgent):
                     "transcription": "",
                     "confidence": 0.0,
                     "error": "No audio data provided",
-                    "medical_terms": []
+                    "medical_terms": [],
                 }
-            
+
             # Extract audio format and data
             audio_format = audio_data.get("format", "webm")
             audio_chunk_data = audio_data.get("data", "")
             chunk_duration = audio_data.get("duration", 1.0)
-            
+
             # Log real-time processing start
             log_healthcare_event(
                 self.logger,
@@ -455,27 +455,27 @@ class TranscriptionAgent(BaseHealthcareAgent):
                 },
                 operation_type="real_time_chunk_processing",
             )
-            
+
             # Simulate real-time processing (in production, integrate with WhisperLive)
             transcribed_chunk = await self._process_real_time_chunk(audio_chunk_data, audio_format)
-            
+
             # Apply PHI detection to real-time transcript
             phi_result = scan_for_phi(transcribed_chunk)
             if phi_result.get("phi_detected", False):
                 # Apply PHI sanitization to real-time transcript
                 transcribed_chunk = self._sanitize_phi_in_transcript(transcribed_chunk)
-            
+
             # Identify medical terms in the chunk
             medical_terms = self._identify_medical_terms(transcribed_chunk)
-            
+
             # Calculate confidence score (simulated)
             confidence_score = TRANSCRIPTION_CONFIG.quality.min_confidence_for_medical_terms + (len(transcribed_chunk) * TRANSCRIPTION_CONFIG.quality.confidence_boost_per_char)
             confidence_score = min(confidence_score, TRANSCRIPTION_CONFIG.quality.max_confidence_cap)
-            
+
             log_healthcare_event(
                 self.logger,
                 logging.INFO,
-                f"Real-time transcription chunk completed",
+                "Real-time transcription chunk completed",
                 context={
                     "session_id": session_id,
                     "chunk_length": len(transcribed_chunk),
@@ -485,7 +485,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
                 },
                 operation_type="real_time_chunk_completed",
             )
-            
+
             return {
                 "transcription": transcribed_chunk,
                 "confidence": confidence_score,
@@ -494,7 +494,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
                 "phi_sanitized": phi_result.get("phi_detected", False),
                 "processing_timestamp": datetime.now().isoformat(),
             }
-            
+
         except Exception as e:
             log_healthcare_event(
                 self.logger,
@@ -508,7 +508,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
                 },
                 operation_type="real_time_transcription_error",
             )
-            
+
             return {
                 "transcription": "",
                 "confidence": 0.0,
@@ -519,10 +519,10 @@ class TranscriptionAgent(BaseHealthcareAgent):
 
     async def _process_real_time_chunk(self, audio_chunk_data: str, audio_format: str) -> str:
         """Process individual audio chunk for real-time transcription"""
-        
+
         # Simulate processing delay for real-time chunk
         await asyncio.sleep(TRANSCRIPTION_CONFIG.realtime.processing_interval_ms / 10000.0)  # Much faster than full audio processing
-        
+
         # Generate realistic real-time transcription chunks
         chunk_templates = [
             "Patient reports feeling better today.",
@@ -536,26 +536,26 @@ class TranscriptionAgent(BaseHealthcareAgent):
             "No acute distress noted.",
             "Will schedule follow-up appointment.",
         ]
-        
+
         # In production, this would interface with WhisperLive or similar service
         # For now, return a realistic medical transcription chunk
         import random
         return random.choice(chunk_templates)
-    
+
     def _sanitize_phi_in_transcript(self, transcript: str) -> str:
         """Apply PHI sanitization to real-time transcript"""
-        
+
         # Simple PHI patterns for real-time sanitization
         phi_patterns = {
-            r'\b\d{3}-\d{2}-\d{4}\b': '[SSN_REDACTED]',  # SSN
-            r'\b\d{10,11}\b': '[PHONE_REDACTED]',  # Phone numbers
-            r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b': '[EMAIL_REDACTED]',  # Email
+            r"\b\d{3}-\d{2}-\d{4}\b": "[SSN_REDACTED]",  # SSN
+            r"\b\d{10,11}\b": "[PHONE_REDACTED]",  # Phone numbers
+            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b": "[EMAIL_REDACTED]",  # Email
         }
-        
+
         sanitized = transcript
         for pattern, replacement in phi_patterns.items():
             sanitized = re.sub(pattern, replacement, sanitized)
-            
+
         return sanitized
 
     async def _generate_mock_transcription(self, encounter_type: str) -> str:
@@ -684,10 +684,10 @@ class TranscriptionAgent(BaseHealthcareAgent):
                     "word_count": result.get("word_count", 0),
                     "processing_time": result.get("processing_time", 0),
                 }
-            else:
-                raise RuntimeError(
-                    f"MCP transcription failed: {result.get('error', 'Unknown error')}"
-                )
+            msg = f"MCP transcription failed: {result.get('error', 'Unknown error')}"
+            raise RuntimeError(
+                msg,
+            )
 
         except Exception as e:
             log_healthcare_event(
@@ -704,7 +704,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
             raise
 
     async def _process_audio_file(
-        self, audio_file_path: str, audio_format: str | None = None
+        self, audio_file_path: str, audio_format: str | None = None,
     ) -> dict[str, Any]:
         """
         Process audio file and prepare for transcription
@@ -720,7 +720,8 @@ class TranscriptionAgent(BaseHealthcareAgent):
             audio_path = Path(audio_file_path)
 
             if not audio_path.exists():
-                raise FileNotFoundError(f"Audio file not found: {audio_file_path}")
+                msg = f"Audio file not found: {audio_file_path}"
+                raise FileNotFoundError(msg)
 
             # Determine audio format from file extension if not provided
             if not audio_format:
@@ -732,8 +733,9 @@ class TranscriptionAgent(BaseHealthcareAgent):
             # Validate audio format
             supported_formats = ["wav", "mp3", "m4a", "flac", "ogg", "aac"]
             if audio_format not in supported_formats:
+                msg = f"Unsupported audio format: {audio_format}. Supported formats: {supported_formats}"
                 raise ValueError(
-                    f"Unsupported audio format: {audio_format}. Supported formats: {supported_formats}"
+                    msg,
                 )
 
             # Estimate duration (rough calculation - would use proper audio library in production)
@@ -1220,20 +1222,20 @@ class TranscriptionAgent(BaseHealthcareAgent):
                 audio_data = request["audio_data"]
                 session_id = request.get("session_id", "default")
                 doctor_id = request.get("doctor_id", "unknown")
-                
+
                 # Handle real-time audio chunk processing
                 result = await self.process_real_time_audio(audio_data, session_id, doctor_id)
-                
+
                 return {
                     "success": True,
                     "transcription": result.get("transcription", ""),
                     "confidence": result.get("confidence", 0.0),
                     "session_id": session_id,
                     "timestamp": datetime.now().isoformat(),
-                    "medical_terms": result.get("medical_terms", [])
+                    "medical_terms": result.get("medical_terms", []),
                 }
-                
-            elif "audio_data" in request:
+
+            if "audio_data" in request:
                 # Process audio transcription
                 audio_data = request["audio_data"]
 
@@ -1250,7 +1252,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
                 response_dict["success"] = True
                 return response_dict
 
-            elif "text_data" in request:
+            if "text_data" in request:
                 # Process clinical note generation
                 result = await self.generate_clinical_note(request["text_data"])
 
@@ -1258,7 +1260,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
                 response_dict["success"] = True
                 return response_dict
 
-            elif "batch_audio_data" in request:
+            if "batch_audio_data" in request:
                 # Process batch audio transcription
                 batch_results = []
                 for audio_item in request["batch_audio_data"]:
@@ -1275,12 +1277,11 @@ class TranscriptionAgent(BaseHealthcareAgent):
                     "total_processed": len(batch_results),
                 }
 
-            else:
-                return {
-                    "success": False,
-                    "error": "No supported data type found in request",
-                    "supported_types": ["audio_data", "text_data", "batch_audio_data"],
-                }
+            return {
+                "success": False,
+                "error": "No supported data type found in request",
+                "supported_types": ["audio_data", "text_data", "batch_audio_data"],
+            }
 
         except Exception as e:
             log_healthcare_event(

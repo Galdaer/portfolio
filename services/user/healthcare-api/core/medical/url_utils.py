@@ -1,7 +1,7 @@
 """Medical search utilities for data source-specific URL generation and formatting."""
 
-from typing import Mapping
 import re
+from collections.abc import Mapping
 
 # Load configurable parameters (e.g., list limits) without creating cycles
 try:
@@ -54,10 +54,9 @@ def generate_source_url(source: Mapping[str, object]) -> str:
 
         if ndc:
             return f"https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query={ndc}"
-        elif generic_name:
+        if generic_name:
             return f"https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query={generic_name.replace(' ', '+')}"
-        else:
-            return "https://dailymed.nlm.nih.gov/dailymed/"
+        return "https://dailymed.nlm.nih.gov/dailymed/"
 
     # Fallback
     return "#"
@@ -135,7 +134,7 @@ def generate_conversational_summary(sources: list[dict[str, object]], query: str
 
         logger = get_healthcare_logger("conversational_summary")
         logger.info(
-            f"DIAGNOSTIC: generate_conversational_summary called with {len(sources) if sources else 0} sources for query: '{query}'"
+            f"DIAGNOSTIC: generate_conversational_summary called with {len(sources) if sources else 0} sources for query: '{query}'",
         )
     except Exception:
         logger = None
@@ -196,10 +195,7 @@ def generate_conversational_summary(sources: list[dict[str, object]], query: str
         pub_date = _as_str(source.get("publication_date", "")).strip()
 
         # Make title clickable if URL exists
-        if url:
-            title_with_link = f"[{title}]({url})"
-        else:
-            title_with_link = title
+        title_with_link = f"[{title}]({url})" if url else title
 
         header = f"{i}. {title_with_link}"
         if pub_date:
@@ -218,7 +214,7 @@ def generate_conversational_summary(sources: list[dict[str, object]], query: str
     result = "\n".join(lines).rstrip()
     if logger:
         logger.info(
-            f"DIAGNOSTIC: Generated summary length: {len(result)}, preview: {result[:200] if result else 'EMPTY'}"
+            f"DIAGNOSTIC: Generated summary length: {len(result)}, preview: {result[:200] if result else 'EMPTY'}",
         )
 
     return result

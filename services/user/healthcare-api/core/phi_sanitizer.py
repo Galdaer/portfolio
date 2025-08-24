@@ -5,21 +5,18 @@ Provides HIPAA-compliant sanitization of medical requests and responses
 for the healthcare AI system Open WebUI endpoints.
 """
 
-import json
-import logging
 import re
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
-import os
 from src.healthcare_mcp.phi_detection import PHIDetector
+
 from core.infrastructure.healthcare_logger import get_healthcare_logger
-from config.phi_detection_config_loader import phi_config
 
 logger = get_healthcare_logger("core.phi_sanitizer")
 
 # Global PHI detector instance
-_phi_detector: Optional[PHIDetector] = None
+_phi_detector: PHIDetector | None = None
 
 
 def get_phi_detector() -> PHIDetector:
@@ -150,7 +147,7 @@ def _is_external_medical_content(content: str) -> bool:
     return False
 
 
-def sanitize_request_data(request_data: Dict[str, Any]) -> Dict[str, Any]:
+def sanitize_request_data(request_data: dict[str, Any]) -> dict[str, Any]:
     """
     Sanitize request data for HIPAA compliance
 
@@ -173,7 +170,7 @@ def sanitize_request_data(request_data: Dict[str, Any]) -> Dict[str, Any]:
                         # Skip PHI detection for external medical content (research citations)
                         if _is_external_medical_content(content):
                             logger.info(
-                                f"🔬 External medical content detected, skipping PHI sanitization: {content[:50]}..."
+                                f"🔬 External medical content detected, skipping PHI sanitization: {content[:50]}...",
                             )
                             continue
 
@@ -181,7 +178,7 @@ def sanitize_request_data(request_data: Dict[str, Any]) -> Dict[str, Any]:
                         if result.phi_detected:
                             sanitized_data["messages"][i]["content"] = result.masked_text
                             logger.warning(
-                                f"🛡️ PHI detected in request message {i}, types: {result.phi_types}"
+                                f"🛡️ PHI detected in request message {i}, types: {result.phi_types}",
                             )
 
         # Sanitize top-level message field (if present)
@@ -198,12 +195,12 @@ def sanitize_request_data(request_data: Dict[str, Any]) -> Dict[str, Any]:
         return sanitized_data
 
     except Exception as e:
-        logger.error(f"❌ PHI sanitization failed for request: {e}")
+        logger.exception(f"❌ PHI sanitization failed for request: {e}")
         # Return original data if sanitization fails (logged for audit)
         return request_data
 
 
-def sanitize_response_data(response_data: Dict[str, Any]) -> Dict[str, Any]:
+def sanitize_response_data(response_data: dict[str, Any]) -> dict[str, Any]:
     """
     Sanitize response data for HIPAA compliance
 
@@ -228,7 +225,7 @@ def sanitize_response_data(response_data: Dict[str, Any]) -> Dict[str, Any]:
                             # Skip PHI detection for external medical content (research citations)
                             if _is_external_medical_content(content):
                                 logger.info(
-                                    f"🔬 External medical content detected in response, skipping PHI sanitization: {content[:50]}..."
+                                    f"🔬 External medical content detected in response, skipping PHI sanitization: {content[:50]}...",
                                 )
                                 continue
 
@@ -238,7 +235,7 @@ def sanitize_response_data(response_data: Dict[str, Any]) -> Dict[str, Any]:
                                     result.masked_text
                                 )
                                 logger.warning(
-                                    f"🛡️ PHI detected in response choice {i}, types: {result.phi_types}"
+                                    f"🛡️ PHI detected in response choice {i}, types: {result.phi_types}",
                                 )
 
         # Sanitize top-level response content (if present)
@@ -251,13 +248,13 @@ def sanitize_response_data(response_data: Dict[str, Any]) -> Dict[str, Any]:
                     logger.warning(f"🛡️ PHI detected in response, types: {result.phi_types}")
             else:
                 logger.info(
-                    "🔬 External medical content detected in response, skipping PHI sanitization"
+                    "🔬 External medical content detected in response, skipping PHI sanitization",
                 )
 
         return sanitized_data
 
     except Exception as e:
-        logger.error(f"❌ PHI sanitization failed for response: {e}")
+        logger.exception(f"❌ PHI sanitization failed for response: {e}")
         # Return original data if sanitization fails (logged for audit)
         return response_data
 
@@ -283,7 +280,7 @@ def sanitize_text_content(text: str) -> str:
         return text
 
     except Exception as e:
-        logger.error(f"❌ PHI sanitization failed for text: {e}")
+        logger.exception(f"❌ PHI sanitization failed for text: {e}")
         return text
 
 
@@ -310,4 +307,4 @@ def log_phi_incident(data_type: str, phi_types: list[str], details: str = ""):
         logger.info("🛡️ HIPAA Audit: PHI detected and masked", extra={"audit": audit_entry})
 
     except Exception as e:
-        logger.error(f"❌ Failed to log PHI incident: {e}")
+        logger.exception(f"❌ Failed to log PHI incident: {e}")

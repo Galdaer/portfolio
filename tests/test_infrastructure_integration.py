@@ -11,8 +11,6 @@ This validates the Phase 1 infrastructure integration described in the handoff:
 
 import asyncio
 import sys
-import os
-import json
 from pathlib import Path
 
 # Add healthcare-api to path
@@ -40,8 +38,8 @@ def test_toolregistry_mcp_integration():
     print("\n🔍 Test 1.2: ToolRegistry + DirectMCPClient Integration")
 
     try:
-        from core.tools import tool_registry
         from core.mcp.direct_mcp_client import DirectMCPClient
+        from core.tools import tool_registry
 
         async def test_integration():
             mcp_client = DirectMCPClient()
@@ -63,8 +61,7 @@ def test_toolregistry_mcp_integration():
                 "unhealthy",
             ]  # Any status is success (connection attempted)
 
-        result = asyncio.run(test_integration())
-        return result
+        return asyncio.run(test_integration())
 
     except Exception as e:
         print(f"❌ ToolRegistry integration failed: {e}")
@@ -127,7 +124,7 @@ def test_phi_sanitizer_integration():
             "messages": [
                 {"role": "user", "content": "Patient John Smith 555-123-4567 needs help"},
                 {"role": "assistant", "content": "How can I help?"},
-            ]
+            ],
         }
         sanitized_request = sanitize_request_data(test_request)
         print("✅ Request sanitization:")
@@ -137,8 +134,8 @@ def test_phi_sanitizer_integration():
         # Test response sanitization
         test_response = {
             "choices": [
-                {"message": {"content": "Patient Mary Johnson 555-789-0123 has an appointment"}}
-            ]
+                {"message": {"content": "Patient Mary Johnson 555-789-0123 has an appointment"}},
+            ],
         }
         sanitized_response = sanitize_response_data(test_response)
         print("✅ Response sanitization:")
@@ -238,7 +235,7 @@ def test_openai_endpoint_integration():
                 {
                     "role": "user",
                     "content": "I have a patient named Robert Wilson, SSN 123-45-6789, phone 555-234-5678. He has diabetes.",
-                }
+                },
             ],
         }
 
@@ -250,10 +247,10 @@ def test_openai_endpoint_integration():
             "choices": [
                 {
                     "message": {
-                        "content": "Based on the information about Mr. Wilson (555-234-5678), I recommend consulting with an endocrinologist."
-                    }
-                }
-            ]
+                        "content": "Based on the information about Mr. Wilson (555-234-5678), I recommend consulting with an endocrinologist.",
+                    },
+                },
+            ],
         }
 
         # Sanitize response
@@ -261,14 +258,14 @@ def test_openai_endpoint_integration():
 
         print("✅ OpenAI endpoint PHI sanitization simulation:")
         print(
-            f"   Request PHI masked: {sanitized_request['messages'][0]['content'] != openai_request['messages'][0]['content']}"
+            f"   Request PHI masked: {sanitized_request['messages'][0]['content'] != openai_request['messages'][0]['content']}",
         )
         print(
-            f"   Response PHI masked: {sanitized_response['choices'][0]['message']['content'] != openai_response['choices'][0]['message']['content']}"
+            f"   Response PHI masked: {sanitized_response['choices'][0]['message']['content'] != openai_response['choices'][0]['message']['content']}",
         )
         print(f"   Sanitized request: {sanitized_request['messages'][0]['content'][:50]}...")
         print(
-            f"   Sanitized response: {sanitized_response['choices'][0]['message']['content'][:50]}..."
+            f"   Sanitized response: {sanitized_response['choices'][0]['message']['content'][:50]}...",
         )
 
         return True
@@ -322,10 +319,9 @@ def main():
         print("🎉 ALL INFRASTRUCTURE INTEGRATION TESTS PASSED!")
         print("✅ Phase 1 infrastructure integration is working correctly")
         return 0
-    else:
-        print("⚠️  Some infrastructure integration tests failed")
-        print("🔧 Review failed tests and fix integration issues")
-        return 1
+    print("⚠️  Some infrastructure integration tests failed")
+    print("🔧 Review failed tests and fix integration issues")
+    return 1
 
 
 if __name__ == "__main__":

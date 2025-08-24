@@ -9,11 +9,10 @@ to resolve broken pipe errors when called from LangChain agents.
 
 import asyncio
 import json
-import logging
 import os
 import subprocess
-from typing import Any, Dict, List, Optional
 from contextlib import asynccontextmanager
+from typing import Any
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 
@@ -39,7 +38,7 @@ class DirectMCPClient:
         self._is_container_environment = self._detect_container_environment()
         self.mcp_server_path = self._detect_mcp_server_path(container_path, host_path)
 
-        self._active_connections: Dict[str, subprocess.Popen] = {}
+        self._active_connections: dict[str, subprocess.Popen] = {}
         self._connection_lock = asyncio.Lock()
 
         # Environment variables to pass to MCP server subprocess
@@ -105,7 +104,7 @@ class DirectMCPClient:
             if env_path.endswith("index.js"):
                 env_path = env_path.replace("index.js", "stdio_entry.js")
                 logger.info(
-                    f"Corrected MCP server path from index.js to stdio_entry.js: {env_path}"
+                    f"Corrected MCP server path from index.js to stdio_entry.js: {env_path}",
                 )
             else:
                 logger.info(f"Using MCP server path from environment: {env_path}")
@@ -116,22 +115,20 @@ class DirectMCPClient:
             if os.path.exists(container_path):
                 logger.info(f"Container environment detected, using: {container_path}")
                 return container_path
-            else:
-                logger.warning(
-                    f"Container environment but MCP server not found at {container_path}"
-                )
-                return container_path  # Return anyway for clear error messaging
+            logger.warning(
+                f"Container environment but MCP server not found at {container_path}",
+            )
+            return container_path  # Return anyway for clear error messaging
 
         # Host environment - check for built MCP server
         if os.path.exists(host_path):
             logger.info(f"Host environment with built MCP server: {host_path}")
             return host_path
-        else:
-            logger.warning(f"Host environment - MCP server expected at {host_path} but not found")
-            logger.info(
-                "Note: MCP server is container-only by design. Expected when running from host."
-            )
-            return host_path  # Return for clear error messaging
+        logger.warning(f"Host environment - MCP server expected at {host_path} but not found")
+        logger.info(
+            "Note: MCP server is container-only by design. Expected when running from host.",
+        )
+        return host_path  # Return for clear error messaging
 
     @asynccontextmanager
     async def _get_mcp_connection(self, connection_id: str = "default"):
@@ -185,7 +182,7 @@ class DirectMCPClient:
                 )
             except (FileNotFoundError, OSError) as e:
                 error_msg = f"Failed to start MCP server: {e}. Check that node.js is installed and MCP server is built."
-                logger.error(error_msg)
+                logger.exception(error_msg)
                 raise RuntimeError(error_msg) from e
 
             try:
@@ -209,7 +206,7 @@ class DirectMCPClient:
 
                 # Read initialization response
                 response_line = await asyncio.wait_for(
-                    asyncio.to_thread(process.stdout.readline), timeout=10
+                    asyncio.to_thread(process.stdout.readline), timeout=10,
                 )
 
                 if not response_line:
@@ -223,7 +220,7 @@ class DirectMCPClient:
 
             except Exception as e:
                 # Clean up on error
-                logger.error(f"Failed to establish MCP connection {connection_id}: {e}")
+                logger.exception(f"Failed to establish MCP connection {connection_id}: {e}")
                 try:
                     process.terminate()
                     process.wait(timeout=5)
@@ -232,7 +229,7 @@ class DirectMCPClient:
                     process.wait()
                 raise
 
-    async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """
         Call an MCP tool using pooled connection with proper lifecycle management.
 
@@ -247,7 +244,7 @@ class DirectMCPClient:
                     "tool_name": tool_name,
                     "arguments": arguments,
                     "connection_strategy": "pooled",
-                }
+                },
             },
         )
 
@@ -270,24 +267,26 @@ class DirectMCPClient:
 
                 # Read tool response with longer timeout for medical searches
                 response_line = await asyncio.wait_for(
-                    asyncio.to_thread(process.stdout.readline), timeout=30
+                    asyncio.to_thread(process.stdout.readline), timeout=30,
                 )
 
                 if not response_line:
-                    raise RuntimeError(f"No response from MCP server for tool: {tool_name}")
+                    msg = f"No response from MCP server for tool: {tool_name}"
+                    raise RuntimeError(msg)
 
                 # Parse response
                 result = json.loads(response_line.strip())
 
                 if "error" in result:
                     logger.error(f"MCP tool error: {result['error']}")
-                    raise RuntimeError(f"MCP tool error: {result['error']}")
+                    msg = f"MCP tool error: {result['error']}"
+                    raise RuntimeError(msg)
 
                 logger.info(f"MCP tool {tool_name} completed successfully")
                 return result.get("result", {})
 
         except Exception as e:
-            logger.error(
+            logger.exception(
                 f"Failed to call MCP tool {tool_name}: {e}",
                 extra={
                     "healthcare_context": {
@@ -295,7 +294,7 @@ class DirectMCPClient:
                         "tool_name": tool_name,
                         "error": str(e),
                         "fix_note": "pooled_connection_failed",
-                    }
+                    },
                 },
             )
             raise
@@ -316,7 +315,7 @@ class DirectMCPClient:
             self._active_connections.clear()
             logger.info("All MCP connections cleaned up")
 
-    async def get_available_tools(self) -> List[Dict[str, Any]]:
+    async def get_available_tools(self) -> list[dict[str, Any]]:
         """Get list of available MCP tools using pooled connection."""
         logger.info("Listing available MCP tools")
 
@@ -330,7 +329,7 @@ class DirectMCPClient:
 
                 # Read tools response
                 response_line = await asyncio.wait_for(
-                    asyncio.to_thread(process.stdout.readline), timeout=10
+                    asyncio.to_thread(process.stdout.readline), timeout=10,
                 )
 
                 # Parse response
@@ -345,7 +344,7 @@ class DirectMCPClient:
                 return tools
 
         except Exception as e:
-            logger.error(f"Failed to list MCP tools: {e}")
+            logger.exception(f"Failed to list MCP tools: {e}")
             return []
 
     async def connect(self) -> None:
@@ -360,6 +359,7 @@ class DirectMCPClient:
         Uses response time patterns and result counts for source determination.
         """
         import time
+
         from core.mcp.universal_parser import parse_mcp_response
 
         start_time = time.time()
@@ -397,7 +397,7 @@ class DirectMCPClient:
                     "response_time": response_time,
                     "article_count": len(articles),
                     "source_type": source_type,
-                }
+                },
             },
         )
 
@@ -417,5 +417,5 @@ class DirectMCPClient:
             logger.info(f"✅ MCP tool test successful: {len(str(result))} chars response")
 
         except Exception as e:
-            logger.error(f"❌ MCP connection test failed: {e}")
+            logger.exception(f"❌ MCP connection test failed: {e}")
             raise

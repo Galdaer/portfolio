@@ -6,9 +6,10 @@ Fixes StringDataRightTruncation and other constraint issues
 
 import sys
 
-from database import get_database_url
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+
+from database import get_database_url
 
 
 def run_migration():
@@ -45,7 +46,7 @@ def run_migration():
                 FROM information_schema.tables
                 WHERE table_schema = 'public'
                 AND table_name IN ('pubmed_articles', 'clinical_trials', 'fda_drugs')
-            """)
+            """),
             )
             existing_tables = [row[0] for row in result.fetchall()]
             print(f"   Found tables: {existing_tables}")

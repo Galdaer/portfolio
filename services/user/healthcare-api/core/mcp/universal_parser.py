@@ -81,7 +81,7 @@ def parse_mcp_response(
         try:
             data = json.loads(text_content)
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON from text content: {e}")
+            logger.exception(f"Failed to parse JSON from text content: {e}")
             logger.debug(f"Raw text content: {text_content[:200]}...")
             return default_value
 
@@ -103,7 +103,7 @@ def parse_mcp_response(
         return result
 
     except Exception as e:
-        logger.error(f"Unexpected error parsing MCP response: {e}")
+        logger.exception(f"Unexpected error parsing MCP response: {e}")
         logger.debug(
             f"Raw MCP result keys: {list(mcp_result.keys()) if isinstance(mcp_result, dict) else 'not a dict'}",
         )
@@ -247,7 +247,7 @@ def extract_citations_from_mcp_steps(intermediate_steps: list[Any]) -> list[dict
                     )
 
         except Exception as e:
-            logger.error(f"Error extracting citations from step: {e}")
+            logger.exception(f"Error extracting citations from step: {e}")
             continue
 
     logger.info(f"Extracted {len(citations)} citations from {len(intermediate_steps)} steps")

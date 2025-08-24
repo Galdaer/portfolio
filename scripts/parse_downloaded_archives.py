@@ -43,12 +43,12 @@ class MedicalArchiveParser:
             self.logger.error(f"❌ Medical-mirrors health check failed: {response.status_code}")
             return False
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"❌ Cannot connect to medical-mirrors service: {e}")
+            self.logger.exception(f"❌ Cannot connect to medical-mirrors service: {e}")
             self.logger.info("💡 Service may be busy processing - try again in a few minutes")
             return False
 
     def trigger_parse_pubmed(
-        self, quick_test: bool = False, max_files: int | None = None
+        self, quick_test: bool = False, max_files: int | None = None,
     ) -> dict[str, Any]:
         """Trigger PubMed parsing of existing files"""
         try:
@@ -59,7 +59,7 @@ class MedicalArchiveParser:
                 params["max_files"] = str(max_files)
 
             self.logger.info(
-                f"🚀 Triggering PubMed parsing (quick_test={quick_test}, max_files={max_files})"
+                f"🚀 Triggering PubMed parsing (quick_test={quick_test}, max_files={max_files})",
             )
             try:
                 response = requests.post(
@@ -73,24 +73,24 @@ class MedicalArchiveParser:
                     self.logger.info(f"✅ PubMed parsing triggered: {result}")
                     return result
                 self.logger.error(
-                    f"❌ PubMed parsing failed: {response.status_code} - {response.text}"
+                    f"❌ PubMed parsing failed: {response.status_code} - {response.text}",
                 )
                 return {"status": "error", "message": f"HTTP {response.status_code}"}
             except requests.exceptions.Timeout:
                 self.logger.info(
-                    "⏳ PubMed parsing request sent (timeout normal - processing in background)"
+                    "⏳ PubMed parsing request sent (timeout normal - processing in background)",
                 )
                 return {"status": "queued", "message": "Background processing started"}
             except requests.exceptions.RequestException as e:
-                self.logger.error(f"❌ PubMed parsing request failed: {e}")
+                self.logger.exception(f"❌ PubMed parsing request failed: {e}")
                 return {"status": "error", "message": str(e)}
 
         except Exception as e:
-            self.logger.error(f"❌ Unexpected error in PubMed parsing: {e}")
+            self.logger.exception(f"❌ Unexpected error in PubMed parsing: {e}")
             return {"status": "error", "message": str(e)}
 
     def trigger_parse_fda(
-        self, quick_test: bool = False, limit: int | None = None
+        self, quick_test: bool = False, limit: int | None = None,
     ) -> dict[str, Any]:
         """Trigger FDA parsing of existing files"""
         try:
@@ -113,24 +113,24 @@ class MedicalArchiveParser:
                     self.logger.info(f"✅ FDA parsing triggered: {result}")
                     return result
                 self.logger.error(
-                    f"❌ FDA parsing failed: {response.status_code} - {response.text}"
+                    f"❌ FDA parsing failed: {response.status_code} - {response.text}",
                 )
                 return {"status": "error", "message": f"HTTP {response.status_code}"}
             except requests.exceptions.Timeout:
                 self.logger.info(
-                    "⏳ FDA parsing request sent (timeout normal - processing in background)"
+                    "⏳ FDA parsing request sent (timeout normal - processing in background)",
                 )
                 return {"status": "queued", "message": "Background processing started"}
             except requests.exceptions.RequestException as e:
-                self.logger.error(f"❌ FDA parsing request failed: {e}")
+                self.logger.exception(f"❌ FDA parsing request failed: {e}")
                 return {"status": "error", "message": str(e)}
 
         except Exception as e:
-            self.logger.error(f"❌ Unexpected error in FDA parsing: {e}")
+            self.logger.exception(f"❌ Unexpected error in FDA parsing: {e}")
             return {"status": "error", "message": str(e)}
 
     def trigger_parse_trials(
-        self, quick_test: bool = False, limit: int | None = None
+        self, quick_test: bool = False, limit: int | None = None,
     ) -> dict[str, Any]:
         """Trigger ClinicalTrials parsing of existing files"""
         try:
@@ -141,7 +141,7 @@ class MedicalArchiveParser:
                 params["limit"] = str(limit)
 
             self.logger.info(
-                f"🧪 Triggering ClinicalTrials parsing (quick_test={quick_test}, limit={limit})"
+                f"🧪 Triggering ClinicalTrials parsing (quick_test={quick_test}, limit={limit})",
             )
             try:
                 response = requests.post(
@@ -155,20 +155,20 @@ class MedicalArchiveParser:
                     self.logger.info(f"✅ ClinicalTrials parsing triggered: {result}")
                     return result
                 self.logger.error(
-                    f"❌ ClinicalTrials parsing failed: {response.status_code} - {response.text}"
+                    f"❌ ClinicalTrials parsing failed: {response.status_code} - {response.text}",
                 )
                 return {"status": "error", "message": f"HTTP {response.status_code}"}
             except requests.exceptions.Timeout:
                 self.logger.info(
-                    "⏳ ClinicalTrials parsing request sent (timeout normal - processing in background)"
+                    "⏳ ClinicalTrials parsing request sent (timeout normal - processing in background)",
                 )
                 return {"status": "queued", "message": "Background processing started"}
             except requests.exceptions.RequestException as e:
-                self.logger.error(f"❌ ClinicalTrials parsing request failed: {e}")
+                self.logger.exception(f"❌ ClinicalTrials parsing request failed: {e}")
                 return {"status": "error", "message": str(e)}
 
         except Exception as e:
-            self.logger.error(f"❌ Unexpected error in ClinicalTrials parsing: {e}")
+            self.logger.exception(f"❌ Unexpected error in ClinicalTrials parsing: {e}")
             return {"status": "error", "message": str(e)}
 
     def get_status(self) -> dict[str, Any]:

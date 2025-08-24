@@ -9,13 +9,12 @@ from datetime import datetime
 from typing import Any
 
 from agents import BaseHealthcareAgent
+from core.infrastructure.agent_logging_utils import (
+    enhanced_agent_method,
+)
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     log_healthcare_event,
-)
-from core.infrastructure.agent_logging_utils import (
-    AgentWorkflowLogger,
-    enhanced_agent_method,
 )
 
 logger = get_healthcare_logger("agent.document_processor")
@@ -124,7 +123,7 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
         MEDICAL DISCLAIMER: Document formatting only - not medical interpretation.
         """
         session_id = request.get("session_id", "default")
-        
+
         # Initialize workflow logger for document processing pipeline
         workflow_logger = self.get_workflow_logger()
         workflow_logger.start_workflow("document_processing", {
@@ -140,7 +139,7 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
 
             workflow_logger.log_step("route_document_processing", {
                 "document_type": document_type,
-                "data_keys": list(document_data.keys())
+                "data_keys": list(document_data.keys()),
             })
 
             if document_type == "soap_note":
@@ -160,17 +159,17 @@ class HealthcareDocumentProcessor(BaseHealthcareAgent):
                 result = await self._process_general_document(document_data, session_id)
 
             workflow_logger.log_step("format_response", {
-                "processing_status": result.status if result else "no_result"
+                "processing_status": result.status if result else "no_result",
             })
-            
+
             response = self._format_processing_response(result, session_id)
-            
+
             workflow_logger.finish_workflow("completed", {
                 "final_status": result.status if result else "unknown",
                 "processing_id": result.processing_id if result else None,
                 "validation_errors_count": len(result.validation_results) if result else 0,
             })
-            
+
             return response
 
         except Exception as e:

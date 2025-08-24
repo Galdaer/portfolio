@@ -71,14 +71,14 @@ class OptimizedPubMedAPI:
             db.close()
 
     async def update_recent_articles(
-        self, quick_test: bool = False, max_files: int | None = None
+        self, quick_test: bool = False, max_files: int | None = None,
     ) -> dict:
         """
         Multi-core optimized update of recent PubMed articles
         Uses all available CPU cores for XML parsing and bulk database operations
         """
         logger.info(
-            f"Starting optimized PubMed update (quick_test={quick_test}, max_files={max_files})"
+            f"Starting optimized PubMed update (quick_test={quick_test}, max_files={max_files})",
         )
 
         db = self.session_factory()
@@ -134,7 +134,7 @@ class OptimizedPubMedAPI:
 
                 if duplicate_count > 0:
                     logger.info(
-                        f"Removed {duplicate_count} duplicate PMIDs, processing {len(deduplicated_articles)} unique articles"
+                        f"Removed {duplicate_count} duplicate PMIDs, processing {len(deduplicated_articles)} unique articles",
                     )
 
                 # Bulk store deduplicated articles

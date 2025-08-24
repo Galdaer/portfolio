@@ -8,17 +8,18 @@ Tests the complete PHI detection pipeline including:
 - Error handling and edge cases
 """
 
-import pytest
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Add the healthcare-api directory to the path for imports
 healthcare_api_path = Path(__file__).parent.parent / "services" / "user" / "healthcare-api"
 sys.path.insert(0, str(healthcare_api_path))
 
-from core.phi_sanitizer import get_phi_detector, sanitize_request_data, sanitize_response_data
 from config.phi_detection_config_loader import phi_config
+from core.phi_sanitizer import get_phi_detector, sanitize_request_data, sanitize_response_data
 
 
 class TestPHIDetectorInitialization:
@@ -43,7 +44,7 @@ class TestPHIDetectorInitialization:
 
             core.phi_sanitizer._phi_detector = None
 
-            detector = get_phi_detector()
+            get_phi_detector()
 
             # Should have been called twice - once with Presidio, once without
             assert mock_detector_class.call_count == 2
@@ -125,8 +126,8 @@ class TestPHISanitizationFlow:
         # Test with research citation
         research_request = {
             "messages": [
-                {"role": "user", "content": "What does Dr. Smith et al. say about heart disease?"}
-            ]
+                {"role": "user", "content": "What does Dr. Smith et al. say about heart disease?"},
+            ],
         }
 
         sanitized = sanitize_request_data(research_request)
@@ -135,7 +136,7 @@ class TestPHISanitizationFlow:
 
         # Test with medical terminology
         medical_request = {
-            "messages": [{"role": "user", "content": "What are cardiovascular health symptoms?"}]
+            "messages": [{"role": "user", "content": "What are cardiovascular health symptoms?"}],
         }
 
         sanitized = sanitize_request_data(medical_request)
@@ -149,10 +150,10 @@ class TestPHISanitizationFlow:
             "choices": [
                 {
                     "message": {
-                        "content": "Diabetes management involves monitoring blood glucose levels and medication adherence."
-                    }
-                }
-            ]
+                        "content": "Diabetes management involves monitoring blood glucose levels and medication adherence.",
+                    },
+                },
+            ],
         }
 
         sanitized = sanitize_response_data(medical_response)
@@ -183,7 +184,7 @@ class TestPHISanitizationFlow:
                 {"role": "user", "content": "According to Dr. Smith's research on diabetes..."},
                 {"role": "assistant", "content": "Based on cardiovascular health studies..."},
                 {"role": "user", "content": "Patient John Doe has these symptoms..."},
-            ]
+            ],
         }
 
         sanitized = sanitize_request_data(complex_request)

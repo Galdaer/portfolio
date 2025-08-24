@@ -14,8 +14,7 @@ Purpose: Validate medical search article display enhancements
 """
 
 import sys
-import os
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Add healthcare-api to path
@@ -23,13 +22,14 @@ healthcare_api_path = Path(__file__).resolve().parent.parent / "services/user/he
 sys.path.insert(0, str(healthcare_api_path))
 
 try:
+    import ollama
+
     from agents.medical_search_agent.medical_search_agent import (
         MedicalLiteratureSearchAssistant,
         MedicalSearchResult,
     )
-    from core.medical.url_utils import generate_source_url
     from core.mcp.direct_mcp_client import DirectMCPClient
-    import ollama
+    from core.medical.url_utils import generate_source_url
 except ImportError as e:
     print(f"Import error: {e}")
     print("Skipping medical search agent tests - imports not available")
@@ -117,7 +117,7 @@ class TestMedicalSearchArticleDisplay:
             # Test academic_article_list template
             intent_cfg = {"template": "academic_article_list", "max_items": 10}
             response = agent._format_response_by_intent(
-                "information_request", intent_cfg, self.test_search_result, "test query"
+                "information_request", intent_cfg, self.test_search_result, "test query",
             )
 
             # All 3 test sources should be included
@@ -142,7 +142,7 @@ class TestMedicalSearchArticleDisplay:
 
             intent_cfg = {"template": "academic_article_list", "max_items": 10}
             response = agent._format_response_by_intent(
-                "information_request", intent_cfg, self.test_search_result, "test query"
+                "information_request", intent_cfg, self.test_search_result, "test query",
             )
 
             # Check DOI is displayed as "Full Article"
@@ -171,7 +171,7 @@ class TestMedicalSearchArticleDisplay:
 
             intent_cfg = {"template": "mixed_studies_list", "max_items": 10}
             response = agent._format_response_by_intent(
-                "information_request", intent_cfg, self.test_search_result, "test query"
+                "information_request", intent_cfg, self.test_search_result, "test query",
             )
 
             # Should contain DOI URLs in mixed template
@@ -198,7 +198,7 @@ class TestMedicalSearchArticleDisplay:
                 "include_abstracts": True,
             }
             response = agent._format_response_by_intent(
-                "information_request", intent_cfg, self.test_search_result, "test query"
+                "information_request", intent_cfg, self.test_search_result, "test query",
             )
 
             # Check metadata elements
@@ -255,10 +255,9 @@ def main():
     if success:
         print("\n✅ Medical search article display improvements validated!")
         return 0
-    else:
-        print("\n❌ Some tests failed")
-        return 1
+    print("\n❌ Some tests failed")
+    return 1
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

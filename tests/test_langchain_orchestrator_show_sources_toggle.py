@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+
 import pytest
 
 
@@ -15,8 +16,9 @@ def _add_service_paths() -> None:
 @pytest.mark.asyncio
 async def test_orchestrator_hides_sources_when_flag_false():
     _add_service_paths()
-    from core.langchain.orchestrator import LangChainOrchestrator  # type: ignore
     from local_llm.ollama_client import OllamaConfig, build_chat_model  # type: ignore
+
+    from core.langchain.orchestrator import LangChainOrchestrator  # type: ignore
 
     class DummyMCP:
         async def call_tool(self, name: str, arguments: dict):  # pragma: no cover
@@ -41,14 +43,14 @@ async def test_orchestrator_hides_sources_when_flag_false():
                         {
                             "results": [
                                 {"title": "Study A", "url": "http://example.com/a"},
-                            ]
+                            ],
                         },
-                    )
+                    ),
                 ],
             }
 
     model = build_chat_model(
-        OllamaConfig(model="llama3.1:8b", base_url="http://172.20.0.10:11434", temperature=0.0)
+        OllamaConfig(model="llama3.1:8b", base_url="http://172.20.0.10:11434", temperature=0.0),
     )
     orch = LangChainOrchestrator(mcp_client=DummyMCP(), chat_model=model)
     orch.agent = DummyAgent()

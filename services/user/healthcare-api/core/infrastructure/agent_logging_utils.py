@@ -14,18 +14,17 @@ All medical decisions must be made by qualified healthcare professionals.
 """
 
 import functools
+import hashlib
+import logging
 import time
 import traceback
 from collections.abc import Callable
-from datetime import datetime, timezone
-from typing import Any, Optional, Dict, List
-import logging
-import hashlib
+from datetime import UTC, datetime
+from typing import Any
 
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     log_healthcare_event,
-    healthcare_log_method,
 )
 from core.infrastructure.phi_monitor import sanitize_healthcare_data
 
@@ -33,7 +32,7 @@ from core.infrastructure.phi_monitor import sanitize_healthcare_data
 class AgentWorkflowLogger:
     """
     Enhanced logging utility for healthcare agents with workflow tracking.
-    
+
     Provides structured logging for complex agent workflows with:
     - Step-by-step process tracking
     - Execution timing
@@ -41,32 +40,32 @@ class AgentWorkflowLogger:
     - Performance metrics
     """
 
-    def __init__(self, agent_name: str, session_id: Optional[str] = None):
+    def __init__(self, agent_name: str, session_id: str | None = None):
         self.agent_name = agent_name
         self.session_id = session_id or self._generate_session_id()
         self.logger = get_healthcare_logger(f"agent.{agent_name}")
-        self.workflow_start_time: Optional[float] = None
+        self.workflow_start_time: float | None = None
         self.step_counter = 0
-        self.performance_metrics: Dict[str, Any] = {}
+        self.performance_metrics: dict[str, Any] = {}
 
     def _generate_session_id(self) -> str:
         """Generate a unique session ID for tracking workflows."""
         timestamp = str(int(time.time() * 1000000))  # microseconds
         return f"{self.agent_name}_{timestamp}"
 
-    def start_workflow(self, workflow_name: str, parameters: Dict[str, Any] = None) -> None:
+    def start_workflow(self, workflow_name: str, parameters: dict[str, Any] = None) -> None:
         """
         Start a new workflow with logging and timing.
-        
+
         Args:
             workflow_name: Name of the workflow being started
             parameters: Input parameters (will be PHI-sanitized)
         """
         self.workflow_start_time = time.time()
         self.step_counter = 0
-        
+
         sanitized_params = sanitize_healthcare_data(parameters or {})
-        
+
         log_healthcare_event(
             self.logger,
             logging.INFO,
@@ -76,15 +75,15 @@ class AgentWorkflowLogger:
                 "session_id": self.session_id,
                 "agent": self.agent_name,
                 "parameters": sanitized_params,
-                "start_time": datetime.now(timezone.utc).isoformat(),
+                "start_time": datetime.now(UTC).isoformat(),
             },
             operation_type="workflow_start",
         )
 
-    def log_step(self, step_name: str, details: Dict[str, Any] = None, level: int = logging.INFO) -> None:
+    def log_step(self, step_name: str, details: dict[str, Any] = None, level: int = logging.INFO) -> None:
         """
         Log a workflow step with timing and context.
-        
+
         Args:
             step_name: Name of the current step
             details: Step details (will be PHI-sanitized)
@@ -93,9 +92,9 @@ class AgentWorkflowLogger:
         self.step_counter += 1
         current_time = time.time()
         elapsed_time = (current_time - self.workflow_start_time) if self.workflow_start_time else 0
-        
+
         sanitized_details = sanitize_healthcare_data(details or {})
-        
+
         log_healthcare_event(
             self.logger,
             level,
@@ -106,7 +105,7 @@ class AgentWorkflowLogger:
                 "session_id": self.session_id,
                 "agent": self.agent_name,
                 "elapsed_time_ms": round(elapsed_time * 1000, 2),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "details": sanitized_details,
             },
             operation_type="workflow_step",
@@ -115,7 +114,7 @@ class AgentWorkflowLogger:
     def log_performance_metric(self, metric_name: str, value: Any, unit: str = None) -> None:
         """
         Log a performance metric for monitoring and optimization.
-        
+
         Args:
             metric_name: Name of the metric
             value: Metric value
@@ -124,9 +123,9 @@ class AgentWorkflowLogger:
         self.performance_metrics[metric_name] = {
             "value": value,
             "unit": unit,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
-        
+
         log_healthcare_event(
             self.logger,
             logging.INFO,
@@ -141,11 +140,11 @@ class AgentWorkflowLogger:
             operation_type="performance_metric",
         )
 
-    def log_external_call(self, service_name: str, operation: str, duration_ms: float, 
-                         success: bool, details: Dict[str, Any] = None) -> None:
+    def log_external_call(self, service_name: str, operation: str, duration_ms: float,
+                         success: bool, details: dict[str, Any] = None) -> None:
         """
         Log external service calls with timing and success tracking.
-        
+
         Args:
             service_name: Name of external service (e.g., "MCP", "LLM", "Database")
             operation: Operation performed
@@ -154,7 +153,7 @@ class AgentWorkflowLogger:
             details: Additional details (will be PHI-sanitized)
         """
         sanitized_details = sanitize_healthcare_data(details or {})
-        
+
         log_healthcare_event(
             self.logger,
             logging.INFO if success else logging.WARNING,
@@ -171,40 +170,40 @@ class AgentWorkflowLogger:
             operation_type="external_call",
         )
 
-    def finish_workflow(self, status: str = "completed", results: Dict[str, Any] = None, 
+    def finish_workflow(self, status: str = "completed", results: dict[str, Any] = None,
                        error: Exception = None) -> None:
         """
         Finish the workflow with summary logging.
-        
+
         Args:
             status: Final status ("completed", "failed", "partial")
             results: Final results (will be PHI-sanitized)
             error: Exception if workflow failed
         """
         total_time = (time.time() - self.workflow_start_time) if self.workflow_start_time else 0
-        
+
         sanitized_results = sanitize_healthcare_data(results or {})
-        
+
         context = {
             "status": status,
             "total_steps": self.step_counter,
             "total_time_ms": round(total_time * 1000, 2),
             "session_id": self.session_id,
             "agent": self.agent_name,
-            "end_time": datetime.now(timezone.utc).isoformat(),
+            "end_time": datetime.now(UTC).isoformat(),
             "results": sanitized_results,
             "performance_metrics": self.performance_metrics,
         }
-        
+
         if error:
             context["error"] = {
                 "type": type(error).__name__,
                 "message": str(error)[:200],  # Truncated for safety
             }
-        
+
         level = logging.INFO if status == "completed" else logging.ERROR
         emoji = "✅" if status == "completed" else "❌"
-        
+
         log_healthcare_event(
             self.logger,
             level,
@@ -223,7 +222,7 @@ def enhanced_agent_method(
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Enhanced decorator for agent methods with comprehensive logging.
-    
+
     Args:
         operation_type: Type of operation for logging categorization
         phi_risk_level: PHI risk level (low, medium, high)
@@ -236,15 +235,15 @@ def enhanced_agent_method(
         async def async_wrapper(*args, **kwargs):
             # Extract agent info from first argument (self)
             agent_self = args[0] if args else None
-            agent_name = getattr(agent_self, 'agent_name', 'unknown')
-            
+            agent_name = getattr(agent_self, "agent_name", "unknown")
+
             logger = get_healthcare_logger(f"agent.{agent_name}")
             method_name = f"{func.__qualname__}"
             start_time = time.time()
-            
+
             # Create session-specific logger
             session_id = f"{agent_name}_{int(time.time() * 1000000)}"
-            
+
             try:
                 # Log method entry
                 entry_context = {
@@ -252,9 +251,9 @@ def enhanced_agent_method(
                     "operation_type": operation_type,
                     "phi_risk_level": phi_risk_level,
                     "session_id": session_id,
-                    "entry_time": datetime.now(timezone.utc).isoformat(),
+                    "entry_time": datetime.now(UTC).isoformat(),
                 }
-                
+
                 if log_parameters and (args or kwargs):
                     # Sanitize parameters for logging
                     sanitized_params = {
@@ -262,7 +261,7 @@ def enhanced_agent_method(
                         "kwargs": sanitize_healthcare_data(kwargs),
                     }
                     entry_context["parameters"] = sanitized_params
-                
+
                 log_healthcare_event(
                     logger,
                     logging.INFO,
@@ -270,31 +269,31 @@ def enhanced_agent_method(
                     context=entry_context,
                     operation_type="method_entry",
                 )
-                
+
                 # Execute the method
-                if hasattr(func, '__code__') and func.__code__.co_flags & 0x80:  # CO_COROUTINE
+                if hasattr(func, "__code__") and func.__code__.co_flags & 0x80:  # CO_COROUTINE
                     result = await func(*args, **kwargs)
                 else:
                     result = func(*args, **kwargs)
-                
+
                 # Calculate performance metrics
                 execution_time = time.time() - start_time
-                
+
                 # Log successful completion
                 success_context = {
                     "method": method_name,
                     "session_id": session_id,
                     "execution_time_ms": round(execution_time * 1000, 2),
                     "success": True,
-                    "completion_time": datetime.now(timezone.utc).isoformat(),
+                    "completion_time": datetime.now(UTC).isoformat(),
                 }
-                
+
                 if log_results and result is not None:
                     success_context["results"] = sanitize_healthcare_data({
                         "result_type": type(result).__name__,
                         "result_summary": str(result)[:100] if result else None,
                     })
-                
+
                 if track_performance:
                     success_context["performance"] = {
                         "execution_time_category": (
@@ -303,7 +302,7 @@ def enhanced_agent_method(
                             "slow"
                         ),
                     }
-                
+
                 log_healthcare_event(
                     logger,
                     logging.INFO,
@@ -311,12 +310,12 @@ def enhanced_agent_method(
                     context=success_context,
                     operation_type="method_success",
                 )
-                
+
                 return result
-                
+
             except Exception as e:
                 execution_time = time.time() - start_time
-                
+
                 # Log error with context
                 error_context = {
                     "method": method_name,
@@ -325,14 +324,14 @@ def enhanced_agent_method(
                     "success": False,
                     "error_type": type(e).__name__,
                     "error_message": str(e)[:200],
-                    "error_time": datetime.now(timezone.utc).isoformat(),
+                    "error_time": datetime.now(UTC).isoformat(),
                 }
-                
+
                 # Add stack trace in development
                 import os
                 if os.getenv("ENVIRONMENT", "").lower() in ["development", "dev"]:
                     error_context["stack_trace"] = traceback.format_exc()[-500:]  # Last 500 chars
-                
+
                 log_healthcare_event(
                     logger,
                     logging.ERROR,
@@ -340,21 +339,21 @@ def enhanced_agent_method(
                     context=error_context,
                     operation_type="method_error",
                 )
-                
+
                 raise
-        
+
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
             # Similar logic for sync methods - simplified version
             agent_self = args[0] if args else None
-            agent_name = getattr(agent_self, 'agent_name', 'unknown')
+            agent_name = getattr(agent_self, "agent_name", "unknown")
             logger = get_healthcare_logger(f"agent.{agent_name}")
             start_time = time.time()
-            
+
             try:
                 result = func(*args, **kwargs)
                 execution_time = time.time() - start_time
-                
+
                 log_healthcare_event(
                     logger,
                     logging.INFO,
@@ -366,12 +365,12 @@ def enhanced_agent_method(
                     },
                     operation_type="method_success",
                 )
-                
+
                 return result
-                
+
             except Exception as e:
                 execution_time = time.time() - start_time
-                
+
                 log_healthcare_event(
                     logger,
                     logging.ERROR,
@@ -384,38 +383,37 @@ def enhanced_agent_method(
                     },
                     operation_type="method_error",
                 )
-                
+
                 raise
-        
+
         # Return appropriate wrapper based on function type
-        if hasattr(func, '__code__') and func.__code__.co_flags & 0x80:  # CO_COROUTINE
+        if hasattr(func, "__code__") and func.__code__.co_flags & 0x80:  # CO_COROUTINE
             return async_wrapper
-        else:
-            return sync_wrapper
-    
+        return sync_wrapper
+
     return decorator
 
 
 def log_agent_query(agent_name: str, query: str, query_type: str = "search") -> str:
     """
     Log and return a sanitized query hash for tracking.
-    
+
     Args:
         agent_name: Name of the agent processing the query
         query: The query string (will be PHI-sanitized)
         query_type: Type of query (search, analysis, etc.)
-    
+
     Returns:
         Query hash for tracking purposes
     """
     logger = get_healthcare_logger(f"agent.{agent_name}")
-    
+
     # Create query hash for tracking without exposing content
     query_hash = hashlib.sha256(query.encode()).hexdigest()[:12]
-    
+
     # Sanitize query for logging
     sanitized_query = sanitize_healthcare_data({"query": query})
-    
+
     log_healthcare_event(
         logger,
         logging.INFO,
@@ -429,15 +427,15 @@ def log_agent_query(agent_name: str, query: str, query_type: str = "search") -> 
         },
         operation_type="query_received",
     )
-    
+
     return query_hash
 
 
-def log_agent_cache_event(agent_name: str, cache_key: str, hit: bool, 
+def log_agent_cache_event(agent_name: str, cache_key: str, hit: bool,
                          operation: str = "lookup") -> None:
     """
     Log cache hit/miss events for performance tracking.
-    
+
     Args:
         agent_name: Name of the agent
         cache_key: Cache key (will be hashed for logging)
@@ -445,10 +443,10 @@ def log_agent_cache_event(agent_name: str, cache_key: str, hit: bool,
         operation: Cache operation (lookup, store, invalidate)
     """
     logger = get_healthcare_logger(f"agent.{agent_name}")
-    
+
     # Hash cache key for privacy
     key_hash = hashlib.sha256(cache_key.encode()).hexdigest()[:8]
-    
+
     log_healthcare_event(
         logger,
         logging.INFO,

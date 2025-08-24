@@ -7,8 +7,6 @@ to help diagnose issues with medical literature search responses.
 """
 
 import logging
-import os
-import sys
 from pathlib import Path
 
 
@@ -66,7 +64,7 @@ echo ""
 monitor_log() {
     local log_file="$1"
     local log_name="$2"
-    
+
     if [[ -f "$log_file" ]]; then
         echo "📄 Monitoring $log_name: $log_file"
         tail -f "$log_file" | while read line; do
@@ -117,7 +115,7 @@ def create_diagnostic_queries():
 ## Simple queries to test different components:
 
 1. "cardiovascular health" - Test basic medical term search
-2. "heart disease" - Test condition-specific search  
+2. "heart disease" - Test condition-specific search
 3. "diabetes treatment" - Test treatment-focused search
 4. "recent cancer research" - Test time-based filtering
 5. "covid vaccine studies" - Test specific medical topic
@@ -130,7 +128,7 @@ def create_diagnostic_queries():
 
 ## Debug checkpoints:
 - MCP calls succeed ✓ (confirmed in logs)
-- Articles parsed correctly ✓ (confirmed in logs) 
+- Articles parsed correctly ✓ (confirmed in logs)
 - Response formatting ? (needs investigation)
 - PHI processing ? (needs investigation)
 - Pipeline response selection ? (needs investigation)
@@ -147,10 +145,10 @@ def main():
     print("=" * 60)
 
     # Setup enhanced logging
-    loggers = setup_enhanced_logging()
+    setup_enhanced_logging()
 
     # Create monitoring tools
-    monitor_script = create_log_monitoring_script()
+    create_log_monitoring_script()
     create_diagnostic_queries()
 
     print("\n" + "=" * 60)

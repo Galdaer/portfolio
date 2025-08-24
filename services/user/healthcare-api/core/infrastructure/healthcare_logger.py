@@ -80,7 +80,7 @@ class PHISafeHandler(logging.Handler):
                     if self._contains_phi_indicators(str(healthcare_context)):
                         # Create a sanitized version
                         record.healthcare_context = self._sanitize_healthcare_context(
-                            healthcare_context
+                            healthcare_context,
                         )
 
             self.base_handler.emit(record)

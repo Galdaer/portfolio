@@ -77,40 +77,40 @@ class FDADrug(Base):  # type: ignore[misc,valid-type]
     __tablename__ = "fda_drugs"
 
     ndc = Column(String(50), primary_key=True)  # Real NDC from NDC Directory or synthetic from Orange Book
-    
+
     # Core identification
     name = Column(Text, nullable=False)  # Primary display name
     generic_name = Column(Text)  # Generic/active ingredient name
     brand_name = Column(Text)  # Brand/trade name
-    
+
     # Manufacturing
     manufacturer = Column(Text)  # Manufacturer/labeler name
     applicant = Column(Text)  # Application sponsor (from Orange Book/Drugs@FDA)
-    
+
     # Drug composition
     ingredients = Column(ARRAY(String))  # Active ingredients list
     strength = Column(Text)  # Strength information
-    
+
     # Product details
     dosage_form = Column(String(200))  # Tablet, capsule, injection, etc.
     route = Column(String(200))  # Oral, IV, topical, etc.
-    
+
     # Regulatory information
     application_number = Column(String(20))  # FDA application number (links Orange Book to Drugs@FDA)
     product_number = Column(String(10))  # Product number within application
     approval_date = Column(String(100))  # Approval date
-    
+
     # Orange Book specific
     orange_book_code = Column(String(20))  # Therapeutic equivalence code (AB, AT, etc.)
     reference_listed_drug = Column(String(5))  # RLD flag (Yes/No)
-    
+
     # Classification
     therapeutic_class = Column(Text)  # Therapeutic classification
     pharmacologic_class = Column(Text)  # Pharmacologic class
-    
+
     # Data sources tracking
     data_sources = Column(ARRAY(String))  # Track which sources contributed: ndc, orange_book, drugs_fda, labels
-    
+
     # Search and metadata
     search_vector = Column(TSVECTOR)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -10,7 +10,7 @@ now uses sophisticated Enhanced Medical Query Engine for 25x more capable medica
 import asyncio
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -24,7 +24,7 @@ print("=" * 70)
 class MockMCPClient:
     """Mock MCP client for testing without full MCP infrastructure"""
 
-    async def call_tool(self, tool_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def call_tool(self, tool_name: str, params: dict[str, Any]) -> dict[str, Any]:
         """Mock MCP tool call"""
         return {
             "sources": [
@@ -34,7 +34,7 @@ class MockMCPClient:
                     "source_type": "condition_information",
                     "abstract": "Mock medical abstract for testing purposes",
                     "url": "https://mock.pubmed.gov/123456",
-                }
+                },
             ],
             "confidence": 0.85,
         }
@@ -43,7 +43,7 @@ class MockMCPClient:
 class MockLLMClient:
     """Mock LLM client for testing without Ollama"""
 
-    async def generate(self, model: str, prompt: str, **kwargs) -> Dict[str, Any]:
+    async def generate(self, model: str, prompt: str, **kwargs) -> dict[str, Any]:
         """Mock LLM generation"""
         return {"response": f"Mock medical analysis for: {prompt[:100]}...", "done": True}
 
@@ -57,8 +57,8 @@ async def test_enhanced_medical_query_engine_integration():
         # Import the Enhanced Medical Query Engine
         from core.medical.enhanced_query_engine import (
             EnhancedMedicalQueryEngine,
-            QueryType,
             MedicalQueryResult,
+            QueryType,
         )
 
         print("✅ Enhanced Medical Query Engine import successful")
@@ -122,7 +122,7 @@ async def test_enhanced_medical_query_engine_integration():
             ),
         ]
 
-        for query, expected_intent, expected_query_type in test_queries:
+        for query, _expected_intent, _expected_query_type in test_queries:
             intent_key, intent_cfg = agent._classify_query_intent(query)
             query_type = agent._map_intent_to_query_type(intent_key)
 
@@ -158,7 +158,7 @@ async def test_enhanced_medical_query_engine_integration():
                     "source_type": "condition_information",
                     "abstract": "Test abstract",
                     "url": "https://test.pubmed.gov/123",
-                }
+                },
             ],
             confidence_score=0.85,
             reasoning_chain=[{"step": 1, "reasoning": "test reasoning"}],
@@ -257,7 +257,7 @@ async def test_enhanced_query_engine_direct():
 
         except Exception as direct_error:
             print(
-                f"⚠️  Direct query processing failed (expected in test environment): {direct_error}"
+                f"⚠️  Direct query processing failed (expected in test environment): {direct_error}",
             )
             print("   This is normal - Enhanced Query Engine requires full medical infrastructure")
 
@@ -293,10 +293,9 @@ def main():
             print("✅ BaseHealthcareAgent interface compatibility maintained")
             print("\n🚀 Ready for Phase 2 continued development!")
             return True
-        else:
-            print("❌ PHASE 2 INTEGRATION: SOME TESTS FAILED")
-            print("   Review test output above for specific issues")
-            return False
+        print("❌ PHASE 2 INTEGRATION: SOME TESTS FAILED")
+        print("   Review test output above for specific issues")
+        return False
 
     # Run the async tests
     return asyncio.run(run_tests())

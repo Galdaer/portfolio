@@ -7,7 +7,6 @@ This tests Critical Discovery 3: Database vs External API Investigation
 
 import asyncio
 import sys
-import os
 
 # Add the healthcare API to the path
 sys.path.append("/home/intelluxe/services/user/healthcare-api")

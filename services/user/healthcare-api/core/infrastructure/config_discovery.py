@@ -50,7 +50,7 @@ def load_config_index(index_path: str | None = None) -> list[str]:
 
 
 def find_config_file(
-    filename: str, *, index_path: str | None = None, discovery_root: str = "config"
+    filename: str, *, index_path: str | None = None, discovery_root: str = "config",
 ) -> str | None:
     # 1. Index lookup
     for p in load_config_index(index_path):

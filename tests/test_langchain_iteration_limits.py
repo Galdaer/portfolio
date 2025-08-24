@@ -6,9 +6,9 @@ Tests that the LangChain agent can handle medical queries requiring multiple MCP
 without hitting iteration limits.
 """
 
-import requests
-import json
 import time
+
+import requests
 
 
 def test_langchain_iteration_limits():
@@ -49,22 +49,20 @@ def test_langchain_iteration_limits():
                 print("❌ FAIL: Agent hit iteration or time limit")
                 print(f"Response: {content}")
                 return False
-            elif "connection attempts failed" in content.lower():
+            if "connection attempts failed" in content.lower():
                 print("❌ FAIL: Connection error (Ollama issue)")
                 print(f"Response: {content}")
                 return False
-            elif len(content) < 50:
+            if len(content) < 50:
                 print("⚠️  WARNING: Response seems too short")
                 print(f"Response: {content}")
                 return False
-            else:
-                print("✅ SUCCESS: Agent completed medical query without limits")
-                print(f"Response preview: {content[:200]}...")
-                return True
-        else:
-            print(f"❌ FAIL: HTTP {response.status_code}")
-            print(f"Response: {response.text}")
-            return False
+            print("✅ SUCCESS: Agent completed medical query without limits")
+            print(f"Response preview: {content[:200]}...")
+            return True
+        print(f"❌ FAIL: HTTP {response.status_code}")
+        print(f"Response: {response.text}")
+        return False
 
     except Exception as e:
         print(f"❌ FAIL: Exception occurred: {e}")
@@ -85,9 +83,8 @@ def test_health_endpoint():
             print(f"✅ Healthcare API healthy with {len(agents)} agents")
             print(f"   Agents: {', '.join(agents)}")
             return True
-        else:
-            print(f"❌ Health check failed: {response.status_code}")
-            return False
+        print(f"❌ Health check failed: {response.status_code}")
+        return False
 
     except Exception as e:
         print(f"❌ Health check exception: {e}")

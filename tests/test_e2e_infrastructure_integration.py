@@ -9,10 +9,9 @@ This validates:
 - Complete healthcare workflow from request to response
 """
 
-import json
-import requests
 import sys
-from pathlib import Path
+
+import requests
 
 
 def test_openai_endpoint_integration():
@@ -27,7 +26,7 @@ def test_openai_endpoint_integration():
             {
                 "role": "user",
                 "content": "I have a patient named John Smith, SSN 123-45-6789, phone 555-123-4567. What are the symptoms of diabetes?",
-            }
+            },
         ],
     }
 
@@ -62,25 +61,22 @@ def test_openai_endpoint_integration():
                 print("🎉 OpenAI endpoint integration working!")
                 print("✅ Phase 1 Infrastructure Integration validated end-to-end")
                 return True
-            else:
-                print("❌ Invalid response format")
-                return False
+            print("❌ Invalid response format")
+            return False
 
-        elif response.status_code == 500:
+        if response.status_code == 500:
             error_content = response.text
             print(f"⚠️ Server error (expected during integration): {error_content[:100]}...")
             if "ToolRegistry" in error_content or "MCP" in error_content:
                 print(
-                    "✅ Infrastructure integration is working (ToolRegistry/MCP detected in error)"
+                    "✅ Infrastructure integration is working (ToolRegistry/MCP detected in error)",
                 )
                 return True
-            else:
-                print("❌ Unexpected server error")
-                return False
-        else:
-            print(f"❌ Unexpected status code: {response.status_code}")
-            print(f"   Response: {response.text[:200]}...")
+            print("❌ Unexpected server error")
             return False
+        print(f"❌ Unexpected status code: {response.status_code}")
+        print(f"   Response: {response.text[:200]}...")
+        return False
 
     except requests.exceptions.ConnectionError:
         print("❌ Cannot connect to healthcare API at localhost:8000")
@@ -103,9 +99,8 @@ def test_health_endpoint():
         if response.status_code == 200:
             print("✅ Healthcare API is running")
             return True
-        else:
-            print(f"⚠️ Health endpoint returned {response.status_code}")
-            return False
+        print(f"⚠️ Health endpoint returned {response.status_code}")
+        return False
 
     except requests.exceptions.ConnectionError:
         print("❌ Healthcare API is not running at localhost:8000")
@@ -153,14 +148,13 @@ def main():
         print("✅ Phase 1 infrastructure integration is working correctly")
         print("🏥 Healthcare AI system ready for medical queries with HIPAA compliance")
         return 0
-    elif health_ok:
+    if health_ok:
         print("⚠️ API is running but integration needs debugging")
         print("🔧 Check healthcare logs for detailed error information")
         return 1
-    else:
-        print("❌ Healthcare API is not running")
-        print("🚀 Start the healthcare API and try again")
-        return 2
+    print("❌ Healthcare API is not running")
+    print("🚀 Start the healthcare API and try again")
+    return 2
 
 
 if __name__ == "__main__":

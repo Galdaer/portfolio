@@ -12,15 +12,11 @@ Expected behavior:
 """
 
 import asyncio
-import json
 import logging
 import sys
-import time
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import aiohttp
-import pytest
 
 # Add healthcare-api to path
 sys.path.insert(0, str(Path("/home/intelluxe/services/user/healthcare-api")))
@@ -63,22 +59,20 @@ class OpenWebUIMedicalRoutingTest:
                         if "medical_search" in agents:
                             logger.info("✅ Medical search agent is registered")
                             return True
-                        else:
-                            logger.error("❌ Medical search agent NOT registered")
-                            return False
-                    else:
-                        logger.error(f"❌ Healthcare API unhealthy: {response.status}")
+                        logger.error("❌ Medical search agent NOT registered")
                         return False
+                    logger.error(f"❌ Healthcare API unhealthy: {response.status}")
+                    return False
         except Exception as e:
-            logger.error(f"❌ Healthcare API connection error: {e}")
+            logger.exception(f"❌ Healthcare API connection error: {e}")
             return False
 
-    def get_log_baseline(self) -> Dict[str, int]:
+    def get_log_baseline(self) -> dict[str, int]:
         """Get current line count of relevant log files."""
         baseline = {}
         for name, log_path in self.log_files.items():
             if log_path.exists():
-                with open(log_path, "r") as f:
+                with open(log_path) as f:
                     baseline[name] = len(f.readlines())
             else:
                 baseline[name] = 0
@@ -88,8 +82,8 @@ class OpenWebUIMedicalRoutingTest:
         return baseline
 
     def check_log_activity(
-        self, baseline: Dict[str, int], expected_logs: List[str]
-    ) -> Dict[str, bool]:
+        self, baseline: dict[str, int], expected_logs: list[str],
+    ) -> dict[str, bool]:
         """Check if new entries appeared in logs after baseline."""
         results = {}
 
@@ -98,7 +92,7 @@ class OpenWebUIMedicalRoutingTest:
                 results[name] = False
                 continue
 
-            with open(log_path, "r") as f:
+            with open(log_path) as f:
                 current_lines = f.readlines()
 
             new_lines = current_lines[baseline[name] :]
@@ -127,46 +121,43 @@ class OpenWebUIMedicalRoutingTest:
         medical_query = {
             "model": "healthcare",
             "messages": [
-                {"role": "user", "content": "What are the symptoms of diabetes mellitus type 2?"}
+                {"role": "user", "content": "What are the symptoms of diabetes mellitus type 2?"},
             ],
             "stream": False,
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{self.healthcare_api_url}/v1/chat/completions",
-                    json=medical_query,
-                    headers={"Content-Type": "application/json"},
-                ) as response:
-                    if response.status == 200:
-                        response_data = await response.json()
-                        logger.info("✅ Direct medical query successful")
-                        logger.info(f"Response preview: {str(response_data)[:200]}...")
+            async with aiohttp.ClientSession() as session, session.post(
+                f"{self.healthcare_api_url}/v1/chat/completions",
+                json=medical_query,
+                headers={"Content-Type": "application/json"},
+            ) as response:
+                if response.status == 200:
+                    response_data = await response.json()
+                    logger.info("✅ Direct medical query successful")
+                    logger.info(f"Response preview: {str(response_data)[:200]}...")
 
-                        # Wait for logs to flush
-                        await asyncio.sleep(2)
+                    # Wait for logs to flush
+                    await asyncio.sleep(2)
 
-                        # Check log activity
-                        log_activity = self.check_log_activity(
-                            baseline, ["medical", "search", "agent", "diabetes", "pubmed"]
-                        )
+                    # Check log activity
+                    log_activity = self.check_log_activity(
+                        baseline, ["medical", "search", "agent", "diabetes", "pubmed"],
+                    )
 
-                        if log_activity.get("agent_medical_search", False):
-                            logger.info("✅ Medical search agent was activated")
-                            return True
-                        else:
-                            logger.error("❌ Medical search agent was NOT activated")
-                            logger.error(f"Log activity: {log_activity}")
-                            return False
-                    else:
-                        logger.error(f"❌ Direct query failed: {response.status}")
-                        error_text = await response.text()
-                        logger.error(f"Error details: {error_text}")
-                        return False
+                    if log_activity.get("agent_medical_search", False):
+                        logger.info("✅ Medical search agent was activated")
+                        return True
+                    logger.error("❌ Medical search agent was NOT activated")
+                    logger.error(f"Log activity: {log_activity}")
+                    return False
+                logger.error(f"❌ Direct query failed: {response.status}")
+                error_text = await response.text()
+                logger.error(f"Error details: {error_text}")
+                return False
 
         except Exception as e:
-            logger.error(f"❌ Direct medical query error: {e}")
+            logger.exception(f"❌ Direct medical query error: {e}")
             return False
 
     async def test_medical_agent_import(self) -> bool:
@@ -175,8 +166,8 @@ class OpenWebUIMedicalRoutingTest:
 
         try:
             from agents.medical_search_agent import MedicalLiteratureSearchAssistant
-            from core.mcp.direct_mcp_client import DirectMCPClient
             from core.config.models import get_primary_model
+            from core.mcp.direct_mcp_client import DirectMCPClient
 
             # Initialize components
             mcp_client = DirectMCPClient()
@@ -193,10 +184,10 @@ class OpenWebUIMedicalRoutingTest:
             return True
 
         except Exception as e:
-            logger.error(f"❌ Medical search agent import/init error: {e}")
+            logger.exception(f"❌ Medical search agent import/init error: {e}")
             return False
 
-    def diagnose_request_routing(self) -> Dict[str, str]:
+    def diagnose_request_routing(self) -> dict[str, str]:
         """Analyze healthcare system logs for request routing patterns."""
         logger.info("Diagnosing request routing patterns")
 
@@ -213,7 +204,7 @@ class OpenWebUIMedicalRoutingTest:
                 logger.warning("Healthcare system log not found")
                 return analysis
 
-            with open(healthcare_log, "r") as f:
+            with open(healthcare_log) as f:
                 recent_lines = f.readlines()[-100:]  # Last 100 lines
 
             recent_content = "".join(recent_lines).lower()
@@ -234,7 +225,7 @@ class OpenWebUIMedicalRoutingTest:
             logger.info(f"Request routing analysis: {analysis}")
 
         except Exception as e:
-            logger.error(f"❌ Request routing analysis error: {e}")
+            logger.exception(f"❌ Request routing analysis error: {e}")
 
         return analysis
 

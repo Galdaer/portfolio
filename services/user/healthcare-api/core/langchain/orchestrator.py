@@ -7,19 +7,21 @@ parallel helpers can be added in subsequent iterations.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
-from core.mcp.universal_parser import extract_citations_from_mcp_steps
+import contextlib
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
 import yaml
 
-from langchain_core.language_models import BaseChatModel
-
 from core.infrastructure.healthcare_logger import get_healthcare_logger
-from core.langchain.agents import HealthcareLangChainAgent
 from core.langchain.agent_adapters import (
-    synthesize_answer_from_sources,
     create_conclusive_agent_adapter,
 )
+from core.langchain.agents import HealthcareLangChainAgent
+from core.mcp.universal_parser import extract_citations_from_mcp_steps
+
+if TYPE_CHECKING:
+    from langchain_core.language_models import BaseChatModel
 
 logger = get_healthcare_logger("core.langchain.orchestrator")
 
@@ -30,8 +32,8 @@ class LangChainOrchestrator:
     def __init__(
         self,
         mcp_client,
-        chat_model: Optional[BaseChatModel] = None,
-        model: Optional[str] = None,
+        chat_model: BaseChatModel | None = None,
+        model: str | None = None,
         temperature: float = 0.1,
         verbose: bool = False,
         max_orchestrator_iterations: int = 3,  # Not used - custom parameter for potential future use
@@ -43,9 +45,9 @@ class LangChainOrchestrator:
         tool_max_retries: int = 2,
         tool_retry_base_delay: float = 0.5,
         show_sources_default: bool = True,
-        timeouts: Optional[Dict[str, float]] = None,
-        show_agent_header: Optional[bool] = None,
-        agent_manager: Optional[Any] = None,
+        timeouts: dict[str, float] | None = None,
+        show_agent_header: bool | None = None,
+        agent_manager: Any | None = None,
     ):
         """Initialize the LangChain orchestrator for healthcare queries.
 
@@ -86,27 +88,21 @@ class LangChainOrchestrator:
         )
 
         # Timeouts and tool retry settings
-        cfg_timeouts: Dict[str, float] | None = None
+        cfg_timeouts: dict[str, float] | None = None
         if isinstance(cfg, dict) and isinstance(cfg.get("timeouts"), dict):
             tmo = cfg.get("timeouts", {})
             cfg_timeouts = {}
             for k in ("router_selection", "per_agent_default", "per_agent_hard_cap"):
                 if k in tmo and tmo[k] is not None:
-                    try:
+                    with contextlib.suppress(Exception):
                         cfg_timeouts[k] = float(tmo[k])
-                    except Exception:
-                        pass
             # Override tool retry knobs if present
-            try:
+            with contextlib.suppress(Exception):
                 tool_max_retries = int(tmo.get("tool_max_retries", tool_max_retries))
-            except Exception:
-                pass
-            try:
+            with contextlib.suppress(Exception):
                 tool_retry_base_delay = float(
-                    tmo.get("tool_retry_base_delay", tool_retry_base_delay)
+                    tmo.get("tool_retry_base_delay", tool_retry_base_delay),
                 )
-            except Exception:
-                pass
 
         self.mcp_client = mcp_client
         self.always_run_medical_search = resolved_always_run_medical_search
@@ -120,7 +116,7 @@ class LangChainOrchestrator:
 
         try:
             env_agent_iters = int(
-                _os.getenv("HEALTHCARE_AGENT_MAX_ITERATIONS", str(max_agent_iterations))
+                _os.getenv("HEALTHCARE_AGENT_MAX_ITERATIONS", str(max_agent_iterations)),
             )
         except ValueError:
             env_agent_iters = max_agent_iterations
@@ -146,10 +142,8 @@ class LangChainOrchestrator:
             else show_agent_header
         )
         if effective_show_header is not None:
-            try:
-                setattr(self.agent, "show_agent_header", bool(effective_show_header))
-            except Exception:
-                pass
+            with contextlib.suppress(Exception):
+                self.agent.show_agent_header = bool(effective_show_header)
 
         # Apply timeouts: YAML first, then explicit param dict
         applied_timeouts = (
@@ -160,17 +154,9 @@ class LangChainOrchestrator:
         if isinstance(applied_timeouts, dict):
             try:
                 if "per_agent_default" in applied_timeouts:
-                    setattr(
-                        self.agent,
-                        "per_agent_default_timeout",
-                        float(applied_timeouts["per_agent_default"]),
-                    )
+                    self.agent.per_agent_default_timeout = float(applied_timeouts["per_agent_default"])
                 if "per_agent_hard_cap" in applied_timeouts:
-                    setattr(
-                        self.agent,
-                        "per_agent_hard_cap",
-                        float(applied_timeouts["per_agent_hard_cap"]),
-                    )
+                    self.agent.per_agent_hard_cap = float(applied_timeouts["per_agent_hard_cap"])
             except Exception:
                 # Best-effort; keep defaults if casting fails
                 pass
@@ -182,13 +168,13 @@ class LangChainOrchestrator:
             env_default = _os.getenv("HEALTHCARE_AGENT_TIMEOUT_DEFAULT")
             env_hardcap = _os.getenv("HEALTHCARE_AGENT_TIMEOUT_HARDCAP")
             if env_default:
-                setattr(self.agent, "per_agent_default_timeout", float(env_default))
+                self.agent.per_agent_default_timeout = float(env_default)
             if env_hardcap:
-                setattr(self.agent, "per_agent_hard_cap", float(env_hardcap))
+                self.agent.per_agent_hard_cap = float(env_hardcap)
         except Exception:
             pass
 
-    def _load_orchestrator_config(self) -> Dict[str, Any]:
+    def _load_orchestrator_config(self) -> dict[str, Any]:
         """Load orchestrator YAML config if available.
 
         Returns an empty dict when not found or on error.
@@ -197,7 +183,7 @@ class LangChainOrchestrator:
             cfg_dir = Path(__file__).parent.parent.parent / "config"
             path = cfg_dir / "orchestrator.yml"
             if path.exists():
-                with open(path, "r") as f:
+                with open(path) as f:
                     data = yaml.safe_load(f) or {}
                     if isinstance(data, dict):
                         return data
@@ -208,9 +194,9 @@ class LangChainOrchestrator:
     async def process(
         self,
         query: str,
-        context: Optional[Dict[str, Any]] = None,
-        show_sources: Optional[bool] = None,
-    ) -> Dict[str, Any]:
+        context: dict[str, Any] | None = None,
+        show_sources: bool | None = None,
+    ) -> dict[str, Any]:
         """Process a healthcare query using the LangChain agent.
 
         Args:
@@ -223,12 +209,12 @@ class LangChainOrchestrator:
         """
         try:
             # Optional presearch to guarantee medical_search coverage
-            pre_citations: List[Dict[str, Any]] = []
+            pre_citations: list[dict[str, Any]] = []
             if self.always_run_medical_search:
                 try:
                     # Prefer hyphenated tool name to match MCP normalization
                     presearch_obs = await self.mcp_client.call_tool(
-                        "search-pubmed", {"query": query, "max_results": self.presearch_max_results}
+                        "search-pubmed", {"query": query, "max_results": self.presearch_max_results},
                     )
 
                     class _Action:
@@ -237,7 +223,7 @@ class LangChainOrchestrator:
 
                     # Reuse citation extractor by forming a single synthetic step
                     pre_citations = self._extract_citations(
-                        [(_Action("search_medical_literature"), presearch_obs)]
+                        [(_Action("search_medical_literature"), presearch_obs)],
                     )
                 except Exception:
                     pre_citations = []
@@ -298,30 +284,29 @@ class LangChainOrchestrator:
                     "agent_name": "orchestrator",
                     "agents_used": [],
                 }
-            else:
-                # If the agent provided structured error_details, surface them
-                error_details = None
-                try:
-                    if isinstance(e, Exception) and hasattr(e, "__dict__"):
-                        error_details = getattr(e, "error_details", None)
-                except Exception:
-                    pass
-                return {
-                    "success": False,
-                    "formatted_summary": f"I encountered an issue processing your request: {error_msg}",
-                    "error": error_msg,
-                    "error_details": error_details,
-                    "agent_name": "orchestrator",
-                    "agents_used": [],
-                }
+            # If the agent provided structured error_details, surface them
+            error_details = None
+            try:
+                if isinstance(e, Exception) and hasattr(e, "__dict__"):
+                    error_details = getattr(e, "error_details", None)
+            except Exception:
+                pass
+            return {
+                "success": False,
+                "formatted_summary": f"I encountered an issue processing your request: {error_msg}",
+                "error": error_msg,
+                "error_details": error_details,
+                "agent_name": "orchestrator",
+                "agents_used": [],
+            }
 
     async def process_with_conclusive_adapters(
         self,
         query: str,
-        discovered_agents: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None,
-        show_sources: Optional[bool] = None,
-    ) -> Dict[str, Any]:
+        discovered_agents: dict[str, Any],
+        context: dict[str, Any] | None = None,
+        show_sources: bool | None = None,
+    ) -> dict[str, Any]:
         """
         Process a healthcare query using conclusive agent adapters to prevent iteration loops.
 
@@ -341,10 +326,10 @@ class LangChainOrchestrator:
         try:
             logger.info(f"🔄 Processing query with conclusive adapters: {query[:100]}...")
 
-            # Determine the most appropriate agent for the query  
+            # Determine the most appropriate agent for the query
             query_lower = query.lower()
             agent_name = "medical_search"  # Default to medical search for all medical queries
-            
+
             if "appointment" in query_lower or "schedule" in query_lower:
                 agent_name = "scheduling"
             elif "billing" in query_lower or "insurance" in query_lower:
@@ -354,7 +339,7 @@ class LangChainOrchestrator:
             elif any(term in query_lower for term in [
                 "clinical trial", "trial enrollment", "research methodology", "study design",
                 "clinical investigation", "systematic review", "meta-analysis", "evidence synthesis",
-                "comprehensive research", "literature synthesis", "clinical evidence"
+                "comprehensive research", "literature synthesis", "clinical evidence",
             ]):
                 # Use clinical_research for comprehensive research and clinical trial queries
                 agent_name = "clinical_research"
@@ -386,8 +371,8 @@ class LangChainOrchestrator:
                     # Clinical research agent has its own specialized method
                     raw_result = await selected_agent.process_research_query(
                         query=query,
-                        user_id="orchestrator", 
-                        session_id="orchestrator_session"
+                        user_id="orchestrator",
+                        session_id="orchestrator_session",
                     )
                 elif hasattr(selected_agent, "process_request"):
                     raw_result = await selected_agent.process_request({"query": query})
@@ -409,7 +394,7 @@ class LangChainOrchestrator:
                         else:
                             # Use research summary as fallback
                             answer_content = research_results.get("research_summary", "Clinical research completed.")
-                        
+
                         # Get sources from clinical research result
                         if "sources" in research_results:
                             sources = research_results["sources"]
@@ -425,7 +410,7 @@ class LangChainOrchestrator:
                     else:
                         # Create conclusive adapter for synthesis if no formatted_summary
                         conclusive_adapter = create_conclusive_agent_adapter(
-                            selected_agent, agent_name
+                            selected_agent, agent_name,
                         )
                         conclusive_result = await conclusive_adapter(query)
 
@@ -454,7 +439,7 @@ class LangChainOrchestrator:
                         answer_content = conclusive_result
 
             except Exception as e:
-                logger.error(f"❌ Error calling agent {agent_name}: {e}")
+                logger.exception(f"❌ Error calling agent {agent_name}: {e}")
                 answer_content = f"Error processing request with {agent_name}: {str(e)}"
 
             logger.info(f"✅ Agent {agent_name} completed with {len(sources)} sources")
@@ -510,13 +495,13 @@ class LangChainOrchestrator:
                         result["formatted_summary"] = "\n".join(lines).strip()
                     else:
                         logger.info(
-                            f"✅ Agent {agent_name} provided rich formatting, preserving original formatted_summary"
+                            f"✅ Agent {agent_name} provided rich formatting, preserving original formatted_summary",
                         )
 
             return result
 
         except Exception as e:
-            logger.error(f"❌ Error in conclusive adapter processing: {e}")
+            logger.exception(f"❌ Error in conclusive adapter processing: {e}")
             return {
                 "success": False,
                 "formatted_summary": f"I encountered an issue processing your request: {str(e)}",
@@ -525,7 +510,7 @@ class LangChainOrchestrator:
                 "agents_used": [],
             }
 
-    def get_fallback_response(self) -> Dict[str, Any]:
+    def get_fallback_response(self) -> dict[str, Any]:
         return {
             "success": False,
             "formatted_summary": "We couldn't complete the request right now. Please try again.",
@@ -533,7 +518,7 @@ class LangChainOrchestrator:
             "agents_used": ["Fallback"],
         }
 
-    def _extract_citations(self, intermediate_steps: Any) -> List[Dict[str, Any]]:
+    def _extract_citations(self, intermediate_steps: Any) -> list[dict[str, Any]]:
         """Extract citations from intermediate steps using the universal MCP parser."""
         try:
             return extract_citations_from_mcp_steps(intermediate_steps)
@@ -541,10 +526,10 @@ class LangChainOrchestrator:
             return []
 
     def _merge_citations(
-        self, a: List[Dict[str, Any]], b: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
-        seen: set[Tuple[str, str]] = set()
-        merged: List[Dict[str, Any]] = []
+        self, a: list[dict[str, Any]], b: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        seen: set[tuple[str, str]] = set()
+        merged: list[dict[str, Any]] = []
         for lst in (a, b):
             for c in lst:
                 if not isinstance(c, dict):

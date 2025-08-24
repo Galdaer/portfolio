@@ -19,14 +19,16 @@ decision-making. Always defer to qualified healthcare professionals.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.search import (
     calculate_recency_score as generic_recency_score,
     extract_source_links as generic_extract_source_links,
     normalize_query_terms,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 # Evidence level canonical ordering (higher index = stronger evidence for weighting logic)
 _EVIDENCE_PRIORITY = [
@@ -87,7 +89,7 @@ def rank_sources_by_evidence_and_relevance(
                 str(src.get("title", "")),
                 str(src.get("abstract", "")),
                 str(src.get("summary", "")),
-            ]
+            ],
         ).lower()
         rel_hits = sum(1 for t in query_terms if t in text_blob)
         rel_score = (rel_hits / len(query_terms)) if query_terms else 0.0
@@ -97,7 +99,7 @@ def rank_sources_by_evidence_and_relevance(
             evidence_weight = 0
         final_score = evidence_weight + (rel_score * 3.0) + recency
         ranked.append(
-            {**src, "evidence_level": ev, "search_score": final_score, "relevance_score": rel_score}
+            {**src, "evidence_level": ev, "search_score": final_score, "relevance_score": rel_score},
         )
     return sorted(ranked, key=lambda x: x.get("search_score", 0), reverse=True)
 
@@ -226,7 +228,7 @@ def format_medical_search_response(
 
     if not search_results:
         lines.append(
-            "No literature was retrieved. This may be due to dynamic timeouts or issues with the upstream sources."
+            "No literature was retrieved. This may be due to dynamic timeouts or issues with the upstream sources.",
         )
     else:
         lines.append("Key findings:")

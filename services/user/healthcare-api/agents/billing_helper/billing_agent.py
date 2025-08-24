@@ -13,18 +13,15 @@ from typing import Any
 from agents import BaseHealthcareAgent
 from agents.billing_helper.shared.billing_utils import SharedBillingUtils
 from core.financial.healthcare_financial_utils import HealthcareFinancialUtils
+from core.infrastructure.agent_logging_utils import (
+    enhanced_agent_method,
+)
 from core.infrastructure.agent_metrics import AgentMetricsStore
-from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
+from core.infrastructure.healthcare_cache import HealthcareCacheManager
 from core.infrastructure.healthcare_logger import (
     get_healthcare_logger,
     healthcare_log_method,
     log_healthcare_event,
-)
-from core.infrastructure.agent_logging_utils import (
-    AgentWorkflowLogger,
-    enhanced_agent_method,
-    log_agent_query,
-    log_agent_cache_event,
 )
 from core.infrastructure.phi_monitor import (
     phi_monitor_decorator,
@@ -32,9 +29,8 @@ from core.infrastructure.phi_monitor import (
     scan_for_phi,
 )
 from core.reasoning.tree_of_thoughts import (
-    TreeOfThoughtsPlanner,
     PlanningFocus,
-    TreeOfThoughtsResult
+    TreeOfThoughtsPlanner,
 )
 
 logger = get_healthcare_logger("agent.billing_helper")
@@ -101,15 +97,15 @@ class BillingHelperAgent(BaseHealthcareAgent):
         self.mcp_client = mcp_client
         self.llm_client = llm_client
         self.agent_type = "billing_helper"
-        
+
         # Initialize shared healthcare infrastructure tools
         self._metrics = AgentMetricsStore(agent_name="billing_helper")
         self._cache_manager = HealthcareCacheManager()
-        
+
         # Initialize Tree-of-Thoughts planner for complex billing scenarios
         self._tree_planner = TreeOfThoughtsPlanner(
             llm_client=llm_client,
-            knowledge_base=None  # Could integrate billing knowledge base
+            knowledge_base=None,  # Could integrate billing knowledge base
         )
         self.capabilities = [
             "claims_processing",
@@ -213,7 +209,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
         try:
             # Validate required fields
             workflow_logger.log_step("validate_required_fields", {
-                "required_fields": ["patient_id", "provider_id", "service_date", "procedure_codes"]
+                "required_fields": ["patient_id", "provider_id", "service_date", "procedure_codes"],
             })
             required_fields = ["patient_id", "provider_id", "service_date", "procedure_codes"]
             for field in required_fields:
@@ -223,7 +219,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
             if processing_errors:
                 workflow_logger.log_step("validation_failed", {
                     "error_count": len(processing_errors),
-                    "stage": "required_fields"
+                    "stage": "required_fields",
                 }, level=logging.WARNING)
                 workflow_logger.finish_workflow("failed", {"processing_errors": processing_errors})
                 return BillingResult(
@@ -239,7 +235,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
             # Validate CPT codes
             workflow_logger.log_step("validate_cpt_codes", {
-                "code_count": len(claim_data.get("procedure_codes", []))
+                "code_count": len(claim_data.get("procedure_codes", [])),
             })
             cpt_validations = []
             cpt_start_time = time.time()
@@ -248,13 +244,13 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 cpt_validations.append(validation)
                 if not validation.is_valid:
                     processing_errors.append(f"Invalid CPT code: {code}")
-            
-            workflow_logger.log_performance_metric("cpt_validation_time_ms", 
+
+            workflow_logger.log_performance_metric("cpt_validation_time_ms",
                                                  (time.time() - cpt_start_time) * 1000, "ms")
 
-            # Validate ICD-10 codes  
+            # Validate ICD-10 codes
             workflow_logger.log_step("validate_icd_codes", {
-                "code_count": len(claim_data.get("diagnosis_codes", []))
+                "code_count": len(claim_data.get("diagnosis_codes", [])),
             })
             icd_validations = []
             icd_start_time = time.time()
@@ -263,13 +259,13 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 icd_validations.append(validation)
                 if not validation.is_valid:
                     processing_errors.append(f"Invalid ICD-10 code: {code}")
-            
-            workflow_logger.log_performance_metric("icd_validation_time_ms", 
+
+            workflow_logger.log_performance_metric("icd_validation_time_ms",
                                                  (time.time() - icd_start_time) * 1000, "ms")
 
             # Calculate total amount
             workflow_logger.log_step("calculate_claim_amount", {
-                "cpt_validations_count": len(cpt_validations)
+                "cpt_validations_count": len(cpt_validations),
             })
             total_amount = self._calculate_claim_amount(claim_data, cpt_validations)
             workflow_logger.log_performance_metric("calculated_amount", total_amount, "USD")
@@ -282,7 +278,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 compliance_validated = True
             else:
                 workflow_logger.log_step("claim_requires_correction", {
-                    "error_count": len(processing_errors)
+                    "error_count": len(processing_errors),
                 }, level=logging.WARNING)
                 status = "requires_correction"
                 compliance_validated = False
@@ -326,7 +322,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
         except Exception as e:
             workflow_logger.finish_workflow("failed", error=e)
-            
+
             log_healthcare_event(
                 logger,
                 logging.ERROR,
@@ -826,7 +822,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
 
         except Exception as e:
             return {"success": False, "error": f"Deductible tracking failed: {str(e)}"}
-    
+
     @healthcare_log_method(operation_type="complex_billing_planning", phi_risk_level="medium")
     @phi_monitor_decorator(risk_level="medium", operation_type="complex_billing_planning")
     async def plan_complex_billing_scenario(
@@ -834,67 +830,67 @@ class BillingHelperAgent(BaseHealthcareAgent):
         billing_scenario: dict[str, Any],
         planning_focus: str = "billing_optimization",
         session_id: str = None,
-        user_id: str = None
+        user_id: str = None,
     ) -> dict[str, Any]:
         """
         Plan complex billing scenarios using Tree-of-Thoughts reasoning
-        
+
         Uses advanced planning to handle complex billing situations like:
         - Multi-payer scenarios
         - Complex coding situations
         - Denial management strategies
         - Revenue cycle optimization
-        
+
         Args:
             billing_scenario: Dictionary containing billing scenario data
             planning_focus: Focus area for planning (billing_optimization, denial_management, etc.)
             session_id: Session ID for tracking
             user_id: User ID for audit trails
-            
+
         Returns:
             Dictionary containing planning results and recommendations
-            
+
         Medical Disclaimer: Administrative billing planning only.
         Does not provide medical advice or clinical decision-making.
         """
-        
+
         try:
             # Increment metrics for Tree-of-Thoughts usage
             await self._metrics.incr("tree_of_thoughts_billing_requests")
-            
+
             # Validate and sanitize input data for PHI protection
             scan_for_phi(str(billing_scenario))
-            
+
             # Map planning focus to PlanningFocus enum
             focus_mapping = {
                 "billing_optimization": PlanningFocus.BILLING_OPTIMIZATION,
                 "coding_compliance": PlanningFocus.CODING_COMPLIANCE,
                 "claim_processing": PlanningFocus.CLAIM_PROCESSING,
                 "denial_management": PlanningFocus.DENIAL_MANAGEMENT,
-                "revenue_cycle": PlanningFocus.REVENUE_CYCLE
+                "revenue_cycle": PlanningFocus.REVENUE_CYCLE,
             }
-            
+
             planning_focus_enum = focus_mapping.get(
-                planning_focus.lower(), 
-                PlanningFocus.BILLING_OPTIMIZATION
+                planning_focus.lower(),
+                PlanningFocus.BILLING_OPTIMIZATION,
             )
-            
+
             # Generate Tree-of-Thoughts planning
             tree_result = await self._tree_planner.plan_complex_scenario(
                 scenario_data=billing_scenario,
                 planning_focus=planning_focus_enum,
                 planning_depth=3,
                 branches_per_level=3,
-                user_id=user_id
+                user_id=user_id,
             )
-            
+
             # Convert tree result to response format
             planning_response = {
                 "billing_scenario_analysis": {
                     "scenario_id": tree_result.tree_id,
                     "planning_focus": planning_focus,
                     "confidence_score": tree_result.confidence_score,
-                    "final_recommendation": tree_result.final_recommendation
+                    "final_recommendation": tree_result.final_recommendation,
                 },
                 "optimal_approach": {
                     "path_steps": [
@@ -904,12 +900,12 @@ class BillingHelperAgent(BaseHealthcareAgent):
                             "expected_outcome": node.expected_outcome,
                             "success_probability": node.success_probability,
                             "resource_requirements": node.resource_requirements,
-                            "risk_assessment": node.risk_assessment
+                            "risk_assessment": node.risk_assessment,
                         }
                         for node in tree_result.optimal_path
                     ],
                     "overall_viability": tree_result.confidence_score,
-                    "implementation_priority": "high" if tree_result.confidence_score > 0.7 else "medium"
+                    "implementation_priority": "high" if tree_result.confidence_score > 0.7 else "medium",
                 },
                 "alternative_approaches": [
                     {
@@ -918,7 +914,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
                         "implementation_complexity": branch.implementation_complexity,
                         "expected_roi": branch.expected_roi,
                         "compliance_rating": branch.compliance_rating,
-                        "approach_summary": branch.nodes[0].approach if branch.nodes else "Alternative approach"
+                        "approach_summary": branch.nodes[0].approach if branch.nodes else "Alternative approach",
                     }
                     for branch in tree_result.alternative_paths
                 ],
@@ -929,19 +925,19 @@ class BillingHelperAgent(BaseHealthcareAgent):
                     ),
                     "planning_timestamp": tree_result.created_at.isoformat(),
                     "session_id": session_id,
-                    "user_id": user_id
+                    "user_id": user_id,
                 },
                 "medical_disclaimer": (
                     "This analysis provides administrative billing planning support only. "
                     "It does not provide medical advice, diagnosis, or treatment recommendations. "
                     "All medical decisions must be made by qualified healthcare professionals."
                 ),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
-            
+
             # Log Tree-of-Thoughts planning completion
             await self._metrics.incr("tree_of_thoughts_billing_completions")
-            
+
             log_healthcare_event(
                 logger,
                 logging.INFO,
@@ -953,16 +949,16 @@ class BillingHelperAgent(BaseHealthcareAgent):
                     "optimal_path_steps": len(tree_result.optimal_path),
                     "alternatives_generated": len(tree_result.alternative_paths),
                     "user_id": user_id,
-                    "session_id": session_id
+                    "session_id": session_id,
                 },
-                operation_type="complex_billing_planning"
+                operation_type="complex_billing_planning",
             )
-            
+
             return planning_response
-            
+
         except Exception as e:
             await self._metrics.incr("tree_of_thoughts_billing_errors")
-            
+
             log_healthcare_event(
                 logger,
                 logging.ERROR,
@@ -972,21 +968,21 @@ class BillingHelperAgent(BaseHealthcareAgent):
                     "error_type": type(e).__name__,
                     "planning_focus": planning_focus,
                     "user_id": user_id,
-                    "session_id": session_id
+                    "session_id": session_id,
                 },
-                operation_type="complex_billing_planning_error"
+                operation_type="complex_billing_planning_error",
             )
-            
+
             # Return error response with fallback to standard processing
             return {
                 "billing_scenario_analysis": {
                     "error": "Tree-of-Thoughts planning failed",
                     "error_details": str(e),
-                    "fallback_recommendation": "Follow standard billing procedures for this scenario"
+                    "fallback_recommendation": "Follow standard billing procedures for this scenario",
                 },
                 "optimal_approach": {
                     "fallback_used": True,
-                    "standard_recommendation": "Process using established billing workflows"
+                    "standard_recommendation": "Process using established billing workflows",
                 },
                 "alternative_approaches": [],
                 "medical_disclaimer": (
@@ -994,7 +990,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
                     "It does not provide medical advice, diagnosis, or treatment recommendations. "
                     "All medical decisions must be made by qualified healthcare professionals."
                 ),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
 

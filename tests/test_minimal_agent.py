@@ -5,7 +5,6 @@ Minimal LangChain Agent Test - Nuclear Option
 
 import asyncio
 import sys
-import os
 
 # Add the healthcare-api to the path
 sys.path.insert(0, "/home/intelluxe/services/user/healthcare-api")
@@ -14,13 +13,14 @@ sys.path.insert(0, "/home/intelluxe/services/user/healthcare-api")
 async def test_minimal_agent():
     """Test with the minimal nuclear option agent"""
     try:
-        from langchain.agents import AgentExecutor, create_structured_chat_agent
-        from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-        from langchain_ollama import ChatOllama
-        from langchain.tools import Tool
         import logging
 
-        logger = logging.getLogger(__name__)
+        from langchain.agents import AgentExecutor, create_structured_chat_agent
+        from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+        from langchain.tools import Tool
+        from langchain_ollama import ChatOllama
+
+        logging.getLogger(__name__)
 
         print("🧪 Testing Minimal LangChain Agent (Nuclear Option)...")
 
@@ -33,7 +33,7 @@ async def test_minimal_agent():
                 name="search-pubmed",
                 func=lambda x: f"Mock PubMed results for: {x}",
                 description="Search medical literature",
-            )
+            ),
         ]
 
         # Minimal prompt - NO chat_history
@@ -45,7 +45,7 @@ async def test_minimal_agent():
                 ),
                 ("human", "{input}"),
                 MessagesPlaceholder(variable_name="agent_scratchpad"),
-            ]
+            ],
         )
 
         # Create agent
@@ -53,7 +53,7 @@ async def test_minimal_agent():
 
         # Create executor - NO memory
         executor = AgentExecutor(
-            agent=agent, tools=tools, verbose=True, return_intermediate_steps=True
+            agent=agent, tools=tools, verbose=True, return_intermediate_steps=True,
         )
 
         print("✅ Minimal agent initialized successfully")
@@ -82,9 +82,8 @@ async def test_minimal_agent():
         if "agent_scratchpad" in error_msg and "list of base messages" in error_msg:
             print("🔴 CRITICAL: The agent_scratchpad error is still occurring!")
             return False
-        else:
-            print("🟡 Different error - not the scratchpad issue")
-            return False
+        print("🟡 Different error - not the scratchpad issue")
+        return False
 
 
 if __name__ == "__main__":

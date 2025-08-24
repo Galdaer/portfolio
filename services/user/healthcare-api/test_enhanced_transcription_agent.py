@@ -7,16 +7,10 @@ Demonstrates the full functionality of the improved implementation
 import asyncio
 import os
 import tempfile
-import json
-from datetime import datetime
-from pathlib import Path
 
 # Import the enhanced transcription agent
 from agents.transcription.transcription_agent import (
     TranscriptionAgent,
-    TranscriptionResult,
-    ClinicalNoteResult,
-    DocumentationTemplate,
 )
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 
@@ -123,13 +117,13 @@ async def test_transcription_agent_comprehensive():
     # Test 6: MCP Failure Fallback
     print("⚠️ Test 6: MCP Failure Fallback")
     agent_with_failing_mcp = TranscriptionAgent(
-        mcp_client=MockMCPClient(should_fail=True), llm_client=None
+        mcp_client=MockMCPClient(should_fail=True), llm_client=None,
     )
     await agent_with_failing_mcp.initialize()
 
     fallback_result = await agent_with_failing_mcp.transcribe_audio(audio_data)
     print(f"✅ Fallback transcription completed: {fallback_result.status}")
-    print(f"   Fallback worked despite MCP failure")
+    print("   Fallback worked despite MCP failure")
     print()
 
     # Test 7: Clinical Note Generation
@@ -164,13 +158,13 @@ async def test_transcription_agent_comprehensive():
                 "encounter_type": "consultation",
                 "duration_seconds": 180.0,
             },
-        ]
+        ],
     }
 
     batch_result = await agent.process_request(batch_request)
     if batch_result.get("success"):
         print(f"✅ Batch processing completed: {batch_result['total_processed']} items")
-        print(f"   Batch results available in response")
+        print("   Batch results available in response")
     else:
         print(f"❌ Batch processing failed: {batch_result.get('error')}")
     print()
@@ -195,7 +189,7 @@ async def test_transcription_agent_comprehensive():
 
         # Test cleanup
         await agent._cleanup_temporary_files([temp_path])
-        print(f"✅ Temp file securely deleted")
+        print("✅ Temp file securely deleted")
     except Exception as e:
         print(f"❌ Secure file handling failed: {e}")
     print()

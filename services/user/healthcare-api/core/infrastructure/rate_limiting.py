@@ -203,7 +203,7 @@ def _load_external_rate_limits() -> dict[HealthcareRole, dict[RateLimitType, Rat
                 with index_path.open("r", encoding="utf-8") as f:
                     idx_data = yaml.safe_load(f) or {}
                 RATE_LIMITS_POLICY_VERSION = str(
-                    idx_data.get("version", RATE_LIMITS_POLICY_VERSION)
+                    idx_data.get("version", RATE_LIMITS_POLICY_VERSION),
                 )
                 files = idx_data.get("files", [])
                 for entry in files:
@@ -731,7 +731,7 @@ return {allowed, tokens, minute_count, hour_count, retry_after}
         role_limits = HEALTHCARE_RATE_LIMITS.get(status.user_role) if status.user_role else None
         if role_limits and status.limit_type in role_limits:
             headers["X-RateLimit-Burst-Capacity"] = str(
-                role_limits[status.limit_type].burst_allowance
+                role_limits[status.limit_type].burst_allowance,
             )
 
         # Emergency bypass active header
@@ -781,7 +781,7 @@ return {allowed, tokens, minute_count, hour_count, retry_after}
         # If limiter disabled via env, emit a single flagged metric and suppress counters
         if os.getenv("RL_DISABLE", "false").lower() == "true":
             lines.append(
-                "# HELP healthcare_rate_limit_disabled Rate limiter disabled flag (1=disabled)"
+                "# HELP healthcare_rate_limit_disabled Rate limiter disabled flag (1=disabled)",
             )
             lines.append("# TYPE healthcare_rate_limit_disabled gauge")
             lines.append("healthcare_rate_limit_disabled 1")

@@ -459,7 +459,7 @@ class HealthcareSystemMonitor:
         snap = self.cached_status or {}
         overall = snap.get("overall_status", "unknown")
         lines.append(
-            "# HELP healthcare_overall_status Overall health status (1=healthy,0 otherwise)"
+            "# HELP healthcare_overall_status Overall health status (1=healthy,0 otherwise)",
         )
         lines.append("# TYPE healthcare_overall_status gauge")
         val = 1 if overall == "healthy" else 0
@@ -467,7 +467,7 @@ class HealthcareSystemMonitor:
         components = snap.get("components", {})
         if isinstance(components, dict):
             lines.append(
-                "# HELP healthcare_component_status Component status (1=healthy,0 otherwise)"
+                "# HELP healthcare_component_status Component status (1=healthy,0 otherwise)",
             )
             lines.append("# TYPE healthcare_component_status gauge")
             for name, data in components.items():
@@ -479,12 +479,12 @@ class HealthcareSystemMonitor:
         # Histogram exposition (Prometheus style) for comprehensive health check latency
         if self._duration_count > 0:
             lines.append(
-                "# HELP healthcare_health_check_duration_seconds Comprehensive health check duration"
+                "# HELP healthcare_health_check_duration_seconds Comprehensive health check duration",
             )
             lines.append("# TYPE healthcare_health_check_duration_seconds histogram")
             cumulative = 0
             for upper, count in zip(
-                self._duration_buckets, self._duration_bucket_counts, strict=False
+                self._duration_buckets, self._duration_bucket_counts, strict=False,
             ):
                 cumulative += count
                 le_label = (

@@ -14,10 +14,10 @@ Tests include:
 """
 
 import asyncio
-import pytest
-from unittest.mock import Mock, patch
 import os
 import sys
+
+import pytest
 
 # Add the healthcare-api directory to Python path for imports
 sys.path.insert(0, "/app")  # For container testing
@@ -49,7 +49,7 @@ class TestHealthcareLangChainAgent:
             self.mcp_client = DirectMCPClient()
             tools = await self.mcp_client.get_available_tools()
 
-            print(f"✅ MCP client connected successfully")
+            print("✅ MCP client connected successfully")
             print(f"✅ Found {len(tools)} available tools")
 
             # Print first few tools for verification
@@ -99,7 +99,7 @@ class TestHealthcareLangChainAgent:
         try:
             # Check if Ollama environment variables are set
             ollama_url = os.getenv("OLLAMA_URL") or os.getenv(
-                "OLLAMA_BASE_URL", "http://172.20.0.10:11434"
+                "OLLAMA_BASE_URL", "http://172.20.0.10:11434",
             )
             print(f"Using Ollama URL: {ollama_url}")
 
@@ -112,14 +112,14 @@ class TestHealthcareLangChainAgent:
             # Try a simple query to test Ollama connectivity
             # This will also test the full stack: Agent -> Ollama -> MCP tools
             response = await self.agent.process(
-                "Hello, can you tell me about medical search capabilities?"
+                "Hello, can you tell me about medical search capabilities?",
             )
 
             print("✅ Ollama connectivity successful")
             print(
                 f"✅ Received response: {response[:100]}..."
                 if len(response) > 100
-                else f"✅ Received response: {response}"
+                else f"✅ Received response: {response}",
             )
 
             assert isinstance(response, str), "Response should be a string"
@@ -189,14 +189,14 @@ class TestHealthcareLangChainAgent:
 
             # Test empty query
             try:
-                response = await self.agent.process("")
+                await self.agent.process("")
                 print("✅ Empty query handled gracefully")
             except Exception as e:
                 print(f"⚠️  Empty query handling: {e}")
 
             # Test None query
             try:
-                response = await self.agent.process(None)
+                await self.agent.process(None)
                 print("✅ None query handled gracefully")
             except Exception as e:
                 print(f"⚠️  None query handling: {e}")
@@ -204,7 +204,7 @@ class TestHealthcareLangChainAgent:
             # Test very long query
             try:
                 long_query = "What is diabetes? " * 1000  # Very long query
-                response = await self.agent.process(long_query)
+                await self.agent.process(long_query)
                 print("✅ Long query handled gracefully")
             except Exception as e:
                 print(f"⚠️  Long query handling: {e}")

@@ -4,11 +4,11 @@ Loads and validates configuration from YAML files with environment overrides
 """
 
 import os
-import logging
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
-import yaml
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import yaml
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 
@@ -22,42 +22,42 @@ class VoiceProcessingConfig:
     real_time_processing: bool = True
     confidence_threshold: float = 0.8
     max_session_duration_minutes: int = 30
-    field_mappings: Dict[str, List[str]] = field(default_factory=dict)
-    medical_keywords: Dict[str, List[str]] = field(default_factory=dict)
+    field_mappings: dict[str, list[str]] = field(default_factory=dict)
+    medical_keywords: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass
 class DocumentRequirementsConfig:
     """Document requirements configuration"""
-    base_documents: List[str] = field(default_factory=list)
-    new_patient_additional: List[str] = field(default_factory=list)
-    specialist_additional: List[str] = field(default_factory=list)
-    insurance_verification: List[str] = field(default_factory=list)
-    appointment_scheduling: List[str] = field(default_factory=list)
-    general_intake: List[str] = field(default_factory=list)
+    base_documents: list[str] = field(default_factory=list)
+    new_patient_additional: list[str] = field(default_factory=list)
+    specialist_additional: list[str] = field(default_factory=list)
+    insurance_verification: list[str] = field(default_factory=list)
+    appointment_scheduling: list[str] = field(default_factory=list)
+    general_intake: list[str] = field(default_factory=list)
 
 
 @dataclass
 class ValidationConfig:
     """Field validation configuration"""
-    field_validation: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    field_validation: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
 class IntakeAgentConfig:
     """Intake agent configuration"""
-    disclaimers: List[str] = field(default_factory=list)
+    disclaimers: list[str] = field(default_factory=list)
     voice_processing: VoiceProcessingConfig = field(default_factory=VoiceProcessingConfig)
     document_requirements: DocumentRequirementsConfig = field(default_factory=DocumentRequirementsConfig)
-    required_fields: Dict[str, List[str]] = field(default_factory=dict)
-    next_steps_templates: Dict[str, List[str]] = field(default_factory=dict)
+    required_fields: dict[str, list[str]] = field(default_factory=dict)
+    next_steps_templates: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass
 class AgentSpecializationConfig:
     """Agent specialization configuration"""
     name: str = ""
-    capabilities: List[str] = field(default_factory=list)
+    capabilities: list[str] = field(default_factory=list)
     timeout_seconds: int = 300
 
 
@@ -66,8 +66,8 @@ class WorkflowStepConfig:
     """Workflow step configuration"""
     step_name: str = ""
     agent_specialization: str = ""
-    step_config: Dict[str, Any] = field(default_factory=dict)
-    dependencies: List[str] = field(default_factory=list)
+    step_config: dict[str, Any] = field(default_factory=dict)
+    dependencies: list[str] = field(default_factory=list)
     parallel_capable: bool = False
     timeout_seconds: int = 300
     description: str = ""
@@ -85,10 +85,10 @@ class WorkflowTypeConfig:
 @dataclass
 class WorkflowConfig:
     """Workflow orchestration configuration"""
-    types: Dict[str, WorkflowTypeConfig] = field(default_factory=dict)
-    agent_specializations: Dict[str, AgentSpecializationConfig] = field(default_factory=dict)
-    step_definitions: Dict[str, List[WorkflowStepConfig]] = field(default_factory=dict)
-    result_templates: Dict[str, Dict[str, str]] = field(default_factory=dict)
+    types: dict[str, WorkflowTypeConfig] = field(default_factory=dict)
+    agent_specializations: dict[str, AgentSpecializationConfig] = field(default_factory=dict)
+    step_definitions: dict[str, list[WorkflowStepConfig]] = field(default_factory=dict)
+    result_templates: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -98,8 +98,8 @@ class OrchestrationConfig:
     workflow_cleanup_delay_seconds: int = 300
     status_check_interval_seconds: int = 5
     max_workflow_duration_seconds: int = 3600
-    error_handling: Dict[str, Any] = field(default_factory=dict)
-    monitoring: Dict[str, Any] = field(default_factory=dict)
+    error_handling: dict[str, Any] = field(default_factory=dict)
+    monitoring: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -108,41 +108,41 @@ class InsuranceProviderConfig:
     name: str = ""
     api_type: str = "external"
     api_delay_seconds: float = 0.1
-    eligibility: Dict[str, Any] = field(default_factory=dict)
-    coverage_rules: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    default_coverage: Dict[str, Any] = field(default_factory=dict)
+    eligibility: dict[str, Any] = field(default_factory=dict)
+    coverage_rules: dict[str, dict[str, Any]] = field(default_factory=dict)
+    default_coverage: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class InsuranceConfig:
     """Insurance verification configuration"""
-    cache: Dict[str, Any] = field(default_factory=dict)
-    performance: Dict[str, Any] = field(default_factory=dict)
-    providers: Dict[str, InsuranceProviderConfig] = field(default_factory=dict)
-    service_codes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    cache: dict[str, Any] = field(default_factory=dict)
+    performance: dict[str, Any] = field(default_factory=dict)
+    providers: dict[str, InsuranceProviderConfig] = field(default_factory=dict)
+    service_codes: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
 class ComplianceConfig:
     """Compliance monitoring configuration"""
-    event_retention: Dict[str, Any] = field(default_factory=dict)
-    scoring: Dict[str, Any] = field(default_factory=dict)
-    risk_levels: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    audit: Dict[str, Any] = field(default_factory=dict)
-    notifications: Dict[str, Any] = field(default_factory=dict)
-    event_categories: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    automated_checks: Dict[str, Any] = field(default_factory=dict)
-    recommendations: Dict[str, Any] = field(default_factory=dict)
-    integration: Dict[str, Any] = field(default_factory=dict)
+    event_retention: dict[str, Any] = field(default_factory=dict)
+    scoring: dict[str, Any] = field(default_factory=dict)
+    risk_levels: dict[str, dict[str, Any]] = field(default_factory=dict)
+    audit: dict[str, Any] = field(default_factory=dict)
+    notifications: dict[str, Any] = field(default_factory=dict)
+    event_categories: dict[str, dict[str, Any]] = field(default_factory=dict)
+    automated_checks: dict[str, Any] = field(default_factory=dict)
+    recommendations: dict[str, Any] = field(default_factory=dict)
+    integration: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ReasoningConfig:
     """Reasoning engine configuration"""
-    chain_of_thought: Dict[str, Any] = field(default_factory=dict)
-    tree_of_thoughts: Dict[str, Any] = field(default_factory=dict)
-    shared: Dict[str, Any] = field(default_factory=dict)
-    quality_metrics: Dict[str, Any] = field(default_factory=dict)
+    chain_of_thought: dict[str, Any] = field(default_factory=dict)
+    tree_of_thoughts: dict[str, Any] = field(default_factory=dict)
+    shared: dict[str, Any] = field(default_factory=dict)
+    quality_metrics: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -160,20 +160,20 @@ class HealthcareAPIConfig:
 class ConfigLoader:
     """
     Configuration loader for healthcare API components
-    
+
     Loads configuration from YAML files with environment variable overrides
     and provides type-safe access to configuration values.
     """
-    
-    def __init__(self, config_dir: Optional[str] = None):
+
+    def __init__(self, config_dir: str | None = None):
         self.config_dir = Path(config_dir) if config_dir else Path(__file__).parent
-        self.config_cache: Dict[str, Any] = {}
-        
+        self.config_cache: dict[str, Any] = {}
+
         logger.info(f"Configuration loader initialized with config dir: {self.config_dir}")
-    
+
     def load_config(self) -> HealthcareAPIConfig:
         """Load complete healthcare API configuration"""
-        
+
         try:
             # Load configuration files
             intake_config = self._load_yaml_file("intake_config.yml")
@@ -181,87 +181,87 @@ class ConfigLoader:
             insurance_config = self._load_yaml_file("insurance_config.yml")
             compliance_config = self._load_yaml_file("compliance_config.yml")
             reasoning_config = self._load_yaml_file("reasoning_config.yml")
-            
+
             # Create configuration objects
             config = HealthcareAPIConfig()
-            
+
             # Parse intake agent configuration
             if "intake_agent" in intake_config:
                 config.intake_agent = self._parse_intake_config(intake_config["intake_agent"])
-            
+
             # Parse validation configuration
             if "validation" in intake_config:
                 config.validation = self._parse_validation_config(intake_config["validation"])
-            
+
             # Parse workflow configuration
             if "workflows" in workflow_config:
                 config.workflows = self._parse_workflow_config(workflow_config["workflows"])
-            
+
             # Parse orchestration configuration
             if "orchestration" in workflow_config:
                 config.orchestration = self._parse_orchestration_config(workflow_config["orchestration"])
-            
+
             # Parse insurance configuration
             if "insurance_verification" in insurance_config:
                 config.insurance = self._parse_insurance_config(insurance_config["insurance_verification"])
                 config.insurance.service_codes = insurance_config.get("service_codes", {})
-            
+
             # Parse compliance configuration
             if "compliance_monitor" in compliance_config:
                 config.compliance = self._parse_compliance_config(compliance_config["compliance_monitor"])
                 config.compliance.recommendations = compliance_config.get("recommendations", {})
                 config.compliance.integration = compliance_config.get("integration", {})
-            
+
             # Parse reasoning configuration
             if "reasoning_engines" in reasoning_config:
                 config.reasoning = self._parse_reasoning_config(reasoning_config["reasoning_engines"])
                 config.reasoning.quality_metrics = reasoning_config.get("quality_metrics", {})
-            
+
             # Apply environment overrides
             self._apply_environment_overrides(config)
-            
+
             logger.info("Healthcare API configuration loaded successfully")
             return config
-            
+
         except Exception as e:
-            logger.error(f"Failed to load healthcare API configuration: {str(e)}")
+            logger.exception(f"Failed to load healthcare API configuration: {str(e)}")
             raise
-    
-    def _load_yaml_file(self, filename: str) -> Dict[str, Any]:
+
+    def _load_yaml_file(self, filename: str) -> dict[str, Any]:
         """Load and cache YAML configuration file"""
-        
+
         if filename in self.config_cache:
             return self.config_cache[filename]
-        
+
         file_path = self.config_dir / filename
-        
+
         if not file_path.exists():
             logger.warning(f"Configuration file not found: {file_path}")
             return {}
-        
+
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 config_data = yaml.safe_load(f) or {}
-            
+
             self.config_cache[filename] = config_data
             logger.debug(f"Loaded configuration from: {file_path}")
             return config_data
-            
+
         except yaml.YAMLError as e:
-            logger.error(f"Failed to parse YAML file {file_path}: {str(e)}")
+            logger.exception(f"Failed to parse YAML file {file_path}: {str(e)}")
             raise
         except Exception as e:
-            logger.error(f"Failed to load configuration file {file_path}: {str(e)}")
+            logger.exception(f"Failed to load configuration file {file_path}: {str(e)}")
             raise
-    
-    def _parse_intake_config(self, intake_data: Dict[str, Any]) -> IntakeAgentConfig:
+
+    def _parse_intake_config(self, intake_data: dict[str, Any]) -> IntakeAgentConfig:
         """Parse intake agent configuration"""
-        
+
         config = IntakeAgentConfig()
-        
+
         # Parse disclaimers
         config.disclaimers = intake_data.get("disclaimers", [])
-        
+
         # Parse voice processing configuration
         if "voice_processing" in intake_data:
             vp_data = intake_data["voice_processing"]
@@ -271,9 +271,9 @@ class ConfigLoader:
                 confidence_threshold=vp_data.get("confidence_threshold", 0.8),
                 max_session_duration_minutes=vp_data.get("max_session_duration_minutes", 30),
                 field_mappings=vp_data.get("field_mappings", {}),
-                medical_keywords=vp_data.get("medical_keywords", {})
+                medical_keywords=vp_data.get("medical_keywords", {}),
             )
-        
+
         # Parse document requirements
         if "document_requirements" in intake_data:
             dr_data = intake_data["document_requirements"]
@@ -283,20 +283,20 @@ class ConfigLoader:
                 specialist_additional=dr_data.get("specialist_additional", []),
                 insurance_verification=dr_data.get("insurance_verification", []),
                 appointment_scheduling=dr_data.get("appointment_scheduling", []),
-                general_intake=dr_data.get("general_intake", [])
+                general_intake=dr_data.get("general_intake", []),
             )
-        
+
         # Parse required fields and next steps templates
         config.required_fields = intake_data.get("required_fields", {})
         config.next_steps_templates = intake_data.get("next_steps_templates", {})
-        
+
         return config
-    
-    def _parse_workflow_config(self, workflow_data: Dict[str, Any]) -> WorkflowConfig:
+
+    def _parse_workflow_config(self, workflow_data: dict[str, Any]) -> WorkflowConfig:
         """Parse workflow configuration"""
-        
+
         config = WorkflowConfig()
-        
+
         # Parse workflow types
         if "types" in workflow_data:
             for type_name, type_data in workflow_data["types"].items():
@@ -304,18 +304,18 @@ class ConfigLoader:
                     name=type_data.get("name", ""),
                     description=type_data.get("description", ""),
                     timeout_seconds=type_data.get("timeout_seconds", 1800),
-                    retry_attempts=type_data.get("retry_attempts", 2)
+                    retry_attempts=type_data.get("retry_attempts", 2),
                 )
-        
+
         # Parse agent specializations
         if "agent_specializations" in workflow_data:
             for spec_name, spec_data in workflow_data["agent_specializations"].items():
                 config.agent_specializations[spec_name] = AgentSpecializationConfig(
                     name=spec_data.get("name", ""),
                     capabilities=spec_data.get("capabilities", []),
-                    timeout_seconds=spec_data.get("timeout_seconds", 300)
+                    timeout_seconds=spec_data.get("timeout_seconds", 300),
                 )
-        
+
         # Parse step definitions
         if "step_definitions" in workflow_data:
             for workflow_name, steps_data in workflow_data["step_definitions"].items():
@@ -329,43 +329,43 @@ class ConfigLoader:
                             dependencies=step_data.get("dependencies", []),
                             parallel_capable=step_data.get("parallel_capable", False),
                             timeout_seconds=step_data.get("timeout_seconds", 300),
-                            description=step_data.get("description", "")
-                        )
+                            description=step_data.get("description", ""),
+                        ),
                     )
-        
+
         # Parse result templates
         config.result_templates = workflow_data.get("result_templates", {})
-        
+
         return config
-    
-    def _parse_orchestration_config(self, orchestration_data: Dict[str, Any]) -> OrchestrationConfig:
+
+    def _parse_orchestration_config(self, orchestration_data: dict[str, Any]) -> OrchestrationConfig:
         """Parse orchestration configuration"""
-        
+
         return OrchestrationConfig(
             max_concurrent_workflows=orchestration_data.get("max_concurrent_workflows", 50),
             workflow_cleanup_delay_seconds=orchestration_data.get("workflow_cleanup_delay_seconds", 300),
             status_check_interval_seconds=orchestration_data.get("status_check_interval_seconds", 5),
             max_workflow_duration_seconds=orchestration_data.get("max_workflow_duration_seconds", 3600),
             error_handling=orchestration_data.get("error_handling", {}),
-            monitoring=orchestration_data.get("monitoring", {})
+            monitoring=orchestration_data.get("monitoring", {}),
         )
-    
-    def _parse_validation_config(self, validation_data: Dict[str, Any]) -> ValidationConfig:
+
+    def _parse_validation_config(self, validation_data: dict[str, Any]) -> ValidationConfig:
         """Parse validation configuration"""
-        
+
         return ValidationConfig(
-            field_validation=validation_data.get("field_validation", {})
+            field_validation=validation_data.get("field_validation", {}),
         )
-    
-    def _parse_insurance_config(self, insurance_data: Dict[str, Any]) -> InsuranceConfig:
+
+    def _parse_insurance_config(self, insurance_data: dict[str, Any]) -> InsuranceConfig:
         """Parse insurance verification configuration"""
-        
+
         config = InsuranceConfig()
-        
+
         # Parse cache and performance settings
         config.cache = insurance_data.get("cache", {})
         config.performance = insurance_data.get("performance", {})
-        
+
         # Parse provider configurations
         providers_data = insurance_data.get("providers", {})
         for provider_name, provider_data in providers_data.items():
@@ -375,14 +375,14 @@ class ConfigLoader:
                 api_delay_seconds=provider_data.get("api_delay_seconds", 0.1),
                 eligibility=provider_data.get("eligibility", {}),
                 coverage_rules=provider_data.get("coverage_rules", {}),
-                default_coverage=provider_data.get("default_coverage", {})
+                default_coverage=provider_data.get("default_coverage", {}),
             )
-        
+
         return config
-    
-    def _parse_compliance_config(self, compliance_data: Dict[str, Any]) -> ComplianceConfig:
+
+    def _parse_compliance_config(self, compliance_data: dict[str, Any]) -> ComplianceConfig:
         """Parse compliance monitoring configuration"""
-        
+
         return ComplianceConfig(
             event_retention=compliance_data.get("event_retention", {}),
             scoring=compliance_data.get("scoring", {}),
@@ -390,70 +390,70 @@ class ConfigLoader:
             audit=compliance_data.get("audit", {}),
             notifications=compliance_data.get("notifications", {}),
             event_categories=compliance_data.get("event_categories", {}),
-            automated_checks=compliance_data.get("automated_checks", {})
+            automated_checks=compliance_data.get("automated_checks", {}),
         )
-    
-    def _parse_reasoning_config(self, reasoning_data: Dict[str, Any]) -> ReasoningConfig:
+
+    def _parse_reasoning_config(self, reasoning_data: dict[str, Any]) -> ReasoningConfig:
         """Parse reasoning engine configuration"""
-        
+
         return ReasoningConfig(
             chain_of_thought=reasoning_data.get("chain_of_thought", {}),
             tree_of_thoughts=reasoning_data.get("tree_of_thoughts", {}),
-            shared=reasoning_data.get("shared", {})
+            shared=reasoning_data.get("shared", {}),
         )
-    
+
     def _apply_environment_overrides(self, config: HealthcareAPIConfig):
         """Apply environment variable overrides to configuration"""
-        
+
         # Voice processing overrides
         if os.getenv("VOICE_PROCESSING_ENABLED"):
             config.intake_agent.voice_processing.enabled = os.getenv("VOICE_PROCESSING_ENABLED", "true").lower() == "true"
-        
+
         if os.getenv("VOICE_CONFIDENCE_THRESHOLD"):
             try:
                 config.intake_agent.voice_processing.confidence_threshold = float(os.getenv("VOICE_CONFIDENCE_THRESHOLD"))
             except ValueError:
                 logger.warning("Invalid VOICE_CONFIDENCE_THRESHOLD environment variable")
-        
+
         # Workflow orchestration overrides
         if os.getenv("MAX_CONCURRENT_WORKFLOWS"):
             try:
                 config.orchestration.max_concurrent_workflows = int(os.getenv("MAX_CONCURRENT_WORKFLOWS"))
             except ValueError:
                 logger.warning("Invalid MAX_CONCURRENT_WORKFLOWS environment variable")
-        
+
         if os.getenv("MAX_WORKFLOW_DURATION"):
             try:
                 config.orchestration.max_workflow_duration_seconds = int(os.getenv("MAX_WORKFLOW_DURATION"))
             except ValueError:
                 logger.warning("Invalid MAX_WORKFLOW_DURATION environment variable")
-        
+
         logger.debug("Applied environment variable overrides to configuration")
 
 
 # Singleton configuration loader
-_config_loader: Optional[ConfigLoader] = None
-_cached_config: Optional[HealthcareAPIConfig] = None
+_config_loader: ConfigLoader | None = None
+_cached_config: HealthcareAPIConfig | None = None
 
 
-def get_config_loader(config_dir: Optional[str] = None) -> ConfigLoader:
+def get_config_loader(config_dir: str | None = None) -> ConfigLoader:
     """Get singleton configuration loader"""
     global _config_loader
-    
+
     if _config_loader is None:
         _config_loader = ConfigLoader(config_dir)
-    
+
     return _config_loader
 
 
 def get_healthcare_config(reload: bool = False) -> HealthcareAPIConfig:
     """Get healthcare API configuration with caching"""
     global _cached_config
-    
+
     if _cached_config is None or reload:
         loader = get_config_loader()
         _cached_config = loader.load_config()
-    
+
     return _cached_config
 
 

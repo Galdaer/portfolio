@@ -15,16 +15,12 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List
-
-import aiohttp
-from aiohttp import ClientError
 
 # Type checking imports
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from medical_mirrors_types import Config, BillingCodesDownloader
+    from medical_mirrors_types import BillingCodesDownloader, Config
 else:
     # Runtime imports - add medical-mirrors to Python path
     medical_mirrors_src = str(Path(__file__).parent.parent / "services/user/medical-mirrors/src")
@@ -32,11 +28,12 @@ else:
         sys.path.insert(0, medical_mirrors_src)
 
     try:
-        from config import Config
         from billing_codes.downloader import BillingCodesDownloader
+
+        from config import Config
     except ImportError as e:
         print(f"Failed to import medical-mirrors modules: {e}")
-        print(f"Make sure medical-mirrors service is properly installed")
+        print("Make sure medical-mirrors service is properly installed")
         print(f"Looking for modules in: {medical_mirrors_src}")
         sys.exit(1)
 
@@ -44,7 +41,7 @@ else:
 class CompleteBillingCodesDownloader:
     """
     Downloads complete medical billing codes for local database caching.
-    
+
     Based on the existing medical-mirrors BillingCodesDownloader but enhanced
     for systematic complete downloads with database schema compatibility.
     """
@@ -52,19 +49,19 @@ class CompleteBillingCodesDownloader:
     def __init__(self, custom_data_dir: str | None = None):
         # Use medical-mirrors Config for consistency
         self.config = Config()
-        
+
         # Allow custom data directory override
         if custom_data_dir:
             self.data_dir = custom_data_dir
             os.makedirs(self.data_dir, exist_ok=True)
         else:
             self.data_dir = self.config.get_billing_codes_data_dir()
-            
+
         self.logger = self._setup_logging()
-        
+
         # Use the existing BillingCodesDownloader as base
         self.base_downloader = BillingCodesDownloader(self.config)
-        
+
         # Download statistics
         self.stats = {
             "hcpcs_codes_downloaded": 0,
@@ -74,7 +71,7 @@ class CompleteBillingCodesDownloader:
             "api_calls_made": 0,
             "start_time": None,
             "end_time": None,
-            "errors": []
+            "errors": [],
         }
 
     def _setup_logging(self) -> logging.Logger:
@@ -84,7 +81,7 @@ class CompleteBillingCodesDownloader:
 
         handler = logging.StreamHandler()
         formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)
@@ -101,13 +98,13 @@ class CompleteBillingCodesDownloader:
             async with self.base_downloader:
                 # Download all billing codes using the existing comprehensive method
                 all_codes = await self.base_downloader.download_all_codes()
-                
+
                 # Validate and normalize codes for medical-mirrors schema compatibility
                 validated_codes = self._validate_and_normalize_codes(all_codes)
-                
+
                 # Save complete dataset
                 complete_file = await self.save_complete_dataset(validated_codes)
-                
+
                 # Get download stats from base downloader
                 base_stats = self.base_downloader.get_download_stats()
                 self.stats.update({
@@ -115,20 +112,20 @@ class CompleteBillingCodesDownloader:
                     "hcpcs_codes_downloaded": base_stats.get("hcpcs_codes_downloaded", 0),
                     "cpt_codes_downloaded": base_stats.get("cpt_codes_downloaded", 0),
                     "api_calls_made": base_stats.get("requests_made", 0),
-                    "errors": self.stats["errors"] + [str(e) for e in base_stats.get("errors", [])]
+                    "errors": self.stats["errors"] + [str(e) for e in base_stats.get("errors", [])],
                 })
-                
+
                 self.stats["end_time"] = time.time()
                 duration = self.stats["end_time"] - self.stats["start_time"]
-                
-                self.logger.info(f"✅ Complete billing codes download finished!")
+
+                self.logger.info("✅ Complete billing codes download finished!")
                 self.logger.info(f"   Total codes downloaded: {len(validated_codes)}")
                 self.logger.info(f"   HCPCS codes: {self.stats['hcpcs_codes_downloaded']}")
                 self.logger.info(f"   CPT codes: {self.stats['cpt_codes_downloaded']}")
                 self.logger.info(f"   API calls made: {self.stats['api_calls_made']}")
                 self.logger.info(f"   Duration: {duration/60:.1f} minutes")
                 self.logger.info(f"   Complete dataset: {complete_file}")
-                
+
                 return {
                     "status": "success",
                     "total_codes_downloaded": len(validated_codes),
@@ -137,7 +134,7 @@ class CompleteBillingCodesDownloader:
                     "api_calls": self.stats["api_calls_made"],
                     "duration_minutes": duration / 60,
                     "complete_file": complete_file,
-                    "errors": self.stats["errors"]
+                    "errors": self.stats["errors"],
                 }
 
         except Exception as e:
@@ -146,13 +143,13 @@ class CompleteBillingCodesDownloader:
             return {
                 "status": "failed",
                 "error": str(e),
-                "partial_stats": self.stats
+                "partial_stats": self.stats,
             }
 
-    def _validate_and_normalize_codes(self, codes: List[Dict]) -> List[Dict]:
+    def _validate_and_normalize_codes(self, codes: list[dict]) -> list[dict]:
         """
         Validate and normalize billing codes for medical-mirrors schema compatibility.
-        
+
         Maps API response to database column constraints from migration 002 + 004:
         - code: VARCHAR(30) PRIMARY KEY (extended from 20 in migration 004)
         - short_description: TEXT
@@ -173,10 +170,10 @@ class CompleteBillingCodesDownloader:
         - last_updated: TIMESTAMP
         - created_at: TIMESTAMP
         """
-        
+
         validated_codes = []
         self.logger.info(f"Validating and normalizing {len(codes)} billing codes for database schema")
-        
+
         for code_data in codes:
             try:
                 # Validate required fields
@@ -184,7 +181,7 @@ class CompleteBillingCodesDownloader:
                 if not code:
                     self.logger.warning("Skipping code with empty code field")
                     continue
-                
+
                 # Apply column length constraints
                 code = code[:30]  # VARCHAR(30) constraint
                 code_type = str(code_data.get("code_type", "HCPCS"))[:50]  # VARCHAR(50) constraint
@@ -192,17 +189,17 @@ class CompleteBillingCodesDownloader:
                 source = str(code_data.get("source", "nlm_clinical_tables"))[:100]  # VARCHAR(100) constraint
                 gender_specific = str(code_data.get("gender_specific", ""))[:100]  # VARCHAR(100) constraint
                 age_specific = str(code_data.get("age_specific", ""))[:100]  # VARCHAR(100) constraint
-                
+
                 # Handle description fields
                 short_description = str(code_data.get("short_description", "")).strip()
                 long_description = str(code_data.get("long_description", "")).strip()
-                
+
                 # Create primary description field (prefer long over short)
                 description = long_description if long_description else short_description
                 if not description:
                     self.logger.warning(f"Skipping code {code} with no description")
                     continue
-                
+
                 # Determine if code is active (assume true unless specified otherwise)
                 is_active = True
                 termination_date = code_data.get("termination_date")
@@ -210,14 +207,14 @@ class CompleteBillingCodesDownloader:
                     # If there's a termination date, code might be inactive
                     # This would need real date parsing for full accuracy
                     pass
-                
+
                 # Determine billing properties based on code type and content
                 modifier_required = self._determine_modifier_required(code, code_type)
                 bilateral_indicator = self._determine_bilateral_indicator(code, description, code_type)
-                
+
                 # Create search text for full-text search
                 search_text = self._create_search_text(code_data)
-                
+
                 # Build normalized code entry
                 normalized_code = {
                     "code": code,
@@ -238,32 +235,32 @@ class CompleteBillingCodesDownloader:
                     "search_text": search_text,
                     "last_updated": code_data.get("last_updated"),
                     "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-                    
+
                     # Additional metadata for processing
                     "api_total_count": code_data.get("api_total_count", 0),
-                    "download_timestamp": time.time()
+                    "download_timestamp": time.time(),
                 }
-                
+
                 validated_codes.append(normalized_code)
-                
+
             except Exception as e:
                 self.logger.warning(f"Failed to validate code {code_data.get('code', 'unknown')}: {e}")
                 self.stats["errors"].append(f"Code validation {code_data.get('code', 'unknown')}: {e}")
                 continue
-        
+
         self.logger.info(f"Validated {len(validated_codes)} billing codes for database insertion")
         return validated_codes
 
     def _determine_modifier_required(self, code: str, code_type: str) -> bool:
         """
         Determine if a billing code typically requires modifiers.
-        
-        This is a simplified heuristic - real determination would need 
+
+        This is a simplified heuristic - real determination would need
         comprehensive CMS/AMA modifier rules.
         """
         if not code or not code_type:
             return False
-        
+
         # Some HCPCS codes commonly require modifiers
         if code_type.upper() == "HCPCS":
             # E codes (DME) often require modifiers
@@ -272,7 +269,7 @@ class CompleteBillingCodesDownloader:
             # L codes (orthotics/prosthetics) often require modifiers
             if code.startswith("L"):
                 return True
-        
+
         # CPT surgery codes often require modifiers
         if code_type.upper() == "CPT":
             try:
@@ -282,7 +279,7 @@ class CompleteBillingCodesDownloader:
                     return True
             except ValueError:
                 pass
-        
+
         return False
 
     def _determine_bilateral_indicator(self, code: str, description: str, code_type: str) -> bool:
@@ -291,11 +288,11 @@ class CompleteBillingCodesDownloader:
         """
         if not description:
             return False
-        
+
         # Look for bilateral keywords in description
         bilateral_keywords = ["bilateral", "both", "each", "per side", "left and right"]
         description_lower = description.lower()
-        
+
         return any(keyword in description_lower for keyword in bilateral_keywords)
 
     def _create_search_text(self, code_data: dict) -> str:
@@ -306,36 +303,36 @@ class CompleteBillingCodesDownloader:
             str(code_data.get("long_description", "")),
             str(code_data.get("category", "")),
             str(code_data.get("code_type", "")),
-            str(code_data.get("coverage_notes", ""))
+            str(code_data.get("coverage_notes", "")),
         ]
-        
+
         return " ".join(search_parts).lower()
 
-    async def save_complete_dataset(self, codes: List[Dict]) -> str:
+    async def save_complete_dataset(self, codes: list[dict]) -> str:
         """Save complete billing codes dataset to JSON file for processing"""
         output_file = os.path.join(self.data_dir, "all_billing_codes_complete.json")
-        
+
         # Organize codes by type and category for better structure
         codes_by_type = {"HCPCS": [], "CPT": [], "Other": []}
         codes_by_category = {}
-        
+
         for code in codes:
             code_type = code.get("code_type", "Other").upper()
             if code_type in codes_by_type:
                 codes_by_type[code_type].append(code)
             else:
                 codes_by_type["Other"].append(code)
-            
+
             category = code.get("category", "Uncategorized")
             if category not in codes_by_category:
                 codes_by_category[category] = []
             codes_by_category[category].append(code)
-        
+
         # Calculate statistics
         active_codes = len([c for c in codes if c.get("is_active", True)])
         modifier_required_codes = len([c for c in codes if c.get("modifier_required", False)])
         bilateral_codes = len([c for c in codes if c.get("bilateral_indicator", False)])
-        
+
         # Prepare metadata
         dataset = {
             "metadata": {
@@ -350,33 +347,33 @@ class CompleteBillingCodesDownloader:
                 "api_calls_made": self.stats["api_calls_made"],
                 "source": "nlm_clinical_tables",
                 "api_bases": [self.base_downloader.hcpcs_url],
-                "schema_version": "medical_mirrors_compatible"
+                "schema_version": "medical_mirrors_compatible",
             },
             "codes_by_type": codes_by_type,
             "codes_by_category": codes_by_category,
-            "codes": codes  # Flat list for easier processing
+            "codes": codes,  # Flat list for easier processing
         }
-        
+
         # Save with proper formatting
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(dataset, f, indent=2, ensure_ascii=False, default=str)
-        
+
         self.logger.info(f"Saved complete billing codes dataset: {output_file}")
         return output_file
 
     def get_download_stats(self) -> dict[str, Any]:
         """Get comprehensive download statistics"""
         stats = self.stats.copy()
-        
+
         if stats["start_time"] and stats["end_time"]:
             duration = stats["end_time"] - stats["start_time"]
             stats["duration_seconds"] = duration
             stats["duration_minutes"] = duration / 60
-            
+
             if duration > 0:
                 stats["codes_per_second"] = stats["total_codes_downloaded"] / duration
                 stats["api_calls_per_minute"] = stats["api_calls_made"] / (duration / 60)
-        
+
         return stats
 
 
@@ -384,17 +381,17 @@ def main():
     """Main function for complete billing codes download"""
     parser = argparse.ArgumentParser(
         description="Download complete medical billing codes for offline operation",
-        epilog="Uses medical-mirrors configuration for database compatibility"
+        epilog="Uses medical-mirrors configuration for database compatibility",
     )
     parser.add_argument(
         "--data-dir",
         type=str,
-        help="Directory to store complete billing codes data (default: medical-mirrors config)"
+        help="Directory to store complete billing codes data (default: medical-mirrors config)",
     )
     parser.add_argument(
         "--hcpcs-only",
         action="store_true",
-        help="Download only HCPCS codes (most comprehensive)"
+        help="Download only HCPCS codes (most comprehensive)",
     )
 
     args = parser.parse_args()
@@ -429,22 +426,22 @@ def main():
 
     # Show download statistics
     stats = downloader.get_download_stats()
-    print(f"\n📊 Download Statistics:")
+    print("\n📊 Download Statistics:")
     print(f"   API calls made: {stats.get('api_calls_made', 0)}")
     print(f"   Average speed: {stats.get('codes_per_second', 0):.1f} codes/sec")
     print(f"   Errors: {len(stats.get('errors', []))}")
-    
+
     # Show next steps
-    print(f"\n📋 Next Steps:")
-    print(f"   1. Parse downloaded file: python scripts/parse_downloaded_archives.py billing")
-    print(f"   2. Or use medical-mirrors API: POST /update/billing")
+    print("\n📋 Next Steps:")
+    print("   1. Parse downloaded file: python scripts/parse_downloaded_archives.py billing")
+    print("   2. Or use medical-mirrors API: POST /update/billing")
     print(f"   3. Files stored in: {downloader.data_dir}")
-    
+
     # Show notes about CPT limitations
     if result.get("cpt_codes", 0) == 0:
-        print(f"\n💡 Note: CPT codes are limited by AMA copyright restrictions")
-        print(f"   Full CPT codes require licensing from the American Medical Association")
-        print(f"   HCPCS codes (government published) are freely available and comprehensive")
+        print("\n💡 Note: CPT codes are limited by AMA copyright restrictions")
+        print("   Full CPT codes require licensing from the American Medical Association")
+        print("   HCPCS codes (government published) are freely available and comprehensive")
 
 
 if __name__ == "__main__":

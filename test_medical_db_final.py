@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 """Final test for updated medical_db.py with corrected schemas"""
 
+
 import psycopg2
-import json
 
 connection_string = "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
 
 def test_all_tables():
     """Test all medical mirror tables with corrected schemas"""
-    
+
     try:
         print("=" * 60)
         print("Testing All Medical Mirror Tables")
         print("=" * 60)
-        
+
         conn = psycopg2.connect(connection_string)
         cursor = conn.cursor()
-        
+
         # 1. Test FDA drugs (unified schema)
         print("\n1. FDA Drugs (new unified schema):")
         cursor.execute("""
-            SELECT ndc, name, generic_name, brand_name, manufacturer, 
+            SELECT ndc, name, generic_name, brand_name, manufacturer,
                    array_length(data_sources, 1) as source_count
             FROM fda_drugs
             WHERE search_vector @@ plainto_tsquery('aspirin')
@@ -33,11 +33,11 @@ def test_all_tables():
                 print(f"    Sources: {row[5] or 0} data sources")
         else:
             print("  No FDA drugs with 'aspirin' found (table may be empty)")
-        
+
         # 2. Test health topics (JSONB sections)
         print("\n2. Health Topics (JSONB sections):")
         cursor.execute("""
-            SELECT topic_id, title, category, 
+            SELECT topic_id, title, category,
                    jsonb_object_keys(sections) as section_names
             FROM health_topics
             LIMIT 1
@@ -57,11 +57,11 @@ def test_all_tables():
                 print(f"    Sections: {', '.join(sections)}")
         else:
             print("  No health topics found")
-        
+
         # 3. Test food items (JSONB nutrition)
         print("\n3. Food Items (JSONB nutrition):")
         cursor.execute("""
-            SELECT fdc_id, description, 
+            SELECT fdc_id, description,
                    nutrition_summary->>'calories' as calories,
                    nutrition_summary->>'protein' as protein
             FROM food_items
@@ -75,11 +75,11 @@ def test_all_tables():
                 print(f"    Calories: {row[2]}, Protein: {row[3]}g")
         else:
             print("  No food items with 'apple' found")
-        
+
         # 4. Test exercises (JSONB instructions)
         print("\n4. Exercises (JSONB arrays):")
         cursor.execute("""
-            SELECT exercise_id, name, body_part, 
+            SELECT exercise_id, name, body_part,
                    jsonb_array_length(instructions) as instruction_count
             FROM exercises
             WHERE body_part = 'chest'
@@ -92,7 +92,7 @@ def test_all_tables():
                 print(f"    Body Part: {row[2]}, Instructions: {row[3] or 0} steps")
         else:
             print("  No chest exercises found")
-        
+
         # 5. Test ICD-10 codes
         print("\n5. ICD-10 Codes:")
         cursor.execute("""
@@ -108,7 +108,7 @@ def test_all_tables():
                 print(f"    Billable: {row[2]}")
         else:
             print("  No diabetes ICD-10 codes found")
-        
+
         # 6. Test billing codes
         print("\n6. Billing Codes:")
         cursor.execute("""
@@ -124,34 +124,34 @@ def test_all_tables():
                 print(f"    Active: {row[3]}")
         else:
             print("  No CPT/HCPCS codes found")
-        
+
         # 7. Summary statistics
         print("\n" + "=" * 60)
         print("Table Statistics:")
         print("=" * 60)
-        
+
         tables = [
             "pubmed_articles", "clinical_trials", "fda_drugs",
             "health_topics", "food_items", "exercises",
-            "icd10_codes", "billing_codes", "update_logs"
+            "icd10_codes", "billing_codes", "update_logs",
         ]
-        
+
         for table in tables:
             cursor.execute(f"SELECT COUNT(*) FROM {table}")
             count = cursor.fetchone()[0]
-            
+
             # Get sample search vector usage
             cursor.execute(f"""
                 SELECT COUNT(*) FROM {table}
                 WHERE search_vector IS NOT NULL
             """)
             searchable = cursor.fetchone()[0]
-            
+
             print(f"  {table:20} {count:8} records ({searchable} searchable)")
-        
+
         conn.close()
         print("\n✅ All database schema tests completed successfully!")
-        
+
     except Exception as e:
         print(f"\n❌ Test failed: {e}")
         import traceback

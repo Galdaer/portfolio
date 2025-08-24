@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+
 import pytest
 
 # Ensure healthcare-api package is importable
@@ -18,8 +19,8 @@ if str(HEALTHCARE_API_PATH) not in sys.path:
 
 @pytest.mark.asyncio
 async def test_agentexecutor_constructs_without_early_stopping_valueerror():
-    from core.mcp.direct_mcp_client import DirectMCPClient
     from core.langchain.agents import HealthcareLangChainAgent
+    from core.mcp.direct_mcp_client import DirectMCPClient
 
     client = DirectMCPClient()
 

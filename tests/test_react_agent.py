@@ -5,7 +5,6 @@ ReAct Agent Test - Alternative to structured chat agent
 
 import asyncio
 import sys
-import os
 
 # Add the healthcare-api to the path
 sys.path.insert(0, "/home/intelluxe/services/user/healthcare-api")
@@ -16,8 +15,8 @@ async def test_react_agent():
     try:
         from langchain.agents import AgentExecutor, create_react_agent
         from langchain.prompts import PromptTemplate
-        from langchain_ollama import ChatOllama
         from langchain.tools import Tool
+        from langchain_ollama import ChatOllama
 
         print("🧪 Testing ReAct LangChain Agent...")
 
@@ -30,7 +29,7 @@ async def test_react_agent():
                 name="search-pubmed",
                 func=lambda x: f"Mock PubMed results for: {x}",
                 description="Search medical literature",
-            )
+            ),
         ]
 
         # ReAct prompt template (simpler format)
@@ -93,9 +92,8 @@ Thought: {agent_scratchpad}""")
         if "agent_scratchpad" in error_msg and "list of base messages" in error_msg:
             print("🔴 CRITICAL: The agent_scratchpad error is still occurring!")
             return False
-        else:
-            print("🟡 Different error - not the scratchpad issue")
-            return False
+        print("🟡 Different error - not the scratchpad issue")
+        return False
 
 
 if __name__ == "__main__":

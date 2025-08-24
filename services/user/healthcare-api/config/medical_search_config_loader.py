@@ -78,13 +78,13 @@ class MedicalSearchConfigLoader:
             publication_types = PublicationConfig(
                 condition_info=config_data.get("publication_types", {}).get("condition_info", []),
                 symptom_literature=config_data.get("publication_types", {}).get(
-                    "symptom_literature", []
+                    "symptom_literature", [],
                 ),
                 drug_information=config_data.get("publication_types", {}).get(
-                    "drug_information", []
+                    "drug_information", [],
                 ),
                 clinical_references=config_data.get("publication_types", {}).get(
-                    "clinical_references", []
+                    "clinical_references", [],
                 ),
             )
 

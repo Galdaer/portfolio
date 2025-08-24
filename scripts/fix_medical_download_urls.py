@@ -14,7 +14,7 @@ import requests
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class FixedMedicalDownloader:
         self.session.headers.update(
             {
                 "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Medical Research Bot",
-            }
+            },
         )
 
     def test_connectivity(self) -> dict[str, Any]:
@@ -45,7 +45,7 @@ class FixedMedicalDownloader:
         # Test FDA Orange Book (corrected URL)
         try:
             response = self.session.head(
-                "https://www.fda.gov/media/76860/download?attachment", timeout=10
+                "https://www.fda.gov/media/76860/download?attachment", timeout=10,
             )
             results["fda_orange_book"] = {"status": response.status_code, "success": True}
         except Exception as e:
@@ -68,7 +68,7 @@ class FixedMedicalDownloader:
         # Test alternative FDA downloads via main site
         try:
             response = self.session.head(
-                "https://www.fda.gov/drugs/drug-approvals-and-databases", timeout=10
+                "https://www.fda.gov/drugs/drug-approvals-and-databases", timeout=10,
             )
             results["fda_alt_downloads"] = {"status": response.status_code, "success": True}
         except Exception as e:
@@ -90,13 +90,12 @@ class FixedMedicalDownloader:
         logger.info("Checking FDA main site for drug label alternatives...")
 
         # Alternative approach: Use FDA's main site drug databases
-        alternatives = [
+        return [
             "https://www.fda.gov/drugs/drug-approvals-and-databases/drugs-fda-data-files",
             "https://www.fda.gov/drugs/drug-approvals-and-databases/orange-book-data-files",
             "https://www.fda.gov/drugs/drug-approvals-and-databases/national-drug-code-directory",
         ]
 
-        return alternatives
 
     def get_correct_clinicaltrials_params(self) -> dict[str, Any]:
         """
@@ -124,7 +123,7 @@ class FixedMedicalDownloader:
             }
 
         except requests.exceptions.HTTPError as e:
-            logger.error(f"ClinicalTrials API error: {e}")
+            logger.exception(f"ClinicalTrials API error: {e}")
             if e.response.status_code == 400:
                 logger.info("Attempting simplified API call...")
 
@@ -146,11 +145,11 @@ class FixedMedicalDownloader:
                     }
 
                 except Exception as e2:
-                    logger.error(f"Even simplified API call failed: {e2}")
+                    logger.exception(f"Even simplified API call failed: {e2}")
                     return {}
 
         except Exception as e:
-            logger.error(f"ClinicalTrials connectivity error: {e}")
+            logger.exception(f"ClinicalTrials connectivity error: {e}")
             return {}
 
     def download_fixed_orange_book(self) -> bool:
@@ -201,13 +200,13 @@ class FixedMedicalDownloader:
             logger.info(f"Testing ClinicalTrials API with parameters: {corrected_params}")
 
             response = self.session.get(
-                "https://clinicaltrials.gov/api/v2/studies", params=corrected_params, timeout=15
+                "https://clinicaltrials.gov/api/v2/studies", params=corrected_params, timeout=15,
             )
             response.raise_for_status()
 
             data = response.json()
             logger.info(
-                f"ClinicalTrials API test successful. Total studies: {data.get('totalCount', 'unknown')}"
+                f"ClinicalTrials API test successful. Total studies: {data.get('totalCount', 'unknown')}",
             )
 
             return True

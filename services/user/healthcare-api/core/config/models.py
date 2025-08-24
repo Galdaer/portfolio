@@ -41,11 +41,11 @@ class ModelConfig:
         return cls(
             PRIMARY_CHAT_MODEL=os.getenv("PRIMARY_CHAT_MODEL", "llama3.1:8b"),
             PRIMARY_INSTRUCT_MODEL=os.getenv(
-                "PRIMARY_INSTRUCT_MODEL", "llama3.1:8b-instruct-q4_K_M"
+                "PRIMARY_INSTRUCT_MODEL", "llama3.1:8b-instruct-q4_K_M",
             ),
             FALLBACK_MODEL=os.getenv("FALLBACK_MODEL", "llama3.1:8b"),
             MEDICAL_ANALYSIS_MODEL=os.getenv(
-                "MEDICAL_ANALYSIS_MODEL", "llama3.1:8b-instruct-q4_K_M"
+                "MEDICAL_ANALYSIS_MODEL", "llama3.1:8b-instruct-q4_K_M",
             ),
             RESEARCH_MODEL=os.getenv("RESEARCH_MODEL", "llama3.1:8b-instruct-q4_K_M"),
             VALIDATION_MODEL=os.getenv("VALIDATION_MODEL", "llama3.1:8b-instruct-q4_K_M"),

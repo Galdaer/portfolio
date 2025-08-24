@@ -5,7 +5,7 @@ Test the ACTUAL /chat endpoint that Open WebUI uses with LangChain
 
 import asyncio
 import json
-import sys
+
 import httpx
 
 
@@ -36,7 +36,7 @@ async def test_chat_endpoint():
             print(f"   Request: {json.dumps(chat_request, indent=2)}")
 
             response = await client.post(
-                f"{base_url}/chat", json=chat_request, headers={"Content-Type": "application/json"}
+                f"{base_url}/chat", json=chat_request, headers={"Content-Type": "application/json"},
             )
 
             print(f"   Response status: {response.status_code}")
@@ -50,7 +50,7 @@ async def test_chat_endpoint():
                 print("\n   📊 Response structure:")
                 print(f"   - Type: {type(result)}")
                 print(
-                    f"   - Keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}"
+                    f"   - Keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}",
                 )
 
                 # Look for the actual content
@@ -62,12 +62,12 @@ async def test_chat_endpoint():
                         print(f"   {content[:500]}...")
 
                         # Check if it's formatted or raw JSON
-                        if content.startswith("{") or content.startswith("["):
+                        if content.startswith(("{", "[")):
                             print("   ❌ PROBLEM: Content is raw JSON!")
                             try:
                                 parsed = json.loads(content)
                                 print(
-                                    f"   🔍 JSON structure: {list(parsed.keys()) if isinstance(parsed, dict) else type(parsed)}"
+                                    f"   🔍 JSON structure: {list(parsed.keys()) if isinstance(parsed, dict) else type(parsed)}",
                                 )
                             except json.JSONDecodeError:
                                 print("   🔍 Not valid JSON, but starts with bracket")

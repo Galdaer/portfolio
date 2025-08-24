@@ -10,11 +10,10 @@ Tests designed for the container-based architecture where:
 """
 
 import asyncio
-import sys
 import os
-import json
+import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 # Add healthcare-api to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "services/user/healthcare-api"))
@@ -46,8 +45,7 @@ def test_mcp_client_graceful_degradation():
                 print(f"❌ Unexpected error type: {type(e).__name__}: {e}")
                 return False
 
-        result = asyncio.run(test_connection())
-        return result
+        return asyncio.run(test_connection())
 
     except Exception as e:
         print(f"❌ MCP client test failed: {e}")
@@ -64,11 +62,11 @@ def test_toolregistry_with_mocked_mcp():
         # Mock MCP client for testing
         mock_mcp_client = AsyncMock()
         mock_mcp_client.health_check = AsyncMock(
-            return_value={"status": "healthy", "mcp_connected": True}
+            return_value={"status": "healthy", "mcp_connected": True},
         )
         mock_mcp_client.call_tool = AsyncMock(return_value={"result": "mocked_response"})
         mock_mcp_client.get_available_tools = AsyncMock(
-            return_value=[{"name": "search-pubmed", "description": "Search PubMed"}]
+            return_value=[{"name": "search-pubmed", "description": "Search PubMed"}],
         )
 
         async def test_with_mock():
@@ -88,8 +86,7 @@ def test_toolregistry_with_mocked_mcp():
 
             return True
 
-        result = asyncio.run(test_with_mock())
-        return result
+        return asyncio.run(test_with_mock())
 
     except Exception as e:
         print(f"❌ ToolRegistry mock test failed: {e}")
@@ -129,12 +126,11 @@ def test_phi_detection_without_mcp():
         # Test that detector is functional (at least some PHI detected)
         if phi_detected_count > 0:
             print(
-                f"✅ PHI detection functional: {phi_detected_count}/{len(phi_examples)} examples detected"
+                f"✅ PHI detection functional: {phi_detected_count}/{len(phi_examples)} examples detected",
             )
             return True
-        else:
-            print("❌ PHI detection not working - no examples detected")
-            return False
+        print("❌ PHI detection not working - no examples detected")
+        return False
 
     except Exception as e:
         print(f"❌ PHI detection test failed: {e}")
@@ -171,9 +167,8 @@ def test_application_layer_integration():
 
     try:
         # Test that all key imports work together
-        from core.tools import tool_registry
         from src.healthcare_mcp.phi_detection import PHIDetector
-        from agents import BaseHealthcareAgent
+
 
         print("✅ All key imports successful")
 
@@ -262,9 +257,8 @@ def run_all_tests():
     if passed == total:
         print("🎉 All tests passed! Container architecture integration working correctly.")
         return True
-    else:
-        print("⚠️  Some tests failed. Check individual test output for details.")
-        return False
+    print("⚠️  Some tests failed. Check individual test output for details.")
+    return False
 
 
 if __name__ == "__main__":

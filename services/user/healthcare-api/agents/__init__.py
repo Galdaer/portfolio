@@ -13,9 +13,9 @@ from datetime import datetime
 from typing import Any
 
 from core.dependencies import DatabaseConnectionError, get_database_connection
+from core.infrastructure.agent_logging_utils import AgentWorkflowLogger, enhanced_agent_method
 from core.infrastructure.healthcare_logger import get_healthcare_logger, log_healthcare_event
 from core.infrastructure.phi_monitor import sanitize_healthcare_data
-from core.infrastructure.agent_logging_utils import AgentWorkflowLogger, enhanced_agent_method
 from core.memory import memory_manager
 from core.models import model_registry
 from core.tools import tool_registry
@@ -58,7 +58,7 @@ class BaseHealthcareAgent(ABC):
 
         # Register agent with performance tracking
         self._performance_metrics: dict[str, Any] = {}
-        
+
         # Initialize workflow logger for enhanced agent logging
         self._workflow_logger: AgentWorkflowLogger | None = None
 
@@ -312,15 +312,14 @@ class BaseHealthcareAgent(ABC):
         """Log agent interaction for audit purposes with PHI protection"""
         try:
             # Use provided context or determine context for PHI detection
-            if context is None:
-                if (
-                    self.agent_name
-                    in ["medical_search", "medical_search_agent", "clinical_research"]
-                    or "search" in self.agent_type
-                    or "research" in self.agent_type
-                ):
-                    # Medical literature search results should not have author names treated as PHI
-                    context = "medical_literature"
+            if context is None and (
+                self.agent_name
+                in ["medical_search", "medical_search_agent", "clinical_research"]
+                or "search" in self.agent_type
+                or "research" in self.agent_type
+            ):
+                # Medical literature search results should not have author names treated as PHI
+                context = "medical_literature"
 
             # Sanitize data for PHI protection with context
             sanitized_data = sanitize_healthcare_data(data, context)
@@ -367,38 +366,38 @@ class BaseHealthcareAgent(ABC):
         return sanitize_healthcare_data(data)
 
     # Enhanced Logging Helper Methods
-    
+
     def create_workflow_logger(self, session_id: str = None) -> AgentWorkflowLogger:
         """
         Create a workflow logger for structured agent logging.
-        
+
         Args:
             session_id: Optional session ID for tracking across requests
-            
+
         Returns:
             AgentWorkflowLogger instance configured for this agent
         """
         self._workflow_logger = AgentWorkflowLogger(
             agent_name=self.agent_name,
-            session_id=session_id
+            session_id=session_id,
         )
         return self._workflow_logger
-    
+
     def get_workflow_logger(self) -> AgentWorkflowLogger:
         """
         Get the current workflow logger, creating one if needed.
-        
+
         Returns:
             Current workflow logger instance
         """
         if self._workflow_logger is None:
             self._workflow_logger = self.create_workflow_logger()
         return self._workflow_logger
-    
+
     def log_agent_performance(self, metric_name: str, value: Any, unit: str = None) -> None:
         """
         Log a performance metric for this agent.
-        
+
         Args:
             metric_name: Name of the performance metric
             value: Metric value
@@ -410,7 +409,7 @@ class BaseHealthcareAgent(ABC):
             "unit": unit,
             "timestamp": datetime.now().isoformat(),
         }
-        
+
         # Log with healthcare context
         log_healthcare_event(
             self.logger,
@@ -424,13 +423,13 @@ class BaseHealthcareAgent(ABC):
             },
             operation_type="agent_performance",
         )
-    
-    def log_external_dependency(self, service: str, operation: str, 
-                              duration_ms: float, success: bool, 
+
+    def log_external_dependency(self, service: str, operation: str,
+                              duration_ms: float, success: bool,
                               details: dict[str, Any] = None) -> None:
         """
         Log interactions with external dependencies for monitoring.
-        
+
         Args:
             service: External service name (e.g., "MCP", "Database", "LLM")
             operation: Operation performed
@@ -439,7 +438,7 @@ class BaseHealthcareAgent(ABC):
             details: Additional details (will be PHI-sanitized)
         """
         sanitized_details = sanitize_healthcare_data(details or {})
-        
+
         log_healthcare_event(
             self.logger,
             logging.INFO if success else logging.WARNING,

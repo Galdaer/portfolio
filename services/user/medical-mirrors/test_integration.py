@@ -4,13 +4,14 @@ Integration test to verify all fixes work with actual database
 """
 
 import sys
-import os
-sys.path.append('/home/intelluxe/services/user/medical-mirrors')
 
+sys.path.append("/home/intelluxe/services/user/medical-mirrors")
+
+import logging
+
+from sqlalchemy import text
 from src.database import get_database_session
 from src.database_validation import validate_record_for_table
-from sqlalchemy import text
-import logging
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 def test_database_column_widths():
     """Test that column width fixes were applied correctly"""
     logger.info("=== Testing Database Column Widths ===")
-    
+
     db = get_database_session()
     try:
         # Check updated column widths
@@ -30,16 +31,16 @@ def test_database_column_widths():
             ("fda_drugs", "orange_book_code", 50),
             ("fda_drugs", "application_number", 50),
         ]
-        
+
         for table, column, expected_width in width_checks:
             try:
                 query = text("""
-                    SELECT character_maximum_length 
-                    FROM information_schema.columns 
+                    SELECT character_maximum_length
+                    FROM information_schema.columns
                     WHERE table_name = :table AND column_name = :column
                 """)
                 result = db.execute(query, {"table": table, "column": column}).fetchone()
-                
+
                 if result:
                     actual_width = result[0]
                     status = "✅" if actual_width >= expected_width else "❌"
@@ -47,17 +48,17 @@ def test_database_column_widths():
                 else:
                     logger.warning(f"Column {table}.{column} not found")
             except Exception as e:
-                logger.error(f"Error checking {table}.{column}: {e}")
-    
+                logger.exception(f"Error checking {table}.{column}: {e}")
+
     finally:
         db.close()
-    
+
     return True
 
 def test_validation_integration():
     """Test validation with database schema"""
     logger.info("=== Testing Validation Integration ===")
-    
+
     # Test records that would have failed before fixes
     test_records = [
         {
@@ -68,10 +69,10 @@ def test_validation_integration():
                 "status": "completed_with_warnings_and_detailed_status_info",
                 "records_processed": 12345,
                 "started_at": "2023-01-01T00:00:00",
-            }
+            },
         },
         {
-            "table": "fda_drugs", 
+            "table": "fda_drugs",
             "record": {
                 "ndc": "12345-678-90",
                 "name": "Test Drug with Very Long Name",
@@ -90,47 +91,47 @@ def test_validation_integration():
                 "reference_listed_drug": "Yes - RLD",  # Longer than old limit
                 "therapeutic_class": "Test Therapeutic Class",
                 "pharmacologic_class": "Test Pharmacologic Class",
-                "data_sources": ["ndc", "orange_book", "drugs_fda"]
-            }
-        }
+                "data_sources": ["ndc", "orange_book", "drugs_fda"],
+            },
+        },
     ]
-    
+
     for test_case in test_records:
         table = test_case["table"]
         record = test_case["record"]
-        
+
         try:
             validated_record = validate_record_for_table(record, table)
             logger.info(f"✅ {table} validation successful")
-            
+
             # Check that long fields were handled correctly
             for key, value in validated_record.items():
                 if isinstance(value, str) and len(value) > 100:
                     logger.info(f"  Long field {key}: {len(value)} chars")
-                    
+
         except Exception as e:
-            logger.error(f"❌ {table} validation failed: {e}")
+            logger.exception(f"❌ {table} validation failed: {e}")
             return False
-    
+
     return True
 
 def test_fda_search_functionality():
     """Test that FDA search still works after changes"""
     logger.info("=== Testing FDA Search Functionality ===")
-    
+
     db = get_database_session()
     try:
         # Test that FDA search functionality works
         search_query = text("""
-            SELECT ndc, name, generic_name, brand_name, applicant, 
+            SELECT ndc, name, generic_name, brand_name, applicant,
                    strength, application_number, data_sources
-            FROM fda_drugs 
+            FROM fda_drugs
             WHERE search_vector @@ plainto_tsquery('english', 'budesonide')
             LIMIT 3
         """)
-        
+
         results = db.execute(search_query).fetchall()
-        
+
         if results:
             logger.info(f"✅ FDA search returned {len(results)} results")
             for result in results:
@@ -141,11 +142,11 @@ def test_fda_search_functionality():
                     logger.info(f"    Data sources: {result.data_sources}")
         else:
             logger.info("ℹ️ No search results found (database may be empty)")
-            
+
         return True
-        
+
     except Exception as e:
-        logger.error(f"❌ FDA search test failed: {e}")
+        logger.exception(f"❌ FDA search test failed: {e}")
         return False
     finally:
         db.close()
@@ -153,56 +154,55 @@ def test_fda_search_functionality():
 def test_error_logging():
     """Test that error logging works correctly"""
     logger.info("=== Testing Error Logging ===")
-    
+
     from src.error_handling import ErrorCollector, safe_parse
-    
+
     # Test error collection
     collector = ErrorCollector("Integration Test")
-    
+
     def test_parser(data):
         if "error" in data:
             raise ValueError("Test error condition")
         return f"parsed_{data}"
-    
+
     test_data = ["success1", "error_case", "success2", "another_error", "success3"]
-    
+
     for item in test_data:
         result = safe_parse(
-            test_parser, 
-            item, 
+            test_parser,
+            item,
             record_id=f"test_{item}",
-            default_return="failed"
+            default_return="failed",
         )
-        
+
         if result == "failed":
             collector.record_error(ValueError(f"Failed to parse {item}"), record_id=f"test_{item}")
         else:
             collector.record_success()
-    
+
     # Log summary
     collector.log_summary(logger)
-    
+
     summary = collector.get_summary()
     expected_success_rate = 0.6  # 3 successes out of 5
-    
-    if abs(summary['success_rate'] - expected_success_rate) < 0.1:
+
+    if abs(summary["success_rate"] - expected_success_rate) < 0.1:
         logger.info("✅ Error logging working correctly")
         return True
-    else:
-        logger.error(f"❌ Error logging issue: expected {expected_success_rate}, got {summary['success_rate']}")
-        return False
+    logger.error(f"❌ Error logging issue: expected {expected_success_rate}, got {summary['success_rate']}")
+    return False
 
 def main():
     """Run integration tests"""
     logger.info("Starting integration tests...")
-    
+
     tests = [
         ("Database Column Widths", test_database_column_widths),
         ("Validation Integration", test_validation_integration),
         ("FDA Search Functionality", test_fda_search_functionality),
         ("Error Logging", test_error_logging),
     ]
-    
+
     results = []
     for test_name, test_func in tests:
         try:
@@ -211,24 +211,24 @@ def main():
             logger.info(f"✅ {test_name} completed")
         except Exception as e:
             results.append((test_name, f"ERROR: {e}"))
-            logger.error(f"❌ {test_name} failed: {e}")
-        
+            logger.exception(f"❌ {test_name} failed: {e}")
+
         logger.info("")  # Add spacing
-    
+
     # Summary
     logger.info("=== Integration Test Summary ===")
     for test_name, result in results:
         logger.info(f"{test_name}: {result}")
-    
+
     passed = sum(1 for _, result in results if result == "PASSED")
     total = len(results)
     logger.info(f"Overall: {passed}/{total} tests passed")
-    
+
     if passed == total:
         logger.info("🎉 All integration tests passed! The fixes are working correctly.")
     else:
         logger.warning("⚠️  Some integration tests failed. Please review the results above.")
-    
+
     return passed == total
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ Tests the database-first approach for medical literature queries.
 """
 
 import sys
-import os
 
 # Add healthcare-api to path
 sys.path.append("/home/intelluxe/services/user/healthcare-api")

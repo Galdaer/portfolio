@@ -3,7 +3,6 @@
 Test database connection with updated configuration
 """
 
-import os
 import sys
 
 # Add healthcare-api to Python path

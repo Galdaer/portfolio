@@ -8,9 +8,8 @@ Usage:
     python3 test_healthcare_agent.py --docker  # Run tests inside container
 """
 
-import os
-import sys
 import subprocess
+import sys
 
 
 def run_tests_in_container():
@@ -27,7 +26,7 @@ def run_tests_in_container():
     ]
 
     try:
-        result = subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True)
         print("✅ Container tests completed successfully")
     except subprocess.CalledProcessError as e:
         print(f"❌ Container tests failed with exit code {e.returncode}")
@@ -46,8 +45,9 @@ def run_tests_locally():
 
     # Import and run tests
     try:
-        from tests.test_langchain_agent import run_all_tests, run_quick_test
         import asyncio
+
+        from tests.test_langchain_agent import run_all_tests, run_quick_test
 
         # Check if we should run quick test
         if "--quick" in sys.argv:

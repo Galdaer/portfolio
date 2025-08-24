@@ -6,17 +6,17 @@ Provides intelligent cross-session context while maintaining healthcare privacy 
 """
 
 from .enhanced_session_manager import EnhancedSessionManager
-from .phi_aware_storage import PHIAwareConversationStorage
 from .medical_topic_extractor import MedicalTopicExtractor
+from .phi_aware_storage import PHIAwareConversationStorage
 from .privacy_manager import PrivacyManager
 from .semantic_search import SemanticSearchEngine
 
 __all__ = [
     "EnhancedSessionManager",
-    "PHIAwareConversationStorage", 
+    "PHIAwareConversationStorage",
     "MedicalTopicExtractor",
     "PrivacyManager",
-    "SemanticSearchEngine"
+    "SemanticSearchEngine",
 ]
 
 __version__ = "1.0.0"

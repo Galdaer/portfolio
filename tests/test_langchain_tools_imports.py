@@ -25,5 +25,5 @@ def test_create_mcp_tools_import_only():
     tools = create_mcp_tools(DummyMCP())
     names = {t.name for t in tools}
     assert {"search_medical_literature", "search_clinical_trials", "get_drug_information"}.issubset(
-        names
+        names,
     )

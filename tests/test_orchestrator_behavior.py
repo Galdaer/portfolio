@@ -1,13 +1,13 @@
 import asyncio
 import json
-from typing import Any, Dict
+from typing import Any
 
+import main as healthcare_main  # type: ignore
 import pytest
+from fastapi.testclient import TestClient
 
 # Ensure we import the FastAPI app and globals from the healthcare-api service
 from main import app as healthcare_app  # type: ignore
-import main as healthcare_main  # type: ignore
-from fastapi.testclient import TestClient
 
 
 class MockLLM:
@@ -17,8 +17,8 @@ class MockLLM:
         self.agent_to_select = agent_to_select
 
     async def generate(
-        self, model: str, prompt: str, format: Dict[str, Any], stream: bool = False
-    ) -> Dict[str, Any]:
+        self, model: str, prompt: str, format: dict[str, Any], stream: bool = False,
+    ) -> dict[str, Any]:
         # Return a JSON string under 'response' with the selected agent name
         return {"response": json.dumps({"agent": self.agent_to_select})}
 
@@ -27,7 +27,7 @@ class DummyAgent:
     agent_name = "dummy"
     agent_type = "test"
 
-    async def process_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def process_request(self, request: dict[str, Any]) -> dict[str, Any]:
         return {
             "success": True,
             "message": "This is a dummy success",
@@ -39,7 +39,7 @@ class FailingAgent:
     agent_name = "failing"
     agent_type = "test"
 
-    async def process_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def process_request(self, request: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError("simulated failure")
 
 
@@ -47,7 +47,7 @@ class SlowAgent:
     agent_name = "slow"
     agent_type = "test"
 
-    async def process_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+    async def process_request(self, request: dict[str, Any]) -> dict[str, Any]:
         # Sleep long enough to exceed the configured timeout
         await asyncio.sleep(0.5)
         return {
@@ -63,7 +63,7 @@ def client() -> TestClient:
     return TestClient(healthcare_app)
 
 
-def _set_globals(agents: Dict[str, Any], llm_agent_name: str) -> None:
+def _set_globals(agents: dict[str, Any], llm_agent_name: str) -> None:
     # Override discovered agents and LLM client in the running app/module
     healthcare_main.discovered_agents = agents
     healthcare_main.llm_client = MockLLM(llm_agent_name)
@@ -109,12 +109,12 @@ def test_fallback_trigger_on_agent_failure(client: TestClient) -> None:
 
 @pytest.mark.unit
 def test_timeout_behavior_triggers_fallback(
-    monkeypatch: pytest.MonkeyPatch, client: TestClient
+    monkeypatch: pytest.MonkeyPatch, client: TestClient,
 ) -> None:
     # Arrange: slow agent + small timeout via orchestrator config patch
     _set_globals({"slow": SlowAgent()}, "slow")
 
-    def patched_load_config() -> Dict[str, Any]:
+    def patched_load_config() -> dict[str, Any]:
         # Minimal config with tiny per-agent timeout and provenance enabled
         return {
             "selection": {"enable_fallback": True},

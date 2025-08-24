@@ -73,19 +73,19 @@ class PubMedDownloader:
         for attempt in range(self.max_retries):
             try:
                 logger.debug(
-                    f"Attempting {operation_name} (attempt {attempt + 1}/{self.max_retries})"
+                    f"Attempting {operation_name} (attempt {attempt + 1}/{self.max_retries})",
                 )
                 return operation_func(*args, **kwargs)
             except Exception as e:
                 if attempt == self.max_retries - 1:
                     logger.exception(
-                        f"{operation_name} failed after {self.max_retries} attempts: {e}"
+                        f"{operation_name} failed after {self.max_retries} attempts: {e}",
                     )
                     raise
 
                 wait_time = self.retry_delay * (2**attempt)
                 logger.warning(
-                    f"{operation_name} failed (attempt {attempt + 1}): {e}, retrying in {wait_time}s"
+                    f"{operation_name} failed (attempt {attempt + 1}): {e}, retrying in {wait_time}s",
                 )
                 time.sleep(wait_time)
 
@@ -230,8 +230,8 @@ class PubMedDownloader:
     async def download_complete_baseline(self) -> list[str]:
         """
         Download ALL PubMed baseline files for complete dataset.
-        
-        This method downloads the complete PubMed corpus instead of just 
+
+        This method downloads the complete PubMed corpus instead of just
         the first 5 files like the regular download_baseline method.
         Use for initial full setup or complete data refresh.
         """
@@ -253,7 +253,7 @@ class PubMedDownloader:
 
                 # Download ALL baseline files (not limited to 5)
                 downloaded_files: list[str] = []
-                
+
                 for i, file in enumerate(xml_files, 1):
                     local_path = os.path.join(self.data_dir, file)
                     if not os.path.exists(local_path):
@@ -286,8 +286,8 @@ class PubMedDownloader:
     async def download_complete_updates(self) -> list[str]:
         """
         Download ALL PubMed update files for complete dataset.
-        
-        This method downloads all available update files instead of just 
+
+        This method downloads all available update files instead of just
         the recent 50 files like the regular download_updates method.
         Use for complete data coverage.
         """
@@ -309,7 +309,7 @@ class PubMedDownloader:
 
                 # Download ALL update files (not limited to recent 50)
                 downloaded_files: list[str] = []
-                
+
                 for i, file in enumerate(xml_files, 1):
                     local_path = os.path.join(self.data_dir, f"updates_{file}")
                     if not os.path.exists(local_path):
@@ -342,34 +342,34 @@ class PubMedDownloader:
     async def download_complete_dataset(self) -> dict[str, Any]:
         """
         Download complete PubMed dataset (baseline + all updates).
-        
+
         This is the master method for downloading the entire PubMed corpus
         for offline database operation. Downloads ~220GB total.
-        
+
         Returns:
             Dictionary with download statistics and file lists
         """
         logger.info("Starting COMPLETE PubMed dataset download (~220GB)")
         start_time = time.time()
-        
+
         try:
             # Download complete baseline files
             baseline_files = await self.download_complete_baseline()
-            
-            # Download all update files  
+
+            # Download all update files
             update_files = await self.download_complete_updates()
-            
+
             end_time = time.time()
             duration = end_time - start_time
-            
+
             total_files = len(baseline_files) + len(update_files)
-            
-            logger.info(f"✅ Complete PubMed dataset download finished!")
+
+            logger.info("✅ Complete PubMed dataset download finished!")
             logger.info(f"   Baseline files: {len(baseline_files)}")
             logger.info(f"   Update files: {len(update_files)}")
             logger.info(f"   Total files: {total_files}")
             logger.info(f"   Duration: {duration/3600:.1f} hours")
-            
+
             return {
                 "status": "success",
                 "baseline_files": baseline_files,
@@ -379,13 +379,13 @@ class PubMedDownloader:
                 "update_count": len(update_files),
                 "duration_seconds": duration,
                 "duration_hours": duration / 3600,
-                "estimated_size_gb": total_files * 0.1  # Rough estimate: ~100MB per file
+                "estimated_size_gb": total_files * 0.1,  # Rough estimate: ~100MB per file
             }
-            
+
         except Exception as e:
             logger.exception(f"Complete PubMed dataset download failed: {e}")
             return {
                 "status": "failed",
                 "error": str(e),
-                "duration_seconds": time.time() - start_time
+                "duration_seconds": time.time() - start_time,
             }

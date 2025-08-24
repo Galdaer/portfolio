@@ -7,10 +7,10 @@ by checking initialization sequence and available tools.
 
 from __future__ import annotations
 
-import asyncio
 import os
 import sys
 from pathlib import Path
+
 import pytest
 
 # Ensure healthcare-api package is importable
@@ -23,8 +23,8 @@ if str(HEALTHCARE_API_PATH) not in sys.path:
 @pytest.mark.asyncio
 async def test_toolregistry_initialize_and_list_tools():
     # Import without side effects
-    from core.tools import tool_registry
     from core.mcp.direct_mcp_client import DirectMCPClient
+    from core.tools import tool_registry
 
     client = DirectMCPClient()
 
@@ -34,7 +34,7 @@ async def test_toolregistry_initialize_and_list_tools():
         pytest.xfail(
             f"MCP server not available at {client.mcp_server_path}. "
             "This is expected on host - MCP server only exists inside healthcare-api container. "
-            "Run inside container with: docker exec healthcare-api python -m pytest"
+            "Run inside container with: docker exec healthcare-api python -m pytest",
         )
 
     # Initialize and discover tools (only runs inside container)
@@ -49,7 +49,7 @@ async def test_toolregistry_initialize_and_list_tools():
         tools = await tool_registry.get_available_tools()
         tool_names = {t.get("name") for t in tools if isinstance(t, dict)}
         assert any(
-            name in tool_names for name in {"search-pubmed", "search-clinical-trials", "search-fda"}
+            name in tool_names for name in ("search-pubmed", "search-clinical-trials", "search-fda")
         ), f"Expected core tools missing. Found: {sorted(tool_names)}"
 
 
@@ -59,7 +59,7 @@ async def test_toolregistry_execute_minimal_tool_if_available():
 
     if not tool_registry._initialized:
         pytest.xfail(
-            "ToolRegistry not initialized in this environment (MCP server only exists inside healthcare-api container)."
+            "ToolRegistry not initialized in this environment (MCP server only exists inside healthcare-api container).",
         )
 
     tools = await tool_registry.get_available_tools()

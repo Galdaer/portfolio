@@ -7,14 +7,17 @@ This is the agent-first architecture where queries go through domain experts.
 
 from __future__ import annotations
 
-from typing import Any, List, Callable
 import asyncio
 import json
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field
 from langchain.tools import StructuredTool
+from pydantic import BaseModel, Field
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = get_healthcare_logger("core.langchain.agent_tools")
 
@@ -69,7 +72,7 @@ class ClinicalResearchInput(BaseModel):
     query: str = Field(description="Clinical research, trials, or evidence-based question")
 
 
-def create_agent_tools(agent_manager) -> List[StructuredTool]:
+def create_agent_tools(agent_manager) -> list[StructuredTool]:
     """Create LangChain tools for specialized healthcare agents.
 
     Args:
@@ -89,7 +92,7 @@ def create_agent_tools(agent_manager) -> List[StructuredTool]:
                     return json.dumps(result) if isinstance(result, dict) else str(result)
             return "Medical search agent not available. Please search medical literature manually."
         except Exception as e:
-            logger.error(f"Medical search agent error: {e}")
+            logger.exception(f"Medical search agent error: {e}")
             return f"Medical search error: {str(e)}"
 
     async def _billing_agent_query(query: str) -> str:
@@ -102,7 +105,7 @@ def create_agent_tools(agent_manager) -> List[StructuredTool]:
                     return json.dumps(result) if isinstance(result, dict) else str(result)
             return "Billing agent not available. Please contact billing department directly."
         except Exception as e:
-            logger.error(f"Billing agent error: {e}")
+            logger.exception(f"Billing agent error: {e}")
             return f"Billing query error: {str(e)}"
 
     async def _insurance_verification_query(query: str) -> str:
@@ -115,7 +118,7 @@ def create_agent_tools(agent_manager) -> List[StructuredTool]:
                     return json.dumps(result) if isinstance(result, dict) else str(result)
             return "Insurance verification agent not available. Please verify insurance manually."
         except Exception as e:
-            logger.error(f"Insurance verification agent error: {e}")
+            logger.exception(f"Insurance verification agent error: {e}")
             return f"Insurance verification error: {str(e)}"
 
     async def _scheduling_agent_query(query: str) -> str:
@@ -128,7 +131,7 @@ def create_agent_tools(agent_manager) -> List[StructuredTool]:
                     return json.dumps(result) if isinstance(result, dict) else str(result)
             return "Scheduling agent not available. Please use manual scheduling procedures."
         except Exception as e:
-            logger.error(f"Scheduling agent error: {e}")
+            logger.exception(f"Scheduling agent error: {e}")
             return f"Scheduling query error: {str(e)}"
 
     async def _document_processing_query(query: str, document_content: str = "") -> str:
@@ -147,7 +150,7 @@ def create_agent_tools(agent_manager) -> List[StructuredTool]:
                     return json.dumps(result) if isinstance(result, dict) else str(result)
             return "Document processing agent not available. Please process documents manually."
         except Exception as e:
-            logger.error(f"Document processing agent error: {e}")
+            logger.exception(f"Document processing agent error: {e}")
             return f"Document processing error: {str(e)}"
 
     async def _transcription_agent_query(query: str) -> str:
@@ -160,7 +163,7 @@ def create_agent_tools(agent_manager) -> List[StructuredTool]:
                     return json.dumps(result) if isinstance(result, dict) else str(result)
             return "Transcription agent not available. Please use manual transcription methods."
         except Exception as e:
-            logger.error(f"Transcription agent error: {e}")
+            logger.exception(f"Transcription agent error: {e}")
             return f"Transcription query error: {str(e)}"
 
     async def _intake_agent_query(query: str) -> str:
@@ -173,7 +176,7 @@ def create_agent_tools(agent_manager) -> List[StructuredTool]:
                     return json.dumps(result) if isinstance(result, dict) else str(result)
             return "Intake agent not available. Please use standard intake procedures."
         except Exception as e:
-            logger.error(f"Intake agent error: {e}")
+            logger.exception(f"Intake agent error: {e}")
             return f"Intake query error: {str(e)}"
 
     async def _clinical_research_query(query: str) -> str:
@@ -186,11 +189,11 @@ def create_agent_tools(agent_manager) -> List[StructuredTool]:
                     return json.dumps(result) if isinstance(result, dict) else str(result)
             return "Clinical research agent not available. Please consult research department."
         except Exception as e:
-            logger.error(f"Clinical research agent error: {e}")
+            logger.exception(f"Clinical research agent error: {e}")
             return f"Clinical research query error: {str(e)}"
 
     def _safe_agent_wrapper(
-        func_name: str, func: Callable, max_retries: int = 1, base_delay: float = 0.5
+        func_name: str, func: Callable, max_retries: int = 1, base_delay: float = 0.5,
     ):
         """Wrapper for agent function calls with error handling and retries."""
 
@@ -200,23 +203,22 @@ def create_agent_tools(agent_manager) -> List[StructuredTool]:
                 try:
                     if asyncio.iscoroutinefunction(func):
                         return await func(*args, **kwargs)
-                    else:
-                        return func(*args, **kwargs)
+                    return func(*args, **kwargs)
                 except Exception as e:
                     last_exception = e
                     if attempt < max_retries:
                         await asyncio.sleep(base_delay * (2**attempt))
                         logger.warning(f"Agent tool {func_name} attempt {attempt + 1} failed: {e}")
                     else:
-                        logger.error(
-                            f"Agent tool {func_name} failed after {max_retries + 1} attempts: {e}"
+                        logger.exception(
+                            f"Agent tool {func_name} failed after {max_retries + 1} attempts: {e}",
                         )
 
             return f"Agent tool error after {max_retries + 1} attempts: {str(last_exception)}"
 
         return wrapper
 
-    tools: List[StructuredTool] = [
+    tools: list[StructuredTool] = [
         StructuredTool.from_function(
             func=_safe_agent_wrapper("medical_search", _medical_search_query),
             name="search_medical_literature",

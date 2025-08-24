@@ -166,7 +166,7 @@ def show_correct_architecture():
                                     │
                                MCP Pipeline.py
                             (handles MCP protocol)
-    
+
     ❌ INCORRECT: Auth Proxy Architecture (what we built)
     ┌─────────────────┐    ┌──────────────────┐    ┌────────────────────┐
     │   Open WebUI    │────│ FastAPI Auth     │────│ Healthcare MCP     │
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     print(f"\n📁 Config file created: {config_path}")
     print("   Copy this to pipelines/data/mcp_config.json")
     print(
-        "   Or use the pre-configured version at /home/intelluxe/interfaces/open_webui/mcp_config.json"
+        "   Or use the pre-configured version at /home/intelluxe/interfaces/open_webui/mcp_config.json",
     )
 
     # Optionally run the async test

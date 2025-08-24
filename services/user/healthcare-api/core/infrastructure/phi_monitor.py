@@ -16,8 +16,9 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from .healthcare_logger import get_healthcare_logger, log_phi_alert
 from config.phi_detection_config_loader import phi_config
+
+from .healthcare_logger import get_healthcare_logger, log_phi_alert
 
 
 class PHIRiskLevel(Enum):
@@ -119,13 +120,13 @@ class PHIMonitor:
             # Update instance settings from config
             if not hasattr(self, "enable_synthetic_detection"):
                 self.enable_synthetic_detection = self._risk_settings.get(
-                    "enable_synthetic_detection", True
+                    "enable_synthetic_detection", True,
                 )
 
             self.logger.info("PHI detection configuration loaded successfully")
 
         except Exception as e:
-            self.logger.error(f"Failed to load PHI configuration: {e}")
+            self.logger.exception(f"Failed to load PHI configuration: {e}")
             # Use basic fallback patterns
             self._compiled_patterns = {}
             self._synthetic_patterns = []
@@ -251,7 +252,7 @@ class PHIMonitor:
             return " ".join(str(item) for item in data)
 
         # Handle other primitive types (bool, int, float, None)
-        if isinstance(data, (bool, int, float, type(None))):
+        if isinstance(data, bool | int | float | type(None)):
             return str(data)
 
         # This should never be reached for supported types
@@ -410,7 +411,7 @@ class PHIMonitor:
         return hashlib.sha256(patient_id.encode()).hexdigest()[:8]
 
     def sanitize_for_logging(
-        self, data: dict[str, Any], context: str | None = None
+        self, data: dict[str, Any], context: str | None = None,
     ) -> dict[str, Any]:
         """
         Sanitize data for secure logging by removing or hashing PHI.

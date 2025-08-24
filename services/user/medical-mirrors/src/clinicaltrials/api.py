@@ -26,15 +26,15 @@ class ClinicalTrialsAPI:
         self.config = config
         self.downloader = ClinicalTrialsDownloader()
         self.parser = ClinicalTrialsParser()
-        
+
         # Use optimized parser if multicore parsing is enabled
-        if config and getattr(config, 'ENABLE_MULTICORE_PARSING', False):
-            max_workers = getattr(config, 'CLINICALTRIALS_MAX_WORKERS', None)
+        if config and getattr(config, "ENABLE_MULTICORE_PARSING", False):
+            max_workers = getattr(config, "CLINICALTRIALS_MAX_WORKERS", None)
             self.optimized_parser = OptimizedClinicalTrialsParser(max_workers=max_workers)
             logger.info(f"Using optimized ClinicalTrials parser with {max_workers or 'auto'} workers")
         else:
             self.optimized_parser = None
-    
+
     def _is_large_file(self, file_path: str, size_threshold_mb: int = 50) -> bool:
         """Check if a file is large enough to benefit from chunked parallel processing"""
         try:
@@ -174,7 +174,7 @@ class ClinicalTrialsAPI:
             db.close()
 
     async def trigger_update(
-        self, quick_test: bool = False, limit: int | None = None
+        self, quick_test: bool = False, limit: int | None = None,
     ) -> dict[str, Any]:
         """Trigger ClinicalTrials data update"""
         if quick_test:
@@ -201,7 +201,7 @@ class ClinicalTrialsAPI:
                 batch_limit = limit or 100
                 logger.info(f"Quick test mode: limiting to {batch_limit} trials")
                 update_files = await self.downloader.download_recent_updates(
-                    days=1
+                    days=1,
                 )  # Only recent studies
             else:
                 update_files = await self.downloader.download_recent_updates()
@@ -294,7 +294,7 @@ class ClinicalTrialsAPI:
                     # Update existing trial - only update fields with non-empty values
                     for key, value in trial_data.items():
                         # Only update if we have meaningful new data
-                        if value is not None and value != "" and value != [] and value != {}:
+                        if value is not None and value not in ("", [], {}):
                             # For string fields, don't overwrite with less informative values
                             current_value = getattr(existing, key, None)
                             if current_value and isinstance(current_value, str) and isinstance(value, str):
@@ -381,7 +381,7 @@ class ClinicalTrialsAPI:
                         trials = await self.optimized_parser.parse_large_json_file_parallel(json_file)
                     else:
                         trials = self.parser.parse_json_file(json_file)
-                    
+
                     processed = await self.store_trials(trials, db)
                     total_processed += processed
                     logger.info(f"Processed {processed} trials from {json_file}")

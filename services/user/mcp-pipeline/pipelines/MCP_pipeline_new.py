@@ -62,11 +62,11 @@ class ChatRequest(BaseModel):
 
     message: str = Field(..., description="User message or prompt text")
     session_id: str | None = Field(
-        None, description="Session identifier for continuity if provided"
+        None, description="Session identifier for continuity if provided",
     )
     user_id: str | None = Field(None, description="End-user identifier (non-PHI opaque ID)")
     meta: dict[str, Any] = Field(
-        default_factory=dict, description="Arbitrary metadata forwarded without interpretation"
+        default_factory=dict, description="Arbitrary metadata forwarded without interpretation",
     )
 
 
@@ -117,7 +117,7 @@ class HealthcareMCPClient:
             logger.info("Connected to healthcare-api via stdio")
 
         except Exception as e:
-            logger.error(f"Failed to connect to healthcare-api: {e}")
+            logger.exception(f"Failed to connect to healthcare-api: {e}")
             raise
 
     async def call_tool(self, tool_name: str, arguments: dict[str, Any] = None) -> dict[str, Any]:
@@ -131,16 +131,16 @@ class HealthcareMCPClient:
             result = await self.session.call_tool(tool_name, args)
             return {"status": "success", "result": result}
         except Exception as e:
-            logger.error(f"Failed to call tool {tool_name}: {e}")
+            logger.exception(f"Failed to call tool {tool_name}: {e}")
             return {"status": "error", "error": str(e)}
 
     async def process_chat(
-        self, message: str, user_id: str = None, session_id: str = None
+        self, message: str, user_id: str = None, session_id: str = None,
     ) -> dict[str, Any]:
         """Process chat message via healthcare-api"""
         try:
             # Use the clinical research agent's process_research_query method
-            result = await self.call_tool(
+            return await self.call_tool(
                 "process_research_query",
                 {
                     "query": message,
@@ -148,9 +148,8 @@ class HealthcareMCPClient:
                     "session_id": session_id or "default",
                 },
             )
-            return result
         except Exception as e:
-            logger.error(f"Failed to process chat: {e}")
+            logger.exception(f"Failed to process chat: {e}")
             return {"status": "error", "error": str(e)}
 
     async def disconnect(self):
@@ -161,7 +160,7 @@ class HealthcareMCPClient:
             if self.client_cm:
                 await self.client_cm.__aexit__(None, None, None)
         except Exception as e:
-            logger.error(f"Error disconnecting: {e}")
+            logger.exception(f"Error disconnecting: {e}")
         finally:
             self.client_cm = None
             self.session = None
@@ -252,10 +251,10 @@ class Pipeline:
             return response_text
 
         except TimeoutError:
-            logger.error("Pipeline timeout")
+            logger.exception("Pipeline timeout")
             return "I'm having trouble processing your request right now. The request timed out."
         except Exception as e:
-            logger.error(f"Pipeline error: {e}")
+            logger.exception(f"Pipeline error: {e}")
             return f"I'm having trouble processing your request right now. Error: {str(e)}"
 
     async def on_startup(self):
@@ -265,7 +264,7 @@ class Pipeline:
             await self.mcp_client.connect()
             logger.info("Successfully connected to healthcare-api via stdio")
         except Exception as e:
-            logger.error(f"Failed to connect to healthcare-api on startup: {e}")
+            logger.exception(f"Failed to connect to healthcare-api on startup: {e}")
 
 
 # Singleton instance

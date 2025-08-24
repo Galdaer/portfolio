@@ -17,15 +17,15 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import json
-from typing import Any, List
+from typing import Any
 
 from langchain.tools import StructuredTool
 from pydantic import BaseModel, Field
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 from core.langchain.agent_adapters import (
-    create_healthcare_agent_adapters,
     create_general_healthcare_router,
+    create_healthcare_agent_adapters,
 )
 from core.tools import tool_registry
 
@@ -58,7 +58,6 @@ def safe_async_call(coro):
         asyncio.get_running_loop()
         # If we're in a running loop, we can't use asyncio.run()
         # Instead, we need to use a different approach
-        import threading
 
         def run_in_thread():
             # Create a new event loop in a separate thread
@@ -97,8 +96,8 @@ class ClinicalTrialsInput(BaseModel):
 
 
 def create_healthcare_tools(
-    mcp_client: Any, agent_manager: Any, *, max_retries: int = 2
-) -> List[StructuredTool]:
+    mcp_client: Any, agent_manager: Any, *, max_retries: int = 2,
+) -> list[StructuredTool]:
     """Create healthcare tools with agent-first architecture using adapters.
 
     This is the NEW implementation that uses the adapter pattern to route
@@ -125,13 +124,13 @@ def create_healthcare_tools(
     except Exception as e:
         logger.warning(f"⚠️ ToolRegistry initialization failed, using direct MCP fallback: {e}")
 
-    tools: List[StructuredTool] = []
+    tools: list[StructuredTool] = []
 
     # AGENT-FIRST ARCHITECTURE: Use agent adapters for primary routing
     if agent_manager and hasattr(agent_manager, "agents"):
         discovered_agents = agent_manager.agents
         logger.info(
-            f"🔧 Creating agent adapters for {len(discovered_agents)} agents: {list(discovered_agents.keys())}"
+            f"🔧 Creating agent adapters for {len(discovered_agents)} agents: {list(discovered_agents.keys())}",
         )
 
         # Create individual agent adapters (medical_search_agent, intake_agent, etc.)
@@ -152,7 +151,7 @@ def create_healthcare_tools(
     return tools
 
 
-def _create_mcp_fallback_tools(mcp_client: Any, max_retries: int) -> List[StructuredTool]:
+def _create_mcp_fallback_tools(mcp_client: Any, max_retries: int) -> list[StructuredTool]:
     """Create fallback MCP tools when agents are not available."""
     logger.warning("🔄 Creating MCP fallback tools (agents not available)")
 
@@ -168,14 +167,14 @@ def _create_mcp_fallback_tools(mcp_client: Any, max_retries: int) -> List[Struct
                     tool_registry.execute_tool(
                         "search-clinical-trials",
                         {"query": query, "max_results": max_results},
-                    )
+                    ),
                 )
             else:
                 result = safe_async_call(
                     mcp_client.call_tool(
                         "search-clinical-trials",
                         {"query": query, "max_results": max_results},
-                    )
+                    ),
                 )
             return json.dumps(result, indent=2) if result else "No clinical trials found"
         except Exception as e:
@@ -221,15 +220,15 @@ def _fallback_pubmed_search(client: Any, query: str, max_results: int = 10) -> s
         if tool_registry._initialized:
             result = safe_async_call(
                 tool_registry.execute_tool(
-                    "search-pubmed", {"query": query, "max_results": max_results}
-                )
+                    "search-pubmed", {"query": query, "max_results": max_results},
+                ),
             )
             logger.info("✅ Used ToolRegistry for external PubMed search")
         else:
             # Fallback to direct MCP call if ToolRegistry unavailable
             logger.warning("⚠️ ToolRegistry not available, using direct MCP")
             result = safe_async_call(
-                client.call_tool("search-pubmed", {"query": query, "max_results": max_results})
+                client.call_tool("search-pubmed", {"query": query, "max_results": max_results}),
             )
 
         return json.dumps(result, indent=2) if result else "No results found"

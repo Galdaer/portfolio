@@ -79,7 +79,7 @@ class ToolRegistry:
                 # DirectMCPClient stdio interface - test with a simple tool call
                 try:
                     await self.mcp_client.call_tool(
-                        "search-pubmed", {"query": "test", "max_results": 1}
+                        "search-pubmed", {"query": "test", "max_results": 1},
                     )
                     mcp_connected = True
                 except Exception:
@@ -190,7 +190,8 @@ class ToolRegistry:
                 if not isinstance(result, dict):
                     result = {"result": result}
             else:
-                raise RuntimeError(f"Unsupported MCP client type: {type(self.mcp_client)}")
+                msg = f"Unsupported MCP client type: {type(self.mcp_client)}"
+                raise RuntimeError(msg)
 
             return result
 

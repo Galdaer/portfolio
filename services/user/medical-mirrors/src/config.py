@@ -18,11 +18,11 @@ class Config:
     PUBMED_FTP_BASE: str = "ftp://ftp.ncbi.nlm.nih.gov/pubmed/"
     CLINICALTRIALS_API: str = "https://clinicaltrials.gov/api/v2/studies"
     FDA_API_BASE: str = "https://api.fda.gov"
-    
+
     # Medical coding APIs
     NLM_ICD10_API: str = "https://clinicaltables.nlm.nih.gov/api/icd10cm/v3"
     NLM_HCPCS_API: str = "https://clinicaltables.nlm.nih.gov/api/hcpcs/v3"
-    
+
     # Health information APIs
     MYHEALTHFINDER_API: str = "https://healthfinder.gov/developer/api"
     EXERCISEDB_API: str = "https://exercisedb.p.rapidapi.com"
@@ -51,15 +51,15 @@ class Config:
     # Performance optimization settings
     ENABLE_MULTICORE_PARSING: bool = os.getenv("ENABLE_MULTICORE_PARSING", "true").lower() == "true"
     MAX_PARSER_WORKERS: int = int(
-        os.getenv("MAX_PARSER_WORKERS", "8")
+        os.getenv("MAX_PARSER_WORKERS", "8"),
     )  # Default to 8 cores (half of typical 16-core system)
-    
+
     # Service-specific worker settings
     FDA_MAX_WORKERS: int = int(
-        os.getenv("FDA_MAX_WORKERS", "8")
+        os.getenv("FDA_MAX_WORKERS", "8"),
     )  # FDA-specific worker count
     CLINICALTRIALS_MAX_WORKERS: int = int(
-        os.getenv("CLINICALTRIALS_MAX_WORKERS", "8") 
+        os.getenv("CLINICALTRIALS_MAX_WORKERS", "8"),
     )  # ClinicalTrials-specific worker count
 
     def get_pubmed_data_dir(self) -> str:
@@ -79,19 +79,19 @@ class Config:
         path = f"{self.DATA_DIR}/fda"
         os.makedirs(path, exist_ok=True)
         return path
-    
+
     def get_icd10_data_dir(self) -> str:
         """Get ICD-10 data directory"""
         path = f"{self.DATA_DIR}/icd10"
         os.makedirs(path, exist_ok=True)
         return path
-    
+
     def get_billing_codes_data_dir(self) -> str:
         """Get billing codes data directory"""
         path = f"{self.DATA_DIR}/billing_codes"
         os.makedirs(path, exist_ok=True)
         return path
-    
+
     def get_health_info_data_dir(self) -> str:
         """Get health information data directory"""
         path = f"{self.DATA_DIR}/health_info"

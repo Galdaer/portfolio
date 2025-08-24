@@ -13,7 +13,7 @@ def test_rate_limit_disabled_metrics(monkeypatch, test_client: TestClient):
     body = resp.text.splitlines()
     # Disabled flag present
     disabled_line = next(
-        (line for line in body if line.startswith("healthcare_rate_limit_disabled")), None
+        (line for line in body if line.startswith("healthcare_rate_limit_disabled")), None,
     )
     assert disabled_line == "healthcare_rate_limit_disabled 1"
     # Ensure standard rate limit counters absent when disabled

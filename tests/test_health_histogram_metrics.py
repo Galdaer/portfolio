@@ -34,7 +34,7 @@ def test_health_check_latency_histogram_present(test_client: TestClient):
         values.append(val)
     # Expect final +Inf bucket equals _count
     count_line = next(
-        (line for line in body.splitlines() if line.startswith(f"{HISTO_PREFIX}_count")), None
+        (line for line in body.splitlines() if line.startswith(f"{HISTO_PREFIX}_count")), None,
     )
     assert count_line is not None
     total_count = int(count_line.split()[-1])

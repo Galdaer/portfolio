@@ -18,18 +18,18 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import json
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, TypedDict, cast
+from typing import Any, TypedDict, cast
 
 from langchain.tools import StructuredTool
 from pydantic import BaseModel, Field
 
-from core.infrastructure.healthcare_logger import get_healthcare_logger
 from agents import BaseHealthcareAgent
+from core.infrastructure.healthcare_logger import get_healthcare_logger
 
 logger = get_healthcare_logger("core.langchain.agent_adapters")
 
 
-def synthesize_answer_from_sources(query: str, sources: List[Dict[str, Any]]) -> str:
+def synthesize_answer_from_sources(query: str, sources: list[dict[str, Any]]) -> str:
     """
     Synthesize a conclusive answer from medical sources.
 
@@ -104,7 +104,7 @@ def synthesize_answer_from_sources(query: str, sources: List[Dict[str, Any]]) ->
     # Add medical disclaimer
     answer_parts.append(
         "\n**Medical Disclaimer**: This information is for educational purposes only. "
-        "Always consult with healthcare professionals for medical advice."
+        "Always consult with healthcare professionals for medical advice.",
     )
 
     return "\n\n".join(answer_parts)
@@ -170,10 +170,10 @@ def create_conclusive_agent_adapter(agent: Any, name: str):
                 if "sources" in result and len(result["sources"]) > 0:
                     answer = synthesize_answer_from_sources(query, result["sources"])
                     logger.info(
-                        f"✅ Synthesized conclusive answer from {len(result['sources'])} sources"
+                        f"✅ Synthesized conclusive answer from {len(result['sources'])} sources",
                     )
                     return f"CONCLUSIVE ANSWER: {answer}"
-                elif "sources" in result:
+                if "sources" in result:
                     logger.info(f"⚠️ No sources found for query: {query[:50]}...")
                     return f"CONCLUSIVE ANSWER: No information found for '{query}'"
 
@@ -186,7 +186,7 @@ def create_conclusive_agent_adapter(agent: Any, name: str):
             return f"CONCLUSIVE ANSWER: {str(result)}"
 
         except Exception as e:
-            logger.error(f"❌ Error in {name} conclusive adapter: {e}")
+            logger.exception(f"❌ Error in {name} conclusive adapter: {e}")
             return f"CONCLUSIVE ANSWER: Error processing request - {str(e)}"
 
     return conclusive_agent
@@ -250,7 +250,6 @@ def safe_async_call(coro):
         # Try to get the current event loop
         asyncio.get_running_loop()
         # If we're in a running loop, use thread-based execution
-        import threading
 
         def run_in_thread():
             new_loop = asyncio.new_event_loop()
@@ -348,17 +347,16 @@ Key Findings:
 This medical literature search has been completed successfully by the specialized medical search agent."""
 
                     return conclusive_response
-                elif result.get("success"):
+                if result.get("success"):
                     # Generic success format for other agents
                     return f"AGENT TASK COMPLETE: {agent_name.replace('_', ' ').title()} agent successfully processed: {query[:100]}"
-                else:
-                    # Error format
-                    return f"AGENT ERROR: {result.get('error', 'Unknown error occurred')}"
+                # Error format
+                return f"AGENT ERROR: {result.get('error', 'Unknown error occurred')}"
             return str(result)
 
         except Exception as e:
             error_msg = f"❌ {agent_name} agent adapter error: {e}"
-            logger.error(error_msg)
+            logger.exception(error_msg)
             return error_msg
 
     # Create the LangChain StructuredTool with proper metadata
@@ -435,7 +433,7 @@ def create_healthcare_agent_adapters(discovered_agents: dict[str, Any]) -> list[
 
         # Get configuration for this agent type
         config = cast(
-            AgentConfig,
+            "AgentConfig",
             agent_configs.get(
                 agent_name,
             )
@@ -450,14 +448,14 @@ def create_healthcare_agent_adapters(discovered_agents: dict[str, Any]) -> list[
             adapter_tool = create_agent_adapter(
                 agent_instance=agent_instance,
                 agent_name=agent_name,
-                input_schema=cast(type[BaseModel], config["input_schema"]),
+                input_schema=cast("type[BaseModel]", config["input_schema"]),
             )
 
             tools.append(adapter_tool)
             logger.info(f"✅ Created adapter for {agent_name} agent")
 
         except Exception as e:
-            logger.error(f"❌ Failed to create adapter for {agent_name}: {e}")
+            logger.exception(f"❌ Failed to create adapter for {agent_name}: {e}")
             continue
 
     if not tools:
@@ -543,7 +541,7 @@ def create_general_healthcare_router(discovered_agents: dict[str, Any]) -> Struc
                 ],
                 "clinical_research": [
                     "clinical trial",
-                    "research methodology", 
+                    "research methodology",
                     "clinical study",
                     "research protocol",
                     "study design",
@@ -556,7 +554,7 @@ def create_general_healthcare_router(discovered_agents: dict[str, Any]) -> Struc
                     "research findings",
                     "clinical evidence",
                     "literature synthesis",
-                    "comprehensive research"
+                    "comprehensive research",
                 ],
                 "transcription": ["transcribe", "voice", "audio", "speech", "dictation", "record"],
                 "insurance_verification": [
@@ -635,8 +633,7 @@ Possible reasons:
 
 SEARCH STATUS: COMPLETED - NO RESULTS FOUND
 This healthcare search task is now finished."""
-                        else:
-                            return f"""MEDICAL SEARCH COMPLETE: {adapter_result["formatted_summary"]}
+                        return f"""MEDICAL SEARCH COMPLETE: {adapter_result["formatted_summary"]}
 
 Key Findings:
 - Sources Found: {total_sources}
@@ -644,12 +641,11 @@ Key Findings:
 - Search Confidence: {adapter_result.get("search_confidence", "N/A")}
 
 This medical literature search has been completed successfully."""
-                    elif adapter_result.get("success"):
+                    if adapter_result.get("success"):
                         return f"AGENT TASK COMPLETE: Medical search agent successfully processed: {query[:100]}"
-                    else:
-                        return (
-                            f"AGENT ERROR: {adapter_result.get('error', 'Unknown error occurred')}"
-                        )
+                    return (
+                        f"AGENT ERROR: {adapter_result.get('error', 'Unknown error occurred')}"
+                    )
 
                 return str(adapter_result)
 
@@ -657,7 +653,7 @@ This medical literature search has been completed successfully."""
 
         except Exception as e:
             error_msg = f"Healthcare router error: {e}"
-            logger.error(error_msg)
+            logger.exception(error_msg)
             return error_msg
 
     return StructuredTool.from_function(

@@ -205,7 +205,7 @@ async def chat_completions(request: dict):
                         "content": str(response),
                     },
                     "finish_reason": "stop",
-                }
+                },
             ],
         }
 

@@ -7,9 +7,10 @@ Tests the PHI sanitizer's ability to distinguish between:
 - Patient-specific content (should be subject to PHI detection)
 """
 
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add the healthcare-api directory to the path for imports
 healthcare_api_path = Path(__file__).parent.parent / "services" / "user" / "healthcare-api"
@@ -115,7 +116,6 @@ class TestExternalMedicalContentDetection:
         )
 
         # Medical terms without proper context
-        standalone_medical = "diabetes"
         # Single medical terms might not match the patterns - this is expected
         # The patterns are designed for more specific medical terminology
 
@@ -138,8 +138,8 @@ class TestPHISanitizerIntegration:
                 {
                     "role": "user",
                     "content": "Tell me about the study by Dr. Smith et al. on cardiovascular health",
-                }
-            ]
+                },
+            ],
         }
 
         sanitized = sanitize_request_data(request_data)
@@ -166,10 +166,10 @@ class TestPHISanitizerIntegration:
             "choices": [
                 {
                     "message": {
-                        "content": "Cardiovascular health management involves regular monitoring of blood pressure"
-                    }
-                }
-            ]
+                        "content": "Cardiovascular health management involves regular monitoring of blood pressure",
+                    },
+                },
+            ],
         }
 
         sanitized = sanitize_response_data(response_data)

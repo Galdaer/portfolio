@@ -78,13 +78,12 @@ class HealthcareServices:
             import ollama
 
             # Use local Ollama instance with static IP
-            client = ollama.AsyncClient(host="http://172.20.0.10:11434")
-            return client
+            return ollama.AsyncClient(host="http://172.20.0.10:11434")
         except ImportError:
-            logger.error("Failed to initialize LLM client: No module named 'ollama'")
+            logger.exception("Failed to initialize LLM client: No module named 'ollama'")
             return None
         except Exception as e:
-            logger.error(f"Failed to initialize LLM client: {e}")
+            logger.exception(f"Failed to initialize LLM client: {e}")
             return None
 
     async def _initialize_llm_client(self) -> None:
@@ -95,7 +94,7 @@ class HealthcareServices:
                 raise Exception("Failed to create LLM client")
             logger.info("LLM client initialized successfully")
         except Exception as e:
-            logger.error(f"Failed to initialize LLM client: {e}")
+            logger.exception(f"Failed to initialize LLM client: {e}")
             self._llm_client = None
 
     async def _initialize_database_pool(self) -> None:

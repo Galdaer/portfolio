@@ -22,19 +22,18 @@ from core.config.models import get_instruct_model, get_primary_model
 if TYPE_CHECKING:
     from core.infrastructure.agent_context import AgentContext
 
+from core.database.medical_db import MedicalDatabaseAccess
+from core.enhanced_sessions import EnhancedSessionManager
 from core.infrastructure.agent_context import new_agent_context
-from core.infrastructure.agent_metrics import AgentMetricsStore
-from core.infrastructure.healthcare_cache import HealthcareCacheManager, CacheSecurityLevel
-from core.infrastructure.healthcare_logger import get_healthcare_logger
 from core.infrastructure.agent_logging_utils import (
     AgentWorkflowLogger,
     enhanced_agent_method,
-    log_agent_query,
     log_agent_cache_event,
+    log_agent_query,
 )
-from core.database.medical_db import MedicalDatabaseAccess
-from core.enhanced_sessions import EnhancedSessionManager
-from core.security.chat_log_manager import ChatLogManager
+from core.infrastructure.agent_metrics import AgentMetricsStore
+from core.infrastructure.healthcare_cache import CacheSecurityLevel, HealthcareCacheManager
+from core.infrastructure.healthcare_logger import get_healthcare_logger
 from core.mcp.universal_parser import parse_pubmed_response
 from core.medical import search_utils as medical_search_utils
 from core.medical.enhanced_query_engine import (
@@ -47,6 +46,7 @@ from core.medical.url_utils import (
     generate_conversational_summary,
     generate_source_url,
 )
+from core.security.chat_log_manager import ChatLogManager
 
 logger = get_healthcare_logger("agent.medical_search")
 
@@ -87,16 +87,16 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         self.mcp_client = mcp_client
         self.llm_client = llm_client
         self._metrics = AgentMetricsStore(agent_name="medical_search")
-        
+
         # Initialize cache manager for performance
         self._cache_manager = HealthcareCacheManager()
-        
+
         # Initialize local medical database access for database-first pattern
         self._medical_db = MedicalDatabaseAccess()
-        
+
         # Initialize session manager for conversation continuity
         self._session_manager = EnhancedSessionManager()
-        
+
         # Initialize chat log manager for HIPAA-compliant audit trails
         self._chat_log_manager = ChatLogManager()
 
@@ -153,7 +153,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         We only block truly unsafe requests (personal medical advice).
         """
         logger.info(
-            f"🔒 MEDICAL SEARCH AGENT OVERRIDE: safety check called with: {str(request)[:100]}"
+            f"🔒 MEDICAL SEARCH AGENT OVERRIDE: safety check called with: {str(request)[:100]}",
         )
 
         request_text = str(request).lower()
@@ -190,7 +190,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         user_id_val = request.get("user_id")
         ctx: AgentContext = new_agent_context(
             "medical_search",
-            user_id=str(user_id_val) if isinstance(user_id_val, (str, int)) else None,
+            user_id=str(user_id_val) if isinstance(user_id_val, str | int) else None,
         )
 
         # Record metrics (non-blocking)
@@ -203,8 +203,8 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         sq2 = request.get("query")
         search_query = (
             str(sq1)
-            if isinstance(sq1, (str, int))
-            else (str(sq2) if isinstance(sq2, (str, int)) else "")
+            if isinstance(sq1, str | int)
+            else (str(sq2) if isinstance(sq2, str | int) else "")
         )
         sc_val = request.get("search_context")
         search_context: dict[str, Any] = sc_val if isinstance(sc_val, dict) else {}
@@ -263,7 +263,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                     original_query=search_query,
                 )
                 logger.info(
-                    f"📄 Formatted summary length: {len(formatted_summary)}, contains DOI: {'doi.org' in formatted_summary.lower()}"
+                    f"📄 Formatted summary length: {len(formatted_summary)}, contains DOI: {'doi.org' in formatted_summary.lower()}",
                 )
                 logger.info(f"📄 Formatted summary preview: {formatted_summary[:200]}...")
                 logger.info("DIAGNOSTIC: Response formatting completed successfully")
@@ -367,7 +367,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         """
         # Generate query hash for tracking
         query_hash = log_agent_query(self.agent_name, search_query, "literature_search")
-        
+
         # Initialize workflow logger for medical search
         workflow_logger = self.get_workflow_logger()
         workflow_logger.start_workflow("medical_literature_search", {
@@ -389,10 +389,10 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             total_timeout = (
                 timeouts_cfg.get("total_search") or timeouts_cfg.get("search_request") or 60
             )
-            
+
             workflow_logger.log_performance_metric("search_timeout", total_timeout, "seconds")
             workflow_logger.log_step("execute_literature_search", {
-                "timeout_seconds": total_timeout
+                "timeout_seconds": total_timeout,
             })
 
             # Use asyncio.wait_for for overall timeout protection (module-level import)
@@ -400,26 +400,26 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 self._perform_literature_search(search_query, search_context, workflow_logger),
                 timeout=total_timeout,
             )
-            
+
             workflow_logger.log_step("search_completed", {
                 "result_id": result.search_id if result else None,
                 "sources_count": len(result.information_sources) if result else 0,
                 "confidence": result.search_confidence if result else 0.0,
             })
-            
+
             workflow_logger.finish_workflow("completed", {
                 "search_id": result.search_id if result else None,
                 "sources_count": len(result.information_sources) if result else 0,
                 "confidence": result.search_confidence if result else 0.0,
                 "query_hash": query_hash,
             })
-            
+
             return result
 
         except TimeoutError:
             workflow_logger.finish_workflow("failed", {"error": "timeout", "timeout_seconds": total_timeout})
-            
-            logger.error(
+
+            logger.exception(
                 f"Medical literature search timed out after {total_timeout}s for query: '{search_query[:100]}...'",
             )
             # Return empty result with timeout message
@@ -439,8 +439,8 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             )
         except Exception as e:
             workflow_logger.finish_workflow("failed", error=e)
-            
-            logger.error(f"Medical literature search failed: {e}")
+
+            logger.exception(f"Medical literature search failed: {e}")
             # Return empty result with error message
             return MedicalSearchResult(
                 search_id=self._generate_search_id(search_query),
@@ -462,16 +462,16 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         workflow_logger: AgentWorkflowLogger | None = None,
     ) -> MedicalSearchResult:
         """Core literature search logic using Enhanced Medical Query Engine (Phase 2) with caching and database-first pattern"""
-        
+
         # Check cache first for performance
         if workflow_logger:
             workflow_logger.log_step("check_cache")
-        
+
         cache_key = f"medical_search:{hashlib.sha256(search_query.encode()).hexdigest()[:16]}"
         try:
             cached_result = await self._cache_manager.get(
-                cache_key, 
-                security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE
+                cache_key,
+                security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE,
             )
             if cached_result:
                 await self._metrics.incr("cache_hits")
@@ -482,7 +482,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 return cached_result
         except Exception as e:
             logger.warning(f"Cache lookup failed: {e}")
-            
+
         await self._metrics.incr("cache_misses")
         log_agent_cache_event(self.agent_name, cache_key, hit=False, operation="lookup")
         if workflow_logger:
@@ -535,10 +535,10 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             if local_articles:
                 await self._metrics.incr("local_database_hits")
                 logger.info(f"Found {len(local_articles)} articles in local PubMed database")
-                
+
                 # Convert local results to search result format
                 search_result = self._convert_local_db_to_search_result(search_query, local_articles)
-                
+
                 # Cache the result for future use
                 try:
                     await self._cache_manager.set(
@@ -546,20 +546,19 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                         search_result,
                         security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE,
                         ttl_seconds=3600,  # 1 hour cache
-                        healthcare_context={"search_type": "medical_literature", "data_source": "local_db"}
+                        healthcare_context={"search_type": "medical_literature", "data_source": "local_db"},
                     )
                 except Exception as e:
                     logger.warning(f"Failed to cache result: {e}")
-                    
+
                 return search_result
-            else:
-                await self._metrics.incr("local_database_misses")
-                logger.info("No results in local database, proceeding with Enhanced Query Engine")
-                
+            await self._metrics.incr("local_database_misses")
+            logger.info("No results in local database, proceeding with Enhanced Query Engine")
+
         except Exception as e:
             logger.warning(f"Local database search failed: {e}, proceeding with Enhanced Query Engine")
             await self._metrics.incr("local_database_errors")
-        
+
         # PHASE 2: Use Enhanced Medical Query Engine for 25x more sophisticated search
         try:
             # Classify intent and map to QueryType
@@ -588,14 +587,14 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
             # Convert enhanced result to legacy interface format with performance limit
             search_result = self._convert_enhanced_result_to_search_result(
-                enhanced_result, max_items
+                enhanced_result, max_items,
             )
 
             logger.info(
                 f"Enhanced search completed - confidence: {enhanced_result.confidence_score:.2f}, "
                 f"sources: {len(enhanced_result.sources)}, limited to: {max_items}, entities: {len(enhanced_result.medical_entities)}",
             )
-            
+
             # Cache the enhanced search result
             try:
                 await self._cache_manager.set(
@@ -603,7 +602,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                     search_result,
                     security_level=CacheSecurityLevel.HEALTHCARE_SENSITIVE,
                     ttl_seconds=1800,  # 30 minutes cache for MCP results
-                    healthcare_context={"search_type": "medical_literature", "data_source": "enhanced_engine"}
+                    healthcare_context={"search_type": "medical_literature", "data_source": "enhanced_engine"},
                 )
             except Exception as e:
                 logger.warning(f"Failed to cache enhanced result: {e}")
@@ -611,7 +610,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             return search_result
 
         except Exception as e:
-            logger.error(f"Enhanced Query Engine failed, falling back to basic search: {e}")
+            logger.exception(f"Enhanced Query Engine failed, falling back to basic search: {e}")
             # Fallback to basic search if enhanced engine fails
             return await self._fallback_basic_search(search_query, search_context)
 
@@ -670,7 +669,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             )
 
         except Exception as e:
-            logger.error(f"Fallback search also failed: {e}")
+            logger.exception(f"Fallback search also failed: {e}")
             return MedicalSearchResult(
                 search_id=search_id,
                 search_query=search_query,
@@ -774,7 +773,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             ]  # Take double the limit to account for categorization
 
             logger.info(
-                f"🚀 PERFORMANCE: Limited processing from {len(enhanced_result.sources)} to {len(sources_to_process)} sources"
+                f"🚀 PERFORMANCE: Limited processing from {len(enhanced_result.sources)} to {len(sources_to_process)} sources",
             )
 
         for source in sources_to_process:
@@ -786,10 +785,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 drug_information.append(source)
             elif source_type == "clinical_references":
                 clinical_references.append(source)
-            else:
-                # Default to information sources
-                if len(information_sources) < max_items:  # Stop when we have enough
-                    information_sources.append(source)
+            # Default to information sources
+            elif len(information_sources) < max_items:  # Stop when we have enough
+                information_sources.append(source)
 
         # Convert enhanced result to legacy format
         return MedicalSearchResult(
@@ -804,14 +802,14 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             source_links=enhanced_result.source_links,
             generated_at=enhanced_result.generated_at,
         )
-    
+
     def _convert_local_db_to_search_result(
-        self, 
-        search_query: str, 
-        local_articles: list[dict[str, Any]]
+        self,
+        search_query: str,
+        local_articles: list[dict[str, Any]],
     ) -> MedicalSearchResult:
         """Convert local database articles to MedicalSearchResult format"""
-        
+
         # Convert local database articles to information_sources format
         information_sources = []
         for article in local_articles[:10]:  # Limit to 10 results
@@ -825,16 +823,16 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 "doi": article.get("doi", ""),
                 "mesh_terms": article.get("mesh_terms", []),
                 "source_type": "local_database",
-                "url": f"https://pubmed.ncbi.nlm.nih.gov/{article.get('pmid', '')}" if article.get('pmid') else ""
+                "url": f"https://pubmed.ncbi.nlm.nih.gov/{article.get('pmid', '')}" if article.get("pmid") else "",
             }
             information_sources.append(source)
-        
+
         # Generate source links
         source_links = [src["url"] for src in information_sources if src.get("url")]
-        
+
         # Calculate confidence based on number of results and recency
         confidence = min(0.9, len(local_articles) / 20.0 + 0.1)
-        
+
         return MedicalSearchResult(
             search_id=self._generate_search_id(search_query),
             search_query=search_query,
@@ -845,7 +843,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             search_confidence=confidence,
             disclaimers=self.disclaimers + [
                 "Results from local PubMed database mirror for improved performance.",
-                "Local database may not include the most recent publications."
+                "Local database may not include the most recent publications.",
             ],
             source_links=source_links,
             generated_at=datetime.now(UTC),
@@ -916,7 +914,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
 
                     # DEBUG: Log what we're getting for DOI and date
                     logger.info(
-                        f"FORMATTING DEBUG - Article {i}: title='{title[:50]}...', doi='{doi}', date='{date}', journal='{journal}'"
+                        f"FORMATTING DEBUG - Article {i}: title='{title[:50]}...', doi='{doi}', date='{date}', journal='{journal}'",
                     )
 
                     # Build article entry with clickable title
@@ -970,8 +968,8 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 )
                 max_pubmed_obj = cast("dict[str, Any]", rt_cfg).get("max_pubmed", 6)
                 max_trials_obj = cast("dict[str, Any]", rt_cfg).get("max_trials", 4)
-                max_pubmed = int(max_pubmed_obj) if isinstance(max_pubmed_obj, (int, str)) else 6
-                max_trials = int(max_trials_obj) if isinstance(max_trials_obj, (int, str)) else 4
+                max_pubmed = int(max_pubmed_obj) if isinstance(max_pubmed_obj, int | str) else 6
+                max_trials = int(max_trials_obj) if isinstance(max_trials_obj, int | str) else 4
                 lines = [f"Studies relevant to: {original_query}", "", "Research Articles:"]
                 for i, src in enumerate(pubmed[:max_pubmed], 1):
                     title = src.get("title", "Untitled")
@@ -1023,9 +1021,9 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                 max_pubmed_obj = cast("dict[str, Any]", rt_cfg).get("max_pubmed", 4)
                 max_trials_obj = cast("dict[str, Any]", rt_cfg).get("max_trials", 3)
                 max_drugs_obj = cast("dict[str, Any]", rt_cfg).get("max_drugs", 3)
-                max_pubmed = int(max_pubmed_obj) if isinstance(max_pubmed_obj, (int, str)) else 4
-                max_trials = int(max_trials_obj) if isinstance(max_trials_obj, (int, str)) else 3
-                max_drugs = int(max_drugs_obj) if isinstance(max_drugs_obj, (int, str)) else 3
+                max_pubmed = int(max_pubmed_obj) if isinstance(max_pubmed_obj, int | str) else 4
+                max_trials = int(max_trials_obj) if isinstance(max_trials_obj, int | str) else 3
+                max_drugs = int(max_drugs_obj) if isinstance(max_drugs_obj, int | str) else 3
                 lines = [
                     f"Treatment-related information for: {original_query}",
                     "",
@@ -1074,7 +1072,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                     or {}
                 )
                 max_trials_obj = cast("dict[str, Any]", rt_cfg).get("max_trials", 10)
-                max_trials = int(max_trials_obj) if isinstance(max_trials_obj, (int, str)) else 10
+                max_trials = int(max_trials_obj) if isinstance(max_trials_obj, int | str) else 10
                 lines = [f"Clinical trials for: {original_query}", ""]
                 for i, src in enumerate(trials[:max_trials], 1):
                     fmt = format_source_for_display(src)
@@ -1102,7 +1100,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                     or {}
                 )
                 max_drugs_obj = cast("dict[str, Any]", rt_cfg).get("max_drugs", 10)
-                max_drugs = int(max_drugs_obj) if isinstance(max_drugs_obj, (int, str)) else 10
+                max_drugs = int(max_drugs_obj) if isinstance(max_drugs_obj, int | str) else 10
                 lines = [f"Drug information related to: {original_query}", ""]
                 for i, src in enumerate(drugs[:max_drugs], 1):
                     fmt = format_source_for_display(src)
@@ -1226,7 +1224,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                             await asyncio.wait_for(self.mcp_client._ensure_connected(), timeout=5)
                             logger.info("MCP connection established successfully")
                         except Exception as conn_error:
-                            logger.error(f"MCP connection failed pre-call: {conn_error}")
+                            logger.exception(f"MCP connection failed pre-call: {conn_error}")
                             # Continue; client has internal retry
 
                     # Limit concurrency across all MCP calls
@@ -1727,28 +1725,27 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
             # Call SciSpacy service for biomedical entity extraction
             import aiohttp
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "http://172.20.0.6:8001/analyze",  # SciSpacy service
-                    json={"text": text},
-                    timeout=aiohttp.ClientTimeout(total=scispacy_timeout),
-                ) as response:
-                    if response.status == 200:
-                        result = await response.json()
+            async with aiohttp.ClientSession() as session, session.post(
+                "http://172.20.0.6:8001/analyze",  # SciSpacy service
+                json={"text": text},
+                timeout=aiohttp.ClientTimeout(total=scispacy_timeout),
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
 
-                        # Extract only DISEASE entities as conditions
-                        conditions: list[str] = []
-                        for entity in result.get("entities", []):
-                            if entity.get("label") == "DISEASE":
-                                condition_text = entity.get("text", "").strip()
-                                if (
-                                    condition_text and len(condition_text) > 2
-                                ):  # Filter very short terms
-                                    conditions.append(condition_text)
+                    # Extract only DISEASE entities as conditions
+                    conditions: list[str] = []
+                    for entity in result.get("entities", []):
+                        if entity.get("label") == "DISEASE":
+                            condition_text = entity.get("text", "").strip()
+                            if (
+                                condition_text and len(condition_text) > 2
+                            ):  # Filter very short terms
+                                conditions.append(condition_text)
 
-                        return list(set(conditions))  # Remove duplicates
-                    logger.warning(f"SciSpacy service returned status {response.status}")
-                    return []
+                    return list(set(conditions))  # Remove duplicates
+                logger.warning(f"SciSpacy service returned status {response.status}")
+                return []
 
         except Exception as e:
             logger.warning(f"SciSpacy condition extraction failed: {e}")
@@ -1977,11 +1974,13 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
                         logger.info(f"Combined medical concepts: {unique_concepts}")
                         return unique_concepts
                     logger.warning(f"SciSpacy service returned status {response.status}")
-                    raise Exception(f"SciSpacy service error: {response.status}")
+                    msg = f"SciSpacy service error: {response.status}"
+                    raise Exception(msg)
 
         except Exception as e:
-            logger.error(f"SciSpacy entity extraction failed: {e}")
-            raise Exception(f"Medical entity extraction failed: {e}")
+            logger.exception(f"SciSpacy entity extraction failed: {e}")
+            msg = f"Medical entity extraction failed: {e}"
+            raise Exception(msg)
 
     async def _llm_craft_search_terms(
         self,
@@ -1992,7 +1991,7 @@ class MedicalLiteratureSearchAssistant(BaseHealthcareAgent):
         try:
             # Create a prompt for the LLM to understand the query and suggest SIMPLE search terms
             prompt = f"""Given this medical query: "{original_query}"
-            
+
 Medical entities found: {medical_entities}
 
 Generate 3-5 SIMPLE search terms that would find relevant medical articles.
@@ -2402,7 +2401,7 @@ Create a helpful, conversational response that synthesizes this research:
             return self._create_fallback_response(search_result, original_query)
 
         except Exception as e:
-            logger.error(f"Failed to generate conversational response: {e}")
+            logger.exception(f"Failed to generate conversational response: {e}")
             return self._create_fallback_response(search_result, original_query)
 
     def _create_fallback_response(

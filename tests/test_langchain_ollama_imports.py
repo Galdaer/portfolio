@@ -6,12 +6,10 @@ basic constructors are available in the active environment/venv.
 
 from __future__ import annotations
 
-from typing import Optional
-
-from langchain_ollama import ChatOllama  # noqa: F401
-
 import sys
 from pathlib import Path
+
+from langchain_ollama import ChatOllama  # noqa: F401
 
 # Add the healthcare-api service src directory to sys.path for direct imports
 SERVICE_SRC = Path(__file__).resolve().parents[1] / "services/user/healthcare-api/src"

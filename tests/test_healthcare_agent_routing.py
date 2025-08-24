@@ -6,9 +6,9 @@ Tests that the LangChain agent can route queries to the appropriate specialized
 healthcare agents (billing, scheduling, transcription, etc.) and medical literature search.
 """
 
-import requests
-import json
 import time
+
+import requests
 
 
 def test_medical_literature_routing():
@@ -20,7 +20,7 @@ def test_medical_literature_routing():
     payload = {
         "model": "healthcare",
         "messages": [
-            {"role": "user", "content": "Can you find recent research on hypertension treatment?"}
+            {"role": "user", "content": "Can you find recent research on hypertension treatment?"},
         ],
     }
 
@@ -39,7 +39,7 @@ def test_billing_agent_routing():
             {
                 "role": "user",
                 "content": "I need help with insurance verification and billing codes for a recent appointment.",
-            }
+            },
         ],
     }
 
@@ -58,7 +58,7 @@ def test_scheduling_agent_routing():
             {
                 "role": "user",
                 "content": "Can you help optimize my appointment schedule for next week?",
-            }
+            },
         ],
     }
 
@@ -77,7 +77,7 @@ def test_transcription_agent_routing():
             {
                 "role": "user",
                 "content": "I need help transcribing medical notes from my last patient visit.",
-            }
+            },
         ],
     }
 
@@ -96,7 +96,7 @@ def test_intake_agent_routing():
             {
                 "role": "user",
                 "content": "Can you guide me through the patient intake and registration process?",
-            }
+            },
         ],
     }
 
@@ -112,7 +112,7 @@ def _send_test_query(test_name: str, payload: dict, url: str) -> bool:
     try:
         start_time = time.time()
         response = requests.post(
-            url, json=payload, headers={"Content-Type": "application/json"}, timeout=60
+            url, json=payload, headers={"Content-Type": "application/json"}, timeout=60,
         )
         end_time = time.time()
 
@@ -130,28 +130,26 @@ def _send_test_query(test_name: str, payload: dict, url: str) -> bool:
                 print(f"❌ FAIL: {test_name} hit iteration or time limit")
                 print(f"Response: {content}")
                 return False
-            elif "connection attempts failed" in content.lower():
+            if "connection attempts failed" in content.lower():
                 print(f"❌ FAIL: {test_name} connection error")
                 print(f"Response: {content}")
                 return False
-            elif "agent not available" in content.lower():
+            if "agent not available" in content.lower():
                 print(
-                    f"⚠️  WARNING: {test_name} agent not available - routing may not be implemented yet"
+                    f"⚠️  WARNING: {test_name} agent not available - routing may not be implemented yet",
                 )
                 print(f"Response: {content[:200]}...")
                 return True  # This is expected until agents are fully integrated
-            elif len(content) < 20:
+            if len(content) < 20:
                 print(f"⚠️  WARNING: {test_name} response too short")
                 print(f"Response: {content}")
                 return False
-            else:
-                print(f"✅ SUCCESS: {test_name} completed successfully")
-                print(f"Response preview: {content[:200]}...")
-                return True
-        else:
-            print(f"❌ FAIL: {test_name} HTTP {response.status_code}")
-            print(f"Response: {response.text}")
-            return False
+            print(f"✅ SUCCESS: {test_name} completed successfully")
+            print(f"Response preview: {content[:200]}...")
+            return True
+        print(f"❌ FAIL: {test_name} HTTP {response.status_code}")
+        print(f"Response: {response.text}")
+        return False
 
     except Exception as e:
         print(f"❌ FAIL: {test_name} exception: {e}")
@@ -172,9 +170,8 @@ def test_health_endpoint():
             print(f"✅ Healthcare API healthy with {len(agents)} agents")
             print(f"   Agents: {', '.join(agents)}")
             return True
-        else:
-            print(f"❌ Health check failed: {response.status_code}")
-            return False
+        print(f"❌ Health check failed: {response.status_code}")
+        return False
 
     except Exception as e:
         print(f"❌ Health check exception: {e}")
@@ -226,9 +223,8 @@ def main():
     if passed == len(results):
         print("🎉 ALL TESTS PASSED: Healthcare agent routing working correctly")
         return True
-    else:
-        print("⚠️  SOME TESTS FAILED: Agent routing needs attention")
-        return False
+    print("⚠️  SOME TESTS FAILED: Agent routing needs attention")
+    return False
 
 
 if __name__ == "__main__":

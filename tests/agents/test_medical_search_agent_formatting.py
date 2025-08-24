@@ -1,6 +1,6 @@
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, UTC
 
 # Add the healthcare-api service directory to import path
 SERVICE_DIR = Path(__file__).resolve().parents[2] / "services" / "user" / "healthcare-api"
@@ -18,8 +18,8 @@ def build_agent_for_formatting_tests():
     # Minimal intent config needed by formatter
     agent._intent_config = {
         "response_templates": {
-            "academic_article_list": {"max_items": 10, "include_abstracts": True}
-        }
+            "academic_article_list": {"max_items": 10, "include_abstracts": True},
+        },
     }
     return agent
 
@@ -60,7 +60,7 @@ def test_academic_article_list_formats_items_and_disclaimer():
         clinical_references=[],
         search_confidence=0.8,
         disclaimers=[
-            "This information is for educational purposes only and is not medical advice."
+            "This information is for educational purposes only and is not medical advice.",
         ],
         source_links=[],
         generated_at=datetime.now(UTC),
@@ -68,7 +68,7 @@ def test_academic_article_list_formats_items_and_disclaimer():
 
     intent_cfg = {"template": "academic_article_list"}
     formatted = agent._format_response_by_intent(
-        "information_request", intent_cfg, result, "cardiovascular health"
+        "information_request", intent_cfg, result, "cardiovascular health",
     )
 
     # Header
@@ -117,7 +117,7 @@ def test_academic_article_list_handles_non_dict_formatter(monkeypatch):
                 "publication_date": "2024",
                 "pmid": "1",
                 "url": "http://x",
-            }
+            },
         ],
         related_conditions=[],
         drug_information=[],
@@ -129,7 +129,7 @@ def test_academic_article_list_handles_non_dict_formatter(monkeypatch):
     )
 
     formatted = agent._format_response_by_intent(
-        "information_request", {"template": "academic_article_list"}, result, "cv"
+        "information_request", {"template": "academic_article_list"}, result, "cv",
     )
 
     # Should include the title and PMID even if formatter isn't a dict

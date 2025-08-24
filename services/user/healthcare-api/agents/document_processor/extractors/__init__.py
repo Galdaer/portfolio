@@ -4,11 +4,11 @@ Integrates with existing SciSpacy and PHI detection services
 """
 
 from .entity_extractor import MedicalEntityExtractor
-from .phi_redactor import PHIRedactor
 from .metadata_extractor import MetadataExtractor
+from .phi_redactor import PHIRedactor
 
 __all__ = [
     "MedicalEntityExtractor",
-    "PHIRedactor", 
+    "PHIRedactor",
     "MetadataExtractor",
 ]

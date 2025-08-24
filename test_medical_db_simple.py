@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Simple test for medical database connectivity"""
 
+
 import psycopg2
-import json
 
 # Direct connection test
 connection_string = "postgresql://intelluxe:secure_password@localhost:5432/intelluxe"
@@ -11,14 +11,14 @@ try:
     print("Testing direct database connection...")
     conn = psycopg2.connect(connection_string)
     cursor = conn.cursor()
-    
+
     # Test each table
     tables = [
         "pubmed_articles", "clinical_trials", "fda_drugs",
         "health_topics", "food_items", "exercises",
-        "icd10_codes", "billing_codes"
+        "icd10_codes", "billing_codes",
     ]
-    
+
     print("\nTable counts:")
     for table in tables:
         try:
@@ -27,7 +27,7 @@ try:
             print(f"  ✅ {table}: {count} records")
         except Exception as e:
             print(f"  ❌ {table}: Error - {e}")
-    
+
     # Test a simple search on FDA drugs with new schema
     print("\n\nTesting FDA drugs search with new schema...")
     cursor.execute("""
@@ -36,7 +36,7 @@ try:
         WHERE search_vector @@ plainto_tsquery('aspirin')
         LIMIT 3
     """)
-    
+
     results = cursor.fetchall()
     if results:
         print(f"Found {len(results)} results for 'aspirin':")
@@ -46,7 +46,7 @@ try:
             print(f"    Manufacturer: {row[4]}")
     else:
         print("No results found for 'aspirin'")
-    
+
     # Test health topics (new table)
     print("\n\nTesting health topics search (NEW)...")
     cursor.execute("""
@@ -55,7 +55,7 @@ try:
         WHERE search_vector @@ plainto_tsquery('diabetes')
         LIMIT 3
     """)
-    
+
     results = cursor.fetchall()
     if results:
         print(f"Found {len(results)} health topics for 'diabetes':")
@@ -65,7 +65,7 @@ try:
                 print(f"    {row[2][:100]}...")
     else:
         print("No health topics found")
-    
+
     # Test food items (new table)
     print("\n\nTesting food items search (NEW)...")
     cursor.execute("""
@@ -74,7 +74,7 @@ try:
         WHERE search_vector @@ plainto_tsquery('apple')
         LIMIT 3
     """)
-    
+
     results = cursor.fetchall()
     if results:
         print(f"Found {len(results)} food items for 'apple':")
@@ -83,7 +83,7 @@ try:
             print(f"    Calories: {row[2]}, Protein: {row[3]}g, Fat: {row[4]}g, Carbs: {row[5]}g")
     else:
         print("No food items found")
-    
+
     # Test exercises (new table)
     print("\n\nTesting exercises search (NEW)...")
     cursor.execute("""
@@ -92,7 +92,7 @@ try:
         WHERE search_vector @@ plainto_tsquery('push')
         LIMIT 3
     """)
-    
+
     results = cursor.fetchall()
     if results:
         print(f"Found {len(results)} exercises for 'push':")
@@ -101,7 +101,7 @@ try:
             print(f"    Body Part: {row[2]}, Equipment: {row[3]}")
     else:
         print("No exercises found")
-    
+
     # Test ICD-10 codes (new table)
     print("\n\nTesting ICD-10 codes search (NEW)...")
     cursor.execute("""
@@ -110,15 +110,15 @@ try:
         WHERE code = 'E11.9'
         LIMIT 1
     """)
-    
+
     result = cursor.fetchone()
     if result:
-        print(f"Found ICD-10 code E11.9:")
+        print("Found ICD-10 code E11.9:")
         print(f"  - {result[0]}: {result[1]}")
         print(f"    Billable: {result[2]}")
     else:
         print("ICD-10 code E11.9 not found")
-    
+
     # Test billing codes (new table)
     print("\n\nTesting billing codes search (NEW)...")
     cursor.execute("""
@@ -127,7 +127,7 @@ try:
         WHERE search_vector @@ plainto_tsquery('injection')
         LIMIT 3
     """)
-    
+
     results = cursor.fetchall()
     if results:
         print(f"Found {len(results)} billing codes for 'injection':")
@@ -136,10 +136,10 @@ try:
             print(f"    Category: {row[3]}")
     else:
         print("No billing codes found")
-    
+
     conn.close()
     print("\n✅ All direct database tests completed successfully!")
-    
+
 except Exception as e:
     print(f"❌ Database test failed: {e}")
     import traceback

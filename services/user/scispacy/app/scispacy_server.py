@@ -218,7 +218,7 @@ def group_entities_by_type(
 
 
 def filter_entities(
-    enriched_entities: list[dict[str, Any]], types: list[str] | None
+    enriched_entities: list[dict[str, Any]], types: list[str] | None,
 ) -> list[dict[str, Any]]:
     if not types:
         return enriched_entities

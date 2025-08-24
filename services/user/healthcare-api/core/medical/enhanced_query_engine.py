@@ -11,20 +11,21 @@ professionals based on individual patient assessment.
 
 import asyncio
 import hashlib
-import json
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any
 
 from cachetools import TTLCache
-from core.infrastructure.healthcare_logger import get_healthcare_logger
+
 from config.app import config
-from .medical_response_validator import MedicalTrustScore
+from core.infrastructure.healthcare_logger import get_healthcare_logger
 from core.mcp.universal_parser import (
-    parse_pubmed_response,
     parse_clinical_trials_response,
+    parse_pubmed_response,
 )
+
+from .medical_response_validator import MedicalTrustScore
 
 logger = get_healthcare_logger("core.medical.enhanced_query_engine")
 
@@ -67,7 +68,7 @@ class EnhancedMedicalQueryEngine:
 
         # Session-level cache to prevent duplicate MCP calls within same session
         self.session_cache: TTLCache[str, Any] = TTLCache(
-            maxsize=100, ttl=300
+            maxsize=100, ttl=300,
         )  # 5 min session cache
 
         # Query refinement tracking
@@ -271,7 +272,7 @@ class EnhancedMedicalQueryEngine:
                 },
             )  # CRITICAL DEBUG: Log the actual MCP result structure
             logger.info(
-                f"CRITICAL DEBUG - MCP search-pubmed result keys: {list(pubmed_results.keys()) if isinstance(pubmed_results, dict) else 'NOT_DICT'}"
+                f"CRITICAL DEBUG - MCP search-pubmed result keys: {list(pubmed_results.keys()) if isinstance(pubmed_results, dict) else 'NOT_DICT'}",
             )
             logger.info(f"CRITICAL DEBUG - MCP search-pubmed result type: {type(pubmed_results)}")
             if isinstance(pubmed_results, dict):
@@ -287,21 +288,21 @@ class EnhancedMedicalQueryEngine:
             # Parse the MCP response structure: content[0].text contains JSON string with articles
             articles = parse_pubmed_response(pubmed_results)
             logger.info(
-                f"CRITICAL DEBUG - Universal parser extracted {len(articles)} articles from MCP response"
+                f"CRITICAL DEBUG - Universal parser extracted {len(articles)} articles from MCP response",
             )
 
             for i, article in enumerate(articles):
                 # CRITICAL DEBUG: Log actual article structure
                 logger.info(
-                    f"CRITICAL DEBUG - Article {i} keys: {list(article.keys()) if isinstance(article, dict) else 'NOT_DICT'}"
+                    f"CRITICAL DEBUG - Article {i} keys: {list(article.keys()) if isinstance(article, dict) else 'NOT_DICT'}",
                 )
                 logger.info(f"CRITICAL DEBUG - Article {i} type: {type(article)}")
                 if isinstance(article, dict):
                     logger.info(
-                        f"CRITICAL DEBUG - Article {i} title: '{article.get('title', 'NO_TITLE')}'"
+                        f"CRITICAL DEBUG - Article {i} title: '{article.get('title', 'NO_TITLE')}'",
                     )
                     logger.info(
-                        f"CRITICAL DEBUG - Article {i} pmid: '{article.get('pmid', 'NO_PMID')}'"
+                        f"CRITICAL DEBUG - Article {i} pmid: '{article.get('pmid', 'NO_PMID')}'",
                     )
 
                     processed_sources.append(

@@ -67,7 +67,7 @@ def _redact_body(body: Any) -> Any:
             return {k: _mask_value(str(v)) for k, v in body.items()}
         if isinstance(body, list):
             return [_mask_value(str(v)) for v in body]
-        if isinstance(body, (str, bytes)):
+        if isinstance(body, str | bytes):
             return _mask_value(body if isinstance(body, str) else body.decode("utf-8", "ignore"))
     except Exception:  # pragma: no cover
         return "[UNREDACTABLE]"
@@ -123,10 +123,7 @@ async def http_request(
                     parsed = response.text
 
                 # Logging
-                if mask_phi:
-                    body_preview = _redact_body(spec.json_body)
-                else:
-                    body_preview = spec.json_body
+                body_preview = _redact_body(spec.json_body) if mask_phi else spec.json_body
                 logger.info(
                     "http_request",
                     extra={
@@ -148,7 +145,7 @@ async def http_request(
                     logger.warning(f"HTTP attempt {attempt} failed: {e}; retrying")
                     await _sleep_backoff(attempt, backoff_base, backoff_cap)
                     continue
-                logger.error(f"HTTP request ultimately failed: {e}")
+                logger.exception(f"HTTP request ultimately failed: {e}")
                 raise
     finally:
         if owned_client:

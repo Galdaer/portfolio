@@ -68,15 +68,15 @@ async def search_medical_literature(
         # Generate conversational response using LLM
         try:
             conversational_response = await search_assistant.generate_conversational_response(
-                search_result=search_result, original_query=request.search_query
+                search_result=search_result, original_query=request.search_query,
             )
         except Exception as llm_error:
             logger.warning(
-                f"LLM conversational response failed, using utility fallback: {llm_error}"
+                f"LLM conversational response failed, using utility fallback: {llm_error}",
             )
             # Fallback to utility-based conversational summary
             conversational_response = generate_conversational_summary(
-                search_result.information_sources, request.search_query
+                search_result.information_sources, request.search_query,
             )
 
         # Return only the conversational response and minimal metadata

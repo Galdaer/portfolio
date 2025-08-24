@@ -11,12 +11,10 @@ Usage:
     python3 test_end_to_end_healthcare.py --quick            # Quick test only
 """
 
-import asyncio
-import sys
-import os
-import subprocess
 import argparse
-from pathlib import Path
+import asyncio
+import subprocess
+import sys
 
 # Add healthcare-api to path for local testing
 sys.path.insert(0, "/app")  # Container path
@@ -36,9 +34,8 @@ async def test_ollama_connectivity():
                 version_data = response.json()
                 print(f"   ✅ Ollama running: {version_data.get('version', 'unknown')}")
                 return True
-            else:
-                print(f"   ❌ Ollama responded with status {response.status_code}")
-                return False
+            print(f"   ❌ Ollama responded with status {response.status_code}")
+            return False
     except Exception as e:
         print(f"   ❌ Ollama connection failed: {e}")
         return False
@@ -62,9 +59,8 @@ async def test_mcp_tools():
         if result and "content" in result:
             print("   ✅ PubMed search tool working")
             return True
-        else:
-            print(f"   ❌ PubMed tool returned unexpected result: {result}")
-            return False
+        print(f"   ❌ PubMed tool returned unexpected result: {result}")
+        return False
 
     except Exception as e:
         print(f"   ❌ MCP tools failed: {e}")
@@ -108,9 +104,8 @@ async def test_simple_llm_query(agent):
         if response and hasattr(response, "content") and response.content:
             print(f"   ✅ LLM query successful: {len(response.content)} chars")
             return True
-        else:
-            print(f"   ❌ LLM returned unexpected response: {type(response)}")
-            return False
+        print(f"   ❌ LLM returned unexpected response: {type(response)}")
+        return False
 
     except Exception as e:
         print(f"   ❌ LLM query failed: {e}")
@@ -140,15 +135,13 @@ async def test_full_agent_workflow(agent):
                 print(f"   📄 Response length: {len(response)} chars")
                 print(f"   🔧 Tool calls: {len(steps)}")
                 return True
-            else:
-                error = result.get("error", "Unknown error")
-                error_type = result.get("error_type", "Unknown")
-                print(f"   ❌ Agent workflow failed: {error}")
-                print(f"   🔧 Error type: {error_type}")
-                return False
-        else:
-            print(f"   ❌ Agent returned unexpected result type: {type(result)}")
+            error = result.get("error", "Unknown error")
+            error_type = result.get("error_type", "Unknown")
+            print(f"   ❌ Agent workflow failed: {error}")
+            print(f"   🔧 Error type: {error_type}")
             return False
+        print(f"   ❌ Agent returned unexpected result type: {type(result)}")
+        return False
 
     except Exception as e:
         print(f"   ❌ Agent workflow crashed: {e}")
@@ -198,9 +191,8 @@ async def run_local_tests(quick_mode=False):
     if all(results):
         print("🎉 ALL TESTS PASSED! Healthcare system is fully operational.")
         return True
-    else:
-        print("❌ Some tests failed. Healthcare system needs attention.")
-        return False
+    print("❌ Some tests failed. Healthcare system needs attention.")
+    return False
 
 
 def run_container_tests():
@@ -210,7 +202,7 @@ def run_container_tests():
 
     try:
         # Build the container test command
-        test_script = f"""
+        test_script = """
 cd /app
 python3 -c "
 import asyncio
@@ -242,7 +234,7 @@ asyncio.run(main())
         ]
 
         print("🔄 Running tests in container...")
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=120)
 
         print(result.stdout)
         if result.stderr:
@@ -251,9 +243,8 @@ asyncio.run(main())
         if result.returncode == 0:
             print("✅ Container tests passed!")
             return True
-        else:
-            print(f"❌ Container tests failed (exit code: {result.returncode})")
-            return False
+        print(f"❌ Container tests failed (exit code: {result.returncode})")
+        return False
 
     except subprocess.TimeoutExpired:
         print("❌ Container tests timed out")

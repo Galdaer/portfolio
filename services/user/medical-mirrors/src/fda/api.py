@@ -7,20 +7,17 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from .downloader import FDADownloader
-from .parser import FDAParser
-from .parser_optimized import OptimizedFDAParser
+from error_handling import (
+    ErrorCollector,
+)
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from database import FDADrug, UpdateLog
-from error_handling import (
-    ErrorCollector, 
-    retry_database_operation, 
-    safe_parse,
-    DatabaseError,
-    ParsingError
-)
+
+from .downloader import FDADownloader
+from .parser import FDAParser
+from .parser_optimized import OptimizedFDAParser
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +30,10 @@ class FDAAPI:
         self.config = config
         self.downloader = FDADownloader()
         self.parser = FDAParser()
-        
+
         # Use optimized parser if multicore parsing is enabled
-        if config and getattr(config, 'ENABLE_MULTICORE_PARSING', False):
-            max_workers = getattr(config, 'FDA_MAX_WORKERS', None)
+        if config and getattr(config, "ENABLE_MULTICORE_PARSING", False):
+            max_workers = getattr(config, "FDA_MAX_WORKERS", None)
             self.optimized_parser = OptimizedFDAParser(max_workers=max_workers)
             logger.info(f"Using optimized FDA parser with {max_workers or 'auto'} workers")
         else:
@@ -84,7 +81,7 @@ class FDAAPI:
 
             if params.get("search_term"):
                 search_query = text(f"""
-                    SELECT ndc, name, generic_name, brand_name, manufacturer, applicant, 
+                    SELECT ndc, name, generic_name, brand_name, manufacturer, applicant,
                            ingredients, strength, dosage_form, route, application_number,
                            product_number, approval_date, orange_book_code, reference_listed_drug,
                            therapeutic_class, pharmacologic_class, data_sources,
@@ -237,7 +234,7 @@ class FDAAPI:
                     else None
                 )
                 processed = await self.process_fda_dataset(
-                    dataset_name, data_dir, db, quick_test_limit=remaining_limit
+                    dataset_name, data_dir, db, quick_test_limit=remaining_limit,
                 )
                 total_processed += processed
 
@@ -266,7 +263,7 @@ class FDAAPI:
             db.close()
 
     async def process_fda_dataset(
-        self, dataset_name: str, data_dir: str, db: Session, quick_test_limit: int | None = None
+        self, dataset_name: str, data_dir: str, db: Session, quick_test_limit: int | None = None,
     ) -> int:
         """Process a specific FDA dataset"""
         logger.info(f"Processing FDA dataset: {dataset_name}")
@@ -279,37 +276,33 @@ class FDAAPI:
             # Collect all relevant files for parallel processing
             json_files = []
             csv_files = []
-            
+
             for file in os.listdir(data_dir):
                 file_path = os.path.join(data_dir, file)
-                
-                if dataset_name == "ndc" and file.endswith(".json"):
-                    json_files.append(file_path)
-                elif dataset_name == "drugs_fda" and file.endswith(".json"):
-                    json_files.append(file_path)
-                elif dataset_name == "labels" and file.endswith(".json"):
+
+                if dataset_name == "ndc" and file.endswith(".json") or dataset_name == "drugs_fda" and file.endswith(".json") or dataset_name == "labels" and file.endswith(".json"):
                     json_files.append(file_path)
                 elif dataset_name == "orange_book" and file.endswith((".csv", ".txt")):
                     csv_files.append(file_path)
-            
+
             # Use optimized parser for JSON files if available
             if json_files and self.optimized_parser:
                 logger.info(f"Using optimized parallel parsing for {len(json_files)} {dataset_name} JSON files")
                 drugs = await self.optimized_parser.parse_json_files_parallel(json_files, dataset_name)
-                
+
                 if quick_test_limit:
                     drugs = drugs[:quick_test_limit]
-                
+
                 stored = await self.store_drugs_with_merging(drugs, db)
                 processed_count += stored
-            
+
             # Use serial parsing for JSON files if optimized parser not available
             elif json_files:
                 for file_path in json_files:
                     if quick_test_limit and processed_count >= quick_test_limit:
                         logger.info(f"Quick test limit reached for {dataset_name}: {processed_count} drugs")
                         break
-                    
+
                     if dataset_name == "ndc":
                         drugs = self.parser.parse_ndc_file(file_path)
                     elif dataset_name == "drugs_fda":
@@ -318,29 +311,29 @@ class FDAAPI:
                         drugs = self.parser.parse_drug_labels_file(file_path)
                     else:
                         continue
-                    
+
                     if quick_test_limit:
                         remaining = quick_test_limit - processed_count
                         drugs = drugs[:remaining]
-                    
+
                     stored = await self.store_drugs_with_merging(drugs, db)
                     processed_count += stored
-            
+
             # Handle CSV files (Orange Book) - single threaded as it's usually one file
             for file_path in csv_files:
                 if quick_test_limit and processed_count >= quick_test_limit:
                     logger.info(f"Quick test limit reached for {dataset_name}: {processed_count} drugs")
                     break
-                
+
                 if self.optimized_parser:
                     drugs = self.optimized_parser.parse_orange_book_file(file_path)
                 else:
                     drugs = self.parser.parse_orange_book_file(file_path)
-                
+
                 if quick_test_limit:
                     remaining = quick_test_limit - processed_count
                     drugs = drugs[:remaining]
-                
+
                 stored = await self.store_drugs_with_merging(drugs, db)
                 processed_count += stored
 
@@ -411,7 +404,7 @@ class FDAAPI:
                     logger.info(f"Stored batch: {stored_count} drugs")
 
             except Exception as e:
-                ndc = drug_data.get('ndc', 'unknown')
+                ndc = drug_data.get("ndc", "unknown")
                 error_collector.record_error(e, record_id=ndc, context="storing drug")
                 db.rollback()
                 # Continue processing other drugs instead of failing completely
@@ -438,18 +431,18 @@ class FDAAPI:
         """Store drug data in database with intelligent merging from multiple sources"""
         if not drugs:
             return 0
-            
+
         # Group drugs by matching records for merging
         grouped_drugs = self.parser.find_matching_records(drugs)
         stored_count = 0
-        
+
         logger.info(f"Merging {len(drugs)} records into {len(grouped_drugs)} unified drug entries")
 
         for group_key, drug_group in grouped_drugs.items():
             try:
                 # Merge multiple records into one
                 merged_drug = self.parser.merge_drug_records(drug_group)
-                
+
                 if not merged_drug.get("ndc"):
                     logger.warning(f"Skipping drug group without NDC: {group_key}")
                     continue
@@ -481,7 +474,7 @@ class FDAAPI:
     def upsert_enhanced_drug(self, drug_data: dict, db: Session):
         """Insert or update a drug record using PostgreSQL UPSERT with all enhanced fields"""
         from sqlalchemy.dialects.postgresql import insert
-        
+
         ndc = drug_data.get("ndc", "").strip()
         if not ndc:
             raise ValueError("NDC is required for drug upsert")
@@ -517,65 +510,65 @@ class FDAAPI:
                 # Always update basic fields
                 "name": stmt.excluded.name,
                 "updated_at": stmt.excluded.updated_at,
-                
+
                 # Conditionally update fields - prefer non-empty values
                 "generic_name": func.coalesce(
-                    func.nullif(stmt.excluded.generic_name, ''), 
-                    FDADrug.generic_name
+                    func.nullif(stmt.excluded.generic_name, ""),
+                    FDADrug.generic_name,
                 ),
                 "brand_name": func.coalesce(
-                    func.nullif(stmt.excluded.brand_name, ''), 
-                    FDADrug.brand_name
+                    func.nullif(stmt.excluded.brand_name, ""),
+                    FDADrug.brand_name,
                 ),
                 "manufacturer": func.coalesce(
-                    func.nullif(stmt.excluded.manufacturer, ''), 
-                    FDADrug.manufacturer
+                    func.nullif(stmt.excluded.manufacturer, ""),
+                    FDADrug.manufacturer,
                 ),
                 "applicant": func.coalesce(
-                    func.nullif(stmt.excluded.applicant, ''), 
-                    FDADrug.applicant
+                    func.nullif(stmt.excluded.applicant, ""),
+                    FDADrug.applicant,
                 ),
                 "strength": func.coalesce(
-                    func.nullif(stmt.excluded.strength, ''), 
-                    FDADrug.strength
+                    func.nullif(stmt.excluded.strength, ""),
+                    FDADrug.strength,
                 ),
                 "dosage_form": func.coalesce(
-                    func.nullif(stmt.excluded.dosage_form, ''), 
-                    FDADrug.dosage_form
+                    func.nullif(stmt.excluded.dosage_form, ""),
+                    FDADrug.dosage_form,
                 ),
                 "route": func.coalesce(
-                    func.nullif(stmt.excluded.route, ''), 
-                    FDADrug.route
+                    func.nullif(stmt.excluded.route, ""),
+                    FDADrug.route,
                 ),
                 "application_number": func.coalesce(
-                    func.nullif(stmt.excluded.application_number, ''), 
-                    FDADrug.application_number
+                    func.nullif(stmt.excluded.application_number, ""),
+                    FDADrug.application_number,
                 ),
                 "product_number": func.coalesce(
-                    func.nullif(stmt.excluded.product_number, ''), 
-                    FDADrug.product_number
+                    func.nullif(stmt.excluded.product_number, ""),
+                    FDADrug.product_number,
                 ),
                 "approval_date": func.coalesce(
-                    func.nullif(stmt.excluded.approval_date, ''), 
-                    FDADrug.approval_date
+                    func.nullif(stmt.excluded.approval_date, ""),
+                    FDADrug.approval_date,
                 ),
                 "orange_book_code": func.coalesce(
-                    func.nullif(stmt.excluded.orange_book_code, ''), 
-                    FDADrug.orange_book_code
+                    func.nullif(stmt.excluded.orange_book_code, ""),
+                    FDADrug.orange_book_code,
                 ),
                 "reference_listed_drug": func.coalesce(
-                    func.nullif(stmt.excluded.reference_listed_drug, ''), 
-                    FDADrug.reference_listed_drug
+                    func.nullif(stmt.excluded.reference_listed_drug, ""),
+                    FDADrug.reference_listed_drug,
                 ),
                 "therapeutic_class": func.coalesce(
-                    func.nullif(stmt.excluded.therapeutic_class, ''), 
-                    FDADrug.therapeutic_class
+                    func.nullif(stmt.excluded.therapeutic_class, ""),
+                    FDADrug.therapeutic_class,
                 ),
                 "pharmacologic_class": func.coalesce(
-                    func.nullif(stmt.excluded.pharmacologic_class, ''), 
-                    FDADrug.pharmacologic_class
+                    func.nullif(stmt.excluded.pharmacologic_class, ""),
+                    FDADrug.pharmacologic_class,
                 ),
-                
+
                 # For arrays, combine unique values
                 "ingredients": stmt.excluded.ingredients,
                 "data_sources": stmt.excluded.data_sources,

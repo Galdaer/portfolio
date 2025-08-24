@@ -15,10 +15,10 @@ This ensures rate limiting issues are avoided by using local data first.
 All medical reference data is stored in the PUBLIC database as it contains no PHI.
 """
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
-from core.database.secure_db_manager import get_db_manager, DatabaseType
+from core.database.secure_db_manager import DatabaseType, get_db_manager
 from core.infrastructure.healthcare_logger import get_healthcare_logger
 
 if TYPE_CHECKING:
@@ -33,7 +33,7 @@ class MedicalDatabaseAccess:
     def __init__(self):
         """Initialize medical database access."""
         self.logger = logger
-        self.db_manager: Optional["SecureDatabaseManager"] = (
+        self.db_manager: SecureDatabaseManager | None = (
             None  # Will be initialized on first use
         )
 
@@ -43,7 +43,7 @@ class MedicalDatabaseAccess:
             self.db_manager = await get_db_manager()
         return self.db_manager
 
-    async def search_pubmed_local(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
+    async def search_pubmed_local(self, query: str, max_results: int = 10) -> list[dict[str, Any]]:
         """Search local PubMed articles database.
 
         Args:
@@ -107,12 +107,12 @@ class MedicalDatabaseAccess:
             return articles
 
         except Exception as e:
-            self.logger.error(f"Local PubMed search error: {e}")
+            self.logger.exception(f"Local PubMed search error: {e}")
             return []
 
     async def search_clinical_trials_local(
-        self, query: str, max_results: int = 5
-    ) -> List[Dict[str, Any]]:
+        self, query: str, max_results: int = 5,
+    ) -> list[dict[str, Any]]:
         """Search local clinical trials database.
 
         Args:
@@ -190,12 +190,12 @@ class MedicalDatabaseAccess:
             return trials
 
         except Exception as e:
-            self.logger.error(f"Local clinical trials search error: {e}")
+            self.logger.exception(f"Local clinical trials search error: {e}")
             return []
 
     async def search_fda_drugs_local(
-        self, query: str, max_results: int = 5
-    ) -> List[Dict[str, Any]]:
+        self, query: str, max_results: int = 5,
+    ) -> list[dict[str, Any]]:
         """Search local FDA drugs database.
 
         Args:
@@ -260,12 +260,12 @@ class MedicalDatabaseAccess:
             return drugs
 
         except Exception as e:
-            self.logger.error(f"Local FDA drugs search error: {e}")
+            self.logger.exception(f"Local FDA drugs search error: {e}")
             return []
 
     async def search_health_topics_local(
-        self, query: str, max_results: int = 10
-    ) -> List[Dict[str, Any]]:
+        self, query: str, max_results: int = 10,
+    ) -> list[dict[str, Any]]:
         """Search local health topics database.
 
         Args:
@@ -331,12 +331,12 @@ class MedicalDatabaseAccess:
             return topics
 
         except Exception as e:
-            self.logger.error(f"Local health topics search error: {e}")
+            self.logger.exception(f"Local health topics search error: {e}")
             return []
 
     async def search_food_items_local(
-        self, query: str, max_results: int = 10
-    ) -> List[Dict[str, Any]]:
+        self, query: str, max_results: int = 10,
+    ) -> list[dict[str, Any]]:
         """Search local food items database.
 
         Args:
@@ -409,16 +409,16 @@ class MedicalDatabaseAccess:
             return foods
 
         except Exception as e:
-            self.logger.error(f"Local food items search error: {e}")
+            self.logger.exception(f"Local food items search error: {e}")
             return []
 
     async def search_exercises_local(
         self,
         query: str,
-        body_part: Optional[str] = None,
-        equipment: Optional[str] = None,
+        body_part: str | None = None,
+        equipment: str | None = None,
         max_results: int = 10,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search local exercises database.
 
         Args:
@@ -466,7 +466,7 @@ class MedicalDatabaseAccess:
             """
 
             rows = await db_manager.fetch(
-                search_sql, *params, database=DatabaseType.PUBLIC, tables=["exercises"]
+                search_sql, *params, database=DatabaseType.PUBLIC, tables=["exercises"],
             )
 
             exercises = []
@@ -493,12 +493,12 @@ class MedicalDatabaseAccess:
             return exercises
 
         except Exception as e:
-            self.logger.error(f"Local exercises search error: {e}")
+            self.logger.exception(f"Local exercises search error: {e}")
             return []
 
     async def search_icd10_codes_local(
-        self, query: str, exact_match: bool = False, max_results: int = 10
-    ) -> List[Dict[str, Any]]:
+        self, query: str, exact_match: bool = False, max_results: int = 10,
+    ) -> list[dict[str, Any]]:
         """Search local ICD-10 codes database.
 
         Args:
@@ -523,7 +523,7 @@ class MedicalDatabaseAccess:
                     LIMIT 1
                 """
                 rows = await db_manager.fetch(
-                    search_sql, query.upper(), database=DatabaseType.PUBLIC, tables=["icd10_codes"]
+                    search_sql, query.upper(), database=DatabaseType.PUBLIC, tables=["icd10_codes"],
                 )
             else:
                 # Full-text search
@@ -566,12 +566,12 @@ class MedicalDatabaseAccess:
             return codes
 
         except Exception as e:
-            self.logger.error(f"Local ICD-10 codes search error: {e}")
+            self.logger.exception(f"Local ICD-10 codes search error: {e}")
             return []
 
     async def search_billing_codes_local(
-        self, query: str, code_type: Optional[str] = None, max_results: int = 10
-    ) -> List[Dict[str, Any]]:
+        self, query: str, code_type: str | None = None, max_results: int = 10,
+    ) -> list[dict[str, Any]]:
         """Search local billing codes database.
 
         Args:
@@ -612,7 +612,7 @@ class MedicalDatabaseAccess:
             """
 
             rows = await db_manager.fetch(
-                search_sql, *params, database=DatabaseType.PUBLIC, tables=["billing_codes"]
+                search_sql, *params, database=DatabaseType.PUBLIC, tables=["billing_codes"],
             )
 
             codes = []
@@ -657,10 +657,10 @@ class MedicalDatabaseAccess:
             return codes
 
         except Exception as e:
-            self.logger.error(f"Local billing codes search error: {e}")
+            self.logger.exception(f"Local billing codes search error: {e}")
             return []
 
-    async def get_database_status(self) -> Dict[str, Any]:
+    async def get_database_status(self) -> dict[str, Any]:
         """Get status of medical database tables.
 
         Returns:
@@ -687,7 +687,7 @@ class MedicalDatabaseAccess:
                 try:
                     count_sql = f"SELECT COUNT(*) as count FROM {table}"
                     count = await db_manager.fetchval(
-                        count_sql, database=DatabaseType.PUBLIC, tables=[table]
+                        count_sql, database=DatabaseType.PUBLIC, tables=[table],
                     )
                     status[table] = {"count": count, "available": True}
                 except Exception as e:
@@ -702,7 +702,7 @@ class MedicalDatabaseAccess:
                     GROUP BY source
                 """
                 update_rows = await db_manager.fetch(
-                    update_sql, database=DatabaseType.PUBLIC, tables=["update_logs"]
+                    update_sql, database=DatabaseType.PUBLIC, tables=["update_logs"],
                 )
                 update_times = {
                     row["source"]: row["last_update"].isoformat() if row["last_update"] else None
@@ -719,7 +719,7 @@ class MedicalDatabaseAccess:
             }
 
         except Exception as e:
-            self.logger.error(f"Database status check error: {e}")
+            self.logger.exception(f"Database status check error: {e}")
             return {
                 "database_available": False,
                 "error": str(e),

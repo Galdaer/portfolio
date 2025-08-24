@@ -39,7 +39,7 @@ async def test_direct_mcp():
             print("Listing tools...")
             tools_response = await asyncio.wait_for(session.list_tools(), timeout=10)
             print(
-                f"Tools found: {len(tools_response.tools) if hasattr(tools_response, 'tools') else 'unknown'}"
+                f"Tools found: {len(tools_response.tools) if hasattr(tools_response, 'tools') else 'unknown'}",
             )
 
             if hasattr(tools_response, "tools"):

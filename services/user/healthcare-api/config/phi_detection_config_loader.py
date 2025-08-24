@@ -7,7 +7,8 @@ Allows users to customize PHI detection behavior for different healthcare enviro
 
 import re
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any
+
 import yaml
 
 from core.infrastructure.healthcare_logger import get_healthcare_logger
@@ -18,7 +19,7 @@ logger = get_healthcare_logger("phi_config")
 class PHIDetectionConfigLoader:
     """Load and manage PHI detection configuration from YAML files."""
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: str | None = None):
         """
         Initialize PHI detection config loader.
 
@@ -31,31 +32,31 @@ class PHIDetectionConfigLoader:
             config_path_obj = Path(config_path)
 
         self.config_path = config_path_obj
-        self._config: Optional[Dict[str, Any]] = None
-        self._compiled_patterns: Optional[Dict[str, List[re.Pattern]]] = None
+        self._config: dict[str, Any] | None = None
+        self._compiled_patterns: dict[str, list[re.Pattern]] | None = None
 
-    def load_config(self) -> Dict[str, Any]:
+    def load_config(self) -> dict[str, Any]:
         """Load PHI detection configuration from YAML file."""
         if self._config is not None:
             return self._config
 
         try:
-            with open(self.config_path, "r", encoding="utf-8") as f:
+            with open(self.config_path, encoding="utf-8") as f:
                 self._config = yaml.safe_load(f)
 
             logger.info(f"PHI detection config loaded from {self.config_path}")
             return self._config
 
         except FileNotFoundError:
-            logger.error(f"PHI detection config file not found: {self.config_path}")
+            logger.exception(f"PHI detection config file not found: {self.config_path}")
             # Return sensible defaults
             return self._get_default_config()
 
         except yaml.YAMLError as e:
-            logger.error(f"Error parsing PHI detection config: {e}")
+            logger.exception(f"Error parsing PHI detection config: {e}")
             return self._get_default_config()
 
-    def get_compiled_patterns(self) -> Dict[str, List[re.Pattern]]:
+    def get_compiled_patterns(self) -> dict[str, list[re.Pattern]]:
         """Get compiled regex patterns for efficient matching."""
         if self._compiled_patterns is not None:
             return self._compiled_patterns
@@ -72,18 +73,18 @@ class PHIDetectionConfigLoader:
         logger.info(f"Compiled {len(self._compiled_patterns)} PHI pattern types")
         return self._compiled_patterns
 
-    def get_exemption_contexts(self) -> List[str]:
+    def get_exemption_contexts(self) -> list[str]:
         """Get all context exemption patterns."""
         config = self.load_config()
         exemptions = config.get("exemptions", {})
 
         all_exemptions = []
-        for category, contexts in exemptions.items():
+        for _category, contexts in exemptions.items():
             all_exemptions.extend(contexts)
 
         return all_exemptions
 
-    def get_synthetic_patterns(self) -> List[re.Pattern]:
+    def get_synthetic_patterns(self) -> list[re.Pattern]:
         """Get compiled synthetic data patterns."""
         config = self.load_config()
         patterns = config.get("synthetic_patterns", [])
@@ -97,7 +98,7 @@ class PHIDetectionConfigLoader:
 
         return {name.lower() for name in field_names}
 
-    def get_risk_settings(self) -> Dict[str, Any]:
+    def get_risk_settings(self) -> dict[str, Any]:
         """Get risk calculation settings."""
         config = self.load_config()
         return config.get(
@@ -109,7 +110,7 @@ class PHIDetectionConfigLoader:
             },
         )
 
-    def get_risk_mappings(self) -> Dict[str, List[str]]:
+    def get_risk_mappings(self) -> dict[str, list[str]]:
         """Get risk level mappings for PHI types."""
         config = self.load_config()
         return config.get(
@@ -121,7 +122,7 @@ class PHIDetectionConfigLoader:
             },
         )
 
-    def get_recommendations(self) -> Dict[str, List[str]]:
+    def get_recommendations(self) -> dict[str, list[str]]:
         """Get customizable recommendations by risk level."""
         config = self.load_config()
         return config.get(
@@ -144,7 +145,7 @@ class PHIDetectionConfigLoader:
 
         return any(exemption in context_lower for exemption in exemption_contexts)
 
-    def get_medical_literature_patterns(self) -> Dict[str, List[str]]:
+    def get_medical_literature_patterns(self) -> dict[str, list[str]]:
         """Get medical literature detection patterns."""
         config = self.load_config()
         return config.get(
@@ -156,10 +157,10 @@ class PHIDetectionConfigLoader:
             },
         )
 
-    def get_compiled_medical_literature_patterns(self) -> Dict[str, List[re.Pattern]]:
+    def get_compiled_medical_literature_patterns(self) -> dict[str, list[re.Pattern]]:
         """Get compiled medical literature patterns for efficient matching."""
         patterns = self.get_medical_literature_patterns()
-        compiled: Dict[str, List[re.Pattern]] = {}
+        compiled: dict[str, list[re.Pattern]] = {}
 
         for category, pattern_list in patterns.items():
             compiled[category] = []
@@ -177,7 +178,7 @@ class PHIDetectionConfigLoader:
         self._compiled_patterns = None
         logger.info("PHI detection config reloaded")
 
-    def _get_default_config(self) -> Dict[str, Any]:
+    def _get_default_config(self) -> dict[str, Any]:
         """Get default configuration if file loading fails."""
         return {
             "risk_settings": {
@@ -193,7 +194,7 @@ class PHIDetectionConfigLoader:
                     "academic_paper",
                     "journal_article",
                     "literature_search",
-                ]
+                ],
             },
             "patterns": {
                 "ssn": ["\\b\\d{3}-\\d{2}-\\d{4}\\b"],

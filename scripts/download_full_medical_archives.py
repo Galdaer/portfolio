@@ -40,7 +40,7 @@ class FullMedicalDownloader:
                 "Accept-Encoding": "gzip, deflate",
                 "Connection": "keep-alive",
                 "Upgrade-Insecure-Requests": "1",
-            }
+            },
         )
 
     def _setup_logging(self) -> logging.Logger:
@@ -252,7 +252,7 @@ class FullMedicalDownloader:
         # WARNING: download.fda.gov domain is NXDOMAIN (domain does not exist)
         # This base URL is defunct - DISABLING this download section
         self.logger.warning(
-            "FDA drug labels download DISABLED - download.fda.gov domain is defunct"
+            "FDA drug labels download DISABLED - download.fda.gov domain is defunct",
         )
         self.logger.info("Alternative: Research FDA main site for drug label data sources")
 
@@ -294,13 +294,13 @@ class FullMedicalDownloader:
 
             try:
                 response = self.session.get(
-                    url, headers=headers, stream=True, allow_redirects=True, timeout=30
+                    url, headers=headers, stream=True, allow_redirects=True, timeout=30,
                 )
 
                 # Check for FDA apology/abuse detection pages
                 if "apology" in response.url or "abuse-detection" in response.url:
                     self.logger.error(
-                        f"FDA blocked request for {url} - redirected to: {response.url}"
+                        f"FDA blocked request for {url} - redirected to: {response.url}",
                     )
                     return False
 
@@ -314,13 +314,13 @@ class FullMedicalDownloader:
                     resume_pos = 0
                     headers = {}
                     response = self.session.get(
-                        url, headers=headers, stream=True, allow_redirects=True, timeout=30
+                        url, headers=headers, stream=True, allow_redirects=True, timeout=30,
                     )
 
                     # Check for FDA apology/abuse detection pages
                     if "apology" in response.url or "abuse-detection" in response.url:
-                        self.logger.error(
-                            f"FDA blocked request for {url} - redirected to: {response.url}"
+                        self.logger.exception(
+                            f"FDA blocked request for {url} - redirected to: {response.url}",
                         )
                         return False
 
@@ -488,10 +488,10 @@ def main():
         help="Directory to store complete medical data",
     )
     parser.add_argument(
-        "--estimate-only", action="store_true", help="Only show size estimates, don't download"
+        "--estimate-only", action="store_true", help="Only show size estimates, don't download",
     )
     parser.add_argument(
-        "--pubmed-only", action="store_true", help="Download only complete PubMed data"
+        "--pubmed-only", action="store_true", help="Download only complete PubMed data",
     )
     parser.add_argument(
         "--clinicaltrials-only",

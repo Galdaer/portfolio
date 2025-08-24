@@ -4,9 +4,9 @@ Simple MCP test script to isolate the communication issue
 """
 
 import asyncio
-import subprocess
 import json
 import logging
+import subprocess
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
@@ -82,11 +82,11 @@ async def test_mcp_direct():
         logger.info("Waiting for response...")
         try:
             response = await asyncio.wait_for(
-                asyncio.create_task(asyncio.to_thread(process.stdout.readline)), timeout=10
+                asyncio.create_task(asyncio.to_thread(process.stdout.readline)), timeout=10,
             )
             logger.info(f"Response: {response.strip()}")
-        except asyncio.TimeoutError:
-            logger.error("Timeout waiting for response")
+        except TimeoutError:
+            logger.exception("Timeout waiting for response")
 
         # Clean up
         process.terminate()
@@ -96,7 +96,7 @@ async def test_mcp_direct():
             process.kill()
 
     except Exception as e:
-        logger.error(f"Test failed: {e}")
+        logger.exception(f"Test failed: {e}")
 
 
 if __name__ == "__main__":

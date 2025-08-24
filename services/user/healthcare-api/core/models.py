@@ -42,7 +42,7 @@ class ModelRegistry:
                     "status": "available",
                     "size": model.get("size", 0),
                     "modified_at": model.get("modified_at", ""),
-                }
+                },
             )
 
         logger.info(f"Retrieved {len(available_models)} models from Ollama")

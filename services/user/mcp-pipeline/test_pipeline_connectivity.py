@@ -7,8 +7,8 @@ to identify where the "All connection attempts failed" error is coming from.
 """
 
 import asyncio
+
 import aiohttp
-import json
 
 
 async def test_connectivity():

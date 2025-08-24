@@ -30,7 +30,7 @@ async def main():
         print("healthcare_server entry missing in config")
         return 1
     params = StdioServerParameters(
-        command=hc["command"], args=hc.get("args", []), env=hc.get("env", {})
+        command=hc["command"], args=hc.get("args", []), env=hc.get("env", {}),
     )
     async with stdio_client(params) as (read_stream, write_stream):  # type: ignore
         session = ClientSession(read_stream, write_stream)

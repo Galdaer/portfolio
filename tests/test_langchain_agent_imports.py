@@ -13,8 +13,9 @@ def _add_service_paths() -> None:
 
 def test_healthcare_agent_import_only():
     _add_service_paths()
-    from core.langchain.agents import HealthcareLangChainAgent  # type: ignore
     from local_llm.ollama_client import OllamaConfig, build_chat_model  # type: ignore
+
+    from core.langchain.agents import HealthcareLangChainAgent  # type: ignore
 
     class DummyMCP:
         async def call_tool(self, name: str, arguments: dict):  # pragma: no cover
@@ -22,7 +23,7 @@ def test_healthcare_agent_import_only():
 
     # Build a chat model instance without forcing any network calls
     model = build_chat_model(
-        OllamaConfig(model="llama3.1:8b", base_url="http://172.20.0.10:11434", temperature=0.0)
+        OllamaConfig(model="llama3.1:8b", base_url="http://172.20.0.10:11434", temperature=0.0),
     )
     agent = HealthcareLangChainAgent(DummyMCP(), model)
     # executor and tools should be present

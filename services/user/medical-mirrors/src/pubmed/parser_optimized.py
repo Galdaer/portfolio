@@ -181,11 +181,11 @@ class OptimizedPubMedParser:
             max_workers = max(1, mp.cpu_count() // 2)
         self.max_workers = max_workers
         logger.info(
-            f"Initialized PubMed parser with {self.max_workers} workers (CPU cores: {mp.cpu_count()})"
+            f"Initialized PubMed parser with {self.max_workers} workers (CPU cores: {mp.cpu_count()})",
         )
 
     async def parse_xml_files_parallel(
-        self, xml_files: list[str]
+        self, xml_files: list[str],
     ) -> dict[str, list[dict[str, Any]]]:
         """Parse multiple XML files in parallel using all CPU cores"""
         logger.info(f"Parsing {len(xml_files)} XML files using {self.max_workers} cores")
@@ -221,7 +221,7 @@ class OptimizedPubMedParser:
             total_articles += len(articles)
 
         logger.info(
-            f"Parallel parsing completed: {total_articles} total articles from {len(parsed_files)} files"
+            f"Parallel parsing completed: {total_articles} total articles from {len(parsed_files)} files",
         )
         return parsed_files
 

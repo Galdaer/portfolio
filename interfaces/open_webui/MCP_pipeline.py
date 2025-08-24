@@ -67,7 +67,7 @@ class Pipeline:
                 await session.close()
                 self.logger.info(f"Closed session for {server_name}")
             except Exception as e:
-                self.logger.error(f"Error closing session {server_name}: {e}")
+                self.logger.exception(f"Error closing session {server_name}: {e}")
 
     async def load_mcp_config(self):
         """Load MCP server configurations"""
@@ -77,10 +77,10 @@ class Pipeline:
             self.servers = config.get("mcpServers", {})
             self.logger.info(f"Loaded configuration for {len(self.servers)} MCP servers")
         except FileNotFoundError:
-            self.logger.error(f"MCP config file not found: {self.valves.MCP_CONFIG_PATH}")
+            self.logger.exception(f"MCP config file not found: {self.valves.MCP_CONFIG_PATH}")
             self.servers = {}
         except json.JSONDecodeError as e:
-            self.logger.error(f"Invalid JSON in MCP config: {e}")
+            self.logger.exception(f"Invalid JSON in MCP config: {e}")
             self.servers = {}
 
     async def initialize_servers(self):
@@ -90,7 +90,7 @@ class Pipeline:
                 await self.connect_to_server(server_name, server_config)
                 self.logger.info(f"Connected to MCP server: {server_name}")
             except Exception as e:
-                self.logger.error(f"Failed to connect to {server_name}: {e}")
+                self.logger.exception(f"Failed to connect to {server_name}: {e}")
 
     async def connect_to_server(self, server_name: str, server_config: dict):
         """Connect to a specific MCP server"""
@@ -99,7 +99,8 @@ class Pipeline:
         env = server_config.get("env", {})
 
         if not command:
-            raise ValueError(f"No command specified for server {server_name}")
+            msg = f"No command specified for server {server_name}"
+            raise ValueError(msg)
 
         # Create server parameters
         server_params = StdioServerParameters(command=command, args=args, env=env)
@@ -156,7 +157,7 @@ class Pipeline:
             return await self.process_simple_query(session, user_message)
 
         except Exception as e:
-            self.logger.error(f"Error processing request: {e}")
+            self.logger.exception(f"Error processing request: {e}")
             return f"Error processing request: {str(e)}"
 
     def select_server(self, model_id: str) -> str:
@@ -224,7 +225,7 @@ class Pipeline:
             return self.format_tool_response(tool_result, tool_name)
 
         except Exception as e:
-            self.logger.error(f"Tool processing error: {e}")
+            self.logger.exception(f"Tool processing error: {e}")
             return f"Error using tools: {str(e)}"
 
     async def process_simple_query(self, session: ClientSession, user_message: str) -> str:
@@ -283,7 +284,7 @@ class Pipeline:
             return f"Tool {tool_name} completed successfully but returned no content"
 
         except Exception as e:
-            self.logger.error(f"Error formatting response: {e}")
+            self.logger.exception(f"Error formatting response: {e}")
             return f"Tool {tool_name} completed but response formatting failed: {str(e)}"
 
 
