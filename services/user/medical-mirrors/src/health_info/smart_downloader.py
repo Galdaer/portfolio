@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Any
 import time
 
 from .downloader import HealthInfoDownloader
-from .parser import HealthInfoParser
+# No parser import - this is a DOWNLOADER, not a parser
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ class SmartHealthInfoDownloader:
         # Initialize components
         self.state = HealthInfoDownloadState()
         self.downloader = HealthInfoDownloader(self.config)
-        self.parser = HealthInfoParser()
+        # No parser - this is a DOWNLOADER, saves raw API responses
         
         # Smart retry configuration
         self.retry_interval = 600  # 10 minutes between retry checks for APIs

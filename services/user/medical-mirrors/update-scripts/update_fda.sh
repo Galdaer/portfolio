@@ -23,7 +23,7 @@ import logging
 import json
 from pathlib import Path
 sys.path.append('$PYTHON_PATH')
-from src.fda.smart_downloader import SmartFDADownloader
+from fda.smart_downloader import SmartFDADownloader
 from src.config import Config
 from src.database import get_db_session
 from sqlalchemy import text
@@ -52,7 +52,7 @@ async def update_fda():
             logger.info('Starting smart FDA download with automatic retry handling')
             
             # Download complete FDA dataset
-            summary = await downloader.download_all_fda_data(force_fresh=False, complete_dataset=True)
+            summary = await downloader.download_all(force_fresh=False, complete_dataset=True)
             
             logger.info(f'Smart download completed: {summary[\\\"total_drugs\\\"]} drugs from {summary[\\\"total_datasets\\\"]} datasets')
             logger.info(f'Success rate: {summary[\\\"success_rate\\\"]:.1f}%')

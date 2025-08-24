@@ -13,7 +13,7 @@ import time
 from .download_state_manager import DownloadStateManager, DownloadStatus
 from .cms_downloader import CMSHCPCSDownloader
 from .downloader import BillingCodesDownloader
-from .parser import BillingCodesParser
+# No parser import - this is a DOWNLOADER, not a parser
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class SmartBillingCodesDownloader:
         
         # Initialize components
         self.state_manager = DownloadStateManager()
-        self.parser = BillingCodesParser()
+        # No parser - this is a DOWNLOADER, not a parser
         
         # Download sources
         self.cms_downloader: Optional[CMSHCPCSDownloader] = None
@@ -40,9 +40,9 @@ class SmartBillingCodesDownloader:
         self.retry_interval = 300  # 5 minutes between retry checks
         self.max_daily_retries = 24  # Max retries per source per day
         
-        # Results tracking
-        self.all_codes: Dict[str, List[Dict[str, Any]]] = {}
-        self.total_downloaded = 0
+        # Results tracking - track downloaded files, NOT parsed codes
+        self.downloaded_files: Dict[str, str] = {}  # source -> file_path
+        self.total_files_downloaded = 0
         
     async def __aenter__(self):
         """Async context manager entry"""
@@ -213,8 +213,9 @@ class SmartBillingCodesDownloader:
                 logger.error(f"Unexpected error downloading {source}: {e}")
                 results["failed"].append(source)
         
-        # Calculate total codes
-        results["total_codes"] = sum(len(codes) for codes in self.all_codes.values())
+        # Calculate total files downloaded
+        results["total_files"] = len(self.downloaded_files)
+        self.total_files_downloaded = results["total_files"]
         
         return results
     
@@ -265,15 +266,20 @@ class SmartBillingCodesDownloader:
             if not content:
                 return False
             
-            # Parse content
-            codes = self.cms_downloader._parse_hcpcs_zip(content, source)
-            if codes:
-                self.all_codes[source] = codes
-                self.state_manager.mark_completed(source, len(codes))
-                logger.info(f"Downloaded {len(codes)} codes from {source}")
+            # Save raw file - NO PARSING
+            output_file = self.output_dir / f"{source}.zip"
+            try:
+                with open(output_file, 'wb') as f:
+                    f.write(content)
+                
+                self.downloaded_files[source] = str(output_file)
+                self.state_manager.mark_completed(source, output_file.stat().st_size)
+                logger.info(f"Downloaded file {output_file} ({len(content)} bytes) from {source}")
                 return True
-            else:
-                self.state_manager.mark_failed(source, "No codes extracted")
+                
+            except Exception as e:
+                logger.error(f"Failed to save file {output_file}: {e}")
+                self.state_manager.mark_failed(source, f"Failed to save file: {e}")
                 return False
                 
         except Exception as e:
@@ -282,33 +288,69 @@ class SmartBillingCodesDownloader:
             return False
     
     async def _download_nlm_source(self, source: str) -> bool:
-        """Download from NLM API source"""
+        """Download raw JSON from NLM API source - NO PARSING"""
         try:
             if source == "nlm_hcpcs_api":
-                # Download HCPCS codes via NLM API
-                codes = await self.nlm_downloader._download_hcpcs_codes()
-                if codes:
-                    self.all_codes[source] = codes
-                    self.state_manager.mark_completed(source, len(codes))
-                    logger.info(f"Downloaded {len(codes)} HCPCS codes from NLM API")
-                    return True
+                # Download raw JSON from NLM HCPCS API
+                json_data = await self.nlm_downloader._download_hcpcs_raw_json()
+                if json_data:
+                    # Save raw JSON file - NO PARSING
+                    output_file = self.output_dir / f"{source}.json"
+                    try:
+                        with open(output_file, 'w') as f:
+                            import json
+                            json.dump(json_data, f, indent=2)
+                        
+                        self.downloaded_files[source] = str(output_file)
+                        self.state_manager.mark_completed(source, output_file.stat().st_size)
+                        logger.info(f"Downloaded file {output_file} ({output_file.stat().st_size} bytes) from NLM HCPCS API")
+                        return True
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to save JSON file {output_file}: {e}")
+                        self.state_manager.mark_failed(source, f"Failed to save file: {e}")
+                        return False
                 else:
-                    self.state_manager.mark_failed(source, "No HCPCS codes retrieved")
+                    self.state_manager.mark_failed(source, "No JSON data retrieved from NLM HCPCS")
                     return False
                     
             elif source == "nlm_cpt_api":
-                # Download available CPT codes via NLM API
-                codes = await self.nlm_downloader._download_available_cpt_codes()
-                if codes:
-                    self.all_codes[source] = codes
-                    self.state_manager.mark_completed(source, len(codes))
-                    logger.info(f"Downloaded {len(codes)} CPT codes from NLM API")
-                    return True
+                # Download raw JSON from NLM CPT API
+                json_data = await self.nlm_downloader._download_cpt_raw_json()
+                if json_data:
+                    # Save raw JSON file - NO PARSING
+                    output_file = self.output_dir / f"{source}.json"
+                    try:
+                        with open(output_file, 'w') as f:
+                            import json
+                            json.dump(json_data, f, indent=2)
+                        
+                        self.downloaded_files[source] = str(output_file)
+                        self.state_manager.mark_completed(source, output_file.stat().st_size)
+                        logger.info(f"Downloaded file {output_file} ({output_file.stat().st_size} bytes) from NLM CPT API")
+                        return True
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to save JSON file {output_file}: {e}")
+                        self.state_manager.mark_failed(source, f"Failed to save file: {e}")
+                        return False
                 else:
-                    # CPT codes often not available due to copyright - not a failure
-                    self.state_manager.mark_completed(source, 0)
-                    logger.info("No CPT codes available from NLM API (expected due to copyright)")
-                    return True
+                    # CPT codes often not available due to copyright - create empty file
+                    output_file = self.output_dir / f"{source}.json"
+                    try:
+                        with open(output_file, 'w') as f:
+                            import json
+                            json.dump({"note": "CPT codes not available due to copyright restrictions"}, f)
+                        
+                        self.downloaded_files[source] = str(output_file)
+                        self.state_manager.mark_completed(source, output_file.stat().st_size)
+                        logger.info("Created placeholder file for CPT codes (expected due to copyright)")
+                        return True
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to save placeholder file {output_file}: {e}")
+                        self.state_manager.mark_failed(source, f"Failed to save file: {e}")
+                        return False
                     
         except Exception as e:
             logger.error(f"Error downloading NLM source {source}: {e}")
@@ -321,20 +363,32 @@ class SmartBillingCodesDownloader:
             return False
     
     async def _download_fallback_source(self) -> bool:
-        """Load fallback billing codes"""
+        """Save fallback billing codes data as JSON file - NO PARSING"""
         try:
-            fallback_codes = self.nlm_downloader._get_fallback_billing_codes()
-            if fallback_codes:
-                self.all_codes["fallback_codes"] = fallback_codes
-                self.state_manager.mark_completed("fallback_codes", len(fallback_codes))
-                logger.info(f"Loaded {len(fallback_codes)} fallback codes")
-                return True
+            fallback_data = self.nlm_downloader._get_fallback_billing_data()
+            if fallback_data:
+                # Save fallback data as JSON file - NO PARSING
+                output_file = self.output_dir / "fallback_codes.json"
+                try:
+                    with open(output_file, 'w') as f:
+                        import json
+                        json.dump(fallback_data, f, indent=2)
+                    
+                    self.downloaded_files["fallback_codes"] = str(output_file)
+                    self.state_manager.mark_completed("fallback_codes", output_file.stat().st_size)
+                    logger.info(f"Saved fallback billing codes file {output_file} ({output_file.stat().st_size} bytes)")
+                    return True
+                    
+                except Exception as e:
+                    logger.error(f"Failed to save fallback file {output_file}: {e}")
+                    self.state_manager.mark_failed("fallback_codes", f"Failed to save file: {e}")
+                    return False
             else:
-                self.state_manager.mark_failed("fallback_codes", "No fallback codes available")
+                self.state_manager.mark_failed("fallback_codes", "No fallback billing codes data available")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error loading fallback codes: {e}")
+            logger.error(f"Error creating fallback billing codes file: {e}")
             self.state_manager.mark_failed("fallback_codes", str(e))
             return False
     

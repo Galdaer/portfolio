@@ -13,7 +13,7 @@ import time
 from .download_state_manager import ICD10DownloadStateManager, DownloadStatus
 from .cms_icd10_downloader import CMSICD10Downloader
 from .downloader import ICD10Downloader
-from .parser import ICD10Parser
+# No parser import - this is a DOWNLOADER, not a parser
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,6 @@ class SmartICD10Downloader:
         
         # Initialize components
         self.state_manager = ICD10DownloadStateManager()
-        self.parser = ICD10Parser()
         
         # Download sources
         self.cms_downloader: Optional[CMSICD10Downloader] = None
@@ -40,9 +39,9 @@ class SmartICD10Downloader:
         self.retry_interval = 600  # 10 minutes between retry checks
         self.max_daily_retries = 12  # Max retries per source per day
         
-        # Results tracking
-        self.all_codes: Dict[str, List[Dict[str, Any]]] = {}
-        self.total_downloaded = 0
+        # Results tracking - track downloaded files, NOT parsed codes
+        self.downloaded_files: Dict[str, str] = {}  # source -> file_path
+        self.total_files_downloaded = 0
         
     async def __aenter__(self):
         """Async context manager entry"""
@@ -90,13 +89,13 @@ class SmartICD10Downloader:
         # Execute downloads
         results = await self._execute_smart_downloads(download_plan)
         
-        # Save consolidated results
-        await self._save_consolidated_results()
+        # Save download summary
+        await self._save_download_summary()
         
         # Generate final summary
         final_summary = self._generate_final_summary(results)
         
-        logger.info(f"Smart ICD-10 download completed: {final_summary['total_codes']} codes from "
+        logger.info(f"Smart ICD-10 download completed: {final_summary['total_files']} files from "
                    f"{final_summary['successful_sources']} sources")
         
         return final_summary
@@ -223,8 +222,9 @@ class SmartICD10Downloader:
                 logger.error(f"Unexpected error downloading ICD-10 {source}: {e}")
                 results["failed"].append(source)
         
-        # Calculate total codes
-        results["total_codes"] = sum(len(codes) for codes in self.all_codes.values())
+        # Calculate total files downloaded
+        results["total_files"] = len(self.downloaded_files)
+        self.total_files_downloaded = results["total_files"]
         
         return results
     
@@ -250,7 +250,7 @@ class SmartICD10Downloader:
                 return False
     
     async def _download_cms_who_source(self, source: str) -> bool:
-        """Download from CDC, CMS, or WHO source"""
+        """Download raw file from CDC, CMS, or WHO source - NO PARSING"""
         try:
             # Map source names to CDC/CMS URLs
             source_mapping = {
@@ -279,20 +279,25 @@ class SmartICD10Downloader:
                 logger.error(f"No URL found for ICD-10 source: {cms_source}")
                 return False
             
-            # Download content
+            # Download raw content and save to file
             content = await self.cms_downloader._download_with_retry(url, source)
             if not content:
                 return False
             
-            # Parse content
-            codes = self.cms_downloader._parse_icd10_zip(content, source)
-            if codes:
-                self.all_codes[source] = codes
-                self.state_manager.mark_completed(source, len(codes))
-                logger.info(f"Downloaded {len(codes)} ICD-10 codes from {source}")
+            # Save raw file - NO PARSING
+            output_file = self.output_dir / f"{source}.zip"
+            try:
+                with open(output_file, 'wb') as f:
+                    f.write(content)
+                
+                self.downloaded_files[source] = str(output_file)
+                self.state_manager.mark_completed(source, output_file.stat().st_size)
+                logger.info(f"Downloaded ICD-10 file {output_file} ({len(content)} bytes) from {source}")
                 return True
-            else:
-                self.state_manager.mark_failed(source, "No ICD-10 codes extracted")
+                
+            except Exception as e:
+                logger.error(f"Failed to save ICD-10 file {output_file}: {e}")
+                self.state_manager.mark_failed(source, f"Failed to save file: {e}")
                 return False
                 
         except Exception as e:
@@ -301,18 +306,30 @@ class SmartICD10Downloader:
             return False
     
     async def _download_nlm_source(self, source: str) -> bool:
-        """Download from NLM API source"""
+        """Download raw JSON from NLM API source - NO PARSING"""
         try:
             if source == "nlm_icd10_api":
-                # Download ICD-10 codes via NLM API
-                codes = await self.nlm_downloader.download_all_codes()
-                if codes:
-                    self.all_codes[source] = codes
-                    self.state_manager.mark_completed(source, len(codes))
-                    logger.info(f"Downloaded {len(codes)} ICD-10 codes from NLM API")
-                    return True
+                # Download raw JSON response from NLM API
+                json_data = await self.nlm_downloader.download_raw_json()
+                if json_data:
+                    # Save raw JSON file - NO PARSING
+                    output_file = self.output_dir / f"{source}.json"
+                    try:
+                        with open(output_file, 'w') as f:
+                            import json
+                            json.dump(json_data, f, indent=2)
+                        
+                        self.downloaded_files[source] = str(output_file)
+                        self.state_manager.mark_completed(source, output_file.stat().st_size)
+                        logger.info(f"Downloaded ICD-10 file {output_file} ({output_file.stat().st_size} bytes) from NLM API")
+                        return True
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to save NLM JSON file {output_file}: {e}")
+                        self.state_manager.mark_failed(source, f"Failed to save file: {e}")
+                        return False
                 else:
-                    self.state_manager.mark_failed(source, "No ICD-10 codes retrieved from NLM")
+                    self.state_manager.mark_failed(source, "No JSON data retrieved from NLM")
                     return False
                     
         except Exception as e:
@@ -326,93 +343,99 @@ class SmartICD10Downloader:
             return False
     
     async def _download_fallback_source(self) -> bool:
-        """Load fallback ICD-10 codes"""
+        """Save fallback ICD-10 data as JSON file - NO PARSING"""
         try:
-            fallback_codes = self.nlm_downloader._get_fallback_icd10_codes()
-            if fallback_codes:
-                self.all_codes["fallback_codes"] = fallback_codes
-                self.state_manager.mark_completed("fallback_codes", len(fallback_codes))
-                logger.info(f"Loaded {len(fallback_codes)} fallback ICD-10 codes")
-                return True
+            fallback_data = self.nlm_downloader._get_fallback_icd10_data()
+            if fallback_data:
+                # Save fallback data as JSON file - NO PARSING
+                output_file = self.output_dir / "fallback_codes.json"
+                try:
+                    with open(output_file, 'w') as f:
+                        import json
+                        json.dump(fallback_data, f, indent=2)
+                    
+                    self.downloaded_files["fallback_codes"] = str(output_file)
+                    self.state_manager.mark_completed("fallback_codes", output_file.stat().st_size)
+                    logger.info(f"Saved fallback ICD-10 file {output_file} ({output_file.stat().st_size} bytes)")
+                    return True
+                    
+                except Exception as e:
+                    logger.error(f"Failed to save fallback file {output_file}: {e}")
+                    self.state_manager.mark_failed("fallback_codes", f"Failed to save file: {e}")
+                    return False
             else:
-                self.state_manager.mark_failed("fallback_codes", "No fallback ICD-10 codes available")
+                self.state_manager.mark_failed("fallback_codes", "No fallback ICD-10 data available")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error loading fallback ICD-10 codes: {e}")
+            logger.error(f"Error creating fallback ICD-10 file: {e}")
             self.state_manager.mark_failed("fallback_codes", str(e))
             return False
     
-    async def _save_consolidated_results(self):
-        """Save consolidated results from all ICD-10 sources"""
-        if not self.all_codes:
-            logger.warning("No ICD-10 codes to save")
+    async def _save_download_summary(self):
+        """Save summary of downloaded files - NO PARSING"""
+        if not self.downloaded_files:
+            logger.warning("No ICD-10 files downloaded")
             return
         
-        # Combine all codes and deduplicate
-        all_codes_list = []
-        seen_codes: Set[str] = set()
+        # Save summary of downloaded files
+        download_summary = {
+            "download_timestamp": datetime.now().isoformat(),
+            "total_files": len(self.downloaded_files),
+            "downloaded_files": dict(self.downloaded_files),  # source -> file_path mapping
+            "file_details": {}
+        }
         
-        for source, codes in self.all_codes.items():
-            logger.info(f"Processing {len(codes)} ICD-10 codes from {source}")
-            
-            for code in codes:
-                code_key = code.get("code", "")
-                if code_key and code_key not in seen_codes:
-                    # Ensure consistent source attribution
-                    code["source"] = source
-                    all_codes_list.append(code)
-                    seen_codes.add(code_key)
-        
-        logger.info(f"Consolidated {len(all_codes_list)} unique ICD-10 codes from {len(self.all_codes)} sources")
-        
-        # Parse and validate all codes
-        validated_codes = self.parser.parse_and_validate(all_codes_list)
-        
-        # Save main consolidated file
-        consolidated_file = self.output_dir / "all_icd10_codes_complete.json"
-        try:
-            with open(consolidated_file, 'w') as f:
-                json.dump(validated_codes, f, indent=2, default=str)
-            logger.info(f"Saved {len(validated_codes)} validated ICD-10 codes to {consolidated_file}")
-        except Exception as e:
-            logger.error(f"Error saving consolidated ICD-10 results: {e}")
-        
-        # Save individual source files
-        for source, codes in self.all_codes.items():
-            source_file = self.output_dir / f"{source}_codes.json"
+        # Add file size information
+        for source, file_path in self.downloaded_files.items():
             try:
-                with open(source_file, 'w') as f:
-                    json.dump(codes, f, indent=2, default=str)
+                from pathlib import Path
+                file_obj = Path(file_path)
+                if file_obj.exists():
+                    download_summary["file_details"][source] = {
+                        "file_path": file_path,
+                        "file_size_bytes": file_obj.stat().st_size,
+                        "file_name": file_obj.name
+                    }
             except Exception as e:
-                logger.error(f"Error saving ICD-10 {source} results: {e}")
+                logger.warning(f"Could not get file info for {source}: {e}")
         
-        self.total_downloaded = len(validated_codes)
+        # Save summary file
+        summary_file = self.output_dir / "download_summary.json"
+        try:
+            with open(summary_file, 'w') as f:
+                import json
+                json.dump(download_summary, f, indent=2)
+            logger.info(f"Saved download summary to {summary_file}")
+        except Exception as e:
+            logger.error(f"Error saving ICD-10 download summary: {e}")
     
-    async def _load_existing_results(self):
-        """Load existing results from completed downloads"""
+    async def _load_existing_files(self):
+        """Load existing downloaded files from previous runs"""
         for source in ["cdc_icd10_cm_2025_april", "cdc_icd10_cm_2025", "cdc_icd10_cm_tabular_2025_april",
                        "cdc_icd10_cm_tabular_2025", "cdc_icd10_cm_2024", "cdc_icd10_cm_tabular_2024",
                        "cms_icd10_cm_2026", "cms_icd10_cm_2025", "cms_icd10_cm_2024", 
                        "nlm_icd10_api", "fallback_codes"]:
-            source_file = self.output_dir / f"{source}_codes.json"
-            if source_file.exists():
-                try:
-                    with open(source_file, 'r') as f:
-                        codes = json.load(f)
-                        self.all_codes[source] = codes
-                        logger.debug(f"Loaded {len(codes)} existing ICD-10 codes from {source}")
-                except Exception as e:
-                    logger.error(f"Error loading existing ICD-10 results from {source}: {e}")
+            
+            # Check for ZIP files
+            zip_file = self.output_dir / f"{source}.zip"
+            json_file = self.output_dir / f"{source}.json"
+            
+            if zip_file.exists():
+                self.downloaded_files[source] = str(zip_file)
+                logger.debug(f"Found existing ICD-10 file: {zip_file}")
+            elif json_file.exists():
+                self.downloaded_files[source] = str(json_file)
+                logger.debug(f"Found existing ICD-10 file: {json_file}")
     
     def _generate_final_summary(self, results: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate final summary of ICD-10 download results"""
+        """Generate final summary of ICD-10 file download results"""
         progress = self.state_manager.get_progress_summary()
         
         summary = {
             "timestamp": datetime.now().isoformat(),
-            "data_type": "icd10_codes",
-            "total_codes": self.total_downloaded,
+            "data_type": "icd10_files",
+            "total_files": self.total_files_downloaded,
             "sources_attempted": results["sources_attempted"],
             "successful_sources": len(results["successful"]),
             "failed_sources": len(results["failed"]),
@@ -420,23 +443,18 @@ class SmartICD10Downloader:
             "completed_sources": progress["completed"],
             "total_sources": progress["total_sources"],
             "success_rate": (len(results["successful"]) / max(results["sources_attempted"], 1)) * 100,
-            "parser_stats": self.parser.get_parsing_stats(),
             "sources": {
                 "successful": results["successful"],
                 "failed": results["failed"],
                 "rate_limited": results["rate_limited"]
             },
-            "by_source_breakdown": {},
+            "downloaded_files": dict(self.downloaded_files),
             "expected_vs_actual": {
-                "expected_total": "70,000+ ICD-10-CM codes",
-                "actual_total": self.total_downloaded,
-                "improvement_over_fallback": max(0, self.total_downloaded - 10)  # Current fallback is 10
+                "expected_files": "Raw ICD-10 ZIP/JSON files for parsing by medical-mirrors",
+                "actual_files": self.total_files_downloaded,
+                "note": "Files contain 70,000+ ICD-10-CM codes to be parsed by medical-mirrors service"
             }
         }
-        
-        # Add breakdown by source
-        for source, codes in self.all_codes.items():
-            summary["by_source_breakdown"][source] = len(codes)
         
         return summary
     
@@ -449,6 +467,10 @@ class SmartICD10Downloader:
         
         for source in sources:
             self.state_manager.reset_source(source)
+        
+        # Clear downloaded files tracking
+        self.downloaded_files.clear()
+        self.total_files_downloaded = 0
         
         logger.info("Reset all ICD-10 download states")
     
@@ -500,7 +522,7 @@ class SmartICD10Downloader:
             "data_type": "icd10_codes",
             "progress": progress,
             "ready_for_retry": ready_sources,
-            "total_codes_downloaded": self.total_downloaded,
+            "total_files_downloaded": self.total_files_downloaded,
             "completion_estimate": completion_estimate,
             "next_retry_times": {},
             "source_details": {}

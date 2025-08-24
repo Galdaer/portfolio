@@ -19,7 +19,7 @@ from sqlalchemy import func, text, String
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
-from database import DrugInformation, DrugInformationDetail, UpdateLog
+from database import DrugInformation, UpdateLog
 
 from .downloader import DrugDownloader
 from .parser import DrugParser
@@ -62,22 +62,24 @@ class DrugAPI:
         max_results: int = 10,
     ) -> list[dict[str, Any]]:
         """
-        Search drug information in consolidated database (preferred) or detailed database (fallback)
+        Search drug information in consolidated database
         Matches the interface of Healthcare MCP get-drug-info tool
         """
         logger.info(
             f"Searching drug information for generic_name: {generic_name}, ndc: {ndc}, max_results: {max_results}",
         )
 
-        # Try consolidated data first (much more efficient and cleaner)
+        # Use consolidated data for all searches
         if generic_name:
-            consolidated_results = await self.search_consolidated_drugs(generic_name, max_results)
-            if consolidated_results:
-                logger.info(f"Found {len(consolidated_results)} consolidated drugs")
-                return consolidated_results
+            results = await self.search_consolidated_drugs(generic_name, max_results)
+            logger.info(f"Found {len(results)} consolidated drugs")
+            return results
         
-        # Fallback to detailed search for NDC or when consolidated data not available
-        return await self.search_detailed_drugs(generic_name, ndc, max_results)
+        # For NDC-only searches, we can search within the formulations JSON
+        if ndc:
+            return await self.search_by_ndc(ndc, max_results)
+        
+        return []
 
     async def search_consolidated_drugs(
         self,
@@ -161,99 +163,82 @@ class DrugAPI:
         finally:
             db.close()
 
-    async def search_detailed_drugs(
+    async def search_by_ndc(
         self,
-        generic_name: str | None = None,
-        ndc: str | None = None,
+        ndc: str,
         max_results: int = 10,
     ) -> list[dict[str, Any]]:
         """
-        Search in the detailed drug_information table (fallback method)
-        Returns the original detailed results with potential duplicates
+        Search for drugs by NDC within consolidated formulations data
         """
-        logger.info(f"Using detailed search fallback for generic_name: {generic_name}, ndc: {ndc}")
+        logger.info(f"Searching consolidated drugs by NDC: {ndc}")
 
         db = self.session_factory()
         try:
-            query_parts = []
-            params: dict[str, str] = {
-                "limit": str(max_results),
-            }
-
-            if generic_name:
-                query_parts.append("search_vector @@ plainto_tsquery(:generic_name)")
-                params["generic_name"] = generic_name
-                params["search_term"] = generic_name
-
-            if ndc:
-                query_parts.append("ndc = :ndc")
-                params["ndc"] = ndc
-                if not generic_name:
-                    params["search_term"] = ndc
-
-            if not query_parts:
-                # No specific search, return recent drugs
-                query_parts.append("1=1")
-                params["search_term"] = ""
-
-            where_clause = " AND ".join(query_parts)
-
-            if params.get("search_term"):
-                search_query = text(f"""
-                    SELECT ndc, name, generic_name, brand_name, manufacturer, applicant,
-                           ingredients, strength, dosage_form, route, application_number,
-                           product_number, approval_date, orange_book_code, reference_listed_drug,
-                           therapeutic_class, pharmacologic_class, data_sources,
-                           ts_rank(search_vector, plainto_tsquery(:search_term)) as rank
-                    FROM drug_information_old
-                    WHERE {where_clause}
-                    ORDER BY rank DESC, approval_date DESC
-                    LIMIT :limit
-                """)
-            else:
-                search_query = text(f"""
-                    SELECT ndc, name, generic_name, brand_name, manufacturer, applicant,
-                           ingredients, strength, dosage_form, route, application_number,
-                           product_number, approval_date, orange_book_code, reference_listed_drug,
-                           therapeutic_class, pharmacologic_class, data_sources,
-                           0 as rank
-                    FROM drug_information_old
-                    WHERE {where_clause}
-                    ORDER BY approval_date DESC
-                    LIMIT :limit
-                """)
-
-            result = db.execute(search_query, params)
-
+            # Search for NDCs within the formulations JSON array
+            search_query = """
+                SELECT 
+                    generic_name,
+                    brand_names,
+                    manufacturers,
+                    formulations,
+                    therapeutic_class,
+                    indications_and_usage,
+                    mechanism_of_action,
+                    contraindications,
+                    warnings,
+                    adverse_reactions,
+                    drug_interactions,
+                    dosage_and_administration,
+                    total_formulations,
+                    confidence_score,
+                    has_clinical_data
+                FROM drug_information
+                WHERE EXISTS (
+                    SELECT 1 FROM jsonb_array_elements(formulations) AS f
+                    WHERE f->>'ndc' = :ndc
+                )
+                LIMIT :limit
+            """
+            
+            result = db.execute(text(search_query), {"ndc": ndc, "limit": max_results})
+            rows = result.fetchall()
+            
             drugs = []
-            for row in result:
+            for row in rows:
+                # Find the specific formulation with this NDC
+                formulations = row.formulations or []
+                matching_formulation = None
+                for form in formulations:
+                    if form.get('ndc') == ndc:
+                        matching_formulation = form
+                        break
+                
                 drug = {
-                    "ndc": row.ndc,
-                    "name": row.name,
                     "genericName": row.generic_name,
-                    "brandName": row.brand_name,
-                    "manufacturer": row.manufacturer,
-                    "applicant": row.applicant,
-                    "ingredients": row.ingredients or [],
-                    "strength": row.strength,
-                    "dosageForm": row.dosage_form,
-                    "route": row.route,
-                    "applicationNumber": row.application_number,
-                    "productNumber": row.product_number,
-                    "approvalDate": row.approval_date,
-                    "orangeBookCode": row.orange_book_code,
-                    "referenceListedDrug": row.reference_listed_drug,
+                    "brandNames": row.brand_names or [],
+                    "manufacturers": row.manufacturers or [],
                     "therapeuticClass": row.therapeutic_class,
-                    "pharmacologicClass": row.pharmacologic_class,
-                    "dataSources": row.data_sources or [],
+                    "indicationsAndUsage": row.indications_and_usage,
+                    "mechanismOfAction": row.mechanism_of_action,
+                    "contraindications": row.contraindications or [],
+                    "warnings": row.warnings or [],
+                    "adverseReactions": row.adverse_reactions or [],
+                    "drugInteractions": row.drug_interactions or {},
+                    "dosageAndAdministration": row.dosage_and_administration,
+                    "totalFormulations": row.total_formulations,
+                    "confidenceScore": row.confidence_score,
+                    "hasClinicalData": row.has_clinical_data,
+                    # Include the specific matching formulation
+                    "matchingFormulation": matching_formulation
                 }
                 drugs.append(drug)
 
-            logger.info(f"Found {len(drugs)} detailed drugs")
+            logger.info(f"Found {len(drugs)} drugs with NDC {ndc}")
             return drugs
 
         except Exception as e:
-            logger.exception(f"Detailed drug search failed: {e}")
+            logger.exception(f"NDC search failed: {e}")
             return []
         finally:
             db.close()
