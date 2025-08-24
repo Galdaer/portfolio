@@ -112,7 +112,7 @@ class BillingCodesDownloader:
 
         for category in hcpcs_categories:
             try:
-                category_codes = await self._search_billing_codes(f"{category}*", code_type="hcpcs")
+                category_codes = await self._search_billing_codes_paginated(category, code_type="hcpcs")
                 all_codes.extend(category_codes)
 
                 logger.info(f"Downloaded {len(category_codes)} HCPCS codes for category {category}")
@@ -185,6 +185,50 @@ class BillingCodesDownloader:
             logger.info(f"CPT code access limited (expected due to copyright): {e}")
 
         return all_codes
+        
+    async def _search_billing_codes_paginated(
+        self,
+        query: str,
+        code_type: str = "hcpcs",
+        max_results_per_batch: int = 500,
+        max_total_results: int = 2000,
+    ) -> list[dict]:
+        """Search for billing codes with pagination to get complete results"""
+        all_codes = []
+        offset = 0
+        batch_size = max_results_per_batch
+        
+        while len(all_codes) < max_total_results:
+            try:
+                # Get batch of results
+                batch_codes = await self._search_billing_codes(
+                    query, 
+                    code_type=code_type, 
+                    max_results=batch_size
+                )
+                
+                if not batch_codes:
+                    # No more results
+                    break
+                    
+                all_codes.extend(batch_codes)
+                
+                # If we got fewer results than requested, we've reached the end
+                if len(batch_codes) < batch_size:
+                    break
+                    
+                # Rate limiting between batches
+                await asyncio.sleep(0.5)
+                offset += batch_size
+                
+                logger.debug(f"Downloaded {len(all_codes)} codes so far for query '{query}'")
+                
+            except Exception as e:
+                logger.warning(f"Pagination failed for query '{query}' at offset {offset}: {e}")
+                break
+                
+        logger.info(f"Paginated search for '{query}' returned {len(all_codes)} total codes")
+        return all_codes
 
     async def _search_billing_codes(
         self,
@@ -202,10 +246,8 @@ class BillingCodesDownloader:
             return []
 
         params = {
-            "sf": "code,short_name,long_name",
-            "df": "code,short_name,long_name",
+            "terms": query,
             "maxList": min(max_results, 500),
-            "q": query,
         }
 
         try:
@@ -239,21 +281,28 @@ class BillingCodesDownloader:
             return codes
 
         try:
-            # NLM HCPCS API returns: [total_count, codes, short_names, long_names]
+            # NLM HCPCS API returns: [total_count, codes, extra_data, display_strings]
             total_count = data[0] if len(data) > 0 else 0
             code_list = data[1] if len(data) > 1 else []
-            short_name_list = data[2] if len(data) > 2 else []
-            long_name_list = data[3] if len(data) > 3 else []
+            extra_data = data[2] if len(data) > 2 else None
+            display_strings = data[3] if len(data) > 3 else []
 
-            # Pair up codes with their descriptions
+            # Pair up codes with their descriptions from display strings
             for i, code in enumerate(code_list):
-                short_name = short_name_list[i] if i < len(short_name_list) else ""
-                long_name = long_name_list[i] if i < len(long_name_list) else ""
+                # Display strings format: [["CODE", "Description"], ...]
+                display_info = display_strings[i] if i < len(display_strings) else ["", ""]
+                
+                if isinstance(display_info, list) and len(display_info) >= 2:
+                    display_code = display_info[0]
+                    description = display_info[1]
+                else:
+                    display_code = code
+                    description = ""
 
                 billing_code = {
                     "code": code.strip(),
-                    "short_description": short_name.strip() if short_name else "",
-                    "long_description": long_name.strip() if long_name else short_name.strip(),
+                    "short_description": description.strip(),
+                    "long_description": description.strip(),
                     "code_type": code_type.upper(),
                     "category": self._determine_billing_category(code, code_type),
                     "effective_date": None,  # Not provided by API

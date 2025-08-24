@@ -20,6 +20,7 @@ import asyncio
 import json
 import logging
 import os
+import signal
 import sys
 import time
 from pathlib import Path
@@ -64,6 +65,8 @@ class MedicalDataOrchestrator:
     """
 
     def __init__(self, custom_data_dir: str | None = None):
+        self.running_tasks = []  # Track running tasks for graceful shutdown
+        self.interrupted = False
         # Use medical-mirrors Config for consistency with local paths
         self.config = LocalConfig()
         self.scripts_dir = Path(__file__).parent
@@ -84,7 +87,7 @@ class MedicalDataOrchestrator:
                 "size_estimate": "~220GB",
                 "description": "Complete PubMed medical literature corpus (smart downloader with retry)",
                 "priority": 1,  # Start early due to large size
-                "parallel_safe": False,  # Large bandwidth usage
+                "parallel_safe": True,  # Can run with others - user has 1Gb connection
                 "estimated_hours": 6,
             },
             "fda": {
@@ -273,50 +276,59 @@ class MedicalDataOrchestrator:
         return results
 
     async def _download_parallel(self, sources: dict[str, Any], max_parallel: int) -> dict[str, Any]:
-        """Download sources in parallel where safe"""
+        """Download all sources in parallel with gigabit connection optimization"""
         self.logger.info(f"Starting parallel downloads (max {max_parallel} concurrent)")
+        self.logger.info(f"Running all downloads in parallel: {list(sources.keys())}")
 
-        # Separate large downloads that should run alone vs parallel-safe downloads
-        large_sources = {k: v for k, v in sources.items() if not v["parallel_safe"]}
-        parallel_sources = {k: v for k, v in sources.items() if v["parallel_safe"]}
+        # Create semaphore to limit concurrent downloads
+        semaphore = asyncio.Semaphore(max_parallel)
 
+        async def download_with_semaphore(source_name: str, source_info: dict[str, Any]):
+            async with semaphore:
+                return await self._run_download_script(source_name, source_info)
+
+        # Start all downloads in parallel
+        tasks = [
+            download_with_semaphore(name, info)
+            for name, info in sources.items()
+        ]
+        
+        # Store tasks for interrupt handling
+        self.running_tasks = tasks
+
+        # Wait for all to complete with interrupt handling
+        try:
+            results_list = await asyncio.gather(*tasks, return_exceptions=True)
+        except KeyboardInterrupt:
+            self.interrupted = True
+            self.logger.info("🛑 Interrupt received, gracefully stopping downloads...")
+            
+            # Cancel all running tasks
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            
+            # Wait for cancellation to complete
+            await asyncio.gather(*tasks, return_exceptions=True)
+            
+            self.logger.info("📋 Download summary saved before exit")
+            self.save_orchestration_report()
+            
+            print("\n🔄 To resume downloads later, run the same command again")
+            print("   All completed downloads are saved and will be skipped")
+            
+            raise
+
+        # Process results
         results = {}
-
-        # Run large downloads first, sequentially
-        if large_sources:
-            self.logger.info(f"Running large downloads sequentially: {list(large_sources.keys())}")
-            large_results = await self._download_sequential(large_sources)
-            results.update(large_results)
-
-        # Run parallel-safe downloads concurrently
-        if parallel_sources:
-            self.logger.info(f"Running parallel downloads: {list(parallel_sources.keys())}")
-
-            # Create semaphore to limit concurrent downloads
-            semaphore = asyncio.Semaphore(max_parallel)
-
-            async def download_with_semaphore(source_name: str, source_info: dict[str, Any]):
-                async with semaphore:
-                    return await self._run_download_script(source_name, source_info)
-
-            # Start all parallel downloads
-            tasks = [
-                download_with_semaphore(name, info)
-                for name, info in parallel_sources.items()
-            ]
-
-            # Wait for all to complete
-            parallel_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Process results
-            for (source_name, _), result in zip(parallel_sources.items(), parallel_results, strict=False):
-                if isinstance(result, Exception):
-                    self.logger.exception(f"❌ {source_name} parallel download failed")
-                    results[source_name] = {"success": False, "error": str(result)}
-                else:
-                    results[source_name] = result
-                    if result.get("success", False):
-                        self.logger.info(f"✅ {source_name} parallel download completed")
+        for (source_name, _), result in zip(sources.items(), results_list, strict=False):
+            if isinstance(result, Exception):
+                self.logger.exception(f"❌ {source_name} download failed")
+                results[source_name] = {"success": False, "error": str(result)}
+            else:
+                results[source_name] = result
+                if result.get("success", False):
+                    self.logger.info(f"✅ {source_name} download completed")
 
         return results
 
@@ -341,22 +353,39 @@ class MedicalDataOrchestrator:
         try:
             self.logger.info(f"Executing: {' '.join(cmd)}")
 
-            # Run script with timeout and capture output
+            # Run script with streaming output
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,  # Merge stderr into stdout for better streaming
                 cwd=self.scripts_dir,
             )
 
-            # Wait for completion with timeout (very generous for large downloads)
+            # Stream output in real-time with timeout
+            stdout_lines = []
             timeout = source_info["estimated_hours"] * 3600 * 2  # 2x estimated time
-
+            
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(),
-                    timeout=timeout,
+                # Read output line by line and display immediately
+                async def stream_output():
+                    nonlocal stdout_lines
+                    while True:
+                        line = await process.stdout.readline()
+                        if not line:
+                            break
+                        
+                        line_str = line.decode("utf-8", errors="replace").rstrip()
+                        stdout_lines.append(line_str)
+                        
+                        # Print with source prefix for parallel downloads
+                        print(f"[{source_name}] {line_str}", flush=True)
+                
+                # Run streaming with timeout
+                await asyncio.wait_for(
+                    asyncio.gather(stream_output(), process.wait()),
+                    timeout=timeout
                 )
+                
             except TimeoutError:
                 # Kill the process if it takes too long
                 process.kill()
@@ -371,16 +400,16 @@ class MedicalDataOrchestrator:
                     "success": True,
                     "source": source_name,
                     "script": source_info["script"],
-                    "stdout": stdout.decode("utf-8", errors="replace"),
-                    "stderr": stderr.decode("utf-8", errors="replace"),
+                    "stdout": "\n".join(stdout_lines),
+                    "stderr": "",  # Merged into stdout
                 }
-            error_msg = stderr.decode("utf-8", errors="replace")
             self.logger.error(f"{source_name} script failed with exit code {process.returncode}")
-            self.logger.error(f"Error output: {error_msg}")
+            error_output = "\n".join(stdout_lines[-20:])  # Last 20 lines for error context
+            self.logger.error(f"Error output: {error_output}")
             return {
                 "success": False,
                 "source": source_name,
-                "error": error_msg,
+                "error": error_output,
                 "exit_code": process.returncode,
             }
 
@@ -473,6 +502,16 @@ class MedicalDataOrchestrator:
         }
 
 
+def setup_signal_handlers(orchestrator):
+    """Setup signal handlers for graceful shutdown"""
+    def signal_handler(signum, frame):
+        print(f"\n🛑 Received signal {signum}, initiating graceful shutdown...")
+        orchestrator.interrupted = True
+        # The actual cancellation happens in the async code
+        
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
 def main():
     """Main function for medical data orchestration"""
     parser = argparse.ArgumentParser(
@@ -498,8 +537,8 @@ def main():
     parser.add_argument(
         "--max-parallel",
         type=int,
-        default=3,
-        help="Maximum parallel downloads (default: 3)",
+        default=6,
+        help="Maximum parallel downloads (default: 6 for gigabit connections)",
     )
     parser.add_argument(
         "--check-only",
@@ -573,12 +612,20 @@ def main():
     print(f"\n🚀 Download mode: {download_mode}")
     print("⚠️  This may take several hours and download ~242GB total")
 
-    # Start downloads
-    result = asyncio.run(orchestrator.download_all_sources(
-        selected_sources=args.sources,
-        parallel=not args.sequential,
-        max_parallel=args.max_parallel,
-    ))
+    # Setup signal handlers for graceful shutdown
+    setup_signal_handlers(orchestrator)
+
+    # Start downloads with interrupt handling
+    try:
+        result = asyncio.run(orchestrator.download_all_sources(
+            selected_sources=args.sources,
+            parallel=not args.sequential,
+            max_parallel=args.max_parallel,
+        ))
+    except KeyboardInterrupt:
+        print("\n🛑 Downloads interrupted by user")
+        print("📋 Progress has been saved - you can resume by running the same command")
+        sys.exit(130)  # Standard exit code for SIGINT
 
     # Show final results
     if result.get("status") == "completed":

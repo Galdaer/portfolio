@@ -18,7 +18,8 @@ load_dotenv()
 # Add medical-mirrors src to path
 sys.path.append('/home/intelluxe/services/user/medical-mirrors/src')
 
-from health_info.smart_downloader import SmartHealthInfoDownloader
+import health_info.smart_downloader
+SmartHealthInfoDownloader = health_info.smart_downloader.SmartHealthInfoDownloader
 
 # Import Config and override paths for non-Docker execution
 from config import Config
@@ -157,6 +158,40 @@ async def run_download(args, logger):
                 }, f, indent=2)
             
             logger.info(f"Download state saved to: {state_file}")
+            
+        except KeyboardInterrupt:
+            # Handle graceful shutdown on interrupt
+            duration = datetime.now() - start_time
+            logger.warning("⚠️  Download interrupted by user")
+            
+            try:
+                partial_status = await downloader.get_download_status()
+                logger.info(f"   Sources completed: {partial_status['progress']['completed']}")
+            except Exception:
+                logger.info("   Partial progress information unavailable")
+            
+            logger.info(f"   Time elapsed: {duration}")
+            
+            # Save interrupt state for resume
+            interrupt_file = args.data_dir / "health_info_download_interrupted.json"
+            interrupt_info = {
+                'interrupt_time': datetime.now().isoformat(),
+                'duration_seconds': duration.total_seconds(),
+            }
+            
+            try:
+                interrupt_info['state'] = await downloader.get_download_status()
+            except Exception:
+                interrupt_info['state'] = 'unavailable'
+            
+            with open(interrupt_file, 'w') as f:
+                json.dump(interrupt_info, f, indent=2)
+            
+            logger.info(f"📁 Interrupted state saved to: {interrupt_file}")
+            logger.info("💡 Resume with the same command - download will continue from last checkpoint")
+            
+            # Exit cleanly
+            raise
             
         except Exception as e:
             logger.error(f"Download failed: {e}")

@@ -27,12 +27,13 @@ class PubMedDownloader:
         self.update_path = "/pubmed/updatefiles/"
         self.data_dir = self.config.get_pubmed_data_dir()
 
-        # FTP timeout and retry configuration
-        self.connection_timeout = 30  # seconds
-        self.operation_timeout = 60  # seconds
-        self.download_timeout = 300  # seconds for large files
+        # FTP timeout and retry configuration (optimized for gigabit)
+        self.connection_timeout = 60  # seconds - more time for initial connection
+        self.operation_timeout = 120  # seconds - more time for operations
+        self.download_timeout = 1800  # seconds (30 min) for very large files
         self.max_retries = 3
         self.retry_delay = 5  # seconds
+        self.ftp_buffer_size = 64 * 1024  # 64KB buffer for better throughput
 
     @contextmanager
     def ftp_connection(self, timeout: int | None = None) -> Iterator[ftplib.FTP]:
@@ -45,8 +46,14 @@ class PubMedDownloader:
             ftp = ftplib.FTP(timeout=timeout)
             ftp.connect(self.ftp_host)
             ftp.login()
+            
+            # Enable passive mode for better NAT/firewall compatibility
+            ftp.set_pasv(True)
+            
+            # Set binary mode for better performance
+            ftp.voidcmd('TYPE I')
 
-            logger.info("FTP connection established successfully")
+            logger.info("FTP connection established successfully (passive mode, binary)")
             yield ftp
 
         except ftplib.all_errors as e:
@@ -117,19 +124,44 @@ class PubMedDownloader:
                 for i, file in enumerate(recent_files, 1):
                     local_path = os.path.join(self.data_dir, file)
                     if not os.path.exists(local_path):
-                        logger.info(f"Downloading baseline file {i}/{len(recent_files)}: {file}")
+                        logger.info(f"📥 Downloading PubMed baseline file {i}/{len(recent_files)}: {file}")
 
                         # Set longer timeout for large file downloads
                         if hasattr(ftp, "sock") and ftp.sock:
                             ftp.sock.settimeout(self.download_timeout)
 
-                        with open(local_path, "wb") as local_file:
-                            ftp.retrbinary(f"RETR {file}", local_file.write)
+                        # Download with progress tracking
+                        file_size = 0
+                        try:
+                            # Get file size if possible (binary mode already set in connection)
+                            file_size = ftp.size(file)
+                        except Exception:
+                            pass  # Size not available, continue without it
+                        
+                        downloaded_bytes = 0
+                        def progress_callback(data):
+                            nonlocal downloaded_bytes
+                            downloaded_bytes += len(data)
+                            # Show progress every 10MB
+                            if downloaded_bytes % (10 * 1024 * 1024) < len(data):
+                                if file_size > 0:
+                                    percent = (downloaded_bytes / file_size) * 100
+                                    logger.info(f"   📊 Progress: {downloaded_bytes//1024//1024}MB/{file_size//1024//1024}MB ({percent:.1f}%)")
+                                else:
+                                    logger.info(f"   📊 Downloaded: {downloaded_bytes//1024//1024}MB")
+                            return data
 
-                        logger.info(f"Successfully downloaded: {file}")
+                        with open(local_path, "wb") as local_file:
+                            def write_with_progress(data):
+                                progress_callback(data)
+                                local_file.write(data)
+                            
+                            ftp.retrbinary(f"RETR {file}", write_with_progress, blocksize=self.ftp_buffer_size)
+
+                        logger.info(f"✅ Downloaded: {file} ({downloaded_bytes//1024//1024}MB)")
                         downloaded_files.append(local_path)
                     else:
-                        logger.info(f"File already exists: {file}")
+                        logger.info(f"⏭️  File already exists: {file}")
                         downloaded_files.append(local_path)
 
                 return downloaded_files
@@ -257,19 +289,49 @@ class PubMedDownloader:
                 for i, file in enumerate(xml_files, 1):
                     local_path = os.path.join(self.data_dir, file)
                     if not os.path.exists(local_path):
-                        logger.info(f"Downloading baseline file {i}/{len(xml_files)}: {file}")
-
+                        logger.info(f"📥 Downloading PubMed baseline file {i}/{len(xml_files)}: {file}")
+                        
                         # Set longer timeout for large file downloads
                         if hasattr(ftp, "sock") and ftp.sock:
                             ftp.sock.settimeout(self.download_timeout)
 
-                        with open(local_path, "wb") as local_file:
-                            ftp.retrbinary(f"RETR {file}", local_file.write)
+                        # Download with progress tracking
+                        file_size = 0
+                        try:
+                            # Get file size if possible (binary mode already set in connection)
+                            file_size = ftp.size(file)
+                        except Exception:
+                            pass  # Size not available, continue without it
+                        
+                        downloaded_bytes = 0
+                        def progress_callback(data):
+                            nonlocal downloaded_bytes
+                            downloaded_bytes += len(data)
+                            # Show progress every 10MB
+                            if downloaded_bytes % (10 * 1024 * 1024) < len(data):
+                                if file_size > 0:
+                                    percent = (downloaded_bytes / file_size) * 100
+                                    logger.info(f"   📊 Progress: {downloaded_bytes//1024//1024}MB/{file_size//1024//1024}MB ({percent:.1f}%)")
+                                else:
+                                    logger.info(f"   📊 Downloaded: {downloaded_bytes//1024//1024}MB")
+                            return data
 
-                        logger.info(f"Successfully downloaded: {file}")
+                        with open(local_path, "wb") as local_file:
+                            def write_with_progress(data):
+                                progress_callback(data)
+                                local_file.write(data)
+                            
+                            ftp.retrbinary(f"RETR {file}", write_with_progress, blocksize=self.ftp_buffer_size)
+
+                        logger.info(f"✅ Downloaded: {file} ({downloaded_bytes//1024//1024}MB)")
                         downloaded_files.append(local_path)
+                        
+                        # Progress summary every 10 files
+                        if i % 10 == 0:
+                            logger.info(f"📈 Progress Summary: {i}/{len(xml_files)} files downloaded ({i/len(xml_files)*100:.1f}%)")
+                            
                     else:
-                        logger.info(f"File already exists: {file}")
+                        logger.info(f"⏭️  File already exists: {file}")
                         downloaded_files.append(local_path)
 
                 return downloaded_files

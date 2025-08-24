@@ -18,7 +18,8 @@ load_dotenv()
 # Add medical-mirrors src to path
 sys.path.append('/home/intelluxe/services/user/medical-mirrors/src')
 
-from pubmed.smart_downloader import SmartPubMedDownloader
+import pubmed.smart_downloader
+SmartPubMedDownloader = pubmed.smart_downloader.SmartPubMedDownloader
 from config import Config
 
 # Override Config paths for local execution
@@ -137,6 +138,31 @@ async def run_download(args, logger):
                 }, f, indent=2)
             
             logger.info(f"Download state saved to: {state_file}")
+            
+        except KeyboardInterrupt:
+            # Handle graceful shutdown on interrupt
+            duration = datetime.now() - start_time
+            logger.warning("⚠️  Download interrupted by user")
+            logger.info(f"   Partial progress: {len(downloader.all_articles)} articles downloaded")
+            logger.info(f"   Time elapsed: {duration}")
+            
+            # Save interrupt state for resume
+            interrupt_file = args.data_dir / "pubmed_download_interrupted.json"
+            interrupt_info = {
+                'interrupt_time': datetime.now().isoformat(),
+                'partial_articles': len(downloader.all_articles),
+                'duration_seconds': duration.total_seconds(),
+                'state': await downloader.get_download_status()
+            }
+            
+            with open(interrupt_file, 'w') as f:
+                json.dump(interrupt_info, f, indent=2)
+            
+            logger.info(f"📁 Interrupted state saved to: {interrupt_file}")
+            logger.info("💡 Resume with the same command - download will continue from last checkpoint")
+            
+            # Exit cleanly
+            raise
             
         except Exception as e:
             logger.error(f"Download failed: {e}")

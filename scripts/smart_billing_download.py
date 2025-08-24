@@ -17,8 +17,10 @@ load_dotenv()
 # Add medical-mirrors src to path
 sys.path.append('/home/intelluxe/services/user/medical-mirrors/src')
 
-from billing_codes.smart_downloader import SmartBillingCodesDownloader
-from billing_codes.background_service import BillingCodesBackgroundService
+import billing_codes.smart_downloader
+import billing_codes.background_service
+SmartBillingCodesDownloader = billing_codes.smart_downloader.SmartBillingCodesDownloader
+BillingCodesBackgroundService = billing_codes.background_service.BillingCodesBackgroundService
 from config import Config
 
 
@@ -86,8 +88,60 @@ async def run_download(args, logger):
         
         # Run download
         start_time = datetime.now()
-        summary = await downloader.download_all_billing_codes(force_fresh=args.force_fresh)
-        end_time = datetime.now()
+        
+        try:
+            summary = await downloader.download_all_billing_codes(force_fresh=args.force_fresh)
+            end_time = datetime.now()
+        
+        except KeyboardInterrupt:
+            # Handle graceful shutdown on interrupt
+            duration = datetime.now() - start_time
+            print("⚠️  Download interrupted by user")
+            print(f"   Time elapsed: {duration}")
+            
+            # Save interrupt state for resume
+            interrupt_file = args.data_dir / "billing_download_interrupted.json"
+            interrupt_info = {
+                'interrupt_time': datetime.now().isoformat(),
+                'duration_seconds': duration.total_seconds(),
+            }
+            
+            try:
+                interrupt_info['state'] = await downloader.get_download_status()
+            except Exception:
+                interrupt_info['state'] = 'unavailable'
+            
+            with open(interrupt_file, 'w') as f:
+                json.dump(interrupt_info, f, indent=2)
+            
+            print(f"📁 Interrupted state saved to: {interrupt_file}")
+            print("💡 Resume with the same command - download will continue from last checkpoint")
+            
+            # Exit cleanly
+            return
+        
+        except Exception as e:
+            print(f"❌ Download failed: {e}")
+            
+            # Save error state for analysis
+            error_file = args.data_dir / "billing_download_errors.json"
+            error_info = {
+                'error_time': datetime.now().isoformat(),
+                'error_message': str(e),
+                'duration_seconds': (datetime.now() - start_time).total_seconds(),
+            }
+            
+            try:
+                error_info['state'] = await downloader.get_download_status()
+            except Exception:
+                error_info['state'] = 'unavailable'
+            
+            with open(error_file, 'w') as f:
+                json.dump(error_info, f, indent=2)
+            
+            print(f"Error state saved to: {error_file}")
+            print("You can resume the download later using the same command")
+            raise
         
         # Display results
         print("\n" + "="*50)
