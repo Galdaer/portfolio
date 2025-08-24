@@ -43,6 +43,13 @@ else:
         print(f"Looking for modules in: {medical_mirrors_src}")
         sys.exit(1)
 
+# Override Config paths for local execution
+class LocalConfig(Config):
+    def __init__(self):
+        super().__init__()
+        self.DATA_DIR = "/home/intelluxe/database/medical_complete"
+        self.LOGS_DIR = "/home/intelluxe/logs"
+
 
 class MedicalDataOrchestrator:
     """
@@ -53,8 +60,8 @@ class MedicalDataOrchestrator:
     """
 
     def __init__(self, custom_data_dir: str | None = None):
-        # Use medical-mirrors Config for consistency
-        self.config = Config()
+        # Use medical-mirrors Config for consistency with local paths
+        self.config = LocalConfig()
         self.scripts_dir = Path(__file__).parent
 
         # Allow custom data directory override
@@ -66,52 +73,52 @@ class MedicalDataOrchestrator:
 
         self.logger = self._setup_logging()
 
-        # Define all data sources with their scripts and characteristics
+        # Define all data sources with their smart scripts and characteristics
         self.data_sources = {
             "pubmed": {
-                "script": "download_full_pubmed.py",
+                "script": "smart_pubmed_download.py",
                 "size_estimate": "~220GB",
-                "description": "Complete PubMed medical literature corpus",
+                "description": "Complete PubMed medical literature corpus (smart downloader with retry)",
                 "priority": 1,  # Start early due to large size
                 "parallel_safe": False,  # Large bandwidth usage
                 "estimated_hours": 6,
             },
             "fda": {
-                "script": "download_full_fda.py",
+                "script": "smart_fda_download.py",
                 "size_estimate": "~22GB",
-                "description": "Complete FDA drug databases",
+                "description": "Complete FDA drug databases (smart downloader with rate limits)",
                 "priority": 2,  # Start early, moderate size
                 "parallel_safe": True,  # Can run with others
                 "estimated_hours": 2,
             },
             "clinicaltrials": {
-                "script": "download_full_clinicaltrials.py",
+                "script": "smart_clinicaltrials_download.py",
                 "size_estimate": "~500MB",
-                "description": "All ClinicalTrials.gov studies",
+                "description": "All ClinicalTrials.gov studies (smart API handling)",
                 "priority": 3,  # Fast download
                 "parallel_safe": True,  # API-based, small size
                 "estimated_hours": 0.5,
             },
             "icd10": {
-                "script": "download_full_icd10.py",
+                "script": "smart_icd10_download.py",
                 "size_estimate": "~50MB",
-                "description": "Complete ICD-10 diagnostic codes",
+                "description": "Complete ICD-10 diagnostic codes (smart downloader)",
                 "priority": 4,  # Fast API download
                 "parallel_safe": True,  # API-based
                 "estimated_hours": 0.2,
             },
             "billing": {
-                "script": "download_full_billing_codes.py",
+                "script": "smart_billing_download.py",
                 "size_estimate": "~30MB",
-                "description": "Complete HCPCS/CPT billing codes",
+                "description": "Complete HCPCS/CPT billing codes (smart downloader)",
                 "priority": 5,  # Fast API download
                 "parallel_safe": True,  # API-based
                 "estimated_hours": 0.2,
             },
             "health_info": {
-                "script": "download_full_health_info.py",
+                "script": "smart_health_info_download.py",
                 "size_estimate": "~100MB",
-                "description": "Health topics, exercises, nutrition data",
+                "description": "Health topics, exercises, nutrition data (smart API handling)",
                 "priority": 6,  # Depends on API keys
                 "parallel_safe": True,  # Multiple APIs
                 "estimated_hours": 0.3,
@@ -318,11 +325,13 @@ class MedicalDataOrchestrator:
             self.logger.error(error_msg)
             return {"success": False, "error": error_msg}
 
-        # Prepare command
+        # Prepare command for smart downloaders
         cmd = [
             sys.executable,
             str(script_path),
+            "download",  # Command for smart downloaders
             "--data-dir", os.path.join(self.base_data_dir, source_name),
+            "--verbose",  # Enable verbose logging for better monitoring
         ]
 
         try:
