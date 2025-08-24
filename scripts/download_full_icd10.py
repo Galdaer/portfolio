@@ -314,7 +314,7 @@ class CompleteICD10Downloader:
 
         # Save with proper formatting
         with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(dataset, f, indent=2, ensure_ascii=False, default=str)
+            json.dump(dataset, f, ensure_ascii=False, default=str)
 
         self.logger.info(f"Saved complete ICD-10 dataset: {output_file}")
         return output_file

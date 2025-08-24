@@ -462,7 +462,7 @@ class MedicalDataOrchestrator:
         }
 
         with open(report_file, "w", encoding="utf-8") as f:
-            json.dump(report, f, indent=2, ensure_ascii=False, default=str)
+            json.dump(report, f, ensure_ascii=False, default=str)
 
         self.logger.info(f"Orchestration report saved: {report_file}")
         return report_file

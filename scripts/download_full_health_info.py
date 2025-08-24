@@ -529,7 +529,7 @@ class CompleteHealthInfoDownloader:
 
             # Save with proper formatting
             with open(output_file, "w", encoding="utf-8") as f:
-                json.dump(dataset_info, f, indent=2, ensure_ascii=False, default=str)
+                json.dump(dataset_info, f, ensure_ascii=False, default=str)
 
             self.logger.info(f"Saved {dataset_name} dataset: {output_file} ({len(data)} items)")
             complete_files.append(output_file)

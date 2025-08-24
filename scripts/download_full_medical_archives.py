@@ -195,7 +195,7 @@ class FullMedicalDownloader:
 
             output_file = trials_dir / "all_completed_trials_with_results.json"
             with open(output_file, "w") as f:
-                json.dump(all_studies, f, indent=2)
+                json.dump(all_studies, f)
 
             self.logger.info(f"Downloaded {len(all_studies)} completed trials with results")
             return True
