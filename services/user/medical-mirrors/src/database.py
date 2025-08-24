@@ -124,6 +124,16 @@ class FDADrug(Base):  # type: ignore[misc,valid-type]
     pharmacokinetics = Column(Text)  # Pharmacokinetics
     pharmacodynamics = Column(Text)  # Pharmacodynamics
 
+    # Additional clinical information fields
+    boxed_warning = Column(Text)  # FDA black box warnings
+    clinical_studies = Column(Text)  # Clinical trial data and efficacy results
+    pediatric_use = Column(Text)  # Pediatric usage information
+    geriatric_use = Column(Text)  # Geriatric usage information
+    pregnancy = Column(Text)  # Pregnancy category and safety information
+    nursing_mothers = Column(Text)  # Lactation safety information
+    overdosage = Column(Text)  # Overdose symptoms and treatment
+    nonclinical_toxicology = Column(Text)  # Animal study data
+
     # Data sources tracking
     data_sources = Column(ARRAY(String))  # Track which sources contributed: ndc, orange_book, drugs_fda, labels
 

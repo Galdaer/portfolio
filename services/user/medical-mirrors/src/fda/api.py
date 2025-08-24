@@ -470,10 +470,26 @@ class FDAAPI:
         if merge_failures > 0:
             logger.warning(f"Failed to merge {merge_failures} drug groups")
 
-        logger.info(f"Successfully merged {len(merged_drugs)} drugs, starting parallel database storage")
+        # Remove duplicates by NDC to prevent database violations
+        ndc_seen = set()
+        deduplicated_drugs = []
+        duplicate_count = 0
+        
+        for drug in merged_drugs:
+            ndc = drug.get("ndc", "")
+            if ndc and ndc not in ndc_seen:
+                ndc_seen.add(ndc)
+                deduplicated_drugs.append(drug)
+            else:
+                duplicate_count += 1
+        
+        if duplicate_count > 0:
+            logger.info(f"Removed {duplicate_count} duplicate NDCs, proceeding with {len(deduplicated_drugs)} unique drugs")
+
+        logger.info(f"Successfully merged {len(deduplicated_drugs)} drugs, starting parallel database storage")
 
         # Use parallel batch storage for maximum speed
-        stored_count = await self.store_drugs_parallel_batched(merged_drugs)
+        stored_count = await self.store_drugs_parallel_batched(deduplicated_drugs)
         
         # Update search vectors
         await self.update_search_vectors(db)
@@ -561,36 +577,56 @@ class FDAAPI:
         if not ndc:
             return None
 
+        def get_non_empty_or_none(value):
+            """Return None if value is empty string, otherwise return value"""
+            if isinstance(value, str) and value.strip() == "":
+                return None
+            if isinstance(value, list) and len(value) == 0:
+                return None
+            if isinstance(value, dict) and len(value) == 0:
+                return None
+            return value
+
         return {
             "ndc": ndc,
-            "name": drug_data.get("name", ""),
-            "generic_name": drug_data.get("generic_name", ""),
-            "brand_name": drug_data.get("brand_name", ""),
-            "manufacturer": drug_data.get("manufacturer", ""),
-            "applicant": drug_data.get("applicant", ""),
-            "ingredients": drug_data.get("ingredients", []),
-            "strength": drug_data.get("strength", ""),
-            "dosage_form": drug_data.get("dosage_form", ""),
-            "route": drug_data.get("route", ""),
-            "application_number": drug_data.get("application_number", ""),
-            "product_number": drug_data.get("product_number", ""),
-            "approval_date": drug_data.get("approval_date", ""),
-            "orange_book_code": drug_data.get("orange_book_code", ""),
-            "reference_listed_drug": drug_data.get("reference_listed_drug", ""),
-            "therapeutic_class": drug_data.get("therapeutic_class", ""),
-            "pharmacologic_class": drug_data.get("pharmacologic_class", ""),
+            "name": drug_data.get("name", "") or "Unknown",  # Always need a name
+            "generic_name": get_non_empty_or_none(drug_data.get("generic_name")),
+            "brand_name": get_non_empty_or_none(drug_data.get("brand_name")),
+            "manufacturer": get_non_empty_or_none(drug_data.get("manufacturer")),
+            "applicant": get_non_empty_or_none(drug_data.get("applicant")),
+            "ingredients": drug_data.get("ingredients", []),  # Always return array
+            "strength": get_non_empty_or_none(drug_data.get("strength")),
+            "dosage_form": get_non_empty_or_none(drug_data.get("dosage_form")),
+            "route": get_non_empty_or_none(drug_data.get("route")),
+            "application_number": get_non_empty_or_none(drug_data.get("application_number")),
+            "product_number": get_non_empty_or_none(drug_data.get("product_number")),
+            "approval_date": get_non_empty_or_none(drug_data.get("approval_date")),
+            "orange_book_code": get_non_empty_or_none(drug_data.get("orange_book_code")),
+            "reference_listed_drug": get_non_empty_or_none(drug_data.get("reference_listed_drug")),
+            "therapeutic_class": get_non_empty_or_none(drug_data.get("therapeutic_class")),
+            "pharmacologic_class": get_non_empty_or_none(drug_data.get("pharmacologic_class")),
             
             # Clinical information fields
             "contraindications": drug_data.get("contraindications", []),
             "warnings": drug_data.get("warnings", []),
             "precautions": drug_data.get("precautions", []),
             "adverse_reactions": drug_data.get("adverse_reactions", []),
-            "drug_interactions": drug_data.get("drug_interactions", {}),
-            "indications_and_usage": drug_data.get("indications_and_usage", ""),
-            "dosage_and_administration": drug_data.get("dosage_and_administration", ""),
-            "mechanism_of_action": drug_data.get("mechanism_of_action", ""),
-            "pharmacokinetics": drug_data.get("pharmacokinetics", ""),
-            "pharmacodynamics": drug_data.get("pharmacodynamics", ""),
+            "drug_interactions": drug_data.get("drug_interactions", {}),  # Keep empty dict for JSON field
+            "indications_and_usage": get_non_empty_or_none(drug_data.get("indications_and_usage")),
+            "dosage_and_administration": get_non_empty_or_none(drug_data.get("dosage_and_administration")),
+            "mechanism_of_action": get_non_empty_or_none(drug_data.get("mechanism_of_action")),
+            "pharmacokinetics": get_non_empty_or_none(drug_data.get("pharmacokinetics")),
+            "pharmacodynamics": get_non_empty_or_none(drug_data.get("pharmacodynamics")),
+            
+            # Additional clinical fields
+            "boxed_warning": get_non_empty_or_none(drug_data.get("boxed_warning")),
+            "clinical_studies": get_non_empty_or_none(drug_data.get("clinical_studies")),
+            "pediatric_use": get_non_empty_or_none(drug_data.get("pediatric_use")),
+            "geriatric_use": get_non_empty_or_none(drug_data.get("geriatric_use")),
+            "pregnancy": get_non_empty_or_none(drug_data.get("pregnancy")),
+            "nursing_mothers": get_non_empty_or_none(drug_data.get("nursing_mothers")),
+            "overdosage": get_non_empty_or_none(drug_data.get("overdosage")),
+            "nonclinical_toxicology": get_non_empty_or_none(drug_data.get("nonclinical_toxicology")),
             
             "data_sources": drug_data.get("data_sources", []),
             "updated_at": datetime.utcnow(),
@@ -695,6 +731,40 @@ class FDAAPI:
                     func.nullif(stmt.excluded.pharmacodynamics, ""),
                     FDADrug.pharmacodynamics
                 ),
+                
+                # Additional clinical fields - always update with new data if available
+                "boxed_warning": func.coalesce(
+                    func.nullif(stmt.excluded.boxed_warning, ""),
+                    FDADrug.boxed_warning
+                ),
+                "clinical_studies": func.coalesce(
+                    func.nullif(stmt.excluded.clinical_studies, ""),
+                    FDADrug.clinical_studies
+                ),
+                "pediatric_use": func.coalesce(
+                    func.nullif(stmt.excluded.pediatric_use, ""),
+                    FDADrug.pediatric_use
+                ),
+                "geriatric_use": func.coalesce(
+                    func.nullif(stmt.excluded.geriatric_use, ""),
+                    FDADrug.geriatric_use
+                ),
+                "pregnancy": func.coalesce(
+                    func.nullif(stmt.excluded.pregnancy, ""),
+                    FDADrug.pregnancy
+                ),
+                "nursing_mothers": func.coalesce(
+                    func.nullif(stmt.excluded.nursing_mothers, ""),
+                    FDADrug.nursing_mothers
+                ),
+                "overdosage": func.coalesce(
+                    func.nullif(stmt.excluded.overdosage, ""),
+                    FDADrug.overdosage
+                ),
+                "nonclinical_toxicology": func.coalesce(
+                    func.nullif(stmt.excluded.nonclinical_toxicology, ""),
+                    FDADrug.nonclinical_toxicology
+                ),
 
                 # For arrays, combine unique values
                 "ingredients": stmt.excluded.ingredients,
@@ -744,6 +814,16 @@ class FDAAPI:
             "mechanism_of_action": drug_data.get("mechanism_of_action", ""),
             "pharmacokinetics": drug_data.get("pharmacokinetics", ""),
             "pharmacodynamics": drug_data.get("pharmacodynamics", ""),
+            
+            # Additional clinical fields
+            "boxed_warning": drug_data.get("boxed_warning", ""),
+            "clinical_studies": drug_data.get("clinical_studies", ""),
+            "pediatric_use": drug_data.get("pediatric_use", ""),
+            "geriatric_use": drug_data.get("geriatric_use", ""),
+            "pregnancy": drug_data.get("pregnancy", ""),
+            "nursing_mothers": drug_data.get("nursing_mothers", ""),
+            "overdosage": drug_data.get("overdosage", ""),
+            "nonclinical_toxicology": drug_data.get("nonclinical_toxicology", ""),
             
             "data_sources": drug_data.get("data_sources", []),
             "updated_at": datetime.utcnow(),
@@ -841,6 +921,40 @@ class FDAAPI:
                 "pharmacodynamics": func.coalesce(
                     func.nullif(stmt.excluded.pharmacodynamics, ""),
                     FDADrug.pharmacodynamics
+                ),
+                
+                # Additional clinical fields - always update with new data if available
+                "boxed_warning": func.coalesce(
+                    func.nullif(stmt.excluded.boxed_warning, ""),
+                    FDADrug.boxed_warning
+                ),
+                "clinical_studies": func.coalesce(
+                    func.nullif(stmt.excluded.clinical_studies, ""),
+                    FDADrug.clinical_studies
+                ),
+                "pediatric_use": func.coalesce(
+                    func.nullif(stmt.excluded.pediatric_use, ""),
+                    FDADrug.pediatric_use
+                ),
+                "geriatric_use": func.coalesce(
+                    func.nullif(stmt.excluded.geriatric_use, ""),
+                    FDADrug.geriatric_use
+                ),
+                "pregnancy": func.coalesce(
+                    func.nullif(stmt.excluded.pregnancy, ""),
+                    FDADrug.pregnancy
+                ),
+                "nursing_mothers": func.coalesce(
+                    func.nullif(stmt.excluded.nursing_mothers, ""),
+                    FDADrug.nursing_mothers
+                ),
+                "overdosage": func.coalesce(
+                    func.nullif(stmt.excluded.overdosage, ""),
+                    FDADrug.overdosage
+                ),
+                "nonclinical_toxicology": func.coalesce(
+                    func.nullif(stmt.excluded.nonclinical_toxicology, ""),
+                    FDADrug.nonclinical_toxicology
                 ),
 
                 # For arrays, combine unique values
