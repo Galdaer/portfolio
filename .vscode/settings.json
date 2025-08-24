@@ -335,7 +335,7 @@
     "terminal.integrated.defaultProfile.linux": "bash",
     "terminal.integrated.cwd": "${workspaceFolder}",
     "// === DISABLE AUTOSAVE TO PREVENT CACHE CONFLICTS ===": "",
-    "files.autoSave": "off",
+    "files.autoSave": "afterDelay",
     "// === DISABLE TYPESCRIPT CACHING ===": "",
     "typescript.preferences.includePackageJsonAutoImports": "off",
     "typescript.suggest.autoImports": false,
