@@ -130,7 +130,7 @@ class SmartDDInterDownloader:
         
         try:
             with open(state_file, 'w') as f:
-                json.dump(state_data, f, indent=2)
+                json.dump(state_data, f)
         except Exception as e:
             logger.error(f"Failed to save DDInter state: {e}")
     

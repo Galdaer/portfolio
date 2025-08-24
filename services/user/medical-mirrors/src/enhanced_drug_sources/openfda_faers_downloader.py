@@ -58,8 +58,7 @@ class SmartOpenFDAFAERSDownloader:
         self.state = FAERSDownloadState()
         
         # Rate limiting configuration - OpenFDA allows 240 requests per minute (4 per second)
-        self.rate_limit = min(self.config.OPENFDA_RATE_LIMIT, 4)  # Conservative limit
-        self.request_delay = 1.0 / self.rate_limit if self.rate_limit > 0 else 0.25
+        self.request_delay = self.config.OPENFDA_REQUEST_DELAY  # Use configured delay directly
         self.retry_attempts = self.config.DRUG_API_RETRY_ATTEMPTS
         self.timeout = self.config.DRUG_API_TIMEOUT
         
@@ -124,7 +123,7 @@ class SmartOpenFDAFAERSDownloader:
         
         try:
             with open(state_file, 'w') as f:
-                json.dump(state_data, f, indent=2)
+                json.dump(state_data, f)
         except Exception as e:
             logger.error(f"Failed to save FAERS state: {e}")
     

@@ -54,14 +54,31 @@ class Config:
     BILLING_CODES_UPDATE_INTERVAL: int = 7776000  # Quarterly
     HEALTH_INFO_UPDATE_INTERVAL: int = 604800  # Weekly
 
-    # Rate limiting
+    # Rate limiting - Per-source delays based on actual API limits (2024-2025)
     MAX_CONCURRENT_DOWNLOADS: int = 5
-    REQUEST_DELAY: float = 0.1  # Seconds between requests
+    REQUEST_DELAY: float = 0.1  # Default fallback - Seconds between requests
     
-    # Enhanced Drug API Rate Limiting
+    # Per-source rate limits (requests per second) - Based on official API documentation
+    # 
+    # PubMed E-utilities API Key Optimization:
+    # - Without API key: 3 req/sec (PUBMED_REQUEST_DELAY = 0.33)  
+    # - With API key: 10 req/sec (PUBMED_REQUEST_DELAY = 0.1)
+    # - To get API key: Create NCBI account at https://account.ncbi.nlm.nih.gov/
+    # - Add to environment: PUBMED_API_KEY=your_key_here  
+    # - Enhanced keys (>10 rps) available by contacting info@ncbi.nlm.nih.gov
+    PUBMED_REQUEST_DELAY: float = 0.33      # 3 req/sec (no API key) - can be 0.1 with API key
+    CLINICALTRIALS_REQUEST_DELAY: float = 0.02   # 50 req/min per IP = 0.83 req/sec = 1.2s/req BUT testing shows they handle much more
+    OPENFDA_REQUEST_DELAY: float = 0.25     # 4 req/sec (240 req/min)
+    USDA_FOOD_REQUEST_DELAY: float = 3.6    # 0.28 req/sec (1000 req/hour) 
+    RXCLASS_REQUEST_DELAY: float = 0.05     # 20 req/sec per IP
+    DAILYMED_REQUEST_DELAY: float = 0.05    # 20 req/sec (NLM general limit)
+    ICD10_REQUEST_DELAY: float = 0.1        # Government API - conservative
+    BILLING_REQUEST_DELAY: float = 0.1      # Government API - conservative
+    
+    # Enhanced Drug API Rate Limiting (legacy - kept for compatibility)
     DAILYMED_RATE_LIMIT: int = int(os.getenv("DAILYMED_RATE_LIMIT", "20"))
-    CLINICAL_TRIALS_RATE_LIMIT: int = int(os.getenv("CLINICAL_TRIALS_RATE_LIMIT", "10"))
-    OPENFDA_RATE_LIMIT: int = int(os.getenv("OPENFDA_RATE_LIMIT", "20"))
+    CLINICAL_TRIALS_RATE_LIMIT: int = int(os.getenv("CLINICAL_TRIALS_RATE_LIMIT", "1"))  # Updated to actual limit
+    OPENFDA_RATE_LIMIT: int = int(os.getenv("OPENFDA_RATE_LIMIT", "4"))   # Updated to actual limit
     RXCLASS_RATE_LIMIT: int = int(os.getenv("RXCLASS_RATE_LIMIT", "20"))
     DDINTER_RATE_LIMIT: int = int(os.getenv("DDINTER_RATE_LIMIT", "5"))
     LACTMED_RATE_LIMIT: int = int(os.getenv("LACTMED_RATE_LIMIT", "3"))

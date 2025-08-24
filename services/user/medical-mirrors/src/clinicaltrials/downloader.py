@@ -41,8 +41,8 @@ class ClinicalTrialsDownloader:
                 downloaded_files.append(batch_file)
                 start += batch_size
 
-                # Small delay to be respectful
-                await asyncio.sleep(self.config.REQUEST_DELAY)
+                # Use ClinicalTrials-specific rate limit (0.83 req/sec max)
+                await asyncio.sleep(self.config.CLINICALTRIALS_REQUEST_DELAY)
 
                 logger.info(f"Downloaded batch starting at {start}")
 
@@ -80,7 +80,7 @@ class ClinicalTrialsDownloader:
             )
 
             with open(batch_file, "w") as f:
-                json.dump(data, f, indent=2)
+                json.dump(data, f)
 
             logger.info(f"Saved {len(studies)} studies to {batch_file}")
             return batch_file
@@ -135,7 +135,7 @@ class ClinicalTrialsDownloader:
                 )
 
                 with open(update_file, "w") as f:
-                    json.dump(data, f, indent=2)
+                    json.dump(data, f)
 
                 logger.info(f"Downloaded {len(studies)} updated studies")
                 return [update_file]

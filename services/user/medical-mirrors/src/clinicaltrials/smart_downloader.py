@@ -120,7 +120,7 @@ class SmartClinicalTrialsDownloader:
                 'update_count': len(self.update_files)
             }
             with open(state_file, 'w') as f:
-                json.dump(state_data, f, indent=2)
+                json.dump(state_data, f)
         except Exception as e:
             logger.warning(f"Failed to save state file: {e}")
     
@@ -193,8 +193,8 @@ class SmartClinicalTrialsDownloader:
                         self._save_state()
                         logger.info(f"Progress: {len(self.batch_files)} batches downloaded")
                     
-                    # Respectful delay
-                    await asyncio.sleep(self.config.REQUEST_DELAY)
+                    # Use ClinicalTrials-specific rate limit (0.83 req/sec max) 
+                    await asyncio.sleep(self.config.CLINICALTRIALS_REQUEST_DELAY)
                     
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code == 429:  # Rate limited

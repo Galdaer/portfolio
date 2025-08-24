@@ -111,7 +111,7 @@ class SmartPubMedDownloader:
                 'update_count': len(self.update_files)
             }
             with open(state_file, 'w') as f:
-                json.dump(state_data, f, indent=2)
+                json.dump(state_data, f)
         except Exception as e:
             logger.warning(f"Failed to save state file: {e}")
     

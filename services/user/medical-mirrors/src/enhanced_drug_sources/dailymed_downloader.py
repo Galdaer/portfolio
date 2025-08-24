@@ -57,8 +57,7 @@ class SmartDailyMedDownloader:
         self.state = DailyMedDownloadState()
         
         # Rate limiting configuration
-        self.rate_limit = self.config.DAILYMED_RATE_LIMIT  # requests per second
-        self.request_delay = 1.0 / self.rate_limit if self.rate_limit > 0 else 0.1
+        self.request_delay = self.config.DAILYMED_REQUEST_DELAY  # Use configured delay directly
         self.retry_attempts = self.config.DRUG_API_RETRY_ATTEMPTS
         self.timeout = self.config.DRUG_API_TIMEOUT
         
@@ -120,7 +119,7 @@ class SmartDailyMedDownloader:
         
         try:
             with open(state_file, 'w') as f:
-                json.dump(state_data, f, indent=2)
+                json.dump(state_data, f)
         except Exception as e:
             logger.error(f"Failed to save DailyMed state: {e}")
     

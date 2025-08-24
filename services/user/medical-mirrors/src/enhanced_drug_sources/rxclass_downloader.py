@@ -59,8 +59,7 @@ class SmartRxClassDownloader:
         self.state = RxClassDownloadState()
         
         # Rate limiting configuration - RxNav allows up to 20 requests per second
-        self.rate_limit = min(self.config.RXCLASS_RATE_LIMIT, 20)
-        self.request_delay = 1.0 / self.rate_limit if self.rate_limit > 0 else 0.05
+        self.request_delay = self.config.RXCLASS_REQUEST_DELAY  # Use configured delay directly
         self.retry_attempts = self.config.DRUG_API_RETRY_ATTEMPTS
         self.timeout = self.config.DRUG_API_TIMEOUT
         
@@ -126,7 +125,7 @@ class SmartRxClassDownloader:
         
         try:
             with open(state_file, 'w') as f:
-                json.dump(state_data, f, indent=2)
+                json.dump(state_data, f)
         except Exception as e:
             logger.error(f"Failed to save RxClass state: {e}")
     

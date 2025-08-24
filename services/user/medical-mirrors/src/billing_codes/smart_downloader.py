@@ -313,7 +313,7 @@ class SmartBillingCodesDownloader:
                     try:
                         with open(output_file, 'w') as f:
                             import json
-                            json.dump(json_data, f, indent=2)
+                            json.dump(json_data, f)
                         
                         self.downloaded_files[source] = str(output_file)
                         self.state_manager.mark_completed(source, output_file.stat().st_size)
@@ -341,7 +341,7 @@ class SmartBillingCodesDownloader:
                     try:
                         with open(output_file, 'w') as f:
                             import json
-                            json.dump(json_data, f, indent=2)
+                            json.dump(json_data, f)
                         
                         self.downloaded_files[source] = str(output_file)
                         self.state_manager.mark_completed(source, output_file.stat().st_size)
@@ -397,7 +397,7 @@ class SmartBillingCodesDownloader:
                 try:
                     with open(output_file, 'w') as f:
                         import json
-                        json.dump(fallback_data, f, indent=2)
+                        json.dump(fallback_data, f)
                     
                     self.downloaded_files["fallback_codes"] = str(output_file)
                     self.state_manager.mark_completed("fallback_codes", output_file.stat().st_size)
@@ -445,7 +445,7 @@ class SmartBillingCodesDownloader:
         consolidated_file = self.output_dir / "all_billing_codes_complete.json"
         try:
             with open(consolidated_file, 'w') as f:
-                json.dump(validated_codes, f, indent=2, default=str)
+                json.dump(validated_codes, f, default=str)
             logger.info(f"Saved {len(validated_codes)} validated codes to {consolidated_file}")
         except Exception as e:
             logger.error(f"Error saving consolidated results: {e}")
@@ -455,7 +455,7 @@ class SmartBillingCodesDownloader:
             source_file = self.output_dir / f"{source}_codes.json"
             try:
                 with open(source_file, 'w') as f:
-                    json.dump(codes, f, indent=2, default=str)
+                    json.dump(codes, f, default=str)
             except Exception as e:
                 logger.error(f"Error saving {source} results: {e}")
         

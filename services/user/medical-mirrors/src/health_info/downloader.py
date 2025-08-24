@@ -155,7 +155,7 @@ class HealthInfoDownloader:
         try:
             progress["last_update"] = datetime.now().isoformat()
             with open(self.progress_file, 'w') as f:
-                json.dump(progress, f, indent=2, default=str)
+                json.dump(progress, f, default=str)
             logger.debug(f"Progress saved to {self.progress_file}")
         except Exception as e:
             logger.error(f"Failed to save progress: {e}")
@@ -1019,8 +1019,8 @@ class HealthInfoDownloader:
                         logger.debug(f"Reached end of results for '{query}' at page {page_num}")
                         break
                 
-                # Small delay between pages
-                await asyncio.sleep(1)
+                # USDA-specific rate limit (1000 requests/hour = 0.28 req/sec)
+                await asyncio.sleep(self.config.USDA_FOOD_REQUEST_DELAY)
                 
             except Exception as e:
                 logger.warning(f"Error fetching page {page_num} for '{query}': {e}")

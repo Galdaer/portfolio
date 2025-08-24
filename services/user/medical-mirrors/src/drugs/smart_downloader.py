@@ -137,7 +137,7 @@ class SmartDrugDownloader:
                 'completed_sources': list(self.state.completed_sources)
             }
             with open(state_file, 'w') as f:
-                json.dump(state_data, f, indent=2)
+                json.dump(state_data, f)
         except Exception as e:
             logger.warning(f"Failed to save unified drug state file: {e}")
     

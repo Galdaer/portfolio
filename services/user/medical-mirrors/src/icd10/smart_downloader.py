@@ -330,7 +330,7 @@ class SmartICD10Downloader:
                     try:
                         with open(output_file, 'w') as f:
                             import json
-                            json.dump(json_data, f, indent=2)
+                            json.dump(json_data, f)
                         
                         self.downloaded_files[source] = str(output_file)
                         self.state_manager.mark_completed(source, output_file.stat().st_size)
@@ -372,7 +372,7 @@ class SmartICD10Downloader:
                 try:
                     with open(output_file, 'w') as f:
                         import json
-                        json.dump(fallback_data, f, indent=2)
+                        json.dump(fallback_data, f)
                     
                     self.downloaded_files["fallback_codes"] = str(output_file)
                     self.state_manager.mark_completed("fallback_codes", output_file.stat().st_size)
@@ -425,7 +425,7 @@ class SmartICD10Downloader:
         try:
             with open(summary_file, 'w') as f:
                 import json
-                json.dump(download_summary, f, indent=2)
+                json.dump(download_summary, f)
             logger.info(f"Saved download summary to {summary_file}")
         except Exception as e:
             logger.error(f"Error saving ICD-10 download summary: {e}")

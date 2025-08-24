@@ -58,8 +58,7 @@ class SmartClinicalTrialsDownloader:
         self.state = ClinicalTrialsDownloadState()
         
         # Rate limiting configuration
-        self.rate_limit = self.config.CLINICAL_TRIALS_RATE_LIMIT  # requests per second
-        self.request_delay = 1.0 / self.rate_limit if self.rate_limit > 0 else 0.1
+        self.request_delay = self.config.CLINICALTRIALS_REQUEST_DELAY  # Use configured delay directly
         self.retry_attempts = self.config.DRUG_API_RETRY_ATTEMPTS
         self.timeout = self.config.DRUG_API_TIMEOUT
         
@@ -125,7 +124,7 @@ class SmartClinicalTrialsDownloader:
         
         try:
             with open(state_file, 'w') as f:
-                json.dump(state_data, f, indent=2)
+                json.dump(state_data, f)
         except Exception as e:
             logger.error(f"Failed to save ClinicalTrials state: {e}")
     

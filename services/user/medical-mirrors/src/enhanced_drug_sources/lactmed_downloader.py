@@ -59,9 +59,8 @@ class SmartLactMedDownloader:
         # Initialize state
         self.state = LactMedDownloadState()
         
-        # Rate limiting configuration (NCBI E-utilities requirements)
-        self.rate_limit = self.config.LACTMED_RATE_LIMIT  # requests per second (conservative for NCBI)
-        self.request_delay = 1.0 / self.rate_limit if self.rate_limit > 0 else 0.34  # ~3 requests per second max
+        # Rate limiting configuration (NCBI E-utilities requirements) 
+        self.request_delay = self.config.PUBMED_REQUEST_DELAY  # Use same limit as PubMed (NCBI E-utilities)
         self.retry_attempts = self.config.DRUG_API_RETRY_ATTEMPTS
         self.timeout = self.config.DRUG_API_TIMEOUT
         
@@ -128,7 +127,7 @@ class SmartLactMedDownloader:
         
         try:
             with open(state_file, 'w') as f:
-                json.dump(state_data, f, indent=2)
+                json.dump(state_data, f)
         except Exception as e:
             logger.error(f"Failed to save LactMed state: {e}")
     

@@ -110,7 +110,7 @@ class SmartRxClassDownloader:
                 'completed_batches': list(self.state.completed_batches)
             }
             with open(state_file, 'w') as f:
-                json.dump(state_data, f, indent=2)
+                json.dump(state_data, f)
         except Exception as e:
             logger.warning(f"Failed to save RxClass state file: {e}")
     
@@ -172,7 +172,7 @@ class SmartRxClassDownloader:
                         
                         # Save progress after each batch
                         with open(classifications_file, 'w') as f:
-                            json.dump(all_classifications, f, indent=2)
+                            json.dump(all_classifications, f)
                         
                         self.state.completed_batches.add(batch_key)
                         self.state.total_drugs_classified += len(batch_classifications)

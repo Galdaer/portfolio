@@ -3,6 +3,7 @@ PubMed data downloader
 Downloads XML dumps from NCBI FTP and processes them
 """
 
+import asyncio
 import ftplib
 import gzip
 import logging
@@ -160,6 +161,10 @@ class PubMedDownloader:
 
                         logger.info(f"✅ Downloaded: {file} ({downloaded_bytes//1024//1024}MB)")
                         downloaded_files.append(local_path)
+                        
+                        # Rate limiting between downloads
+                        if i < len(recent_files):  # Don't sleep after the last file
+                            time.sleep(self.config.PUBMED_REQUEST_DELAY)
                     else:
                         logger.info(f"⏭️  File already exists: {file}")
                         downloaded_files.append(local_path)
@@ -210,6 +215,10 @@ class PubMedDownloader:
 
                         logger.info(f"Successfully downloaded: {file}")
                         downloaded_files.append(local_path)
+                        
+                        # Rate limiting between downloads
+                        if i < len(recent_files):  # Don't sleep after the last file
+                            time.sleep(self.config.PUBMED_REQUEST_DELAY)
                     else:
                         logger.info(f"Update file already exists: {file}")
                         downloaded_files.append(local_path)
@@ -326,6 +335,10 @@ class PubMedDownloader:
                         logger.info(f"✅ Downloaded: {file} ({downloaded_bytes//1024//1024}MB)")
                         downloaded_files.append(local_path)
                         
+                        # Rate limiting between downloads
+                        if i < len(xml_files):  # Don't sleep after the last file
+                            time.sleep(self.config.PUBMED_REQUEST_DELAY)
+                        
                         # Progress summary every 10 files
                         if i % 10 == 0:
                             logger.info(f"📈 Progress Summary: {i}/{len(xml_files)} files downloaded ({i/len(xml_files)*100:.1f}%)")
@@ -386,6 +399,10 @@ class PubMedDownloader:
 
                         logger.info(f"Successfully downloaded: {file}")
                         downloaded_files.append(local_path)
+                        
+                        # Rate limiting between downloads
+                        if i < len(xml_files):  # Don't sleep after the last file
+                            time.sleep(self.config.PUBMED_REQUEST_DELAY)
                     else:
                         logger.info(f"Update file already exists: {file}")
                         downloaded_files.append(local_path)
