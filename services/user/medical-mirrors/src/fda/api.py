@@ -26,10 +26,20 @@ logger = logging.getLogger(__name__)
 class FDAAPI:
     """Local FDA API matching Healthcare MCP interface"""
 
-    def __init__(self, session_factory: Any, config: Any = None) -> None:
+    def __init__(self, session_factory: Any, config: Any = None, enable_downloader: bool = True) -> None:
         self.session_factory = session_factory
         self.config = config
-        self.downloader = FDADownloader()
+        
+        # Only initialize downloader if needed (for database-only operations, skip it)
+        if enable_downloader:
+            try:
+                self.downloader = FDADownloader()
+            except Exception as e:
+                logger.warning(f"Failed to initialize FDADownloader: {e}. Continuing without downloader.")
+                self.downloader = None
+        else:
+            self.downloader = None
+            
         self.parser = FDAParser()
 
         # Use optimized parser if multicore parsing is enabled
@@ -219,6 +229,8 @@ class FDAAPI:
             db.commit()
 
             # Download latest FDA data
+            if not self.downloader:
+                raise ValueError("FDA downloader not available. Initialize with enable_downloader=True.")
             fda_data_dirs = await self.downloader.download_all_fda_data()
             total_processed = 0
             drug_limit = limit or 1000 if quick_test else None
@@ -429,48 +441,269 @@ class FDAAPI:
         return stored_count
 
     async def store_drugs_with_merging(self, drugs: list[dict], db: Session) -> int:
-        """Store drug data in database with intelligent merging from multiple sources"""
+        """Store drug data in database with intelligent merging and parallel processing"""
         if not drugs:
             return 0
 
         # Group drugs by matching records for merging
         grouped_drugs = self.parser.find_matching_records(drugs)
-        stored_count = 0
-
+        
         logger.info(f"Merging {len(drugs)} records into {len(grouped_drugs)} unified drug entries")
+        logger.info(f"Using high-performance parallel storage with batch operations")
 
+        # Merge all drugs first (CPU-intensive, do this before I/O)
+        merged_drugs = []
+        merge_failures = 0
+        
         for group_key, drug_group in grouped_drugs.items():
             try:
-                # Merge multiple records into one
                 merged_drug = self.parser.merge_drug_records(drug_group)
-
-                if not merged_drug.get("ndc"):
+                if merged_drug.get("ndc"):
+                    merged_drugs.append(merged_drug)
+                else:
                     logger.warning(f"Skipping drug group without NDC: {group_key}")
-                    continue
-
-                # Use PostgreSQL UPSERT with enhanced fields
-                self.upsert_enhanced_drug(merged_drug, db)
-                stored_count += 1
-
-                if stored_count % 500 == 0:
-                    logger.info(f"Processed {stored_count} merged drugs...")
-                    db.commit()
-
             except Exception as e:
-                logger.warning(f"Failed to store drug group {group_key}: {e}")
+                logger.warning(f"Failed to merge drug group {group_key}: {e}")
+                merge_failures += 1
                 continue
 
-        # Final commit
-        try:
-            db.commit()
-            logger.info(f"Successfully stored {stored_count} merged drug records")
-        except Exception as e:
-            logger.exception(f"Final commit failed: {e}")
-            db.rollback()
+        if merge_failures > 0:
+            logger.warning(f"Failed to merge {merge_failures} drug groups")
 
+        logger.info(f"Successfully merged {len(merged_drugs)} drugs, starting parallel database storage")
+
+        # Use parallel batch storage for maximum speed
+        stored_count = await self.store_drugs_parallel_batched(merged_drugs)
+        
         # Update search vectors
         await self.update_search_vectors(db)
         return stored_count
+
+    async def store_drugs_parallel_batched(self, drugs: list[dict]) -> int:
+        """Store drugs using parallel workers with batch operations for maximum performance"""
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+        import threading
+        
+        if not drugs:
+            return 0
+            
+        # Configuration for high performance
+        batch_size = 500  # Records per batch
+        max_workers = 10  # Parallel database workers
+        
+        # Create batches
+        batches = [drugs[i:i + batch_size] for i in range(0, len(drugs), batch_size)]
+        logger.info(f"Created {len(batches)} batches of {batch_size} drugs each for parallel processing")
+        
+        # Thread-local storage for database sessions
+        thread_local = threading.local()
+        
+        def get_thread_db_session():
+            """Get a database session for this thread"""
+            if not hasattr(thread_local, 'session'):
+                thread_local.session = self.session_factory()
+            return thread_local.session
+        
+        def process_batch(batch_drugs: list[dict]) -> int:
+            """Process a batch of drugs in a single database transaction"""
+            thread_db = get_thread_db_session()
+            batch_count = 0
+            
+            try:
+                # Prepare all batch data
+                insert_data_list = []
+                for drug_data in batch_drugs:
+                    insert_data = self.prepare_drug_insert_data(drug_data)
+                    if insert_data:
+                        insert_data_list.append(insert_data)
+                
+                if insert_data_list:
+                    # Use batch UPSERT for maximum speed
+                    self.batch_upsert_drugs(insert_data_list, thread_db)
+                    batch_count = len(insert_data_list)
+                    
+                thread_db.commit()
+                return batch_count
+                
+            except Exception as e:
+                logger.exception(f"Failed to process batch: {e}")
+                thread_db.rollback()
+                return 0
+        
+        # Process batches in parallel
+        total_stored = 0
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all batches
+            future_to_batch = {executor.submit(process_batch, batch): i 
+                             for i, batch in enumerate(batches)}
+            
+            # Collect results as they complete
+            completed_batches = 0
+            for future in asyncio.as_completed([asyncio.wrap_future(f) for f in future_to_batch]):
+                try:
+                    batch_stored = await future
+                    total_stored += batch_stored
+                    completed_batches += 1
+                    
+                    if completed_batches % 5 == 0 or completed_batches == len(batches):
+                        logger.info(f"Completed {completed_batches}/{len(batches)} batches, stored {total_stored} drugs")
+                        
+                except Exception as e:
+                    logger.exception(f"Batch processing failed: {e}")
+        
+        logger.info(f"Parallel batch storage completed: {total_stored} drugs stored using {max_workers} workers")
+        return total_stored
+
+    def prepare_drug_insert_data(self, drug_data: dict) -> dict | None:
+        """Prepare drug data for database insertion"""
+        ndc = drug_data.get("ndc", "").strip()
+        if not ndc:
+            return None
+
+        return {
+            "ndc": ndc,
+            "name": drug_data.get("name", ""),
+            "generic_name": drug_data.get("generic_name", ""),
+            "brand_name": drug_data.get("brand_name", ""),
+            "manufacturer": drug_data.get("manufacturer", ""),
+            "applicant": drug_data.get("applicant", ""),
+            "ingredients": drug_data.get("ingredients", []),
+            "strength": drug_data.get("strength", ""),
+            "dosage_form": drug_data.get("dosage_form", ""),
+            "route": drug_data.get("route", ""),
+            "application_number": drug_data.get("application_number", ""),
+            "product_number": drug_data.get("product_number", ""),
+            "approval_date": drug_data.get("approval_date", ""),
+            "orange_book_code": drug_data.get("orange_book_code", ""),
+            "reference_listed_drug": drug_data.get("reference_listed_drug", ""),
+            "therapeutic_class": drug_data.get("therapeutic_class", ""),
+            "pharmacologic_class": drug_data.get("pharmacologic_class", ""),
+            
+            # Clinical information fields
+            "contraindications": drug_data.get("contraindications", []),
+            "warnings": drug_data.get("warnings", []),
+            "precautions": drug_data.get("precautions", []),
+            "adverse_reactions": drug_data.get("adverse_reactions", []),
+            "drug_interactions": drug_data.get("drug_interactions", {}),
+            "indications_and_usage": drug_data.get("indications_and_usage", ""),
+            "dosage_and_administration": drug_data.get("dosage_and_administration", ""),
+            "mechanism_of_action": drug_data.get("mechanism_of_action", ""),
+            "pharmacokinetics": drug_data.get("pharmacokinetics", ""),
+            "pharmacodynamics": drug_data.get("pharmacodynamics", ""),
+            
+            "data_sources": drug_data.get("data_sources", []),
+            "updated_at": datetime.utcnow(),
+        }
+
+    def batch_upsert_drugs(self, insert_data_list: list[dict], db: Session):
+        """Perform batch UPSERT operation for maximum database performance"""
+        from sqlalchemy.dialects.postgresql import insert
+
+        # Use PostgreSQL's powerful ON CONFLICT DO UPDATE for batch operations
+        stmt = insert(FDADrug)
+        
+        # Configure UPSERT with intelligent field merging
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["ndc"],
+            set_={
+                # Always update basic fields
+                "name": stmt.excluded.name,
+                "updated_at": stmt.excluded.updated_at,
+
+                # Always update with new values if they're better (non-empty)
+                "generic_name": func.coalesce(
+                    func.nullif(stmt.excluded.generic_name, ""),
+                    FDADrug.generic_name
+                ),
+                "brand_name": func.coalesce(
+                    func.nullif(stmt.excluded.brand_name, ""),
+                    FDADrug.brand_name
+                ),
+                "manufacturer": func.coalesce(
+                    func.nullif(stmt.excluded.manufacturer, ""),
+                    FDADrug.manufacturer
+                ),
+                "applicant": func.coalesce(
+                    func.nullif(stmt.excluded.applicant, ""),
+                    FDADrug.applicant
+                ),
+                "strength": func.coalesce(
+                    func.nullif(stmt.excluded.strength, ""),
+                    FDADrug.strength
+                ),
+                "dosage_form": func.coalesce(
+                    func.nullif(stmt.excluded.dosage_form, ""),
+                    FDADrug.dosage_form
+                ),
+                "route": func.coalesce(
+                    func.nullif(stmt.excluded.route, ""),
+                    FDADrug.route
+                ),
+                "application_number": func.coalesce(
+                    func.nullif(stmt.excluded.application_number, ""),
+                    FDADrug.application_number
+                ),
+                "product_number": func.coalesce(
+                    func.nullif(stmt.excluded.product_number, ""),
+                    FDADrug.product_number
+                ),
+                "approval_date": func.coalesce(
+                    func.nullif(stmt.excluded.approval_date, ""),
+                    FDADrug.approval_date
+                ),
+                "orange_book_code": func.coalesce(
+                    func.nullif(stmt.excluded.orange_book_code, ""),
+                    FDADrug.orange_book_code
+                ),
+                "reference_listed_drug": func.coalesce(
+                    func.nullif(stmt.excluded.reference_listed_drug, ""),
+                    FDADrug.reference_listed_drug
+                ),
+                "therapeutic_class": func.coalesce(
+                    func.nullif(stmt.excluded.therapeutic_class, ""),
+                    FDADrug.therapeutic_class
+                ),
+                "pharmacologic_class": func.coalesce(
+                    func.nullif(stmt.excluded.pharmacologic_class, ""),
+                    FDADrug.pharmacologic_class
+                ),
+
+                # Clinical information fields - always update with new data
+                "contraindications": stmt.excluded.contraindications,
+                "warnings": stmt.excluded.warnings,
+                "precautions": stmt.excluded.precautions,
+                "adverse_reactions": stmt.excluded.adverse_reactions,
+                "drug_interactions": stmt.excluded.drug_interactions,
+                "indications_and_usage": func.coalesce(
+                    func.nullif(stmt.excluded.indications_and_usage, ""),
+                    FDADrug.indications_and_usage
+                ),
+                "dosage_and_administration": func.coalesce(
+                    func.nullif(stmt.excluded.dosage_and_administration, ""),
+                    FDADrug.dosage_and_administration
+                ),
+                "mechanism_of_action": func.coalesce(
+                    func.nullif(stmt.excluded.mechanism_of_action, ""),
+                    FDADrug.mechanism_of_action
+                ),
+                "pharmacokinetics": func.coalesce(
+                    func.nullif(stmt.excluded.pharmacokinetics, ""),
+                    FDADrug.pharmacokinetics
+                ),
+                "pharmacodynamics": func.coalesce(
+                    func.nullif(stmt.excluded.pharmacodynamics, ""),
+                    FDADrug.pharmacodynamics
+                ),
+
+                # For arrays, combine unique values
+                "ingredients": stmt.excluded.ingredients,
+                "data_sources": stmt.excluded.data_sources,
+            },
+        )
+
+        # Execute batch insert
+        db.execute(stmt, insert_data_list)
 
     def upsert_enhanced_drug(self, drug_data: dict, db: Session):
         """Insert or update a drug record using PostgreSQL UPSERT with all enhanced fields"""

@@ -20,19 +20,62 @@ def _extract_text_field(field_data) -> str:
     if isinstance(field_data, str):
         return field_data.strip()
     elif isinstance(field_data, list):
-        if len(field_data) == 1 and isinstance(field_data[0], str):
-            return field_data[0].strip()
-        else:
-            return "; ".join([str(item) for item in field_data if item]).strip()
+        # Handle list of strings or complex objects
+        text_parts = []
+        for item in field_data:
+            if isinstance(item, str):
+                text_parts.append(item.strip())
+            elif isinstance(item, dict):
+                # Extract text from dict items
+                if "text" in item:
+                    text_parts.append(str(item["text"]).strip())
+                elif "content" in item:
+                    if isinstance(item["content"], list):
+                        text_parts.extend([str(c) for c in item["content"] if c])
+                    else:
+                        text_parts.append(str(item["content"]).strip())
+                elif "section" in item and "content" in item:
+                    # Handle section-based content
+                    section_text = f"{item['section']}: {item['content']}"
+                    text_parts.append(section_text)
+                else:
+                    # Convert entire dict to readable string
+                    text_parts.append(str(item))
+            else:
+                text_parts.append(str(item))
+        
+        return "; ".join([part for part in text_parts if part]).strip()
     elif isinstance(field_data, dict):
-        # Some fields might be dictionaries, extract text content
+        # Handle various dict structures
         if "text" in field_data:
-            return str(field_data["text"]).strip()
+            text_content = field_data["text"]
+            if isinstance(text_content, str):
+                return text_content.strip()
+            elif isinstance(text_content, list):
+                return "; ".join([str(t) for t in text_content if t]).strip()
         elif "content" in field_data:
-            return str(field_data["content"]).strip()
+            content = field_data["content"]
+            if isinstance(content, str):
+                return content.strip()
+            elif isinstance(content, list):
+                return "; ".join([str(c) for c in content if c]).strip()
+        elif "general" in field_data:
+            # Handle dosage_and_administration structure
+            parts = []
+            for key, value in field_data.items():
+                if value and key != "limitations":
+                    parts.append(f"{key.replace('_', ' ').title()}: {value}")
+            return "; ".join(parts).strip()
         else:
-            # Convert dict to string representation
-            return str(field_data).strip()
+            # For other dict structures, create readable summary
+            readable_parts = []
+            for key, value in field_data.items():
+                if value:
+                    if isinstance(value, (list, dict)):
+                        readable_parts.append(f"{key}: {len(value) if isinstance(value, list) else 'complex'} items")
+                    else:
+                        readable_parts.append(f"{key}: {str(value)[:100]}")
+            return "; ".join(readable_parts).strip() if readable_parts else str(field_data).strip()
     else:
         return str(field_data).strip()
 
@@ -500,25 +543,35 @@ class OptimizedFDAParser:
             logger.exception(f"Failed to parse Orange Book file {csv_file_path}: {e}")
             return []
 
+    def _clean_field_value(self, value: Any) -> str:
+        """Clean field values to handle pandas nan values"""
+        if value is None:
+            return ""
+        str_value = str(value).strip()
+        # Handle pandas nan values
+        if str_value.lower() in ['nan', 'none', 'null']:
+            return ""
+        return str_value
+
     def _parse_orange_book_record(self, row) -> dict[str, Any] | None:
         """Parse a single Orange Book record"""
         try:
-            # Extract fields (Orange Book has specific column names)
-            ingredient = str(row.get("Ingredient", "")).strip()
-            trade_name = str(row.get("Trade_Name", "")).strip()
-            applicant = str(row.get("Applicant_Full_Name", row.get("Applicant", ""))).strip()
-            product_no = str(row.get("Product_No", "")).strip()
+            # Extract fields (Orange Book has specific column names) with nan cleaning
+            ingredient = self._clean_field_value(row.get("Ingredient", ""))
+            trade_name = self._clean_field_value(row.get("Trade_Name", ""))
+            applicant = self._clean_field_value(row.get("Applicant_Full_Name", row.get("Applicant", "")))
+            product_no = self._clean_field_value(row.get("Product_No", ""))
             # DF;Route format like "AEROSOL, FOAM;RECTAL"
-            df_route = str(row.get("DF;Route", "")).strip()
+            df_route = self._clean_field_value(row.get("DF;Route", ""))
             dosage_form = df_route.split(";")[0] if ";" in df_route else df_route
             route = df_route.split(";")[1] if ";" in df_route else ""
-            strength = str(row.get("Strength", "")).strip()
-            approval_date = str(row.get("Approval_Date", "")).strip()
+            strength = self._clean_field_value(row.get("Strength", ""))
+            approval_date = self._clean_field_value(row.get("Approval_Date", ""))
             
-            # Extract additional Orange Book fields
-            te_code = str(row.get("TE_Code", "")).strip()  # Therapeutic Equivalence Code
-            rld = str(row.get("RLD", "")).strip()  # Reference Listed Drug
-            appl_no = str(row.get("Appl_No", "")).strip()  # Application Number
+            # Extract additional Orange Book fields with nan cleaning
+            te_code = self._clean_field_value(row.get("TE_Code", ""))  # Therapeutic Equivalence Code
+            rld = self._clean_field_value(row.get("RLD", ""))  # Reference Listed Drug
+            appl_no = self._clean_field_value(row.get("Appl_No", ""))  # Application Number
 
             # Validate that we have meaningful data - skip records without drug names
             if not ingredient and not trade_name:

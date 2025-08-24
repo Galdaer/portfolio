@@ -116,7 +116,7 @@ class FDADownloader:
             raise
 
     async def download_drug_labels(self) -> str:
-        """Download FDA drug labeling data"""
+        """Download FDA drug labeling data from all partitions"""
         logger.info("Downloading FDA drug labels")
 
         try:
@@ -125,31 +125,37 @@ class FDADownloader:
             download_info_response.raise_for_status()
             download_info = download_info_response.json()
 
-            # Get the first partition URL for drug labels
+            # Get all partition URLs for drug labels
             label_partitions = download_info["results"]["drug"]["label"]["partitions"]
             if not label_partitions:
                 raise Exception("No drug label partitions available")
 
-            # Download first partition (largest dataset)
-            url = label_partitions[0]["file"]
-            logger.info(f"Downloading drug labels from: {url}")
-
-            response = await self.session.get(url)
-            response.raise_for_status()
-
-            # Save ZIP file
-            zip_file = os.path.join(self.data_dir, "drug_labels.zip")
-            with open(zip_file, "wb") as f:
-                f.write(response.content)
-
-            # Extract ZIP
+            logger.info(f"Found {len(label_partitions)} drug label partitions to download")
+            
+            # Prepare extract directory
             extract_dir = os.path.join(self.data_dir, "labels")
             os.makedirs(extract_dir, exist_ok=True)
 
-            with zipfile.ZipFile(zip_file, "r") as zip_ref:
-                zip_ref.extractall(extract_dir)
+            # Download and extract each partition
+            for i, partition in enumerate(label_partitions, 1):
+                url = partition["file"]
+                logger.info(f"Downloading drug labels partition {i}/{len(label_partitions)} from: {url}")
 
-            logger.info("FDA drug labels downloaded and extracted")
+                response = await self.session.get(url)
+                response.raise_for_status()
+
+                # Save ZIP file with unique name
+                zip_file = os.path.join(self.data_dir, f"drug_labels_part_{i:03d}.zip")
+                with open(zip_file, "wb") as f:
+                    f.write(response.content)
+
+                # Extract ZIP
+                with zipfile.ZipFile(zip_file, "r") as zip_ref:
+                    zip_ref.extractall(extract_dir)
+
+                logger.info(f"Extracted drug labels partition {i}/{len(label_partitions)}")
+
+            logger.info(f"FDA drug labels downloaded and extracted from {len(label_partitions)} partitions")
             return extract_dir
 
         except Exception as e:
