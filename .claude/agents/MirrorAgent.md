@@ -844,4 +844,210 @@ Special population coverage enhanced from 4.9%-36.3% to 60-80% through multi-sou
 - **Nursing mothers**: Lactation safety, transfer data, breastfeeding recommendations
 
 This pattern ensures consistency, reliability, and scalability across all medical data mirror services with comprehensive drug information coverage.
+
+## STORAGE MANAGEMENT INTEGRATION
+
+Smart downloaders integrate with storage optimization for efficient space usage:
+
+### Storage Monitoring Pattern
+```python
+# Integrate disk monitoring during downloads
+from scripts.download_utils import check_disk_space, log_download_progress
+
+class SmartDownloaderWithStorage:
+    """Enhanced smart downloader with storage management"""
+    
+    def __init__(self, output_dir: Path, min_free_space_gb: float = 20.0):
+        self.output_dir = output_dir
+        self.min_free_space_gb = min_free_space_gb
+        self.storage_monitor = True
+        
+    async def download_with_storage_monitoring(self):
+        """Download with real-time storage monitoring"""
+        
+        # Pre-download storage check
+        disk_info = check_disk_space(str(self.output_dir), self.min_free_space_gb)
+        
+        if disk_info.get('warnings'):
+            for warning in disk_info['warnings']:
+                self.logger.warning(f"STORAGE: {warning}")
+            
+            # Trigger cleanup if space is critical
+            if disk_info.get('free_gb', 0) < self.min_free_space_gb:
+                await self._trigger_emergency_cleanup()
+        
+        # Monitor space during download
+        async for batch_result in self._download_in_batches():
+            # Check disk space every batch
+            current_disk = check_disk_space(str(self.output_dir))
+            if current_disk.get('warnings'):
+                self.logger.warning("Pausing download for storage management")
+                await self._pause_for_cleanup()
+            
+            yield batch_result
+    
+    async def _trigger_emergency_cleanup(self):
+        """Trigger cleanup when disk space is critical"""
+        cleanup_script = Path('/home/intelluxe/scripts/automated_cleanup.sh')
+        if cleanup_script.exists():
+            subprocess.run([str(cleanup_script), '--force'], check=False)
+            self.logger.info("Emergency cleanup triggered")
+```
+
+### Download Best Practices Integration
+```python
+# Prevent pretty printing and bloat during downloads
+def save_data_efficiently(data: Any, output_file: Path, file_type: str = 'json'):
+    """Save data without pretty printing to prevent bloat"""
+    
+    # Never use pretty printing
+    json_params = {
+        'ensure_ascii': False,
+        'separators': (',', ':'),  # Compact separators
+        'default': str
+    }
+    
+    if file_type == 'json':
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, **json_params)
+    
+    # Log file size for monitoring
+    file_size_mb = output_file.stat().st_size / (1024**2)
+    if file_size_mb > 100:  # Log large files
+        logger.info(f"Large file created: {output_file.name} ({file_size_mb:.1f}MB)")
+        
+        # Auto-compress large files if configured
+        if hasattr(self, 'auto_compress_large_files') and self.auto_compress_large_files:
+            compressed_path = self._compress_file(output_file)
+            output_file.unlink()  # Remove original
+            logger.info(f"Auto-compressed: {compressed_path.name}")
+
+# Integration with cleanup systems
+def setup_post_download_cleanup(self):
+    """Set up automatic cleanup after download completion"""
+    
+    cleanup_tasks = [
+        'remove_duplicate_uncompressed_files',
+        'compress_large_json_files', 
+        'clean_temporary_downloads',
+        'update_storage_metrics'
+    ]
+    
+    for task in cleanup_tasks:
+        self.post_download_tasks.append(task)
+```
+
+### Compression Strategy Integration
+```python
+class CompressedDownloadManager:
+    """Download with intelligent compression strategies"""
+    
+    def __init__(self):
+        self.compression_candidates = {
+            '.xml': 'gzip',  # Medical XML files compress very well (~90%)
+            '.json': 'gzip', # JSON also compresses well (~80%) 
+            '.csv': 'gzip',  # CSV files compress excellently (~85%)
+            '.txt': 'gzip'   # Text files compress well (~70%)
+        }
+        
+        self.compress_threshold_mb = 50  # Compress files > 50MB
+    
+    async def download_and_compress(self, url: str, output_path: Path):
+        """Download and immediately compress large files"""
+        
+        # Download to temporary location first
+        temp_path = output_path.with_suffix(f"{output_path.suffix}.tmp")
+        
+        await self._download_file(url, temp_path)
+        
+        file_size = temp_path.stat().st_size
+        file_size_mb = file_size / (1024**2)
+        
+        # Compress if file is large
+        if (file_size_mb > self.compress_threshold_mb and 
+            output_path.suffix in self.compression_candidates):
+            
+            compression_method = self.compression_candidates[output_path.suffix]
+            compressed_path = output_path.with_suffix(f"{output_path.suffix}.gz")
+            
+            if compression_method == 'gzip':
+                with open(temp_path, 'rb') as f_in:
+                    with gzip.open(compressed_path, 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                
+                # Remove temporary uncompressed file
+                temp_path.unlink()
+                
+                compression_ratio = compressed_path.stat().st_size / file_size
+                self.logger.info(f"Compressed {output_path.name}: "
+                               f"{file_size_mb:.1f}MB → "
+                               f"{compressed_path.stat().st_size/(1024**2):.1f}MB "
+                               f"({compression_ratio:.1%} ratio)")
+                
+                return compressed_path
+        else:
+            # Move temp file to final location
+            temp_path.rename(output_path)
+        
+        return output_path
+```
+
+### Automated Cleanup Integration
+```python
+# Integration with automated cleanup systems
+class MirrorServiceWithCleanup:
+    """Mirror service with integrated cleanup automation"""
+    
+    def __init__(self):
+        self.cleanup_triggers = {
+            'disk_usage_threshold': 75.0,  # Trigger cleanup at 75% usage
+            'after_major_download': True,   # Cleanup after large downloads
+            'weekly_schedule': True         # Weekly automated cleanup
+        }
+    
+    async def post_download_maintenance(self, download_results: Dict):
+        """Perform maintenance after download completion"""
+        
+        maintenance_tasks = []
+        
+        # Check if cleanup is needed
+        disk_info = check_disk_space(str(self.data_dir))
+        
+        if disk_info['usage_percent'] > self.cleanup_triggers['disk_usage_threshold']:
+            maintenance_tasks.append('trigger_duplicate_cleanup')
+        
+        if download_results.get('total_size_gb', 0) > 10:  # Large download
+            maintenance_tasks.append('compress_new_large_files')
+            maintenance_tasks.append('remove_temporary_files')
+        
+        # Execute maintenance tasks
+        for task in maintenance_tasks:
+            try:
+                await self._execute_maintenance_task(task)
+                self.logger.info(f"Completed maintenance task: {task}")
+            except Exception as e:
+                self.logger.error(f"Maintenance task failed: {task} - {e}")
+    
+    async def _execute_maintenance_task(self, task: str):
+        """Execute specific maintenance task"""
+        
+        if task == 'trigger_duplicate_cleanup':
+            cleanup_script = '/home/intelluxe/scripts/cleanup_medical_downloads.py'
+            subprocess.run(['python3', cleanup_script, str(self.data_dir), '--execute'], 
+                         input='yes\n', text=True, check=False)
+        
+        elif task == 'compress_new_large_files':
+            compressor = CompressionOptimizer(self.data_dir)
+            opportunities = compressor.analyze_compression_opportunities()
+            await compressor.compress_files([opp['file'] for opp in opportunities[:10]])
+        
+        elif task == 'remove_temporary_files':
+            # Clean up .tmp, .partial, .download files
+            for pattern in ['*.tmp', '*.partial', '*.download']:
+                for temp_file in self.data_dir.rglob(pattern):
+                    if temp_file.is_file():
+                        temp_file.unlink()
+```
+
+This enhanced storage integration ensures that medical data mirroring operations maintain optimal storage efficiency while preserving all data integrity.
 ```

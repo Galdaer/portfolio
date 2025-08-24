@@ -271,6 +271,33 @@ Key environment variables are documented in README.md, including:
 - `PHI_DETECTION_ENABLED`: Enable/disable PHI detection
 - `RBAC_ENABLED`: Enable role-based access control
 
+### Storage Management
+Disk space monitoring and optimization commands for medical data operations:
+
+```bash
+# Disk space monitoring
+python3 scripts/disk_space_monitor.py /home/intelluxe/database/medical_complete
+python3 scripts/disk_space_monitor.py --save-report  # Generate detailed report
+
+# Cleanup operations
+python3 scripts/cleanup_medical_downloads.py --dry-run    # Preview cleanup
+python3 scripts/cleanup_medical_downloads.py --execute   # Execute cleanup
+./scripts/automated_cleanup.sh --force                   # Automated cleanup
+
+# Storage optimization
+python3 scripts/storage_orchestrator.py --full-cycle     # Complete optimization
+```
+
+### Download Best Practices
+Guidelines for efficient and storage-conscious downloads:
+
+- **Never use pretty printing**: Remove `indent=` parameters from `json.dump()` calls
+- **Monitor disk space**: Use `check_disk_space()` from `download_utils.py`
+- **Keep compressed files**: Always preserve `.gz` versions for space efficiency
+- **Use streaming parsers**: Process large XML/JSON files without loading entirely into memory
+- **Auto-compress large files**: Compress downloads > 50MB immediately after completion
+- **Clean up temporary files**: Remove `.tmp`, `.partial`, and `.download` files after completion
+
 ## Troubleshooting
 
 ### Common Issues
@@ -279,6 +306,9 @@ Key environment variables are documented in README.md, including:
 - Docker issues: Use `make clean-docker` to reset Docker state
 - Permission issues: Use `make fix-permissions`
 - Medical data updates failing: Check `make medical-mirrors-errors-summary`
+- **Disk space issues**: Use `python3 scripts/disk_space_monitor.py` to check usage
+- **Download bloat**: Run `scripts/cleanup_medical_downloads.py --dry-run` to identify duplicates
+- **Storage performance**: Monitor with `scripts/storage_orchestrator.py --analyze`
 
 ### Debugging
 - Use `./scripts/bootstrap.sh --debug` for verbose output

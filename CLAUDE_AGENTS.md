@@ -4,7 +4,26 @@ This document contains specialized Claude Code agents for implementing and worki
 
 ## Agent Overview
 
-Based on analysis of the healthcare-api service, here are the key patterns and specialized agents for development:
+Based on analysis of the healthcare system and successful optimization work, here are the specialized agents for development. These agents should be used proactively when their trigger keywords are detected.
+
+### Core Development Agents
+
+The following agents handle the main development and infrastructure tasks:
+
+1. **MirrorAgent** - Medical data mirroring and smart downloaders
+2. **DataConsolidationAgent** - Database optimization and duplicate handling
+3. **MCPToolDeveloper** - MCP tool development and debugging
+4. **HealthcareAgentImplementer** - Healthcare agent creation and modification
+5. **InfraSecurityAgent** - Security, PHI protection, and HIPAA compliance
+6. **ConfigDeployment** - System configuration and deployment
+7. **LangChainOrchestration** - Agent coordination and routing
+
+### Storage and Download Management Agents
+
+New agents for storage optimization and download coordination:
+
+8. **StorageOptimizationAgent** - Disk space management and storage optimization
+9. **DownloadOrchestrationAgent** - Large-scale download coordination and monitoring
 
 ## 1. Healthcare Agent Implementation Agent
 
@@ -403,6 +422,8 @@ Claude Code will automatically use these agents when it detects matching pattern
 5. **InfraSecurityAgent**: For PHI protection, security implementations, compliance tasks
 6. **ConfigDeployment**: For system configuration, deployment, service management
 7. **LangChainOrchestration**: For orchestration layer work, agent routing, workflow management
+8. **StorageOptimizationAgent**: For disk space management, cleanup, duplicate files, compression
+9. **DownloadOrchestrationAgent**: For bulk downloads, download monitoring, pretty printing prevention
 
 ### Manual Agent Invocation
 
@@ -410,6 +431,8 @@ If automatic invocation doesn't occur, you can manually trigger by asking:
 - "Use the MirrorAgent to implement this data source"
 - "Use the DataConsolidationAgent to fix these duplicate records"
 - "Use the healthcare-agent-implementer to create a new SOAP notes agent"
+- "Use the StorageOptimizationAgent to clean up disk space"
+- "Use the DownloadOrchestrationAgent to coordinate these downloads"
 
 ### Agent Selection Criteria
 
@@ -440,4 +463,81 @@ Agents are selected based on:
 2. Use MCP Tool Agent for new tools
 3. Use Infrastructure Agent for security/logging
 4. Use Configuration Agent for deployment
-5. Test with appropriate make commands
+5. Use Storage/Download agents for data management
+6. Test with appropriate make commands
+
+## 8. Storage Optimization Agent
+
+Use this agent for disk space management, storage optimization, duplicate file detection, and automated cleanup tasks.
+
+### Triggers
+**Keywords**: disk space, storage optimization, cleanup, duplicate files, compression, space recovery, disk usage, storage management
+
+### Agent Capabilities
+- **Duplicate File Detection**: Find uncompressed files with compressed counterparts
+- **Storage Analysis**: Comprehensive disk usage analysis and recommendations
+- **Safe Cleanup**: Automated cleanup with integrity verification and rollback capability
+- **Compression Optimization**: Intelligent compression strategies for different file types
+- **Automated Maintenance**: Scheduled cleanup and monitoring systems
+- **Space Recovery**: Recover 50-90% disk space in duplicate scenarios
+
+### Key Use Cases
+- Medical data downloads consuming excessive disk space
+- Pretty-printed JSON/XML files causing storage bloat
+- Duplicate uncompressed files alongside compressed versions
+- System running low on disk space during downloads
+- Setting up automated storage maintenance
+
+### Integration Points
+- Works with MirrorAgent for download cleanup
+- Integrates with DataConsolidationAgent for database optimization
+- Coordinates with DownloadOrchestrationAgent for real-time monitoring
+
+## 9. Download Orchestration Agent
+
+Use this agent for coordinating large-scale downloads, preventing storage bloat, and managing multiple data sources intelligently.
+
+### Triggers  
+**Keywords**: bulk download, download orchestration, data update, pretty printing, download monitoring, rate limiting, download coordination, medical data downloads
+
+### Agent Capabilities
+- **Intelligent Coordination**: Schedule multiple downloads with resource management
+- **Storage-Aware Operations**: Monitor disk space and pause downloads when needed
+- **Bloat Prevention**: Automatically prevent pretty printing and optimize file formats
+- **Recovery & Resume**: Handle interrupted downloads with state persistence
+- **Rate Limit Management**: Intelligent backoff and retry strategies across APIs
+- **Real-time Monitoring**: Track progress, errors, and resource usage
+
+### Key Use Cases
+- Orchestrating updates to PubMed, ClinicalTrials, FDA databases
+- Preventing system overload during large data downloads
+- Coordinating multi-source downloads with dependencies
+- Recovering from failed downloads without starting over
+- Implementing storage-conscious download strategies
+
+### Integration Points
+- Uses StorageOptimizationAgent for space management during downloads
+- Works with MirrorAgent for smart downloader implementations
+- Integrates with infrastructure monitoring and alerting systems
+
+## Best Practices for Agent Usage
+
+### Proactive Agent Selection
+- **Always check for storage implications** when working with medical data
+- **Use multiple agents together** for complex tasks (e.g., MirrorAgent + StorageOptimizationAgent)
+- **Consider download orchestration** for any bulk data operations
+- **Include storage monitoring** in all large-scale operations
+
+### Agent Combinations
+- **Data Updates**: DownloadOrchestrationAgent → MirrorAgent → StorageOptimizationAgent
+- **System Optimization**: StorageOptimizationAgent → DataConsolidationAgent → performance validation
+- **New Data Source**: MirrorAgent → StorageOptimizationAgent → MCPToolDeveloper (for API access)
+- **Infrastructure Work**: InfraSecurityAgent → ConfigDeployment → comprehensive testing
+
+### Storage-First Approach
+Given the success of the recent cleanup work, always consider storage implications:
+- **Monitor disk usage** before starting any large operations
+- **Implement cleanup** as part of regular maintenance
+- **Prevent bloat** through proper JSON/XML formatting
+- **Use compression** for large files and archives
+- **Plan for growth** with automated cleanup and monitoring

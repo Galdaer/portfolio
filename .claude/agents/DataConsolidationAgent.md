@@ -416,4 +416,321 @@ Every consolidation must include:
 5. **External API integration testing**: Enhancement pipeline reliability
 
 This consolidation approach transforms chaotic duplicate data into efficient, searchable, enhanced datasets while maintaining complete data integrity and traceability.
+
+## STORAGE OPTIMIZATION INTEGRATION
+
+Data consolidation integrates with storage management for maximum efficiency:
+
+### File System Duplicate Detection
+```python
+class FilesystemDuplicateDetector:
+    """Detect duplicate files alongside database duplicate detection"""
+    
+    def __init__(self, data_dir: Path):
+        self.data_dir = data_dir
+        self.logger = self._setup_logging()
+    
+    def detect_consolidation_opportunities(self) -> Dict[str, Any]:
+        """Detect both database and filesystem consolidation opportunities"""
+        
+        opportunities = {
+            'database_duplicates': {},
+            'filesystem_duplicates': {},
+            'storage_optimization': {},
+            'compression_candidates': []
+        }
+        
+        # Database duplicate analysis (existing pattern)
+        opportunities['database_duplicates'] = self.analyze_database_duplicates()
+        
+        # Filesystem duplicate detection  
+        opportunities['filesystem_duplicates'] = self.detect_duplicate_files()
+        
+        # Storage optimization opportunities
+        opportunities['storage_optimization'] = self.analyze_storage_waste()
+        
+        return opportunities
+    
+    def detect_duplicate_files(self) -> Dict[str, List]:
+        """Find duplicate files in the filesystem"""
+        
+        duplicates = {
+            'uncompressed_with_compressed': [],
+            'identical_files': [],
+            'redundant_backups': []
+        }
+        
+        # Find uncompressed files with compressed counterparts
+        for file_path in self.data_dir.rglob("*"):
+            if (file_path.is_file() and 
+                not self._is_compressed(file_path) and
+                file_path.stat().st_size > 10 * 1024 * 1024):  # > 10MB
+                
+                compressed_variants = self._find_compressed_variants(file_path)
+                if compressed_variants:
+                    duplicates['uncompressed_with_compressed'].append({
+                        'uncompressed': str(file_path),
+                        'compressed': [str(v) for v in compressed_variants],
+                        'size_mb': round(file_path.stat().st_size / (1024**2), 2)
+                    })
+        
+        # Find identical files using size and partial content hash
+        duplicates['identical_files'] = self._find_identical_files()
+        
+        return duplicates
+    
+    def _find_identical_files(self) -> List[Dict]:
+        """Find identical files by comparing size and content hash"""
+        import hashlib
+        
+        size_groups = {}
+        
+        # Group files by size first (quick filter)
+        for file_path in self.data_dir.rglob("*"):
+            if file_path.is_file():
+                size = file_path.stat().st_size
+                if size not in size_groups:
+                    size_groups[size] = []
+                size_groups[size].append(file_path)
+        
+        # For files with same size, compare content hash
+        identical_groups = []
+        for size, file_list in size_groups.items():
+            if len(file_list) > 1 and size > 1024:  # Multiple files, > 1KB
+                hash_groups = {}
+                
+                for file_path in file_list:
+                    try:
+                        # Hash first 64KB for performance
+                        with open(file_path, 'rb') as f:
+                            content = f.read(65536)
+                            file_hash = hashlib.md5(content).hexdigest()
+                        
+                        if file_hash not in hash_groups:
+                            hash_groups[file_hash] = []
+                        hash_groups[file_hash].append(file_path)
+                    except Exception as e:
+                        self.logger.warning(f"Hash calculation failed for {file_path}: {e}")
+                
+                # Collect groups with multiple files (identical content)
+                for file_hash, identical_files in hash_groups.items():
+                    if len(identical_files) > 1:
+                        identical_groups.append({
+                            'files': [str(f) for f in identical_files],
+                            'size_mb': round(size / (1024**2), 2),
+                            'hash': file_hash,
+                            'total_waste_mb': round((len(identical_files) - 1) * size / (1024**2), 2)
+                        })
+        
+        return identical_groups
+```
+
+### Consolidation with Storage Awareness
+```python
+class StorageAwareConsolidator:
+    """Perform data consolidation while optimizing storage usage"""
+    
+    def __init__(self, db_session: Session, data_dir: Path):
+        self.db_session = db_session
+        self.data_dir = data_dir
+        self.storage_monitor = DiskSpaceMonitor(data_dir)
+        
+    async def consolidate_with_storage_optimization(self, table_name: str) -> Dict[str, Any]:
+        """Consolidate database records and optimize storage simultaneously"""
+        
+        consolidation_results = {
+            'database_consolidation': {},
+            'storage_optimization': {},
+            'combined_savings': {}
+        }
+        
+        # Phase 1: Database consolidation (existing pattern)
+        self.logger.info("Phase 1: Database record consolidation")
+        db_results = await self.migrate_to_consolidated(table_name)
+        consolidation_results['database_consolidation'] = db_results
+        
+        # Phase 2: Filesystem cleanup during consolidation
+        self.logger.info("Phase 2: Filesystem optimization")
+        storage_results = await self._optimize_related_files(table_name)
+        consolidation_results['storage_optimization'] = storage_results
+        
+        # Phase 3: Calculate combined impact
+        consolidation_results['combined_savings'] = {
+            'database_space_saved_mb': self._calculate_db_space_savings(db_results),
+            'filesystem_space_saved_mb': storage_results.get('space_recovered_mb', 0),
+            'total_space_saved_mb': 0
+        }
+        
+        consolidation_results['combined_savings']['total_space_saved_mb'] = (
+            consolidation_results['combined_savings']['database_space_saved_mb'] +
+            consolidation_results['combined_savings']['filesystem_space_saved_mb']
+        )
+        
+        return consolidation_results
+    
+    async def _optimize_related_files(self, table_name: str) -> Dict[str, Any]:
+        """Optimize files related to the consolidated table"""
+        
+        optimization_results = {
+            'duplicates_removed': 0,
+            'files_compressed': 0,
+            'space_recovered_mb': 0,
+            'errors': []
+        }
+        
+        # Find table-related directories
+        table_dirs = [
+            self.data_dir / table_name,
+            self.data_dir / f"{table_name}_backup",
+            self.data_dir / f"{table_name}_exports"
+        ]
+        
+        for table_dir in table_dirs:
+            if table_dir.exists():
+                try:
+                    # Remove duplicate files
+                    duplicate_detector = FilesystemDuplicateDetector(table_dir)
+                    duplicates = duplicate_detector.detect_duplicate_files()
+                    
+                    removed_size = 0
+                    for duplicate_group in duplicates['uncompressed_with_compressed']:
+                        uncompressed_path = Path(duplicate_group['uncompressed'])
+                        if uncompressed_path.exists():
+                            removed_size += uncompressed_path.stat().st_size
+                            uncompressed_path.unlink()
+                            optimization_results['duplicates_removed'] += 1
+                    
+                    optimization_results['space_recovered_mb'] += removed_size / (1024**2)
+                    
+                    # Compress remaining large files
+                    compressor = CompressionOptimizer(table_dir)
+                    compression_ops = compressor.analyze_compression_opportunities()
+                    
+                    if compression_ops[:5]:  # Compress top 5 candidates
+                        compression_results = await compressor.compress_files(
+                            [op['file'] for op in compression_ops[:5]]
+                        )
+                        optimization_results['files_compressed'] += compression_results['compressed_files']
+                        optimization_results['space_recovered_mb'] += compression_results['total_savings_mb']
+                
+                except Exception as e:
+                    error_msg = f"Optimization failed for {table_dir}: {e}"
+                    optimization_results['errors'].append(error_msg)
+                    self.logger.error(error_msg)
+        
+        return optimization_results
+```
+
+### Archive Management Pattern
+```python
+class ConsolidatedArchiveManager:
+    """Manage archives and backups for consolidated data"""
+    
+    def __init__(self, data_dir: Path):
+        self.data_dir = data_dir
+        self.archive_dir = data_dir / 'archives'
+        self.archive_dir.mkdir(exist_ok=True)
+        
+        # Archive retention policy
+        self.retention_policy = {
+            'keep_daily_for_days': 7,
+            'keep_weekly_for_weeks': 4,
+            'keep_monthly_for_months': 6,
+            'compress_archives_older_than_days': 1
+        }
+    
+    def create_consolidation_archive(self, table_name: str, 
+                                   original_records: List[Dict],
+                                   consolidated_records: List[Dict]) -> Path:
+        """Create archive of consolidation process for audit trail"""
+        
+        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        archive_name = f"{table_name}_consolidation_{timestamp}"
+        archive_path = self.archive_dir / f"{archive_name}.json.gz"
+        
+        archive_data = {
+            'consolidation_metadata': {
+                'table_name': table_name,
+                'timestamp': datetime.utcnow().isoformat(),
+                'original_record_count': len(original_records),
+                'consolidated_record_count': len(consolidated_records),
+                'reduction_ratio': len(consolidated_records) / len(original_records) if original_records else 0
+            },
+            'original_records': original_records,
+            'consolidated_records': consolidated_records,
+            'consolidation_rules': self._get_consolidation_rules_used()
+        }
+        
+        # Save as compressed JSON for space efficiency
+        with gzip.open(archive_path, 'wt', encoding='utf-8') as f:
+            json.dump(archive_data, f, ensure_ascii=False, separators=(',', ':'))
+        
+        self.logger.info(f"Consolidation archive created: {archive_path}")
+        return archive_path
+    
+    def cleanup_old_archives(self) -> Dict[str, Any]:
+        """Clean up old archives according to retention policy"""
+        
+        cleanup_results = {
+            'archives_removed': 0,
+            'archives_compressed': 0,
+            'space_recovered_mb': 0
+        }
+        
+        cutoff_date = datetime.utcnow() - timedelta(days=self.retention_policy['keep_monthly_for_months'] * 30)
+        compress_cutoff = datetime.utcnow() - timedelta(days=self.retention_policy['compress_archives_older_than_days'])
+        
+        for archive_file in self.archive_dir.glob("*.json"):
+            file_mtime = datetime.fromtimestamp(archive_file.stat().st_mtime)
+            
+            # Remove very old archives
+            if file_mtime < cutoff_date:
+                file_size = archive_file.stat().st_size
+                archive_file.unlink()
+                cleanup_results['archives_removed'] += 1
+                cleanup_results['space_recovered_mb'] += file_size / (1024**2)
+            
+            # Compress old uncompressed archives
+            elif file_mtime < compress_cutoff and not archive_file.name.endswith('.gz'):
+                original_size = archive_file.stat().st_size
+                compressed_path = archive_file.with_suffix('.json.gz')
+                
+                with open(archive_file, 'rb') as f_in:
+                    with gzip.open(compressed_path, 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                
+                archive_file.unlink()  # Remove original
+                compressed_size = compressed_path.stat().st_size
+                
+                cleanup_results['archives_compressed'] += 1
+                cleanup_results['space_recovered_mb'] += (original_size - compressed_size) / (1024**2)
+        
+        return cleanup_results
+```
+
+### Integration Commands
+```bash
+# Combined consolidation and storage optimization
+python3 scripts/consolidate_with_storage.py --table drug_information --optimize-storage
+
+# Archive management
+python3 scripts/archive_manager.py --cleanup-old --compress-archives
+
+# Storage-aware consolidation
+python3 scripts/storage_aware_consolidation.py --analyze --execute
+
+# Monitor consolidation impact
+python3 scripts/disk_space_monitor.py --post-consolidation-analysis
+```
+
+### Performance Benefits
+Expected improvements from integrated consolidation and storage optimization:
+
+- **Database Performance**: 50-90% reduction in record count with preserved functionality
+- **Storage Efficiency**: Additional 20-40% space savings through file deduplication
+- **Query Speed**: 2-5x faster searches through optimized table structure  
+- **Archive Management**: Automated cleanup prevents archive bloat
+- **System Health**: Proactive storage monitoring prevents space emergencies
+
+This integrated approach ensures that data consolidation delivers maximum value through both database optimization and storage efficiency improvements.
 ```
