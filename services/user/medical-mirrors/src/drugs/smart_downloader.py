@@ -12,7 +12,6 @@ import time
 import httpx
 
 from .downloader import DrugDownloader
-from .parser import DrugParser
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -67,23 +66,21 @@ class SmartDrugDownloader:
         
         # Initialize components
         self.state = FDADownloadState()
-        self.downloader = DrugDownloader(config)
+        self.downloader = DrugDownloader(config=self.config)
         # Override downloader's data directory to use our output directory
         self.downloader.data_dir = str(self.output_dir)
-        self.parser = DrugParser()
         
         # Smart retry configuration
         self.retry_interval = 1200  # 20 minutes between retry checks for large downloads
         self.max_daily_retries = 5   # Lower limit for large file downloads
         
-        # Dataset management
+        # Dataset management - track downloaded datasets only
         self.datasets = {
             'orange_book': None,
             'ndc': None,
             'drugs_fda': None,
             'labels': None
         }
-        self.all_drugs: List[Dict[str, Any]] = []
         
     async def __aenter__(self):
         """Async context manager entry"""
@@ -151,15 +148,9 @@ class SmartDrugDownloader:
             await self._download_drugs_fda()
             await self._download_drug_labels()
             
-            # Parse and validate all downloaded files
-            await self._parse_all_files()
-            
-            # Save final results
-            await self._save_results()
-            
-            # Update state
+            # Update state - track by datasets downloaded, not parsed drugs
             self.state.successful_sources = len(self.state.completed_datasets)
-            self.state.total_drugs = len(self.all_drugs)
+            self.state.total_drugs = len(self.state.completed_datasets)  # Track datasets, not drugs
             self._save_state()
             
             return self._get_summary()
@@ -310,7 +301,8 @@ class SmartDrugDownloader:
                 self.state.set_rate_limit(source, 1200)  # 20 minutes for other issues
             raise
     
-    async def _parse_all_files(self):
+    # Parsing methods removed - medical-mirrors handles parsing
+    async def _parse_all_files_DISABLED(self):
         """Parse all downloaded FDA files"""
         logger.info("Parsing downloaded FDA files")
         
@@ -422,6 +414,10 @@ class SmartDrugDownloader:
             logger.error(f"Failed to save results: {e}")
             raise
     
+    async def download_and_parse_all(self, force_fresh: bool = False, complete_dataset: bool = True) -> Dict[str, Any]:
+        """Download and parse all FDA data - main entry point"""
+        return await self.download_all_fda_data(force_fresh=force_fresh, complete_dataset=complete_dataset)
+
     async def get_download_status(self) -> Dict[str, Any]:
         """Get current download status and progress"""
         # Load saved state if available
@@ -438,7 +434,7 @@ class SmartDrugDownloader:
                 "completion_rate": (completed / total_sources) * 100 if total_sources > 0 else 0
             },
             "ready_for_retry": [],
-            "total_drugs_downloaded": len(self.all_drugs),
+            "total_datasets_downloaded": len(self.state.completed_datasets),
             "next_retry_times": {},
             "completed_datasets": list(self.state.completed_datasets)
         }
@@ -463,7 +459,7 @@ class SmartDrugDownloader:
         success_rate = (len(self.state.completed_datasets) / total_sources) * 100 if total_sources > 0 else 0
         
         return {
-            'total_drugs': len(self.all_drugs),
+            'total_datasets_downloaded': len(self.state.completed_datasets),
             'completed_datasets': list(self.state.completed_datasets),
             'total_datasets': total_sources,
             'successful_sources': len(self.state.completed_datasets),

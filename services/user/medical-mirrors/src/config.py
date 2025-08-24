@@ -41,8 +41,8 @@ class Config:
     REQUEST_DELAY: float = 0.1  # Seconds between requests
 
     # Data paths
-    DATA_DIR: str = "/app/data"
-    LOGS_DIR: str = "/app/logs"
+    DATA_DIR: str = os.getenv("DATA_DIR", "/home/intelluxe/database/medical_complete")
+    LOGS_DIR: str = os.getenv("LOGS_DIR", "/home/intelluxe/logs")
 
     # Search limits
     DEFAULT_MAX_RESULTS: int = 10

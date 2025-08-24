@@ -12,7 +12,6 @@ import time
 import httpx
 
 from .downloader import ClinicalTrialsDownloader
-from .parser import ClinicalTrialsParser
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -67,20 +66,18 @@ class SmartClinicalTrialsDownloader:
         
         # Initialize components
         self.state = ClinicalTrialsDownloadState()
-        self.downloader = ClinicalTrialsDownloader(config)
+        self.downloader = ClinicalTrialsDownloader(config=self.config)
         # Override downloader's data directory to use our output directory
         self.downloader.data_dir = str(self.output_dir)
-        self.parser = ClinicalTrialsParser()
         
         # Smart retry configuration
         self.retry_interval = 600  # 10 minutes between retry checks
         self.max_daily_retries = 20  # Higher limit for API-based source
         self.batch_size = 1000  # Studies per batch
         
-        # File management
+        # File management - track downloaded files only
         self.batch_files: List[str] = []
         self.update_files: List[str] = []
-        self.all_studies: List[Dict[str, Any]] = []
         
     async def __aenter__(self):
         """Async context manager entry"""
@@ -150,15 +147,9 @@ class SmartClinicalTrialsDownloader:
             # Download recent updates
             await self._download_recent_updates()
             
-            # Parse and validate all downloaded files
-            await self._parse_all_files()
-            
-            # Save final results
-            await self._save_results()
-            
-            # Update state
+            # Update state - track by files downloaded, not parsed studies
             self.state.successful_sources = 2  # all_studies + updates
-            self.state.total_studies = len(self.all_studies)
+            self.state.total_studies = len(self.batch_files) + len(self.update_files)  # Track files, not studies
             self._save_state()
             
             return self._get_summary()
@@ -269,106 +260,8 @@ class SmartClinicalTrialsDownloader:
                 self.state.set_rate_limit(source, 600)   # 10 minutes for other issues
             raise
     
-    async def _parse_all_files(self):
-        """Parse all downloaded JSON files"""
-        logger.info("Parsing downloaded ClinicalTrials files")
-        
-        all_files = self.batch_files + self.update_files
-        
-        for json_file in all_files:
-            try:
-                # Parse studies from JSON file
-                studies = self.parser.parse_json_file(json_file)
-                
-                # Validate and add studies
-                for study in studies:
-                    validated_study = self._validate_study(study)
-                    if validated_study:
-                        self.all_studies.append(validated_study)
-                        
-                logger.info(f"Parsed {len(studies)} studies from {json_file}")
-                
-            except Exception as e:
-                logger.error(f"Failed to parse {json_file}: {e}")
-                continue
-        
-        logger.info(f"Total parsed studies: {len(self.all_studies)}")
+    # Parsing methods removed - parsing is now handled by medical-mirrors service
     
-    def _validate_study(self, study: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Validate and clean study data"""
-        try:
-            # Ensure required fields
-            if not study.get('nct_id'):
-                return None
-                
-            # Clean and validate data
-            validated = {
-                'nct_id': str(study['nct_id']),
-                'brief_title': study.get('brief_title', '').strip(),
-                'overall_status': study.get('overall_status', '').strip(),
-                'phase': study.get('phase', '').strip(),
-                'study_type': study.get('study_type', '').strip(),
-                'conditions': study.get('conditions', []),
-                'interventions': study.get('interventions', []),
-                'locations': study.get('locations', []),
-                'sponsors': study.get('sponsors', []),
-                'start_date': study.get('start_date', ''),
-                'completion_date': study.get('completion_date', ''),
-                'enrollment': study.get('enrollment', 0),
-                'eligibility_criteria': study.get('eligibility_criteria', ''),
-                'primary_outcome': study.get('primary_outcome', ''),
-                'secondary_outcome': study.get('secondary_outcome', ''),
-                'created_at': datetime.now().isoformat(),
-                'updated_at': datetime.now().isoformat(),
-                'source': 'smart_clinical_trials_downloader'
-            }
-            
-            # Add search text for full-text search
-            search_components = [
-                validated['brief_title'],
-                validated['overall_status'],
-                validated['phase'],
-                validated['study_type'],
-                ' '.join(validated['conditions']),
-                ' '.join(validated['interventions']),
-                validated['eligibility_criteria'],
-                validated['primary_outcome'],
-                validated['secondary_outcome']
-            ]
-            validated['search_text'] = ' '.join(filter(None, search_components))
-            
-            return validated
-            
-        except Exception as e:
-            logger.warning(f"Failed to validate study {study.get('nct_id')}: {e}")
-            return None
-    
-    async def _save_results(self):
-        """Save all validated studies to JSON file"""
-        output_file = self.output_dir / 'all_clinical_trials_complete.json'
-        
-        try:
-            with open(output_file, 'w') as f:
-                json.dump(self.all_studies, f, indent=2)
-            
-            logger.info(f"Saved {len(self.all_studies)} studies to {output_file}")
-            
-            # Also save summary statistics
-            stats_file = self.output_dir / 'download_stats.json'
-            stats = {
-                'total_studies': len(self.all_studies),
-                'batch_files': len(self.batch_files),
-                'update_files': len(self.update_files),
-                'download_date': datetime.now().isoformat(),
-                'sources': ['clinical_trials_all', 'clinical_trials_updates']
-            }
-            
-            with open(stats_file, 'w') as f:
-                json.dump(stats, f, indent=2)
-                
-        except Exception as e:
-            logger.error(f"Failed to save results: {e}")
-            raise
     
     async def get_download_status(self) -> Dict[str, Any]:
         """Get current download status and progress"""
@@ -386,7 +279,7 @@ class SmartClinicalTrialsDownloader:
                 "completion_rate": (completed / total_sources) * 100 if total_sources > 0 else 0
             },
             "ready_for_retry": [],
-            "total_studies_downloaded": len(self.all_studies),
+            "total_files_downloaded": len(self.batch_files) + len(self.update_files),
             "next_retry_times": {},
             "batch_files": len(self.batch_files),
             "update_files": len(self.update_files),
@@ -413,7 +306,7 @@ class SmartClinicalTrialsDownloader:
         success_rate = (self.state.successful_sources / total_sources) * 100 if total_sources > 0 else 0
         
         return {
-            'total_studies': len(self.all_studies),
+            'total_files_downloaded': len(self.batch_files) + len(self.update_files),
             'batch_files': len(self.batch_files),
             'update_files': len(self.update_files),
             'total_files': len(self.batch_files) + len(self.update_files),

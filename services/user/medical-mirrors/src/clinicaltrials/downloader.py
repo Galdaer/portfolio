@@ -56,10 +56,9 @@ class ClinicalTrialsDownloader:
     async def download_studies_batch(self, start: int, batch_size: int) -> str | None:
         """Download a batch of studies"""
         try:
+            # ClinicalTrials.gov API v2 uses pageSize and nextPageToken instead of min_rnk/max_rnk
             params: dict[str, Any] = {
-                "fmt": "json",
-                "min_rnk": start,
-                "max_rnk": start + batch_size - 1,
+                "pageSize": batch_size,
                 "fields": "NCTId,BriefTitle,OverallStatus,Phase,Condition,InterventionName,LocationFacility,LocationCity,LocationState,LocationCountry,StartDate,CompletionDate,EnrollmentCount,StudyType,LeadSponsorName",
             }
 

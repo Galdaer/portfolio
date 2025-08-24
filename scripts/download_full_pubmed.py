@@ -157,8 +157,8 @@ class CompletePubMedDownloader:
         self.stats["start_time"] = time.time()
 
         # Create directories
-        baseline_dir = self.config.data_dir / "baseline"
-        updates_dir = self.config.data_dir / "updates"
+        baseline_dir = Path(self.config.DATA_DIR) / "pubmed" / "baseline"
+        updates_dir = Path(self.config.DATA_DIR) / "pubmed" / "updates"
         baseline_dir.mkdir(parents=True, exist_ok=True)
         updates_dir.mkdir(parents=True, exist_ok=True)
 
@@ -222,7 +222,7 @@ class CompletePubMedDownloader:
 
                 # Download ALL baseline files (not just first 5)
                 downloaded_files: list[str] = []
-                baseline_dir = self.config.data_dir / "baseline"
+                baseline_dir = Path(self.config.DATA_DIR) / "pubmed" / "baseline"
 
                 with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
                     futures = []
@@ -278,7 +278,7 @@ class CompletePubMedDownloader:
 
                 # Download ALL update files (not just recent 50)
                 downloaded_files: list[str] = []
-                updates_dir = self.config.data_dir / "updates"
+                updates_dir = Path(self.config.DATA_DIR) / "pubmed" / "updates"
 
                 with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
                     futures = []

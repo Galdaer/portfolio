@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from database import DrugConsolidated, DrugInformation, get_db_session
+from database import DrugInformation, get_db_session
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +225,7 @@ class DrugConsolidationEngine:
             
         return min(score / max_score, 1.0)
     
-    def consolidate_drug_group(self, normalized_generic: str, records: List[DrugInformation]) -> DrugConsolidated:
+    def consolidate_drug_group(self, normalized_generic: str, records: List[DrugInformation]) -> DrugInformation:
         """Consolidate all records for a single generic drug"""
         if not records:
             raise ValueError("No records provided for consolidation")
@@ -310,7 +310,7 @@ class DrugConsolidationEngine:
                 drug_interactions.update(record.drug_interactions)
         consolidated_data['drug_interactions'] = drug_interactions
         
-        return DrugConsolidated(**consolidated_data)
+        return DrugInformation(**consolidated_data)
     
     def consolidate_all_drugs(self, batch_size: int = 1000, start_offset: int = 0) -> Dict[str, Any]:
         """Consolidate all duplicate drug records into consolidated table"""
@@ -334,7 +334,7 @@ class DrugConsolidationEngine:
                     continue
                 
                 # Check if already consolidated
-                existing = self.session.query(DrugConsolidated).filter_by(generic_name=normalized_generic).first()
+                existing = self.session.query(DrugInformation).filter_by(generic_name=normalized_generic).first()
                 if existing:
                     logger.debug(f"Skipping already consolidated drug: {normalized_generic}")
                     processed += 1

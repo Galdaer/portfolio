@@ -11,7 +11,6 @@ from typing import Dict, List, Optional, Any
 import time
 
 from .downloader import PubMedDownloader
-from .parser import PubMedParser
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -65,19 +64,17 @@ class SmartPubMedDownloader:
         
         # Initialize components
         self.state = PubMedDownloadState()
-        self.downloader = PubMedDownloader(config)
+        self.downloader = PubMedDownloader(config=self.config)
         # Override downloader's data directory to use our output directory
         self.downloader.data_dir = str(self.output_dir)
-        self.parser = PubMedParser()
         
         # Smart retry configuration
         self.retry_interval = 900  # 15 minutes between retry checks for FTP
         self.max_daily_retries = 8  # Max retries per day (FTP is more stable)
         
-        # File management
+        # File management - track downloaded files only
         self.baseline_files: List[str] = []
         self.update_files: List[str] = []
-        self.all_articles: List[Dict[str, Any]] = []
         
     async def __aenter__(self):
         """Async context manager entry"""
@@ -141,15 +138,9 @@ class SmartPubMedDownloader:
             # Download update files
             await self._download_update_files(complete_dataset)
             
-            # Parse and validate all downloaded files
-            await self._parse_all_files()
-            
-            # Save final results
-            await self._save_results()
-            
-            # Update state
+            # Update state - track by files downloaded, not parsed articles
             self.state.successful_sources = 2  # baseline + updates
-            self.state.total_articles = len(self.all_articles)
+            self.state.total_articles = len(self.baseline_files) + len(self.update_files)  # Track files, not articles
             self._save_state()
             
             return self._get_summary()
@@ -226,99 +217,8 @@ class SmartPubMedDownloader:
                 self.state.set_rate_limit(source, 900)   # 15 minutes for other issues
             raise
     
-    async def _parse_all_files(self):
-        """Parse all downloaded XML files"""
-        logger.info("Parsing downloaded PubMed files")
-        
-        all_files = self.baseline_files + self.update_files
-        
-        for xml_file in all_files:
-            try:
-                # Extract file if it's gzipped
-                if xml_file.endswith('.gz'):
-                    xml_file = self.downloader.extract_xml_file(xml_file)
-                
-                # Parse articles from XML file
-                articles = self.parser.parse_xml_file(xml_file)
-                
-                # Validate and add articles
-                for article in articles:
-                    validated_article = self._validate_article(article)
-                    if validated_article:
-                        self.all_articles.append(validated_article)
-                        
-                logger.info(f"Parsed {len(articles)} articles from {xml_file}")
-                
-            except Exception as e:
-                logger.error(f"Failed to parse {xml_file}: {e}")
-                continue
-        
-        logger.info(f"Total parsed articles: {len(self.all_articles)}")
-    
-    def _validate_article(self, article: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Validate and clean article data"""
-        try:
-            # Ensure required fields
-            if not article.get('pmid'):
-                return None
-                
-            # Clean and validate data
-            validated = {
-                'pmid': str(article['pmid']),
-                'title': article.get('title', '').strip(),
-                'abstract': article.get('abstract', '').strip(),
-                'authors': article.get('authors', []),
-                'journal': article.get('journal', '').strip(),
-                'pub_date': article.get('pub_date', ''),
-                'doi': article.get('doi', '').strip(),
-                'mesh_terms': article.get('mesh_terms', []),
-                'created_at': datetime.now().isoformat(),
-                'updated_at': datetime.now().isoformat(),
-                'source': 'smart_pubmed_downloader'
-            }
-            
-            # Add search text for full-text search
-            search_components = [
-                validated['title'],
-                validated['abstract'],
-                ' '.join(validated['authors']),
-                ' '.join(validated['mesh_terms']),
-                validated['journal']
-            ]
-            validated['search_text'] = ' '.join(filter(None, search_components))
-            
-            return validated
-            
-        except Exception as e:
-            logger.warning(f"Failed to validate article {article.get('pmid')}: {e}")
-            return None
-    
-    async def _save_results(self):
-        """Save all validated articles to JSON file"""
-        output_file = self.output_dir / 'all_pubmed_articles_complete.json'
-        
-        try:
-            with open(output_file, 'w') as f:
-                json.dump(self.all_articles, f, indent=2)
-            
-            logger.info(f"Saved {len(self.all_articles)} articles to {output_file}")
-            
-            # Also save summary statistics
-            stats_file = self.output_dir / 'download_stats.json'
-            stats = {
-                'total_articles': len(self.all_articles),
-                'baseline_files': len(self.baseline_files),
-                'update_files': len(self.update_files),
-                'download_date': datetime.now().isoformat(),
-                'sources': ['pubmed_baseline', 'pubmed_updates']
-            }
-            
-            with open(stats_file, 'w') as f:
-                json.dump(stats, f, indent=2)
-                
-        except Exception as e:
-            logger.error(f"Failed to save results: {e}")
-            raise
+    # Parsing methods removed - parsing is now handled by medical-mirrors service
+    # Raw downloaded files are left for medical-mirrors to parse
     
     async def get_download_status(self) -> Dict[str, Any]:
         """Get current download status and progress"""
@@ -336,7 +236,7 @@ class SmartPubMedDownloader:
                 "completion_rate": (completed / total_sources) * 100 if total_sources > 0 else 0
             },
             "ready_for_retry": [],
-            "total_articles_downloaded": len(self.all_articles),
+            "total_files_downloaded": len(self.baseline_files) + len(self.update_files),
             "next_retry_times": {},
             "baseline_files": len(self.baseline_files),
             "update_files": len(self.update_files)
@@ -362,7 +262,7 @@ class SmartPubMedDownloader:
         success_rate = (self.state.successful_sources / total_sources) * 100 if total_sources > 0 else 0
         
         return {
-            'total_articles': len(self.all_articles),
+            'total_files_downloaded': len(self.baseline_files) + len(self.update_files),
             'baseline_files': len(self.baseline_files),
             'update_files': len(self.update_files),
             'total_files': len(self.baseline_files) + len(self.update_files),

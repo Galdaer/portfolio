@@ -173,12 +173,24 @@ class DataValidator:
         if not doi:
             return None
 
-        # DOI pattern: 10.xxxx/xxxxx
-        doi_pattern = r"^10\.\d{4,}/.+"
-        if re.match(doi_pattern, doi):
-            return doi
-        logger.warning(f"Invalid DOI format: {doi}")
-        return doi  # Return as-is but log warning
+        doi_str = str(doi).strip()
+        
+        # Standard DOI pattern: 10.xxxx/xxxxx
+        standard_doi_pattern = r"^10\.\d{4,}/.+"
+        if re.match(standard_doi_pattern, doi_str):
+            return doi_str
+            
+        # Handle common malformed DOIs missing "10." prefix
+        # If it looks like a DOI but missing 10. prefix, try to fix it
+        missing_prefix_pattern = r"^\d{4,}/.+"
+        if re.match(missing_prefix_pattern, doi_str):
+            fixed_doi = f"10.{doi_str}"
+            logger.debug(f"Fixed DOI missing prefix: {doi_str} -> {fixed_doi}")
+            return fixed_doi
+            
+        # For other formats, log warning but return as-is
+        logger.warning(f"Invalid DOI format: {doi_str}")
+        return doi_str
 
     @classmethod
     def validate_pmid(cls, pmid: str) -> str | None:
@@ -285,6 +297,11 @@ class DataValidator:
             "%d/%m/%Y",           # 15/01/2023
             "%d-%m-%Y",           # 15-01-2023
             "%Y",                 # 2023
+            "%Y-%m",              # 2023-01 (YYYY-MM format common in medical data)
+            "%Y-%b",              # 1979-Feb (YYYY-Mon format from ClinicalTrials/PubMed)
+            "%Y-%B",              # 1979-February (YYYY-Month format)
+            "%Y-%b-%d",           # 1979-Jul-01 (YYYY-Mon-DD format from medical data)
+            "%Y-%B-%d",           # 1979-July-01 (YYYY-Month-DD format)
             "%B %Y",              # January 2023
             "%b %Y",              # Jan 2023
             "%B %d, %Y",          # January 15, 2023
