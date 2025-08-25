@@ -39,6 +39,25 @@ def get_db_session() -> Session:
     return SessionLocal()
 
 
+def get_thread_safe_session() -> Session:
+    """Get thread-safe database session for parallel operations"""
+    # Create a new session factory for each thread to avoid sharing connections
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    return SessionLocal()
+
+
+def get_connection_pool_status() -> dict:
+    """Get current connection pool status for monitoring"""
+    pool = engine.pool
+    return {
+        'pool_size': pool.size(),
+        'checked_in': pool.checkedin(),
+        'checked_out': pool.checkedout(),
+        'overflow': pool.overflow(),
+        'invalid': pool.invalid()
+    }
+
+
 class PubMedArticle(Base):  # type: ignore[misc,valid-type]
     """PubMed articles table with full-text search"""
 
