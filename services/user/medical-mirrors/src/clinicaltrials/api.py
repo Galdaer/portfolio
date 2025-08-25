@@ -278,53 +278,33 @@ class ClinicalTrialsAPI:
             db.close()
 
     async def store_trials(self, trials: list[dict[str, Any]], db: Session) -> int:
-        """Store trials in database"""
-        stored_count = 0
-
-        for trial_data in trials:
-            try:
-                # Check if trial already exists
-                existing = (
-                    db.query(ClinicalTrial)
-                    .filter(ClinicalTrial.nct_id == trial_data["nct_id"])
-                    .first()
-                )
-
-                if existing:
-                    # Update existing trial - only update fields with non-empty values
-                    for key, value in trial_data.items():
-                        # Only update if we have meaningful new data
-                        if value is not None and value not in ("", [], {}):
-                            # For string fields, don't overwrite with less informative values
-                            current_value = getattr(existing, key, None)
-                            if current_value and isinstance(current_value, str) and isinstance(value, str):
-                                # If current value is longer/more detailed, keep it
-                                if len(current_value) > len(value) and value.lower() in current_value.lower():
-                                    continue
-                            setattr(existing, key, value)
-                    existing.updated_at = datetime.utcnow()
-                else:
-                    # Create new trial
-                    trial = ClinicalTrial(**trial_data)
-                    db.add(trial)
-
-                stored_count += 1
-
-                # Commit in batches
-                if stored_count % 100 == 0:
-                    db.commit()
-
-            except Exception as e:
-                logger.exception(f"Failed to store trial {trial_data.get('nct_id')}: {e}")
-                db.rollback()
-
-        # Final commit
-        db.commit()
-
-        # Update search vectors
-        await self.update_search_vectors(db)
-
-        return stored_count
+        """Store trials in database using advanced cross-batch deduplication engine"""
+        from deduplication_engine import CrossBatchDeduplicator
+        
+        logger.info(f"Storing {len(trials)} trials using advanced deduplication engine...")
+        
+        if not trials:
+            logger.info("No trials to process")
+            return 0
+        
+        # Use the advanced deduplication engine
+        deduplicator = CrossBatchDeduplicator(db)
+        
+        # Process trials with comprehensive deduplication
+        results = await deduplicator.process_clinical_trials_batch(trials)
+        
+        total_processed = results.get('new_records', 0) + results.get('updated_records', 0)
+        
+        logger.info(f"📊 Advanced Deduplication Results:")
+        logger.info(f"   Input trials: {len(trials)}")
+        logger.info(f"   After deduplication: {results.get('processed_count', 0)}")
+        logger.info(f"   New records: {results.get('new_records', 0)}")
+        logger.info(f"   Updated records: {results.get('updated_records', 0)}")
+        logger.info(f"   Duplicates removed: {results.get('duplicates_removed', 0)}")
+        logger.info(f"   Content duplicates removed: {results.get('content_duplicates_removed', 0)}")
+        logger.info(f"   Deduplication rate: {results.get('deduplication_rate', 0):.1f}%")
+        
+        return total_processed
 
     async def update_search_vectors(self, db: Session) -> None:
         """Update full-text search vectors"""
@@ -395,6 +375,66 @@ class ClinicalTrialsAPI:
 
         except Exception as e:
             logger.exception(f"ClinicalTrials initialization failed: {e}")
+            raise
+        finally:
+            db.close()
+
+    def find_existing_files(self) -> list[str]:
+        """Find existing clinical trials JSON files to process"""
+        import glob
+        import os
+        
+        data_dir = self.config.get_trials_data_dir()
+        
+        # Find all compressed JSON files
+        json_gz_files = glob.glob(os.path.join(data_dir, "studies_batch_*.json.gz"))
+        
+        # Sort files for consistent processing order
+        json_gz_files.sort()
+        
+        logger.info(f"Found {len(json_gz_files)} existing clinical trials files to process")
+        return json_gz_files
+
+    async def process_existing_files(self, force: bool = False) -> dict[str, Any]:
+        """Process existing clinical trials files with advanced deduplication"""
+        logger.info("Processing existing ClinicalTrials files with smart deduplication")
+        
+        db = self.session_factory()
+        try:
+            # Check if we should skip if data exists (unless forced)
+            if not force:
+                count = db.query(func.count(ClinicalTrial.nct_id)).scalar()
+                if count > 100000:  # Only skip if we have a substantial amount of data
+                    logger.info(f"ClinicalTrials data already exists: {count} trials (use force=True to reprocess)")
+                    return {"status": "already_processed", "trial_count": count}
+
+            # Find existing files
+            study_files = self.find_existing_files()
+            if not study_files:
+                return {"status": "no_files_found", "trial_count": 0}
+            
+            # Use the smart batch processor for optimal deduplication
+            from deduplication_engine import SmartBatchProcessor
+            
+            smart_processor = SmartBatchProcessor(db)
+            results = await smart_processor.process_clinical_trials_files(study_files, force)
+            
+            logger.info(f"Smart batch processing completed: {results}")
+            
+            return {
+                "status": results.get('status', 'completed'),
+                "records_processed": results.get('total_new_records', 0) + results.get('total_updated_records', 0),
+                "files_processed": results.get('files_processed', 0),
+                "new_records": results.get('total_new_records', 0),
+                "updated_records": results.get('total_updated_records', 0),
+                "duplicates_removed": results.get('total_duplicates_removed', 0),
+                "content_duplicates_removed": results.get('total_content_duplicates_removed', 0),
+                "deduplication_summary": results.get('final_progress', {}),
+                "processing_errors": results.get('processing_errors', [])
+            }
+
+        except Exception as e:
+            logger.exception(f"Smart batch processing failed: {e}")
             raise
         finally:
             db.close()

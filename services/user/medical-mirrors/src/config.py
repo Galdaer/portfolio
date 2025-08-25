@@ -120,7 +120,7 @@ class Config:
 
     def get_trials_data_dir(self) -> str:
         """Get ClinicalTrials data directory"""
-        path = f"{self.DATA_DIR}/trials"
+        path = f"{self.DATA_DIR}/clinicaltrials"
         os.makedirs(path, exist_ok=True)
         return path
 

@@ -94,6 +94,15 @@ class HealthInfoAPI:
 
         except Exception as e:
             logger.exception(f"Error searching health topics: {e}")
+            if "relation \"health_topics\" does not exist" in str(e):
+                return {
+                    "topics": [],
+                    "total_results": 0,
+                    "search_query": query,
+                    "filters": {"category": category, "audience": audience},
+                    "timestamp": datetime.now().isoformat(),
+                    "warning": "Health topics table not yet created. Use POST /database/create-tables to initialize."
+                }
             raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
 
     async def search_exercises(
@@ -180,6 +189,15 @@ class HealthInfoAPI:
 
         except Exception as e:
             logger.exception(f"Error searching exercises: {e}")
+            if "relation \"exercises\" does not exist" in str(e):
+                return {
+                    "exercises": [],
+                    "total_results": 0,
+                    "search_query": query,
+                    "filters": {"body_part": body_part, "equipment": equipment, "difficulty": difficulty},
+                    "timestamp": datetime.now().isoformat(),
+                    "warning": "Exercises table not yet created. Use POST /database/create-tables to initialize."
+                }
             raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
 
     async def search_foods(
@@ -259,6 +277,15 @@ class HealthInfoAPI:
 
         except Exception as e:
             logger.exception(f"Error searching foods: {e}")
+            if "relation \"food_items\" does not exist" in str(e):
+                return {
+                    "foods": [],
+                    "total_results": 0,
+                    "search_query": query,
+                    "filters": {"food_category": food_category, "dietary_flags": dietary_flags},
+                    "timestamp": datetime.now().isoformat(),
+                    "warning": "Food items table not yet created. Use POST /database/create-tables to initialize."
+                }
             raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
 
     async def get_health_topic_details(self, topic_id: str) -> dict:

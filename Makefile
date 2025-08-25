@@ -652,7 +652,30 @@ medical-mirrors-health:
 	fi
 
 medical-mirrors-update:
-	@echo "🔄  Updating ALL Medical Mirrors databases (6 data sources)"
+	@echo "🧠  SMART Medical Mirrors Update (Auto-detects full load vs incremental)"
+	@echo "   🔍 Analyzes database state to determine optimal update strategy"
+	@echo "   📊 Full loads for empty/small databases, incremental updates for existing data"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo "   🛑 To stop: make medical-mirrors-stop"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🧠 Starting SMART update (analyzes database counts)..."; \
+		curl -X POST http://localhost:8081/smart-update -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ Smart update process started based on database analysis"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+		echo "   🛑 To stop: make medical-mirrors-stop"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Smart Medical Mirrors update started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-update-legacy:
+	@echo "🔄  Updating ALL Medical Mirrors databases (6 data sources) - LEGACY MODE"
 	@echo "   ⚠️  WARNING: This process will take MANY HOURS and may hit rate limits!"
 	@echo "   📊 Data sources: PubMed, ClinicalTrials, FDA, ICD-10, Billing Codes, Health Info"
 	@echo "   📊 Monitor progress: make medical-mirrors-progress"
@@ -686,7 +709,28 @@ medical-mirrors-update:
 		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
 		exit 1; \
 	fi
-	@echo "✅ All 6 data source update processes started - use 'make medical-mirrors-progress' to monitor" 
+	@echo "✅ All 6 data source update processes started - use 'make medical-mirrors-progress' to monitor"
+
+medical-mirrors-process-existing:
+	@echo "📂  Processing ALL existing downloaded medical data files"
+	@echo "   🔍 Will load existing compressed files: Clinical Trials, PubMed, FDA"
+	@echo "   ⚠️  This will take SEVERAL HOURS but uses local files (no network)"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   📂 Starting processing of all existing files..."; \
+		curl -X POST http://localhost:8081/process/all-existing -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ All existing files are now being processed"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Existing files processing started - monitor with 'make medical-mirrors-progress'" 
 
 medical-mirrors-update-pubmed:
 	@echo "📚  Updating PubMed database"
@@ -816,6 +860,19 @@ medical-mirrors-progress:
 		echo "   • Stop updates: make medical-mirrors-stop"; \
 		sleep 10; \
 	done
+
+medical-mirrors-progress-enhanced:
+	@echo "📊  Enhanced Medical Data Loading Progress Monitor"
+	@echo "   🚀 Real-time database counts with rates and ETAs"
+	@echo "   🔄 Auto-refreshing with progress bars and statistics"
+	@echo "   💡 Press Ctrl+C to exit monitor"
+	@echo ""
+	@python3 scripts/monitor_medical_data_progress.py
+
+medical-mirrors-counts:
+	@echo "📈  Current Medical Database Record Counts"
+	@echo ""
+	@curl -s http://localhost:8081/database/counts | jq '.counts' || echo "❌ Service not responding"
 
 # Individual test commands for each data source
 medical-mirrors-test-pubmed:

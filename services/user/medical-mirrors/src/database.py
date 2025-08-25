@@ -21,8 +21,16 @@ def get_database_url() -> str:
     )
 
 
-# Global engine instance for migrations and direct database access
-engine = create_engine(get_database_url())
+# Global engine instance for migrations and direct database access with connection pooling
+engine = create_engine(
+    get_database_url(),
+    # Connection pool settings for high-performance bulk operations
+    pool_size=20,          # Base number of connections to maintain
+    max_overflow=30,       # Additional connections beyond pool_size
+    pool_pre_ping=True,    # Validate connections before use
+    pool_recycle=3600,     # Recycle connections every hour
+    echo=False             # Set to True for SQL debugging
+)
 
 
 def get_db_session() -> Session:
@@ -143,5 +151,117 @@ class UpdateLog(Base):  # type: ignore[misc,valid-type]
     error_message = Column(Text)
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime)
+
+
+class ICD10Code(Base):  # type: ignore[misc,valid-type]
+    """ICD-10 diagnostic codes table"""
+
+    __tablename__ = "icd10_codes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(10), unique=True, nullable=False)  # ICD-10 code
+    description = Column(Text, nullable=False)
+    category = Column(String(200))  # Category name
+    chapter = Column(String(200))  # Chapter name
+    block = Column(String(200))  # Block name
+    billable = Column(Boolean, default=False)
+    hcc_category = Column(String(100))  # HCC risk adjustment category
+    search_vector = Column(TSVECTOR)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class BillingCode(Base):  # type: ignore[misc,valid-type]
+    """Medical billing codes (CPT/HCPCS) table"""
+
+    __tablename__ = "billing_codes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(20), unique=True, nullable=False)  # CPT/HCPCS code
+    description = Column(Text, nullable=False)
+    code_type = Column(String(20), nullable=False)  # CPT, HCPCS
+    category = Column(String(200))
+    modifier_applicable = Column(Boolean, default=False)
+    price_range_min = Column(Float)
+    price_range_max = Column(Float)
+    active = Column(Boolean, default=True)
+    effective_date = Column(String(20))
+    termination_date = Column(String(20))
+    search_vector = Column(TSVECTOR)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class HealthTopic(Base):  # type: ignore[misc,valid-type]
+    """Health topics from MyHealthfinder"""
+
+    __tablename__ = "health_topics"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    topic_id = Column(String(50), unique=True, nullable=False)
+    title = Column(Text, nullable=False)
+    category = Column(String(100))
+    url = Column(Text)
+    last_reviewed = Column(String(50))
+    audience = Column(ARRAY(String))
+    sections = Column(JSON)
+    related_topics = Column(ARRAY(String))
+    summary = Column(Text)
+    keywords = Column(ARRAY(String))
+    content_length = Column(Integer)
+    source = Column(String(50), default="myhealthfinder")
+    search_vector = Column(TSVECTOR)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Exercise(Base):  # type: ignore[misc,valid-type]
+    """Exercise information from ExerciseDB"""
+
+    __tablename__ = "exercises"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    exercise_id = Column(String(50), unique=True, nullable=False)
+    name = Column(Text, nullable=False)
+    body_part = Column(String(100))
+    equipment = Column(String(100))
+    target = Column(String(100))  # Primary target muscle
+    secondary_muscles = Column(ARRAY(String))
+    instructions = Column(ARRAY(String))
+    difficulty_level = Column(String(50))
+    exercise_type = Column(String(50))  # strength, cardio, flexibility, etc.
+    duration_estimate = Column(String(50))
+    calories_estimate = Column(String(50))
+    gif_url = Column(Text)
+    source = Column(String(50), default="exercisedb")
+    search_vector = Column(TSVECTOR)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class FoodItem(Base):  # type: ignore[misc,valid-type]
+    """Food items from USDA FoodData Central"""
+
+    __tablename__ = "food_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    fdc_id = Column(Integer, unique=True, nullable=False)  # USDA FoodData Central ID
+    description = Column(Text, nullable=False)
+    scientific_name = Column(Text)
+    common_names = Column(Text)
+    food_category = Column(String(200))
+    nutrients = Column(JSON)  # Nutritional information
+    nutrition_summary = Column(JSON)  # Key nutritional facts
+    brand_owner = Column(String(200))
+    ingredients = Column(Text)
+    serving_size = Column(Float)
+    serving_size_unit = Column(String(50))
+    allergens = Column(ARRAY(String))
+    dietary_flags = Column(ARRAY(String))  # vegan, gluten-free, etc.
+    nutritional_density = Column(Float)  # Overall nutritional score
+    source = Column(String(50), default="usda_fooddata")
+    search_vector = Column(TSVECTOR)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

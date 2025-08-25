@@ -279,7 +279,7 @@ class DrugAPI:
         db = self.session_factory()
         try:
             # Get total drug count
-            total_count = db.query(func.count(DrugInformation.ndc)).scalar()
+            total_count = db.query(func.count(DrugInformation.id)).scalar()
 
             # Get last update info
             last_update = (
@@ -1061,14 +1061,13 @@ class DrugAPI:
         """Update full-text search vectors"""
         try:
             update_query = text("""
-                UPDATE fda_drugs
+                UPDATE drug_information
                 SET search_vector = to_tsvector('english',
-                    COALESCE(name, '') || ' ' ||
                     COALESCE(generic_name, '') || ' ' ||
-                    COALESCE(brand_name, '') || ' ' ||
-                    COALESCE(manufacturer, '') || ' ' ||
-                    COALESCE(array_to_string(ingredients, ' '), '') || ' ' ||
-                    COALESCE(therapeutic_class, '')
+                    COALESCE(array_to_string(brand_names, ' '), '') || ' ' ||
+                    COALESCE(array_to_string(manufacturers, ' '), '') || ' ' ||
+                    COALESCE(therapeutic_class, '') || ' ' ||
+                    COALESCE(indications_and_usage, '')
                 )
                 WHERE search_vector IS NULL
             """)
