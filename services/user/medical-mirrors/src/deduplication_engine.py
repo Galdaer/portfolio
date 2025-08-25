@@ -227,10 +227,10 @@ class CrossBatchDeduplicator:
         
         # Use parallel database operations for better performance
         if new_trials:
-            new_records = await self._parallel_bulk_insert_clinical_trials(new_trials, max_workers=5)
+            new_records = await self._parallel_bulk_insert_clinical_trials(new_trials, max_workers=10)
             
         if existing_trials:
-            updated_records = await self._parallel_bulk_update_clinical_trials(existing_trials, max_workers=5)
+            updated_records = await self._parallel_bulk_update_clinical_trials(existing_trials, max_workers=10)
         
         # Skip search vector updates for now - will batch these at the end of processing
         # await self._update_clinical_trials_search_vectors()
@@ -937,8 +937,37 @@ class SmartBatchProcessor:
         
         self.logger.info(f"🚀 Starting smart batch processing of {len(json_files)} clinical trials files")
         
-        # Initialize progress tracking
-        self.progress_tracker.start_processing(len(json_files))
+        # NEW: File processing optimization - skip already processed files
+        from file_processing_tracker import FileProcessingTracker
+        file_tracker = FileProcessingTracker(self.db_session)
+        
+        if not force_reprocess:
+            # Filter out already processed files
+            files_to_process, skipped_files = file_tracker.filter_unprocessed_files(
+                json_files, 'clinical_trials'
+            )
+            
+            self.logger.info(
+                f"📁 File processing filter: {len(files_to_process)} need processing, "
+                f"{len(skipped_files)} already processed (skipped)"
+            )
+            
+            if not files_to_process:
+                self.logger.info("🎉 All files already processed! No work needed.")
+                return {
+                    'status': 'all_files_already_processed',
+                    'total_files': len(json_files),
+                    'files_skipped': len(skipped_files),
+                    'files_processed': 0,
+                    'total_processed': 0
+                }
+        else:
+            files_to_process = json_files
+            skipped_files = []
+            self.logger.info(f"Force reprocess enabled - processing all {len(files_to_process)} files")
+        
+        # Initialize progress tracking (only for files that need processing)
+        self.progress_tracker.start_processing(len(files_to_process))
         
         # Get existing keys once for cross-batch deduplication
         if not force_reprocess:
@@ -963,9 +992,9 @@ class SmartBatchProcessor:
         from clinicaltrials.parser_optimized import OptimizedClinicalTrialsParser
         optimized_parser = OptimizedClinicalTrialsParser(max_workers=10)
         
-        # Process files in parallel batches to reduce database contention
-        batch_size = 10  # Process 10 files in parallel
-        file_batches = [json_files[i:i + batch_size] for i in range(0, len(json_files), batch_size)]
+        # Process files in parallel batches to optimize throughput
+        batch_size = 50  # Process 50 files in parallel for better efficiency
+        file_batches = [files_to_process[i:i + batch_size] for i in range(0, len(files_to_process), batch_size)]
         
         for batch_idx, file_batch in enumerate(file_batches):
             try:
@@ -978,6 +1007,15 @@ class SmartBatchProcessor:
                 
                 if not all_raw_trials:
                     self.logger.warning(f"No trials found in batch {batch_idx + 1}")
+                    # Still track files as processed even if no trials found
+                    for file_path in file_batch:
+                        try:
+                            processing_time = (datetime.utcnow() - batch_start_time).total_seconds() / len(file_batch)
+                            file_tracker.mark_file_processed(
+                                file_path, 'clinical_trials', 0, 0, processing_time
+                            )
+                        except Exception as e:
+                            self.logger.warning(f"Failed to track empty file {file_path}: {e}")
                     continue
                 
                 self.logger.info(f"Parsed {len(all_raw_trials)} total raw trials from batch {batch_idx + 1}")
@@ -993,6 +1031,24 @@ class SmartBatchProcessor:
                                  if trial.get('nct_id')}
                     existing_keys.update(new_nct_ids)
                 
+                # Track each file as processed (estimate records per file)
+                batch_processing_time = (datetime.utcnow() - batch_start_time).total_seconds()
+                records_per_file = len(all_raw_trials) // len(file_batch) if file_batch else 0
+                processed_per_file = batch_results.get('new_records', 0) + batch_results.get('updated_records', 0)
+                processed_per_file = processed_per_file // len(file_batch) if file_batch else 0
+                
+                for file_path in file_batch:
+                    try:
+                        file_tracker.mark_file_processed(
+                            file_path, 
+                            'clinical_trials', 
+                            records_per_file,  # Estimate records found per file
+                            processed_per_file,  # Estimate processed per file
+                            batch_processing_time / len(file_batch)  # Estimate time per file
+                        )
+                    except Exception as e:
+                        self.logger.warning(f"Failed to track processed file {file_path}: {e}")
+                
                 # Update totals (note: now processing multiple files per batch)
                 total_results['files_processed'] += len(file_batch)
                 total_results['total_raw_records'] += batch_results.get('total_input_records', 0)
@@ -1004,8 +1060,8 @@ class SmartBatchProcessor:
                 # Update progress tracking
                 self.progress_tracker.update_batch_progress(batch_results)
                 
-                # Brief pause to prevent overwhelming the database
-                await asyncio.sleep(0.5)  # Slightly longer pause for parallel processing
+                # No artificial delay needed - local files can be processed continuously
+                # Database connection pool and parallel workers handle load management
                 
             except Exception as e:
                 error_msg = f"Failed to process file batch {batch_idx + 1} ({len(file_batch)} files): {str(e)}"
@@ -1013,17 +1069,25 @@ class SmartBatchProcessor:
                 self.logger.exception(error_msg)
                 continue
         
-        # Final summary
+        # Final summary with file skipping information
         total_results['status'] = 'completed'
+        total_results['total_files_provided'] = len(json_files)
+        total_results['files_skipped'] = len(skipped_files)
         total_results['final_progress'] = self.progress_tracker.get_progress_summary()
         
         self.logger.info(f"🎉 Smart batch processing completed!")
-        self.logger.info(f"   Files processed: {total_results['files_processed']}/{len(json_files)}")
+        self.logger.info(f"   Total files provided: {len(json_files)}")
+        self.logger.info(f"   Files skipped (already processed): {len(skipped_files)}")
+        self.logger.info(f"   Files processed: {total_results['files_processed']}/{len(files_to_process)}")
         self.logger.info(f"   Total raw records: {total_results['total_raw_records']:,}")
         self.logger.info(f"   New records added: {total_results['total_new_records']:,}")
         self.logger.info(f"   Existing records updated: {total_results['total_updated_records']:,}")
         self.logger.info(f"   Duplicates removed: {total_results['total_duplicates_removed']:,}")
         self.logger.info(f"   Content duplicates removed: {total_results['total_content_duplicates_removed']:,}")
+        
+        if len(skipped_files) > 0:
+            time_saved_estimate = len(skipped_files) * 2.0  # Estimate 2 seconds per file saved
+            self.logger.info(f"⚡ Performance optimization: ~{time_saved_estimate:.1f} seconds saved by skipping {len(skipped_files)} already processed files")
         
         if total_results['processing_errors']:
             self.logger.warning(f"⚠️  {len(total_results['processing_errors'])} files had errors")

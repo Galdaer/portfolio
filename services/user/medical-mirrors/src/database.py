@@ -172,6 +172,26 @@ class UpdateLog(Base):  # type: ignore[misc,valid-type]
     completed_at = Column(DateTime)
 
 
+class ProcessedFile(Base):  # type: ignore[misc,valid-type]
+    """Track processed files to avoid redundant parsing"""
+
+    __tablename__ = "processed_files"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    file_path = Column(Text, nullable=False)  # Full path to processed file
+    file_name = Column(String(500), nullable=False)  # Just filename for faster queries
+    file_hash = Column(String(64), nullable=False)  # SHA256 hash for change detection
+    file_size = Column(Integer, nullable=False)  # File size in bytes
+    source_type = Column(String(50), nullable=False)  # clinical_trials, pubmed, fda
+    records_found = Column(Integer, default=0)  # Number of records in file
+    records_processed = Column(Integer, default=0)  # Number actually inserted/updated
+    processing_time_seconds = Column(Float, default=0.0)  # Time to process file
+    processed_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Note: Indexes will be created manually via SQL DDL
+
+
 class ICD10Code(Base):  # type: ignore[misc,valid-type]
     """ICD-10 diagnostic codes table"""
 

@@ -765,23 +765,71 @@ async def process_existing_fda(
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 
 
+async def background_process_all_existing_parallel(force: bool = False) -> None:
+    """Background task for processing all existing files in true parallel"""
+    import asyncio
+    try:
+        logger.info(f"🚀 Starting PARALLEL processing of ALL existing files (force={force})")
+        start_time = datetime.now()
+        
+        # Run all sources in parallel using asyncio.gather
+        results = await asyncio.gather(
+            background_process_existing_trials(force),
+            background_process_existing_pubmed(force),
+            background_process_existing_fda(force),
+            return_exceptions=True  # Don't fail entire batch if one source fails
+        )
+        
+        end_time = datetime.now()
+        duration = end_time - start_time
+        
+        # Log results for each source
+        sources = ["clinical_trials", "pubmed", "fda"]
+        success_count = 0
+        for i, result in enumerate(results):
+            source = sources[i]
+            if isinstance(result, Exception):
+                logger.error(f"❌ {source} processing failed: {result}")
+            else:
+                logger.info(f"✅ {source} processing completed successfully")
+                success_count += 1
+        
+        logger.info(f"🏁 PARALLEL processing completed: {success_count}/{len(sources)} sources successful in {duration.total_seconds():.2f}s")
+        
+    except Exception as e:
+        logger.exception(f"❌ Parallel processing of all existing files failed: {e}")
+
+
 @app.post("/process/all-existing")
 async def process_all_existing_files(
-    background_tasks: BackgroundTasks, force: bool = False,
+    background_tasks: BackgroundTasks, force: bool = False, parallel: bool = True,
 ) -> dict[str, Any]:
-    """Process ALL existing downloaded files in background"""
+    """Process ALL existing downloaded files in background (with optional parallel processing)"""
     try:
-        # Start processing for all data sources with existing files
-        background_tasks.add_task(background_process_existing_trials, force)
-        background_tasks.add_task(background_process_existing_pubmed, force)
-        background_tasks.add_task(background_process_existing_fda, force)
-        
-        logger.info(f"🚀 ALL existing files processing tasks queued (force={force})")
-        return {
-            "status": "processing_started_in_background",
-            "message": "All existing files processing tasks queued successfully",
-            "sources": ["clinical_trials", "pubmed", "fda"]
-        }
+        if parallel:
+            # Run all sources in true parallel using asyncio.gather
+            background_tasks.add_task(background_process_all_existing_parallel, force)
+            
+            logger.info(f"🚀 ALL existing files PARALLEL processing task queued (force={force})")
+            return {
+                "status": "parallel_processing_started_in_background",
+                "message": "All existing files parallel processing task queued successfully",
+                "sources": ["clinical_trials", "pubmed", "fda"],
+                "mode": "parallel"
+            }
+        else:
+            # Legacy sequential mode
+            background_tasks.add_task(background_process_existing_trials, force)
+            background_tasks.add_task(background_process_existing_pubmed, force)
+            background_tasks.add_task(background_process_existing_fda, force)
+            
+            logger.info(f"🚀 ALL existing files SEQUENTIAL processing tasks queued (force={force})")
+            return {
+                "status": "sequential_processing_started_in_background",
+                "message": "All existing files sequential processing tasks queued successfully",
+                "sources": ["clinical_trials", "pubmed", "fda"],
+                "mode": "sequential"
+            }
     except Exception as e:
         logger.exception(f"All existing files processing queuing failed: {e}")
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
@@ -1308,12 +1356,13 @@ async def get_deduplication_progress() -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Progress tracking failed: {str(e)}")
 
 
-@app.post("/smart-update")
-async def smart_medical_update(
-    background_tasks: BackgroundTasks, force_full: bool = False
-) -> dict[str, Any]:
-    """Smart update that checks database state and decides between full load vs incremental update"""
+async def background_smart_update_parallel(force_full: bool = False) -> None:
+    """Background task for smart update with parallel processing"""
+    import asyncio
     try:
+        logger.info(f"🧠 Starting PARALLEL smart update (force_full={force_full})")
+        start_time = datetime.now()
+        
         # Get current database counts
         counts_response = await get_database_counts()
         counts = counts_response["counts"]
@@ -1340,44 +1389,143 @@ async def smart_medical_update(
         logger.info(f"   Full load needed: {needs_full_load}")
         logger.info(f"   Incremental update: {can_do_incremental}")
         
-        # Start appropriate processes
+        # Prepare parallel tasks
+        parallel_tasks = []
         started_tasks = []
         
+        # Major sources (parallel)
         if "clinical_trials" in needs_full_load:
-            background_tasks.add_task(background_process_existing_trials, False)
+            parallel_tasks.append(background_process_existing_trials(False))
             started_tasks.append("clinical_trials_full_load")
         elif "clinical_trials" in can_do_incremental:
-            background_tasks.add_task(background_trials_update, False, None)
+            parallel_tasks.append(background_trials_update(False, None))
             started_tasks.append("clinical_trials_incremental")
             
         if "pubmed_articles" in needs_full_load:
-            background_tasks.add_task(background_process_existing_pubmed, False)
+            parallel_tasks.append(background_process_existing_pubmed(False))
             started_tasks.append("pubmed_full_load")
         elif "pubmed_articles" in can_do_incremental:
-            background_tasks.add_task(background_pubmed_update, False, None)
+            parallel_tasks.append(background_pubmed_update(False, None))
             started_tasks.append("pubmed_incremental")
             
         if "drug_information" in needs_full_load:
-            background_tasks.add_task(background_process_existing_fda, False)
+            parallel_tasks.append(background_process_existing_fda(False))
             started_tasks.append("fda_full_load")
         elif "drug_information" in can_do_incremental:
-            background_tasks.add_task(background_fda_update, False, None)
+            parallel_tasks.append(background_fda_update(False, None))
             started_tasks.append("fda_incremental")
         
-        # Always do incremental updates for smaller datasets
-        background_tasks.add_task(background_icd10_update, False)
-        background_tasks.add_task(background_billing_update, False)
-        background_tasks.add_task(background_health_info_update, False)
+        # Smaller datasets (parallel)
+        parallel_tasks.append(background_icd10_update(False))
+        parallel_tasks.append(background_billing_update(False))
+        parallel_tasks.append(background_health_info_update(False))
         started_tasks.extend(["icd10_update", "billing_update", "health_info_update"])
         
-        return {
-            "status": "smart_update_started",
-            "strategy": "mixed" if needs_full_load and can_do_incremental else "full_load" if needs_full_load else "incremental",
-            "full_load_sources": needs_full_load,
-            "incremental_sources": can_do_incremental,
-            "started_tasks": started_tasks,
-            "current_counts": counts
-        }
+        # Run all tasks in parallel
+        results = await asyncio.gather(*parallel_tasks, return_exceptions=True)
+        
+        end_time = datetime.now()
+        duration = end_time - start_time
+        
+        # Log results
+        success_count = 0
+        for i, result in enumerate(results):
+            task_name = started_tasks[i]
+            if isinstance(result, Exception):
+                logger.error(f"❌ {task_name} failed: {result}")
+            else:
+                logger.info(f"✅ {task_name} completed successfully")
+                success_count += 1
+        
+        logger.info(f"🏁 PARALLEL smart update completed: {success_count}/{len(started_tasks)} tasks successful in {duration.total_seconds():.2f}s")
+        
+    except Exception as e:
+        logger.exception(f"❌ Parallel smart update failed: {e}")
+
+
+@app.post("/smart-update")
+async def smart_medical_update(
+    background_tasks: BackgroundTasks, force_full: bool = False, parallel: bool = True
+) -> dict[str, Any]:
+    """Smart update that checks database state and decides between full load vs incremental update (with optional parallel processing)"""
+    try:
+        if parallel:
+            # Run smart update in true parallel mode
+            background_tasks.add_task(background_smart_update_parallel, force_full)
+            
+            logger.info(f"🧠 Smart update PARALLEL processing task queued (force_full={force_full})")
+            return {
+                "status": "parallel_smart_update_started",
+                "message": "Smart update parallel processing task queued successfully",
+                "mode": "parallel"
+            }
+        else:
+            # Legacy sequential mode
+            # Get current database counts
+            counts_response = await get_database_counts()
+            counts = counts_response["counts"]
+            
+            # Determine if we need full loads or incremental updates
+            needs_full_load = []
+            can_do_incremental = []
+            
+            # Thresholds for considering a database "empty" or needing full load
+            thresholds = {
+                "clinical_trials": 100000,  # Less than 100k trials = needs full load
+                "pubmed_articles": 1000000,  # Less than 1M articles = needs full load  
+                "drug_information": 10000,   # Less than 10k drugs = needs full load
+            }
+            
+            for source, threshold in thresholds.items():
+                current_count = counts.get(source, 0)
+                if force_full or current_count < threshold:
+                    needs_full_load.append(source)
+                else:
+                    can_do_incremental.append(source)
+            
+            logger.info(f"🧠 Smart update analysis:")
+            logger.info(f"   Full load needed: {needs_full_load}")
+            logger.info(f"   Incremental update: {can_do_incremental}")
+            
+            # Start appropriate processes
+            started_tasks = []
+            
+            if "clinical_trials" in needs_full_load:
+                background_tasks.add_task(background_process_existing_trials, False)
+                started_tasks.append("clinical_trials_full_load")
+            elif "clinical_trials" in can_do_incremental:
+                background_tasks.add_task(background_trials_update, False, None)
+                started_tasks.append("clinical_trials_incremental")
+                
+            if "pubmed_articles" in needs_full_load:
+                background_tasks.add_task(background_process_existing_pubmed, False)
+                started_tasks.append("pubmed_full_load")
+            elif "pubmed_articles" in can_do_incremental:
+                background_tasks.add_task(background_pubmed_update, False, None)
+                started_tasks.append("pubmed_incremental")
+                
+            if "drug_information" in needs_full_load:
+                background_tasks.add_task(background_process_existing_fda, False)
+                started_tasks.append("fda_full_load")
+            elif "drug_information" in can_do_incremental:
+                background_tasks.add_task(background_fda_update, False, None)
+                started_tasks.append("fda_incremental")
+            
+            # Always do incremental updates for smaller datasets
+            background_tasks.add_task(background_icd10_update, False)
+            background_tasks.add_task(background_billing_update, False)
+            background_tasks.add_task(background_health_info_update, False)
+            started_tasks.extend(["icd10_update", "billing_update", "health_info_update"])
+            
+            return {
+                "status": "sequential_smart_update_started",
+                "strategy": "mixed" if needs_full_load and can_do_incremental else "full_load" if needs_full_load else "incremental",
+                "full_load_sources": needs_full_load,
+                "incremental_sources": can_do_incremental,
+                "started_tasks": started_tasks,
+                "current_counts": counts,
+                "mode": "sequential"
+            }
         
     except Exception as e:
         logger.exception(f"Smart update failed: {e}")
