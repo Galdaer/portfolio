@@ -103,7 +103,11 @@ async def run_download(args, logger):
 
         if args.force_fresh:
             logger.info("Force fresh download requested - clearing all state")
-            await downloader.reset_download_state()
+            # Clear state files manually since no reset_download_state method
+            state_file = args.data_dir / "download_state.json"
+            if state_file.exists():
+                state_file.unlink()
+                logger.info("Cleared download state file")
 
         # Configure download options
         download_options = {
@@ -251,30 +255,27 @@ async def reset_downloads(args, logger):
     """Reset download state and start fresh"""
     logger.info("Resetting ClinicalTrials download state")
 
-    local_config = LocalConfig()
-    async with SmartClinicalTrialsDownloader(output_dir=args.data_dir, config=local_config) as downloader:
-        await downloader.reset_download_state()
+    # Remove state files manually since no reset_download_state method
+    state_files = [
+        args.data_dir / "download_state.json",
+        args.data_dir / "clinicaltrials_download_state.json",
+        args.data_dir / "clinicaltrials_download_errors.json",
+    ]
 
-        # Remove state files
-        state_files = [
-            args.data_dir / "clinicaltrials_download_state.json",
-            args.data_dir / "clinicaltrials_download_errors.json",
-        ]
+    for state_file in state_files:
+        if state_file.exists():
+            state_file.unlink()
+            logger.info(f"Removed: {state_file}")
 
-        for state_file in state_files:
-            if state_file.exists():
-                state_file.unlink()
-                logger.info(f"Removed: {state_file}")
+    # Optionally remove downloaded data files
+    response = input("Remove all downloaded ClinicalTrials data files? [y/N]: ")
+    if response.lower() in ["y", "yes"]:
+        data_files = list(args.data_dir.glob("*.json")) + list(args.data_dir.glob("*.xml"))
+        for data_file in data_files:
+            data_file.unlink()
+            logger.info(f"Removed: {data_file}")
 
-        # Optionally remove downloaded data files
-        response = input("Remove all downloaded ClinicalTrials data files? [y/N]: ")
-        if response.lower() in ["y", "yes"]:
-            data_files = list(args.data_dir.glob("*.json")) + list(args.data_dir.glob("*.xml"))
-            for data_file in data_files:
-                data_file.unlink()
-                logger.info(f"Removed: {data_file}")
-
-        logger.info("✅ ClinicalTrials download state reset - ready for fresh download")
+    logger.info("✅ ClinicalTrials download state reset - ready for fresh download")
 
 
 if __name__ == "__main__":
