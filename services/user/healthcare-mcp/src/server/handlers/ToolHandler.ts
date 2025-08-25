@@ -8,6 +8,12 @@ import { PubMed } from "../connectors/medical/PubMed.js";
 import { ICD10Connector } from "../connectors/medical/ICD10Connector.js";
 import { BillingCodesConnector } from "../connectors/medical/BillingCodesConnector.js";
 import { HealthInfoConnector } from "../connectors/medical/HealthInfoConnector.js";
+import { DailyMedConnector } from "../connectors/medical/DailyMedConnector.js";
+import { RxClassConnector } from "../connectors/medical/RxClassConnector.js";
+import { DrugCentralConnector } from "../connectors/medical/DrugCentralConnector.js";
+import { DDInterConnector } from "../connectors/medical/DDInterConnector.js";
+import { LactMedConnector } from "../connectors/medical/LactMedConnector.js";
+import { OpenFDAFAERSConnector } from "../connectors/medical/OpenFDAFAERSConnector.js";
 import { TOOL_DEFINITIONS } from "../constants/tools.js";
 import { Auth } from "../utils/Auth.js";
 import { AuthConfig } from "../utils/AuthConfig.js";
@@ -23,6 +29,12 @@ export class ToolHandler {
     private icd10Connector: ICD10Connector;
     private billingCodesConnector: BillingCodesConnector;
     private healthInfoConnector: HealthInfoConnector;
+    private dailyMedConnector: DailyMedConnector;
+    private rxClassConnector: RxClassConnector;
+    private drugCentralConnector: DrugCentralConnector;
+    private ddinterConnector: DDInterConnector;
+    private lactMedConnector: LactMedConnector;
+    private openFDAFAERSConnector: OpenFDAFAERSConnector;
     private auth!: Auth;
     private authInitialized: boolean = false;
     private authConfig: AuthConfig;
@@ -41,6 +53,12 @@ export class ToolHandler {
         this.icd10Connector = new ICD10Connector(this.dbManager);
         this.billingCodesConnector = new BillingCodesConnector(this.dbManager);
         this.healthInfoConnector = new HealthInfoConnector(this.dbManager);
+        this.dailyMedConnector = new DailyMedConnector(this.dbManager);
+        this.rxClassConnector = new RxClassConnector(this.dbManager);
+        this.drugCentralConnector = new DrugCentralConnector(this.dbManager);
+        this.ddinterConnector = new DDInterConnector(this.dbManager);
+        this.lactMedConnector = new LactMedConnector(this.dbManager);
+        this.openFDAFAERSConnector = new OpenFDAFAERSConnector(this.dbManager);
     }
 
     register(mcpServer: Server) {
@@ -66,7 +84,13 @@ export class ToolHandler {
         const noAuthTools = [
             "search-pubmed", "search-trials", "get-drug-info", "echo-test",
             "search-icd10", "search-billing-codes", "lookup-code-details",
-            "search-health-topics", "search-exercises", "search-food-items"
+            "search-health-topics", "search-exercises", "search-food-items",
+            "search-dailymed-labels", "get-dailymed-drug-interactions", "get-dailymed-pregnancy-info",
+            "search-rxclass-classifications", "get-rxclass-drug-mechanism", "get-rxclass-similar-drugs",
+            "search-drugcentral-drugs", "get-drugcentral-pharmacokinetics", "get-drugcentral-drug-targets", "get-drugcentral-structural-data",
+            "search-ddinter-interactions", "check-drug-interaction", "get-drug-interaction-profile", "check-polypharmacy-interactions",
+            "search-lactmed-drugs", "get-lactation-risk-assessment", "get-breastfeeding-safe-drugs", "get-lactmed-safer-alternatives",
+            "search-faers-adverse-events", "get-drug-safety-profile", "get-serious-adverse-events", "get-faers-age-group-analysis"
         ];
 
         if (noAuthTools.includes(name)) {
@@ -90,6 +114,50 @@ export class ToolHandler {
                     return await this.healthInfoConnector.searchExercises(request.params.arguments, this.cache);
                 case "search-food-items":
                     return await this.healthInfoConnector.searchFoodItems(request.params.arguments, this.cache);
+                case "search-dailymed-labels":
+                    return await this.dailyMedConnector.searchDrugLabels(request.params.arguments);
+                case "get-dailymed-drug-interactions":
+                    return await this.dailyMedConnector.getDrugInteractions(request.params.arguments.genericName);
+                case "get-dailymed-pregnancy-info":
+                    return await this.dailyMedConnector.getPregnancyInformation(request.params.arguments.genericName);
+                case "search-rxclass-classifications":
+                    return await this.rxClassConnector.searchDrugClassifications(request.params.arguments);
+                case "get-rxclass-drug-mechanism":
+                    return await this.rxClassConnector.getMechanismOfAction(request.params.arguments.drugName);
+                case "get-rxclass-similar-drugs":
+                    return await this.rxClassConnector.getSimilarDrugs(request.params.arguments.drugName, request.params.arguments.classType, request.params.arguments.maxResults);
+                case "search-drugcentral-drugs":
+                    return await this.drugCentralConnector.searchDrugs(request.params.arguments);
+                case "get-drugcentral-pharmacokinetics":
+                    return await this.drugCentralConnector.getPharmacokineticData(request.params.arguments.drugName);
+                case "get-drugcentral-drug-targets":
+                    return await this.drugCentralConnector.getDrugsByTarget(request.params.arguments.drugName);
+                case "get-drugcentral-structural-data":
+                    return await this.drugCentralConnector.getStructuralData(request.params.arguments.drugName);
+                case "search-ddinter-interactions":
+                    return await this.ddinterConnector.searchDrugInteractions(request.params.arguments);
+                case "check-drug-interaction":
+                    return await this.ddinterConnector.checkSpecificInteraction(request.params.arguments.drugA, request.params.arguments.drugB);
+                case "get-drug-interaction-profile":
+                    return await this.ddinterConnector.getDrugProfile(request.params.arguments.drugName);
+                case "check-polypharmacy-interactions":
+                    return await this.ddinterConnector.searchPolypharmacyInteractions(request.params.arguments.drugList, request.params.arguments.includeMinor);
+                case "search-lactmed-drugs":
+                    return await this.lactMedConnector.searchLactationDrugs(request.params.arguments);
+                case "get-lactation-risk-assessment":
+                    return await this.lactMedConnector.getLactationRiskAssessment(request.params.arguments.drugName);
+                case "get-breastfeeding-safe-drugs":
+                    return await this.lactMedConnector.getBreastfeedingSafeDrugs(request.params.arguments.drugClass, request.params.arguments.maxResults);
+                case "get-lactmed-safer-alternatives":
+                    return await this.lactMedConnector.getSaferAlternatives(request.params.arguments.drugName);
+                case "search-faers-adverse-events":
+                    return await this.openFDAFAERSConnector.searchAdverseEvents(request.params.arguments);
+                case "get-drug-safety-profile":
+                    return await this.openFDAFAERSConnector.getDrugSafetyProfile(request.params.arguments.drugName);
+                case "get-serious-adverse-events":
+                    return await this.openFDAFAERSConnector.getSeriousAdverseEvents(request.params.arguments.drugName, request.params.arguments.maxResults);
+                case "get-faers-age-group-analysis":
+                    return await this.openFDAFAERSConnector.getAgeGroupAnalysis(request.params.arguments.drugName);
                 case "echo-test":
                     return {
                         content: [{

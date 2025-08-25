@@ -317,5 +317,276 @@ export const TOOL_DEFINITIONS = [
             },
             required: ['query']
         }
+    },
+    {
+        name: 'search-dailymed-labels',
+        description: 'Search FDA DailyMed drug labels for detailed prescribing information, warnings, and dosing.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                genericName: { type: 'string', description: 'Generic drug name to search' },
+                brandName: { type: 'string', description: 'Brand drug name to search' },
+                manufacturer: { type: 'string', description: 'Drug manufacturer' },
+                ndc: { type: 'string', description: 'National Drug Code' },
+                maxResults: { type: 'number', description: 'Maximum number of labels to return (default 10)' }
+            },
+            required: []
+        }
+    },
+    {
+        name: 'get-dailymed-drug-interactions',
+        description: 'Get drug interaction information from DailyMed labels.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                genericName: { type: 'string', description: 'Generic drug name' }
+            },
+            required: ['genericName']
+        }
+    },
+    {
+        name: 'get-dailymed-pregnancy-info',
+        description: 'Get pregnancy and lactation information from DailyMed labels.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                genericName: { type: 'string', description: 'Generic drug name' }
+            },
+            required: ['genericName']
+        }
+    },
+    {
+        name: 'search-rxclass-classifications',
+        description: 'Search RxClass therapeutic drug classifications (ATC, MOA, PE, etc.).',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Drug name to classify' },
+                className: { type: 'string', description: 'Classification name to search' },
+                classType: { type: 'string', description: 'Classification type (ATC, MOA, PE, EPC, etc.)' },
+                maxResults: { type: 'number', description: 'Maximum number of classifications to return (default 25)' }
+            },
+            required: []
+        }
+    },
+    {
+        name: 'get-rxclass-drug-mechanism',
+        description: 'Get mechanism of action classifications for a drug.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Drug name' }
+            },
+            required: ['drugName']
+        }
+    },
+    {
+        name: 'get-rxclass-similar-drugs',
+        description: 'Find drugs with similar therapeutic classifications.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Reference drug name' },
+                classType: { type: 'string', description: 'Classification type to compare (default ATC)' },
+                maxResults: { type: 'number', description: 'Maximum number of similar drugs (default 20)' }
+            },
+            required: ['drugName']
+        }
+    },
+    {
+        name: 'search-drugcentral-drugs',
+        description: 'Search DrugCentral comprehensive pharmaceutical database for drugs, targets, and pharmacology.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Drug name to search' },
+                targetName: { type: 'string', description: 'Drug target name' },
+                indication: { type: 'string', description: 'Medical indication' },
+                mechanismOfAction: { type: 'string', description: 'Mechanism of action' },
+                maxResults: { type: 'number', description: 'Maximum number of drugs to return (default 25)' }
+            },
+            required: []
+        }
+    },
+    {
+        name: 'get-drugcentral-pharmacokinetics',
+        description: 'Get pharmacokinetic data (absorption, metabolism, elimination) for a drug.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Drug name' }
+            },
+            required: ['drugName']
+        }
+    },
+    {
+        name: 'get-drugcentral-drug-targets',
+        description: 'Get molecular targets and binding information for a drug.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Drug name' }
+            },
+            required: ['drugName']
+        }
+    },
+    {
+        name: 'get-drugcentral-structural-data',
+        description: 'Get chemical structure data (SMILES, InChI, molecular weight) for a drug.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Drug name' }
+            },
+            required: ['drugName']
+        }
+    },
+    {
+        name: 'search-ddinter-interactions',
+        description: 'Search DDInter database for comprehensive drug-drug interactions.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugA: { type: 'string', description: 'First drug name' },
+                drugB: { type: 'string', description: 'Second drug name' },
+                severity: { type: 'string', description: 'Interaction severity (major, moderate, minor)' },
+                mechanism: { type: 'string', description: 'Interaction mechanism' },
+                includeMinor: { type: 'boolean', description: 'Include minor interactions (default false)' },
+                maxResults: { type: 'number', description: 'Maximum number of interactions to return (default 50)' }
+            },
+            required: []
+        }
+    },
+    {
+        name: 'check-drug-interaction',
+        description: 'Check for specific interactions between two drugs.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugA: { type: 'string', description: 'First drug name' },
+                drugB: { type: 'string', description: 'Second drug name' }
+            },
+            required: ['drugA', 'drugB']
+        }
+    },
+    {
+        name: 'get-drug-interaction-profile',
+        description: 'Get comprehensive interaction profile for a drug.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Drug name' }
+            },
+            required: ['drugName']
+        }
+    },
+    {
+        name: 'check-polypharmacy-interactions',
+        description: 'Analyze drug interactions for multiple medications (polypharmacy).',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugList: { type: 'array', items: { type: 'string' }, description: 'List of drug names' },
+                includeMinor: { type: 'boolean', description: 'Include minor interactions (default false)' }
+            },
+            required: ['drugList']
+        }
+    },
+    {
+        name: 'search-lactmed-drugs',
+        description: 'Search LactMed database for breastfeeding safety information.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Drug name to search' },
+                riskCategory: { type: 'string', description: 'Lactation risk category' },
+                maxResults: { type: 'number', description: 'Maximum number of drugs to return (default 25)' }
+            },
+            required: []
+        }
+    },
+    {
+        name: 'get-lactation-risk-assessment',
+        description: 'Get comprehensive lactation risk assessment for a drug.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Drug name' }
+            },
+            required: ['drugName']
+        }
+    },
+    {
+        name: 'get-breastfeeding-safe-drugs',
+        description: 'Get list of drugs considered safe during breastfeeding.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugClass: { type: 'string', description: 'Therapeutic drug class' },
+                maxResults: { type: 'number', description: 'Maximum number of drugs to return (default 50)' }
+            },
+            required: []
+        }
+    },
+    {
+        name: 'get-lactmed-safer-alternatives',
+        description: 'Find safer alternatives for breastfeeding mothers.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Current drug name' }
+            },
+            required: ['drugName']
+        }
+    },
+    {
+        name: 'search-faers-adverse-events',
+        description: 'Search FDA FAERS database for adverse drug events and safety signals.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Drug name' },
+                adverseReaction: { type: 'string', description: 'Adverse reaction term' },
+                ageGroup: { type: 'string', description: 'Patient age group' },
+                gender: { type: 'string', description: 'Patient gender' },
+                seriousOnly: { type: 'boolean', description: 'Show only serious adverse events' },
+                maxResults: { type: 'number', description: 'Maximum number of events to return (default 50)' }
+            },
+            required: []
+        }
+    },
+    {
+        name: 'get-drug-safety-profile',
+        description: 'Get comprehensive safety profile for a drug from FAERS data.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Drug name' }
+            },
+            required: ['drugName']
+        }
+    },
+    {
+        name: 'get-serious-adverse-events',
+        description: 'Get serious adverse events for a drug.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Drug name' },
+                maxResults: { type: 'number', description: 'Maximum number of events to return (default 100)' }
+            },
+            required: ['drugName']
+        }
+    },
+    {
+        name: 'get-faers-age-group-analysis',
+        description: 'Analyze adverse events by age group for a drug.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                drugName: { type: 'string', description: 'Drug name' }
+            },
+            required: ['drugName']
+        }
     }
 ]; 
