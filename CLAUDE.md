@@ -157,6 +157,7 @@ For EVERY user request, analyze if it matches these patterns and automatically i
 8. **Test Organization** (organize tests, test structure, test refactoring, test cleanup, duplicate tests) → TestOrganizationAgent
 9. **Healthcare Testing** (HIPAA testing, PHI testing, compliance tests, medical workflow testing) → HealthcareTestAgent
 10. **Test Issues** (test failures, flaky tests, test debugging, slow tests, test maintenance) → TestMaintenanceAgent
+11. **Performance Issues** (slow processing, single-threaded, deadlock issues, parallel processing, multi-threading, bottleneck analysis, CPU utilization) → PerformanceOptimizationAgent
 
 Use the Task tool to invoke agents rather than attempting the work directly when the task complexity warrants specialized knowledge.
 
@@ -232,6 +233,15 @@ You should: Immediately invoke TestMaintenanceAgent using Task tool with:
 - subagent_type: "TestMaintenanceAgent"
 - description: "Fix test issues"
 - prompt: "User has test reliability issues. Analyze test failures, identify flaky tests, and provide optimization recommendations."
+```
+
+**Performance Optimization:**
+```
+When user asks: "This is only using one CPU" or "Processing is very slow" or "Deadlock issues"
+You should: Immediately invoke PerformanceOptimizationAgent using Task tool with:
+- subagent_type: "PerformanceOptimizationAgent" 
+- description: "Optimize system performance"
+- prompt: "User reports performance issues with slow processing. Analyze bottlenecks, implement parallel processing, resolve database deadlocks, and optimize CPU utilization using multi-threading patterns."
 ```
 
 ## Development Patterns
