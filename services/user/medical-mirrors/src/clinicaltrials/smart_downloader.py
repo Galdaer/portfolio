@@ -74,7 +74,7 @@ class SmartClinicalTrialsDownloader:
         # Smart retry configuration
         self.retry_interval = 600  # 10 minutes between retry checks
         self.max_daily_retries = 20  # Higher limit for API-based source
-        self.batch_size = 1000  # Studies per batch
+        self.batch_size = 10000  # Studies per batch - increased for efficiency
 
         # File management - track downloaded files only
         self.batch_files: list[str] = []

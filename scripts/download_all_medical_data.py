@@ -102,11 +102,11 @@ class MedicalDataOrchestrator:
             },
             "clinicaltrials": {
                 "script": "smart_clinicaltrials_download.py",
-                "size_estimate": "~500MB",
+                "size_estimate": "~40GB (extensive historical data)",
                 "description": "All ClinicalTrials.gov studies (smart API handling)",
-                "priority": 3,  # Fast download
-                "parallel_safe": True,  # API-based, small size
-                "estimated_hours": 0.5,
+                "priority": 3,  # Longer download due to comprehensive data
+                "parallel_safe": True,  # API-based with smart batching
+                "estimated_hours": 4.0,
             },
             "icd10": {
                 "script": "smart_icd10_download.py",
@@ -186,7 +186,7 @@ class MedicalDataOrchestrator:
         return {
             "total_size_gb": total_size_gb,
             "estimated_hours_sequential": total_hours,
-            "estimated_hours_parallel": max(6, 2.9),  # Limited by PubMed, slightly longer due to enhanced sources
+            "estimated_hours_parallel": max(6, 4.0),  # Limited by PubMed and clinical trials
             "disk_space_required": total_size_gb * 1.2,  # 20% buffer
             "sources_count": len(self.data_sources),
             "large_downloads": ["pubmed", "fda"],
@@ -383,7 +383,9 @@ class MedicalDataOrchestrator:
 
             # Stream output in real-time with timeout
             stdout_lines = []
-            timeout = source_info["estimated_hours"] * 3600 * 2  # 2x estimated time
+            # Special timeout handling for clinical trials due to large dataset
+            timeout_multiplier = 10 if source_name == "clinicaltrials" else 2
+            timeout = source_info["estimated_hours"] * 3600 * timeout_multiplier
 
             try:
                 # Read output line by line and display immediately

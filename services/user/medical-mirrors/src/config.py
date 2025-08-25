@@ -67,7 +67,7 @@ class Config:
     # - Add to environment: PUBMED_API_KEY=your_key_here
     # - Enhanced keys (>10 rps) available by contacting info@ncbi.nlm.nih.gov
     PUBMED_REQUEST_DELAY: float = 0.33      # 3 req/sec (no API key) - can be 0.1 with API key
-    CLINICALTRIALS_REQUEST_DELAY: float = 0.02   # 50 req/min per IP = 0.83 req/sec = 1.2s/req BUT testing shows they handle much more
+    CLINICALTRIALS_REQUEST_DELAY: float = 0.01   # Testing shows they handle more than documented - increased from 0.02s
     OPENFDA_REQUEST_DELAY: float = 0.25     # 4 req/sec (240 req/min)
     USDA_FOOD_REQUEST_DELAY: float = 3.6    # 0.28 req/sec (1000 req/hour)
     RXCLASS_REQUEST_DELAY: float = 0.05     # 20 req/sec per IP
