@@ -58,6 +58,14 @@
 	   medical-mirrors-update-icd10 \
 	   medical-mirrors-update-billing \
 	   medical-mirrors-update-health \
+	   medical-mirrors-process-existing \
+	   medical-mirrors-process-existing-force \
+	   medical-mirrors-process-trials \
+	   medical-mirrors-process-trials-force \
+	   medical-mirrors-process-pubmed \
+	   medical-mirrors-process-pubmed-force \
+	   medical-mirrors-process-fda \
+	   medical-mirrors-process-fda-force \
 	   medical-mirrors-progress \
 	   medical-mirrors-quick-test \
 	   medical-mirrors-test-pubmed \
@@ -712,25 +720,48 @@ medical-mirrors-update-legacy:
 	@echo "✅ All 6 data source update processes started - use 'make medical-mirrors-progress' to monitor"
 
 medical-mirrors-process-existing:
-	@echo "📂  Processing ALL existing downloaded medical data files"
+	@echo "📂  Processing ALL existing downloaded medical data files (SMART - skips processed files)"
 	@echo "   🔍 Will load existing compressed files: Clinical Trials, PubMed, FDA"
-	@echo "   ⚠️  This will take SEVERAL HOURS but uses local files (no network)"
+	@echo "   ⚡ OPTIMIZED: Only processes files that haven't been processed before"
+	@echo "   💡 Use 'make medical-mirrors-process-existing-force' to reprocess all files"
 	@echo "   📊 Monitor progress: make medical-mirrors-progress"
 	@echo ""
 	@echo "   🔍 Testing service status first..."
 	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
 		echo "   ✅ Service responding"; \
-		echo "   📂 Starting processing of all existing files..."; \
-		curl -X POST http://localhost:8081/process/all-existing -H "Content-Type: application/json" --max-time 15; \
+		echo "   📂 Starting SMART processing of all existing files (force=false)..."; \
+		curl -X POST "http://localhost:8081/process/all-existing?force=false" -H "Content-Type: application/json" --max-time 15; \
 		echo ""; \
-		echo "   ✅ All existing files are now being processed"; \
+		echo "   ✅ All existing files are now being processed (skipping already processed)"; \
 		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
 		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
 	else \
 		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
 		exit 1; \
 	fi
-	@echo "✅ Existing files processing started - monitor with 'make medical-mirrors-progress'" 
+	@echo "✅ Smart existing files processing started - monitor with 'make medical-mirrors-progress'" 
+
+medical-mirrors-process-existing-force:
+	@echo "📂  Processing ALL existing downloaded medical data files (FORCE - reprocess everything)"
+	@echo "   🔍 Will load existing compressed files: Clinical Trials, PubMed, FDA"
+	@echo "   🔄 FORCE MODE: Will reprocess ALL files regardless of previous processing"
+	@echo "   ⚠️  This will take SEVERAL HOURS but ensures fresh data processing"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   📂 Starting FORCE processing of all existing files (force=true)..."; \
+		curl -X POST "http://localhost:8081/process/all-existing?force=true" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ All existing files are now being reprocessed (force mode)"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Force existing files processing started - monitor with 'make medical-mirrors-progress'"
 
 medical-mirrors-update-pubmed:
 	@echo "📚  Updating PubMed database"
@@ -843,6 +874,138 @@ medical-mirrors-update-health:
 		exit 1; \
 	fi
 	@echo "✅ Health info update started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-process-trials:
+	@echo "🧪  Processing existing ClinicalTrials files (SMART - skips processed files)"
+	@echo "   🔍 Will load existing compressed JSON files from downloads"
+	@echo "   ⚡ OPTIMIZED: Only processes files that haven't been processed before"
+	@echo "   💡 Use 'make medical-mirrors-process-trials-force' to reprocess all files"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🧪 Starting SMART processing of ClinicalTrials files (force=false)..."; \
+		curl -X POST "http://localhost:8081/process/trials?force=false" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ ClinicalTrials files are now being processed (skipping already processed)"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Smart ClinicalTrials processing started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-process-trials-force:
+	@echo "🧪  Processing existing ClinicalTrials files (FORCE - reprocess everything)"
+	@echo "   🔍 Will load existing compressed JSON files from downloads"
+	@echo "   🔄 FORCE MODE: Will reprocess ALL files regardless of previous processing"
+	@echo "   ⚠️  This may take 2-4+ HOURS but ensures fresh data processing"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🧪 Starting FORCE processing of ClinicalTrials files (force=true)..."; \
+		curl -X POST "http://localhost:8081/process/trials?force=true" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ ClinicalTrials files are now being reprocessed (force mode)"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Force ClinicalTrials processing started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-process-pubmed:
+	@echo "📚  Processing existing PubMed files (SMART - skips processed files)"
+	@echo "   🔍 Will load existing compressed XML files from downloads"
+	@echo "   ⚡ OPTIMIZED: Only processes files that haven't been processed before"
+	@echo "   💡 Use 'make medical-mirrors-process-pubmed-force' to reprocess all files"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   📚 Starting SMART processing of PubMed files (force=false)..."; \
+		curl -X POST "http://localhost:8081/process/pubmed?force=false" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ PubMed files are now being processed (skipping already processed)"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Smart PubMed processing started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-process-pubmed-force:
+	@echo "📚  Processing existing PubMed files (FORCE - reprocess everything)"
+	@echo "   🔍 Will load existing compressed XML files from downloads"
+	@echo "   🔄 FORCE MODE: Will reprocess ALL files regardless of previous processing"
+	@echo "   ⚠️  This may take 6-12+ HOURS but ensures fresh data processing"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   📚 Starting FORCE processing of PubMed files (force=true)..."; \
+		curl -X POST "http://localhost:8081/process/pubmed?force=true" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ PubMed files are now being reprocessed (force mode)"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Force PubMed processing started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-process-fda:
+	@echo "💊  Processing existing FDA files (SMART - skips processed files)"
+	@echo "   🔍 Will load existing FDA data files from downloads"
+	@echo "   ⚡ OPTIMIZED: Only processes files that haven't been processed before"
+	@echo "   💡 Use 'make medical-mirrors-process-fda-force' to reprocess all files"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   💊 Starting SMART processing of FDA files (force=false)..."; \
+		curl -X POST "http://localhost:8081/process/fda?force=false" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ FDA files are now being processed (skipping already processed)"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Smart FDA processing started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-process-fda-force:
+	@echo "💊  Processing existing FDA files (FORCE - reprocess everything)"
+	@echo "   🔍 Will load existing FDA data files from downloads"
+	@echo "   🔄 FORCE MODE: Will reprocess ALL files regardless of previous processing"
+	@echo "   ⚠️  This may take 1-3+ HOURS but ensures fresh data processing"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   💊 Starting FORCE processing of FDA files (force=true)..."; \
+		curl -X POST "http://localhost:8081/process/fda?force=true" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ FDA files are now being reprocessed (force mode)"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Force FDA processing started - monitor with 'make medical-mirrors-progress'"
 
 medical-mirrors-progress:
 	@echo "📊  Medical Mirrors Update Progress"
@@ -1374,6 +1537,18 @@ help:
 	@echo "   make medical-mirrors-update-icd10   - Update ICD-10 codes (30-60 mins)"
 	@echo "   make medical-mirrors-update-billing - Update billing codes (30-60 mins)"
 	@echo "   make medical-mirrors-update-health  - Update health info (1-2+ hours)"
+	@echo ""
+	@echo "📂 Process Existing Files (SMART - Skip Already Processed):"
+	@echo "   make medical-mirrors-process-existing        - Process ALL existing files (skip processed)"
+	@echo "   make medical-mirrors-process-trials          - Process clinical trials files (skip processed)"
+	@echo "   make medical-mirrors-process-pubmed          - Process PubMed files (skip processed)"
+	@echo "   make medical-mirrors-process-fda             - Process FDA files (skip processed)"
+	@echo ""
+	@echo "🔄 Force Reprocess (FORCE - Reprocess All Files):"
+	@echo "   make medical-mirrors-process-existing-force  - Force reprocess ALL files"
+	@echo "   make medical-mirrors-process-trials-force    - Force reprocess clinical trials"
+	@echo "   make medical-mirrors-process-pubmed-force    - Force reprocess PubMed files"
+	@echo "   make medical-mirrors-process-fda-force       - Force reprocess FDA files"
 	@echo "   make medical-mirrors-progress       - Monitor update progress (real-time)"
 	@echo ""
 	@echo "🧪  INDIVIDUAL TEST COMMANDS (Quick testing for development):"
