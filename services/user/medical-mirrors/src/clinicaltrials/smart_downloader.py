@@ -176,44 +176,18 @@ class SmartClinicalTrialsDownloader:
         try:
             logger.info("Downloading all ClinicalTrials studies")
 
-            # Resume from last batch if available
-            start = max(1, self.state.last_batch_processed + 1)
+            # Use proper pagination-aware download method instead of broken legacy method
+            batch_files = await self.downloader.download_all_studies(self.batch_size)
+            
+            if batch_files:
+                self.batch_files.extend(batch_files)
+                self.state.last_batch_processed = len(batch_files)
+                logger.info(f"Downloaded {len(batch_files)} study batches using proper pagination")
+            else:
+                logger.warning("No study batches downloaded")
 
-            while True:
-                try:
-                    batch_file = await self.downloader.download_studies_batch(start, self.batch_size)
-                    if not batch_file:
-                        break
-
-                    self.batch_files.append(batch_file)
-                    self.state.last_batch_processed = start
-                    start += self.batch_size
-
-                    # Save state periodically for resume capability
-                    if len(self.batch_files) % 10 == 0:
-                        self._save_state()
-                        logger.info(f"Progress: {len(self.batch_files)} batches downloaded")
-
-                    # Use ClinicalTrials-specific rate limit (0.83 req/sec max)
-                    await asyncio.sleep(self.config.CLINICALTRIALS_REQUEST_DELAY)
-
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code == 429:  # Rate limited
-                        retry_after = int(e.response.headers.get("retry-after", 300))
-                        logger.warning(f"Rate limited, waiting {retry_after} seconds")
-                        self.state.set_rate_limit(source, retry_after)
-                        await asyncio.sleep(retry_after)
-                        continue
-                    if 500 <= e.response.status_code < 600:  # Server error
-                        logger.warning(f"Server error {e.response.status_code}, retrying in 60s")
-                        await asyncio.sleep(60)
-                        continue
-                    raise
-                except httpx.RequestError as e:
-                    logger.warning(f"Network error: {e}, retrying in 30s")
-                    await asyncio.sleep(30)
-                    continue
-
+            # Save final state
+            self._save_state()
             logger.info(f"Downloaded {len(self.batch_files)} study batches")
 
         except Exception as e:

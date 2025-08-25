@@ -28,13 +28,19 @@ class FileProcessingTracker:
     def calculate_file_hash(self, file_path: str) -> str:
         """Calculate SHA256 hash of file for change detection"""
         sha256_hash = hashlib.sha256()
+        bytes_read = 0
         
         try:
+            self.logger.debug(f"📊 Starting hash calculation for: {file_path}")
             with open(file_path, "rb") as f:
                 # Read file in chunks for memory efficiency
                 for chunk in iter(lambda: f.read(4096), b""):
                     sha256_hash.update(chunk)
-            return sha256_hash.hexdigest()
+                    bytes_read += len(chunk)
+            
+            result_hash = sha256_hash.hexdigest()
+            self.logger.debug(f"📊 Hash calculated for {Path(file_path).name}: {result_hash[:8]}... ({bytes_read} bytes read)")
+            return result_hash
         except Exception as e:
             self.logger.error(f"Failed to calculate hash for {file_path}: {e}")
             return ""
@@ -67,19 +73,24 @@ class FileProcessingTracker:
             )
             
             if not existing:
+                self.logger.debug(f"No existing record found for: {file_name}")
                 return None
                 
             # Check if file has changed (hash comparison)
+            self.logger.debug(f"Calculating hash for: {file_name}")
             current_hash, current_size = self.get_file_info(file_path)
             
             if not current_hash:
+                self.logger.warning(f"Failed to calculate hash for: {file_name}")
                 return None  # Error getting hash, assume needs processing
                 
+            self.logger.debug(f"Hash comparison for {file_name}: existing={existing.file_hash[:8]}..., current={current_hash[:8]}..., size_existing={existing.file_size}, size_current={current_size}")
+            
             if existing.file_hash == current_hash and existing.file_size == current_size:
-                self.logger.debug(f"File already processed (unchanged): {file_name}")
+                self.logger.debug(f"✅ File already processed (unchanged): {file_name}")
                 return existing
             else:
-                self.logger.info(f"File changed, will reprocess: {file_name}")
+                self.logger.info(f"📝 File changed, will reprocess: {file_name} (hash or size mismatch)")
                 return None
                 
         except Exception as e:
@@ -156,16 +167,19 @@ class FileProcessingTracker:
         unprocessed = []
         skipped = []
         
-        self.logger.info(f"Checking {len(file_paths)} files for processing status...")
+        self.logger.info(f"🔍 Checking {len(file_paths)} files for processing status...")
         
-        for file_path in file_paths:
+        for i, file_path in enumerate(file_paths):
+            if i % 1000 == 0:
+                self.logger.info(f"🔍 Progress: Checked {i}/{len(file_paths)} files...")
+                
             if self.is_file_already_processed(file_path, source_type):
                 skipped.append(file_path)
             else:
                 unprocessed.append(file_path)
         
         self.logger.info(
-            f"File processing filter results: "
+            f"📋 File processing filter results: "
             f"{len(unprocessed)} need processing, {len(skipped)} already processed"
         )
         

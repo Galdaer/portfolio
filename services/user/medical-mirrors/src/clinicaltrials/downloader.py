@@ -137,9 +137,22 @@ class ClinicalTrialsDownloader:
             return None, None
 
     async def download_studies_batch(self, start: int, batch_size: int) -> str | None:
-        """Legacy method - kept for compatibility but uses new pagination"""
-        batch_file, _ = await self.download_studies_batch_paginated(start, batch_size, None)
-        return batch_file
+        """Legacy method - DEPRECATED: Cannot properly paginate without pageToken
+        
+        This method cannot work correctly because it has no way to pass the pageToken
+        from previous requests. This causes all batches to return the same data.
+        Use download_all_studies() instead for proper pagination.
+        """
+        logger.error(f"DEPRECATED: download_studies_batch() called with start={start}. This method cannot paginate properly!")
+        logger.error("Use download_all_studies() for proper pagination or download_studies_batch_paginated() with pageToken")
+        
+        # For backwards compatibility, return first batch only and warn
+        if start == 1:
+            batch_file, _ = await self.download_studies_batch_paginated(1, batch_size, None)
+            return batch_file
+        else:
+            logger.error(f"Refusing to download batch starting at {start} - would return duplicate data")
+            return None
 
     async def download_study_details(self, nct_id: str) -> dict[str, Any] | None:
         """Download detailed information for a specific study"""
