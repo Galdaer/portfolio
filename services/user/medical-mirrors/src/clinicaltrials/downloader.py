@@ -23,7 +23,7 @@ class ClinicalTrialsDownloader:
         self.config = config or Config()
         self.api_base = self.config.CLINICALTRIALS_API
         self.data_dir = self.config.get_trials_data_dir()
-        self.session = httpx.AsyncClient(timeout=30.0)
+        self.session = httpx.AsyncClient(timeout=60.0)  # Increased from 30s to 60s to prevent ReadTimeout
 
     async def download_all_studies(self, batch_size: int = 10000) -> list[str]:
         """Download all studies from ClinicalTrials.gov using proper pagination"""
