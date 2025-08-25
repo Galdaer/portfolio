@@ -103,7 +103,7 @@ class DatabaseValidator:
             record.get("interventions"), "interventions", "clinical_trials",
         )
         validated["locations"] = DataValidator.validate_array_field(
-            record.get("locations"), "locations", "clinical_trials",
+            record.get("locations"), "locations", "clinical_trials", max_items=1000
         )
         validated["sponsors"] = DataValidator.validate_array_field(
             record.get("sponsors"), "sponsors", "clinical_trials",

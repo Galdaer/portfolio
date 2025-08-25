@@ -535,12 +535,17 @@ class SmartICD10Downloader:
         ready_sources = self.state_manager.get_ready_for_retry()
         completion_estimate = self.state_manager.estimate_completion_time()
 
+        # Load existing codes to get accurate count
+        if not self.all_codes:
+            await self._load_existing_files()
+        
         status = {
             "timestamp": datetime.now().isoformat(),
             "data_type": "icd10_codes",
             "progress": progress,
             "ready_for_retry": ready_sources,
             "total_files_downloaded": self.total_files_downloaded,
+            "total_codes_downloaded": sum(len(codes) for codes in self.all_codes.values()),
             "completion_estimate": completion_estimate,
             "next_retry_times": {},
             "source_details": {},

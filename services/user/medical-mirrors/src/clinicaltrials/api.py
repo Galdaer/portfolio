@@ -3,6 +3,7 @@ ClinicalTrials.gov API for local mirror
 Provides search functionality matching Healthcare MCP interface
 """
 
+import glob
 import logging
 from datetime import datetime
 from typing import Any
@@ -307,27 +308,64 @@ class ClinicalTrialsAPI:
         return total_processed
 
     async def update_search_vectors(self, db: Session) -> None:
-        """Update full-text search vectors"""
-        try:
-            update_query = text("""
-                UPDATE clinical_trials
-                SET search_vector = to_tsvector('english',
-                    COALESCE(title, '') || ' ' ||
-                    COALESCE(array_to_string(conditions, ' '), '') || ' ' ||
-                    COALESCE(array_to_string(interventions, ' '), '') || ' ' ||
-                    COALESCE(array_to_string(locations, ' '), '') || ' ' ||
-                    COALESCE(array_to_string(sponsors, ' '), '')
-                )
-                WHERE search_vector IS NULL
-            """)
+        """Update full-text search vectors with deadlock retry logic"""
+        import time
+        import random
+        from psycopg2.errors import DeadlockDetected
+        
+        max_retries = 5
+        base_delay = 0.1
+        
+        for attempt in range(max_retries):
+            try:
+                # Use advisory lock to prevent concurrent updates
+                db.execute(text("SELECT pg_advisory_lock(12346)"))
+                
+                update_query = text("""
+                    UPDATE clinical_trials
+                    SET search_vector = to_tsvector('english',
+                        COALESCE(title, '') || ' ' ||
+                        COALESCE(array_to_string(conditions, ' '), '') || ' ' ||
+                        COALESCE(array_to_string(interventions, ' '), '') || ' ' ||
+                        COALESCE(array_to_string(locations, ' '), '') || ' ' ||
+                        COALESCE(array_to_string(sponsors, ' '), '')
+                    )
+                    WHERE search_vector IS NULL
+                """)
 
-            db.execute(update_query)
-            db.commit()
-            logger.info("Updated search vectors for clinical trials")
+                db.execute(update_query)
+                db.commit()
+                
+                # Release advisory lock
+                db.execute(text("SELECT pg_advisory_unlock(12346)"))
+                
+                logger.info("Updated search vectors for clinical trials")
+                return
 
-        except Exception as e:
-            logger.exception(f"Failed to update search vectors: {e}")
-            db.rollback()
+            except DeadlockDetected as e:
+                db.rollback()
+                # Release lock on error
+                try:
+                    db.execute(text("SELECT pg_advisory_unlock(12346)"))
+                except:
+                    pass
+                
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    logger.warning(f"Deadlock detected, retrying in {delay:.2f}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                else:
+                    logger.error(f"Failed to update search vectors after {max_retries} attempts due to deadlocks")
+                    
+            except Exception as e:
+                db.rollback()
+                # Release lock on error
+                try:
+                    db.execute(text("SELECT pg_advisory_unlock(12346)"))
+                except:
+                    pass
+                logger.exception(f"Failed to update search vectors: {e}")
+                break
 
     async def initialize_data(self) -> dict[str, Any]:
         """Initialize ClinicalTrials data"""
@@ -386,13 +424,15 @@ class ClinicalTrialsAPI:
         
         data_dir = self.config.get_trials_data_dir()
         
-        # Find all compressed JSON files
-        json_gz_files = glob.glob(os.path.join(data_dir, "studies_batch_*.json.gz"))
+        # Find all compressed JSON files (both batch and consolidated patterns)
+        batch_files = glob.glob(os.path.join(data_dir, "studies_batch_*.json.gz"))
+        consolidated_files = glob.glob(os.path.join(data_dir, "studies_consolidated_*.json.gz"))
+        json_gz_files = batch_files + consolidated_files
         
         # Sort files for consistent processing order
         json_gz_files.sort()
         
-        logger.info(f"Found {len(json_gz_files)} existing clinical trials files to process")
+        logger.info(f"Found {len(json_gz_files)} existing clinical trials files to process (batch: {len(batch_files)}, consolidated: {len(consolidated_files)})")
         return json_gz_files
 
     async def process_existing_files(self, force: bool = False) -> dict[str, Any]:

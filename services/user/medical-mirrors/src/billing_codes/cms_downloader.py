@@ -32,11 +32,11 @@ class RateLimitInfo:
 class CMSHCPCSDownloader:
     """Downloads HCPCS Level II codes directly from CMS"""
 
-    # CMS HCPCS data sources
+    # CMS HCPCS data sources (updated to October 2025)
     CMS_URLS = {
-        "hcpcs_current": "https://www.cms.gov/Medicare/Coding/HCPCSReleaseCodeSets/Downloads/2024-HCPCS-Level-II-Code-Set.zip",
-        "hcpcs_alpha": "https://www.cms.gov/files/zip/2024-alpha-numeric-hcpcs-file.zip",
-        "hcpcs_anweb": "https://www.cms.gov/files/zip/2024-hcpcs-anweb-file.zip",
+        "hcpcs_current": "https://www.cms.gov/files/zip/october-2025-alpha-numeric-hcpcs-file.zip",
+        "hcpcs_alpha": "https://www.cms.gov/files/zip/october-2025-alpha-numeric-hcpcs-file.zip",
+        "hcpcs_anweb": "https://www.cms.gov/files/zip/october-2025-alpha-numeric-hcpcs-file.zip",
     }
 
     def __init__(self, state_manager: DownloadStateManager | None = None,

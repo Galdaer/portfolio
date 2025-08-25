@@ -247,26 +247,63 @@ class PubMedAPI:
         return stored_count
 
     async def update_search_vectors(self, db: Session) -> None:
-        """Update full-text search vectors"""
-        try:
-            update_query = text("""
-                UPDATE pubmed_articles
-                SET search_vector = to_tsvector('english',
-                    COALESCE(title, '') || ' ' ||
-                    COALESCE(abstract, '') || ' ' ||
-                    COALESCE(array_to_string(authors, ' '), '') || ' ' ||
-                    COALESCE(array_to_string(mesh_terms, ' '), '')
-                )
-                WHERE search_vector IS NULL
-            """)
+        """Update full-text search vectors with deadlock retry logic"""
+        import time
+        import random
+        from psycopg2.errors import DeadlockDetected
+        
+        max_retries = 5
+        base_delay = 0.1
+        
+        for attempt in range(max_retries):
+            try:
+                # Use advisory lock to prevent concurrent updates
+                db.execute(text("SELECT pg_advisory_lock(12347)"))
+                
+                update_query = text("""
+                    UPDATE pubmed_articles
+                    SET search_vector = to_tsvector('english',
+                        COALESCE(title, '') || ' ' ||
+                        COALESCE(abstract, '') || ' ' ||
+                        COALESCE(array_to_string(authors, ' '), '') || ' ' ||
+                        COALESCE(array_to_string(mesh_terms, ' '), '')
+                    )
+                    WHERE search_vector IS NULL
+                """)
 
-            db.execute(update_query)
-            db.commit()
-            logger.info("Updated search vectors for PubMed articles")
+                db.execute(update_query)
+                db.commit()
+                
+                # Release advisory lock
+                db.execute(text("SELECT pg_advisory_unlock(12347)"))
+                
+                logger.info("Updated search vectors for PubMed articles")
+                return
 
-        except Exception as e:
-            logger.exception(f"Failed to update search vectors: {e}")
-            db.rollback()
+            except DeadlockDetected as e:
+                db.rollback()
+                # Release lock on error
+                try:
+                    db.execute(text("SELECT pg_advisory_unlock(12347)"))
+                except:
+                    pass
+                
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    logger.warning(f"Deadlock detected, retrying in {delay:.2f}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                else:
+                    logger.error(f"Failed to update search vectors after {max_retries} attempts due to deadlocks")
+                    
+            except Exception as e:
+                db.rollback()
+                # Release lock on error
+                try:
+                    db.execute(text("SELECT pg_advisory_unlock(12347)"))
+                except:
+                    pass
+                logger.exception(f"Failed to update search vectors: {e}")
+                break
 
     async def initialize_data(self) -> dict:
         """Initialize PubMed data from baseline files"""

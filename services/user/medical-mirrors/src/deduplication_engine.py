@@ -246,104 +246,211 @@ class CrossBatchDeduplicator:
         return results
     
     async def _bulk_insert_clinical_trials(self, trials: List[Dict[str, Any]]) -> int:
-        """Bulk insert new clinical trials"""
+        """Bulk insert new clinical trials with deadlock retry logic"""
         if not trials:
             return 0
         
-        try:
-            current_time = datetime.utcnow()
-            trial_mappings = []
-            
-            for trial in trials:
-                mapping = {
-                    'nct_id': trial['nct_id'],
-                    'title': trial.get('title', ''),
-                    'status': trial.get('status', ''),
-                    'phase': trial.get('phase', ''),
-                    'conditions': trial.get('conditions', []),
-                    'interventions': trial.get('interventions', []),
-                    'locations': trial.get('locations', []),
-                    'sponsors': trial.get('sponsors', []),
-                    'start_date': trial.get('start_date'),
-                    'completion_date': trial.get('completion_date'),
-                    'enrollment': trial.get('enrollment'),
-                    'study_type': trial.get('study_type', ''),
-                    'created_at': current_time,
-                    'updated_at': current_time
-                }
-                trial_mappings.append(mapping)
-            
-            self.db_session.bulk_insert_mappings(ClinicalTrial, trial_mappings)
-            self.db_session.commit()
-            
-            self.logger.info(f"✅ Bulk inserted {len(trial_mappings)} new clinical trials")
-            return len(trial_mappings)
-            
-        except Exception as e:
-            self.logger.exception(f"Bulk insert failed: {e}")
-            self.db_session.rollback()
-            raise
+        import time
+        import random
+        from psycopg2.errors import DeadlockDetected
+        
+        max_retries = 5
+        base_delay = 0.1
+        
+        for attempt in range(max_retries):
+            try:
+                # Use advisory lock to prevent concurrent inserts
+                self.db_session.execute(text("SELECT pg_advisory_lock(12347)"))
+                
+                current_time = datetime.utcnow()
+                trial_mappings = []
+                
+                for trial in trials:
+                    mapping = {
+                        'nct_id': trial['nct_id'],
+                        'title': trial.get('title', ''),
+                        'status': trial.get('status', ''),
+                        'phase': trial.get('phase', ''),
+                        'conditions': trial.get('conditions', []),
+                        'interventions': trial.get('interventions', []),
+                        'locations': trial.get('locations', []),
+                        'sponsors': trial.get('sponsors', []),
+                        'start_date': trial.get('start_date'),
+                        'completion_date': trial.get('completion_date'),
+                        'enrollment': trial.get('enrollment'),
+                        'study_type': trial.get('study_type', ''),
+                        'created_at': current_time,
+                        'updated_at': current_time
+                    }
+                    trial_mappings.append(mapping)
+                
+                self.db_session.bulk_insert_mappings(ClinicalTrial, trial_mappings)
+                self.db_session.commit()
+                
+                # Release advisory lock
+                self.db_session.execute(text("SELECT pg_advisory_unlock(12347)"))
+                
+                self.logger.info(f"✅ Bulk inserted {len(trial_mappings)} new clinical trials")
+                return len(trial_mappings)
+                
+            except DeadlockDetected as e:
+                self.db_session.rollback()
+                # Release lock on error
+                try:
+                    self.db_session.execute(text("SELECT pg_advisory_unlock(12347)"))
+                except:
+                    pass
+                
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    self.logger.warning(f"Deadlock detected in bulk insert, retrying in {delay:.2f}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                else:
+                    self.logger.error(f"Failed to bulk insert clinical trials after {max_retries} attempts due to deadlocks")
+                    raise
+                    
+            except Exception as e:
+                self.db_session.rollback()
+                # Release lock on error
+                try:
+                    self.db_session.execute(text("SELECT pg_advisory_unlock(12347)"))
+                except:
+                    pass
+                self.logger.exception(f"Bulk insert failed: {e}")
+                raise
     
     async def _bulk_update_clinical_trials(self, trials: List[Dict[str, Any]]) -> int:
-        """Bulk update existing clinical trials"""
+        """Bulk update existing clinical trials with deadlock retry logic"""
         if not trials:
             return 0
         
-        try:
-            current_time = datetime.utcnow()
-            trial_mappings = []
-            
-            for trial in trials:
-                mapping = {
-                    'nct_id': trial['nct_id'],  # Required for bulk_update_mappings
-                    'title': trial.get('title', ''),
-                    'status': trial.get('status', ''),
-                    'phase': trial.get('phase', ''),
-                    'conditions': trial.get('conditions', []),
-                    'interventions': trial.get('interventions', []),
-                    'locations': trial.get('locations', []),
-                    'sponsors': trial.get('sponsors', []),
-                    'start_date': trial.get('start_date'),
-                    'completion_date': trial.get('completion_date'),
-                    'enrollment': trial.get('enrollment'),
-                    'study_type': trial.get('study_type', ''),
-                    'updated_at': current_time
-                }
-                trial_mappings.append(mapping)
-            
-            self.db_session.bulk_update_mappings(ClinicalTrial, trial_mappings)
-            self.db_session.commit()
-            
-            self.logger.info(f"✅ Bulk updated {len(trial_mappings)} existing clinical trials")
-            return len(trial_mappings)
-            
-        except Exception as e:
-            self.logger.exception(f"Bulk update failed: {e}")
-            self.db_session.rollback()
-            raise
+        import time
+        import random
+        from psycopg2.errors import DeadlockDetected
+        
+        max_retries = 5
+        base_delay = 0.1
+        
+        for attempt in range(max_retries):
+            try:
+                # Use advisory lock to prevent concurrent updates
+                self.db_session.execute(text("SELECT pg_advisory_lock(12346)"))
+                
+                current_time = datetime.utcnow()
+                trial_mappings = []
+                
+                for trial in trials:
+                    mapping = {
+                        'nct_id': trial['nct_id'],  # Required for bulk_update_mappings
+                        'title': trial.get('title', ''),
+                        'status': trial.get('status', ''),
+                        'phase': trial.get('phase', ''),
+                        'conditions': trial.get('conditions', []),
+                        'interventions': trial.get('interventions', []),
+                        'locations': trial.get('locations', []),
+                        'sponsors': trial.get('sponsors', []),
+                        'start_date': trial.get('start_date'),
+                        'completion_date': trial.get('completion_date'),
+                        'enrollment': trial.get('enrollment'),
+                        'study_type': trial.get('study_type', ''),
+                        'updated_at': current_time
+                    }
+                    trial_mappings.append(mapping)
+                
+                self.db_session.bulk_update_mappings(ClinicalTrial, trial_mappings)
+                self.db_session.commit()
+                
+                # Release advisory lock
+                self.db_session.execute(text("SELECT pg_advisory_unlock(12346)"))
+                
+                self.logger.info(f"✅ Bulk updated {len(trial_mappings)} existing clinical trials")
+                return len(trial_mappings)
+                
+            except DeadlockDetected as e:
+                self.db_session.rollback()
+                # Release lock on error
+                try:
+                    self.db_session.execute(text("SELECT pg_advisory_unlock(12346)"))
+                except:
+                    pass
+                
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    self.logger.warning(f"Deadlock detected in bulk update, retrying in {delay:.2f}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                else:
+                    self.logger.error(f"Failed to bulk update clinical trials after {max_retries} attempts due to deadlocks")
+                    raise
+                    
+            except Exception as e:
+                self.db_session.rollback()
+                # Release lock on error
+                try:
+                    self.db_session.execute(text("SELECT pg_advisory_unlock(12346)"))
+                except:
+                    pass
+                self.logger.exception(f"Bulk update failed: {e}")
+                raise
     
     async def _update_clinical_trials_search_vectors(self) -> None:
-        """Update search vectors for clinical trials"""
-        try:
-            update_query = text("""
-                UPDATE clinical_trials
-                SET search_vector = to_tsvector('english',
-                    COALESCE(title, '') || ' ' ||
-                    COALESCE(array_to_string(conditions, ' '), '') || ' ' ||
-                    COALESCE(array_to_string(interventions, ' '), '') || ' ' ||
-                    COALESCE(array_to_string(locations, ' '), '') || ' ' ||
-                    COALESCE(array_to_string(sponsors, ' '), '')
-                )
-                WHERE search_vector IS NULL OR updated_at > NOW() - INTERVAL '1 hour'
-            """)
-            
-            self.db_session.execute(update_query)
-            self.db_session.commit()
-            self.logger.debug("Updated search vectors for clinical trials")
-            
-        except Exception as e:
-            self.logger.exception(f"Failed to update search vectors: {e}")
-            self.db_session.rollback()
+        """Update search vectors for clinical trials with deadlock retry logic"""
+        import time
+        import random
+        from psycopg2.errors import DeadlockDetected
+        
+        max_retries = 5
+        base_delay = 0.1
+        
+        for attempt in range(max_retries):
+            try:
+                # Use advisory lock to prevent concurrent updates
+                self.db_session.execute(text("SELECT pg_advisory_lock(12345)"))
+                
+                update_query = text("""
+                    UPDATE clinical_trials
+                    SET search_vector = to_tsvector('english',
+                        COALESCE(title, '') || ' ' ||
+                        COALESCE(array_to_string(conditions, ' '), '') || ' ' ||
+                        COALESCE(array_to_string(interventions, ' '), '') || ' ' ||
+                        COALESCE(array_to_string(locations, ' '), '') || ' ' ||
+                        COALESCE(array_to_string(sponsors, ' '), '')
+                    )
+                    WHERE search_vector IS NULL OR updated_at > NOW() - INTERVAL '1 hour'
+                """)
+                
+                self.db_session.execute(update_query)
+                self.db_session.commit()
+                
+                # Release advisory lock
+                self.db_session.execute(text("SELECT pg_advisory_unlock(12345)"))
+                
+                self.logger.debug("Updated search vectors for clinical trials")
+                return
+                
+            except DeadlockDetected as e:
+                self.db_session.rollback()
+                # Release lock on error
+                try:
+                    self.db_session.execute(text("SELECT pg_advisory_unlock(12345)"))
+                except:
+                    pass
+                
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    self.logger.warning(f"Deadlock detected, retrying in {delay:.2f}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                else:
+                    self.logger.error(f"Failed to update search vectors after {max_retries} attempts due to deadlocks")
+                    
+            except Exception as e:
+                self.db_session.rollback()
+                # Release lock on error  
+                try:
+                    self.db_session.execute(text("SELECT pg_advisory_unlock(12345)"))
+                except:
+                    pass
+                self.logger.exception(f"Failed to update search vectors: {e}")
+                break
 
 
 class DeduplicationProgressTracker:

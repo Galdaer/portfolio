@@ -30,22 +30,22 @@ class ICD10API:
     ) -> dict:
         """Search ICD-10 codes"""
         try:
+            # Validate query parameter
+            if not query or not query.strip():
+                return {
+                    "codes": [],
+                    "total_results": 0,
+                    "search_query": query,
+                    "search_type": "exact_match" if exact_match else "full_text_search",
+                    "timestamp": datetime.now().isoformat(),
+                    "error": "Search query cannot be empty"
+                }
+            
             with get_db_session() as db:
-                # Build the search query
-                db.query(db.execute(text("""
-                    SELECT code, description, category, chapter, synonyms,
-                           inclusion_notes, exclusion_notes, is_billable,
-                           parent_code, last_updated,
-                           ts_rank(search_vector, plainto_tsquery(:query)) as rank
-                    FROM icd10_codes
-                    WHERE (:exact_match = false AND search_vector @@ plainto_tsquery(:query))
-                       OR (:exact_match = true AND UPPER(code) = UPPER(:query))
-                """)))
-
                 # Apply filters
                 conditions = []
                 params = {
-                    "query": query,
+                    "query": query.strip(),
                     "exact_match": exact_match,
                 }
 

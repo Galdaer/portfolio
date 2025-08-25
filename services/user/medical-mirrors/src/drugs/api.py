@@ -665,23 +665,27 @@ class DrugAPI:
 
     def prepare_drug_insert_data(self, drug_data: dict) -> dict | None:
         """Prepare drug data for database insertion"""
-        ndc = drug_data.get("ndc", "").strip()
-        if not ndc:
-            return None
+        try:
+            ndc = drug_data.get("ndc", "").strip() if drug_data.get("ndc") else ""
+            if not ndc:
+                return None
 
-        def get_non_empty_or_none(value):
-            """Return None if value is empty string, otherwise return value"""
-            if isinstance(value, str) and value.strip() == "":
-                return None
-            if isinstance(value, list) and len(value) == 0:
-                return None
-            if isinstance(value, dict) and len(value) == 0:
-                return None
-            return value
+            def get_non_empty_or_none(value):
+                """Return None if value is empty string, otherwise return value"""
+                if isinstance(value, str) and value.strip() == "":
+                    return None
+                if isinstance(value, list) and len(value) == 0:
+                    return None
+                if isinstance(value, dict) and len(value) == 0:
+                    return None
+                return value
 
-        return {
-            "ndc": ndc,
-            "name": drug_data.get("name", "") or "Unknown",  # Always need a name
+            # Safely extract name with multiple fallbacks
+            name = drug_data.get("name", "") or drug_data.get("generic_name", "") or drug_data.get("brand_name", "") or "Unknown"
+
+            return {
+                "ndc": ndc,
+                "name": name,
             "generic_name": get_non_empty_or_none(drug_data.get("generic_name")),
             "brand_name": get_non_empty_or_none(drug_data.get("brand_name")),
             "manufacturer": get_non_empty_or_none(drug_data.get("manufacturer")),
@@ -723,6 +727,10 @@ class DrugAPI:
             "data_sources": drug_data.get("data_sources", []),
             "updated_at": datetime.utcnow(),
         }
+        
+        except Exception as e:
+            logger.error(f"Error preparing drug insert data: {e}")
+            return None
 
     def batch_upsert_drugs(self, insert_data_list: list[dict], db: Session):
         """Perform batch UPSERT operation for maximum database performance"""
@@ -1058,27 +1066,64 @@ class DrugAPI:
         db.execute(stmt)
 
     async def update_search_vectors(self, db: Session) -> None:
-        """Update full-text search vectors"""
-        try:
-            update_query = text("""
-                UPDATE drug_information
-                SET search_vector = to_tsvector('english',
-                    COALESCE(generic_name, '') || ' ' ||
-                    COALESCE(array_to_string(brand_names, ' '), '') || ' ' ||
-                    COALESCE(array_to_string(manufacturers, ' '), '') || ' ' ||
-                    COALESCE(therapeutic_class, '') || ' ' ||
-                    COALESCE(indications_and_usage, '')
-                )
-                WHERE search_vector IS NULL
-            """)
+        """Update full-text search vectors with deadlock retry logic"""
+        import time
+        import random
+        from psycopg2.errors import DeadlockDetected
+        
+        max_retries = 5
+        base_delay = 0.1
+        
+        for attempt in range(max_retries):
+            try:
+                # Use advisory lock to prevent concurrent updates
+                db.execute(text("SELECT pg_advisory_lock(12348)"))
+                
+                update_query = text("""
+                    UPDATE drug_information
+                    SET search_vector = to_tsvector('english',
+                        COALESCE(generic_name, '') || ' ' ||
+                        COALESCE(array_to_string(brand_names, ' '), '') || ' ' ||
+                        COALESCE(array_to_string(manufacturers, ' '), '') || ' ' ||
+                        COALESCE(therapeutic_class, '') || ' ' ||
+                        COALESCE(indications_and_usage, '')
+                    )
+                    WHERE search_vector IS NULL
+                """)
 
-            db.execute(update_query)
-            db.commit()
-            logger.info("Updated search vectors for FDA drugs")
+                db.execute(update_query)
+                db.commit()
+                
+                # Release advisory lock
+                db.execute(text("SELECT pg_advisory_unlock(12348)"))
+                
+                logger.info("Updated search vectors for FDA drugs")
+                return
 
-        except Exception as e:
-            logger.exception(f"Failed to update search vectors: {e}")
-            db.rollback()
+            except DeadlockDetected as e:
+                db.rollback()
+                # Release lock on error
+                try:
+                    db.execute(text("SELECT pg_advisory_unlock(12348)"))
+                except:
+                    pass
+                
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    logger.warning(f"Deadlock detected, retrying in {delay:.2f}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                else:
+                    logger.error(f"Failed to update search vectors after {max_retries} attempts due to deadlocks")
+                    
+            except Exception as e:
+                db.rollback()
+                # Release lock on error
+                try:
+                    db.execute(text("SELECT pg_advisory_unlock(12348)"))
+                except:
+                    pass
+                logger.exception(f"Failed to update search vectors: {e}")
+                break
 
     async def initialize_data(self) -> dict:
         """Initialize FDA data"""
