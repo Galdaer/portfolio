@@ -19,13 +19,19 @@ class ClinicalTrialsParser:
         pass
 
     def parse_json_file(self, json_file_path: str) -> list[dict[str, Any]]:
-        """Parse a ClinicalTrials.gov JSON file and extract studies"""
+        """Parse a ClinicalTrials.gov JSON file (compressed or uncompressed) and extract studies"""
         logger.info(f"Parsing ClinicalTrials JSON file: {json_file_path}")
         studies: list[dict[str, Any]] = []
 
         try:
-            with open(json_file_path) as f:
-                data = json.load(f)
+            # Handle both compressed and uncompressed files
+            if json_file_path.endswith('.gz'):
+                import gzip
+                with gzip.open(json_file_path, 'rt', encoding='utf-8') as f:
+                    data = json.load(f)
+            else:
+                with open(json_file_path, encoding='utf-8') as f:
+                    data = json.load(f)
 
             # Extract studies from the JSON structure
             studies_data = data.get("studies", [])

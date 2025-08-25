@@ -37,8 +37,14 @@ def parse_json_file_worker(json_file_path: str) -> tuple[str, list[dict[str, Any
         logger.info(f"Worker parsing clinical trials file: {json_file_path}")
         studies = []
 
-        with open(json_file_path, encoding="utf-8") as f:
-            data = json.load(f)
+        # Handle both compressed and uncompressed files
+        if json_file_path.endswith('.gz'):
+            import gzip
+            with gzip.open(json_file_path, 'rt', encoding='utf-8') as f:
+                data = json.load(f)
+        else:
+            with open(json_file_path, encoding="utf-8") as f:
+                data = json.load(f)
 
         # Handle different JSON structures
         studies_data = []
@@ -413,9 +419,14 @@ class OptimizedClinicalTrialsParser:
         logger.info(f"Parsing large ClinicalTrials file with chunking: {json_file_path}")
 
         try:
-            # Load the entire JSON file
-            with open(json_file_path, encoding="utf-8") as f:
-                data = json.load(f)
+            # Load the entire JSON file (compressed or uncompressed)
+            if json_file_path.endswith('.gz'):
+                import gzip
+                with gzip.open(json_file_path, 'rt', encoding='utf-8') as f:
+                    data = json.load(f)
+            else:
+                with open(json_file_path, encoding="utf-8") as f:
+                    data = json.load(f)
 
             # Extract studies data
             studies_data = []

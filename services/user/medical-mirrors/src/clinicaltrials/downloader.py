@@ -118,14 +118,15 @@ class ClinicalTrialsDownloader:
                 "nextPageToken": current_token  # For continuation
             }
 
-            # Save consolidated batch to file with better naming
+            # Save consolidated batch to compressed file (saves ~80% space)
             batch_file = os.path.join(
                 self.data_dir,
-                f"studies_consolidated_{batch_number:06d}_{len(all_studies)}.json",
+                f"studies_consolidated_{batch_number:06d}_{len(all_studies)}.json.gz",
             )
 
-            # Save without pretty printing for efficiency
-            with open(batch_file, "w", encoding="utf-8") as f:
+            # Save compressed without pretty printing for maximum efficiency
+            import gzip
+            with gzip.open(batch_file, "wt", encoding="utf-8") as f:
                 json.dump(consolidated_data, f, ensure_ascii=False, separators=(',', ':'))
 
             logger.info(f"Consolidated {len(all_studies)} studies into batch {batch_number} using {api_requests_made} API calls (next_token: {'Yes' if current_token else 'None'})")
@@ -198,11 +199,11 @@ class ClinicalTrialsDownloader:
             raise
 
     async def get_available_files(self) -> list[str]:
-        """Get list of downloaded JSON files ready for parsing"""
+        """Get list of downloaded JSON files (compressed and uncompressed) ready for parsing"""
         json_files: list[str] = []
 
         for file in os.listdir(self.data_dir):
-            if file.endswith(".json"):
+            if file.endswith(".json") or file.endswith(".json.gz"):
                 json_files.append(os.path.join(self.data_dir, file))
 
         return json_files
