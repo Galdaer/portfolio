@@ -765,6 +765,87 @@ async def process_existing_fda(
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 
 
+async def background_process_existing_billing(force: bool = False) -> None:
+    """Background task for processing existing billing codes files"""
+    try:
+        logger.info("🚀 Starting billing codes existing files processing")
+        result = await background_billing_update(False)  # Process existing files, not quick test
+        logger.info(f"✅ Billing codes existing files processing completed: {result}")
+    except Exception as e:
+        logger.exception(f"❌ Billing codes existing files processing failed: {e}")
+
+
+async def background_process_existing_icd10(force: bool = False) -> None:
+    """Background task for processing existing ICD-10 codes files"""
+    try:
+        logger.info("🚀 Starting ICD-10 codes existing files processing")
+        result = await background_icd10_update(False)  # Process existing files, not quick test
+        logger.info(f"✅ ICD-10 codes existing files processing completed: {result}")
+    except Exception as e:
+        logger.exception(f"❌ ICD-10 codes existing files processing failed: {e}")
+
+
+async def background_process_existing_health(force: bool = False) -> None:
+    """Background task for processing existing health information files"""
+    try:
+        logger.info("🚀 Starting health information existing files processing")
+        result = await background_health_info_update(False)  # Process existing files, not quick test
+        logger.info(f"✅ Health information existing files processing completed: {result}")
+    except Exception as e:
+        logger.exception(f"❌ Health information existing files processing failed: {e}")
+
+
+@app.post("/process/billing")
+async def process_existing_billing(
+    background_tasks: BackgroundTasks, force: bool = False,
+) -> dict[str, Any]:
+    """Process existing billing codes files in background"""
+    try:
+        background_tasks.add_task(background_process_existing_billing, force)
+        logger.info(f"🏦 Billing codes existing files processing task queued (force={force})")
+        return {
+            "status": "processing_started_in_background",
+            "message": "Billing codes existing files processing task queued successfully",
+        }
+    except Exception as e:
+        logger.exception(f"Existing billing codes processing queuing failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
+
+@app.post("/process/icd10")
+async def process_existing_icd10(
+    background_tasks: BackgroundTasks, force: bool = False,
+) -> dict[str, Any]:
+    """Process existing ICD-10 codes files in background"""
+    try:
+        background_tasks.add_task(background_process_existing_icd10, force)
+        logger.info(f"🏥 ICD-10 codes existing files processing task queued (force={force})")
+        return {
+            "status": "processing_started_in_background",
+            "message": "ICD-10 codes existing files processing task queued successfully",
+        }
+    except Exception as e:
+        logger.exception(f"Existing ICD-10 codes processing queuing failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
+
+@app.post("/process/health")
+async def process_existing_health(
+    background_tasks: BackgroundTasks, force: bool = False,
+) -> dict[str, Any]:
+    """Process existing health information files in background"""
+    try:
+        background_tasks.add_task(background_process_existing_health, force)
+        logger.info(f"📋 Health information existing files processing task queued (force={force})")
+        return {
+            "status": "processing_started_in_background",
+            "message": "Health information existing files processing task queued successfully",
+        }
+    except Exception as e:
+        logger.exception(f"Existing health information processing queuing failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
+
 async def background_process_all_existing_parallel(force: bool = False) -> None:
     """Background task for processing all existing files in true parallel"""
     import asyncio
@@ -777,6 +858,9 @@ async def background_process_all_existing_parallel(force: bool = False) -> None:
             background_process_existing_trials(force),
             background_process_existing_pubmed(force),
             background_process_existing_fda(force),
+            background_process_existing_billing(force),
+            background_process_existing_icd10(force),
+            background_process_existing_health(force),
             return_exceptions=True  # Don't fail entire batch if one source fails
         )
         
@@ -784,7 +868,7 @@ async def background_process_all_existing_parallel(force: bool = False) -> None:
         duration = end_time - start_time
         
         # Log results for each source
-        sources = ["clinical_trials", "pubmed", "fda"]
+        sources = ["clinical_trials", "pubmed", "fda", "billing_codes", "icd10_codes", "health_info"]
         success_count = 0
         for i, result in enumerate(results):
             source = sources[i]
@@ -814,7 +898,7 @@ async def process_all_existing_files(
             return {
                 "status": "parallel_processing_started_in_background",
                 "message": "All existing files parallel processing task queued successfully",
-                "sources": ["clinical_trials", "pubmed", "fda"],
+                "sources": ["clinical_trials", "pubmed", "fda", "billing_codes", "icd10_codes", "health_info"],
                 "mode": "parallel"
             }
         else:
@@ -822,12 +906,15 @@ async def process_all_existing_files(
             background_tasks.add_task(background_process_existing_trials, force)
             background_tasks.add_task(background_process_existing_pubmed, force)
             background_tasks.add_task(background_process_existing_fda, force)
+            background_tasks.add_task(background_process_existing_billing, force)
+            background_tasks.add_task(background_process_existing_icd10, force)
+            background_tasks.add_task(background_process_existing_health, force)
             
             logger.info(f"🚀 ALL existing files SEQUENTIAL processing tasks queued (force={force})")
             return {
                 "status": "sequential_processing_started_in_background",
                 "message": "All existing files sequential processing tasks queued successfully",
-                "sources": ["clinical_trials", "pubmed", "fda"],
+                "sources": ["clinical_trials", "pubmed", "fda", "billing_codes", "icd10_codes", "health_info"],
                 "mode": "sequential"
             }
     except Exception as e:

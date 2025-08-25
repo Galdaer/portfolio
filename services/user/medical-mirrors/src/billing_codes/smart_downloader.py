@@ -63,6 +63,39 @@ class SmartBillingCodesDownloader:
         if self.nlm_downloader:
             await self.nlm_downloader.__aexit__(exc_type, exc_val, exc_tb)
 
+    async def _process_existing_zip_files(self):
+        """Process any existing ZIP files that haven't been parsed yet"""
+        logger.info("Checking for existing ZIP files to process")
+        
+        cms_sources = ["cms_hcpcs_current", "cms_hcpcs_alpha", "cms_hcpcs_anweb"]
+        processed_count = 0
+        
+        for source in cms_sources:
+            zip_file = self.output_dir / f"{source}.zip"
+            if zip_file.exists() and source not in self.all_codes:
+                try:
+                    logger.info(f"Processing existing ZIP file: {zip_file}")
+                    with open(zip_file, 'rb') as f:
+                        content = f.read()
+                    
+                    # Parse ZIP file to extract codes
+                    parsed_codes = self.cms_downloader._parse_hcpcs_zip(content, source)
+                    
+                    if parsed_codes:
+                        self.all_codes[source] = parsed_codes
+                        processed_count += 1
+                        logger.info(f"Processed existing ZIP file {source}: {len(parsed_codes)} codes extracted")
+                    else:
+                        logger.warning(f"No codes extracted from existing ZIP file: {source}")
+                        
+                except Exception as e:
+                    logger.error(f"Failed to process existing ZIP file {source}: {e}")
+        
+        if processed_count > 0:
+            logger.info(f"Successfully processed {processed_count} existing ZIP files")
+        else:
+            logger.info("No existing ZIP files found to process")
+
     async def download_all_billing_codes(self, force_fresh: bool = False) -> dict[str, Any]:
         """
         Download all billing codes from all sources with smart retry handling
@@ -78,6 +111,9 @@ class SmartBillingCodesDownloader:
         if force_fresh:
             logger.info("Force fresh download - resetting all states")
             self._reset_all_states()
+
+        # Process existing ZIP files that might not have been parsed yet
+        await self._process_existing_zip_files()
 
         # Get initial progress
         initial_progress = self.state_manager.get_progress_summary()
@@ -275,15 +311,25 @@ class SmartBillingCodesDownloader:
             if not content:
                 return False
 
-            # Save raw file - NO PARSING
+            # Save raw file and parse it
             output_file = self.output_dir / f"{source}.zip"
             try:
                 with open(output_file, "wb") as f:
                     f.write(content)
 
+                # Parse ZIP file to extract codes
+                logger.info(f"Parsing ZIP file for {source}")
+                parsed_codes = self.cms_downloader._parse_hcpcs_zip(content, source)
+                
+                if parsed_codes:
+                    self.all_codes[source] = parsed_codes
+                    logger.info(f"Extracted {len(parsed_codes)} codes from {source}")
+                else:
+                    logger.warning(f"No codes extracted from {source} ZIP file")
+
                 self.downloaded_files[source] = str(output_file)
                 self.state_manager.mark_completed(source, output_file.stat().st_size)
-                logger.info(f"Downloaded file {output_file} ({len(content)} bytes) from {source}")
+                logger.info(f"Downloaded and processed file {output_file} ({len(content)} bytes) from {source}")
                 return True
 
             except Exception as e:

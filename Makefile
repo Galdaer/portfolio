@@ -1007,6 +1007,138 @@ medical-mirrors-process-fda-force:
 	fi
 	@echo "✅ Force FDA processing started - monitor with 'make medical-mirrors-progress'"
 
+medical-mirrors-process-billing:
+	@echo "🏦  Processing existing billing codes files (SMART - skips processed files)"
+	@echo "   🔍 Will load existing billing codes ZIP files from downloads"
+	@echo "   ⚡ OPTIMIZED: Only processes files that haven't been processed before"
+	@echo "   💡 Use 'make medical-mirrors-process-billing-force' to reprocess all files"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🏦 Starting SMART processing of billing codes files (force=false)..."; \
+		curl -X POST "http://localhost:8081/process/billing?force=false" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ Billing codes files are now being processed (skipping already processed)"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Smart billing codes processing started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-process-billing-force:
+	@echo "🏦  Processing existing billing codes files (FORCE - reprocess everything)"
+	@echo "   🔍 Will load existing billing codes ZIP files from downloads"
+	@echo "   🔄 FORCE MODE: Will reprocess ALL files regardless of previous processing"
+	@echo "   ⚠️  This may take 30-60+ MINUTES but ensures fresh data processing"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🏦 Starting FORCE processing of billing codes files (force=true)..."; \
+		curl -X POST "http://localhost:8081/process/billing?force=true" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ Billing codes files are now being reprocessed (force mode)"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Force billing codes processing started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-process-icd10:
+	@echo "🏥  Processing existing ICD-10 codes files (SMART - skips processed files)"
+	@echo "   🔍 Will load existing ICD-10 ZIP files from downloads"
+	@echo "   ⚡ OPTIMIZED: Only processes files that haven't been processed before"
+	@echo "   💡 Use 'make medical-mirrors-process-icd10-force' to reprocess all files"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🏥 Starting SMART processing of ICD-10 files (force=false)..."; \
+		curl -X POST "http://localhost:8081/process/icd10?force=false" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ ICD-10 files are now being processed (skipping already processed)"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Smart ICD-10 processing started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-process-icd10-force:
+	@echo "🏥  Processing existing ICD-10 codes files (FORCE - reprocess everything)"
+	@echo "   🔍 Will load existing ICD-10 ZIP files from downloads"
+	@echo "   🔄 FORCE MODE: Will reprocess ALL files regardless of previous processing"
+	@echo "   ⚠️  This may take 30-60+ MINUTES but ensures fresh data processing"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🏥 Starting FORCE processing of ICD-10 files (force=true)..."; \
+		curl -X POST "http://localhost:8081/process/icd10?force=true" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ ICD-10 files are now being reprocessed (force mode)"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Force ICD-10 processing started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-process-health:
+	@echo "🌱  Processing existing health info files (SMART - skips processed files)"
+	@echo "   🔍 Will load existing health info JSON files from downloads"
+	@echo "   ⚡ OPTIMIZED: Only processes files that haven't been processed before"
+	@echo "   💡 Use 'make medical-mirrors-process-health-force' to reprocess all files"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🌱 Starting SMART processing of health info files (force=false)..."; \
+		curl -X POST "http://localhost:8081/process/health?force=false" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ Health info files are now being processed (skipping already processed)"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Smart health info processing started - monitor with 'make medical-mirrors-progress'"
+
+medical-mirrors-process-health-force:
+	@echo "🌱  Processing existing health info files (FORCE - reprocess everything)"
+	@echo "   🔍 Will load existing health info JSON files from downloads"
+	@echo "   🔄 FORCE MODE: Will reprocess ALL files regardless of previous processing"
+	@echo "   ⚠️  This may take 1-2+ HOURS but ensures fresh data processing"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🌱 Starting FORCE processing of health info files (force=true)..."; \
+		curl -X POST "http://localhost:8081/process/health?force=true" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ Health info files are now being reprocessed (force mode)"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Force health info processing started - monitor with 'make medical-mirrors-progress'"
+
 medical-mirrors-progress:
 	@echo "📊  Medical Mirrors Update Progress"
 	@echo "   🔄 Refreshing every 10 seconds (Ctrl+C to stop)"

@@ -61,6 +61,39 @@ class SmartICD10Downloader:
         if self.nlm_downloader:
             await self.nlm_downloader.__aexit__(exc_type, exc_val, exc_tb)
 
+    async def _process_existing_zip_files(self):
+        """Process any existing ZIP files that haven't been parsed yet"""
+        logger.info("Checking for existing ICD-10 ZIP files to process")
+        
+        cms_sources = ["cms_icd10_cm_2025", "cms_icd10_cm_2024", "cdc_icd10_cm_2025", "cdc_icd10_cm_2025_april", "cdc_icd10_cm_tabular_2025", "cdc_icd10_cm_tabular_2025_april"]
+        processed_count = 0
+        
+        for source in cms_sources:
+            zip_file = self.output_dir / f"{source}.zip"
+            if zip_file.exists() and source not in self.all_codes:
+                try:
+                    logger.info(f"Processing existing ICD-10 ZIP file: {zip_file}")
+                    with open(zip_file, 'rb') as f:
+                        content = f.read()
+                    
+                    # Parse ZIP file to extract codes
+                    parsed_codes = self.cms_downloader._parse_icd10_zip(content, source)
+                    
+                    if parsed_codes:
+                        self.all_codes[source] = parsed_codes
+                        processed_count += 1
+                        logger.info(f"Processed existing ICD-10 ZIP file {source}: {len(parsed_codes)} codes extracted")
+                    else:
+                        logger.warning(f"No ICD-10 codes extracted from existing ZIP file: {source}")
+                        
+                except Exception as e:
+                    logger.error(f"Failed to process existing ICD-10 ZIP file {source}: {e}")
+        
+        if processed_count > 0:
+            logger.info(f"Successfully processed {processed_count} existing ICD-10 ZIP files")
+        else:
+            logger.info("No existing ICD-10 ZIP files found to process")
+
     async def download_all_icd10_codes(self, force_fresh: bool = False) -> dict[str, Any]:
         """
         Download all ICD-10 codes from all sources with smart retry handling
@@ -76,6 +109,9 @@ class SmartICD10Downloader:
         if force_fresh:
             logger.info("Force fresh download - resetting all ICD-10 states")
             self._reset_all_states()
+
+        # Process existing ZIP files that might not have been parsed yet
+        await self._process_existing_zip_files()
 
         # Get initial progress
         initial_progress = self.state_manager.get_progress_summary()
@@ -292,15 +328,25 @@ class SmartICD10Downloader:
             if not content:
                 return False
 
-            # Save raw file - NO PARSING
+            # Save raw file and parse it
             output_file = self.output_dir / f"{source}.zip"
             try:
                 with open(output_file, "wb") as f:
                     f.write(content)
 
+                # Parse ZIP file to extract codes
+                logger.info(f"Parsing ICD-10 ZIP file for {source}")
+                parsed_codes = self.cms_downloader._parse_icd10_zip(content, source)
+                
+                if parsed_codes:
+                    self.all_codes[source] = parsed_codes
+                    logger.info(f"Extracted {len(parsed_codes)} ICD-10 codes from {source}")
+                else:
+                    logger.warning(f"No ICD-10 codes extracted from {source} ZIP file")
+
                 self.downloaded_files[source] = str(output_file)
                 self.state_manager.mark_completed(source, output_file.stat().st_size)
-                logger.info(f"Downloaded ICD-10 file {output_file} ({len(content)} bytes) from {source}")
+                logger.info(f"Downloaded and processed ICD-10 file {output_file} ({len(content)} bytes) from {source}")
                 return True
 
             except Exception as e:
@@ -450,11 +496,15 @@ class SmartICD10Downloader:
     def _generate_final_summary(self, results: dict[str, Any]) -> dict[str, Any]:
         """Generate final summary of ICD-10 file download results"""
         progress = self.state_manager.get_progress_summary()
+        
+        # Calculate total codes from all downloaded data
+        total_codes = sum(len(codes) for codes in self.all_codes.values())
 
         return {
             "timestamp": datetime.now().isoformat(),
             "data_type": "icd10_files",
             "total_files": self.total_files_downloaded,
+            "total_codes": total_codes,  # Add missing field for update script compatibility
             "sources_attempted": results["sources_attempted"],
             "successful_sources": len(results["successful"]),
             "failed_sources": len(results["failed"]),

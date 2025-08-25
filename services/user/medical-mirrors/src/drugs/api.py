@@ -666,8 +666,9 @@ class DrugAPI:
     def prepare_drug_insert_data(self, drug_data: dict) -> dict | None:
         """Prepare drug data for database insertion"""
         try:
-            ndc = drug_data.get("ndc", "").strip() if drug_data.get("ndc") else ""
-            if not ndc:
+            # Use generic_name as the primary key (not ndc)
+            generic_name = drug_data.get("generic_name", "").strip()
+            if not generic_name:
                 return None
 
             def get_non_empty_or_none(value):
@@ -739,9 +740,9 @@ class DrugAPI:
         # Use PostgreSQL's powerful ON CONFLICT DO UPDATE for batch operations
         stmt = insert(DrugInformation)
 
-        # Configure UPSERT with intelligent field merging
+        # Configure UPSERT with intelligent field merging (using generic_name as unique key)
         stmt = stmt.on_conflict_do_update(
-            index_elements=["ndc"],
+            index_elements=["generic_name"],
             set_={
                 # Always update basic fields
                 "name": stmt.excluded.name,

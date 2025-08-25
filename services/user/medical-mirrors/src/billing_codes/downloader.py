@@ -134,7 +134,7 @@ class BillingCodesDownloader:
 
         for procedure in common_procedures:
             try:
-                codes = await self._search_billing_codes(procedure, code_type="hcpcs", max_results=50)
+                codes = await self._search_billing_codes(procedure, code_type="hcpcs", max_results=50, offset=0)
                 all_codes.extend(codes)
 
                 await asyncio.sleep(self.config.REQUEST_DELAY)
@@ -170,7 +170,7 @@ class BillingCodesDownloader:
             for search_term in cpt_searches:
                 try:
                     # Try searching with CPT-related terms
-                    codes = await self._search_billing_codes(search_term, code_type="cpt", max_results=20)
+                    codes = await self._search_billing_codes(search_term, code_type="cpt", max_results=20, offset=0)
                     all_codes.extend(codes)
 
                     await asyncio.sleep(self.config.REQUEST_DELAY)
@@ -200,11 +200,12 @@ class BillingCodesDownloader:
 
         while len(all_codes) < max_total_results:
             try:
-                # Get batch of results
+                # Get batch of results with offset for pagination
                 batch_codes = await self._search_billing_codes(
                     query,
                     code_type=code_type,
                     max_results=batch_size,
+                    offset=offset,
                 )
 
                 if not batch_codes:
@@ -235,8 +236,9 @@ class BillingCodesDownloader:
         query: str,
         code_type: str = "hcpcs",
         max_results: int = 100,
+        offset: int = 0,
     ) -> list[dict]:
-        """Search for billing codes using the NLM API"""
+        """Search for billing codes using the NLM API with pagination support"""
 
         if code_type.lower() == "hcpcs":
             url = f"{self.hcpcs_url}/search"
@@ -247,7 +249,8 @@ class BillingCodesDownloader:
 
         params = {
             "terms": query,
-            "maxList": min(max_results, 500),
+            "count": min(max_results, 500),  # Use 'count' instead of 'maxList' for clarity
+            "offset": offset,  # Add offset parameter for pagination
         }
 
         try:
@@ -978,7 +981,7 @@ async def main():
 
     async with BillingCodesDownloader(config) as downloader:
         # Test HCPCS search
-        codes = await downloader._search_billing_codes("injection", code_type="hcpcs", max_results=10)
+        codes = await downloader._search_billing_codes("injection", code_type="hcpcs", max_results=10, offset=0)
         print(f"Found {len(codes)} HCPCS codes for injection:")
         for code in codes[:5]:
             print(f"  {code['code']}: {code['long_description']}")
