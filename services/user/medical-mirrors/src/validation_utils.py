@@ -376,8 +376,12 @@ def _validate_field_by_type(value: Any, field_name: str, table_name: str) -> Any
     if field_name.endswith("_date") or field_name in ["pub_date", "approval_date"]:
         return DataValidator.validate_date_string(value)
     if field_name in ["authors", "ingredients", "mesh_terms", "conditions",
-                       "interventions", "locations", "sponsors", "data_sources"]:
+                       "interventions", "sponsors", "data_sources"]:
         return DataValidator.validate_array_field(value, field_name, table_name)
+    if field_name == "locations":
+        # Clinical trials locations need higher limit (up to 1000 locations)
+        max_items = 1000 if table_name == "clinical_trials" else 100
+        return DataValidator.validate_array_field(value, field_name, table_name, max_items=max_items)
     if field_name in ["enrollment", "fdc_id", "code_length", "content_length"]:
         return DataValidator.validate_integer(value, field_name, table_name, min_value=0)
     if field_name.startswith("is_") or field_name.endswith(("_required", "_indicator")):

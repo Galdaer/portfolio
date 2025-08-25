@@ -603,35 +603,42 @@ class SmartBatchProcessor:
         # Process files in batches
         current_batch_size = 5000  # Start with moderate batch size
         
-        for i, json_file in enumerate(json_files):
+        # Use optimized multi-core parser for parallel file processing
+        from clinicaltrials.parser_optimized import OptimizedClinicalTrialsParser
+        optimized_parser = OptimizedClinicalTrialsParser(max_workers=10)
+        
+        # Process files in parallel batches to reduce database contention
+        batch_size = 10  # Process 10 files in parallel
+        file_batches = [json_files[i:i + batch_size] for i in range(0, len(json_files), batch_size)]
+        
+        for batch_idx, file_batch in enumerate(file_batches):
             try:
                 batch_start_time = datetime.utcnow()
+                self.logger.info(f"🔄 Processing file batch {batch_idx + 1}/{len(file_batches)} "
+                               f"({len(file_batch)} files in parallel)")
                 
-                # Parse trials from file
-                from clinicaltrials.parser import ClinicalTrialsParser
-                parser = ClinicalTrialsParser()
-                raw_trials = parser.parse_json_file(json_file)
+                # Parse all files in this batch in parallel
+                all_raw_trials = await optimized_parser.parse_json_files_parallel(file_batch)
                 
-                if not raw_trials:
-                    self.logger.warning(f"No trials found in {json_file}")
+                if not all_raw_trials:
+                    self.logger.warning(f"No trials found in batch {batch_idx + 1}")
                     continue
                 
-                self.logger.info(f"Processing file {i+1}/{len(json_files)}: {json_file} "
-                               f"({len(raw_trials)} raw trials)")
+                self.logger.info(f"Parsed {len(all_raw_trials)} total raw trials from batch {batch_idx + 1}")
                 
                 # Process with deduplication
                 batch_results = await self.deduplicator.process_clinical_trials_batch(
-                    raw_trials, existing_keys
+                    all_raw_trials, existing_keys
                 )
                 
                 # Update existing keys with new records
                 if batch_results['new_records'] > 0:
-                    new_nct_ids = {trial['nct_id'] for trial in raw_trials 
+                    new_nct_ids = {trial['nct_id'] for trial in all_raw_trials 
                                  if trial.get('nct_id')}
                     existing_keys.update(new_nct_ids)
                 
-                # Update totals
-                total_results['files_processed'] += 1
+                # Update totals (note: now processing multiple files per batch)
+                total_results['files_processed'] += len(file_batch)
                 total_results['total_raw_records'] += batch_results.get('total_input_records', 0)
                 total_results['total_new_records'] += batch_results.get('new_records', 0)
                 total_results['total_updated_records'] += batch_results.get('updated_records', 0)
@@ -641,27 +648,11 @@ class SmartBatchProcessor:
                 # Update progress tracking
                 self.progress_tracker.update_batch_progress(batch_results)
                 
-                # Adaptive batch sizing based on processing time
-                batch_time = (datetime.utcnow() - batch_start_time).total_seconds()
-                self.recent_batch_times.append(batch_time)
-                if len(self.recent_batch_times) > 5:
-                    self.recent_batch_times.pop(0)  # Keep only recent times
-                
-                # Adjust batch size for next iteration
-                avg_batch_time = sum(self.recent_batch_times) / len(self.recent_batch_times)
-                if avg_batch_time > self.target_processing_time_seconds * 1.5:
-                    current_batch_size = max(self.min_batch_size, int(current_batch_size * 0.8))
-                elif avg_batch_time < self.target_processing_time_seconds * 0.5:
-                    current_batch_size = min(self.max_batch_size, int(current_batch_size * 1.2))
-                
-                self.logger.debug(f"Batch processing time: {batch_time:.1f}s, "
-                                f"next batch size: {current_batch_size}")
-                
                 # Brief pause to prevent overwhelming the database
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.5)  # Slightly longer pause for parallel processing
                 
             except Exception as e:
-                error_msg = f"Failed to process {json_file}: {str(e)}"
+                error_msg = f"Failed to process file batch {batch_idx + 1} ({len(file_batch)} files): {str(e)}"
                 total_results['processing_errors'].append(error_msg)
                 self.logger.exception(error_msg)
                 continue
