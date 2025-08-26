@@ -70,6 +70,32 @@ class IntelluxeConfig(BaseSettings):
         json_schema_extra={"env": "MCP_SERVER_URL"},
     )
 
+    # Business Services configuration
+    business_services_config_path: str = Field(
+        default="/app/config/business_services.yml",
+        json_schema_extra={"env": "BUSINESS_SERVICES_CONFIG_PATH"},
+    )
+    insurance_verification_url: str = Field(
+        default="http://172.20.0.23:8003",
+        json_schema_extra={"env": "INSURANCE_VERIFICATION_URL"},
+    )
+    billing_engine_url: str = Field(
+        default="http://172.20.0.24:8004",
+        json_schema_extra={"env": "BILLING_ENGINE_URL"},
+    )
+    compliance_monitor_url: str = Field(
+        default="http://172.20.0.25:8005",
+        json_schema_extra={"env": "COMPLIANCE_MONITOR_URL"},
+    )
+    business_intelligence_url: str = Field(
+        default="http://172.20.0.26:8006",
+        json_schema_extra={"env": "BUSINESS_INTELLIGENCE_URL"},
+    )
+    doctor_personalization_url: str = Field(
+        default="http://172.20.0.27:8007",
+        json_schema_extra={"env": "DOCTOR_PERSONALIZATION_URL"},
+    )
+
     # Training configuration (Phase 2+)
     unsloth_training_enabled: bool = Field(
         default=False,

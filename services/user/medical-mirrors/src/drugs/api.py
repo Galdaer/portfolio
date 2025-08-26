@@ -15,7 +15,9 @@ from typing import Any
 from error_handling import (
     ErrorCollector,
 )
-from sqlalchemy import func, text
+from sqlalchemy import func, text, cast
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.types import String
 from sqlalchemy.orm import Session
 
 from database import DrugInformation, UpdateLog
@@ -562,21 +564,65 @@ class DrugAPI:
         if merge_failures > 0:
             logger.warning(f"Failed to merge {merge_failures} drug groups")
 
-        # Remove duplicates by NDC to prevent database violations
-        ndc_seen = set()
-        deduplicated_drugs = []
+        # Consolidate drugs by generic name, merging data for fullest information
+        consolidated_drugs = {}
         duplicate_count = 0
-
+        
         for drug in merged_drugs:
-            ndc = drug.get("ndc", "")
-            if ndc and ndc not in ndc_seen:
-                ndc_seen.add(ndc)
-                deduplicated_drugs.append(drug)
-            else:
+            generic_name = drug.get("generic_name", "").strip().upper()
+            if not generic_name:
+                continue
+                
+            if generic_name in consolidated_drugs:
+                # Merge this drug data with existing entry
+                existing = consolidated_drugs[generic_name]
                 duplicate_count += 1
-
+                
+                # Merge arrays by combining unique values
+                for array_field in ["brand_names", "manufacturers", "contraindications", "warnings", 
+                                  "precautions", "adverse_reactions", "approval_dates", 
+                                  "orange_book_codes", "application_numbers", "data_sources"]:
+                    existing_values = set(existing.get(array_field, []))
+                    new_values = set(drug.get(array_field, []))
+                    consolidated_drugs[generic_name][array_field] = list(existing_values | new_values)
+                
+                # Merge formulations
+                existing_formulations = existing.get("formulations", [])
+                new_formulations = drug.get("formulations", [])
+                consolidated_drugs[generic_name]["formulations"] = existing_formulations + new_formulations
+                consolidated_drugs[generic_name]["total_formulations"] = len(existing_formulations) + len(new_formulations)
+                
+                # Use longer/better text fields
+                for text_field in ["therapeutic_class", "indications_and_usage", "mechanism_of_action",
+                                 "dosage_and_administration", "pharmacokinetics", "pharmacodynamics",
+                                 "boxed_warning", "clinical_studies", "pediatric_use", "geriatric_use",
+                                 "pregnancy", "nursing_mothers", "overdosage", "nonclinical_toxicology"]:
+                    existing_text = existing.get(text_field, "") or ""
+                    new_text = drug.get(text_field, "") or ""
+                    if len(new_text) > len(existing_text):
+                        consolidated_drugs[generic_name][text_field] = new_text
+                
+                # Merge drug interactions (JSON)
+                existing_interactions = existing.get("drug_interactions", {})
+                new_interactions = drug.get("drug_interactions", {})
+                consolidated_drugs[generic_name]["drug_interactions"] = {**existing_interactions, **new_interactions}
+                
+                # Update confidence score to highest
+                existing_confidence = existing.get("confidence_score", 0.0)
+                new_confidence = drug.get("confidence_score", 0.0)
+                consolidated_drugs[generic_name]["confidence_score"] = max(existing_confidence, new_confidence)
+                
+                # Update clinical data flag
+                consolidated_drugs[generic_name]["has_clinical_data"] = (
+                    existing.get("has_clinical_data", False) or drug.get("has_clinical_data", False)
+                )
+                
+            else:
+                consolidated_drugs[generic_name] = drug.copy()
+        
+        deduplicated_drugs = list(consolidated_drugs.values())
         if duplicate_count > 0:
-            logger.info(f"Removed {duplicate_count} duplicate NDCs, proceeding with {len(deduplicated_drugs)} unique drugs")
+            logger.info(f"Consolidated {duplicate_count} duplicate generic names, proceeding with {len(deduplicated_drugs)} unique drugs")
 
         logger.info(f"Successfully merged {len(deduplicated_drugs)} drugs, starting parallel database storage")
 
@@ -684,58 +730,98 @@ class DrugAPI:
             # Safely extract name with multiple fallbacks
             name = drug_data.get("name", "") or drug_data.get("generic_name", "") or drug_data.get("brand_name", "") or "Unknown"
 
+            # Extract brand names as array
+            brand_names = []
+            brand_name = drug_data.get("brand_name")
+            if brand_name and isinstance(brand_name, str) and brand_name.strip():
+                brand_names = [brand_name.strip()]
+            elif isinstance(brand_name, list):
+                brand_names = [b.strip() for b in brand_name if b and isinstance(b, str) and b.strip()]
+            
+            # Extract manufacturers as array
+            manufacturers = []
+            manufacturer = drug_data.get("manufacturer")
+            if manufacturer and isinstance(manufacturer, str) and manufacturer.strip():
+                manufacturers = [manufacturer.strip()]
+            elif isinstance(manufacturer, list):
+                manufacturers = [m.strip() for m in manufacturer if m and isinstance(m, str) and m.strip()]
+
+            # Build formulation entry
+            formulation = {}
+            if drug_data.get("strength"):
+                formulation["strength"] = drug_data.get("strength")
+            if drug_data.get("dosage_form"):
+                formulation["dosage_form"] = drug_data.get("dosage_form")
+            if drug_data.get("route"):
+                formulation["route"] = drug_data.get("route")
+            if drug_data.get("ndc"):
+                formulation["ndc"] = drug_data.get("ndc")
+            if brand_name:
+                formulation["brand_name"] = brand_name
+            if manufacturer:
+                formulation["manufacturer"] = manufacturer
+            if drug_data.get("application_number"):
+                formulation["application_number"] = drug_data.get("application_number")
+            
+            formulations = [formulation] if formulation else []
+
+            # Convert single values to arrays for list fields
+            def ensure_array(value):
+                if not value:
+                    return []
+                if isinstance(value, list):
+                    return [str(v) for v in value if v]
+                return [str(value)]
+
             return {
-                "ndc": ndc,
-                "name": name,
-            "generic_name": get_non_empty_or_none(drug_data.get("generic_name")),
-            "brand_name": get_non_empty_or_none(drug_data.get("brand_name")),
-            "manufacturer": get_non_empty_or_none(drug_data.get("manufacturer")),
-            "applicant": get_non_empty_or_none(drug_data.get("applicant")),
-            "ingredients": drug_data.get("ingredients", []),  # Always return array
-            "strength": get_non_empty_or_none(drug_data.get("strength")),
-            "dosage_form": get_non_empty_or_none(drug_data.get("dosage_form")),
-            "route": get_non_empty_or_none(drug_data.get("route")),
-            "application_number": get_non_empty_or_none(drug_data.get("application_number")),
-            "product_number": get_non_empty_or_none(drug_data.get("product_number")),
-            "approval_date": get_non_empty_or_none(drug_data.get("approval_date")),
-            "orange_book_code": get_non_empty_or_none(drug_data.get("orange_book_code")),
-            "reference_listed_drug": get_non_empty_or_none(drug_data.get("reference_listed_drug")),
-            "therapeutic_class": get_non_empty_or_none(drug_data.get("therapeutic_class")),
-            "pharmacologic_class": get_non_empty_or_none(drug_data.get("pharmacologic_class")),
-
-            # Clinical information fields
-            "contraindications": drug_data.get("contraindications", []),
-            "warnings": drug_data.get("warnings", []),
-            "precautions": drug_data.get("precautions", []),
-            "adverse_reactions": drug_data.get("adverse_reactions", []),
-            "drug_interactions": drug_data.get("drug_interactions", {}),  # Keep empty dict for JSON field
-            "indications_and_usage": get_non_empty_or_none(drug_data.get("indications_and_usage")),
-            "dosage_and_administration": get_non_empty_or_none(drug_data.get("dosage_and_administration")),
-            "mechanism_of_action": get_non_empty_or_none(drug_data.get("mechanism_of_action")),
-            "pharmacokinetics": get_non_empty_or_none(drug_data.get("pharmacokinetics")),
-            "pharmacodynamics": get_non_empty_or_none(drug_data.get("pharmacodynamics")),
-
-            # Additional clinical fields
-            "boxed_warning": get_non_empty_or_none(drug_data.get("boxed_warning")),
-            "clinical_studies": get_non_empty_or_none(drug_data.get("clinical_studies")),
-            "pediatric_use": get_non_empty_or_none(drug_data.get("pediatric_use")),
-            "geriatric_use": get_non_empty_or_none(drug_data.get("geriatric_use")),
-            "pregnancy": get_non_empty_or_none(drug_data.get("pregnancy")),
-            "nursing_mothers": get_non_empty_or_none(drug_data.get("nursing_mothers")),
-            "overdosage": get_non_empty_or_none(drug_data.get("overdosage")),
-            "nonclinical_toxicology": get_non_empty_or_none(drug_data.get("nonclinical_toxicology")),
-
-            "data_sources": drug_data.get("data_sources", []),
-            "updated_at": datetime.utcnow(),
-        }
+                "generic_name": generic_name,
+                "brand_names": brand_names,
+                "manufacturers": manufacturers,
+                "formulations": formulations,
+                "therapeutic_class": get_non_empty_or_none(drug_data.get("therapeutic_class")),
+                "indications_and_usage": get_non_empty_or_none(drug_data.get("indications_and_usage")),
+                "mechanism_of_action": get_non_empty_or_none(drug_data.get("mechanism_of_action")),
+                "contraindications": ensure_array(drug_data.get("contraindications")),
+                "warnings": ensure_array(drug_data.get("warnings")),
+                "precautions": ensure_array(drug_data.get("precautions")),
+                "adverse_reactions": ensure_array(drug_data.get("adverse_reactions")),
+                "drug_interactions": drug_data.get("drug_interactions", {}),
+                "dosage_and_administration": get_non_empty_or_none(drug_data.get("dosage_and_administration")),
+                "pharmacokinetics": get_non_empty_or_none(drug_data.get("pharmacokinetics")),
+                "pharmacodynamics": get_non_empty_or_none(drug_data.get("pharmacodynamics")),
+                "boxed_warning": get_non_empty_or_none(drug_data.get("boxed_warning")),
+                "clinical_studies": get_non_empty_or_none(drug_data.get("clinical_studies")),
+                "pediatric_use": get_non_empty_or_none(drug_data.get("pediatric_use")),
+                "geriatric_use": get_non_empty_or_none(drug_data.get("geriatric_use")),
+                "pregnancy": get_non_empty_or_none(drug_data.get("pregnancy")),
+                "nursing_mothers": get_non_empty_or_none(drug_data.get("nursing_mothers")),
+                "overdosage": get_non_empty_or_none(drug_data.get("overdosage")),
+                "nonclinical_toxicology": get_non_empty_or_none(drug_data.get("nonclinical_toxicology")),
+                "approval_dates": ensure_array(drug_data.get("approval_date")),
+                "orange_book_codes": ensure_array(drug_data.get("orange_book_code")),
+                "application_numbers": ensure_array(drug_data.get("application_number")),
+                "total_formulations": 1,
+                "data_sources": ensure_array(drug_data.get("data_sources", ["FDA_Labels"])),
+                "confidence_score": drug_data.get("confidence_score", 0.8),
+                "has_clinical_data": bool(
+                    drug_data.get("indications_and_usage") or 
+                    drug_data.get("mechanism_of_action") or 
+                    drug_data.get("contraindications") or 
+                    drug_data.get("warnings")
+                ),
+                "last_updated": datetime.utcnow(),
+            }
         
         except Exception as e:
             logger.error(f"Error preparing drug insert data: {e}")
             return None
 
     def batch_upsert_drugs(self, insert_data_list: list[dict], db: Session):
-        """Perform batch UPSERT operation for maximum database performance"""
+        """Perform batch UPSERT operation for consolidated drug schema"""
         from sqlalchemy.dialects.postgresql import insert
+        
+        if not insert_data_list:
+            return
 
         # Use PostgreSQL's powerful ON CONFLICT DO UPDATE for batch operations
         stmt = insert(DrugInformation)
@@ -744,85 +830,55 @@ class DrugAPI:
         stmt = stmt.on_conflict_do_update(
             index_elements=["generic_name"],
             set_={
-                # Always update basic fields
-                "name": stmt.excluded.name,
-                "updated_at": stmt.excluded.updated_at,
+                # Always update timestamps
+                "last_updated": stmt.excluded.last_updated,
+                
+                # Merge arrays intelligently - combine unique values  
+                "brand_names": func.array_cat(
+                    func.coalesce(DrugInformation.brand_names, cast([], ARRAY(String))),
+                    stmt.excluded.brand_names
+                ),
+                "manufacturers": func.array_cat(
+                    func.coalesce(DrugInformation.manufacturers, cast([], ARRAY(String))),
+                    stmt.excluded.manufacturers
+                ),
+                "formulations": func.coalesce(
+                    stmt.excluded.formulations,
+                    DrugInformation.formulations
+                ),
+                "approval_dates": func.array_cat(
+                    func.coalesce(DrugInformation.approval_dates, cast([], ARRAY(String))),
+                    stmt.excluded.approval_dates
+                ),
+                "orange_book_codes": func.array_cat(
+                    func.coalesce(DrugInformation.orange_book_codes, cast([], ARRAY(String))),
+                    stmt.excluded.orange_book_codes
+                ),
+                "application_numbers": func.array_cat(
+                    func.coalesce(DrugInformation.application_numbers, cast([], ARRAY(String))),
+                    stmt.excluded.application_numbers
+                ),
+                "data_sources": func.array_cat(
+                    func.coalesce(DrugInformation.data_sources, cast([], ARRAY(String))),
+                    stmt.excluded.data_sources
+                ),
 
-                # Always update with new values if they're better (non-empty)
-                "generic_name": func.coalesce(
-                    func.nullif(stmt.excluded.generic_name, ""),
-                    DrugInformation.generic_name,
-                ),
-                "brand_name": func.coalesce(
-                    func.nullif(stmt.excluded.brand_name, ""),
-                    DrugInformation.brand_name,
-                ),
-                "manufacturer": func.coalesce(
-                    func.nullif(stmt.excluded.manufacturer, ""),
-                    DrugInformation.manufacturer,
-                ),
-                "applicant": func.coalesce(
-                    func.nullif(stmt.excluded.applicant, ""),
-                    DrugInformation.applicant,
-                ),
-                "strength": func.coalesce(
-                    func.nullif(stmt.excluded.strength, ""),
-                    DrugInformation.strength,
-                ),
-                "dosage_form": func.coalesce(
-                    func.nullif(stmt.excluded.dosage_form, ""),
-                    DrugInformation.dosage_form,
-                ),
-                "route": func.coalesce(
-                    func.nullif(stmt.excluded.route, ""),
-                    DrugInformation.route,
-                ),
-                "application_number": func.coalesce(
-                    func.nullif(stmt.excluded.application_number, ""),
-                    DrugInformation.application_number,
-                ),
-                "product_number": func.coalesce(
-                    func.nullif(stmt.excluded.product_number, ""),
-                    DrugInformation.product_number,
-                ),
-                "approval_date": func.coalesce(
-                    func.nullif(stmt.excluded.approval_date, ""),
-                    DrugInformation.approval_date,
-                ),
-                "orange_book_code": func.coalesce(
-                    func.nullif(stmt.excluded.orange_book_code, ""),
-                    DrugInformation.orange_book_code,
-                ),
-                "reference_listed_drug": func.coalesce(
-                    func.nullif(stmt.excluded.reference_listed_drug, ""),
-                    DrugInformation.reference_listed_drug,
-                ),
+                # Clinical text fields - use new data if better (longer/non-empty)
                 "therapeutic_class": func.coalesce(
                     func.nullif(stmt.excluded.therapeutic_class, ""),
                     DrugInformation.therapeutic_class,
                 ),
-                "pharmacologic_class": func.coalesce(
-                    func.nullif(stmt.excluded.pharmacologic_class, ""),
-                    DrugInformation.pharmacologic_class,
-                ),
-
-                # Clinical information fields - always update with new data
-                "contraindications": stmt.excluded.contraindications,
-                "warnings": stmt.excluded.warnings,
-                "precautions": stmt.excluded.precautions,
-                "adverse_reactions": stmt.excluded.adverse_reactions,
-                "drug_interactions": stmt.excluded.drug_interactions,
                 "indications_and_usage": func.coalesce(
                     func.nullif(stmt.excluded.indications_and_usage, ""),
                     DrugInformation.indications_and_usage,
                 ),
-                "dosage_and_administration": func.coalesce(
-                    func.nullif(stmt.excluded.dosage_and_administration, ""),
-                    DrugInformation.dosage_and_administration,
-                ),
                 "mechanism_of_action": func.coalesce(
                     func.nullif(stmt.excluded.mechanism_of_action, ""),
                     DrugInformation.mechanism_of_action,
+                ),
+                "dosage_and_administration": func.coalesce(
+                    func.nullif(stmt.excluded.dosage_and_administration, ""),
+                    DrugInformation.dosage_and_administration,
                 ),
                 "pharmacokinetics": func.coalesce(
                     func.nullif(stmt.excluded.pharmacokinetics, ""),
@@ -832,8 +888,6 @@ class DrugAPI:
                     func.nullif(stmt.excluded.pharmacodynamics, ""),
                     DrugInformation.pharmacodynamics,
                 ),
-
-                # Additional clinical fields - always update with new data if available
                 "boxed_warning": func.coalesce(
                     func.nullif(stmt.excluded.boxed_warning, ""),
                     DrugInformation.boxed_warning,
@@ -867,9 +921,43 @@ class DrugAPI:
                     DrugInformation.nonclinical_toxicology,
                 ),
 
-                # For arrays, combine unique values
-                "ingredients": stmt.excluded.ingredients,
-                "data_sources": stmt.excluded.data_sources,
+                # Clinical arrays - merge unique values
+                "contraindications": func.array_cat(
+                    func.coalesce(DrugInformation.contraindications, cast([], ARRAY(String))),
+                    stmt.excluded.contraindications
+                ),
+                "warnings": func.array_cat(
+                    func.coalesce(DrugInformation.warnings, cast([], ARRAY(String))),
+                    stmt.excluded.warnings
+                ),
+                "precautions": func.array_cat(
+                    func.coalesce(DrugInformation.precautions, cast([], ARRAY(String))),
+                    stmt.excluded.precautions
+                ),
+                "adverse_reactions": func.array_cat(
+                    func.coalesce(DrugInformation.adverse_reactions, cast([], ARRAY(String))),
+                    stmt.excluded.adverse_reactions
+                ),
+                
+                # JSON field - merge intelligently
+                "drug_interactions": func.coalesce(
+                    stmt.excluded.drug_interactions,
+                    DrugInformation.drug_interactions
+                ),
+                
+                # Computed fields
+                "total_formulations": func.coalesce(
+                    stmt.excluded.total_formulations,
+                    DrugInformation.total_formulations
+                ),
+                "confidence_score": func.greatest(
+                    stmt.excluded.confidence_score,
+                    DrugInformation.confidence_score
+                ),
+                "has_clinical_data": func.coalesce(
+                    stmt.excluded.has_clinical_data,
+                    DrugInformation.has_clinical_data
+                ),
             },
         )
 
