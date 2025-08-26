@@ -73,6 +73,39 @@ make scispacy-health   # Check SciSpacy health
 make scispacy-test     # Test SciSpacy entity analysis
 ```
 
+#### Business Microservices
+```bash
+# Insurance Verification Service
+make insurance-verification-build    # Build Insurance Verification Docker image
+make insurance-verification-logs     # View Insurance Verification logs
+make insurance-verification-health   # Check Insurance Verification health
+make insurance-verification-test     # Run Insurance Verification validation
+
+# Billing Engine Service
+make billing-engine-build    # Build Billing Engine Docker image
+make billing-engine-logs     # View Billing Engine logs
+make billing-engine-health   # Check Billing Engine health
+make billing-engine-test     # Run Billing Engine validation
+
+# Compliance Monitor Service
+make compliance-monitor-build    # Build Compliance Monitor Docker image
+make compliance-monitor-logs     # View Compliance Monitor logs
+make compliance-monitor-health   # Check Compliance Monitor health
+make compliance-monitor-test     # Run Compliance Monitor validation
+
+# Business Intelligence Service
+make business-intelligence-build    # Build Business Intelligence Docker image
+make business-intelligence-logs     # View Business Intelligence logs
+make business-intelligence-health   # Check Business Intelligence health
+make business-intelligence-test     # Run Business Intelligence validation
+
+# Doctor Personalization Service
+make doctor-personalization-build    # Build Doctor Personalization Docker image
+make doctor-personalization-logs     # View Doctor Personalization logs
+make doctor-personalization-health   # Check Doctor Personalization health
+make doctor-personalization-test     # Run Doctor Personalization validation
+```
+
 ### Synthetic Data Generation
 ```bash
 make data-generate       # Generate comprehensive synthetic healthcare data
@@ -106,11 +139,21 @@ make data-clean          # Remove synthetic data
 
 The system uses dynamic service discovery from `services/user/` directory:
 
+#### Core Infrastructure Services
 - **Healthcare API** (`services/user/healthcare-api/`): Main HIPAA-compliant API with administrative support agents
 - **Medical Mirrors** (`services/user/medical-mirrors/`): Downloads and mirrors PubMed, ClinicalTrials.gov, and FDA data
 - **SciSpacy** (`services/user/scispacy/`): NLP service for medical entity recognition
 - **Healthcare MCP** (`services/user/healthcare-mcp/`): MCP server for healthcare tools
 - **MCP Pipeline** (`services/user/mcp-pipeline/`): Pipeline integration for Open WebUI
+
+#### Business Microservices
+Standalone business services extracted from healthcare-api agents:
+
+- **Insurance Verification** (`172.20.0.23`): Chain-of-Thought reasoning for insurance verification and prior authorization
+- **Billing Engine** (`172.20.0.24`): Tree of Thoughts reasoning for billing decisions, claims processing, and code validation
+- **Compliance Monitor** (`172.20.0.25`): HIPAA compliance monitoring, violation detection, and audit reporting
+- **Business Intelligence** (`172.20.0.26`): Advanced analytics, business insights, and operational reporting
+- **Doctor Personalization** (`172.20.0.27`): LoRA-based AI personalization for healthcare providers
 
 ### Key Directories
 
@@ -140,6 +183,10 @@ When working on this codebase, you should PROACTIVELY use the Task tool to invok
 - **TestOrganizationAgent**: Automatically use for organizing tests, test structure optimization, test refactoring, and test maintenance
 - **HealthcareTestAgent**: Automatically use for HIPAA testing, PHI testing, healthcare compliance, medical workflow testing, and healthcare evaluation
 - **TestMaintenanceAgent**: Automatically use for test failures, flaky tests, test debugging, test optimization, and test performance issues
+- **BusinessServiceAnalyzer**: Automatically use for extracting business logic from agents into standalone microservices, service architecture design
+- **PhaseDocumentAnalyzer**: Automatically use for analyzing phase documents, cross-referencing implementation status, generating TODO lists
+- **ServiceIntegrationAgent**: Automatically use for service-to-service communication, distributed system patterns, API design
+- **ComplianceAutomationAgent**: Automatically use for automated compliance monitoring, HIPAA rule creation, compliance reporting
 
 You should invoke these agents using the Task tool with the appropriate subagent_type parameter rather than attempting complex specialized work directly.
 
@@ -158,6 +205,10 @@ For EVERY user request, analyze if it matches these patterns and automatically i
 9. **Healthcare Testing** (HIPAA testing, PHI testing, compliance tests, medical workflow testing) → HealthcareTestAgent
 10. **Test Issues** (test failures, flaky tests, test debugging, slow tests, test maintenance) → TestMaintenanceAgent
 11. **Performance Issues** (slow processing, single-threaded, deadlock issues, parallel processing, multi-threading, bottleneck analysis, CPU utilization) → PerformanceOptimizationAgent
+12. **Service Extraction** (extract service, standalone microservice, business logic separation, service architecture) → BusinessServiceAnalyzer
+13. **Phase Analysis** (phase analysis, implementation status, TODO generation, project roadmap) → PhaseDocumentAnalyzer
+14. **Service Integration** (service integration, microservice communication, inter-service API, distributed system) → ServiceIntegrationAgent
+15. **Compliance Automation** (compliance automation, audit setup, violation rules, compliance reporting) → ComplianceAutomationAgent
 
 Use the Task tool to invoke agents rather than attempting the work directly when the task complexity warrants specialized knowledge.
 
@@ -244,6 +295,42 @@ You should: Immediately invoke PerformanceOptimizationAgent using Task tool with
 - prompt: "User reports performance issues with slow processing. Analyze bottlenecks, implement parallel processing, resolve database deadlocks, and optimize CPU utilization using multi-threading patterns."
 ```
 
+**Service Extraction & Architecture:**
+```
+When user asks: "Extract the billing logic into a separate service" or "Create standalone microservices"
+You should: Immediately invoke BusinessServiceAnalyzer using Task tool with:
+- subagent_type: "BusinessServiceAnalyzer"
+- description: "Extract business service"
+- prompt: "User needs to extract business logic into standalone microservice. Analyze existing agents, design service architecture, and implement with FastAPI following intelluxe-net patterns."
+```
+
+**Phase Analysis & TODO Generation:**
+```
+When user asks: "What's our implementation status against the phase documents?" or "Generate a TODO list"
+You should: Immediately invoke PhaseDocumentAnalyzer using Task tool with:
+- subagent_type: "PhaseDocumentAnalyzer"
+- description: "Analyze implementation status"
+- prompt: "User needs analysis of implementation status against phase documents. Cross-reference planned features with current codebase and generate prioritized TODO list."
+```
+
+**Service Integration & Communication:**
+```
+When user asks: "Set up communication between services" or "Implement distributed transaction patterns"
+You should: Immediately invoke ServiceIntegrationAgent using Task tool with:
+- subagent_type: "ServiceIntegrationAgent"
+- description: "Design service integration"
+- prompt: "User needs service integration patterns. Design resilient service communication with circuit breakers, retry logic, and distributed transaction patterns."
+```
+
+**Compliance Automation Setup:**
+```
+When user asks: "Set up automated HIPAA compliance monitoring" or "Create compliance dashboard"
+You should: Immediately invoke ComplianceAutomationAgent using Task tool with:
+- subagent_type: "ComplianceAutomationAgent"
+- description: "Automate compliance monitoring"
+- prompt: "User needs compliance automation. Set up HIPAA violation detection rules, automated audit trails, and compliance dashboards with regulatory reporting."
+```
+
 ## Development Patterns
 
 ### Configuration Management
@@ -272,6 +359,16 @@ You should: Immediately invoke PerformanceOptimizationAgent using Task tool with
 - Health checks for all services
 - Custom networks (`intelluxe-net`)
 - Volume management for persistent data
+
+### Service Communication Patterns
+- All services use static IPs on intelluxe-net (172.20.0.x)
+- Service-to-service communication via HTTP REST APIs
+- Shared PostgreSQL database at 172.20.0.11:5432
+- Shared Redis cache at 172.20.0.12:6379
+- Health checks at `/health` endpoint for all services
+- Circuit breaker patterns for fault tolerance
+- Retry logic with exponential backoff
+- Service authentication via JWT tokens
 
 ## Prompt Enhancement Instructions
 
