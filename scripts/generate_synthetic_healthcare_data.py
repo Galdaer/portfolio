@@ -214,6 +214,12 @@ class SyntheticHealthcareDataGenerator:
         self.billing_claims: list[dict[str, Any]] = []
         self.doctor_preferences: list[dict[str, Any]] = []
         self.audit_logs: list[dict[str, Any]] = []
+        
+        # Business services data
+        self.compliance_violations: list[dict[str, Any]] = []
+        self.analytics_metrics: list[dict[str, Any]] = []
+        self.personalization_training_data: list[dict[str, Any]] = []
+        self.service_communication_logs: list[dict[str, Any]] = []
 
         # Database connections (optional)
         self.db_conn: Any | None = None
@@ -654,6 +660,119 @@ class SyntheticHealthcareDataGenerator:
             "session_id": str(uuid.uuid4()),
         }
 
+    def generate_compliance_violation(self, user_id: str, violation_type: str = None) -> dict[str, Any]:
+        """Generate compliance violation events for testing compliance monitoring"""
+        violation_types = [
+            "unauthorized_phi_access",
+            "phi_disclosure_without_consent", 
+            "access_outside_work_hours",
+            "bulk_patient_access",
+            "suspicious_login_pattern",
+            "failed_authentication_attempts",
+            "data_export_without_approval",
+            "patient_record_modification_after_hours"
+        ]
+        
+        return {
+            "violation_id": f"VIO_{fake.random_number(digits=6)}",
+            "user_id": user_id,
+            "violation_type": violation_type or random.choice(violation_types),
+            "severity": random.choice(["low", "medium", "high", "critical"]),
+            "detected_at": fake.date_time_between(start_date="-30d", end_date="now").isoformat(),
+            "resource_accessed": f"patient_{fake.random_number(digits=6)}",
+            "violation_details": {
+                "action_attempted": random.choice(["VIEW", "EDIT", "DELETE", "EXPORT", "PRINT"]),
+                "location": fake.ipv4(),
+                "device_info": fake.user_agent(),
+                "time_of_access": fake.time()
+            },
+            "auto_detected": random.choice([True, False]),
+            "resolved": random.choice([True, False]),
+            "resolution_notes": fake.sentence() if random.random() > 0.5 else None
+        }
+
+    def generate_analytics_metrics(self, date: str = None) -> dict[str, Any]:
+        """Generate analytics metrics for business intelligence testing"""
+        target_date = date or fake.date_between(start_date="-90d", end_date="today").isoformat()
+        
+        return {
+            "metric_id": str(uuid.uuid4()),
+            "date": target_date,
+            "revenue_metrics": {
+                "total_revenue": round(random.uniform(5000.0, 25000.0), 2),
+                "claims_processed": random.randint(50, 200),
+                "average_claim_value": round(random.uniform(100.0, 500.0), 2),
+                "collection_rate": round(random.uniform(0.75, 0.95), 3)
+            },
+            "operational_metrics": {
+                "patient_visits": random.randint(75, 300),
+                "average_wait_time": random.randint(5, 45),
+                "provider_utilization": round(random.uniform(0.60, 0.95), 3),
+                "no_show_rate": round(random.uniform(0.05, 0.20), 3)
+            },
+            "compliance_metrics": {
+                "compliance_score": round(random.uniform(85.0, 99.5), 1),
+                "violations_detected": random.randint(0, 5),
+                "audit_events": random.randint(100, 500),
+                "phi_access_events": random.randint(200, 800)
+            },
+            "quality_metrics": {
+                "patient_satisfaction": round(random.uniform(3.5, 5.0), 1),
+                "readmission_rate": round(random.uniform(0.02, 0.15), 3),
+                "medication_adherence": round(random.uniform(0.70, 0.95), 3)
+            }
+        }
+
+    def generate_personalization_training_data(self, doctor_id: str) -> dict[str, Any]:
+        """Generate personalization training data for LoRA adaptation"""
+        return {
+            "training_id": str(uuid.uuid4()),
+            "doctor_id": doctor_id,
+            "interaction_type": random.choice([
+                "patient_note_generation",
+                "diagnosis_assistance", 
+                "treatment_recommendation",
+                "medication_review",
+                "clinical_decision_support"
+            ]),
+            "input_text": fake.text(max_nb_chars=500),
+            "preferred_output": fake.text(max_nb_chars=300),
+            "feedback_score": random.choice([1, 2, 3, 4, 5]),
+            "interaction_date": fake.date_time_between(start_date="-60d", end_date="now").isoformat(),
+            "session_context": {
+                "patient_specialty": random.choice(["cardiology", "dermatology", "family_medicine", "pediatrics"]),
+                "documentation_style": random.choice(["concise", "detailed", "bullet_points"]),
+                "clinical_complexity": random.choice(["simple", "moderate", "complex"])
+            },
+            "model_version": f"v{random.randint(1, 5)}.{random.randint(0, 9)}",
+            "adaptation_score": round(random.uniform(6.0, 10.0), 1)
+        }
+
+    def generate_service_communication_log(self, from_service: str, to_service: str) -> dict[str, Any]:
+        """Generate service-to-service communication logs for integration testing"""
+        services = [
+            "healthcare-api", "insurance-verification", "billing-engine",
+            "compliance-monitor", "business-intelligence", "doctor-personalization"
+        ]
+        
+        return {
+            "log_id": str(uuid.uuid4()),
+            "from_service": from_service,
+            "to_service": to_service,
+            "request_method": random.choice(["GET", "POST", "PUT", "DELETE"]),
+            "endpoint": f"/{random.choice(['health', 'verify', 'process', 'analyze', 'generate'])}",
+            "request_time": fake.date_time_between(start_date="-7d", end_date="now").isoformat(),
+            "response_time": fake.date_time_between(start_date="-7d", end_date="now").isoformat(),
+            "duration_ms": random.randint(10, 5000),
+            "status_code": random.choice([200, 201, 400, 401, 404, 500, 502, 503]),
+            "request_size_bytes": random.randint(100, 10000),
+            "response_size_bytes": random.randint(50, 50000),
+            "user_id": f"user_{fake.random_number(digits=6)}",
+            "correlation_id": str(uuid.uuid4()),
+            "circuit_breaker_state": random.choice(["CLOSED", "OPEN", "HALF_OPEN"]),
+            "retry_count": random.randint(0, 3)
+        }
+
     def generate_all_data(self) -> None:
         """Generate all synthetic data types"""
         print("🏥 Generating comprehensive synthetic healthcare data...")
@@ -723,6 +842,42 @@ class SyntheticHealthcareDataGenerator:
             audit_log = self.generate_audit_log("system", "system")
             self.audit_logs.append(audit_log)
 
+        print("\n🔧 Generating business services data...")
+        
+        print("⚠️ Generating compliance violations...")
+        # Generate some compliance violations for testing
+        all_users = [doc["doctor_id"] for doc in self.doctors] + ["system"]
+        for _ in range(random.randint(5, 20)):
+            user_id = random.choice(all_users)
+            violation = self.generate_compliance_violation(user_id)
+            self.compliance_violations.append(violation)
+
+        print("📊 Generating analytics metrics...")
+        # Generate daily analytics for the past 30 days
+        for i in range(30):
+            date_str = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+            metrics = self.generate_analytics_metrics(date_str)
+            self.analytics_metrics.append(metrics)
+
+        print("🤖 Generating personalization training data...")
+        # Generate training data for each doctor
+        for doctor in self.doctors:
+            for _ in range(random.randint(10, 30)):
+                training_data = self.generate_personalization_training_data(doctor["doctor_id"])
+                self.personalization_training_data.append(training_data)
+
+        print("🔗 Generating service communication logs...")
+        # Generate service-to-service communication logs
+        services = [
+            "healthcare-api", "insurance-verification", "billing-engine",
+            "compliance-monitor", "business-intelligence", "doctor-personalization"
+        ]
+        for _ in range(random.randint(100, 300)):
+            from_service = random.choice(services)
+            to_service = random.choice([s for s in services if s != from_service])
+            comm_log = self.generate_service_communication_log(from_service, to_service)
+            self.service_communication_logs.append(comm_log)
+
         # Save to JSON files
         self._save_json_files()
 
@@ -743,6 +898,11 @@ class SyntheticHealthcareDataGenerator:
         print(f"     - {len(self.billing_claims)} billing claims")
         print(f"     - {len(self.doctor_preferences)} doctor preferences")
         print(f"     - {len(self.audit_logs)} audit log entries")
+        print("   🔧 Business Services Data:")
+        print(f"     - {len(self.compliance_violations)} compliance violations")
+        print(f"     - {len(self.analytics_metrics)} analytics metrics")
+        print(f"     - {len(self.personalization_training_data)} personalization training records")
+        print(f"     - {len(self.service_communication_logs)} service communication logs")
         print(f"📁 Files saved to: {self.output_dir}/")
 
     def _save_json_files(self) -> None:
@@ -759,6 +919,11 @@ class SyntheticHealthcareDataGenerator:
             "billing_claims": self.billing_claims,
             "doctor_preferences": self.doctor_preferences,
             "audit_logs": self.audit_logs,
+            # Business Services Data
+            "compliance_violations": self.compliance_violations,
+            "analytics_metrics": self.analytics_metrics,
+            "personalization_training_data": self.personalization_training_data,
+            "service_communication_logs": self.service_communication_logs,
         }
 
         for name, data in datasets.items():

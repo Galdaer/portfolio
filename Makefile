@@ -528,7 +528,7 @@ llama-cpp:
 
 medical-mirrors:
 	@echo "🔁 Restarting Medical Mirrors via setup menu..."
-	@printf '3\n8\n' | make setup
+	@printf '3\n9\n' | make setup
 
 ollama:
 	@echo "🔁 Restarting Ollama via setup menu..."
