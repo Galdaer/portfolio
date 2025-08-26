@@ -10,6 +10,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from agents import BaseHealthcareAgent
+from core.clients.business_services import get_business_client, ServiceResponse
 from core.infrastructure.agent_metrics import AgentMetricsStore
 from core.infrastructure.healthcare_cache import HealthcareCacheManager
 from core.infrastructure.healthcare_logger import (
@@ -179,7 +180,7 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
         insurance_info: dict[str, Any],
     ) -> InsuranceVerificationResult:
         """
-        Verify patient insurance eligibility and benefits
+        Verify patient insurance eligibility and benefits using insurance-verification service
 
         Args:
             insurance_info: Dictionary containing insurance information
@@ -194,103 +195,107 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
         scan_for_phi(str(insurance_info))
 
         verification_errors = []
-        member_id = None
+        member_id = insurance_info.get("member_id")
 
         try:
-            # Validate required fields
-            required_fields = ["member_id", "group_id", "payer_name", "dob"]
-            for field in required_fields:
-                if field not in insurance_info:
-                    verification_errors.append(f"Missing required field: {field}")
-
-            if verification_errors:
-                return InsuranceVerificationResult(
-                    verification_id=f"verify_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                    status="validation_failed",
-                    member_id=None,
-                    coverage_active=False,
-                    benefits_summary={},
-                    verification_errors=verification_errors,
-                    compliance_validated=False,
-                    timestamp=datetime.now(),
-                    metadata={"validation_stage": "required_fields"},
-                )
-
-            member_id = insurance_info["member_id"]
-            payer_name = insurance_info["payer_name"].lower()
-
-            # Check if payer is supported
-            if payer_name not in self.supported_payers:
-                verification_errors.append(f"Payer {payer_name} not supported")
-                return InsuranceVerificationResult(
-                    verification_id=f"verify_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                    status="payer_not_supported",
-                    member_id=member_id,
-                    coverage_active=False,
-                    benefits_summary={},
-                    verification_errors=verification_errors,
-                    compliance_validated=True,
-                    timestamp=datetime.now(),
-                    metadata={"payer_name": payer_name},
-                )
-
-            # Perform eligibility verification
-            eligibility_result = await self._check_eligibility(insurance_info, payer_name)
-
-            if not eligibility_result["eligible"]:
-                verification_errors.append("Member not eligible or coverage inactive")
-                coverage_active = False
-            else:
-                coverage_active = True
-
-            # Get benefits details if eligible
-            benefits_summary = {}
-            if coverage_active:
-                benefits = await self._get_benefits_details(insurance_info, payer_name)
-                benefits_summary = {
-                    "deductible_remaining": benefits.deductible_remaining,
-                    "out_of_pocket_max": benefits.out_of_pocket_max,
-                    "out_of_pocket_met": benefits.out_of_pocket_met,
-                    "copay_primary_care": benefits.copay_primary_care,
-                    "copay_specialist": benefits.copay_specialist,
-                    "coinsurance_rate": benefits.coinsurance_rate,
-                    "coverage_percentage": benefits.coverage_percentage,
-                    "effective_date": benefits.effective_date.isoformat(),
-                    "termination_date": benefits.termination_date.isoformat()
-                    if benefits.termination_date
-                    else None,
+            # Call business service for insurance verification
+            async with get_business_client() as client:
+                # Prepare verification request for the service
+                verification_request = {
+                    "member_id": insurance_info.get("member_id"),
+                    "provider_id": insurance_info.get("group_id", ""),
+                    "date_of_birth": insurance_info.get("dob"),
+                    "first_name": insurance_info.get("first_name", ""),
+                    "last_name": insurance_info.get("last_name", ""),
+                    "service_type": ["30"],  # Medical care
                 }
 
-            verification_status = "verified" if coverage_active else "coverage_inactive"
+                service_response: ServiceResponse = await client.verify_insurance(verification_request)
 
-            log_healthcare_event(
-                logger,
-                logging.INFO,
-                f"Insurance verification completed: {verification_status}",
-                context={
-                    "member_id": member_id[:4] + "****",  # Mask for logging
-                    "payer_name": payer_name,
-                    "coverage_active": coverage_active,
-                    "verification_status": verification_status,
-                },
-                operation_type="insurance_verification",
-            )
+                if service_response.success:
+                    # Parse service response
+                    verification_data = service_response.data.get("verification_result", {})
+                    
+                    # Extract verification status
+                    coverage_active = verification_data.get("eligible", False)
+                    
+                    # Extract benefits if available
+                    benefits_summary = {}
+                    if "benefits" in verification_data:
+                        benefits_data = verification_data["benefits"]
+                        benefits_summary = {
+                            "deductible_remaining": benefits_data.get("deductible_remaining", 0.0),
+                            "out_of_pocket_max": benefits_data.get("out_of_pocket_max", 0.0),
+                            "out_of_pocket_met": benefits_data.get("out_of_pocket_met", 0.0),
+                            "copay_primary_care": benefits_data.get("copay_primary_care", 0.0),
+                            "copay_specialist": benefits_data.get("copay_specialist", 0.0),
+                            "coinsurance_rate": benefits_data.get("coinsurance_rate", 0.0),
+                            "coverage_percentage": benefits_data.get("coverage_percentage", 0),
+                            "effective_date": benefits_data.get("effective_date"),
+                            "termination_date": benefits_data.get("termination_date"),
+                        }
 
-            return InsuranceVerificationResult(
-                verification_id=f"verify_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                status=verification_status,
-                member_id=member_id,
-                coverage_active=coverage_active,
-                benefits_summary=benefits_summary,
-                verification_errors=verification_errors,
-                compliance_validated=True,
-                timestamp=datetime.now(),
-                metadata={
-                    "payer_name": payer_name,
-                    "eligibility_check": eligibility_result,
-                    "benefits_retrieved": bool(benefits_summary),
-                },
-            )
+                    verification_status = "verified" if coverage_active else "coverage_inactive"
+                    
+                    # Extract any reasoning from Chain-of-Thought service
+                    reasoning = service_response.data.get("reasoning", {})
+                    
+                    log_healthcare_event(
+                        logger,
+                        logging.INFO,
+                        f"Insurance verification completed via service: {verification_status}",
+                        context={
+                            "member_id": member_id[:4] + "****" if member_id else "****",
+                            "coverage_active": coverage_active,
+                            "verification_status": verification_status,
+                            "service_session_id": service_response.session_id,
+                        },
+                        operation_type="insurance_verification",
+                    )
+
+                    return InsuranceVerificationResult(
+                        verification_id=service_response.session_id or f"verify_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                        status=verification_status,
+                        member_id=member_id,
+                        coverage_active=coverage_active,
+                        benefits_summary=benefits_summary,
+                        verification_errors=[],
+                        compliance_validated=True,
+                        timestamp=datetime.now(),
+                        metadata={
+                            "service_response": True,
+                            "reasoning": reasoning,
+                            "benefits_retrieved": bool(benefits_summary),
+                        },
+                    )
+                else:
+                    # Service call failed
+                    error_msg = service_response.error or "Insurance verification service unavailable"
+                    verification_errors.append(error_msg)
+                    
+                    log_healthcare_event(
+                        logger,
+                        logging.ERROR,
+                        f"Insurance verification service failed: {error_msg}",
+                        context={
+                            "error": error_msg,
+                            "service": service_response.service,
+                            "member_id": member_id[:4] + "****" if member_id else "****",
+                        },
+                        operation_type="verification_service_error",
+                    )
+
+                    return InsuranceVerificationResult(
+                        verification_id=f"verify_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                        status="service_unavailable",
+                        member_id=member_id,
+                        coverage_active=False,
+                        benefits_summary={},
+                        verification_errors=verification_errors,
+                        compliance_validated=False,
+                        timestamp=datetime.now(),
+                        metadata={"service_error": error_msg},
+                    )
 
         except Exception as e:
             log_healthcare_event(
@@ -300,7 +305,7 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
                 context={
                     "error": str(e),
                     "error_type": type(e).__name__,
-                    "member_id": member_id[:4] + "****" if member_id else None,
+                    "member_id": member_id[:4] + "****" if member_id else "****",
                 },
                 operation_type="verification_error",
             )
@@ -405,7 +410,7 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
     @phi_monitor(risk_level="medium", operation_type="prior_authorization")
     async def request_prior_authorization(self, auth_request: dict[str, Any]) -> PriorAuthResult:
         """
-        Submit prior authorization request to insurance payer
+        Submit prior authorization request using insurance-verification service
 
         Args:
             auth_request: Dictionary containing authorization request details
@@ -420,88 +425,103 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
         scan_for_phi(str(auth_request))
 
         auth_errors = []
-        reference_number = None
+        member_id = auth_request.get("member_id")
 
         try:
-            # Validate required fields
-            required_fields = [
-                "member_id",
-                "procedure_codes",
-                "diagnosis_codes",
-                "provider_id",
-                "service_date",
-            ]
-            for field in required_fields:
-                if field not in auth_request:
-                    auth_errors.append(f"Missing required field: {field}")
+            # Call business service for prior authorization
+            async with get_business_client() as client:
+                # Prepare prior auth request for the service
+                prior_auth_request = {
+                    "member_id": auth_request.get("member_id"),
+                    "provider_id": auth_request.get("provider_id"),
+                    "procedure_codes": auth_request.get("procedure_codes", []),
+                    "diagnosis_codes": auth_request.get("diagnosis_codes", []),
+                    "service_date": auth_request.get("service_date"),
+                    "urgency": auth_request.get("urgency", "routine"),
+                    "clinical_notes": auth_request.get("clinical_notes", ""),
+                    "supporting_documentation": auth_request.get("supporting_documentation", []),
+                }
 
-            if auth_errors:
-                return PriorAuthResult(
-                    auth_id=f"auth_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                    status="validation_failed",
-                    reference_number=None,
-                    decision_date=None,
-                    approved_services=[],
-                    denied_services=[],
-                    auth_errors=auth_errors,
-                    estimated_decision_days=0,
-                    timestamp=datetime.now(),
-                )
+                service_response: ServiceResponse = await client.request_prior_auth(prior_auth_request)
 
-            # Submit authorization request
-            reference_number = f"AUTH{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                if service_response.success:
+                    # Parse service response
+                    auth_data = service_response.data.get("authorization_result", {})
+                    
+                    # Extract authorization details
+                    status = auth_data.get("status", "pending")
+                    reference_number = auth_data.get("reference_number")
+                    approved_services = auth_data.get("approved_services", [])
+                    denied_services = auth_data.get("denied_services", [])
+                    estimated_decision_days = auth_data.get("estimated_decision_days", 3)
+                    
+                    # Parse decision date
+                    decision_date_str = auth_data.get("decision_date")
+                    decision_date = None
+                    if decision_date_str:
+                        try:
+                            decision_date = datetime.fromisoformat(decision_date_str).date()
+                        except ValueError:
+                            decision_date = date.today() + timedelta(days=estimated_decision_days)
+                    else:
+                        decision_date = date.today() + timedelta(days=estimated_decision_days)
 
-            # Mock authorization processing (in production, integrate with payer APIs)
-            await asyncio.sleep(0.2)  # Simulate processing delay
+                    # Extract any reasoning from Chain-of-Thought service
+                    reasoning = service_response.data.get("reasoning", {})
+                    
+                    log_healthcare_event(
+                        logger,
+                        logging.INFO,
+                        f"Prior authorization completed via service: {status}",
+                        context={
+                            "reference_number": reference_number,
+                            "status": status,
+                            "procedure_count": len(auth_request.get("procedure_codes", [])),
+                            "estimated_decision_days": estimated_decision_days,
+                            "service_session_id": service_response.session_id,
+                        },
+                        operation_type="prior_authorization",
+                    )
 
-            # Mock approval determination
-            import random
+                    return PriorAuthResult(
+                        auth_id=service_response.session_id or f"auth_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                        status=status,
+                        reference_number=reference_number,
+                        decision_date=decision_date,
+                        approved_services=approved_services,
+                        denied_services=denied_services,
+                        auth_errors=[],
+                        estimated_decision_days=estimated_decision_days,
+                        timestamp=datetime.now(),
+                    )
+                else:
+                    # Service call failed
+                    error_msg = service_response.error or "Prior authorization service unavailable"
+                    auth_errors.append(error_msg)
+                    
+                    log_healthcare_event(
+                        logger,
+                        logging.ERROR,
+                        f"Prior authorization service failed: {error_msg}",
+                        context={
+                            "error": error_msg,
+                            "service": service_response.service,
+                            "member_id": member_id[:4] + "****" if member_id else "****",
+                        },
+                        operation_type="auth_service_error",
+                    )
 
-            approval_rate = 0.75  # 75% approval rate
-            is_approved = random.random() < approval_rate
-
-            procedure_codes = auth_request.get("procedure_codes", [])
-
-            if is_approved:
-                approved_services = procedure_codes
-                denied_services = []
-                status = "approved"
-                estimated_days = 1
-            else:
-                approved_services = []
-                denied_services = procedure_codes
-                status = "denied"
-                estimated_days = 0
-                auth_errors.append(
-                    "Prior authorization denied - insufficient medical necessity documentation",
-                )
-
-            decision_date = date.today() + timedelta(days=estimated_days)
-
-            log_healthcare_event(
-                logger,
-                logging.INFO,
-                f"Prior authorization processed: {status}",
-                context={
-                    "reference_number": reference_number,
-                    "status": status,
-                    "procedure_count": len(procedure_codes),
-                    "estimated_decision_days": estimated_days,
-                },
-                operation_type="prior_authorization",
-            )
-
-            return PriorAuthResult(
-                auth_id=f"auth_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                status=status,
-                reference_number=reference_number,
-                decision_date=decision_date,
-                approved_services=approved_services,
-                denied_services=denied_services,
-                auth_errors=auth_errors,
-                estimated_decision_days=estimated_days,
-                timestamp=datetime.now(),
-            )
+                    return PriorAuthResult(
+                        auth_id=f"auth_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                        status="service_unavailable",
+                        reference_number=None,
+                        decision_date=None,
+                        approved_services=[],
+                        denied_services=[],
+                        auth_errors=auth_errors,
+                        estimated_decision_days=0,
+                        timestamp=datetime.now(),
+                    )
 
         except Exception as e:
             log_healthcare_event(
@@ -511,7 +531,7 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
                 context={
                     "error": str(e),
                     "error_type": type(e).__name__,
-                    "reference_number": reference_number,
+                    "member_id": member_id[:4] + "****" if member_id else "****",
                 },
                 operation_type="auth_error",
             )
@@ -519,7 +539,7 @@ class InsuranceVerificationAgent(BaseHealthcareAgent):
             return PriorAuthResult(
                 auth_id=f"auth_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                 status="processing_failed",
-                reference_number=reference_number,
+                reference_number=None,
                 decision_date=None,
                 approved_services=[],
                 denied_services=[],

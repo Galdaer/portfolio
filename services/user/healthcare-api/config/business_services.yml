@@ -1,0 +1,147 @@
+# Business Services Configuration
+# Service endpoints and configuration for healthcare-api integration
+
+services:
+  insurance_verification:
+    url: "http://172.20.0.23:8003"
+    timeout: 30
+    retry_attempts: 3
+    retry_delay: 1.0
+    health_check_path: "/health"
+    endpoints:
+      verify: "/verify"
+      prior_auth: "/prior-auth"
+      benefits: "/benefits"
+      providers: "/providers"
+    description: "Multi-provider insurance verification with Chain-of-Thought reasoning"
+
+  billing_engine:
+    url: "http://172.20.0.24:8004"
+    timeout: 45
+    retry_attempts: 3
+    retry_delay: 1.0
+    health_check_path: "/health"
+    endpoints:
+      process_claim: "/claims/process"
+      track_payment: "/payments/track"
+      validate_codes: "/codes/validate"
+      generate_invoice: "/invoices/generate"
+      create_estimate: "/estimates/create"
+    description: "Healthcare claims processing and payment tracking with Tree of Thoughts reasoning"
+
+  compliance_monitor:
+    url: "http://172.20.0.25:8005"
+    timeout: 15
+    retry_attempts: 2
+    retry_delay: 0.5
+    health_check_path: "/health"
+    endpoints:
+      log_event: "/audit/log"
+      check_compliance: "/audit/check"
+      phi_scan: "/audit/phi-scan"
+      violations: "/audit/violations"
+      report: "/audit/report"
+    description: "Real-time HIPAA compliance monitoring and PHI protection"
+
+  business_intelligence:
+    url: "http://172.20.0.26:8006"
+    timeout: 60
+    retry_attempts: 2
+    retry_delay: 2.0
+    health_check_path: "/health"
+    endpoints:
+      analytics: "/analytics"
+      metrics: "/metrics"
+      reports: "/reports"
+      insights: "/insights"
+    description: "Healthcare analytics and business intelligence with predictive insights"
+
+  doctor_personalization:
+    url: "http://172.20.0.27:8007"
+    timeout: 30
+    retry_attempts: 2
+    retry_delay: 1.0
+    health_check_path: "/health"
+    endpoints:
+      personalize: "/personalize"
+      feedback: "/feedback"
+      preferences: "/preferences"
+      models: "/models"
+    description: "LoRA-based AI personalization for healthcare providers"
+
+# Global settings
+global:
+  circuit_breaker:
+    failure_threshold: 5
+    recovery_timeout: 60
+    half_open_max_calls: 3
+  
+  logging:
+    enabled: true
+    level: "INFO"
+    log_requests: true
+    log_responses: false  # Don't log responses due to PHI concerns
+    log_errors: true
+  
+  monitoring:
+    health_check_interval: 30
+    metrics_enabled: true
+    trace_requests: true
+
+# Environment-specific overrides
+environments:
+  development:
+    global:
+      logging:
+        level: "DEBUG"
+        log_responses: true  # Safe in development with synthetic data
+    services:
+      insurance_verification:
+        timeout: 60  # Longer timeout for development
+      billing_engine:
+        timeout: 90
+      business_intelligence:
+        timeout: 120
+  
+  testing:
+    global:
+      logging:
+        level: "DEBUG"
+        log_requests: true
+        log_responses: true
+    services:
+      insurance_verification:
+        url: "http://localhost:8003"
+      billing_engine:
+        url: "http://localhost:8004"
+      compliance_monitor:
+        url: "http://localhost:8005"
+      business_intelligence:
+        url: "http://localhost:8006"
+      doctor_personalization:
+        url: "http://localhost:8007"
+  
+  production:
+    global:
+      logging:
+        level: "WARNING"
+        log_responses: false
+      circuit_breaker:
+        failure_threshold: 3
+        recovery_timeout: 30
+    services:
+      insurance_verification:
+        timeout: 20
+        retry_attempts: 2
+      billing_engine:
+        timeout: 30
+        retry_attempts: 2
+      compliance_monitor:
+        timeout: 10
+        retry_attempts: 1
+      business_intelligence:
+        timeout: 45
+        retry_attempts: 1
+      doctor_personalization:
+        timeout: 20
+        retry_attempts: 2

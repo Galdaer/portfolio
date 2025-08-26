@@ -12,6 +12,7 @@ from typing import Any
 
 from agents import BaseHealthcareAgent
 from agents.billing_helper.shared.billing_utils import SharedBillingUtils
+from core.clients.business_services import get_business_client, ServiceResponse
 from core.financial.healthcare_financial_utils import HealthcareFinancialUtils
 from core.infrastructure.agent_logging_utils import (
     enhanced_agent_method,
@@ -179,7 +180,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
     @phi_monitor_decorator(risk_level="medium", operation_type="billing_processing")
     async def process_claim(self, claim_data: dict[str, Any]) -> BillingResult:
         """
-        Process medical billing claim with compliance validation
+        Process medical billing claim using billing-engine service
 
         Args:
             claim_data: Dictionary containing claim information
@@ -192,7 +193,7 @@ class BillingHelperAgent(BaseHealthcareAgent):
         """
         # Initialize workflow logger for detailed claim processing tracking
         workflow_logger = self.get_workflow_logger()
-        workflow_logger.start_workflow("claim_processing", {
+        workflow_logger.start_workflow("claim_processing_service", {
             "procedure_codes_count": len(claim_data.get("procedure_codes", [])),
             "diagnosis_codes_count": len(claim_data.get("diagnosis_codes", [])),
             "has_patient_id": "patient_id" in claim_data,
@@ -204,121 +205,113 @@ class BillingHelperAgent(BaseHealthcareAgent):
         scan_for_phi(str(claim_data))
 
         processing_errors = []
-        claim_number = None
+        patient_id = claim_data.get("patient_id")
 
         try:
-            # Validate required fields
-            workflow_logger.log_step("validate_required_fields", {
-                "required_fields": ["patient_id", "provider_id", "service_date", "procedure_codes"],
-            })
-            required_fields = ["patient_id", "provider_id", "service_date", "procedure_codes"]
-            for field in required_fields:
-                if field not in claim_data:
-                    processing_errors.append(f"Missing required field: {field}")
+            # Call business service for claim processing
+            async with get_business_client() as client:
+                # Prepare claim processing request for the service
+                claim_request = {
+                    "claim_id": f"claim_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                    "patient_id": claim_data.get("patient_id"),
+                    "provider_id": claim_data.get("provider_id"),
+                    "service_date": claim_data.get("service_date"),
+                    "procedure_codes": claim_data.get("procedure_codes", []),
+                    "diagnosis_codes": claim_data.get("diagnosis_codes", []),
+                    "insurance_info": claim_data.get("insurance_info", {}),
+                    "modifiers": claim_data.get("modifiers", []),
+                    "units": claim_data.get("units", {}),
+                    "place_of_service": claim_data.get("place_of_service", "11"),
+                }
 
-            if processing_errors:
-                workflow_logger.log_step("validation_failed", {
-                    "error_count": len(processing_errors),
-                    "stage": "required_fields",
-                }, level=logging.WARNING)
-                workflow_logger.finish_workflow("failed", {"processing_errors": processing_errors})
-                return BillingResult(
-                    billing_id=f"bill_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                    status="validation_failed",
-                    claim_number=None,
-                    total_amount=None,
-                    processing_errors=processing_errors,
-                    compliance_validated=False,
-                    timestamp=datetime.now(),
-                    metadata={"validation_stage": "required_fields"},
-                )
+                workflow_logger.log_step("calling_billing_service", {
+                    "service_endpoint": "process_claim",
+                })
 
-            # Validate CPT codes
-            workflow_logger.log_step("validate_cpt_codes", {
-                "code_count": len(claim_data.get("procedure_codes", [])),
-            })
-            cpt_validations = []
-            cpt_start_time = time.time()
-            for code in claim_data.get("procedure_codes", []):
-                validation = await self.validate_cpt_code(code)
-                cpt_validations.append(validation)
-                if not validation.is_valid:
-                    processing_errors.append(f"Invalid CPT code: {code}")
+                service_response: ServiceResponse = await client.process_claim(claim_request)
 
-            workflow_logger.log_performance_metric("cpt_validation_time_ms",
-                                                 (time.time() - cpt_start_time) * 1000, "ms")
+                if service_response.success:
+                    # Parse service response
+                    claim_result = service_response.data.get("claim_result", {})
+                    
+                    # Extract claim processing details
+                    status = claim_result.get("status", "unknown")
+                    claim_number = claim_result.get("claim_number")
+                    total_amount = claim_result.get("total_amount", 0.0)
+                    validation_errors = claim_result.get("validation_errors", [])
+                    compliance_validated = claim_result.get("compliance_validated", False)
+                    
+                    # Extract Tree of Thoughts reasoning
+                    reasoning = service_response.data.get("reasoning", {})
+                    
+                    # Finish workflow logging
+                    workflow_logger.finish_workflow("completed", {
+                        "final_status": status,
+                        "claim_number": claim_number,
+                        "total_amount": total_amount,
+                        "compliance_validated": compliance_validated,
+                        "service_session_id": service_response.session_id,
+                        "error_count": len(validation_errors),
+                    })
 
-            # Validate ICD-10 codes
-            workflow_logger.log_step("validate_icd_codes", {
-                "code_count": len(claim_data.get("diagnosis_codes", [])),
-            })
-            icd_validations = []
-            icd_start_time = time.time()
-            for code in claim_data.get("diagnosis_codes", []):
-                validation = await self.validate_icd_code(code)
-                icd_validations.append(validation)
-                if not validation.is_valid:
-                    processing_errors.append(f"Invalid ICD-10 code: {code}")
+                    log_healthcare_event(
+                        logger,
+                        logging.INFO,
+                        f"Claim processing completed via service: {status}",
+                        context={
+                            "claim_number": claim_number,
+                            "total_amount": total_amount,
+                            "compliance_validated": compliance_validated,
+                            "service_session_id": service_response.session_id,
+                        },
+                        operation_type="claim_processing",
+                    )
 
-            workflow_logger.log_performance_metric("icd_validation_time_ms",
-                                                 (time.time() - icd_start_time) * 1000, "ms")
+                    return BillingResult(
+                        billing_id=service_response.session_id or f"bill_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                        status=status,
+                        claim_number=claim_number,
+                        total_amount=total_amount,
+                        processing_errors=validation_errors,
+                        compliance_validated=compliance_validated,
+                        timestamp=datetime.now(),
+                        metadata={
+                            "service_response": True,
+                            "reasoning": reasoning,
+                            "processing_stage": "complete",
+                        },
+                    )
+                else:
+                    # Service call failed
+                    error_msg = service_response.error or "Billing engine service unavailable"
+                    processing_errors.append(error_msg)
+                    
+                    workflow_logger.finish_workflow("failed", {
+                        "service_error": error_msg,
+                    })
+                    
+                    log_healthcare_event(
+                        logger,
+                        logging.ERROR,
+                        f"Claim processing service failed: {error_msg}",
+                        context={
+                            "error": error_msg,
+                            "service": service_response.service,
+                            "patient_id": patient_id[:4] + "****" if patient_id else "****",
+                        },
+                        operation_type="claim_processing_service_error",
+                    )
 
-            # Calculate total amount
-            workflow_logger.log_step("calculate_claim_amount", {
-                "cpt_validations_count": len(cpt_validations),
-            })
-            total_amount = self._calculate_claim_amount(claim_data, cpt_validations)
-            workflow_logger.log_performance_metric("calculated_amount", total_amount, "USD")
-
-            # Generate claim number if validation passes
-            if not processing_errors:
-                workflow_logger.log_step("generate_claim_number", {"status": "validation_passed"})
-                claim_number = f"CLM{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                status = "processed"
-                compliance_validated = True
-            else:
-                workflow_logger.log_step("claim_requires_correction", {
-                    "error_count": len(processing_errors),
-                }, level=logging.WARNING)
-                status = "requires_correction"
-                compliance_validated = False
-
-            # Finish workflow logging
-            workflow_logger.finish_workflow("completed", {
-                "final_status": status,
-                "claim_number": claim_number,
-                "total_amount": total_amount,
-                "compliance_validated": compliance_validated,
-                "error_count": len(processing_errors),
-            })
-
-            log_healthcare_event(
-                logger,
-                logging.INFO,
-                f"Claim processing completed: {status}",
-                context={
-                    "claim_number": claim_number,
-                    "total_amount": total_amount,
-                    "error_count": len(processing_errors),
-                    "compliance_validated": compliance_validated,
-                },
-                operation_type="claim_processing",
-            )
-
-            return BillingResult(
-                billing_id=f"bill_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                status=status,
-                claim_number=claim_number,
-                total_amount=total_amount,
-                processing_errors=processing_errors,
-                compliance_validated=compliance_validated,
-                timestamp=datetime.now(),
-                metadata={
-                    "cpt_validations": len(cpt_validations),
-                    "icd_validations": len(icd_validations),
-                    "processing_stage": "complete",
-                },
-            )
+                    return BillingResult(
+                        billing_id=f"bill_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                        status="service_unavailable",
+                        claim_number=None,
+                        total_amount=None,
+                        processing_errors=processing_errors,
+                        compliance_validated=False,
+                        timestamp=datetime.now(),
+                        metadata={"service_error": error_msg},
+                    )
 
         except Exception as e:
             workflow_logger.finish_workflow("failed", error=e)
@@ -327,7 +320,11 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 logger,
                 logging.ERROR,
                 f"Claim processing failed: {str(e)}",
-                context={"error": str(e), "error_type": type(e).__name__},
+                context={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "patient_id": patient_id[:4] + "****" if patient_id else "****",
+                },
                 operation_type="claim_processing_error",
             )
 

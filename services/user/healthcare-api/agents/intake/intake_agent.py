@@ -11,6 +11,7 @@ from typing import Any
 from agents import BaseHealthcareAgent
 from agents.transcription.transcription_agent import TranscriptionAgent
 from config.config_loader import get_healthcare_config
+from core.compliance.agent_compliance_monitor import compliance_monitor_decorator
 from core.enhanced_sessions import EnhancedSessionManager
 from core.infrastructure.agent_logging_utils import (
     enhanced_agent_method,
@@ -157,6 +158,11 @@ class VoiceIntakeProcessor:
             raise
 
     @healthcare_log_method(operation_type="voice_chunk_processing", phi_risk_level="high")
+    @compliance_monitor_decorator(
+        operation_type="patient_intake_voice",
+        phi_risk_level="high",
+        validate_input=True
+    )
     async def process_voice_chunk(self, voice_session_id: str, audio_data: dict[str, Any]) -> VoiceIntakeResult:
         """
         Process real-time voice audio chunk and update intake form

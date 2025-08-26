@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from agents import BaseHealthcareAgent
+from core.compliance.agent_compliance_monitor import compliance_monitor_decorator
 from core.enhanced_sessions import EnhancedSessionManager
 from core.infrastructure.agent_metrics import AgentMetricsStore
 from core.infrastructure.healthcare_cache import HealthcareCacheManager
@@ -330,6 +331,12 @@ class SoapNotesAgent(BaseHealthcareAgent):
 
     @healthcare_log_method(operation_type="soap_note_generation", phi_risk_level="high")
     @phi_monitor(risk_level="high", operation_type="soap_note_generation")
+    @compliance_monitor_decorator(
+        operation_type="clinical_documentation",
+        phi_risk_level="high",
+        validate_input=True,
+        validate_output=True
+    )
     async def generate_soap_note(self, transcription_data: dict[str, Any], note_type: str = "soap") -> SOAPNote:
         """
         Generate structured SOAP note from transcription data

@@ -16,6 +16,7 @@ from typing import Any, cast
 
 from agents import BaseHealthcareAgent
 from config.transcription_config_loader import TRANSCRIPTION_CONFIG
+from core.compliance.agent_compliance_monitor import compliance_monitor_decorator
 from core.infrastructure.agent_metrics import AgentMetricsStore
 from core.infrastructure.healthcare_cache import HealthcareCacheManager
 from core.infrastructure.healthcare_logger import (
@@ -266,6 +267,12 @@ class TranscriptionAgent(BaseHealthcareAgent):
 
     @healthcare_log_method(operation_type="audio_transcription", phi_risk_level="high")
     @phi_monitor(risk_level="high", operation_type="audio_transcription")
+    @compliance_monitor_decorator(
+        operation_type="medical_transcription",
+        phi_risk_level="high",
+        validate_input=True,
+        validate_output=True
+    )
     async def transcribe_audio(self, audio_data: dict[str, Any]) -> TranscriptionResult:
         """
         Transcribe medical audio dictation with PHI protection
