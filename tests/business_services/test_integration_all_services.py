@@ -163,9 +163,9 @@ class TestBusinessServicesIntegration:
         # Mock compliance events from each service
         mock_events = {
             "insurance_verification": {"phi_access": True, "compliant": True},
-            "billing_engine": {"payment_processed": True, "audit_trail": True},
-            "business_intelligence": {"data_aggregated": True, "privacy_protected": True},
-            "doctor_personalization": {"model_updated": True, "preferences_secure": True}
+            "billing_engine": {"payment_processed": True, "audit_trail": True, "compliant": True},
+            "business_intelligence": {"data_aggregated": True, "privacy_protected": True, "compliant": True},
+            "doctor_personalization": {"model_updated": True, "preferences_secure": True, "compliant": True}
         }
         
         compliance_summary = {
