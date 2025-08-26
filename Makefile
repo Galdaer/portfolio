@@ -77,6 +77,46 @@
 	   medical-mirrors-validate-downloads \
 	   medical-mirrors-debug-ncbi \
 	   medical-mirrors-clean-data \
+	   billing-engine-build \
+	   billing-engine-rebuild \
+	   billing-engine-clean \
+	   billing-engine-stop \
+	   billing-engine-logs \
+	   billing-engine-health \
+	   billing-engine-status \
+	   billing-engine-test \
+	   business-intelligence-build \
+	   business-intelligence-rebuild \
+	   business-intelligence-clean \
+	   business-intelligence-stop \
+	   business-intelligence-logs \
+	   business-intelligence-health \
+	   business-intelligence-status \
+	   business-intelligence-test \
+	   compliance-monitor-build \
+	   compliance-monitor-rebuild \
+	   compliance-monitor-clean \
+	   compliance-monitor-stop \
+	   compliance-monitor-logs \
+	   compliance-monitor-health \
+	   compliance-monitor-status \
+	   compliance-monitor-test \
+	   doctor-personalization-build \
+	   doctor-personalization-rebuild \
+	   doctor-personalization-clean \
+	   doctor-personalization-stop \
+	   doctor-personalization-logs \
+	   doctor-personalization-health \
+	   doctor-personalization-status \
+	   doctor-personalization-test \
+	   insurance-verification-build \
+	   insurance-verification-rebuild \
+	   insurance-verification-clean \
+	   insurance-verification-stop \
+	   insurance-verification-logs \
+	   insurance-verification-health \
+	   insurance-verification-status \
+	   insurance-verification-test \
 	   parse-downloaded-quick \
 	   parse-downloaded-full \
 	   parse-downloaded-status \
@@ -488,7 +528,7 @@ llama-cpp:
 
 medical-mirrors:
 	@echo "🔁 Restarting Medical Mirrors via setup menu..."
-	@printf '3\n4\n' | make setup
+	@printf '3\n8\n' | make setup
 
 ollama:
 	@echo "🔁 Restarting Ollama via setup menu..."
@@ -1355,6 +1395,213 @@ medical-mirrors-clean-data:
 	else \
 		echo "   ✅ No FDA files found"; \
 	fi
+
+# Business Services Commands
+
+# Insurance Verification Service Commands
+insurance-verification-build:
+	@echo "🏗️  Building Insurance Verification service Docker image"
+	@cd services/user/insurance-verification && docker build -t intelluxe/insurance-verification:latest .
+	@echo "✅ Insurance Verification Docker image built successfully"
+
+insurance-verification-rebuild:
+	@echo "🔄  Rebuilding Insurance Verification service (no cache)"
+	@cd services/user/insurance-verification && docker build --no-cache -t intelluxe/insurance-verification:latest .
+	@echo "✅ Insurance Verification Docker image rebuilt successfully"
+
+insurance-verification-clean:
+	@echo "🧹  Cleaning up Insurance Verification Docker artifacts"
+	@docker images intelluxe/insurance-verification -q | xargs -r docker rmi -f
+	@docker system prune -f --filter "label=description=Multi-provider insurance verification with chain-of-thought reasoning and PHI protection"
+	@echo "✅ Insurance Verification Docker cleanup complete"
+
+insurance-verification-stop:
+	@echo "🛑  Stopping Insurance Verification service"
+	@docker stop insurance-verification 2>/dev/null || echo "Container not running"
+	@docker rm insurance-verification 2>/dev/null || echo "Container not found"
+	@echo "✅ Insurance Verification service stopped"
+
+insurance-verification-logs:
+	@echo "📋  Insurance Verification service logs (last 50 lines):"
+	@docker logs --tail 50 insurance-verification 2>/dev/null || echo "Container not found or not running"
+
+insurance-verification-health:
+	@echo "🏥  Checking Insurance Verification service health"
+	@curl -f http://172.20.0.23:8003/health 2>/dev/null && echo "✅ Insurance Verification service is healthy" || echo "❌ Insurance Verification service is unhealthy"
+
+insurance-verification-status:
+	@echo "📊  Insurance Verification service status:"
+	@docker ps --filter name=insurance-verification --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || echo "Container not found"
+
+insurance-verification-test:
+	@echo "🧪  Running Insurance Verification service validation"
+	@curl -f http://172.20.0.23:8003/docs 2>/dev/null && echo "✅ Insurance Verification docs accessible" || echo "❌ Insurance Verification docs not accessible"
+	@curl -f http://172.20.0.23:8003/health 2>/dev/null && echo "✅ Insurance Verification health check passed" || echo "❌ Insurance Verification health check failed"
+	@echo "✅  Insurance Verification service validation complete"
+
+# Billing Engine Service Commands
+billing-engine-build:
+	@echo "🏗️  Building Billing Engine service Docker image"
+	@cd services/user/billing-engine && docker build -t intelluxe/billing-engine:latest .
+	@echo "✅ Billing Engine Docker image built successfully"
+
+billing-engine-rebuild:
+	@echo "🔄  Rebuilding Billing Engine service (no cache)"
+	@cd services/user/billing-engine && docker build --no-cache -t intelluxe/billing-engine:latest .
+	@echo "✅ Billing Engine Docker image rebuilt successfully"
+
+billing-engine-clean:
+	@echo "🧹  Cleaning up Billing Engine Docker artifacts"
+	@docker images intelluxe/billing-engine -q | xargs -r docker rmi -f
+	@docker system prune -f --filter "label=description=Medical billing engine with claim processing, code validation, and payment tracking"
+	@echo "✅ Billing Engine Docker cleanup complete"
+
+billing-engine-stop:
+	@echo "🛑  Stopping Billing Engine service"
+	@docker stop billing-engine 2>/dev/null || echo "Container not running"
+	@docker rm billing-engine 2>/dev/null || echo "Container not found"
+	@echo "✅ Billing Engine service stopped"
+
+billing-engine-logs:
+	@echo "📋  Billing Engine service logs (last 50 lines):"
+	@docker logs --tail 50 billing-engine 2>/dev/null || echo "Container not found or not running"
+
+billing-engine-health:
+	@echo "💰  Checking Billing Engine service health"
+	@curl -f http://172.20.0.24:8004/health 2>/dev/null && echo "✅ Billing Engine service is healthy" || echo "❌ Billing Engine service is unhealthy"
+
+billing-engine-status:
+	@echo "📊  Billing Engine service status:"
+	@docker ps --filter name=billing-engine --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || echo "Container not found"
+
+billing-engine-test:
+	@echo "🧪  Running Billing Engine service validation"
+	@curl -f http://172.20.0.24:8004/docs 2>/dev/null && echo "✅ Billing Engine docs accessible" || echo "❌ Billing Engine docs not accessible"
+	@curl -f http://172.20.0.24:8004/health 2>/dev/null && echo "✅ Billing Engine health check passed" || echo "❌ Billing Engine health check failed"
+	@echo "✅  Billing Engine service validation complete"
+
+# Compliance Monitor Service Commands
+compliance-monitor-build:
+	@echo "🏗️  Building Compliance Monitor service Docker image"
+	@cd services/user/compliance-monitor && docker build -t intelluxe/compliance-monitor:latest .
+	@echo "✅ Compliance Monitor Docker image built successfully"
+
+compliance-monitor-rebuild:
+	@echo "🔄  Rebuilding Compliance Monitor service (no cache)"
+	@cd services/user/compliance-monitor && docker build --no-cache -t intelluxe/compliance-monitor:latest .
+	@echo "✅ Compliance Monitor Docker image rebuilt successfully"
+
+compliance-monitor-clean:
+	@echo "🧹  Cleaning up Compliance Monitor Docker artifacts"
+	@docker images intelluxe/compliance-monitor -q | xargs -r docker rmi -f
+	@docker system prune -f --filter "label=description=HIPAA compliance monitoring with audit trail tracking and violation detection"
+	@echo "✅ Compliance Monitor Docker cleanup complete"
+
+compliance-monitor-stop:
+	@echo "🛑  Stopping Compliance Monitor service"
+	@docker stop compliance-monitor 2>/dev/null || echo "Container not running"
+	@docker rm compliance-monitor 2>/dev/null || echo "Container not found"
+	@echo "✅ Compliance Monitor service stopped"
+
+compliance-monitor-logs:
+	@echo "📋  Compliance Monitor service logs (last 50 lines):"
+	@docker logs --tail 50 compliance-monitor 2>/dev/null || echo "Container not found or not running"
+
+compliance-monitor-health:
+	@echo "🛡️  Checking Compliance Monitor service health"
+	@curl -f http://172.20.0.25:8005/health 2>/dev/null && echo "✅ Compliance Monitor service is healthy" || echo "❌ Compliance Monitor service is unhealthy"
+
+compliance-monitor-status:
+	@echo "📊  Compliance Monitor service status:"
+	@docker ps --filter name=compliance-monitor --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || echo "Container not found"
+
+compliance-monitor-test:
+	@echo "🧪  Running Compliance Monitor service validation"
+	@curl -f http://172.20.0.25:8005/docs 2>/dev/null && echo "✅ Compliance Monitor docs accessible" || echo "❌ Compliance Monitor docs not accessible"
+	@curl -f http://172.20.0.25:8005/health 2>/dev/null && echo "✅ Compliance Monitor health check passed" || echo "❌ Compliance Monitor health check failed"
+	@echo "✅  Compliance Monitor service validation complete"
+
+# Business Intelligence Service Commands
+business-intelligence-build:
+	@echo "🏗️  Building Business Intelligence service Docker image"
+	@cd services/user/business-intelligence && docker build -t intelluxe/business-intelligence:latest .
+	@echo "✅ Business Intelligence Docker image built successfully"
+
+business-intelligence-rebuild:
+	@echo "🔄  Rebuilding Business Intelligence service (no cache)"
+	@cd services/user/business-intelligence && docker build --no-cache -t intelluxe/business-intelligence:latest .
+	@echo "✅ Business Intelligence Docker image rebuilt successfully"
+
+business-intelligence-clean:
+	@echo "🧹  Cleaning up Business Intelligence Docker artifacts"
+	@docker images intelluxe/business-intelligence -q | xargs -r docker rmi -f
+	@docker system prune -f --filter "label=description=Business intelligence service with healthcare analytics and reporting"
+	@echo "✅ Business Intelligence Docker cleanup complete"
+
+business-intelligence-stop:
+	@echo "🛑  Stopping Business Intelligence service"
+	@docker stop business-intelligence 2>/dev/null || echo "Container not running"
+	@docker rm business-intelligence 2>/dev/null || echo "Container not found"
+	@echo "✅ Business Intelligence service stopped"
+
+business-intelligence-logs:
+	@echo "📋  Business Intelligence service logs (last 50 lines):"
+	@docker logs --tail 50 business-intelligence 2>/dev/null || echo "Container not found or not running"
+
+business-intelligence-health:
+	@echo "📊  Checking Business Intelligence service health"
+	@curl -f http://172.20.0.26:8006/health 2>/dev/null && echo "✅ Business Intelligence service is healthy" || echo "❌ Business Intelligence service is unhealthy"
+
+business-intelligence-status:
+	@echo "📊  Business Intelligence service status:"
+	@docker ps --filter name=business-intelligence --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || echo "Container not found"
+
+business-intelligence-test:
+	@echo "🧪  Running Business Intelligence service validation"
+	@curl -f http://172.20.0.26:8006/docs 2>/dev/null && echo "✅ Business Intelligence docs accessible" || echo "❌ Business Intelligence docs not accessible"
+	@curl -f http://172.20.0.26:8006/health 2>/dev/null && echo "✅ Business Intelligence health check passed" || echo "❌ Business Intelligence health check failed"
+	@echo "✅  Business Intelligence service validation complete"
+
+# Doctor Personalization Service Commands
+doctor-personalization-build:
+	@echo "🏗️  Building Doctor Personalization service Docker image"
+	@cd services/user/doctor-personalization && docker build -t intelluxe/doctor-personalization:latest .
+	@echo "✅ Doctor Personalization Docker image built successfully"
+
+doctor-personalization-rebuild:
+	@echo "🔄  Rebuilding Doctor Personalization service (no cache)"
+	@cd services/user/doctor-personalization && docker build --no-cache -t intelluxe/doctor-personalization:latest .
+	@echo "✅ Doctor Personalization Docker image rebuilt successfully"
+
+doctor-personalization-clean:
+	@echo "🧹  Cleaning up Doctor Personalization Docker artifacts"
+	@docker images intelluxe/doctor-personalization -q | xargs -r docker rmi -f
+	@docker system prune -f --filter "label=description=Doctor personalization service with LoRA-based AI adaptation"
+	@echo "✅ Doctor Personalization Docker cleanup complete"
+
+doctor-personalization-stop:
+	@echo "🛑  Stopping Doctor Personalization service"
+	@docker stop doctor-personalization 2>/dev/null || echo "Container not running"
+	@docker rm doctor-personalization 2>/dev/null || echo "Container not found"
+	@echo "✅ Doctor Personalization service stopped"
+
+doctor-personalization-logs:
+	@echo "📋  Doctor Personalization service logs (last 50 lines):"
+	@docker logs --tail 50 doctor-personalization 2>/dev/null || echo "Container not found or not running"
+
+doctor-personalization-health:
+	@echo "👨‍⚕️  Checking Doctor Personalization service health"
+	@curl -f http://172.20.0.27:8007/health 2>/dev/null && echo "✅ Doctor Personalization service is healthy" || echo "❌ Doctor Personalization service is unhealthy"
+
+doctor-personalization-status:
+	@echo "📊  Doctor Personalization service status:"
+	@docker ps --filter name=doctor-personalization --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || echo "Container not found"
+
+doctor-personalization-test:
+	@echo "🧪  Running Doctor Personalization service validation"
+	@curl -f http://172.20.0.27:8007/docs 2>/dev/null && echo "✅ Doctor Personalization docs accessible" || echo "❌ Doctor Personalization docs not accessible"
+	@curl -f http://172.20.0.27:8007/health 2>/dev/null && echo "✅ Doctor Personalization health check passed" || echo "❌ Doctor Personalization health check failed"
+	@echo "✅  Doctor Personalization service validation complete"
 
 # Parse Downloaded Medical Archives (without re-downloading)
 parse-downloaded-quick:

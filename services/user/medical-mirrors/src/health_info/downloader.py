@@ -12,6 +12,10 @@ from pathlib import Path
 
 import aiohttp
 from aiohttp import ClientResponseError
+from dotenv import load_dotenv
+
+# Load environment variables from .env file for standalone execution
+load_dotenv()
 
 from config import Config
 
@@ -96,6 +100,9 @@ class HealthInfoDownloader:
             total_items = (len(health_topics) + len(exercises) + len(food_items))
             logger.info(f"Downloaded {total_items} total health information items")
 
+            # Save data to files for processing
+            self._save_data_to_files(all_data)
+
             return all_data
 
         except Exception as e:
@@ -158,6 +165,29 @@ class HealthInfoDownloader:
             logger.debug(f"Progress saved to {self.progress_file}")
         except Exception as e:
             logger.exception(f"Failed to save progress: {e}")
+
+    def _save_data_to_files(self, all_data: dict[str, list[dict]]):
+        """Save downloaded data to individual JSON files for parser processing"""
+        try:
+            data_dir = Path(self.config.get_health_info_data_dir())
+            data_dir.mkdir(parents=True, exist_ok=True)
+
+            for data_type, items in all_data.items():
+                if items:
+                    output_file = data_dir / f"{data_type}_complete.json"
+                    try:
+                        with open(output_file, "w") as f:
+                            json.dump(items, f, default=str)
+                        logger.info(f"Saved {len(items)} {data_type} items to {output_file}")
+                    except Exception as e:
+                        logger.exception(f"Failed to save {data_type} data to {output_file}: {e}")
+                else:
+                    logger.warning(f"No {data_type} items to save")
+
+            logger.info(f"All health info data saved to {data_dir}")
+
+        except Exception as e:
+            logger.exception(f"Error saving health info data to files: {e}")
 
     def _calculate_wait_time(self, source_progress: dict) -> float:
         """Calculate how long to wait before retrying after rate limit"""
@@ -402,17 +432,16 @@ class HealthInfoDownloader:
                 continue
 
     async def _get_full_exercise_data(self, headers: dict, exercise_ids: list[str]) -> list[dict]:
-        """Convert exercise IDs to full exercise data by fetching individual exercises"""
+        """Convert exercise IDs to full exercise data by fetching from ALL category endpoints"""
         logger.info(f"Converting {len(exercise_ids)} exercise IDs to full exercise data")
         all_exercises = []
-
-        # We'll get full data by querying one of the category endpoints and filtering
-        # Since we know we have comprehensive coverage from all endpoints
+        seen_exercise_ids = set()  # Track exercises we've already processed
 
         try:
-            # Get all exercises from body parts (most comprehensive single endpoint)
-            body_parts = ["back", "cardio", "chest", "lower arms", "lower legs", "neck", "shoulders", "upper arms", "upper legs", "waist"]
-
+            # Strategy 1: Get exercises from ALL body parts
+            body_parts = await self._get_exercisedb_body_parts(headers)
+            logger.info(f"Fetching from {len(body_parts)} body parts...")
+            
             for body_part in body_parts:
                 try:
                     url = f"{self.exercisedb_url}/exercises/bodyPart/{body_part.replace(' ', '%20')}"
@@ -428,7 +457,8 @@ class HealthInfoDownloader:
 
                         for exercise in data:
                             exercise_id = exercise.get("id", "")
-                            if exercise_id in exercise_ids:
+                            if exercise_id in exercise_ids and exercise_id not in seen_exercise_ids:
+                                seen_exercise_ids.add(exercise_id)
                                 exercise_data = {
                                     "exercise_id": exercise_id,
                                     "name": exercise.get("name", ""),
@@ -451,10 +481,102 @@ class HealthInfoDownloader:
                     logger.warning(f"Error fetching full data for body part {body_part}: {e}")
                     continue
 
+            logger.info(f"Got {len(all_exercises)} exercises from body parts")
+
+            # Strategy 2: Get exercises from ALL equipment types
+            equipment_types = await self._get_exercisedb_equipment_types(headers)
+            logger.info(f"Fetching from {len(equipment_types)} equipment types...")
+            
+            for equipment in equipment_types:
+                try:
+                    url = f"{self.exercisedb_url}/exercises/equipment/{equipment.replace(' ', '%20')}"
+                    self.download_stats["requests_made"] += 1
+
+                    response = await self._retry_with_backoff(
+                        self.session.get, url, headers=headers, timeout=15,
+                    )
+
+                    async with response as resp:
+                        resp.raise_for_status()
+                        data = await resp.json()
+
+                        for exercise in data:
+                            exercise_id = exercise.get("id", "")
+                            if exercise_id in exercise_ids and exercise_id not in seen_exercise_ids:
+                                seen_exercise_ids.add(exercise_id)
+                                exercise_data = {
+                                    "exercise_id": exercise_id,
+                                    "name": exercise.get("name", ""),
+                                    "body_part": exercise.get("bodyPart", ""),
+                                    "equipment": exercise.get("equipment", ""),
+                                    "target": exercise.get("target", ""),
+                                    "secondary_muscles": exercise.get("secondaryMuscles", []),
+                                    "instructions": exercise.get("instructions", []),
+                                    "gif_url": exercise.get("gifUrl", ""),
+                                    "category": "exercise",
+                                    "source": "exercisedb",
+                                    "last_updated": datetime.now().isoformat(),
+                                    "search_text": f"{exercise.get('name', '')} {exercise.get('bodyPart', '')} {exercise.get('target', '')}".lower(),
+                                }
+                                all_exercises.append(exercise_data)
+
+                    await asyncio.sleep(1)  # Rate limiting
+
+                except Exception as e:
+                    logger.warning(f"Error fetching full data for equipment {equipment}: {e}")
+                    continue
+
+            logger.info(f"Got {len(all_exercises)} exercises total after equipment types")
+
+            # Strategy 3: Get exercises from ALL target muscles
+            target_muscles = await self._get_exercisedb_target_muscles(headers)
+            logger.info(f"Fetching from {len(target_muscles)} target muscles...")
+            
+            for target in target_muscles:
+                try:
+                    url = f"{self.exercisedb_url}/exercises/target/{target.replace(' ', '%20')}"
+                    self.download_stats["requests_made"] += 1
+
+                    response = await self._retry_with_backoff(
+                        self.session.get, url, headers=headers, timeout=15,
+                    )
+
+                    async with response as resp:
+                        resp.raise_for_status()
+                        data = await resp.json()
+
+                        for exercise in data:
+                            exercise_id = exercise.get("id", "")
+                            if exercise_id in exercise_ids and exercise_id not in seen_exercise_ids:
+                                seen_exercise_ids.add(exercise_id)
+                                exercise_data = {
+                                    "exercise_id": exercise_id,
+                                    "name": exercise.get("name", ""),
+                                    "body_part": exercise.get("bodyPart", ""),
+                                    "equipment": exercise.get("equipment", ""),
+                                    "target": exercise.get("target", ""),
+                                    "secondary_muscles": exercise.get("secondaryMuscles", []),
+                                    "instructions": exercise.get("instructions", []),
+                                    "gif_url": exercise.get("gifUrl", ""),
+                                    "category": "exercise",
+                                    "source": "exercisedb",
+                                    "last_updated": datetime.now().isoformat(),
+                                    "search_text": f"{exercise.get('name', '')} {exercise.get('bodyPart', '')} {exercise.get('target', '')}".lower(),
+                                }
+                                all_exercises.append(exercise_data)
+
+                    await asyncio.sleep(1)  # Rate limiting
+
+                except Exception as e:
+                    logger.warning(f"Error fetching full data for target {target}: {e}")
+                    continue
+
+            logger.info(f"Final total: {len(all_exercises)} exercises after all categories")
+
         except Exception as e:
             logger.exception(f"Error converting exercise IDs to full data: {e}")
 
-        logger.info(f"Converted {len(all_exercises)} exercise IDs to full exercise data")
+        logger.info(f"✅ Converted {len(exercise_ids)} exercise IDs to {len(all_exercises)} full exercise records")
         return all_exercises
 
     async def _download_myhealthfinder_data(self) -> list[dict]:

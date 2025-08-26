@@ -9,6 +9,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
+
+# Load environment variables from .env file for standalone execution
+load_dotenv()
+
 # No parser import - this is a DOWNLOADER, not a parser
 from config import Config
 
