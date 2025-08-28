@@ -159,10 +159,61 @@ Standalone business services extracted from healthcare-api agents:
 
 - `agents/`: Core AI agents for different healthcare workflows
 - `core/`: Shared infrastructure, database, and utility modules
+  - `core/clients/`: Business service HTTP clients with circuit breakers
+  - `core/compliance/`: Compliance monitoring integration for agents
 - `config/`: System configuration files and schemas
 - `scripts/`: Management and deployment scripts
 - `services/user/`: Docker service configurations
 - `tests/`: Comprehensive test suite including healthcare evaluations
+
+## Business Services Architecture
+
+The system implements a microservices architecture with specialized business services extracted from the main healthcare-api for improved scalability and maintainability.
+
+### Service Integration Patterns
+
+#### HTTP Client with Resilience (`core/clients/business_services.py`)
+- **Circuit Breaker**: Prevents cascade failures with configurable failure thresholds
+- **Retry Logic**: Exponential backoff with configurable attempts and delay
+- **Timeout Handling**: Service-specific timeout configurations (15s-120s)
+- **PHI-Safe Logging**: Compliance-aware request/response logging (configurable by environment)
+
+#### Configuration Management (`config/business_services.yml`)
+- **Service URLs**: Static IP allocation on intelluxe-net (172.20.0.23-27)
+- **Environment Overrides**: Development, testing, and production configurations
+- **Circuit Breaker Settings**: Configurable failure thresholds and recovery timeouts
+- **Logging Policies**: Environment-aware PHI logging controls
+
+#### Compliance Integration (`core/compliance/agent_compliance_monitor.py`)
+- **Real-time Monitoring**: All agent operations monitored via compliance-monitor service
+- **PHI Detection**: Automated scanning of inputs and outputs for protected health information
+- **Audit Trails**: Comprehensive logging of all healthcare operations with session tracking
+- **Compliance Decorators**: Easy integration with `@compliance_monitor_decorator`
+
+### Agent-to-Service Integration
+
+Healthcare agents now delegate business logic to specialized services:
+
+```python
+# Insurance Agent → Insurance Verification Service (Chain-of-Thought)
+async with get_business_client() as client:
+    response = await client.verify_insurance(verification_request)
+    reasoning = response.data.get("reasoning", {})  # CoT decision process
+    
+# Billing Agent → Billing Engine Service (Tree of Thoughts)
+async with get_business_client() as client:
+    response = await client.process_claim(claim_data)
+    reasoning = response.data.get("reasoning", {})  # ToT decision tree
+```
+
+### Service Communication Benefits
+
+This microservices architecture provides:
+- **Scalability**: Each service can be scaled independently based on load
+- **Maintainability**: Clear separation of concerns between administrative and business logic
+- **Reliability**: Circuit breaker and retry patterns prevent cascade failures
+- **Compliance**: Centralized PHI monitoring and audit trails across all services
+- **Reasoning**: Advanced AI decision-making with Chain-of-Thought and Tree of Thoughts patterns
 
 ## Specialized Agents
 
@@ -209,6 +260,9 @@ For EVERY user request, analyze if it matches these patterns and automatically i
 13. **Phase Analysis** (phase analysis, implementation status, TODO generation, project roadmap) → PhaseDocumentAnalyzer
 14. **Service Integration** (service integration, microservice communication, inter-service API, distributed system) → ServiceIntegrationAgent
 15. **Compliance Automation** (compliance automation, audit setup, violation rules, compliance reporting) → ComplianceAutomationAgent
+16. **Drug Data Integration** (drug data integration, pharmaceutical sources, drug name matching, clinical enrichment, fuzzy matching) → DrugDataIntegrationAgent
+17. **Parser Generation** (create parser, parse XML, parse JSON, data extraction, format conversion, streaming parser) → DataParserGeneratorAgent
+18. **Docker Container Debugging** (docker cp, container file sync, docker build cache, container debugging, module import container) → DockerIntegrationDebugAgent
 
 Use the Task tool to invoke agents rather than attempting the work directly when the task complexity warrants specialized knowledge.
 
@@ -331,6 +385,51 @@ You should: Immediately invoke ComplianceAutomationAgent using Task tool with:
 - prompt: "User needs compliance automation. Set up HIPAA violation detection rules, automated audit trails, and compliance dashboards with regulatory reporting."
 ```
 
+**Drug Data Integration:**
+```
+When user asks: "Integrate DailyMed data" or "Add drug classifications" or "Fuzzy match drug names"
+You should: Immediately invoke DrugDataIntegrationAgent using Task tool with:
+- subagent_type: "DrugDataIntegrationAgent"
+- description: "Integrate pharmaceutical data"
+- prompt: "User needs drug data integration. Implement enhanced drug sources with fuzzy matching, clinical data enrichment, and performance optimization following proven patterns from DailyMed/DrugCentral/RxClass integration."
+```
+
+**Parser Creation:**
+```
+When user asks: "Create parser for XML" or "Extract fields from JSON" or "Need streaming parser"
+You should: Immediately invoke DataParserGeneratorAgent using Task tool with:
+- subagent_type: "DataParserGeneratorAgent"
+- description: "Generate data parser"
+- prompt: "User needs parser creation. Generate robust parser class with validation, normalization, streaming support, and error handling based on healthcare data processing patterns."
+```
+
+**Docker Container Debugging:**
+```
+When user asks: "Files not in container" or "Import errors in docker" or "Database connection failed"
+You should: Immediately invoke DockerIntegrationDebugAgent using Task tool with:
+- subagent_type: "DockerIntegrationDebugAgent"
+- description: "Debug container issues"
+- prompt: "User has container integration problems. Diagnose file sync, build cache, module import, or database connectivity issues using proven debugging patterns."
+```
+
+**Business Service Maintenance:**
+```
+When user asks: "Service health issues" or "Circuit breaker tripping" or "Microservice logs showing errors"
+You should: Immediately invoke BusinessServiceMaintenanceAgent using Task tool with:
+- subagent_type: "BusinessServiceMaintenanceAgent"
+- description: "Monitor and maintain business services"
+- prompt: "User has business service issues. Diagnose health problems, analyze circuit breaker patterns, troubleshoot service communication, and optimize performance across the 5 business microservices."
+```
+
+**Distributed System Testing:**
+```
+When user asks: "Test service integrations" or "End-to-end testing across services" or "Validate circuit breaker logic"
+You should: Immediately invoke ServiceTestOrchestrator using Task tool with:
+- subagent_type: "ServiceTestOrchestrator"
+- description: "Orchestrate distributed system tests"
+- prompt: "User needs comprehensive testing across microservices. Design and execute integration tests, resilience tests, compliance tests, and performance tests for the distributed healthcare system."
+```
+
 ## Development Patterns
 
 ### Configuration Management
@@ -369,6 +468,184 @@ You should: Immediately invoke ComplianceAutomationAgent using Task tool with:
 - Circuit breaker patterns for fault tolerance
 - Retry logic with exponential backoff
 - Service authentication via JWT tokens
+
+### Enhanced Drug Sources Integration
+When working with pharmaceutical data integration and drug name matching:
+
+#### Best Practices
+- **Fuzzy Matching**: Use tiered strategies (exact → normalized → fuzzy) for optimal performance
+- **Drug Name Normalization**: Remove pharmaceutical salts, prefixes, and dosage forms before matching
+- **Performance Optimization**: Limit expensive fuzzy matching to unmatched subset (max 100-1000 items)
+- **Data Lineage**: Always maintain `data_sources` array for traceability
+- **Field Population**: Prioritize high-value clinical fields (mechanism_of_action, pharmacokinetics)
+
+#### Parser Creation Patterns
+Follow `enhanced_drug_sources/` directory structure:
+```
+enhanced_drug_sources/
+├── drug_name_matcher.py      # Fuzzy matching with tiered strategies
+├── dailymed_parser.py        # HL7 v3 XML clinical data parser
+├── drugcentral_parser.py     # Mechanism/pharmacology JSON parser
+├── rxclass_parser.py         # Therapeutic classifications parser
+└── base_parser.py            # Common validation/normalization patterns
+```
+
+#### Docker Development Workflow
+For container-based testing and debugging:
+- Use `docker cp` for quick file synchronization during development
+- Test with container-specific scripts: `docker exec container python3 test_enhanced.py`
+- Handle module imports with `sys.path.append('/app/src')` in container scripts
+- Monitor database connectivity with container-appropriate connection strings
+
+#### Database Integration Patterns
+```sql
+-- PostgreSQL array operations with proper type casting
+SELECT * FROM drug_information 
+WHERE brand_names @> CAST(ARRAY['drug_name'] AS TEXT[]);
+
+-- Field update strategy (longer content wins)
+UPDATE drug_information 
+SET mechanism_of_action = CASE 
+    WHEN LENGTH(COALESCE(new_value, '')) > LENGTH(COALESCE(mechanism_of_action, '')) 
+    THEN new_value 
+    ELSE mechanism_of_action 
+END;
+```
+
+#### Success Metrics from Implementation
+- **DrugCentral Integration**: 66% match rate (1,455/2,581 drugs updated)
+- **RxClass Classifications**: 100% match rate (7/7 drugs updated)  
+- **Field Population**: 4,049 drugs with mechanism_of_action (12.1% improvement)
+- **Performance**: Process 33K+ drugs in minutes using optimized matching
+- **Data Quality**: Maintained data integrity with comprehensive error handling
+
+## Business Services Implementation Patterns
+
+Based on the successful extraction and integration of 5 business microservices, these patterns ensure scalable and maintainable healthcare architectures.
+
+### Service Extraction Strategy
+
+#### From Monolith to Microservices
+The transition from monolithic healthcare-api to distributed business services followed these principles:
+
+1. **Business Logic Identification**: Extract complex business workflows (insurance, billing, compliance)
+2. **Service Boundaries**: Define clear boundaries around business capabilities, not technical layers
+3. **Data Ownership**: Each service owns its domain data while sharing common infrastructure
+4. **Communication Patterns**: Implement resilient service-to-service communication with circuit breakers
+
+#### Service Architecture Patterns
+```python
+# HTTP Client with Circuit Breaker Pattern
+async with get_business_client() as client:
+    response: ServiceResponse = await client.verify_insurance(request_data)
+    if response.success:
+        # Use Chain-of-Thought reasoning from service
+        reasoning = response.data.get("reasoning", {})
+        process_reasoning(reasoning)
+```
+
+### Integration Implementation
+
+#### Agent Integration Pattern
+Healthcare agents now delegate to business services instead of implementing business logic:
+
+**Before (Monolithic)**:
+```python
+class InsuranceAgent(BaseHealthcareAgent):
+    async def verify_eligibility(self, data):
+        # 200+ lines of business logic embedded in agent
+        eligibility_result = self._check_eligibility(data)
+        benefits = self._get_benefits_details(data)
+        return process_verification(eligibility_result, benefits)
+```
+
+**After (Microservices)**:
+```python
+class InsuranceAgent(BaseHealthcareAgent):
+    async def verify_eligibility(self, data):
+        # Delegate to specialized service with advanced reasoning
+        async with get_business_client() as client:
+            response = await client.verify_insurance(data)
+            return response.data  # Includes Chain-of-Thought reasoning
+```
+
+#### Configuration Management
+Business services configuration in `config/business_services.yml`:
+- **Environment-aware**: Different timeouts and logging for dev/test/prod
+- **Circuit Breaker**: Configurable failure thresholds and recovery patterns
+- **PHI Protection**: Environment-specific logging policies for compliance
+
+### Advanced Reasoning Integration
+
+#### Chain-of-Thought for Linear Decisions (Insurance)
+Insurance verification uses CoT for step-by-step decision making:
+1. Validate member eligibility
+2. Check coverage status
+3. Determine benefits
+4. Apply business rules
+5. Generate decision with reasoning trail
+
+#### Tree of Thoughts for Complex Decisions (Billing)
+Billing engine uses ToT for exploring multiple decision paths:
+1. Code validation (multiple approaches)
+2. Amount calculation (various methodologies)
+3. Insurance coordination (different strategies)
+4. Final decision synthesis
+
+### Compliance Integration
+
+#### Distributed Compliance Monitoring
+```python
+@compliance_monitor_decorator(
+    operation_type="medical_transcription",
+    phi_risk_level="high",
+    validate_input=True,
+    validate_output=True
+)
+async def transcribe_audio(self, audio_data):
+    # Automatic PHI scanning and audit logging
+    # Integrated with compliance-monitor service
+```
+
+#### Cross-Service Audit Trails
+All business service interactions create audit events:
+- **Service-to-service calls**: Logged with session tracking
+- **PHI exposure detection**: Real-time scanning and alerting
+- **Compliance violations**: Automatic detection and response
+
+### Testing Strategies
+
+#### Distributed System Testing
+- **Integration Tests**: Validate service-to-service communication
+- **Resilience Tests**: Circuit breaker and failure scenario testing
+- **Compliance Tests**: PHI protection across service boundaries
+- **Performance Tests**: End-to-end response time validation
+
+#### Test Data Management
+Use synthetic healthcare data that mirrors production complexity:
+- **Patient Scenarios**: Complete healthcare journeys across services
+- **Compliance Scenarios**: PHI detection and violation testing
+- **Performance Scenarios**: High-volume realistic data loads
+
+### Lessons Learned
+
+#### What Works Well
+1. **Static IP Allocation**: Predictable networking (172.20.0.23-27)
+2. **Circuit Breaker Patterns**: Prevent cascade failures effectively
+3. **Compliance Integration**: Real-time monitoring catches issues early
+4. **Advanced Reasoning**: CoT/ToT provides explainable business decisions
+
+#### Key Success Factors
+- **Configuration Management**: Environment-aware settings prevent issues
+- **PHI-Safe Logging**: Configurable logging policies maintain compliance
+- **Service Health Monitoring**: Proactive health checks prevent downtime
+- **Comprehensive Testing**: Distributed testing catches integration issues
+
+#### Future Considerations
+- **Service Mesh**: Consider Istio/Linkerd for advanced traffic management
+- **Event Streaming**: Implement event-driven architecture for loose coupling
+- **Auto-scaling**: Implement horizontal scaling based on service load
+- **Advanced Monitoring**: Add distributed tracing for complex workflow debugging
 
 ## Prompt Enhancement Instructions
 
