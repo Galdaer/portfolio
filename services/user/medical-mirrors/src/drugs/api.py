@@ -9,15 +9,21 @@ Includes data from:
 """
 
 import logging
+import os
 from datetime import datetime
 from typing import Any
 
+from enhanced_drug_sources.ddinter_parser import DDInterParser
+from enhanced_drug_sources.dailymed_parser import DailyMedParser
+from enhanced_drug_sources.drugcentral_parser import DrugCentralParser
+from enhanced_drug_sources.rxclass_parser import RxClassParser
+from enhanced_drug_sources.drug_name_matcher import DrugNameMatcher
 from error_handling import (
     ErrorCollector,
 )
 from sqlalchemy import func, text, cast
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.types import String
+from sqlalchemy.types import String, Text
 from sqlalchemy.orm import Session
 
 from database import DrugInformation, UpdateLog
@@ -1214,6 +1220,129 @@ class DrugAPI:
                 logger.exception(f"Failed to update search vectors: {e}")
                 break
 
+    async def process_ddinter_interactions(self, ddinter_data_dir: str, db: Session) -> dict:
+        """Process DDInter drug interactions and integrate into drugs table"""
+        logger.info(f"Processing DDInter interactions from {ddinter_data_dir}")
+        
+        from pathlib import Path
+        
+        try:
+            # Initialize DDInter parser
+            parser = DDInterParser()
+            data_path = Path(ddinter_data_dir)
+            
+            if not data_path.exists():
+                logger.warning(f"DDInter data directory not found: {data_path}")
+                return {"status": "skipped", "message": "Data directory not found"}
+            
+            # Parse DDInter CSV files
+            parsed_data = parser.parse_and_validate(data_path)
+            interactions = parsed_data.get("drug_interactions", [])
+            
+            if not interactions:
+                logger.warning("No DDInter interactions found")
+                return {"status": "completed", "interactions_processed": 0}
+            
+            logger.info(f"Processing {len(interactions)} DDInter interactions")
+            
+            # Group interactions by drug names
+            drug_interactions = {}
+            processed_count = 0
+            
+            for interaction in interactions:
+                drug1 = interaction.get("drug_1", "").strip()
+                drug2 = interaction.get("drug_2", "").strip()
+                
+                if not drug1 or not drug2:
+                    continue
+                
+                # Add interaction to both drugs
+                for drug_name in [drug1, drug2]:
+                    drug_key = drug_name.upper()
+                    
+                    if drug_key not in drug_interactions:
+                        drug_interactions[drug_key] = {"ddinter": []}
+                    
+                    # Create interaction record
+                    interaction_record = {
+                        "interacting_drug": drug2 if drug_name == drug1 else drug1,
+                        "severity": interaction.get("severity"),
+                        "interaction_type": interaction.get("interaction_type"),
+                        "source": "DDInter",
+                        "metadata": interaction.get("metadata", {})
+                    }
+                    
+                    drug_interactions[drug_key]["ddinter"].append(interaction_record)
+                
+                processed_count += 1
+            
+            logger.info(f"Prepared interactions for {len(drug_interactions)} drugs")
+            
+            # Update drugs in database using direct psycopg2 cursor
+            updated_count = 0
+            import json as json_lib
+            
+            # Get raw psycopg2 connection from SQLAlchemy
+            raw_connection = db.connection().connection
+            cursor = raw_connection.cursor()
+            
+            for drug_name, interactions_data in drug_interactions.items():
+                try:
+                    interactions_json = json_lib.dumps(interactions_data)
+                    
+                    # Use direct psycopg2 execution with proper parameter binding
+                    sql = """
+                        UPDATE drug_information 
+                        SET drug_interactions = COALESCE(drug_interactions, '{}'::jsonb) || %s::jsonb
+                        WHERE UPPER(generic_name) = %s
+                          OR %s = ANY(SELECT UPPER(unnest(brand_names)))
+                    """
+                    
+                    cursor.execute(sql, (interactions_json, drug_name, drug_name))
+                    
+                    if cursor.rowcount > 0:
+                        updated_count += cursor.rowcount
+                        logger.debug(f"Updated {cursor.rowcount} records for {drug_name}")
+                        
+                except Exception as e:
+                    logger.warning(f"Error updating interactions for {drug_name}: {e}")
+                    # Rollback this specific update but continue with others
+                    raw_connection.rollback()
+                    continue
+            
+            # Commit all successful changes
+            try:
+                raw_connection.commit()
+            except Exception as e:
+                logger.error(f"Error committing DDInter updates: {e}")
+                raw_connection.rollback()
+            
+            # Log update
+            from datetime import datetime as dt
+            update_log = UpdateLog(
+                source="ddinter_interactions",
+                update_type="full",
+                status="success", 
+                records_processed=processed_count
+            )
+            update_log.started_at = dt.utcnow()
+            update_log.completed_at = dt.utcnow()
+            db.add(update_log)
+            
+            logger.info(f"✅ DDInter processing completed: {processed_count} interactions processed, {updated_count} drugs updated")
+            
+            return {
+                "status": "completed",
+                "interactions_processed": processed_count,
+                "drugs_updated": updated_count,
+                "parser_stats": parser.get_stats()
+            }
+            
+        except Exception as e:
+            logger.exception(f"Error processing DDInter interactions: {e}")
+            db.rollback()
+            raise
+
     async def initialize_data(self) -> dict:
         """Initialize FDA data"""
         logger.info("Initializing FDA data")
@@ -1248,5 +1377,328 @@ class DrugAPI:
             raise
         finally:
             db.close()
+
+    async def process_existing_files(self, force: bool = False) -> dict[str, Any]:
+        """Process existing FDA files without downloading new data"""
+        logger.info("Processing existing FDA files")
+        
+        db = self.session_factory()
+        try:
+            # Check if we should skip if data exists (unless forced)
+            if not force:
+                count = db.query(func.count(DrugInformation.id)).scalar()
+                if count > 10000:  # Only skip if we have substantial data
+                    logger.info(f"FDA data already exists: {count} drugs (use force=True to reprocess)")
+                    return {"status": "already_processed", "drug_count": count}
+
+            # Find existing files using downloader
+            if not self.downloader:
+                raise ValueError("FDA downloader not available. Initialize with enable_downloader=True.")
+            
+            existing_files = self.downloader.get_existing_files()
+            if not existing_files:
+                logger.warning("No existing FDA files found")
+                return {"status": "no_files_found", "drug_count": 0}
+            
+            logger.info(f"Found {len(existing_files)} existing FDA datasets to process")
+            
+            total_processed = 0
+            
+            # Process each existing dataset
+            for dataset_name, data_dir in existing_files.items():
+                logger.info(f"Processing existing {dataset_name} data from {data_dir}")
+                processed = await self.process_fda_dataset(dataset_name, data_dir, db)
+                total_processed += processed
+                logger.info(f"Processed {processed} drugs from existing {dataset_name}")
+            
+            logger.info(f"Existing FDA files processing completed: {total_processed} drugs processed")
+            
+            # Process enhanced drug sources after FDA processing
+            enhanced_stats = await self.process_enhanced_drug_sources(db)
+            
+            return {
+                "status": "completed",
+                "records_processed": total_processed,
+                "datasets_processed": len(existing_files),
+                "existing_files": list(existing_files.keys()),
+                "enhanced_sources": enhanced_stats
+            }
+            
+        except Exception as e:
+            logger.exception(f"Existing FDA files processing failed: {e}")
+            raise
+        finally:
+            db.close()
+
+    async def process_enhanced_drug_sources(self, db: Session) -> dict[str, Any]:
+        """Process enhanced drug sources to enrich FDA data"""
+        logger.info("🧬 Processing enhanced drug sources to enrich clinical data")
+        
+        stats = {
+            "dailymed": {"processed": 0, "drugs_updated": 0},
+            "drugcentral": {"processed": 0, "drugs_updated": 0}, 
+            "rxclass": {"processed": 0, "drugs_updated": 0}
+        }
+        
+        try:
+            # Process DailyMed XML files
+            dailymed_dir = "/app/data/enhanced_drug_data/dailymed"
+            if os.path.exists(dailymed_dir):
+                logger.info("📋 Processing DailyMed XML files...")
+                dailymed_stats = await self._process_dailymed_data(dailymed_dir, db)
+                stats["dailymed"] = dailymed_stats
+            
+            # Process DrugCentral JSON files
+            drugcentral_dir = "/app/data/enhanced_drug_data/drugcentral" 
+            if os.path.exists(drugcentral_dir):
+                logger.info("🎯 Processing DrugCentral mechanism/pharmacology data...")
+                drugcentral_stats = await self._process_drugcentral_data(drugcentral_dir, db)
+                stats["drugcentral"] = drugcentral_stats
+            
+            # Process RxClass JSON files  
+            rxclass_dir = "/app/data/enhanced_drug_data/rxclass"
+            if os.path.exists(rxclass_dir):
+                logger.info("🏷️ Processing RxClass therapeutic classifications...")
+                rxclass_stats = await self._process_rxclass_data(rxclass_dir, db)
+                stats["rxclass"] = rxclass_stats
+            
+            total_updated = sum(s["drugs_updated"] for s in stats.values())
+            logger.info(f"✅ Enhanced sources processing completed: {total_updated} drugs enriched")
+            
+            return stats
+            
+        except Exception as e:
+            logger.exception(f"Enhanced drug sources processing failed: {e}")
+            return stats
+
+    async def _process_dailymed_data(self, dailymed_dir: str, db: Session) -> dict[str, int]:
+        """Process DailyMed XML files to extract clinical information"""
+        parser = DailyMedParser()
+        matcher = DrugNameMatcher()
+        
+        try:
+            # Parse all DailyMed XML files
+            dailymed_drugs = parser.parse_directory(dailymed_dir)
+            
+            # Get all database drug names for matching
+            db_drugs = db.query(DrugInformation.generic_name).all()
+            db_names = [drug.generic_name for drug in db_drugs]
+            
+            drugs_updated = 0
+            
+            # Update database with DailyMed clinical information
+            for drug_data in dailymed_drugs:
+                generic_name = drug_data.get("generic_name", "").strip()
+                brand_name = drug_data.get("brand_name", "").strip()
+                
+                if not generic_name and not brand_name:
+                    continue
+                
+                drug_record = None
+                
+                # Try fuzzy matching on generic name first
+                if generic_name:
+                    match_result = matcher.find_best_match(generic_name, db_names, threshold=0.7)
+                    if match_result:
+                        matched_name, score = match_result
+                        drug_record = db.query(DrugInformation).filter(
+                            DrugInformation.generic_name == matched_name
+                        ).first()
+                
+                # If no match, try exact brand name search
+                if not drug_record and brand_name:
+                    drug_record = db.query(DrugInformation).filter(
+                        DrugInformation.brand_names.op('@>')(cast([brand_name], ARRAY(Text)))
+                    ).first()
+                
+                if drug_record:
+                    # Update clinical fields with DailyMed data (only if empty or shorter)
+                    updated_fields = []
+                    
+                    clinical_fields = [
+                        "indications_and_usage", "contraindications", "warnings", 
+                        "precautions", "adverse_reactions", "drug_interactions",
+                        "dosage_and_administration", "mechanism_of_action",
+                        "pharmacokinetics", "pharmacodynamics", "boxed_warning",
+                        "clinical_studies", "pediatric_use", "geriatric_use", 
+                        "pregnancy", "nursing_mothers", "overdosage", "nonclinical_toxicology"
+                    ]
+                    
+                    for field in clinical_fields:
+                        new_value = drug_data.get(field)
+                        if new_value:
+                            current_value = getattr(drug_record, field, "")
+                            
+                            # Update if current is empty or new value is significantly longer
+                            if not current_value or (isinstance(new_value, str) and len(new_value) > len(str(current_value)) * 1.5):
+                                if isinstance(new_value, list):
+                                    setattr(drug_record, field, new_value)
+                                else:
+                                    setattr(drug_record, field, new_value)
+                                updated_fields.append(field)
+                    
+                    if updated_fields:
+                        # Update data sources
+                        current_sources = set(drug_record.data_sources or [])
+                        current_sources.add("dailymed")
+                        drug_record.data_sources = list(current_sources)
+                        
+                        drugs_updated += 1
+                        logger.debug(f"Updated {generic_name or brand_name} with DailyMed data: {updated_fields}")
+            
+            db.commit()
+            logger.info(f"✅ DailyMed processing completed: {drugs_updated} drugs updated from {len(dailymed_drugs)} XML files")
+            
+            return {"processed": len(dailymed_drugs), "drugs_updated": drugs_updated}
+            
+        except Exception as e:
+            logger.exception(f"Failed to process DailyMed data: {e}")
+            db.rollback()
+            return {"processed": 0, "drugs_updated": 0}
+
+    async def _process_drugcentral_data(self, drugcentral_dir: str, db: Session) -> dict[str, int]:
+        """Process DrugCentral JSON files to extract mechanism/pharmacology data"""
+        parser = DrugCentralParser()
+        matcher = DrugNameMatcher()
+        
+        try:
+            # Parse all DrugCentral data
+            drugcentral_data = parser.parse_drugcentral_directory(drugcentral_dir)
+            
+            # Get all database drug names for matching (optimized)
+            db_drugs_query = db.query(DrugInformation.generic_name).all()
+            db_names = [drug.generic_name for drug in db_drugs_query]
+            
+            # Create lookup map using optimized fuzzy matching  
+            source_names = list(drugcentral_data.keys())
+            logger.info(f"DrugCentral: Starting fuzzy matching for {len(source_names)} source drugs against {len(db_names)} database drugs")
+            
+            # Use lower threshold and limit candidates for performance
+            lookup_map = matcher.create_lookup_map(source_names, db_names, threshold=0.8)
+            
+            logger.info(f"DrugCentral: Created lookup map for {len(lookup_map)}/{len(source_names)} drugs")
+            
+            drugs_updated = 0
+            
+            # Update database with DrugCentral information
+            for drug_key, drug_info in drugcentral_data.items():
+                # Find matching drug using fuzzy matching
+                matched_name = lookup_map.get(drug_key)
+                if not matched_name:
+                    continue
+                    
+                drug_record = db.query(DrugInformation).filter(
+                    DrugInformation.generic_name == matched_name
+                ).first()
+                
+                if drug_record:
+                    updated_fields = []
+                    
+                    # Update mechanism of action
+                    if drug_info.get("mechanism_of_action"):
+                        current_moa = drug_record.mechanism_of_action or ""
+                        new_moa = drug_info["mechanism_of_action"]
+                        
+                        if not current_moa or len(new_moa) > len(current_moa) * 1.2:
+                            drug_record.mechanism_of_action = new_moa
+                            updated_fields.append("mechanism_of_action")
+                    
+                    # Update pharmacokinetics
+                    if drug_info.get("pharmacokinetics"):
+                        current_pk = drug_record.pharmacokinetics or ""
+                        new_pk = drug_info["pharmacokinetics"]
+                        
+                        if not current_pk or len(new_pk) > len(current_pk) * 1.2:
+                            drug_record.pharmacokinetics = new_pk
+                            updated_fields.append("pharmacokinetics")
+                    
+                    # Update pharmacodynamics
+                    if drug_info.get("pharmacodynamics"):
+                        current_pd = drug_record.pharmacodynamics or ""
+                        new_pd = drug_info["pharmacodynamics"]
+                        
+                        if not current_pd or len(new_pd) > len(current_pd) * 1.2:
+                            drug_record.pharmacodynamics = new_pd
+                            updated_fields.append("pharmacodynamics")
+                    
+                    if updated_fields:
+                        # Update data sources
+                        current_sources = set(drug_record.data_sources or [])
+                        current_sources.add("drugcentral")
+                        drug_record.data_sources = list(current_sources)
+                        
+                        drugs_updated += 1
+                        logger.debug(f"Updated {drug_record.generic_name} with DrugCentral data: {updated_fields}")
+            
+            db.commit()
+            logger.info(f"✅ DrugCentral processing completed: {drugs_updated} drugs updated from {len(drugcentral_data)} records")
+            
+            return {"processed": len(drugcentral_data), "drugs_updated": drugs_updated}
+            
+        except Exception as e:
+            logger.exception(f"Failed to process DrugCentral data: {e}")
+            db.rollback()
+            return {"processed": 0, "drugs_updated": 0}
+
+    async def _process_rxclass_data(self, rxclass_dir: str, db: Session) -> dict[str, int]:
+        """Process RxClass JSON files to extract therapeutic classifications"""
+        parser = RxClassParser()
+        matcher = DrugNameMatcher()
+        
+        try:
+            # Parse all RxClass data
+            rxclass_data = parser.parse_rxclass_directory(rxclass_dir)
+            
+            # Get all database drug names for matching
+            db_drugs = db.query(DrugInformation.generic_name).all()
+            db_names = [drug.generic_name for drug in db_drugs]
+            
+            # Create lookup map using fuzzy matching
+            source_names = list(rxclass_data.keys())
+            lookup_map = matcher.create_lookup_map(source_names, db_names, threshold=0.7)
+            
+            logger.info(f"RxClass: Created lookup map for {len(lookup_map)}/{len(source_names)} drugs")
+            
+            drugs_updated = 0
+            
+            # Update database with RxClass therapeutic classifications
+            for drug_key, therapeutic_classes in rxclass_data.items():
+                # Find matching drug using fuzzy matching
+                matched_name = lookup_map.get(drug_key)
+                if not matched_name:
+                    continue
+                    
+                drug_record = db.query(DrugInformation).filter(
+                    DrugInformation.generic_name == matched_name
+                ).first()
+                
+                if drug_record:
+                    # Get primary therapeutic class
+                    primary_class = parser.extract_primary_therapeutic_class(therapeutic_classes)
+                    
+                    if primary_class:
+                        current_class = drug_record.therapeutic_class or ""
+                        
+                        # Update if current is empty or new class is more specific
+                        if not current_class or len(primary_class) > len(current_class):
+                            drug_record.therapeutic_class = primary_class
+                            
+                            # Update data sources
+                            current_sources = set(drug_record.data_sources or [])
+                            current_sources.add("rxclass")
+                            drug_record.data_sources = list(current_sources)
+                            
+                            drugs_updated += 1
+                            logger.debug(f"Updated {drug_record.generic_name} with RxClass therapeutic class: {primary_class}")
+            
+            db.commit()
+            logger.info(f"✅ RxClass processing completed: {drugs_updated} drugs updated from {len(rxclass_data)} records")
+            
+            return {"processed": len(rxclass_data), "drugs_updated": drugs_updated}
+            
+        except Exception as e:
+            logger.exception(f"Failed to process RxClass data: {e}")
+            db.rollback()
+            return {"processed": 0, "drugs_updated": 0}
 
 

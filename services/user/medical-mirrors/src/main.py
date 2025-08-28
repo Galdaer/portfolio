@@ -253,6 +253,7 @@ async def get_drug_info(ndc: str) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Drug info retrieval failed: {str(e)}")
 
 
+
 # ICD-10 Diagnostic Codes Endpoints
 @app.get("/icd10/search")
 async def search_icd10(
@@ -486,11 +487,22 @@ async def background_process_existing_trials(force: bool = False) -> None:
 
 
 async def background_fda_update(quick_test: bool = False, limit: int | None = None) -> None:
-    """Background task for FDA update"""
+    """Background task for FDA update including DDInter processing"""
     try:
         logger.info("🚀 Starting FDA background update")
         result = await drug_api.trigger_update(quick_test=quick_test, limit=limit)
         logger.info(f"✅ FDA background update completed: {result}")
+        
+        # Process DDInter interactions after FDA update
+        ddinter_data_dir = "/app/data/enhanced_drug_data/ddinter"
+        logger.info("🧬 Starting DDInter interactions processing as part of FDA update")
+        db = SessionLocal()
+        try:
+            ddinter_result = await drug_api.process_ddinter_interactions(ddinter_data_dir, db)
+            logger.info(f"✅ DDInter processing completed: {ddinter_result}")
+        finally:
+            db.close()
+            
     except Exception as e:
         logger.exception(f"❌ FDA background update failed: {e}")
 
@@ -724,9 +736,19 @@ async def background_process_existing_fda(force: bool = False) -> None:
     """Background task for processing existing FDA files"""
     try:
         logger.info("🚀 Starting FDA existing files processing")
-        # FDA doesn't have process_existing_files yet, so trigger a full update
-        result = await drug_api.trigger_update(quick_test=False, limit=None)
+        result = await drug_api.process_existing_files(force=force)
         logger.info(f"✅ FDA existing files processing completed: {result}")
+        
+        # Process DDInter interactions after FDA processing
+        ddinter_data_dir = "/app/data/enhanced_drug_data/ddinter"
+        logger.info("🧬 Starting DDInter interactions processing as part of FDA existing files processing")
+        db = SessionLocal()
+        try:
+            ddinter_result = await drug_api.process_ddinter_interactions(ddinter_data_dir, db)
+            logger.info(f"✅ DDInter processing completed: {ddinter_result}")
+        finally:
+            db.close()
+            
     except Exception as e:
         logger.exception(f"❌ FDA existing files processing failed: {e}")
 

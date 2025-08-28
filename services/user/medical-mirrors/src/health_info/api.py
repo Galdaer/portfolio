@@ -8,7 +8,9 @@ from datetime import datetime
 from fastapi import HTTPException, Query
 from sqlalchemy import text
 
+from config import Config
 from database import get_db_session
+from health_info.exercise_cache_manager import ExerciseCacheManager
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +20,8 @@ class HealthInfoAPI:
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.config = Config()
+        self.cache_manager = None  # Will be initialized when needed
 
     async def search_health_topics(
         self,
@@ -113,71 +117,55 @@ class HealthInfoAPI:
         difficulty: str | None = None,
         max_results: int = 10,
     ) -> dict:
-        """Search exercises from ExerciseDB"""
+        """Search exercises from ExerciseDB - uses cached exercises only"""
         try:
-            with get_db_session() as db:
-                base_query = """
-                    SELECT exercise_id, name, body_part, equipment, target,
-                           secondary_muscles, difficulty_level, exercise_type,
-                           duration_estimate, calories_estimate, gif_url,
-                           last_updated,
-                           ts_rank(search_vector, plainto_tsquery(:query)) as rank
-                    FROM exercises
-                    WHERE search_vector @@ plainto_tsquery(:query)
-                """
-
-                conditions = []
-                params = {"query": query, "max_results": min(max_results, 50)}
-
-                if body_part:
-                    conditions.append("UPPER(body_part) = UPPER(:body_part)")
-                    params["body_part"] = body_part
-
-                if equipment:
-                    conditions.append("UPPER(equipment) = UPPER(:equipment)")
-                    params["equipment"] = equipment
-
-                if difficulty:
-                    conditions.append("UPPER(difficulty_level) = UPPER(:difficulty)")
-                    params["difficulty"] = difficulty
-
-                where_clause = ""
-                if conditions:
-                    where_clause = "AND " + " AND ".join(conditions)
-
-                final_query = f"""
-                    {base_query}
-                    {where_clause}
-                    ORDER BY rank DESC, name
-                    LIMIT :max_results
-                """
-
-                result = db.execute(text(final_query), params)
-                rows = result.fetchall()
-
-                exercises = []
-                for row in rows:
+            # Initialize cache manager if needed
+            if not self.cache_manager:
+                self.cache_manager = ExerciseCacheManager(self.config)
+            
+            async with self.cache_manager as cache_mgr:
+                # Search only cached exercises (no API calls)
+                cached_exercises = await cache_mgr.search_cached_exercises(query, limit=max_results * 2)
+                
+                # Apply additional filters
+                filtered_exercises = []
+                for exercise_data in cached_exercises:
+                    # Apply filters
+                    if body_part and exercise_data.get('body_part', '').upper() != body_part.upper():
+                        continue
+                    if equipment and exercise_data.get('equipment', '').upper() != equipment.upper():
+                        continue
+                    if difficulty and exercise_data.get('difficulty_level', '').upper() != difficulty.upper():
+                        continue
+                    
+                    # Convert to API format
                     exercise = {
-                        "exercise_id": row.exercise_id,
-                        "name": row.name,
-                        "body_part": row.body_part or "",
-                        "equipment": row.equipment or "",
-                        "target": row.target or "",
-                        "secondary_muscles": row.secondary_muscles or [],
-                        "difficulty_level": row.difficulty_level or "",
-                        "exercise_type": row.exercise_type or "",
-                        "duration_estimate": row.duration_estimate or "",
-                        "calories_estimate": row.calories_estimate or "",
-                        "gif_url": row.gif_url or "",
-                        "last_updated": row.last_updated.isoformat() if row.last_updated else None,
-                        "relevance_score": float(row.rank) if row.rank else 0.0,
+                        "exercise_id": exercise_data.get('exercise_id', ''),
+                        "name": exercise_data.get('name', ''),
+                        "body_part": exercise_data.get('body_part', ''),
+                        "equipment": exercise_data.get('equipment', ''),
+                        "target": exercise_data.get('target', ''),
+                        "secondary_muscles": exercise_data.get('secondary_muscles', []),
+                        "difficulty_level": exercise_data.get('difficulty_level', ''),
+                        "exercise_type": exercise_data.get('exercise_type', ''),
+                        "duration_estimate": exercise_data.get('duration_estimate', ''),
+                        "calories_estimate": exercise_data.get('calories_estimate', ''),
+                        "gif_url": exercise_data.get('gif_url', ''),
+                        "last_updated": exercise_data.get('last_updated'),
+                        "relevance_score": 1.0,  # Cache search doesn't provide ranking
                         "item_type": "exercise",
                     }
-                    exercises.append(exercise)
-
+                    filtered_exercises.append(exercise)
+                    
+                    if len(filtered_exercises) >= max_results:
+                        break
+                
+                # Get cache stats for additional context
+                cache_stats = await cache_mgr.get_cache_stats()
+                
                 return {
-                    "exercises": exercises,
-                    "total_results": len(exercises),
+                    "exercises": filtered_exercises,
+                    "total_results": len(filtered_exercises),
                     "search_query": query,
                     "filters": {
                         "body_part": body_part,
@@ -185,20 +173,23 @@ class HealthInfoAPI:
                         "difficulty": difficulty,
                     },
                     "timestamp": datetime.now().isoformat(),
+                    "cache_info": {
+                        "total_cached": cache_stats.get('total_cached_exercises', 0),
+                        "searched_cache_only": True,
+                        "rate_limit_status": cache_stats.get('rate_limit_status', {})
+                    }
                 }
 
         except Exception as e:
             logger.exception(f"Error searching exercises: {e}")
-            if "relation \"exercises\" does not exist" in str(e):
-                return {
-                    "exercises": [],
-                    "total_results": 0,
-                    "search_query": query,
-                    "filters": {"body_part": body_part, "equipment": equipment, "difficulty": difficulty},
-                    "timestamp": datetime.now().isoformat(),
-                    "warning": "Exercises table not yet created. Use POST /database/create-tables to initialize."
-                }
-            raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
+            return {
+                "exercises": [],
+                "total_results": 0,
+                "search_query": query,
+                "filters": {"body_part": body_part, "equipment": equipment, "difficulty": difficulty},
+                "timestamp": datetime.now().isoformat(),
+                "error": f"Search error: {str(e)}"
+            }
 
     async def search_foods(
         self,
@@ -329,40 +320,51 @@ class HealthInfoAPI:
             raise HTTPException(status_code=500, detail=f"Lookup error: {str(e)}")
 
     async def get_exercise_details(self, exercise_id: str) -> dict:
-        """Get detailed information for a specific exercise"""
+        """Get detailed information for a specific exercise - checks cache first, then API if needed"""
         try:
-            with get_db_session() as db:
-                result = db.execute(text("""
-                    SELECT exercise_id, name, body_part, equipment, target,
-                           secondary_muscles, instructions, difficulty_level,
-                           exercise_type, duration_estimate, calories_estimate,
-                           gif_url, last_updated, source
-                    FROM exercises
-                    WHERE exercise_id = :exercise_id
-                """), {"exercise_id": exercise_id})
-
-                row = result.fetchone()
-
-                if not row:
-                    raise HTTPException(status_code=404, detail=f"Exercise '{exercise_id}' not found")
-
+            # Initialize cache manager if needed
+            if not self.cache_manager:
+                self.cache_manager = ExerciseCacheManager(self.config)
+            
+            async with self.cache_manager as cache_mgr:
+                # Try to get exercise (cache first, API if not found and rate limits allow)
+                result = await cache_mgr.get_exercise(exercise_id)
+                
+                if not result.get("success"):
+                    # Exercise not found or rate limited
+                    if "Rate limited" in result.get("error", ""):
+                        raise HTTPException(
+                            status_code=429, 
+                            detail=f"Exercise API rate limited. {result.get('message', '')}"
+                        )
+                    else:
+                        raise HTTPException(
+                            status_code=404, 
+                            detail=f"Exercise '{exercise_id}' not found"
+                        )
+                
+                exercise_data = result["exercise"]
+                
                 return {
-                    "exercise_id": row.exercise_id,
-                    "name": row.name,
-                    "body_part": row.body_part or "",
-                    "equipment": row.equipment or "",
-                    "target": row.target or "",
-                    "secondary_muscles": row.secondary_muscles or [],
-                    "instructions": row.instructions or [],
-                    "difficulty_level": row.difficulty_level or "",
-                    "exercise_type": row.exercise_type or "",
-                    "duration_estimate": row.duration_estimate or "",
-                    "calories_estimate": row.calories_estimate or "",
-                    "gif_url": row.gif_url or "",
-                    "last_updated": row.last_updated.isoformat() if row.last_updated else None,
-                    "source": row.source or "exercisedb",
+                    "exercise_id": exercise_data.get("exercise_id", exercise_id),
+                    "name": exercise_data.get("name", ""),
+                    "body_part": exercise_data.get("body_part", ""),
+                    "equipment": exercise_data.get("equipment", ""),
+                    "target": exercise_data.get("target", ""),
+                    "secondary_muscles": exercise_data.get("secondary_muscles", []),
+                    "instructions": exercise_data.get("instructions", []),
+                    "difficulty_level": exercise_data.get("difficulty_level", ""),
+                    "exercise_type": exercise_data.get("exercise_type", ""),
+                    "duration_estimate": exercise_data.get("duration_estimate", ""),
+                    "calories_estimate": exercise_data.get("calories_estimate", ""),
+                    "gif_url": exercise_data.get("gif_url", ""),
+                    "last_updated": exercise_data.get("last_updated"),
+                    "source": exercise_data.get("source", "exercisedb"),
+                    "cache_info": {
+                        "source": result.get("source"),  # "cache" or "api"
+                        "cached": result.get("cached", False)
+                    }
                 }
-
 
         except HTTPException:
             raise
@@ -510,3 +512,19 @@ async def get_food_details(fdc_id: int):
 async def get_health_info_stats():
     """Get health information database statistics"""
     return await health_info_api.get_stats()
+
+async def get_exercise_cache_stats():
+    """Get ExerciseDB cache statistics"""
+    cache_manager = ExerciseCacheManager(Config())
+    async with cache_manager as cache_mgr:
+        return await cache_mgr.get_cache_stats()
+
+async def warmup_exercise_cache(exercise_ids: list[str] = None):
+    """Warm up exercise cache with specific exercise IDs"""
+    if not exercise_ids:
+        # Default warmup with some common exercise IDs
+        exercise_ids = ["0001", "0002", "0003", "0004", "0005"]
+    
+    cache_manager = ExerciseCacheManager(Config())
+    async with cache_manager as cache_mgr:
+        return await cache_mgr.warmup_cache(exercise_ids)
