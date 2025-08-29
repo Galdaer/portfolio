@@ -8,7 +8,7 @@ import io
 import logging
 import zipfile
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from pathlib import Path
 from typing import Any
 
@@ -304,11 +304,14 @@ class CMSHCPCSDownloader:
             return None
 
     def _parse_fixed_width_hcpcs(self, lines: list[str]) -> list[dict[str, Any]]:
-        """Parse fixed-width HCPCS format"""
+        """Parse fixed-width HCPCS format with proper CMS structure and multi-line handling"""
         codes = []
+        current_record = None
+        continuation_buffer = {}
 
         for line in lines[1:]:  # Skip header
-            line = line.strip()
+            line_original = line
+            line = line.rstrip()  # Keep trailing spaces for field extraction
             if not line or line.startswith("#"):
                 continue
 
@@ -334,29 +337,174 @@ class CMSHCPCSDownloader:
                                 "is_active": True,
                             })
 
-                # Try to parse as fixed positions (common CMS format)
-                elif len(line) > 10:
-                    code = line[:5].strip()
-                    description = line[5:].strip()
-
-                    if code and description:
-                        codes.append({
-                            "code": code,
-                            "short_description": "",
-                            "long_description": description,
-                            "description": description,
-                            "code_type": "HCPCS",
-                            "category": "",
-                            "source": "cms_direct",
-                            "last_updated": datetime.now().isoformat(),
-                            "is_active": True,
-                        })
+                # Parse CMS fixed-width format based on official record layout
+                elif len(line) >= 280:  # Must be at least 280 chars to include dates
+                    # Parse based on CMS HCPCS record layout document
+                    # Fields are 1-indexed in documentation, convert to 0-indexed for Python
+                    
+                    if line.startswith("   "):  # Format 1: 3 leading spaces
+                        # HCPCS code: positions 4-8 (3-7 in 0-indexed)
+                        # Sequence: positions 9-13 (8-12 in 0-indexed)
+                        # Record ID: position 14 (13 in 0-indexed)
+                        # Long desc: positions 15-94 (14-93 in 0-indexed)
+                        # Short desc: positions 95-122 (94-121 in 0-indexed)
+                        code = line[3:8].strip()
+                        sequence = line[8:13].strip()
+                        record_id = line[13:14]
+                        long_desc = line[14:94].strip()
+                        short_desc = line[94:122].strip()
+                        
+                        # Extract additional fields for format 1
+                        pricing_indicator = line[119:121].strip() if len(line) > 120 else ""
+                        multi_pricing_ind = line[127:128].strip() if len(line) > 127 else ""
+                        coverage_code = line[229:230].strip() if len(line) > 229 else ""
+                        betos_code = line[256:259].strip() if len(line) > 258 else ""
+                        type_of_service = line[260:261].strip() if len(line) > 260 else ""
+                        anesthesia_units = line[265:268].strip() if len(line) > 267 else ""
+                        code_added_date_str = line[268:276].strip() if len(line) > 275 else ""
+                        effective_date_str = line[276:284] if len(line) > 283 else ""
+                        termination_date_str = line[284:292] if len(line) > 291 else ""
+                        action_code = line[292:293] if len(line) > 292 else ""
+                        
+                    else:  # Format 2: No leading spaces
+                        # HCPCS code: positions 1-5 (0-4 in 0-indexed)
+                        # Sequence: positions 6-10 (5-9 in 0-indexed)
+                        # Record ID: position 11 (10 in 0-indexed)
+                        # Long desc: positions 12-91 (11-90 in 0-indexed)
+                        # Short desc: positions 92-119 (91-118 in 0-indexed)
+                        code = line[0:5].strip()
+                        sequence = line[5:10].strip()
+                        record_id = line[10:11]
+                        long_desc = line[11:91].strip()
+                        short_desc = line[91:119].strip()
+                        
+                        # Extract additional fields for format 2 
+                        pricing_indicator = line[119:121].strip() if len(line) > 120 else ""
+                        multi_pricing_ind = line[127:128].strip() if len(line) > 127 else ""
+                        coverage_code = line[229:230].strip() if len(line) > 229 else ""
+                        betos_code = line[256:259].strip() if len(line) > 258 else ""
+                        type_of_service = line[260:261].strip() if len(line) > 260 else ""
+                        anesthesia_units = line[265:268].strip() if len(line) > 267 else ""
+                        code_added_date_str = line[268:276].strip() if len(line) > 275 else ""
+                        effective_date_str = line[276:284] if len(line) > 283 else ""
+                        termination_date_str = line[284:292] if len(line) > 291 else ""
+                        action_code = line[292:293] if len(line) > 292 else ""
+                    
+                    # Parse dates
+                    effective_date = self._parse_cms_date(effective_date_str)
+                    termination_date = self._parse_cms_date(termination_date_str)
+                    code_added_date = self._parse_cms_date(code_added_date_str)
+                    
+                    # Process coded fields
+                    coverage_notes = self._get_coverage_description(coverage_code)
+                    
+                    # Build category from BETOS + Type of Service
+                    category_parts = []
+                    if betos_code:
+                        category_parts.append(f"BETOS:{betos_code}")
+                    if type_of_service:
+                        category_parts.append(f"TOS:{type_of_service}")
+                    category = "; ".join(category_parts)
+                    
+                    # Determine if code is active (no termination date or future termination)
+                    is_active = not termination_date or termination_date > datetime.now().date()
+                    
+                    if code:
+                        # Handle multi-line records with continuation sequences
+                        if sequence.endswith('00'):  # Main record
+                            # If we have a continuation buffer for this code, merge it
+                            if code in continuation_buffer:
+                                buffered = continuation_buffer.pop(code)
+                                long_desc = (long_desc + " " + buffered['long_desc']).strip()
+                                short_desc = short_desc or buffered['short_desc']
+                            
+                            if long_desc or short_desc:
+                                # Use long description as primary, fallback to short
+                                description = long_desc if long_desc else short_desc
+                                
+                                codes.append({
+                                    "code": code,
+                                    "short_description": short_desc if short_desc else "",
+                                    "long_description": long_desc if long_desc else "",
+                                    "description": description,
+                                    "code_type": "HCPCS",
+                                    "category": category,
+                                    "coverage_notes": coverage_notes,
+                                    "source": "cms_direct",
+                                    "last_updated": datetime.now().isoformat(),
+                                    "is_active": is_active,
+                                    "effective_date": effective_date.isoformat() if effective_date else None,
+                                    "termination_date": termination_date.isoformat() if termination_date else None,
+                                    "code_added_date": code_added_date.isoformat() if code_added_date else None,
+                                    "record_id": record_id,
+                                    "sequence": sequence,
+                                    "action_code": action_code,
+                                    "coverage_code": coverage_code,
+                                    "betos_code": betos_code,
+                                    "type_of_service": type_of_service,
+                                    "pricing_indicator": pricing_indicator,
+                                    "anesthesia_units": anesthesia_units,
+                                })
+                        
+                        else:  # Continuation record
+                            # Buffer continuation records to merge with main record
+                            if code not in continuation_buffer:
+                                continuation_buffer[code] = {'long_desc': '', 'short_desc': ''}
+                            
+                            if long_desc:
+                                continuation_buffer[code]['long_desc'] = (
+                                    continuation_buffer[code]['long_desc'] + " " + long_desc
+                                ).strip()
+                            
+                            if short_desc and not continuation_buffer[code]['short_desc']:
+                                continuation_buffer[code]['short_desc'] = short_desc
 
             except Exception as e:
                 logger.debug(f"Error parsing line: {line} - {e}")
                 continue
 
         return codes
+    
+    def _parse_cms_date(self, date_str: str) -> date | None:
+        """Parse CMS date format (YYYYMMDD) to date object"""
+        if not date_str or not date_str.strip() or date_str.strip() == "":
+            return None
+        
+        try:
+            # CMS dates are in YYYYMMDD format
+            date_str = date_str.strip()
+            if len(date_str) == 8 and date_str.isdigit():
+                year = int(date_str[:4])
+                month = int(date_str[4:6])
+                day = int(date_str[6:8])
+                return date(year, month, day)
+        except (ValueError, IndexError):
+            logger.debug(f"Could not parse date: {date_str}")
+        
+        return None
+
+    # CMS code mappings
+    COVERAGE_CODE_MAPPINGS = {
+        'C': 'Carrier judgment - Coverage decision left to local Medicare contractors',
+        'D': 'Special coverage instructions apply - See Medicare manual for specific requirements',
+        'I': 'Not payable by Medicare - Item or service not covered',
+        'M': 'Non-covered by Medicare - Statutory non-coverage',
+        'S': 'Non-covered by Medicare statute - Excluded by Medicare law',
+        '': 'No coverage determination available'
+    }
+    
+    ACTION_CODE_MAPPINGS = {
+        'N': 'New code - Added to HCPCS',
+        'R': 'Reinstated code - Previously deleted code restored',
+        'D': 'Deleted code - Removed from HCPCS', 
+        'C': 'Changed code - Modified description or coverage',
+        '': 'No action specified'
+    }
+
+    def _get_coverage_description(self, coverage_code: str) -> str:
+        """Get full description for coverage code"""
+        return self.COVERAGE_CODE_MAPPINGS.get(coverage_code.strip(), 
+                                               f'Unknown coverage code: {coverage_code}')
 
     async def download_all_hcpcs(self) -> dict[str, list[dict[str, Any]]]:
         """Download all HCPCS codes from CMS sources"""

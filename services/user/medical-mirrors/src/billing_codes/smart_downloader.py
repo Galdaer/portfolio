@@ -492,6 +492,17 @@ class SmartBillingCodesDownloader:
             with open(consolidated_file, "w") as f:
                 json.dump(validated_codes, f, default=str)
             logger.info(f"Saved {len(validated_codes)} validated codes to {consolidated_file}")
+            
+            # Load into database using medical-mirrors database loader
+            try:
+                from .database_loader import BillingCodesDatabaseLoader
+                loader = BillingCodesDatabaseLoader()
+                load_stats = loader.load_codes(validated_codes)
+                logger.info(f"✅ Database loading completed: {load_stats}")
+            except Exception as db_error:
+                logger.error(f"Failed to load codes into database: {db_error}")
+                # Continue processing - database loading failure shouldn't stop file generation
+                
         except Exception as e:
             logger.exception(f"Error saving consolidated results: {e}")
 
