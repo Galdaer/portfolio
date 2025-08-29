@@ -271,7 +271,7 @@ class TranscriptionAgent(BaseHealthcareAgent):
         operation_type="medical_transcription",
         phi_risk_level="high",
         validate_input=True,
-        validate_output=True
+        validate_output=True,
     )
     async def transcribe_audio(self, audio_data: dict[str, Any]) -> TranscriptionResult:
         """

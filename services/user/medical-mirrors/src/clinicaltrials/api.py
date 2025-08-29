@@ -3,6 +3,8 @@ ClinicalTrials.gov API for local mirror
 Provides search functionality matching Healthcare MCP interface
 """
 
+import builtins
+import contextlib
 import glob
 import logging
 from datetime import datetime
@@ -281,22 +283,22 @@ class ClinicalTrialsAPI:
     async def store_trials(self, trials: list[dict[str, Any]], db: Session) -> int:
         """Store trials in database using advanced cross-batch deduplication engine"""
         from deduplication_engine import CrossBatchDeduplicator
-        
+
         logger.info(f"Storing {len(trials)} trials using advanced deduplication engine...")
-        
+
         if not trials:
             logger.info("No trials to process")
             return 0
-        
+
         # Use the advanced deduplication engine
         deduplicator = CrossBatchDeduplicator(db)
-        
+
         # Process trials with comprehensive deduplication
         results = await deduplicator.process_clinical_trials_batch(trials)
-        
-        total_processed = results.get('new_records', 0) + results.get('updated_records', 0)
-        
-        logger.info(f"📊 Advanced Deduplication Results:")
+
+        total_processed = results.get("new_records", 0) + results.get("updated_records", 0)
+
+        logger.info("📊 Advanced Deduplication Results:")
         logger.info(f"   Input trials: {len(trials)}")
         logger.info(f"   After deduplication: {results.get('processed_count', 0)}")
         logger.info(f"   New records: {results.get('new_records', 0)}")
@@ -304,23 +306,24 @@ class ClinicalTrialsAPI:
         logger.info(f"   Duplicates removed: {results.get('duplicates_removed', 0)}")
         logger.info(f"   Content duplicates removed: {results.get('content_duplicates_removed', 0)}")
         logger.info(f"   Deduplication rate: {results.get('deduplication_rate', 0):.1f}%")
-        
+
         return total_processed
 
     async def update_search_vectors(self, db: Session) -> None:
         """Update full-text search vectors with deadlock retry logic"""
-        import time
         import random
+        import time
+
         from psycopg2.errors import DeadlockDetected
-        
+
         max_retries = 5
         base_delay = 0.1
-        
+
         for attempt in range(max_retries):
             try:
                 # Use advisory lock to prevent concurrent updates
                 db.execute(text("SELECT pg_advisory_lock(12346)"))
-                
+
                 update_query = text("""
                     UPDATE clinical_trials
                     SET search_vector = to_tsvector('english',
@@ -335,35 +338,31 @@ class ClinicalTrialsAPI:
 
                 db.execute(update_query)
                 db.commit()
-                
+
                 # Release advisory lock
                 db.execute(text("SELECT pg_advisory_unlock(12346)"))
-                
+
                 logger.info("Updated search vectors for clinical trials")
                 return
 
-            except DeadlockDetected as e:
+            except DeadlockDetected:
                 db.rollback()
                 # Release lock on error
-                try:
+                with contextlib.suppress(builtins.BaseException):
                     db.execute(text("SELECT pg_advisory_unlock(12346)"))
-                except:
-                    pass
-                
+
                 if attempt < max_retries - 1:
                     delay = base_delay * (2 ** attempt) + random.uniform(0, 0.1)
                     logger.warning(f"Deadlock detected, retrying in {delay:.2f}s (attempt {attempt + 1}/{max_retries})")
                     time.sleep(delay)
                 else:
-                    logger.error(f"Failed to update search vectors after {max_retries} attempts due to deadlocks")
-                    
+                    logger.exception(f"Failed to update search vectors after {max_retries} attempts due to deadlocks")
+
             except Exception as e:
                 db.rollback()
                 # Release lock on error
-                try:
+                with contextlib.suppress(builtins.BaseException):
                     db.execute(text("SELECT pg_advisory_unlock(12346)"))
-                except:
-                    pass
                 logger.exception(f"Failed to update search vectors: {e}")
                 break
 
@@ -419,26 +418,25 @@ class ClinicalTrialsAPI:
 
     def find_existing_files(self) -> list[str]:
         """Find existing clinical trials JSON files to process"""
-        import glob
         import os
-        
+
         data_dir = self.config.get_trials_data_dir()
-        
+
         # Find all compressed JSON files (both batch and consolidated patterns)
         batch_files = glob.glob(os.path.join(data_dir, "studies_batch_*.json.gz"))
         consolidated_files = glob.glob(os.path.join(data_dir, "studies_consolidated_*.json.gz"))
         json_gz_files = batch_files + consolidated_files
-        
+
         # Sort files for consistent processing order
         json_gz_files.sort()
-        
+
         logger.info(f"Found {len(json_gz_files)} existing clinical trials files to process (batch: {len(batch_files)}, consolidated: {len(consolidated_files)})")
         return json_gz_files
 
     async def process_existing_files(self, force: bool = False) -> dict[str, Any]:
         """Process existing clinical trials files with advanced deduplication"""
         logger.info("Processing existing ClinicalTrials files with smart deduplication")
-        
+
         db = self.session_factory()
         try:
             # Check if we should skip if data exists (unless forced)
@@ -452,25 +450,25 @@ class ClinicalTrialsAPI:
             study_files = self.find_existing_files()
             if not study_files:
                 return {"status": "no_files_found", "trial_count": 0}
-            
+
             # Use the smart batch processor for optimal deduplication
             from deduplication_engine import SmartBatchProcessor
-            
+
             smart_processor = SmartBatchProcessor(db)
             results = await smart_processor.process_clinical_trials_files(study_files, force)
-            
+
             logger.info(f"Smart batch processing completed: {results}")
-            
+
             return {
-                "status": results.get('status', 'completed'),
-                "records_processed": results.get('total_new_records', 0) + results.get('total_updated_records', 0),
-                "files_processed": results.get('files_processed', 0),
-                "new_records": results.get('total_new_records', 0),
-                "updated_records": results.get('total_updated_records', 0),
-                "duplicates_removed": results.get('total_duplicates_removed', 0),
-                "content_duplicates_removed": results.get('total_content_duplicates_removed', 0),
-                "deduplication_summary": results.get('final_progress', {}),
-                "processing_errors": results.get('processing_errors', [])
+                "status": results.get("status", "completed"),
+                "records_processed": results.get("total_new_records", 0) + results.get("total_updated_records", 0),
+                "files_processed": results.get("files_processed", 0),
+                "new_records": results.get("total_new_records", 0),
+                "updated_records": results.get("total_updated_records", 0),
+                "duplicates_removed": results.get("total_duplicates_removed", 0),
+                "content_duplicates_removed": results.get("total_content_duplicates_removed", 0),
+                "deduplication_summary": results.get("final_progress", {}),
+                "processing_errors": results.get("processing_errors", []),
             }
 
         except Exception as e:

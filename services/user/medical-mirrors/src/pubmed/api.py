@@ -3,6 +3,8 @@ PubMed API for local mirror
 Provides search functionality matching Healthcare MCP interface
 """
 
+import builtins
+import contextlib
 import logging
 from datetime import datetime
 from typing import Any
@@ -248,18 +250,19 @@ class PubMedAPI:
 
     async def update_search_vectors(self, db: Session) -> None:
         """Update full-text search vectors with deadlock retry logic"""
-        import time
         import random
+        import time
+
         from psycopg2.errors import DeadlockDetected
-        
+
         max_retries = 5
         base_delay = 0.1
-        
+
         for attempt in range(max_retries):
             try:
                 # Use advisory lock to prevent concurrent updates
                 db.execute(text("SELECT pg_advisory_lock(12347)"))
-                
+
                 update_query = text("""
                     UPDATE pubmed_articles
                     SET search_vector = to_tsvector('english',
@@ -273,35 +276,31 @@ class PubMedAPI:
 
                 db.execute(update_query)
                 db.commit()
-                
+
                 # Release advisory lock
                 db.execute(text("SELECT pg_advisory_unlock(12347)"))
-                
+
                 logger.info("Updated search vectors for PubMed articles")
                 return
 
-            except DeadlockDetected as e:
+            except DeadlockDetected:
                 db.rollback()
                 # Release lock on error
-                try:
+                with contextlib.suppress(builtins.BaseException):
                     db.execute(text("SELECT pg_advisory_unlock(12347)"))
-                except:
-                    pass
-                
+
                 if attempt < max_retries - 1:
                     delay = base_delay * (2 ** attempt) + random.uniform(0, 0.1)
                     logger.warning(f"Deadlock detected, retrying in {delay:.2f}s (attempt {attempt + 1}/{max_retries})")
                     time.sleep(delay)
                 else:
-                    logger.error(f"Failed to update search vectors after {max_retries} attempts due to deadlocks")
-                    
+                    logger.exception(f"Failed to update search vectors after {max_retries} attempts due to deadlocks")
+
             except Exception as e:
                 db.rollback()
                 # Release lock on error
-                try:
+                with contextlib.suppress(builtins.BaseException):
                     db.execute(text("SELECT pg_advisory_unlock(12347)"))
-                except:
-                    pass
                 logger.exception(f"Failed to update search vectors: {e}")
                 break
 

@@ -6,21 +6,24 @@ Detects HIPAA and healthcare compliance violations from audit events and system 
 Implements rule-based detection with configurable thresholds and alert mechanisms.
 """
 
+import asyncio
 import json
 import logging
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Set
-from dataclasses import dataclass, asdict
 from enum import Enum
-import asyncio
+from typing import Any
+
 import aioredis
 import psycopg2
-from psycopg2.extras import RealDictCursor
-
 from models.compliance_models import (
-    ViolationType, ViolationSeverity, ViolationStatus,
-    ComplianceViolation, AuditEvent
+    AuditEvent,
+    ComplianceViolation,
+    ViolationSeverity,
+    ViolationStatus,
+    ViolationType,
 )
+from psycopg2.extras import RealDictCursor
 
 logger = logging.getLogger(__name__)
 
@@ -46,16 +49,16 @@ class DetectionRule:
     threshold_count: int = 1
     time_window_minutes: int = 60
     enabled: bool = True
-    conditions: Dict[str, Any] = None
-    
+    conditions: dict[str, Any] = None
+
     def __post_init__(self):
         if self.conditions is None:
             self.conditions = {}
 
 class ViolationDetector:
     """Detects compliance violations from audit events and system metrics"""
-    
-    def __init__(self, 
+
+    def __init__(self,
                  db_host: str = "localhost",
                  db_port: int = 5432,
                  db_name: str = "intelluxe_public",
@@ -68,10 +71,10 @@ class ViolationDetector:
         self.db_user = db_user
         self.db_password = db_password
         self.redis_url = redis_url
-        self.redis_client: Optional[aioredis.Redis] = None
+        self.redis_client: aioredis.Redis | None = None
         self.detection_rules = self._initialize_rules()
-        self.active_violations: Dict[str, ComplianceViolation] = {}
-        
+        self.active_violations: dict[str, ComplianceViolation] = {}
+
     async def initialize(self):
         """Initialize Redis connection and database tables"""
         try:
@@ -79,12 +82,12 @@ class ViolationDetector:
             await self._create_violation_tables()
             logger.info("Violation detector initialized successfully")
         except Exception as e:
-            logger.error(f"Failed to initialize violation detector: {e}")
+            logger.exception(f"Failed to initialize violation detector: {e}")
             raise
-    
-    def _initialize_rules(self) -> Dict[str, DetectionRule]:
+
+    def _initialize_rules(self) -> dict[str, DetectionRule]:
         """Initialize default detection rules"""
-        rules = {
+        return {
             "phi_excessive_access": DetectionRule(
                 rule_id="phi_excessive_access",
                 rule_type=RuleType.PHI_ACCESS,
@@ -93,7 +96,7 @@ class ViolationDetector:
                 severity=ViolationSeverity.HIGH,
                 threshold_count=50,
                 time_window_minutes=60,
-                conditions={"event_type": "phi_access"}
+                conditions={"event_type": "phi_access"},
             ),
             "failed_login_attempts": DetectionRule(
                 rule_id="failed_login_attempts",
@@ -103,7 +106,7 @@ class ViolationDetector:
                 severity=ViolationSeverity.MEDIUM,
                 threshold_count=5,
                 time_window_minutes=15,
-                conditions={"event_type": "authentication", "success": False}
+                conditions={"event_type": "authentication", "success": False},
             ),
             "bulk_data_export": DetectionRule(
                 rule_id="bulk_data_export",
@@ -113,7 +116,7 @@ class ViolationDetector:
                 severity=ViolationSeverity.CRITICAL,
                 threshold_count=1000,
                 time_window_minutes=30,
-                conditions={"event_type": "data_export"}
+                conditions={"event_type": "data_export"},
             ),
             "unauthorized_table_access": DetectionRule(
                 rule_id="unauthorized_table_access",
@@ -123,7 +126,7 @@ class ViolationDetector:
                 severity=ViolationSeverity.HIGH,
                 threshold_count=1,
                 time_window_minutes=1,
-                conditions={"event_type": "database_access", "restricted": True}
+                conditions={"event_type": "database_access", "restricted": True},
             ),
             "after_hours_access": DetectionRule(
                 rule_id="after_hours_access",
@@ -133,7 +136,7 @@ class ViolationDetector:
                 severity=ViolationSeverity.MEDIUM,
                 threshold_count=10,
                 time_window_minutes=60,
-                conditions={"event_type": "system_access"}
+                conditions={"event_type": "system_access"},
             ),
             "rapid_patient_access": DetectionRule(
                 rule_id="rapid_patient_access",
@@ -143,7 +146,7 @@ class ViolationDetector:
                 severity=ViolationSeverity.HIGH,
                 threshold_count=20,
                 time_window_minutes=5,
-                conditions={"event_type": "patient_access"}
+                conditions={"event_type": "patient_access"},
             ),
             "suspicious_query_pattern": DetectionRule(
                 rule_id="suspicious_query_pattern",
@@ -153,11 +156,10 @@ class ViolationDetector:
                 severity=ViolationSeverity.HIGH,
                 threshold_count=1,
                 time_window_minutes=1,
-                conditions={"event_type": "database_query", "suspicious": True}
-            )
+                conditions={"event_type": "database_query", "suspicious": True},
+            ),
         }
-        return rules
-    
+
     async def _create_violation_tables(self):
         """Create database tables for storing violations"""
         try:
@@ -166,9 +168,9 @@ class ViolationDetector:
                 port=self.db_port,
                 database=self.db_name,
                 user=self.db_user,
-                password=self.db_password
+                password=self.db_password,
             )
-            
+
             with conn.cursor() as cur:
                 # Create violations table
                 cur.execute("""
@@ -190,7 +192,7 @@ class ViolationDetector:
                         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                     )
                 """)
-                
+
                 # Create violation events table (for tracking related audit events)
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS violation_events (
@@ -202,7 +204,7 @@ class ViolationDetector:
                         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                     )
                 """)
-                
+
                 # Create indexes
                 cur.execute("CREATE INDEX IF NOT EXISTS idx_violations_rule_id ON compliance_violations(rule_id)")
                 cur.execute("CREATE INDEX IF NOT EXISTS idx_violations_user_id ON compliance_violations(user_id)")
@@ -210,33 +212,33 @@ class ViolationDetector:
                 cur.execute("CREATE INDEX IF NOT EXISTS idx_violations_severity ON compliance_violations(severity)")
                 cur.execute("CREATE INDEX IF NOT EXISTS idx_violations_detected_at ON compliance_violations(first_detected_at)")
                 cur.execute("CREATE INDEX IF NOT EXISTS idx_violation_events_violation_id ON violation_events(violation_id)")
-                
+
                 conn.commit()
                 logger.info("Violation detection tables created successfully")
-                
+
         except Exception as e:
-            logger.error(f"Failed to create violation tables: {e}")
+            logger.exception(f"Failed to create violation tables: {e}")
             raise
         finally:
             if conn:
                 conn.close()
-    
-    async def process_audit_event(self, audit_event: AuditEvent) -> List[ComplianceViolation]:
+
+    async def process_audit_event(self, audit_event: AuditEvent) -> list[ComplianceViolation]:
         """Process a single audit event and detect violations"""
         violations = []
-        
+
         for rule in self.detection_rules.values():
             if not rule.enabled:
                 continue
-                
+
             if await self._event_matches_rule(audit_event, rule):
                 violation = await self._check_violation_threshold(audit_event, rule)
                 if violation:
                     violations.append(violation)
                     await self._store_violation(violation, audit_event)
-        
+
         return violations
-    
+
     async def _event_matches_rule(self, event: AuditEvent, rule: DetectionRule) -> bool:
         """Check if audit event matches detection rule conditions"""
         try:
@@ -245,30 +247,30 @@ class ViolationDetector:
                 event_value = getattr(event, condition_key, None)
                 if event_value != condition_value:
                     return False
-            
+
             # Special rule-specific logic
             if rule.rule_type == RuleType.AFTER_HOURS_ACCESS:
                 return self._is_after_hours(event.timestamp)
-            elif rule.rule_type == RuleType.SUSPICIOUS_QUERY:
+            if rule.rule_type == RuleType.SUSPICIOUS_QUERY:
                 return self._is_suspicious_query(event.details)
-            elif rule.rule_type == RuleType.BULK_OPERATION:
+            if rule.rule_type == RuleType.BULK_OPERATION:
                 return self._is_bulk_operation(event.details)
-                
+
             return True
-            
+
         except Exception as e:
-            logger.error(f"Error matching event to rule {rule.rule_id}: {e}")
+            logger.exception(f"Error matching event to rule {rule.rule_id}: {e}")
             return False
-    
+
     def _is_after_hours(self, timestamp: datetime) -> bool:
         """Check if timestamp is outside business hours (9 AM - 6 PM)"""
         hour = timestamp.hour
         weekday = timestamp.weekday()  # 0=Monday, 6=Sunday
-        
+
         # Weekend or outside 9 AM - 6 PM
         return weekday >= 5 or hour < 9 or hour >= 18
-    
-    def _is_suspicious_query(self, details: Dict[str, Any]) -> bool:
+
+    def _is_suspicious_query(self, details: dict[str, Any]) -> bool:
         """Detect suspicious database query patterns"""
         query = details.get("query", "").lower()
         suspicious_patterns = [
@@ -279,40 +281,40 @@ class ViolationDetector:
             "drop table",
             "delete from",
             "update.*set.*password",
-            "where.*1=1"
+            "where.*1=1",
         ]
-        
+
         return any(pattern in query for pattern in suspicious_patterns)
-    
-    def _is_bulk_operation(self, details: Dict[str, Any]) -> bool:
+
+    def _is_bulk_operation(self, details: dict[str, Any]) -> bool:
         """Check if operation involves bulk data access"""
         record_count = details.get("record_count", 0)
         return record_count > 100
-    
-    async def _check_violation_threshold(self, event: AuditEvent, rule: DetectionRule) -> Optional[ComplianceViolation]:
+
+    async def _check_violation_threshold(self, event: AuditEvent, rule: DetectionRule) -> ComplianceViolation | None:
         """Check if event triggers violation based on rule threshold"""
         try:
             # Create cache key for counting events
             cache_key = f"violation_count:{rule.rule_id}:{event.user_id}:{event.service_name}"
-            
+
             # Get current count from Redis
             current_count = await self.redis_client.get(cache_key)
             current_count = int(current_count) if current_count else 0
-            
+
             # Increment count
             current_count += 1
-            
+
             # Set with expiration based on rule time window
             await self.redis_client.setex(
-                cache_key, 
-                rule.time_window_minutes * 60, 
-                current_count
+                cache_key,
+                rule.time_window_minutes * 60,
+                current_count,
             )
-            
+
             # Check if threshold exceeded
             if current_count >= rule.threshold_count:
                 violation_id = f"{rule.rule_id}_{event.user_id}_{int(event.timestamp.timestamp())}"
-                
+
                 # Check if we already have an active violation for this pattern
                 if violation_id in self.active_violations:
                     # Update existing violation
@@ -320,7 +322,7 @@ class ViolationDetector:
                     existing.last_detected_at = event.timestamp
                     existing.event_count += 1
                     return existing
-                
+
                 # Create new violation
                 violation = ComplianceViolation(
                     violation_id=violation_id,
@@ -336,22 +338,22 @@ class ViolationDetector:
                         "threshold_count": rule.threshold_count,
                         "actual_count": current_count,
                         "time_window_minutes": rule.time_window_minutes,
-                        "triggering_event": asdict(event)
+                        "triggering_event": asdict(event),
                     },
                     first_detected_at=event.timestamp,
                     last_detected_at=event.timestamp,
-                    event_count=current_count
+                    event_count=current_count,
                 )
-                
+
                 self.active_violations[violation_id] = violation
                 return violation
-                
+
             return None
-            
+
         except Exception as e:
-            logger.error(f"Error checking violation threshold for rule {rule.rule_id}: {e}")
+            logger.exception(f"Error checking violation threshold for rule {rule.rule_id}: {e}")
             return None
-    
+
     async def _store_violation(self, violation: ComplianceViolation, triggering_event: AuditEvent):
         """Store violation in database"""
         try:
@@ -360,9 +362,9 @@ class ViolationDetector:
                 port=self.db_port,
                 database=self.db_name,
                 user=self.db_user,
-                password=self.db_password
+                password=self.db_password,
             )
-            
+
             with conn.cursor() as cur:
                 # Insert or update violation
                 cur.execute("""
@@ -386,9 +388,9 @@ class ViolationDetector:
                     violation.description,
                     json.dumps(violation.details),
                     violation.first_detected_at,
-                    violation.last_detected_at
+                    violation.last_detected_at,
                 ))
-                
+
                 # Insert related event
                 cur.execute("""
                     INSERT INTO violation_events (
@@ -398,24 +400,24 @@ class ViolationDetector:
                     violation.violation_id,
                     triggering_event.event_id,
                     triggering_event.timestamp,
-                    json.dumps(asdict(triggering_event))
+                    json.dumps(asdict(triggering_event)),
                 ))
-                
+
                 conn.commit()
                 logger.info(f"Stored violation {violation.violation_id}")
-                
+
         except Exception as e:
-            logger.error(f"Failed to store violation {violation.violation_id}: {e}")
+            logger.exception(f"Failed to store violation {violation.violation_id}: {e}")
             raise
         finally:
             if conn:
                 conn.close()
-    
-    async def get_active_violations(self, 
-                                   severity: Optional[ViolationSeverity] = None,
-                                   user_id: Optional[str] = None,
-                                   service_name: Optional[str] = None,
-                                   limit: int = 100) -> List[ComplianceViolation]:
+
+    async def get_active_violations(self,
+                                   severity: ViolationSeverity | None = None,
+                                   user_id: str | None = None,
+                                   service_name: str | None = None,
+                                   limit: int = 100) -> list[ComplianceViolation]:
         """Get active violations with optional filtering"""
         try:
             conn = psycopg2.connect(
@@ -423,24 +425,24 @@ class ViolationDetector:
                 port=self.db_port,
                 database=self.db_name,
                 user=self.db_user,
-                password=self.db_password
+                password=self.db_password,
             )
-            
+
             conditions = ["status = 'open'"]
             params = []
-            
+
             if severity:
                 conditions.append("severity = %s")
                 params.append(severity.value)
-            
+
             if user_id:
                 conditions.append("user_id = %s")
                 params.append(user_id)
-            
+
             if service_name:
                 conditions.append("service_name = %s")
                 params.append(service_name)
-            
+
             query = f"""
                 SELECT violation_id, rule_id, violation_type, severity, status,
                        user_id, service_name, description, details,
@@ -451,39 +453,39 @@ class ViolationDetector:
                 LIMIT %s
             """
             params.append(limit)
-            
+
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(query, params)
                 rows = cur.fetchall()
-                
+
                 violations = []
                 for row in rows:
                     violation = ComplianceViolation(
-                        violation_id=row['violation_id'],
-                        rule_id=row['rule_id'],
-                        violation_type=ViolationType(row['violation_type']),
-                        severity=ViolationSeverity(row['severity']),
-                        status=ViolationStatus(row['status']),
-                        user_id=row['user_id'],
-                        service_name=row['service_name'],
-                        description=row['description'],
-                        details=row['details'] or {},
-                        first_detected_at=row['first_detected_at'],
-                        last_detected_at=row['last_detected_at']
+                        violation_id=row["violation_id"],
+                        rule_id=row["rule_id"],
+                        violation_type=ViolationType(row["violation_type"]),
+                        severity=ViolationSeverity(row["severity"]),
+                        status=ViolationStatus(row["status"]),
+                        user_id=row["user_id"],
+                        service_name=row["service_name"],
+                        description=row["description"],
+                        details=row["details"] or {},
+                        first_detected_at=row["first_detected_at"],
+                        last_detected_at=row["last_detected_at"],
                     )
                     violations.append(violation)
-                
+
                 return violations
-                
+
         except Exception as e:
-            logger.error(f"Failed to get active violations: {e}")
+            logger.exception(f"Failed to get active violations: {e}")
             return []
         finally:
             if conn:
                 conn.close()
-    
-    async def resolve_violation(self, 
-                               violation_id: str, 
+
+    async def resolve_violation(self,
+                               violation_id: str,
                                resolution_notes: str,
                                resolved_by: str) -> bool:
         """Mark violation as resolved"""
@@ -493,9 +495,9 @@ class ViolationDetector:
                 port=self.db_port,
                 database=self.db_name,
                 user=self.db_user,
-                password=self.db_password
+                password=self.db_password,
             )
-            
+
             with conn.cursor() as cur:
                 cur.execute("""
                     UPDATE compliance_violations
@@ -505,28 +507,27 @@ class ViolationDetector:
                         updated_at = NOW()
                     WHERE violation_id = %s AND status = 'open'
                 """, (resolution_notes, violation_id))
-                
+
                 if cur.rowcount > 0:
                     conn.commit()
-                    
+
                     # Remove from active violations cache
                     if violation_id in self.active_violations:
                         del self.active_violations[violation_id]
-                    
+
                     logger.info(f"Resolved violation {violation_id} by {resolved_by}")
                     return True
-                else:
-                    logger.warning(f"Violation {violation_id} not found or already resolved")
-                    return False
-                    
+                logger.warning(f"Violation {violation_id} not found or already resolved")
+                return False
+
         except Exception as e:
-            logger.error(f"Failed to resolve violation {violation_id}: {e}")
+            logger.exception(f"Failed to resolve violation {violation_id}: {e}")
             return False
         finally:
             if conn:
                 conn.close()
-    
-    async def get_violation_statistics(self, days: int = 30) -> Dict[str, Any]:
+
+    async def get_violation_statistics(self, days: int = 30) -> dict[str, Any]:
         """Get violation statistics for the past N days"""
         try:
             conn = psycopg2.connect(
@@ -534,11 +535,11 @@ class ViolationDetector:
                 port=self.db_port,
                 database=self.db_name,
                 user=self.db_user,
-                password=self.db_password
+                password=self.db_password,
             )
-            
+
             cutoff_date = datetime.now() - timedelta(days=days)
-            
+
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 # Total violations by severity
                 cur.execute("""
@@ -547,8 +548,8 @@ class ViolationDetector:
                     WHERE first_detected_at >= %s
                     GROUP BY severity
                 """, (cutoff_date,))
-                severity_stats = {row['severity']: row['count'] for row in cur.fetchall()}
-                
+                severity_stats = {row["severity"]: row["count"] for row in cur.fetchall()}
+
                 # Total violations by rule
                 cur.execute("""
                     SELECT rule_id, COUNT(*) as count
@@ -558,8 +559,8 @@ class ViolationDetector:
                     ORDER BY count DESC
                     LIMIT 10
                 """, (cutoff_date,))
-                rule_stats = {row['rule_id']: row['count'] for row in cur.fetchall()}
-                
+                rule_stats = {row["rule_id"]: row["count"] for row in cur.fetchall()}
+
                 # Total violations by user
                 cur.execute("""
                     SELECT user_id, COUNT(*) as count
@@ -569,11 +570,11 @@ class ViolationDetector:
                     ORDER BY count DESC
                     LIMIT 10
                 """, (cutoff_date,))
-                user_stats = {row['user_id']: row['count'] for row in cur.fetchall()}
-                
+                user_stats = {row["user_id"]: row["count"] for row in cur.fetchall()}
+
                 # Resolution statistics
                 cur.execute("""
-                    SELECT 
+                    SELECT
                         COUNT(*) as total,
                         COUNT(CASE WHEN status = 'resolved' THEN 1 END) as resolved,
                         COUNT(CASE WHEN status = 'open' THEN 1 END) as open
@@ -581,40 +582,40 @@ class ViolationDetector:
                     WHERE first_detected_at >= %s
                 """, (cutoff_date,))
                 resolution_stats = dict(cur.fetchone())
-                
+
                 return {
                     "period_days": days,
                     "severity_breakdown": severity_stats,
                     "top_violated_rules": rule_stats,
                     "top_violating_users": user_stats,
                     "resolution_status": resolution_stats,
-                    "generated_at": datetime.now().isoformat()
+                    "generated_at": datetime.now().isoformat(),
                 }
-                
+
         except Exception as e:
-            logger.error(f"Failed to get violation statistics: {e}")
+            logger.exception(f"Failed to get violation statistics: {e}")
             return {}
         finally:
             if conn:
                 conn.close()
-    
+
     def add_custom_rule(self, rule: DetectionRule):
         """Add or update a custom detection rule"""
         self.detection_rules[rule.rule_id] = rule
         logger.info(f"Added custom detection rule: {rule.rule_id}")
-    
+
     def disable_rule(self, rule_id: str):
         """Disable a detection rule"""
         if rule_id in self.detection_rules:
             self.detection_rules[rule_id].enabled = False
             logger.info(f"Disabled detection rule: {rule_id}")
-    
+
     def enable_rule(self, rule_id: str):
         """Enable a detection rule"""
         if rule_id in self.detection_rules:
             self.detection_rules[rule_id].enabled = True
             logger.info(f"Enabled detection rule: {rule_id}")
-    
+
     async def cleanup(self):
         """Cleanup resources"""
         if self.redis_client:
@@ -625,7 +626,7 @@ if __name__ == "__main__":
     async def test_detector():
         detector = ViolationDetector()
         await detector.initialize()
-        
+
         # Create test audit event
         test_event = AuditEvent(
             event_id="test_001",
@@ -634,17 +635,17 @@ if __name__ == "__main__":
             user_id="test_user",
             service_name="healthcare-api",
             details={"patient_id": "12345", "record_count": 1},
-            ip_address="192.168.1.100"
+            ip_address="192.168.1.100",
         )
-        
+
         # Process event
         violations = await detector.process_audit_event(test_event)
         print(f"Detected {len(violations)} violations")
-        
+
         # Get statistics
         stats = await detector.get_violation_statistics(7)
         print(f"Statistics: {json.dumps(stats, indent=2)}")
-        
+
         await detector.cleanup()
-    
+
     asyncio.run(test_detector())

@@ -7,7 +7,6 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import psycopg2
@@ -19,7 +18,7 @@ load_dotenv()
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -27,16 +26,16 @@ logger = logging.getLogger(__name__)
 def insert_exercises(cur, exercises_data):
     """Insert exercises data directly"""
     logger.info(f"Processing {len(exercises_data)} exercises...")
-    
+
     # Clear existing data
     cur.execute("DELETE FROM exercises")
-    
+
     inserted = 0
     for exercise in exercises_data:
         try:
             cur.execute("""
                 INSERT INTO exercises (
-                    exercise_id, name, body_part, target, equipment, 
+                    exercise_id, name, body_part, target, equipment,
                     gif_url, instructions, secondary_muscles, source
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (exercise_id) DO NOTHING
@@ -49,12 +48,12 @@ def insert_exercises(cur, exercises_data):
                 exercise.get("gif_url", ""),
                 json.dumps(exercise.get("instructions", [])),
                 json.dumps(exercise.get("secondary_muscles", [])),
-                exercise.get("source", "exercisedb")
+                exercise.get("source", "exercisedb"),
             ))
             inserted += 1
         except Exception as e:
-            logger.error(f"Error inserting exercise {exercise.get('exercise_id', 'unknown')}: {e}")
-    
+            logger.exception(f"Error inserting exercise {exercise.get('exercise_id', 'unknown')}: {e}")
+
     logger.info(f"✅ Inserted {inserted} exercises")
     return inserted
 
@@ -62,10 +61,10 @@ def insert_exercises(cur, exercises_data):
 def insert_food_items(cur, food_data):
     """Insert food items data directly"""
     logger.info(f"Processing {len(food_data)} food items...")
-    
+
     # Clear existing data
     cur.execute("DELETE FROM food_items")
-    
+
     inserted = 0
     for food in food_data:
         try:
@@ -75,7 +74,7 @@ def insert_food_items(cur, food_data):
                 common_names_str = ", ".join(common_names)
             else:
                 common_names_str = str(common_names) if common_names else ""
-            
+
             # Handle fdc_id - it might be a string like "fallback_food_1" but database expects integer
             fdc_id = food.get("fdc_id")
             if isinstance(fdc_id, str):
@@ -87,12 +86,12 @@ def insert_food_items(cur, food_data):
                         fdc_id = int(fdc_id)
                     except ValueError:
                         fdc_id = hash(fdc_id) % 2147483647  # Convert string to positive int within PostgreSQL int range
-            
+
             cur.execute("""
                 INSERT INTO food_items (
-                    fdc_id, description, scientific_name, common_names, food_category, 
-                    nutrients, nutrition_summary, brand_owner, ingredients, 
-                    serving_size, serving_size_unit, allergens, dietary_flags, 
+                    fdc_id, description, scientific_name, common_names, food_category,
+                    nutrients, nutrition_summary, brand_owner, ingredients,
+                    serving_size, serving_size_unit, allergens, dietary_flags,
                     nutritional_density, source
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (fdc_id) DO NOTHING
@@ -111,12 +110,12 @@ def insert_food_items(cur, food_data):
                 json.dumps(food.get("allergens", "")),
                 json.dumps(food.get("dietary_flags", [])),
                 food.get("nutritional_density", 0),
-                food.get("source", "downloaded")
+                food.get("source", "downloaded"),
             ))
             inserted += 1
         except Exception as e:
-            logger.error(f"Error inserting food item {food.get('fdc_id', 'unknown')}: {e}")
-    
+            logger.exception(f"Error inserting food item {food.get('fdc_id', 'unknown')}: {e}")
+
     logger.info(f"✅ Inserted {inserted} food items")
     return inserted
 
@@ -126,18 +125,18 @@ def insert_health_topics(cur, topics_data):
     if not topics_data:
         logger.info("No health topics data to insert")
         return 0
-        
+
     logger.info(f"Processing {len(topics_data)} health topics...")
-    
+
     # Clear existing data
     cur.execute("DELETE FROM health_topics")
-    
+
     inserted = 0
     for topic in topics_data:
         try:
             cur.execute("""
                 INSERT INTO health_topics (
-                    topic_id, title, category, content, 
+                    topic_id, title, category, content,
                     age_group, sex, description, keywords
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (topic_id) DO NOTHING
@@ -149,12 +148,12 @@ def insert_health_topics(cur, topics_data):
                 topic.get("age_group", "all"),
                 topic.get("sex", "all"),
                 topic.get("description", ""),
-                topic.get("keywords", [])
+                topic.get("keywords", []),
             ))
             inserted += 1
         except Exception as e:
-            logger.error(f"Error inserting health topic {topic.get('topic_id', 'unknown')}: {e}")
-    
+            logger.exception(f"Error inserting health topic {topic.get('topic_id', 'unknown')}: {e}")
+
     logger.info(f"✅ Inserted {inserted} health topics")
     return inserted
 
@@ -162,22 +161,22 @@ def insert_health_topics(cur, topics_data):
 def main():
     """Main processing function"""
     data_dir = Path("/home/intelluxe/database/medical_complete/health_info")
-    
+
     # Database connection
     try:
         db_url = f"postgresql://intelluxe:{os.getenv('POSTGRES_PASSWORD', 'secure_password')}@localhost:5432/intelluxe_public"
         conn = psycopg2.connect(db_url)
         cur = conn.cursor()
-        
+
         total_inserted = 0
-        
+
         # Load and insert exercises - try multiple files to get the best data
         exercises_files = [
             data_dir / "exercises_complete_all.json",  # Try this first
             data_dir / "exercises_complete.json",      # Fallback
-            data_dir / "exercises_extracted.json"      # Last resort
+            data_dir / "exercises_extracted.json",      # Last resort
         ]
-        
+
         exercises_data = []
         for exercises_file in exercises_files:
             if exercises_file.exists():
@@ -186,10 +185,10 @@ def main():
                     exercises_data = json.load(f)
                 logger.info(f"Found {len(exercises_data)} exercises in {exercises_file.name}")
                 break
-        
+
         if exercises_data:
             total_inserted += insert_exercises(cur, exercises_data)
-        
+
         # Load and insert food items
         food_file = data_dir / "food_items_complete.json"
         if food_file.exists():
@@ -197,7 +196,7 @@ def main():
             with open(food_file) as f:
                 food_data = json.load(f)
             total_inserted += insert_food_items(cur, food_data)
-        
+
         # Load and insert health topics (if exists)
         topics_file = data_dir / "health_topics_complete.json"
         if topics_file.exists():
@@ -205,20 +204,20 @@ def main():
             with open(topics_file) as f:
                 topics_data = json.load(f)
             total_inserted += insert_health_topics(cur, topics_data)
-        
+
         # Commit all changes
         conn.commit()
         logger.info(f"🎉 Successfully inserted {total_inserted} total health items into database!")
-        
+
     except Exception as e:
-        logger.error(f"Database error: {e}")
-        if 'conn' in locals():
+        logger.exception(f"Database error: {e}")
+        if "conn" in locals():
             conn.rollback()
         sys.exit(1)
     finally:
-        if 'cur' in locals():
+        if "cur" in locals():
             cur.close()
-        if 'conn' in locals():
+        if "conn" in locals():
             conn.close()
 
 

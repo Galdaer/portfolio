@@ -441,7 +441,7 @@ class HealthInfoDownloader:
             # Strategy 1: Get exercises from ALL body parts
             body_parts = await self._get_exercisedb_body_parts(headers)
             logger.info(f"Fetching from {len(body_parts)} body parts...")
-            
+
             for body_part in body_parts:
                 try:
                     url = f"{self.exercisedb_url}/exercises/bodyPart/{body_part.replace(' ', '%20')}"
@@ -486,7 +486,7 @@ class HealthInfoDownloader:
             # Strategy 2: Get exercises from ALL equipment types
             equipment_types = await self._get_exercisedb_equipment_types(headers)
             logger.info(f"Fetching from {len(equipment_types)} equipment types...")
-            
+
             for equipment in equipment_types:
                 try:
                     url = f"{self.exercisedb_url}/exercises/equipment/{equipment.replace(' ', '%20')}"
@@ -531,7 +531,7 @@ class HealthInfoDownloader:
             # Strategy 3: Get exercises from ALL target muscles
             target_muscles = await self._get_exercisedb_target_muscles(headers)
             logger.info(f"Fetching from {len(target_muscles)} target muscles...")
-            
+
             for target in target_muscles:
                 try:
                     url = f"{self.exercisedb_url}/exercises/target/{target.replace(' ', '%20')}"

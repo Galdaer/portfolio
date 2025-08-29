@@ -228,33 +228,33 @@ class DrugDownloader:
     def get_existing_files(self) -> dict[str, str]:
         """Get paths to existing FDA files without downloading"""
         logger.info("Looking for existing FDA files")
-        
+
         existing_files = {}
-        
+
         # Check for Orange Book files
         orange_book_dir = os.path.join(self.data_dir, "orange_book")
         if os.path.exists(orange_book_dir):
             existing_files["orange_book"] = orange_book_dir
             logger.info(f"Found existing Orange Book data: {orange_book_dir}")
-        
-        # Check for NDC Directory files  
+
+        # Check for NDC Directory files
         ndc_dir = os.path.join(self.data_dir, "ndc")
         if os.path.exists(ndc_dir):
             existing_files["ndc"] = ndc_dir
             logger.info(f"Found existing NDC Directory data: {ndc_dir}")
-        
+
         # Check for Drugs@FDA files
         drugs_fda_dir = os.path.join(self.data_dir, "drugs_fda")
         if os.path.exists(drugs_fda_dir):
             existing_files["drugs_fda"] = drugs_fda_dir
             logger.info(f"Found existing Drugs@FDA data: {drugs_fda_dir}")
-        
+
         # Check for drug labels files
         labels_dir = os.path.join(self.data_dir, "labels")
         if os.path.exists(labels_dir):
             existing_files["labels"] = labels_dir
             logger.info(f"Found existing drug labels data: {labels_dir}")
-        
+
         logger.info(f"Found {len(existing_files)} existing FDA datasets")
         return existing_files
 

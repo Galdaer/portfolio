@@ -161,7 +161,7 @@ class VoiceIntakeProcessor:
     @compliance_monitor_decorator(
         operation_type="patient_intake_voice",
         phi_risk_level="high",
-        validate_input=True
+        validate_input=True,
     )
     async def process_voice_chunk(self, voice_session_id: str, audio_data: dict[str, Any]) -> VoiceIntakeResult:
         """

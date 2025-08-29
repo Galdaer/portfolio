@@ -21,11 +21,11 @@ sys.path.append("/home/intelluxe/services/user/medical-mirrors/src")
 
 from enhanced_drug_sources.clinical_trials_downloader import SmartClinicalTrialsDownloader
 from enhanced_drug_sources.dailymed_downloader import SmartDailyMedDownloader
+from enhanced_drug_sources.ddinter_downloader import SmartDDInterDownloader
+from enhanced_drug_sources.drugcentral_downloader import SmartDrugCentralDownloader
+from enhanced_drug_sources.lactmed_downloader import SmartLactMedDownloader
 from enhanced_drug_sources.openfda_faers_downloader import SmartOpenFDAFAERSDownloader
 from enhanced_drug_sources.rxclass_downloader import SmartRxClassDownloader
-from enhanced_drug_sources.drugcentral_downloader import SmartDrugCentralDownloader
-from enhanced_drug_sources.ddinter_downloader import SmartDDInterDownloader
-from enhanced_drug_sources.lactmed_downloader import SmartLactMedDownloader
 
 from config import Config
 
@@ -40,13 +40,13 @@ class LocalConfig(Config):
 
 class EnhancedDrugSourcesOrchestrator:
     """Orchestrates all enhanced drug data sources"""
-    
+
     def __init__(self, data_dir: Path):
         self.data_dir = data_dir
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.config = LocalConfig()
         self.logger = self._setup_logging()
-        
+
         # Track results from each source
         self.results = {}
         self.stats = {
@@ -73,7 +73,7 @@ class EnhancedDrugSourcesOrchestrator:
         """Download from all enhanced drug sources"""
         self.logger.info("Starting enhanced drug sources download")
         self.stats["start_time"] = datetime.now()
-        
+
         # Define all sources to download
         sources = [
             ("dailymed", self._download_dailymed),
@@ -91,14 +91,14 @@ class EnhancedDrugSourcesOrchestrator:
                 self.logger.info(f"📥 Starting {source_name} download...")
                 result = await download_func()
                 self.results[source_name] = result
-                
+
                 if result.get("success", False):
                     self.stats["completed_sources"] += 1
                     self.logger.info(f"✅ {source_name} completed successfully")
                 else:
                     self.stats["failed_sources"] += 1
                     self.logger.error(f"❌ {source_name} failed: {result.get('error', 'Unknown error')}")
-                    
+
             except Exception as e:
                 self.stats["failed_sources"] += 1
                 self.results[source_name] = {"success": False, "error": str(e)}
@@ -106,7 +106,7 @@ class EnhancedDrugSourcesOrchestrator:
 
         self.stats["end_time"] = datetime.now()
         duration = (self.stats["end_time"] - self.stats["start_time"]).total_seconds()
-        
+
         # Generate final report
         report = {
             "status": "completed",
@@ -115,17 +115,17 @@ class EnhancedDrugSourcesOrchestrator:
             "results": self.results,
             "completion_timestamp": self.stats["end_time"].isoformat(),
         }
-        
+
         # Save report
         report_file = self.data_dir / f"enhanced_drug_sources_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         with open(report_file, "w") as f:
             json.dump(report, f, indent=2, default=str)
-        
-        self.logger.info(f"Enhanced drug sources download completed!")
+
+        self.logger.info("Enhanced drug sources download completed!")
         self.logger.info(f"   Successful: {self.stats['completed_sources']}/{self.stats['total_sources']}")
         self.logger.info(f"   Duration: {duration/60:.1f} minutes")
         self.logger.info(f"   Report saved: {report_file}")
-        
+
         return report
 
     async def _download_dailymed(self) -> dict:
@@ -220,19 +220,19 @@ async def main():
         print()
 
         result = await orchestrator.download_all_sources()
-        
+
         if result["stats"]["completed_sources"] > 0:
-            print(f"\n✅ Enhanced drug sources download completed!")
+            print("\n✅ Enhanced drug sources download completed!")
             print(f"   Successful: {result['stats']['completed_sources']}/{result['stats']['total_sources']}")
             print(f"   Duration: {result['duration_minutes']:.1f} minutes")
         else:
-            print(f"\n❌ Enhanced drug sources download failed")
+            print("\n❌ Enhanced drug sources download failed")
             print("   No sources completed successfully")
             sys.exit(1)
-            
+
     elif args.command == "status":
         print("📊 Enhanced drug sources status not yet implemented")
-        
+
     elif args.command == "reset":
         print("🔄 Enhanced drug sources reset not yet implemented")
 

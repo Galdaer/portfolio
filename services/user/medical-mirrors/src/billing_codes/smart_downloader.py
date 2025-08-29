@@ -66,31 +66,31 @@ class SmartBillingCodesDownloader:
     async def _process_existing_zip_files(self):
         """Process any existing ZIP files that haven't been parsed yet"""
         logger.info("Checking for existing ZIP files to process")
-        
+
         cms_sources = ["cms_hcpcs_current", "cms_hcpcs_alpha", "cms_hcpcs_anweb"]
         processed_count = 0
-        
+
         for source in cms_sources:
             zip_file = self.output_dir / f"{source}.zip"
             if zip_file.exists() and source not in self.all_codes:
                 try:
                     logger.info(f"Processing existing ZIP file: {zip_file}")
-                    with open(zip_file, 'rb') as f:
+                    with open(zip_file, "rb") as f:
                         content = f.read()
-                    
+
                     # Parse ZIP file to extract codes
                     parsed_codes = self.cms_downloader._parse_hcpcs_zip(content, source)
-                    
+
                     if parsed_codes:
                         self.all_codes[source] = parsed_codes
                         processed_count += 1
                         logger.info(f"Processed existing ZIP file {source}: {len(parsed_codes)} codes extracted")
                     else:
                         logger.warning(f"No codes extracted from existing ZIP file: {source}")
-                        
+
                 except Exception as e:
-                    logger.error(f"Failed to process existing ZIP file {source}: {e}")
-        
+                    logger.exception(f"Failed to process existing ZIP file {source}: {e}")
+
         if processed_count > 0:
             logger.info(f"Successfully processed {processed_count} existing ZIP files")
         else:
@@ -320,7 +320,7 @@ class SmartBillingCodesDownloader:
                 # Parse ZIP file to extract codes
                 logger.info(f"Parsing ZIP file for {source}")
                 parsed_codes = self.cms_downloader._parse_hcpcs_zip(content, source)
-                
+
                 if parsed_codes:
                     self.all_codes[source] = parsed_codes
                     logger.info(f"Extracted {len(parsed_codes)} codes from {source}")

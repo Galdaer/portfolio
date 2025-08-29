@@ -4,15 +4,14 @@ Handles medical billing, claims processing, and coding assistance for administra
 """
 
 import logging
-import time
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agents import BaseHealthcareAgent
 from agents.billing_helper.shared.billing_utils import SharedBillingUtils
-from core.clients.business_services import get_business_client, ServiceResponse
+from core.clients.business_services import get_business_client
 from core.financial.healthcare_financial_utils import HealthcareFinancialUtils
 from core.infrastructure.agent_logging_utils import (
     enhanced_agent_method,
@@ -33,6 +32,9 @@ from core.reasoning.tree_of_thoughts import (
     PlanningFocus,
     TreeOfThoughtsPlanner,
 )
+
+if TYPE_CHECKING:
+    from core.clients.business_services import ServiceResponse
 
 logger = get_healthcare_logger("agent.billing_helper")
 
@@ -233,17 +235,17 @@ class BillingHelperAgent(BaseHealthcareAgent):
                 if service_response.success:
                     # Parse service response
                     claim_result = service_response.data.get("claim_result", {})
-                    
+
                     # Extract claim processing details
                     status = claim_result.get("status", "unknown")
                     claim_number = claim_result.get("claim_number")
                     total_amount = claim_result.get("total_amount", 0.0)
                     validation_errors = claim_result.get("validation_errors", [])
                     compliance_validated = claim_result.get("compliance_validated", False)
-                    
+
                     # Extract Tree of Thoughts reasoning
                     reasoning = service_response.data.get("reasoning", {})
-                    
+
                     # Finish workflow logging
                     workflow_logger.finish_workflow("completed", {
                         "final_status": status,
@@ -281,37 +283,36 @@ class BillingHelperAgent(BaseHealthcareAgent):
                             "processing_stage": "complete",
                         },
                     )
-                else:
-                    # Service call failed
-                    error_msg = service_response.error or "Billing engine service unavailable"
-                    processing_errors.append(error_msg)
-                    
-                    workflow_logger.finish_workflow("failed", {
-                        "service_error": error_msg,
-                    })
-                    
-                    log_healthcare_event(
-                        logger,
-                        logging.ERROR,
-                        f"Claim processing service failed: {error_msg}",
-                        context={
-                            "error": error_msg,
-                            "service": service_response.service,
-                            "patient_id": patient_id[:4] + "****" if patient_id else "****",
-                        },
-                        operation_type="claim_processing_service_error",
-                    )
+                # Service call failed
+                error_msg = service_response.error or "Billing engine service unavailable"
+                processing_errors.append(error_msg)
 
-                    return BillingResult(
-                        billing_id=f"bill_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-                        status="service_unavailable",
-                        claim_number=None,
-                        total_amount=None,
-                        processing_errors=processing_errors,
-                        compliance_validated=False,
-                        timestamp=datetime.now(),
-                        metadata={"service_error": error_msg},
-                    )
+                workflow_logger.finish_workflow("failed", {
+                    "service_error": error_msg,
+                })
+
+                log_healthcare_event(
+                    logger,
+                    logging.ERROR,
+                    f"Claim processing service failed: {error_msg}",
+                    context={
+                        "error": error_msg,
+                        "service": service_response.service,
+                        "patient_id": patient_id[:4] + "****" if patient_id else "****",
+                    },
+                    operation_type="claim_processing_service_error",
+                )
+
+                return BillingResult(
+                    billing_id=f"bill_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                    status="service_unavailable",
+                    claim_number=None,
+                    total_amount=None,
+                    processing_errors=processing_errors,
+                    compliance_validated=False,
+                    timestamp=datetime.now(),
+                    metadata={"service_error": error_msg},
+                )
 
         except Exception as e:
             workflow_logger.finish_workflow("failed", error=e)

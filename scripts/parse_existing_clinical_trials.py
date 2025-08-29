@@ -6,7 +6,6 @@ Uses existing compressed .json.gz files instead of re-downloading
 
 import asyncio
 import logging
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -19,10 +18,10 @@ if medical_mirrors_src not in sys.path:
 try:
     from clinicaltrials.api import ClinicalTrialsAPI
     from clinicaltrials.parser import ClinicalTrialsParser
-    from config import Config
-    from database import get_db_session
     from sqlalchemy.orm import sessionmaker
-    from database import get_database_url, create_engine
+
+    from config import Config
+    from database import create_engine, get_database_url, get_db_session
 except ImportError as e:
     print(f"Failed to import medical-mirrors modules: {e}")
     print("Make sure medical-mirrors service is properly installed")
@@ -37,12 +36,12 @@ class ExistingClinicalTrialsLoader:
         self.data_dir = data_dir or "/home/intelluxe/database/medical_complete/clinicaltrials"
         self.logger = self._setup_logging()
         self.parser = ClinicalTrialsParser()
-        
+
         # Set up database connection
         DATABASE_URL = get_database_url()
         self.engine = create_engine(DATABASE_URL)
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
-        
+
         # Initialize API for database operations
         self.api = ClinicalTrialsAPI(self.SessionLocal, self.config)
 
@@ -72,39 +71,39 @@ class ExistingClinicalTrialsLoader:
     def find_compressed_files(self) -> list[str]:
         """Find all compressed clinical trials JSON files"""
         compressed_files = []
-        
+
         data_path = Path(self.data_dir)
         if not data_path.exists():
             self.logger.error(f"Data directory does not exist: {self.data_dir}")
             return compressed_files
-        
+
         # Find all .json.gz files
         for file_path in data_path.glob("*.json.gz"):
             # Skip the all_clinical_trials_complete.json file
             if "all_clinical_trials_complete.json" not in file_path.name:
                 compressed_files.append(str(file_path))
-        
+
         compressed_files.sort()  # Process in order
         self.stats["files_found"] = len(compressed_files)
         self.logger.info(f"Found {len(compressed_files)} compressed files to process")
-        
+
         return compressed_files
 
     async def process_compressed_files(self, batch_size: int = 50) -> dict[str, Any]:
         """Process all compressed files in batches"""
         compressed_files = self.find_compressed_files()
-        
+
         if not compressed_files:
             self.logger.error("No compressed files found")
             return {"success": False, "error": "No files found"}
 
         self.logger.info(f"Starting to process {len(compressed_files)} files in batches of {batch_size}")
-        
+
         # Process files in batches
         for i in range(0, len(compressed_files), batch_size):
             batch_files = compressed_files[i:i + batch_size]
             self.logger.info(f"Processing batch {i // batch_size + 1}/{(len(compressed_files) + batch_size - 1) // batch_size} ({len(batch_files)} files)")
-            
+
             try:
                 await self._process_file_batch(batch_files)
                 self.logger.info(f"Completed batch {i // batch_size + 1}, progress: {self.stats['files_processed']}/{self.stats['files_found']} files")
@@ -119,7 +118,7 @@ class ExistingClinicalTrialsLoader:
         self.logger.info(f"Files failed: {self.stats['files_failed']}")
         self.logger.info(f"Trials inserted: {self.stats['trials_inserted']}")
         self.logger.info(f"Trials failed: {self.stats['trials_failed']}")
-        
+
         if self.stats["errors"]:
             self.logger.error(f"Encountered {len(self.stats['errors'])} errors:")
             for error in self.stats["errors"][-10:]:  # Show last 10 errors
@@ -135,17 +134,17 @@ class ExistingClinicalTrialsLoader:
         db = self.SessionLocal()
         try:
             all_trials = []
-            
+
             # Parse all files in the batch
             for file_path in file_paths:
                 try:
                     file_trials = self.parser.parse_json_file(file_path)
                     all_trials.extend(file_trials)
                     self.stats["files_processed"] += 1
-                    
+
                     if len(file_trials) > 0:
                         self.logger.debug(f"Parsed {len(file_trials)} trials from {file_path}")
-                    
+
                 except Exception as e:
                     self.logger.warning(f"Failed to parse {file_path}: {e}")
                     self.stats["files_failed"] += 1
@@ -161,7 +160,7 @@ class ExistingClinicalTrialsLoader:
                     self.logger.exception(f"Failed to store trials batch: {e}")
                     self.stats["trials_failed"] += len(all_trials)
                     self.stats["errors"].append(f"Store batch: {str(e)}")
-            
+
         finally:
             db.close()
 
@@ -192,7 +191,7 @@ async def main():
 
     try:
         result = await loader.process_compressed_files(batch_size=args.batch_size)
-        
+
         if result["success"]:
             print("\n✅ Successfully processed all compressed files!")
             print(f"   Files processed: {result['stats']['files_processed']}")

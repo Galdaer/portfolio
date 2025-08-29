@@ -38,9 +38,9 @@ def parse_json_file_worker(json_file_path: str) -> tuple[str, list[dict[str, Any
         studies = []
 
         # Handle both compressed and uncompressed files
-        if json_file_path.endswith('.gz'):
+        if json_file_path.endswith(".gz"):
             import gzip
-            with gzip.open(json_file_path, 'rt', encoding='utf-8') as f:
+            with gzip.open(json_file_path, "rt", encoding="utf-8") as f:
                 data = json.load(f)
         else:
             with open(json_file_path, encoding="utf-8") as f:
@@ -420,9 +420,9 @@ class OptimizedClinicalTrialsParser:
 
         try:
             # Load the entire JSON file (compressed or uncompressed)
-            if json_file_path.endswith('.gz'):
+            if json_file_path.endswith(".gz"):
                 import gzip
-                with gzip.open(json_file_path, 'rt', encoding='utf-8') as f:
+                with gzip.open(json_file_path, "rt", encoding="utf-8") as f:
                     data = json.load(f)
             else:
                 with open(json_file_path, encoding="utf-8") as f:

@@ -492,7 +492,7 @@ async def background_fda_update(quick_test: bool = False, limit: int | None = No
         logger.info("🚀 Starting FDA background update")
         result = await drug_api.trigger_update(quick_test=quick_test, limit=limit)
         logger.info(f"✅ FDA background update completed: {result}")
-        
+
         # Process DDInter interactions after FDA update
         ddinter_data_dir = "/app/data/enhanced_drug_data/ddinter"
         logger.info("🧬 Starting DDInter interactions processing as part of FDA update")
@@ -502,7 +502,7 @@ async def background_fda_update(quick_test: bool = False, limit: int | None = No
             logger.info(f"✅ DDInter processing completed: {ddinter_result}")
         finally:
             db.close()
-            
+
     except Exception as e:
         logger.exception(f"❌ FDA background update failed: {e}")
 
@@ -738,7 +738,7 @@ async def background_process_existing_fda(force: bool = False) -> None:
         logger.info("🚀 Starting FDA existing files processing")
         result = await drug_api.process_existing_files(force=force)
         logger.info(f"✅ FDA existing files processing completed: {result}")
-        
+
         # Process DDInter interactions after FDA processing
         ddinter_data_dir = "/app/data/enhanced_drug_data/ddinter"
         logger.info("🧬 Starting DDInter interactions processing as part of FDA existing files processing")
@@ -748,7 +748,7 @@ async def background_process_existing_fda(force: bool = False) -> None:
             logger.info(f"✅ DDInter processing completed: {ddinter_result}")
         finally:
             db.close()
-            
+
     except Exception as e:
         logger.exception(f"❌ FDA existing files processing failed: {e}")
 
@@ -874,7 +874,7 @@ async def background_process_all_existing_parallel(force: bool = False) -> None:
     try:
         logger.info(f"🚀 Starting PARALLEL processing of ALL existing files (force={force})")
         start_time = datetime.now()
-        
+
         # Run all sources in parallel using asyncio.gather
         results = await asyncio.gather(
             background_process_existing_trials(force),
@@ -883,12 +883,12 @@ async def background_process_all_existing_parallel(force: bool = False) -> None:
             background_process_existing_billing(force),
             background_process_existing_icd10(force),
             background_process_existing_health(force),
-            return_exceptions=True  # Don't fail entire batch if one source fails
+            return_exceptions=True,  # Don't fail entire batch if one source fails
         )
-        
+
         end_time = datetime.now()
         duration = end_time - start_time
-        
+
         # Log results for each source
         sources = ["clinical_trials", "pubmed", "fda", "billing_codes", "icd10_codes", "health_info"]
         success_count = 0
@@ -899,9 +899,9 @@ async def background_process_all_existing_parallel(force: bool = False) -> None:
             else:
                 logger.info(f"✅ {source} processing completed successfully")
                 success_count += 1
-        
+
         logger.info(f"🏁 PARALLEL processing completed: {success_count}/{len(sources)} sources successful in {duration.total_seconds():.2f}s")
-        
+
     except Exception as e:
         logger.exception(f"❌ Parallel processing of all existing files failed: {e}")
 
@@ -915,30 +915,29 @@ async def process_all_existing_files(
         if parallel:
             # Run all sources in true parallel using asyncio.gather
             background_tasks.add_task(background_process_all_existing_parallel, force)
-            
+
             logger.info(f"🚀 ALL existing files PARALLEL processing task queued (force={force})")
             return {
                 "status": "parallel_processing_started_in_background",
                 "message": "All existing files parallel processing task queued successfully",
                 "sources": ["clinical_trials", "pubmed", "fda", "billing_codes", "icd10_codes", "health_info"],
-                "mode": "parallel"
+                "mode": "parallel",
             }
-        else:
-            # Legacy sequential mode
-            background_tasks.add_task(background_process_existing_trials, force)
-            background_tasks.add_task(background_process_existing_pubmed, force)
-            background_tasks.add_task(background_process_existing_fda, force)
-            background_tasks.add_task(background_process_existing_billing, force)
-            background_tasks.add_task(background_process_existing_icd10, force)
-            background_tasks.add_task(background_process_existing_health, force)
-            
-            logger.info(f"🚀 ALL existing files SEQUENTIAL processing tasks queued (force={force})")
-            return {
-                "status": "sequential_processing_started_in_background",
-                "message": "All existing files sequential processing tasks queued successfully",
-                "sources": ["clinical_trials", "pubmed", "fda", "billing_codes", "icd10_codes", "health_info"],
-                "mode": "sequential"
-            }
+        # Legacy sequential mode
+        background_tasks.add_task(background_process_existing_trials, force)
+        background_tasks.add_task(background_process_existing_pubmed, force)
+        background_tasks.add_task(background_process_existing_fda, force)
+        background_tasks.add_task(background_process_existing_billing, force)
+        background_tasks.add_task(background_process_existing_icd10, force)
+        background_tasks.add_task(background_process_existing_health, force)
+
+        logger.info(f"🚀 ALL existing files SEQUENTIAL processing tasks queued (force={force})")
+        return {
+            "status": "sequential_processing_started_in_background",
+            "message": "All existing files sequential processing tasks queued successfully",
+            "sources": ["clinical_trials", "pubmed", "fda", "billing_codes", "icd10_codes", "health_info"],
+            "mode": "sequential",
+        }
     except Exception as e:
         logger.exception(f"All existing files processing queuing failed: {e}")
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
@@ -949,11 +948,11 @@ async def get_database_counts() -> dict[str, Any]:
     """Get current record counts from all medical data tables for monitoring"""
     try:
         db = SessionLocal()
-        
+
         # Get counts from all major tables
         tables_queries = {
             "clinical_trials": "SELECT COUNT(*) FROM clinical_trials",
-            "pubmed_articles": "SELECT COUNT(*) FROM pubmed_articles", 
+            "pubmed_articles": "SELECT COUNT(*) FROM pubmed_articles",
             "drug_information": "SELECT COUNT(*) FROM drug_information",
             "billing_codes": "SELECT COUNT(*) FROM billing_codes",
             "icd10_codes": "SELECT COUNT(*) FROM icd10_codes",
@@ -961,7 +960,7 @@ async def get_database_counts() -> dict[str, Any]:
             "health_topics": "SELECT COUNT(*) FROM health_topics",
             "food_items": "SELECT COUNT(*) FROM food_items",
         }
-        
+
         counts = {}
         for table_name, query in tables_queries.items():
             try:
@@ -969,15 +968,15 @@ async def get_database_counts() -> dict[str, Any]:
                 counts[table_name] = result.scalar()
             except Exception:
                 counts[table_name] = 0  # Table doesn't exist or error
-        
+
         db.close()
-        
+
         return {
             "counts": counts,
             "timestamp": datetime.utcnow().isoformat(),
-            "total_records": sum(counts.values())
+            "total_records": sum(counts.values()),
         }
-        
+
     except Exception as e:
         logger.exception(f"Database counts failed: {e}")
         raise HTTPException(status_code=500, detail=f"Counts failed: {str(e)}")
@@ -988,11 +987,11 @@ async def get_processing_status() -> dict[str, Any]:
     """Get detailed processing status for all data sources including rates and ETAs"""
     try:
         db = SessionLocal()
-        
+
         # Get current counts
         counts_query = {
             "clinical_trials": "SELECT COUNT(*) FROM clinical_trials",
-            "pubmed_articles": "SELECT COUNT(*) FROM pubmed_articles", 
+            "pubmed_articles": "SELECT COUNT(*) FROM pubmed_articles",
             "drug_information": "SELECT COUNT(*) FROM drug_information",
             "billing_codes": "SELECT COUNT(*) FROM billing_codes",
             "icd10_codes": "SELECT COUNT(*) FROM icd10_codes",
@@ -1000,31 +999,31 @@ async def get_processing_status() -> dict[str, Any]:
             "health_topics": "SELECT COUNT(*) FROM health_topics",
             "food_items": "SELECT COUNT(*) FROM food_items",
         }
-        
+
         # Target estimates for each data source
         targets = {
             "clinical_trials": 500000,    # ~490K+ studies
             "pubmed_articles": 35000000,  # ~35M+ articles
-            "drug_information": 150000,   # ~141K drug records  
+            "drug_information": 150000,   # ~141K drug records
             "billing_codes": 10000,       # ~7K+ HCPCS codes
             "icd10_codes": 72000,         # ~70K ICD-10 codes
             "exercises": 1300,            # ~1.3K exercises
             "health_topics": 50,          # ~50 health topics
             "food_items": 8000,           # ~8K food items
         }
-        
+
         processing_status = {}
         total_records = 0
-        
+
         for source, query in counts_query.items():
             try:
                 result = db.execute(text(query))
                 current_count = result.scalar() or 0
                 target_count = targets.get(source, current_count * 2)
-                
+
                 # Calculate completion percentage
                 completion_pct = (current_count / target_count * 100) if target_count > 0 else 100
-                
+
                 # Determine status
                 if current_count == 0:
                     status = "not_started"
@@ -1034,33 +1033,33 @@ async def get_processing_status() -> dict[str, Any]:
                     status = "processing"
                 else:
                     status = "completed"
-                
+
                 processing_status[source] = {
                     "current_count": current_count,
-                    "target_count": target_count, 
+                    "target_count": target_count,
                     "completion_percent": round(completion_pct, 2),
-                    "status": status
+                    "status": status,
                 }
-                
+
                 total_records += current_count
-                
+
             except Exception as e:
                 logger.warning(f"Error getting count for {source}: {e}")
                 processing_status[source] = {
                     "current_count": 0,
                     "target_count": targets.get(source, 0),
                     "completion_percent": 0.0,
-                    "status": "error"
+                    "status": "error",
                 }
-        
+
         db.close()
-        
+
         # Calculate overall statistics
         sources_processing = sum(1 for s in processing_status.values() if s["status"] == "processing")
         sources_completed = sum(1 for s in processing_status.values() if s["status"] == "completed")
         sources_not_started = sum(1 for s in processing_status.values() if s["status"] == "not_started")
         sources_error = sum(1 for s in processing_status.values() if s["status"] == "error")
-        
+
         return {
             "timestamp": datetime.utcnow().isoformat(),
             "sources": processing_status,
@@ -1070,10 +1069,10 @@ async def get_processing_status() -> dict[str, Any]:
                 "sources_completed": sources_completed,
                 "sources_not_started": sources_not_started,
                 "sources_error": sources_error,
-                "total_sources": len(processing_status)
-            }
+                "total_sources": len(processing_status),
+            },
         }
-        
+
     except Exception as e:
         logger.exception(f"Processing status failed: {e}")
         raise HTTPException(status_code=500, detail=f"Processing status failed: {str(e)}")
@@ -1085,70 +1084,70 @@ async def get_file_processing_progress() -> dict[str, Any]:
     try:
         import os
         from pathlib import Path
-        
+
         # Data directories for each source
         data_paths = {
             "clinical_trials": "/app/data/clinicaltrials/",
             "pubmed_articles": "/app/data/pubmed/",
-            "drug_information": "/app/data/fda/"
+            "drug_information": "/app/data/fda/",
         }
-        
+
         file_progress = {}
-        
+
         for source, data_path in data_paths.items():
             if os.path.exists(data_path):
                 try:
                     path_obj = Path(data_path)
-                    
+
                     # Count different file types
                     json_gz_files = list(path_obj.glob("*.json.gz"))
                     json_files = list(path_obj.glob("*.json"))
                     xml_gz_files = list(path_obj.glob("*.xml.gz"))
                     xml_files = list(path_obj.glob("*.xml"))
-                    
+
                     total_files = len(json_gz_files) + len(json_files) + len(xml_gz_files) + len(xml_files)
-                    
+
                     # Estimate processed files based on recent modification times
                     cutoff_time = datetime.now() - timedelta(hours=2)
                     recently_modified = 0
-                    
+
                     for file_path in json_gz_files + json_files + xml_gz_files + xml_files:
                         try:
                             if file_path.stat().st_mtime > cutoff_time.timestamp():
                                 recently_modified += 1
                         except Exception:
                             continue
-                    
+
                     file_progress[source] = {
                         "total_files": total_files,
                         "recently_processed": recently_modified,
                         "json_gz_files": len(json_gz_files),
-                        "json_files": len(json_files), 
+                        "json_files": len(json_files),
                         "xml_gz_files": len(xml_gz_files),
                         "xml_files": len(xml_files),
-                        "data_path": data_path
+                        "data_path": data_path,
                     }
-                    
+
                 except Exception as e:
                     logger.warning(f"Error processing file count for {source}: {e}")
                     file_progress[source] = {
                         "total_files": 0,
                         "recently_processed": 0,
-                        "error": str(e)
+                        "error": str(e),
                     }
             else:
                 file_progress[source] = {
                     "total_files": 0,
                     "recently_processed": 0,
                     "data_path": data_path,
-                    "status": "directory_not_found"
+                    "status": "directory_not_found",
                 }
-        
+
         return {
             "timestamp": datetime.utcnow().isoformat(),
-            "file_progress": file_progress
+            "file_progress": file_progress,
         }
-        
+
     except Exception as e:
         logger.exception(f"File progress failed: {e}")
         raise HTTPException(status_code=500, detail=f"File progress failed: {str(e)}")
@@ -1158,23 +1157,23 @@ async def get_file_processing_progress() -> dict[str, Any]:
 async def get_system_resources() -> dict[str, Any]:
     """Get system resource usage information"""
     try:
-        import subprocess
         import shutil
-        
+        import subprocess
+
         resources = {
             "timestamp": datetime.utcnow().isoformat(),
             "database": {},
             "disk": {},
             "memory": {},
-            "processes": {}
+            "processes": {},
         }
-        
+
         # Database connection pool info
         try:
             db = SessionLocal()
             # Get database size
             result = db.execute(text("""
-                SELECT 
+                SELECT
                     pg_size_pretty(pg_database_size('intelluxe_public')) as db_size,
                     pg_database_size('intelluxe_public') as db_size_bytes
             """))
@@ -1182,23 +1181,23 @@ async def get_system_resources() -> dict[str, Any]:
             if db_info:
                 resources["database"] = {
                     "size_human": db_info[0],
-                    "size_bytes": db_info[1]
+                    "size_bytes": db_info[1],
                 }
-            
+
             # Get active connections
             result = db.execute(text("""
                 SELECT count(*) as active_connections
-                FROM pg_stat_activity 
+                FROM pg_stat_activity
                 WHERE state = 'active'
             """))
             conn_info = result.fetchone()
             if conn_info:
                 resources["database"]["active_connections"] = conn_info[0]
-            
+
             db.close()
         except Exception as e:
             resources["database"]["error"] = str(e)
-        
+
         # Disk usage for data directories
         try:
             data_dirs = ["/app/data/", "/tmp/", "/"]
@@ -1209,16 +1208,16 @@ async def get_system_resources() -> dict[str, Any]:
                         "total_gb": round(disk_usage.total / (1024**3), 2),
                         "used_gb": round(disk_usage.used / (1024**3), 2),
                         "free_gb": round(disk_usage.free / (1024**3), 2),
-                        "usage_percent": round(disk_usage.used / disk_usage.total * 100, 1)
+                        "usage_percent": round(disk_usage.used / disk_usage.total * 100, 1),
                     }
         except Exception as e:
             resources["disk"]["error"] = str(e)
-        
+
         # Memory information (if available)
         try:
-            result = subprocess.run(["free", "-h"], capture_output=True, text=True, timeout=5)
+            result = subprocess.run(["free", "-h"], check=False, capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
-                lines = result.stdout.strip().split('\n')
+                lines = result.stdout.strip().split("\n")
                 if len(lines) >= 2:
                     memory_line = lines[1].split()
                     if len(memory_line) >= 7:
@@ -1228,29 +1227,29 @@ async def get_system_resources() -> dict[str, Any]:
                             "free": memory_line[3],
                             "shared": memory_line[4],
                             "buff_cache": memory_line[5],
-                            "available": memory_line[6]
+                            "available": memory_line[6],
                         }
         except Exception as e:
             resources["memory"]["error"] = str(e)
-        
+
         # Process information
         try:
-            # Get Python processes 
-            result = subprocess.run(["pgrep", "-f", "python"], capture_output=True, text=True, timeout=5)
+            # Get Python processes
+            result = subprocess.run(["pgrep", "-f", "python"], check=False, capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
-                python_pids = result.stdout.strip().split('\n')
+                python_pids = result.stdout.strip().split("\n")
                 resources["processes"]["python_processes"] = len([pid for pid in python_pids if pid])
-            
+
             # Get overall process count
-            result = subprocess.run(["ps", "aux"], capture_output=True, text=True, timeout=5)
+            result = subprocess.run(["ps", "aux"], check=False, capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
-                process_lines = result.stdout.strip().split('\n')
+                process_lines = result.stdout.strip().split("\n")
                 resources["processes"]["total_processes"] = len(process_lines) - 1  # Subtract header
         except Exception as e:
             resources["processes"]["error"] = str(e)
-        
+
         return resources
-        
+
     except Exception as e:
         logger.exception(f"System resources failed: {e}")
         raise HTTPException(status_code=500, detail=f"System resources failed: {str(e)}")
@@ -1261,36 +1260,36 @@ async def get_error_summary() -> dict[str, Any]:
     """Get summary of recent errors from logs and database"""
     try:
         import subprocess
-        
+
         error_summary = {
             "timestamp": datetime.utcnow().isoformat(),
             "log_errors": [],
             "database_errors": [],
-            "summary_counts": {}
+            "summary_counts": {},
         }
-        
+
         # Analyze recent log entries for errors
         try:
             # Get recent logs (last hour)
             result = subprocess.run([
-                "journalctl", "-u", "medical-mirrors", "--since", "1 hour ago", 
-                "--no-pager", "-q"
-            ], capture_output=True, text=True, timeout=30)
-            
+                "journalctl", "-u", "medical-mirrors", "--since", "1 hour ago",
+                "--no-pager", "-q",
+            ], check=False, capture_output=True, text=True, timeout=30)
+
             if result.returncode == 0:
-                log_lines = result.stdout.split('\n')
+                log_lines = result.stdout.split("\n")
                 error_lines = []
-                
+
                 for line in log_lines:
-                    if any(keyword in line.lower() for keyword in 
-                           ['error', 'exception', 'failed', 'timeout', 'deadlock']):
+                    if any(keyword in line.lower() for keyword in
+                           ["error", "exception", "failed", "timeout", "deadlock"]):
                         error_lines.append(line[-200:])  # Last 200 chars to avoid too long lines
-                
+
                 error_summary["log_errors"] = error_lines[-20:]  # Last 20 errors
                 error_summary["summary_counts"]["log_errors"] = len(error_lines)
         except Exception as e:
             error_summary["log_errors"] = [f"Could not fetch logs: {str(e)}"]
-        
+
         # Check for database connection issues
         try:
             db = SessionLocal()
@@ -1303,9 +1302,9 @@ async def get_error_summary() -> dict[str, Any]:
         except Exception as e:
             error_summary["database_errors"] = [f"Database error: {str(e)}"]
             error_summary["summary_counts"]["database_errors"] = 1
-        
+
         return error_summary
-        
+
     except Exception as e:
         logger.exception(f"Error summary failed: {e}")
         raise HTTPException(status_code=500, detail=f"Error summary failed: {str(e)}")
@@ -1321,7 +1320,7 @@ async def get_monitoring_dashboard() -> dict[str, Any]:
         file_data = await get_file_processing_progress()
         resources_data = await get_system_resources()
         errors_data = await get_error_summary()
-        
+
         # Combine into comprehensive dashboard
         dashboard = {
             "timestamp": datetime.utcnow().isoformat(),
@@ -1330,19 +1329,17 @@ async def get_monitoring_dashboard() -> dict[str, Any]:
             "file_progress": file_data,
             "system_resources": resources_data,
             "error_summary": errors_data,
-            "health_status": "healthy"  # Will be updated based on errors
+            "health_status": "healthy",  # Will be updated based on errors
         }
-        
+
         # Determine overall health status
         if errors_data["summary_counts"].get("database_errors", 0) > 0:
             dashboard["health_status"] = "unhealthy"
-        elif errors_data["summary_counts"].get("log_errors", 0) > 10:
+        elif errors_data["summary_counts"].get("log_errors", 0) > 10 or processing_data["summary"]["sources_error"] > 0:
             dashboard["health_status"] = "degraded"
-        elif processing_data["summary"]["sources_error"] > 0:
-            dashboard["health_status"] = "degraded"
-        
+
         return dashboard
-        
+
     except Exception as e:
         logger.exception(f"Dashboard failed: {e}")
         raise HTTPException(status_code=500, detail=f"Dashboard failed: {str(e)}")
@@ -1353,27 +1350,26 @@ async def create_database_tables() -> dict[str, Any]:
     """Create all database tables (safe operation - won't drop existing data)"""
     try:
         logger.info("🔧 Creating database tables...")
-        
+
         # Import all model classes to ensure they're registered
         from database import (
-            Base, PubMedArticle, ClinicalTrial, DrugInformation, 
-            UpdateLog, ICD10Code, BillingCode, HealthTopic, Exercise, FoodItem
+            Base,
         )
-        
+
         # Create all tables (this is safe - won't drop existing tables)
         Base.metadata.create_all(bind=engine)
-        
+
         logger.info("✅ Database tables created/verified successfully")
-        
+
         # Get table counts to verify
         db = SessionLocal()
         table_counts = {}
-        
+
         tables = [
             "pubmed_articles", "clinical_trials", "drug_information", "update_logs",
-            "icd10_codes", "billing_codes", "health_topics", "exercises", "food_items"
+            "icd10_codes", "billing_codes", "health_topics", "exercises", "food_items",
         ]
-        
+
         for table in tables:
             try:
                 result = db.execute(text(f"SELECT COUNT(*) FROM {table}"))
@@ -1381,16 +1377,16 @@ async def create_database_tables() -> dict[str, Any]:
                 table_counts[table] = count
             except Exception as e:
                 table_counts[table] = f"Error: {str(e)}"
-        
+
         db.close()
-        
+
         return {
             "status": "success",
             "message": "All database tables created/verified",
             "table_counts": table_counts,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
-        
+
     except Exception as e:
         logger.exception(f"Failed to create database tables: {e}")
         raise HTTPException(status_code=500, detail=f"Table creation failed: {str(e)}")
@@ -1402,40 +1398,40 @@ async def get_deduplication_progress() -> dict[str, Any]:
     try:
         # This would typically read from a shared state store like Redis
         # For now, we'll return database statistics that show deduplication impact
-        
+
         db = SessionLocal()
-        
+
         # Get recent processing statistics from update logs
         recent_updates = db.execute(text("""
             SELECT source, status, records_processed, started_at, completed_at, error_message
-            FROM update_logs 
+            FROM update_logs
             WHERE started_at > NOW() - INTERVAL '24 hours'
             ORDER BY started_at DESC
             LIMIT 20
         """)).fetchall()
-        
+
         # Calculate deduplication efficiency metrics
         efficiency_stats = {}
-        
+
         # For clinical trials, estimate deduplication based on file count vs record count
         try:
             trials_count = db.execute(text("SELECT COUNT(*) FROM clinical_trials")).scalar()
-            
+
             # Estimate expected records if no deduplication (rough approximation)
             estimated_raw_records = trials_count * 20  # Assume 20x duplication based on observed patterns
-            
+
             if trials_count > 0:
-                efficiency_stats['clinical_trials'] = {
-                    'current_unique_records': trials_count,
-                    'estimated_raw_records_processed': estimated_raw_records,
-                    'estimated_deduplication_rate': ((estimated_raw_records - trials_count) / estimated_raw_records * 100) if estimated_raw_records > 0 else 0,
-                    'storage_efficiency': f"{trials_count:,} unique records vs ~{estimated_raw_records:,} raw records processed"
+                efficiency_stats["clinical_trials"] = {
+                    "current_unique_records": trials_count,
+                    "estimated_raw_records_processed": estimated_raw_records,
+                    "estimated_deduplication_rate": ((estimated_raw_records - trials_count) / estimated_raw_records * 100) if estimated_raw_records > 0 else 0,
+                    "storage_efficiency": f"{trials_count:,} unique records vs ~{estimated_raw_records:,} raw records processed",
                 }
         except Exception:
             pass
-        
+
         db.close()
-        
+
         return {
             "timestamp": datetime.utcnow().isoformat(),
             "recent_update_jobs": [
@@ -1446,7 +1442,7 @@ async def get_deduplication_progress() -> dict[str, Any]:
                     "started_at": job.started_at.isoformat() if job.started_at else None,
                     "completed_at": job.completed_at.isoformat() if job.completed_at else None,
                     "duration_minutes": ((job.completed_at - job.started_at).total_seconds() / 60) if (job.completed_at and job.started_at) else None,
-                    "error": job.error_message[:200] if job.error_message else None
+                    "error": job.error_message[:200] if job.error_message else None,
                 }
                 for job in recent_updates
             ],
@@ -1456,10 +1452,10 @@ async def get_deduplication_progress() -> dict[str, Any]:
                 "Eliminates redundant database operations",
                 "Accurate progress tracking despite massive input duplication",
                 "Memory-efficient batch processing with adaptive sizing",
-                "Content-based duplicate detection prevents identical trials with different IDs"
-            ]
+                "Content-based duplicate detection prevents identical trials with different IDs",
+            ],
         }
-        
+
     except Exception as e:
         logger.exception(f"Deduplication progress failed: {e}")
         raise HTTPException(status_code=500, detail=f"Progress tracking failed: {str(e)}")
@@ -1471,37 +1467,37 @@ async def background_smart_update_parallel(force_full: bool = False) -> None:
     try:
         logger.info(f"🧠 Starting PARALLEL smart update (force_full={force_full})")
         start_time = datetime.now()
-        
+
         # Get current database counts
         counts_response = await get_database_counts()
         counts = counts_response["counts"]
-        
+
         # Determine if we need full loads or incremental updates
         needs_full_load = []
         can_do_incremental = []
-        
+
         # Thresholds for considering a database "empty" or needing full load
         thresholds = {
             "clinical_trials": 100000,  # Less than 100k trials = needs full load
-            "pubmed_articles": 1000000,  # Less than 1M articles = needs full load  
+            "pubmed_articles": 1000000,  # Less than 1M articles = needs full load
             "drug_information": 10000,   # Less than 10k drugs = needs full load
         }
-        
+
         for source, threshold in thresholds.items():
             current_count = counts.get(source, 0)
             if force_full or current_count < threshold:
                 needs_full_load.append(source)
             else:
                 can_do_incremental.append(source)
-        
-        logger.info(f"🧠 Smart update analysis:")
+
+        logger.info("🧠 Smart update analysis:")
         logger.info(f"   Full load needed: {needs_full_load}")
         logger.info(f"   Incremental update: {can_do_incremental}")
-        
+
         # Prepare parallel tasks
         parallel_tasks = []
         started_tasks = []
-        
+
         # Major sources (parallel)
         if "clinical_trials" in needs_full_load:
             parallel_tasks.append(background_process_existing_trials(False))
@@ -1509,33 +1505,33 @@ async def background_smart_update_parallel(force_full: bool = False) -> None:
         elif "clinical_trials" in can_do_incremental:
             parallel_tasks.append(background_trials_update(False, None))
             started_tasks.append("clinical_trials_incremental")
-            
+
         if "pubmed_articles" in needs_full_load:
             parallel_tasks.append(background_process_existing_pubmed(False))
             started_tasks.append("pubmed_full_load")
         elif "pubmed_articles" in can_do_incremental:
             parallel_tasks.append(background_pubmed_update(False, None))
             started_tasks.append("pubmed_incremental")
-            
+
         if "drug_information" in needs_full_load:
             parallel_tasks.append(background_process_existing_fda(False))
             started_tasks.append("fda_full_load")
         elif "drug_information" in can_do_incremental:
             parallel_tasks.append(background_fda_update(False, None))
             started_tasks.append("fda_incremental")
-        
+
         # Smaller datasets (parallel)
         parallel_tasks.append(background_icd10_update(False))
         parallel_tasks.append(background_billing_update(False))
         parallel_tasks.append(background_health_info_update(False))
         started_tasks.extend(["icd10_update", "billing_update", "health_info_update"])
-        
+
         # Run all tasks in parallel
         results = await asyncio.gather(*parallel_tasks, return_exceptions=True)
-        
+
         end_time = datetime.now()
         duration = end_time - start_time
-        
+
         # Log results
         success_count = 0
         for i, result in enumerate(results):
@@ -1545,97 +1541,96 @@ async def background_smart_update_parallel(force_full: bool = False) -> None:
             else:
                 logger.info(f"✅ {task_name} completed successfully")
                 success_count += 1
-        
+
         logger.info(f"🏁 PARALLEL smart update completed: {success_count}/{len(started_tasks)} tasks successful in {duration.total_seconds():.2f}s")
-        
+
     except Exception as e:
         logger.exception(f"❌ Parallel smart update failed: {e}")
 
 
 @app.post("/smart-update")
 async def smart_medical_update(
-    background_tasks: BackgroundTasks, force_full: bool = False, parallel: bool = True
+    background_tasks: BackgroundTasks, force_full: bool = False, parallel: bool = True,
 ) -> dict[str, Any]:
     """Smart update that checks database state and decides between full load vs incremental update (with optional parallel processing)"""
     try:
         if parallel:
             # Run smart update in true parallel mode
             background_tasks.add_task(background_smart_update_parallel, force_full)
-            
+
             logger.info(f"🧠 Smart update PARALLEL processing task queued (force_full={force_full})")
             return {
                 "status": "parallel_smart_update_started",
                 "message": "Smart update parallel processing task queued successfully",
-                "mode": "parallel"
+                "mode": "parallel",
             }
-        else:
-            # Legacy sequential mode
-            # Get current database counts
-            counts_response = await get_database_counts()
-            counts = counts_response["counts"]
-            
-            # Determine if we need full loads or incremental updates
-            needs_full_load = []
-            can_do_incremental = []
-            
-            # Thresholds for considering a database "empty" or needing full load
-            thresholds = {
-                "clinical_trials": 100000,  # Less than 100k trials = needs full load
-                "pubmed_articles": 1000000,  # Less than 1M articles = needs full load  
-                "drug_information": 10000,   # Less than 10k drugs = needs full load
-            }
-            
-            for source, threshold in thresholds.items():
-                current_count = counts.get(source, 0)
-                if force_full or current_count < threshold:
-                    needs_full_load.append(source)
-                else:
-                    can_do_incremental.append(source)
-            
-            logger.info(f"🧠 Smart update analysis:")
-            logger.info(f"   Full load needed: {needs_full_load}")
-            logger.info(f"   Incremental update: {can_do_incremental}")
-            
-            # Start appropriate processes
-            started_tasks = []
-            
-            if "clinical_trials" in needs_full_load:
-                background_tasks.add_task(background_process_existing_trials, False)
-                started_tasks.append("clinical_trials_full_load")
-            elif "clinical_trials" in can_do_incremental:
-                background_tasks.add_task(background_trials_update, False, None)
-                started_tasks.append("clinical_trials_incremental")
-                
-            if "pubmed_articles" in needs_full_load:
-                background_tasks.add_task(background_process_existing_pubmed, False)
-                started_tasks.append("pubmed_full_load")
-            elif "pubmed_articles" in can_do_incremental:
-                background_tasks.add_task(background_pubmed_update, False, None)
-                started_tasks.append("pubmed_incremental")
-                
-            if "drug_information" in needs_full_load:
-                background_tasks.add_task(background_process_existing_fda, False)
-                started_tasks.append("fda_full_load")
-            elif "drug_information" in can_do_incremental:
-                background_tasks.add_task(background_fda_update, False, None)
-                started_tasks.append("fda_incremental")
-            
-            # Always do incremental updates for smaller datasets
-            background_tasks.add_task(background_icd10_update, False)
-            background_tasks.add_task(background_billing_update, False)
-            background_tasks.add_task(background_health_info_update, False)
-            started_tasks.extend(["icd10_update", "billing_update", "health_info_update"])
-            
-            return {
-                "status": "sequential_smart_update_started",
-                "strategy": "mixed" if needs_full_load and can_do_incremental else "full_load" if needs_full_load else "incremental",
-                "full_load_sources": needs_full_load,
-                "incremental_sources": can_do_incremental,
-                "started_tasks": started_tasks,
-                "current_counts": counts,
-                "mode": "sequential"
-            }
-        
+        # Legacy sequential mode
+        # Get current database counts
+        counts_response = await get_database_counts()
+        counts = counts_response["counts"]
+
+        # Determine if we need full loads or incremental updates
+        needs_full_load = []
+        can_do_incremental = []
+
+        # Thresholds for considering a database "empty" or needing full load
+        thresholds = {
+            "clinical_trials": 100000,  # Less than 100k trials = needs full load
+            "pubmed_articles": 1000000,  # Less than 1M articles = needs full load
+            "drug_information": 10000,   # Less than 10k drugs = needs full load
+        }
+
+        for source, threshold in thresholds.items():
+            current_count = counts.get(source, 0)
+            if force_full or current_count < threshold:
+                needs_full_load.append(source)
+            else:
+                can_do_incremental.append(source)
+
+        logger.info("🧠 Smart update analysis:")
+        logger.info(f"   Full load needed: {needs_full_load}")
+        logger.info(f"   Incremental update: {can_do_incremental}")
+
+        # Start appropriate processes
+        started_tasks = []
+
+        if "clinical_trials" in needs_full_load:
+            background_tasks.add_task(background_process_existing_trials, False)
+            started_tasks.append("clinical_trials_full_load")
+        elif "clinical_trials" in can_do_incremental:
+            background_tasks.add_task(background_trials_update, False, None)
+            started_tasks.append("clinical_trials_incremental")
+
+        if "pubmed_articles" in needs_full_load:
+            background_tasks.add_task(background_process_existing_pubmed, False)
+            started_tasks.append("pubmed_full_load")
+        elif "pubmed_articles" in can_do_incremental:
+            background_tasks.add_task(background_pubmed_update, False, None)
+            started_tasks.append("pubmed_incremental")
+
+        if "drug_information" in needs_full_load:
+            background_tasks.add_task(background_process_existing_fda, False)
+            started_tasks.append("fda_full_load")
+        elif "drug_information" in can_do_incremental:
+            background_tasks.add_task(background_fda_update, False, None)
+            started_tasks.append("fda_incremental")
+
+        # Always do incremental updates for smaller datasets
+        background_tasks.add_task(background_icd10_update, False)
+        background_tasks.add_task(background_billing_update, False)
+        background_tasks.add_task(background_health_info_update, False)
+        started_tasks.extend(["icd10_update", "billing_update", "health_info_update"])
+
+        return {
+            "status": "sequential_smart_update_started",
+            "strategy": "mixed" if needs_full_load and can_do_incremental else "full_load" if needs_full_load else "incremental",
+            "full_load_sources": needs_full_load,
+            "incremental_sources": can_do_incremental,
+            "started_tasks": started_tasks,
+            "current_counts": counts,
+            "mode": "sequential",
+        }
+
     except Exception as e:
         logger.exception(f"Smart update failed: {e}")
         raise HTTPException(status_code=500, detail=f"Smart update failed: {str(e)}")

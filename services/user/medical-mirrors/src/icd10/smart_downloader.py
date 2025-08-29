@@ -64,31 +64,31 @@ class SmartICD10Downloader:
     async def _process_existing_zip_files(self):
         """Process any existing ZIP files that haven't been parsed yet"""
         logger.info("Checking for existing ICD-10 ZIP files to process")
-        
+
         cms_sources = ["cms_icd10_cm_2025", "cms_icd10_cm_2024", "cdc_icd10_cm_2025", "cdc_icd10_cm_2025_april", "cdc_icd10_cm_tabular_2025", "cdc_icd10_cm_tabular_2025_april"]
         processed_count = 0
-        
+
         for source in cms_sources:
             zip_file = self.output_dir / f"{source}.zip"
             if zip_file.exists() and source not in self.all_codes:
                 try:
                     logger.info(f"Processing existing ICD-10 ZIP file: {zip_file}")
-                    with open(zip_file, 'rb') as f:
+                    with open(zip_file, "rb") as f:
                         content = f.read()
-                    
+
                     # Parse ZIP file to extract codes
                     parsed_codes = self.cms_downloader._parse_icd10_zip(content, source)
-                    
+
                     if parsed_codes:
                         self.all_codes[source] = parsed_codes
                         processed_count += 1
                         logger.info(f"Processed existing ICD-10 ZIP file {source}: {len(parsed_codes)} codes extracted")
                     else:
                         logger.warning(f"No ICD-10 codes extracted from existing ZIP file: {source}")
-                        
+
                 except Exception as e:
-                    logger.error(f"Failed to process existing ICD-10 ZIP file {source}: {e}")
-        
+                    logger.exception(f"Failed to process existing ICD-10 ZIP file {source}: {e}")
+
         if processed_count > 0:
             logger.info(f"Successfully processed {processed_count} existing ICD-10 ZIP files")
         else:
@@ -337,7 +337,7 @@ class SmartICD10Downloader:
                 # Parse ZIP file to extract codes
                 logger.info(f"Parsing ICD-10 ZIP file for {source}")
                 parsed_codes = self.cms_downloader._parse_icd10_zip(content, source)
-                
+
                 if parsed_codes:
                     self.all_codes[source] = parsed_codes
                     logger.info(f"Extracted {len(parsed_codes)} ICD-10 codes from {source}")
@@ -496,7 +496,7 @@ class SmartICD10Downloader:
     def _generate_final_summary(self, results: dict[str, Any]) -> dict[str, Any]:
         """Generate final summary of ICD-10 file download results"""
         progress = self.state_manager.get_progress_summary()
-        
+
         # Calculate total codes from all downloaded data
         total_codes = sum(len(codes) for codes in self.all_codes.values())
 
@@ -588,7 +588,7 @@ class SmartICD10Downloader:
         # Load existing codes to get accurate count
         if not self.all_codes:
             await self._load_existing_files()
-        
+
         status = {
             "timestamp": datetime.now().isoformat(),
             "data_type": "icd10_codes",

@@ -38,9 +38,9 @@ class ICD10API:
                     "search_query": query,
                     "search_type": "exact_match" if exact_match else "full_text_search",
                     "timestamp": datetime.now().isoformat(),
-                    "error": "Search query cannot be empty"
+                    "error": "Search query cannot be empty",
                 }
-            
+
             with get_db_session() as db:
                 # Apply filters
                 conditions = []

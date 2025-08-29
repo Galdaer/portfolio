@@ -214,7 +214,7 @@ class SyntheticHealthcareDataGenerator:
         self.billing_claims: list[dict[str, Any]] = []
         self.doctor_preferences: list[dict[str, Any]] = []
         self.audit_logs: list[dict[str, Any]] = []
-        
+
         # Business services data
         self.compliance_violations: list[dict[str, Any]] = []
         self.analytics_metrics: list[dict[str, Any]] = []
@@ -664,15 +664,15 @@ class SyntheticHealthcareDataGenerator:
         """Generate compliance violation events for testing compliance monitoring"""
         violation_types = [
             "unauthorized_phi_access",
-            "phi_disclosure_without_consent", 
+            "phi_disclosure_without_consent",
             "access_outside_work_hours",
             "bulk_patient_access",
             "suspicious_login_pattern",
             "failed_authentication_attempts",
             "data_export_without_approval",
-            "patient_record_modification_after_hours"
+            "patient_record_modification_after_hours",
         ]
-        
+
         return {
             "violation_id": f"VIO_{fake.random_number(digits=6)}",
             "user_id": user_id,
@@ -684,17 +684,17 @@ class SyntheticHealthcareDataGenerator:
                 "action_attempted": random.choice(["VIEW", "EDIT", "DELETE", "EXPORT", "PRINT"]),
                 "location": fake.ipv4(),
                 "device_info": fake.user_agent(),
-                "time_of_access": fake.time()
+                "time_of_access": fake.time(),
             },
             "auto_detected": random.choice([True, False]),
             "resolved": random.choice([True, False]),
-            "resolution_notes": fake.sentence() if random.random() > 0.5 else None
+            "resolution_notes": fake.sentence() if random.random() > 0.5 else None,
         }
 
     def generate_analytics_metrics(self, date: str = None) -> dict[str, Any]:
         """Generate analytics metrics for business intelligence testing"""
         target_date = date or fake.date_between(start_date="-90d", end_date="today").isoformat()
-        
+
         return {
             "metric_id": str(uuid.uuid4()),
             "date": target_date,
@@ -702,25 +702,25 @@ class SyntheticHealthcareDataGenerator:
                 "total_revenue": round(random.uniform(5000.0, 25000.0), 2),
                 "claims_processed": random.randint(50, 200),
                 "average_claim_value": round(random.uniform(100.0, 500.0), 2),
-                "collection_rate": round(random.uniform(0.75, 0.95), 3)
+                "collection_rate": round(random.uniform(0.75, 0.95), 3),
             },
             "operational_metrics": {
                 "patient_visits": random.randint(75, 300),
                 "average_wait_time": random.randint(5, 45),
                 "provider_utilization": round(random.uniform(0.60, 0.95), 3),
-                "no_show_rate": round(random.uniform(0.05, 0.20), 3)
+                "no_show_rate": round(random.uniform(0.05, 0.20), 3),
             },
             "compliance_metrics": {
                 "compliance_score": round(random.uniform(85.0, 99.5), 1),
                 "violations_detected": random.randint(0, 5),
                 "audit_events": random.randint(100, 500),
-                "phi_access_events": random.randint(200, 800)
+                "phi_access_events": random.randint(200, 800),
             },
             "quality_metrics": {
                 "patient_satisfaction": round(random.uniform(3.5, 5.0), 1),
                 "readmission_rate": round(random.uniform(0.02, 0.15), 3),
-                "medication_adherence": round(random.uniform(0.70, 0.95), 3)
-            }
+                "medication_adherence": round(random.uniform(0.70, 0.95), 3),
+            },
         }
 
     def generate_personalization_training_data(self, doctor_id: str) -> dict[str, Any]:
@@ -730,10 +730,10 @@ class SyntheticHealthcareDataGenerator:
             "doctor_id": doctor_id,
             "interaction_type": random.choice([
                 "patient_note_generation",
-                "diagnosis_assistance", 
+                "diagnosis_assistance",
                 "treatment_recommendation",
                 "medication_review",
-                "clinical_decision_support"
+                "clinical_decision_support",
             ]),
             "input_text": fake.text(max_nb_chars=500),
             "preferred_output": fake.text(max_nb_chars=300),
@@ -742,19 +742,15 @@ class SyntheticHealthcareDataGenerator:
             "session_context": {
                 "patient_specialty": random.choice(["cardiology", "dermatology", "family_medicine", "pediatrics"]),
                 "documentation_style": random.choice(["concise", "detailed", "bullet_points"]),
-                "clinical_complexity": random.choice(["simple", "moderate", "complex"])
+                "clinical_complexity": random.choice(["simple", "moderate", "complex"]),
             },
             "model_version": f"v{random.randint(1, 5)}.{random.randint(0, 9)}",
-            "adaptation_score": round(random.uniform(6.0, 10.0), 1)
+            "adaptation_score": round(random.uniform(6.0, 10.0), 1),
         }
 
     def generate_service_communication_log(self, from_service: str, to_service: str) -> dict[str, Any]:
         """Generate service-to-service communication logs for integration testing"""
-        services = [
-            "healthcare-api", "insurance-verification", "billing-engine",
-            "compliance-monitor", "business-intelligence", "doctor-personalization"
-        ]
-        
+
         return {
             "log_id": str(uuid.uuid4()),
             "from_service": from_service,
@@ -770,7 +766,7 @@ class SyntheticHealthcareDataGenerator:
             "user_id": f"user_{fake.random_number(digits=6)}",
             "correlation_id": str(uuid.uuid4()),
             "circuit_breaker_state": random.choice(["CLOSED", "OPEN", "HALF_OPEN"]),
-            "retry_count": random.randint(0, 3)
+            "retry_count": random.randint(0, 3),
         }
 
     def generate_all_data(self) -> None:
@@ -843,7 +839,7 @@ class SyntheticHealthcareDataGenerator:
             self.audit_logs.append(audit_log)
 
         print("\n🔧 Generating business services data...")
-        
+
         print("⚠️ Generating compliance violations...")
         # Generate some compliance violations for testing
         all_users = [doc["doctor_id"] for doc in self.doctors] + ["system"]
@@ -870,7 +866,7 @@ class SyntheticHealthcareDataGenerator:
         # Generate service-to-service communication logs
         services = [
             "healthcare-api", "insurance-verification", "billing-engine",
-            "compliance-monitor", "business-intelligence", "doctor-personalization"
+            "compliance-monitor", "business-intelligence", "doctor-personalization",
         ]
         for _ in range(random.randint(100, 300)):
             from_service = random.choice(services)

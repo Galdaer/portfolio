@@ -25,12 +25,12 @@ class ClinicalTrialsParser:
 
         try:
             # Handle both compressed and uncompressed files
-            if json_file_path.endswith('.gz'):
+            if json_file_path.endswith(".gz"):
                 import gzip
-                with gzip.open(json_file_path, 'rt', encoding='utf-8') as f:
+                with gzip.open(json_file_path, "rt", encoding="utf-8") as f:
                     data = json.load(f)
             else:
-                with open(json_file_path, encoding='utf-8') as f:
+                with open(json_file_path, encoding="utf-8") as f:
                     data = json.load(f)
 
             # Extract studies from the JSON structure

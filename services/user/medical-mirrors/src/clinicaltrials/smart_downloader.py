@@ -2,14 +2,11 @@
 Smart ClinicalTrials Downloader with automatic rate limit handling and recovery
 """
 
-import asyncio
 import json
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
-
-import httpx
 
 from config import Config
 
@@ -178,7 +175,7 @@ class SmartClinicalTrialsDownloader:
 
             # Use proper pagination-aware download method instead of broken legacy method
             batch_files = await self.downloader.download_all_studies(self.batch_size)
-            
+
             if batch_files:
                 self.batch_files.extend(batch_files)
                 self.state.last_batch_processed = len(batch_files)

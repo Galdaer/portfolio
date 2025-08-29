@@ -29,7 +29,7 @@ engine = create_engine(
     max_overflow=30,       # Additional connections beyond pool_size
     pool_pre_ping=True,    # Validate connections before use
     pool_recycle=3600,     # Recycle connections every hour
-    echo=False             # Set to True for SQL debugging
+    echo=False,             # Set to True for SQL debugging
 )
 
 
@@ -50,11 +50,11 @@ def get_connection_pool_status() -> dict:
     """Get current connection pool status for monitoring"""
     pool = engine.pool
     return {
-        'pool_size': pool.size(),
-        'checked_in': pool.checkedin(),
-        'checked_out': pool.checkedout(),
-        'overflow': pool.overflow(),
-        'invalid': pool.invalid()
+        "pool_size": pool.size(),
+        "checked_in": pool.checkedin(),
+        "checked_out": pool.checkedout(),
+        "overflow": pool.overflow(),
+        "invalid": pool.invalid(),
     }
 
 
@@ -188,7 +188,7 @@ class ProcessedFile(Base):  # type: ignore[misc,valid-type]
     processing_time_seconds = Column(Float, default=0.0)  # Time to process file
     processed_at = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Note: Indexes will be created manually via SQL DDL
 
 

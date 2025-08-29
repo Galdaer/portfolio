@@ -5,34 +5,36 @@ Provides compliance monitoring integration for all healthcare agents
 to ensure HIPAA compliance and PHI protection across the system.
 """
 
-import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
-from core.clients.business_services import get_business_client, ServiceResponse
+from core.clients.business_services import get_business_client
 from core.infrastructure.healthcare_logger import get_healthcare_logger
+
+if TYPE_CHECKING:
+    from core.clients.business_services import ServiceResponse
 
 logger = get_healthcare_logger("agent.compliance_monitor")
 
 
 class AgentComplianceMonitor:
     """Centralized compliance monitoring for healthcare agents"""
-    
+
     def __init__(self, agent_name: str):
         self.agent_name = agent_name
-    
+
     async def log_agent_event(
         self,
         operation_type: str,
-        event_data: Dict[str, Any],
-        user_id: Optional[str] = None,
-        patient_id: Optional[str] = None,
+        event_data: dict[str, Any],
+        user_id: str | None = None,
+        patient_id: str | None = None,
         phi_risk_level: str = "medium",
-        compliance_notes: Optional[str] = None,
+        compliance_notes: str | None = None,
     ) -> bool:
         """
         Log compliance event for agent operation
-        
+
         Args:
             operation_type: Type of operation (e.g., 'transcription', 'billing', 'insurance_verification')
             event_data: Event data (PHI will be sanitized)
@@ -40,7 +42,7 @@ class AgentComplianceMonitor:
             patient_id: Patient ID (will be masked in logs)
             phi_risk_level: Risk level (low, medium, high)
             compliance_notes: Additional compliance notes
-            
+
         Returns:
             bool: True if logged successfully, False otherwise
         """
@@ -58,27 +60,26 @@ class AgentComplianceMonitor:
                     "event_data": event_data,
                     "compliance_notes": compliance_notes,
                 }
-                
+
                 service_response: ServiceResponse = await client.log_audit_event(audit_event)
-                
+
                 if service_response.success:
                     logger.debug(f"Compliance event logged for {operation_type}")
                     return True
-                else:
-                    logger.warning(f"Failed to log compliance event: {service_response.error}")
-                    return False
-                    
+                logger.warning(f"Failed to log compliance event: {service_response.error}")
+                return False
+
         except Exception as e:
-            logger.error(f"Compliance monitoring error: {e}")
+            logger.exception(f"Compliance monitoring error: {e}")
             return False
-    
-    async def check_phi_compliance(self, text_content: str) -> Dict[str, Any]:
+
+    async def check_phi_compliance(self, text_content: str) -> dict[str, Any]:
         """
         Check text content for PHI compliance
-        
+
         Args:
             text_content: Text to scan for PHI
-            
+
         Returns:
             dict: Compliance check results
         """
@@ -89,31 +90,30 @@ class AgentComplianceMonitor:
                     "agent_name": self.agent_name,
                     "scan_type": "agent_content",
                 }
-                
+
                 service_response: ServiceResponse = await client.scan_phi(phi_scan_request)
-                
+
                 if service_response.success:
                     return service_response.data
-                else:
-                    logger.warning(f"PHI scan failed: {service_response.error}")
-                    return {"compliant": False, "error": service_response.error}
-                    
+                logger.warning(f"PHI scan failed: {service_response.error}")
+                return {"compliant": False, "error": service_response.error}
+
         except Exception as e:
-            logger.error(f"PHI compliance check error: {e}")
+            logger.exception(f"PHI compliance check error: {e}")
             return {"compliant": False, "error": str(e)}
-    
+
     async def validate_operation_compliance(
         self,
         operation_type: str,
-        operation_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        operation_data: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Validate that an operation meets compliance requirements
-        
+
         Args:
             operation_type: Type of operation
             operation_data: Operation data to validate
-            
+
         Returns:
             dict: Validation results
         """
@@ -125,17 +125,16 @@ class AgentComplianceMonitor:
                     "operation_type": operation_type,
                     "operation_data": operation_data,
                 }
-                
+
                 service_response: ServiceResponse = await client.check_compliance(compliance_check)
-                
+
                 if service_response.success:
                     return service_response.data
-                else:
-                    logger.warning(f"Compliance validation failed: {service_response.error}")
-                    return {"compliant": False, "error": service_response.error}
-                    
+                logger.warning(f"Compliance validation failed: {service_response.error}")
+                return {"compliant": False, "error": service_response.error}
+
         except Exception as e:
-            logger.error(f"Operation compliance validation error: {e}")
+            logger.exception(f"Operation compliance validation error: {e}")
             return {"compliant": False, "error": str(e)}
 
 
@@ -149,7 +148,7 @@ def compliance_monitor_decorator(
 ):
     """
     Decorator to add compliance monitoring to agent methods
-    
+
     Args:
         operation_type: Type of operation for compliance logging
         phi_risk_level: Risk level (low, medium, high)
@@ -160,9 +159,9 @@ def compliance_monitor_decorator(
     """
     def decorator(func):
         async def wrapper(self, *args, **kwargs):
-            agent_name = getattr(self, 'agent_name', 'unknown_agent')
+            agent_name = getattr(self, "agent_name", "unknown_agent")
             compliance_monitor = AgentComplianceMonitor(agent_name)
-            
+
             # Pre-operation validation
             if validate_input and args:
                 input_text = str(args[0]) if args else ""
@@ -174,13 +173,13 @@ def compliance_monitor_decorator(
                         operation_type=f"{operation_type}_phi_warning",
                         event_data={"phi_detected": True, "input_validated": True},
                         phi_risk_level="high",
-                        compliance_notes="PHI detected in agent input"
+                        compliance_notes="PHI detected in agent input",
                     )
-            
+
             try:
                 # Execute the original function
                 result = await func(self, *args, **kwargs)
-                
+
                 # Post-operation validation
                 if validate_output and result:
                     output_text = str(result)
@@ -191,9 +190,9 @@ def compliance_monitor_decorator(
                             operation_type=f"{operation_type}_phi_warning",
                             event_data={"phi_detected": True, "output_validated": True},
                             phi_risk_level="high",
-                            compliance_notes="PHI detected in agent output"
+                            compliance_notes="PHI detected in agent output",
                         )
-                
+
                 # Log successful operation
                 if log_success:
                     await compliance_monitor.log_agent_event(
@@ -204,11 +203,11 @@ def compliance_monitor_decorator(
                             "kwargs_keys": list(kwargs.keys()),
                         },
                         phi_risk_level=phi_risk_level,
-                        compliance_notes=f"Successful {operation_type} operation"
+                        compliance_notes=f"Successful {operation_type} operation",
                     )
-                
+
                 return result
-                
+
             except Exception as e:
                 # Log failed operation
                 if log_failure:
@@ -220,11 +219,11 @@ def compliance_monitor_decorator(
                             "error_message": str(e),
                         },
                         phi_risk_level=phi_risk_level,
-                        compliance_notes=f"Failed {operation_type} operation"
+                        compliance_notes=f"Failed {operation_type} operation",
                     )
-                
+
                 raise  # Re-raise the original exception
-        
+
         return wrapper
     return decorator
 

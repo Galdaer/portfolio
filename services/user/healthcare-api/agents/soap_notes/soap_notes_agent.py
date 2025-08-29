@@ -335,7 +335,7 @@ class SoapNotesAgent(BaseHealthcareAgent):
         operation_type="clinical_documentation",
         phi_risk_level="high",
         validate_input=True,
-        validate_output=True
+        validate_output=True,
     )
     async def generate_soap_note(self, transcription_data: dict[str, Any], note_type: str = "soap") -> SOAPNote:
         """

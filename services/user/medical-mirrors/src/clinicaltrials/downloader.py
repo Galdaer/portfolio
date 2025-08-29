@@ -65,7 +65,7 @@ class ClinicalTrialsDownloader:
             all_studies = []
             current_token = page_token
             api_requests_made = 0
-            
+
             # Make multiple API requests to reach desired batch_size (max 1000 per API call)
             while len(all_studies) < batch_size:
                 # ClinicalTrials.gov API v2 uses pageSize and pageToken for pagination
@@ -73,7 +73,7 @@ class ClinicalTrialsDownloader:
                     "pageSize": min(1000, batch_size - len(all_studies)),  # Get remaining studies, max 1000 per request
                     "fields": "NCTId,BriefTitle,OverallStatus,Phase,Condition,InterventionName,LocationFacility,LocationCity,LocationState,LocationCountry,StartDate,CompletionDate,EnrollmentCount,StudyType,LeadSponsorName",
                 }
-                
+
                 # Add page token if we have one
                 if current_token:
                     params["pageToken"] = current_token
@@ -92,11 +92,11 @@ class ClinicalTrialsDownloader:
 
                 all_studies.extend(studies)
                 current_token = data.get("nextPageToken")
-                
+
                 # If no next token, we've reached the end
                 if not current_token:
                     break
-                
+
                 # Small delay between API requests to be respectful
                 if api_requests_made > 1:
                     await asyncio.sleep(self.config.CLINICALTRIALS_REQUEST_DELAY)
@@ -115,7 +115,7 @@ class ClinicalTrialsDownloader:
                     "download_timestamp": datetime.now().isoformat(),
                 },
                 "studies": all_studies,
-                "nextPageToken": current_token  # For continuation
+                "nextPageToken": current_token,  # For continuation
             }
 
             # Save consolidated batch to compressed file (saves ~80% space)
@@ -127,7 +127,7 @@ class ClinicalTrialsDownloader:
             # Save compressed without pretty printing for maximum efficiency
             import gzip
             with gzip.open(batch_file, "wt", encoding="utf-8") as f:
-                json.dump(consolidated_data, f, ensure_ascii=False, separators=(',', ':'))
+                json.dump(consolidated_data, f, ensure_ascii=False, separators=(",", ":"))
 
             logger.info(f"Consolidated {len(all_studies)} studies into batch {batch_number} using {api_requests_made} API calls (next_token: {'Yes' if current_token else 'None'})")
             return batch_file, current_token
@@ -138,21 +138,20 @@ class ClinicalTrialsDownloader:
 
     async def download_studies_batch(self, start: int, batch_size: int) -> str | None:
         """Legacy method - DEPRECATED: Cannot properly paginate without pageToken
-        
+
         This method cannot work correctly because it has no way to pass the pageToken
         from previous requests. This causes all batches to return the same data.
         Use download_all_studies() instead for proper pagination.
         """
         logger.error(f"DEPRECATED: download_studies_batch() called with start={start}. This method cannot paginate properly!")
         logger.error("Use download_all_studies() for proper pagination or download_studies_batch_paginated() with pageToken")
-        
+
         # For backwards compatibility, return first batch only and warn
         if start == 1:
             batch_file, _ = await self.download_studies_batch_paginated(1, batch_size, None)
             return batch_file
-        else:
-            logger.error(f"Refusing to download batch starting at {start} - would return duplicate data")
-            return None
+        logger.error(f"Refusing to download batch starting at {start} - would return duplicate data")
+        return None
 
     async def download_study_details(self, nct_id: str) -> dict[str, Any] | None:
         """Download detailed information for a specific study"""
@@ -216,7 +215,7 @@ class ClinicalTrialsDownloader:
         json_files: list[str] = []
 
         for file in os.listdir(self.data_dir):
-            if file.endswith(".json") or file.endswith(".json.gz"):
+            if file.endswith((".json", ".json.gz")):
                 json_files.append(os.path.join(self.data_dir, file))
 
         return json_files
