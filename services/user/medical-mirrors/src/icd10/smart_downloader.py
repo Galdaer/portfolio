@@ -537,15 +537,19 @@ class SmartICD10Downloader:
         try:
             logger.info("Starting post-download ICD-10 database enhancement...")
             
-            # Check if AI enhancement should be used (default to true for robustness)
-            use_ai = os.getenv('USE_AI_ENHANCEMENT', 'true').lower() == 'true'
-            if use_ai:
-                logger.info("Using AI-driven enhancement with SciSpacy and Ollama")
-            else:
-                logger.info("Using pattern-based enhancement")
+            # Import config loader
+            from ..config_loader import get_config
+            config = get_config()
             
-            # Initialize the enhancer with AI mode if requested
-            enhancer = ICD10DatabaseEnhancer(use_ai=use_ai)
+            # Check if enhancement is enabled for ICD10
+            if not config.is_enhancement_enabled('icd10_codes'):
+                logger.info("ICD10 enhancement disabled in configuration")
+                download_summary['enhancement_completed'] = False
+                download_summary['enhancement_skipped'] = True
+                return
+            
+            # Initialize the enhancer (will use config to determine AI mode)
+            enhancer = ICD10DatabaseEnhancer(batch_size=config.get_batch_size('icd10_codes'))
             
             # Run the enhancement
             enhancement_stats = await asyncio.get_event_loop().run_in_executor(

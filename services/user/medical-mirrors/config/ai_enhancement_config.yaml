@@ -1,0 +1,307 @@
+# AI Enhancement Configuration for Medical Mirrors Service
+# Controls AI-driven medical data enhancement using SciSpacy and Ollama
+
+# =============================================================================
+# SERVICE CONFIGURATION
+# =============================================================================
+
+# SciSpacy NLP Service Configuration
+scispacy:
+  enabled: true
+  host: localhost
+  port: 8080
+  timeout: 30  # seconds
+  retry_attempts: 3
+  retry_delay: 1  # seconds
+  
+  # Batch processing settings
+  batch_size: 100
+  max_text_length: 5000  # characters
+  
+  # Entity extraction settings
+  entity_types:
+    - DISEASE
+    - CHEMICAL
+    - GENE
+    - ORGANISM
+    - ANATOMY
+    - CANCER
+    - ORGAN
+    - TISSUE
+    - CELL
+    - PATHOLOGICAL_FORMATION
+    
+  # Model configuration
+  model_settings:
+    confidence_threshold: 0.7
+    max_entities_per_text: 50
+
+# Ollama LLM Service Configuration
+ollama:
+  enabled: true
+  host: localhost
+  port: 11434
+  timeout: 60  # seconds
+  retry_attempts: 2
+  retry_delay: 2  # seconds
+  
+  # Model settings
+  model: llama3.2:latest
+  temperature: 0.3  # Lower = more consistent, Higher = more creative
+  max_tokens: 500
+  
+  # Generation parameters
+  generation_settings:
+    # For medical synonyms
+    synonyms:
+      temperature: 0.4
+      max_tokens: 200
+      system_prompt: "You are a medical terminology expert. Generate precise medical synonyms."
+      
+    # For clinical notes
+    clinical_notes:
+      temperature: 0.2
+      max_tokens: 300
+      system_prompt: "You are a clinical documentation specialist. Generate accurate clinical notes."
+      
+    # For drug interactions
+    drug_interactions:
+      temperature: 0.1  # Very low for safety
+      max_tokens: 400
+      system_prompt: "You are a clinical pharmacist. Analyze drug interactions with extreme caution."
+
+# =============================================================================
+# ENHANCEMENT PRIORITIES
+# =============================================================================
+
+enhancement_priorities:
+  # Enable/disable enhancement for specific data types
+  icd10_codes:
+    enabled: true
+    priority: 1  # Highest priority
+    batch_size: 500
+    
+  billing_codes:
+    enabled: true
+    priority: 2
+    batch_size: 1000
+    
+  pubmed_articles:
+    enabled: true
+    priority: 3
+    batch_size: 100
+    
+  clinical_trials:
+    enabled: true
+    priority: 4
+    batch_size: 200
+    
+  drug_information:
+    enabled: true
+    priority: 5
+    batch_size: 50
+
+# =============================================================================
+# ENHANCEMENT MODES
+# =============================================================================
+
+enhancement_modes:
+  # Default mode selection
+  default_mode: ai  # Options: ai, pattern, hybrid
+  
+  # Fallback behavior when AI services unavailable
+  fallback_to_pattern: true
+  
+  # Hybrid mode settings (uses both AI and pattern)
+  hybrid_settings:
+    use_ai_for:
+      - synonyms
+      - clinical_notes
+      - entity_extraction
+    use_pattern_for:
+      - abbreviations
+      - basic_variations
+      - hierarchy_building
+
+# =============================================================================
+# QUALITY THRESHOLDS
+# =============================================================================
+
+quality_thresholds:
+  # Minimum quality scores for accepting AI-generated content
+  synonym_quality:
+    min_length: 3
+    max_length: 100
+    min_confidence: 0.6
+    max_synonyms_per_code: 20
+    
+  clinical_notes_quality:
+    min_length: 10
+    max_length: 500
+    min_confidence: 0.7
+    max_notes_per_code: 10
+    
+  entity_extraction_quality:
+    min_confidence: 0.75
+    max_entities_per_text: 30
+    
+  # Validation rules
+  validation:
+    remove_duplicates: true
+    normalize_case: true
+    remove_special_chars: true
+    validate_medical_terms: true
+
+# =============================================================================
+# PERFORMANCE SETTINGS
+# =============================================================================
+
+performance:
+  # Parallel processing
+  parallel_processing:
+    enabled: true
+    max_workers: 4
+    queue_size: 1000
+    
+  # Rate limiting
+  rate_limiting:
+    scispacy_requests_per_second: 10
+    ollama_requests_per_second: 5
+    
+  # Caching
+  caching:
+    enabled: true
+    cache_size: 10000  # Number of items
+    cache_ttl: 3600  # seconds (1 hour)
+    cache_types:
+      - synonym_generation
+      - entity_extraction
+      - clinical_notes
+      
+  # Database optimization
+  database:
+    batch_insert_size: 500
+    use_bulk_operations: true
+    transaction_size: 1000
+
+# =============================================================================
+# MONITORING AND LOGGING
+# =============================================================================
+
+monitoring:
+  # Metrics collection
+  metrics:
+    enabled: true
+    collect_performance_stats: true
+    collect_quality_scores: true
+    collect_error_rates: true
+    
+  # Logging configuration
+  logging:
+    level: INFO  # DEBUG, INFO, WARNING, ERROR
+    log_ai_requests: false  # Set to true for debugging
+    log_ai_responses: false  # Set to true for debugging
+    log_enhancement_stats: true
+    
+  # Progress tracking
+  progress:
+    report_interval: 100  # Report every N records
+    show_eta: true
+    show_quality_metrics: true
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+
+error_handling:
+  # Retry configuration
+  retry_policy:
+    max_retries: 3
+    backoff_factor: 2
+    max_backoff: 30  # seconds
+    
+  # Error recovery
+  recovery:
+    skip_on_error: true  # Skip failed records instead of stopping
+    log_errors: true
+    save_error_records: true
+    error_file: /app/logs/enhancement_errors.json
+    
+  # Service health checks
+  health_checks:
+    check_interval: 60  # seconds
+    mark_unhealthy_after: 3  # consecutive failures
+    auto_restart: false
+
+# =============================================================================
+# DATA QUALITY RULES
+# =============================================================================
+
+data_quality:
+  # ICD-10 specific rules
+  icd10:
+    require_description: true
+    validate_code_format: true
+    check_hierarchy_consistency: true
+    
+  # Billing codes specific rules
+  billing_codes:
+    require_description: true
+    validate_cpt_format: true
+    check_modifier_validity: true
+    
+  # PubMed specific rules
+  pubmed:
+    require_title: true
+    require_abstract_for_extraction: true
+    min_abstract_length: 50
+    
+  # Clinical trials specific rules
+  clinical_trials:
+    require_nct_id: true
+    normalize_conditions: true
+    map_to_icd10: true
+    
+  # Drug information specific rules
+  drugs:
+    require_generic_name: true
+    validate_ndc_format: true
+    check_interaction_severity: true
+
+# =============================================================================
+# CUSTOMIZATION HOOKS
+# =============================================================================
+
+customization:
+  # Pre-processing hooks
+  pre_processing:
+    enabled: false
+    script_path: /app/config/custom_preprocessing.py
+    
+  # Post-processing hooks
+  post_processing:
+    enabled: false
+    script_path: /app/config/custom_postprocessing.py
+    
+  # Custom validation rules
+  custom_validation:
+    enabled: false
+    rules_path: /app/config/custom_validation_rules.yaml
+
+# =============================================================================
+# CONFIGURATION METADATA
+# =============================================================================
+
+metadata:
+  version: "1.0.0"
+  last_updated: "2024-01-20"
+  description: "AI enhancement configuration for medical data processing"
+  notes: |
+    This configuration controls the AI-driven enhancement of medical data.
+    Adjust settings based on your infrastructure capabilities and data quality requirements.
+    
+    Key considerations:
+    1. Ensure AI services (SciSpacy, Ollama) are running before enabling
+    2. Adjust batch sizes based on available memory
+    3. Configure rate limiting to avoid overloading services
+    4. Set quality thresholds based on your accuracy requirements

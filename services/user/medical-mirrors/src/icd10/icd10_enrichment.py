@@ -141,86 +141,21 @@ class ICD10ClinicalNotesExtractor:
     
     def _get_clinical_notes_by_code(self, code: str) -> Optional[Dict[str, List[str]]]:
         """
-        Get code-specific clinical notes from medical knowledge base.
+        Get code-specific clinical notes from configuration.
         
-        This method provides curated clinical guidance for common ICD-10 codes
-        to enhance the automated extraction with medical expertise.
+        This method loads clinical guidance from the YAML configuration files
+        allowing healthcare organizations to customize the notes.
         """
-        # Common diabetes codes (E10-E14)
-        if code.startswith('E1'):
-            if 'E10' in code:  # Type 1 diabetes
-                return {
-                    'inclusion': [
-                        'Juvenile onset diabetes',
-                        'Insulin-dependent diabetes mellitus (IDDM)',
-                        'Brittle diabetes'
-                    ],
-                    'exclusion': [
-                        'Type 2 diabetes mellitus',
-                        'Gestational diabetes',
-                        'Drug-induced diabetes'
-                    ]
-                }
-            elif 'E11' in code:  # Type 2 diabetes
-                return {
-                    'inclusion': [
-                        'Adult-onset diabetes',
-                        'Non-insulin-dependent diabetes mellitus (NIDDM)',
-                        'Maturity-onset diabetes'
-                    ],
-                    'exclusion': [
-                        'Type 1 diabetes mellitus',
-                        'Gestational diabetes',
-                        'Secondary diabetes'
-                    ]
-                }
+        from ..config_loader import get_config
+        config = get_config()
         
-        # Hypertension codes (I10-I16)
-        elif code.startswith('I1'):
-            if code == 'I10':  # Essential hypertension
-                return {
-                    'inclusion': [
-                        'Primary hypertension',
-                        'Idiopathic hypertension',
-                        'High blood pressure of unknown cause'
-                    ],
-                    'exclusion': [
-                        'Secondary hypertension',
-                        'Pulmonary hypertension',
-                        'Gestational hypertension'
-                    ]
-                }
+        # Get clinical notes from configuration
+        clinical_notes = config.get_icd10_clinical_notes(code)
         
-        # COPD codes (J44)
-        elif code.startswith('J44'):
-            return {
-                'inclusion': [
-                    'Chronic bronchitis with airway obstruction',
-                    'Emphysema with chronic bronchitis',
-                    'Chronic obstructive bronchitis'
-                ],
-                'exclusion': [
-                    'Acute bronchitis',
-                    'Asthma',
-                    'Bronchiectasis'
-                ]
-            }
-            
-        # Fracture codes (S72)
-        elif code.startswith('S72'):
-            return {
-                'inclusion': [
-                    'Traumatic fracture',
-                    'Closed fracture',
-                    'Open fracture'
-                ],
-                'exclusion': [
-                    'Pathological fracture',
-                    'Stress fracture',
-                    'Old fracture'
-                ]
-            }
-            
+        if clinical_notes and (clinical_notes.get('inclusion') or clinical_notes.get('exclusion')):
+            return clinical_notes
+        
+        # No hardcoded clinical notes - all loaded from configuration
         return None
 
     def batch_extract_notes(self, codes_data: List[Dict]) -> List[Dict]:
@@ -275,52 +210,15 @@ class ICD10SynonymGenerator:
     """
     
     def __init__(self):
-        # Medical abbreviations and expansions
-        self.medical_abbreviations = {
-            # Common medical abbreviations
-            'DM': 'diabetes mellitus',
-            'HTN': 'hypertension', 
-            'COPD': 'chronic obstructive pulmonary disease',
-            'CHF': 'congestive heart failure',
-            'MI': 'myocardial infarction',
-            'CVA': 'cerebrovascular accident',
-            'DVT': 'deep vein thrombosis',
-            'PE': 'pulmonary embolism',
-            'GERD': 'gastroesophageal reflux disease',
-            'UTI': 'urinary tract infection',
-            'URI': 'upper respiratory infection',
-            'CAD': 'coronary artery disease',
-            'PVD': 'peripheral vascular disease',
-            'CKD': 'chronic kidney disease',
-            'ESRD': 'end-stage renal disease',
-            'IBD': 'inflammatory bowel disease',
-            'RA': 'rheumatoid arthritis',
-            'SLE': 'systemic lupus erythematosus',
-            'ADHD': 'attention deficit hyperactivity disorder',
-            'PTSD': 'post-traumatic stress disorder',
-            'OCD': 'obsessive-compulsive disorder',
-            'CHD': 'coronary heart disease',
-            'NIDDM': 'non-insulin dependent diabetes mellitus',
-            'IDDM': 'insulin dependent diabetes mellitus'
-        }
+        # Load configuration from YAML files
+        from ..config_loader import get_config
+        config = get_config()
         
-        # Common medical term variations
-        self.term_variations = {
-            'hypertension': ['high blood pressure', 'elevated blood pressure'],
-            'diabetes mellitus': ['diabetes', 'sugar diabetes'],
-            'myocardial infarction': ['heart attack', 'MI', 'cardiac infarction'],
-            'cerebrovascular accident': ['stroke', 'brain attack', 'CVA'],
-            'pneumonia': ['lung infection', 'pulmonary infection'],
-            'fracture': ['break', 'broken bone', 'bone fracture'],
-            'neoplasm': ['tumor', 'mass', 'growth', 'cancer'],
-            'infection': ['infectious disease', 'bacterial infection', 'viral infection'],
-            'inflammation': ['inflammatory condition', 'swelling'],
-            'disorder': ['disease', 'condition', 'syndrome'],
-            'acute': ['sudden onset', 'rapid onset'],
-            'chronic': ['long-term', 'persistent', 'ongoing'],
-            'essential': ['primary', 'idiopathic'],
-            'secondary': ['due to', 'caused by', 'resulting from']
-        }
+        # Load medical abbreviations from config
+        self.medical_abbreviations = config.get_medical_abbreviations()
+        
+        # Load term variations from config
+        self.term_variations = config.get_term_variations()
         
         self.processed_count = 0
         self.synonyms_generated = 0
@@ -696,15 +594,35 @@ class ICD10DatabaseEnhancer:
     - Ensures data integrity with UPSERT operations
     """
     
-    def __init__(self, batch_size: int = 1000, use_ai: bool = False):
+    def __init__(self, batch_size: int = 1000, use_ai: bool = None):
+        # Load configuration
+        from ..config_loader import get_config
+        self.config = get_config()
+        
         self.batch_size = batch_size
+        
+        # Determine AI mode from config if not explicitly set
+        if use_ai is None:
+            use_ai = self.config.ai_enabled
+        
         self.use_ai = use_ai
         
         if use_ai:
             # Use AI-driven enhancement
             logger.info("Using AI-driven enhancement with SciSpacy and Ollama")
-            from .icd10_ai_enrichment import ICD10AIEnhancer
-            self.ai_enhancer = ICD10AIEnhancer(batch_size)
+            try:
+                from .icd10_ai_enrichment import ICD10AIEnhancer
+                self.ai_enhancer = ICD10AIEnhancer(batch_size)
+            except ImportError as e:
+                logger.warning(f"AI enhancement not available: {e}")
+                if self.config.should_fallback_to_pattern():
+                    logger.info("Falling back to pattern-based enhancement")
+                    self.use_ai = False
+                    self.notes_extractor = ICD10ClinicalNotesExtractor()
+                    self.synonym_generator = ICD10SynonymGenerator()
+                    self.hierarchy_builder = ICD10HierarchyBuilder()
+                else:
+                    raise RuntimeError("AI enhancement required but not available")
         else:
             # Use traditional pattern-based enhancement
             logger.info("Using traditional pattern-based enhancement")

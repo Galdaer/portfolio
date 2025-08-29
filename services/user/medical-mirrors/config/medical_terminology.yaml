@@ -1,0 +1,382 @@
+# Medical Terminology Configuration for Medical Mirrors Service
+# This file contains customizable medical terminology that healthcare organizations 
+# can modify to match their specific needs and specialties
+#
+# IMPORTANT: This configuration is used by both pattern-based and AI enhancement modes
+# - Pattern-based mode: Uses these terms directly for matching
+# - AI mode: Uses these as seed terms for context and validation
+
+# =============================================================================
+# MEDICAL ABBREVIATIONS
+# =============================================================================
+abbreviations:
+  # Common medical abbreviations used across specialties
+  common:
+    DM: diabetes mellitus
+    HTN: hypertension
+    COPD: chronic obstructive pulmonary disease
+    CHF: congestive heart failure
+    MI: myocardial infarction
+    CVA: cerebrovascular accident
+    DVT: deep vein thrombosis
+    PE: pulmonary embolism
+    GERD: gastroesophageal reflux disease
+    UTI: urinary tract infection
+    URI: upper respiratory infection
+    CAD: coronary artery disease
+    PVD: peripheral vascular disease
+    CKD: chronic kidney disease
+    ESRD: end-stage renal disease
+    IBD: inflammatory bowel disease
+    RA: rheumatoid arthritis
+    SLE: systemic lupus erythematosus
+    ADHD: attention deficit hyperactivity disorder
+    PTSD: post-traumatic stress disorder
+    OCD: obsessive-compulsive disorder
+    
+  # Cardiology-specific abbreviations
+  cardiology:
+    CHD: coronary heart disease
+    AFib: atrial fibrillation
+    VTach: ventricular tachycardia
+    STEMI: ST elevation myocardial infarction
+    NSTEMI: non-ST elevation myocardial infarction
+    LAD: left anterior descending artery
+    RCA: right coronary artery
+    EF: ejection fraction
+    
+  # Endocrinology-specific abbreviations
+  endocrinology:
+    IDDM: insulin dependent diabetes mellitus
+    NIDDM: non-insulin dependent diabetes mellitus
+    T1DM: type 1 diabetes mellitus
+    T2DM: type 2 diabetes mellitus
+    HbA1c: hemoglobin A1c
+    TSH: thyroid stimulating hormone
+    T3: triiodothyronine
+    T4: thyroxine
+    
+  # Pulmonology-specific abbreviations
+  pulmonology:
+    OSA: obstructive sleep apnea
+    PFT: pulmonary function test
+    ABG: arterial blood gas
+    ARDS: acute respiratory distress syndrome
+    IPF: idiopathic pulmonary fibrosis
+    
+  # Neurology-specific abbreviations
+  neurology:
+    MS: multiple sclerosis
+    ALS: amyotrophic lateral sclerosis
+    TIA: transient ischemic attack
+    EEG: electroencephalogram
+    EMG: electromyography
+
+# =============================================================================
+# MEDICAL TERM VARIATIONS
+# =============================================================================
+term_variations:
+  # Common condition variations
+  conditions:
+    diabetes mellitus:
+      - diabetes
+      - sugar diabetes
+      - diabetic condition
+    hypertension:
+      - high blood pressure
+      - elevated blood pressure
+      - elevated BP
+    myocardial infarction:
+      - heart attack
+      - MI
+      - cardiac infarction
+      - coronary event
+    cerebrovascular accident:
+      - stroke
+      - brain attack
+      - CVA
+      - cerebral infarction
+    pneumonia:
+      - lung infection
+      - pulmonary infection
+      - chest infection
+    fracture:
+      - break
+      - broken bone
+      - bone fracture
+      
+  # Medical terminology variations
+  terminology:
+    neoplasm:
+      - tumor
+      - mass
+      - growth
+      - cancer
+      - malignancy
+    infection:
+      - infectious disease
+      - bacterial infection
+      - viral infection
+      - sepsis
+    inflammation:
+      - inflammatory condition
+      - swelling
+      - inflammatory response
+    disorder:
+      - disease
+      - condition
+      - syndrome
+      - pathology
+      
+  # Temporal descriptors
+  temporal:
+    acute:
+      - sudden onset
+      - rapid onset
+      - new onset
+      - recent
+    chronic:
+      - long-term
+      - persistent
+      - ongoing
+      - longstanding
+    recurrent:
+      - recurring
+      - repeated
+      - episodic
+      - intermittent
+      
+  # Anatomical terms
+  anatomical:
+    cardiac:
+      - heart
+      - coronary
+      - myocardial
+    pulmonary:
+      - lung
+      - respiratory
+      - bronchial
+    renal:
+      - kidney
+      - nephro
+      - nephritic
+    hepatic:
+      - liver
+      - hepato
+    gastric:
+      - stomach
+      - gastro
+    cerebral:
+      - brain
+      - cranial
+      - neurological
+
+# =============================================================================
+# ICD-10 CLINICAL NOTES
+# =============================================================================
+icd10_clinical_notes:
+  # Diabetes codes (E10-E14)
+  E10:  # Type 1 diabetes
+    inclusion:
+      - Juvenile onset diabetes
+      - Insulin-dependent diabetes mellitus (IDDM)
+      - Brittle diabetes
+      - Ketosis-prone diabetes
+    exclusion:
+      - Type 2 diabetes mellitus
+      - Gestational diabetes
+      - Drug-induced diabetes
+      - Secondary diabetes
+      
+  E11:  # Type 2 diabetes
+    inclusion:
+      - Adult-onset diabetes
+      - Non-insulin-dependent diabetes mellitus (NIDDM)
+      - Maturity-onset diabetes
+      - Non-ketotic diabetes
+    exclusion:
+      - Type 1 diabetes mellitus
+      - Gestational diabetes
+      - Secondary diabetes
+      - Drug-induced diabetes
+      
+  # Hypertension codes (I10-I16)
+  I10:  # Essential hypertension
+    inclusion:
+      - Primary hypertension
+      - High blood pressure
+      - Benign hypertension
+      - Systemic hypertension
+    exclusion:
+      - Secondary hypertension
+      - Hypertensive crisis
+      - Pulmonary hypertension
+      - Portal hypertension
+      
+  # Respiratory codes (J00-J99)
+  J44:  # COPD
+    inclusion:
+      - Chronic obstructive pulmonary disease
+      - Chronic bronchitis with emphysema
+      - Chronic obstructive bronchitis
+    exclusion:
+      - Acute bronchitis
+      - Simple chronic bronchitis
+      - Asthma
+      
+  # Mental health codes (F00-F99)
+  F32:  # Major depressive disorder
+    inclusion:
+      - Clinical depression
+      - Major depression
+      - Unipolar depression
+    exclusion:
+      - Bipolar disorder
+      - Adjustment disorder with depressed mood
+      - Persistent depressive disorder
+
+# =============================================================================
+# BILLING CODE ENHANCEMENTS
+# =============================================================================
+billing_code_patterns:
+  # CPT procedure synonyms
+  procedure_synonyms:
+    "99213":  # Office visit, established patient
+      - established patient visit
+      - follow-up visit
+      - routine office visit
+    "99214":  # Office visit, established patient, moderate complexity
+      - moderate complexity visit
+      - extended office visit
+      - detailed evaluation
+    "70553":  # MRI brain
+      - brain MRI
+      - magnetic resonance imaging brain
+      - cranial MRI
+      
+  # Modifier descriptions
+  modifiers:
+    "25": Significant, separately identifiable E&M service
+    "26": Professional component
+    "59": Distinct procedural service
+    "TC": Technical component
+    "LT": Left side
+    "RT": Right side
+    "50": Bilateral procedure
+
+# =============================================================================
+# CLINICAL TRIAL MAPPINGS
+# =============================================================================
+clinical_trial_mappings:
+  # Map trial conditions to ICD-10 categories
+  condition_categories:
+    diabetes:
+      - E10
+      - E11
+      - E13
+    hypertension:
+      - I10
+      - I11
+      - I12
+      - I13
+    cancer:
+      - C00-C99
+      - D00-D49
+    mental_health:
+      - F00-F99
+      
+  # Intervention type classifications
+  intervention_types:
+    drug:
+      - medication
+      - pharmaceutical
+      - drug therapy
+    device:
+      - medical device
+      - implant
+      - equipment
+    behavioral:
+      - counseling
+      - therapy
+      - lifestyle modification
+    procedure:
+      - surgery
+      - surgical procedure
+      - operation
+
+# =============================================================================
+# DRUG INFORMATION ENHANCEMENTS
+# =============================================================================
+drug_enhancements:
+  # Therapeutic class hierarchies
+  therapeutic_classes:
+    cardiovascular:
+      - antihypertensives
+      - anticoagulants
+      - antiarrhythmics
+      - statins
+    endocrine:
+      - antidiabetics
+      - thyroid hormones
+      - corticosteroids
+    psychiatric:
+      - antidepressants
+      - antipsychotics
+      - anxiolytics
+      
+  # Drug interaction severity levels
+  interaction_severity:
+    contraindicated: 5
+    major: 4
+    moderate: 3
+    minor: 2
+    minimal: 1
+
+# =============================================================================
+# PUBMED ARTICLE CLASSIFICATIONS
+# =============================================================================
+pubmed_classifications:
+  # Research type categories
+  research_types:
+    clinical_trial:
+      - randomized controlled trial
+      - RCT
+      - controlled trial
+    meta_analysis:
+      - systematic review
+      - meta-analysis
+      - pooled analysis
+    case_study:
+      - case report
+      - case series
+      - clinical case
+      
+  # Clinical significance scoring factors
+  significance_factors:
+    high_impact_journals:
+      - New England Journal of Medicine
+      - The Lancet
+      - JAMA
+      - BMJ
+      - Nature Medicine
+    study_size_thresholds:
+      large: 1000
+      medium: 100
+      small: 10
+
+# =============================================================================
+# CONFIGURATION METADATA
+# =============================================================================
+metadata:
+  version: "1.0.0"
+  last_updated: "2024-01-20"
+  description: "Medical terminology configuration for Intelluxe AI Medical Mirrors service"
+  customization_notes: |
+    Healthcare organizations can customize this file to:
+    1. Add specialty-specific abbreviations and terms
+    2. Modify clinical notes for local practices
+    3. Adjust mappings for their patient population
+    4. Add institution-specific terminology
+    
+    Changes to this file will be reflected in both pattern-based
+    and AI-driven enhancement modes.

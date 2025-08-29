@@ -208,23 +208,27 @@ class ICD10DatabaseLoader:
                 if enhance_after_load:
                     logger.info("Running post-load database enhancement...")
                     try:
-                        # Check if AI enhancement should be used (default to true for robustness)
-                        use_ai = os.getenv('USE_AI_ENHANCEMENT', 'true').lower() == 'true'
-                        if use_ai:
-                            logger.info("Using AI-driven enhancement with SciSpacy and Ollama")
+                        # Import config loader
+                        from ..config_loader import get_config
+                        config = get_config()
+                        
+                        # Check if enhancement is enabled for ICD10
+                        if not config.is_enhancement_enabled('icd10_codes'):
+                            logger.info("ICD10 enhancement disabled in configuration")
+                            load_stats['enhancement_completed'] = False
+                            load_stats['enhancement_skipped'] = True
                         else:
-                            logger.info("Using pattern-based enhancement")
-                        
-                        enhancer = ICD10DatabaseEnhancer(use_ai=use_ai)
-                        enhancement_stats = enhancer.enhance_icd10_database()
-                        
-                        # Add enhancement stats to return data
-                        load_stats['enhancement_completed'] = True
-                        load_stats['enhancement_stats'] = enhancement_stats
-                        
-                        logger.info(f"✅ Post-load enhancement completed: "
-                                   f"{enhancement_stats.get('enhanced', 0):,} codes enhanced, "
-                                   f"{enhancement_stats.get('synonyms_added', 0):,} synonyms added")
+                            # Initialize the enhancer (will use config to determine AI mode)
+                            enhancer = ICD10DatabaseEnhancer(batch_size=config.get_batch_size('icd10_codes'))
+                            enhancement_stats = enhancer.enhance_icd10_database()
+                            
+                            # Add enhancement stats to return data
+                            load_stats['enhancement_completed'] = True
+                            load_stats['enhancement_stats'] = enhancement_stats
+                            
+                            logger.info(f"✅ Post-load enhancement completed: "
+                                       f"{enhancement_stats.get('enhanced', 0):,} codes enhanced, "
+                                       f"{enhancement_stats.get('synonyms_added', 0):,} synonyms added")
                         
                     except Exception as e:
                         logger.error(f"Post-load enhancement failed: {e}")
