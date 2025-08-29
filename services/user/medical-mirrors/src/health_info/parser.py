@@ -349,49 +349,72 @@ class HealthInfoParser:
 
         return summary
 
-    def _detect_allergens(self, food: dict) -> list[str]:
-        """Detect common allergens in food"""
-        allergens = []
+    def _detect_allergens(self, food: dict) -> dict:
+        """Detect FDA major allergens (FALCPA/FASTER Act) in food"""
+        allergens_detected = []
 
         description = food.get("description", "").lower()
         ingredients = food.get("ingredients", "").lower()
-        text_to_check = f"{description} {ingredients}"
+        food_category = food.get("food_category", "").lower()
+        text_to_check = f"{description} {ingredients} {food_category}"
 
-        allergen_keywords = {
-            "dairy": ["milk", "cheese", "butter", "cream", "lactose"],
-            "nuts": ["peanut", "almond", "walnut", "pecan", "cashew"],
-            "gluten": ["wheat", "barley", "rye", "gluten"],
-            "soy": ["soy", "soybean", "tofu"],
-            "eggs": ["egg", "eggs"],
-            "shellfish": ["shrimp", "crab", "lobster", "shellfish"],
+        # FDA's 9 major allergens per FALCPA and FASTER Act (2021)
+        fda_allergen_keywords = {
+            "milk": ["milk", "dairy", "cheese", "butter", "cream", "lactose", "casein", "whey", "yogurt"],
+            "eggs": ["egg", "eggs", "albumin", "mayonnaise"],
+            "fish": ["fish", "salmon", "tuna", "cod", "halibut", "tilapia", "catfish", "bass", "trout"],
+            "crustacean_shellfish": ["shrimp", "crab", "lobster", "crayfish", "prawns"],
+            "tree_nuts": ["almond", "brazil nut", "cashew", "chestnut", "filbert", "hazelnut", 
+                         "macadamia", "pecan", "pine nut", "pistachio", "walnut"],
+            "peanuts": ["peanut", "peanuts", "groundnut"],
+            "wheat": ["wheat", "flour", "gluten", "bulgur", "couscous", "seitan", "semolina"],
+            "soybeans": ["soy", "soybean", "tofu", "tempeh", "miso", "edamame", "lecithin"],
+            "sesame": ["sesame", "tahini", "sesame seed", "sesame oil"]
         }
 
-        for allergen, keywords in allergen_keywords.items():
+        for allergen, keywords in fda_allergen_keywords.items():
             if any(keyword in text_to_check for keyword in keywords):
-                allergens.append(allergen)
+                allergens_detected.append(allergen)
 
-        return allergens
+        return {
+            "allergens": allergens_detected,
+            "disclaimer": "Allergen detection based on text parsing of description, ingredients, and category. Not a substitute for manufacturer allergen declarations. Consult product labels for definitive allergen information.",
+            "data_source": "FDA FALCPA & FASTER Act (2021)"
+        }
 
-    def _determine_dietary_flags(self, food: dict) -> list[str]:
-        """Determine dietary flags (vegan, vegetarian, etc.)"""
-        flags = []
-
-        description = food.get("description", "").lower()
-        food.get("ingredients", "").lower()
-
-        # Simple heuristics - would need more sophisticated logic
-        animal_products = ["meat", "beef", "chicken", "pork", "fish", "dairy", "milk", "egg"]
-
-        if not any(product in description for product in animal_products):
-            flags.append("potentially_vegan")
-
-        if "organic" in description:
-            flags.append("organic")
-
-        if "whole grain" in description:
-            flags.append("whole_grain")
-
-        return flags
+    def _determine_dietary_flags(self, food: dict) -> dict:
+        """Determine professional dietary flags using USDA/FDA standards"""
+        
+        # Get MyPlate food group classification
+        myplate_group = self._map_to_myplate_group(food.get("food_category", ""))
+        
+        # Get FDA nutritional claims
+        fda_nutritional_claims = self._calculate_fda_nutritional_claims(food.get("nutrients", []))
+        
+        # Get potential allergens
+        allergen_data = self._detect_allergens(food)
+        potential_allergens = allergen_data.get("allergens", [])
+        
+        # Get basic dietary classifications (conservative)
+        basic_flags = self._get_basic_dietary_flags(food)
+        
+        return {
+            "myplate_food_group": myplate_group,
+            "fda_nutritional_claims": fda_nutritional_claims,
+            "potential_allergens": potential_allergens,
+            "basic_classifications": basic_flags,
+            "data_sources": {
+                "myplate_mapping": "USDA MyPlate Guidelines",
+                "nutritional_claims": "FDA Code of Federal Regulations Title 21",
+                "allergen_detection": "FDA FALCPA & FASTER Act (2021)"
+            },
+            "disclaimers": {
+                "allergen_disclaimer": "Allergen detection based on text parsing. Not a substitute for manufacturer declarations.",
+                "nutritional_disclaimer": "Nutritional claims calculated from available nutrient data using FDA standards.",
+                "classification_disclaimer": "Classifications are informational only and not medical advice."
+            },
+            "last_updated": datetime.now().isoformat()
+        }
 
     def _calculate_nutritional_density(self, nutrients: list[dict]) -> float:
         """Calculate a simple nutritional density score"""
@@ -447,6 +470,123 @@ class HealthInfoParser:
             return str(date_str)
         except Exception:
             return None
+
+    def _map_to_myplate_group(self, food_category: str) -> str:
+        """Map USDA food category to MyPlate food group"""
+        category = food_category.lower()
+        
+        # USDA MyPlate food group mappings
+        myplate_mapping = {
+            "vegetables": [
+                "vegetables and vegetable products",
+                "legumes and legume products"  # Per MyPlate, legumes count as vegetables
+            ],
+            "fruits": [
+                "fruits and fruit juices"
+            ],
+            "grains": [
+                "cereal grains and pasta",
+                "baked products",
+                "breakfast cereals"
+            ],
+            "protein": [
+                "beef products", "pork products", "lamb, veal, and game products",
+                "poultry products", "sausages and luncheon meats",
+                "finfish and shellfish products", "nut and seed products",
+                "legumes and legume products"  # Also counts as protein
+            ],
+            "dairy": [
+                "dairy and egg products"
+            ]
+        }
+        
+        for group, categories in myplate_mapping.items():
+            if any(cat in category for cat in categories):
+                # Handle legumes (can be both vegetables and protein)
+                if "legume" in category:
+                    return f"{group}_legumes"  # Special designation
+                return group
+        
+        return "other"
+    
+    def _calculate_fda_nutritional_claims(self, nutrients: list[dict]) -> list[str]:
+        """Calculate FDA nutritional claims using CFR Title 21 standards"""
+        claims = []
+        
+        # Extract nutrient values
+        nutrient_values = {}
+        for nutrient in nutrients:
+            name = nutrient.get("name", "").lower()
+            try:
+                amount = float(nutrient.get("amount", 0))
+                nutrient_values[name] = amount
+            except (ValueError, TypeError):
+                continue
+        
+        # FDA nutritional claim thresholds (CFR Title 21)
+        
+        # Fat claims
+        total_fat = nutrient_values.get("total lipid (fat)", 0)
+        if total_fat < 0.5:
+            claims.append("fat_free")
+        elif total_fat <= 3:
+            claims.append("low_fat")
+        
+        # Sodium claims  
+        sodium = nutrient_values.get("sodium, na", 0)
+        if sodium < 5:
+            claims.append("sodium_free")
+        elif sodium <= 140:
+            claims.append("low_sodium")
+        
+        # Protein claims
+        protein = nutrient_values.get("protein", 0)
+        if protein >= 10:
+            claims.append("high_protein")
+        elif protein >= 5:
+            claims.append("good_source_protein")
+        
+        # Fiber claims
+        fiber = nutrient_values.get("fiber, total dietary", 0)
+        if fiber >= 5:
+            claims.append("high_fiber")
+        elif fiber >= 2.5:
+            claims.append("good_source_fiber")
+        
+        # Calorie claims (per 100g serving)
+        energy = nutrient_values.get("energy", 0)
+        if energy < 5:
+            claims.append("calorie_free")
+        elif energy <= 40:
+            claims.append("low_calorie")
+        
+        return claims
+    
+    def _get_basic_dietary_flags(self, food: dict) -> list[str]:
+        """Get basic dietary flags with conservative approach"""
+        flags = []
+        
+        description = food.get("description", "").lower()
+        ingredients = food.get("ingredients", "").lower()
+        text_to_check = f"{description} {ingredients}"
+        
+        # Conservative classifications with "potentially" prefix
+        animal_products = ["meat", "beef", "chicken", "pork", "fish", "dairy", "milk", "egg", "cheese", "butter"]
+        
+        if not any(product in text_to_check for product in animal_products):
+            flags.append("potentially_plant_based")
+        
+        # Only add these if explicitly mentioned
+        if "organic" in text_to_check:
+            flags.append("labeled_organic")
+        
+        if "whole grain" in text_to_check or "whole wheat" in text_to_check:
+            flags.append("whole_grain")
+            
+        if "gluten free" in text_to_check or "gluten-free" in text_to_check:
+            flags.append("labeled_gluten_free")
+        
+        return flags
 
     def get_parsing_stats(self) -> dict:
         """Get parsing statistics"""
