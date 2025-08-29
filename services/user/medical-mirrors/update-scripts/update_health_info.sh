@@ -261,14 +261,29 @@ async def update_health_information():
                         'ingredients': food.get('ingredients'),
                         'serving_size': food.get('serving_size'),
                         'serving_size_unit': food.get('serving_size_unit'),
-                        'allergens': json.dumps(food.get('allergens', [])),
-                        'dietary_flags': json.dumps(food.get('dietary_flags', [])),
+                        'allergens': json.dumps(food.get('allergens', {})) if isinstance(food.get('allergens'), dict) else json.dumps({'allergens': food.get('allergens', [])}),
+                        'dietary_flags': json.dumps(food.get('dietary_flags', {})) if isinstance(food.get('dietary_flags'), dict) else json.dumps(food.get('dietary_flags', [])),
                         'nutritional_density': food.get('nutritional_density'),
                         'source': food['source'],
                         'search_text': food['search_text']
                     })
                 
                 logger.info(f'Inserted {len(validated_data[\"food_items\"])} food items')
+                
+                # Update search vectors for food items
+                logger.info('Updating search vectors for food items')
+                db.execute(text('''
+                    UPDATE food_items 
+                    SET search_vector = to_tsvector('english', 
+                        COALESCE(description, '') || ' ' ||
+                        COALESCE(food_category, '') || ' ' ||
+                        COALESCE(brand_owner, '') || ' ' ||
+                        COALESCE(ingredients, '') || ' ' ||
+                        COALESCE(search_text, '')
+                    )
+                    WHERE search_vector IS NULL
+                '''))
+                logger.info('Search vectors updated for food items')
             
             db.commit()
             

@@ -170,7 +170,7 @@ class HealthInfoParser:
                 "ingredients": (raw_food.get("ingredients") or "").strip(),
                 "serving_size": raw_food.get("serving_size"),
                 "serving_size_unit": (raw_food.get("serving_size_unit") or "").strip(),
-                "allergens": self._detect_allergens(raw_food),
+                "allergens": {},  # Allergens now included in dietary_flags
                 "dietary_flags": self._determine_dietary_flags(raw_food),
                 "nutritional_density": self._calculate_nutritional_density(nutrients),
                 "source": raw_food.get("source", "usda_fooddata"),
