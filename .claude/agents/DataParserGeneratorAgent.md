@@ -24,6 +24,16 @@ You are a Data Parser Generator specialist for the Intelluxe AI healthcare syste
 
 ## PARSER GENERATION ARCHITECTURE
 
+### Medical-Mirrors Parser Structure (Proven Pattern)
+```
+services/user/medical-mirrors/src/{data_source}/
+├── {source}_downloader.py      # Fixed-width/structured file parser
+├── database_loader.py          # Database integration with UPSERT
+├── smart_downloader.py         # Orchestration with state management
+├── parser.py                   # Generic validation/normalization
+└── download_state_manager.py   # Download state tracking
+```
+
 ### Enhanced Sources Parser Structure
 ```
 enhanced_drug_sources/
@@ -130,6 +140,170 @@ def _extract_clinical_sections(self, root: ET.Element) -> Dict[str, Any]:
                 clinical_info[field_name] = section_text
                 
     return clinical_info
+```
+
+## FIXED-WIDTH FILE PARSER PATTERNS (CMS/HCPCS Success Pattern)
+
+### Dual-Format Fixed-Width Parser 
+```python
+class {SourceName}FixedWidthParser(BaseDataParser):
+    """Auto-generated fixed-width parser for {source_name} data"""
+    
+    def __init__(self):
+        super().__init__()
+        
+        # Field position mappings (auto-detected from sample files)
+        self.field_positions = {
+            "code": (1, 6),                    # Positions 1-5 (0-indexed: 0-4)
+            "short_description": (91, 119),    # Positions 92-118 
+            "long_description": (120, 155),    # Positions 119-154
+            "coverage_code": (229, 230),       # Position 229
+            "betos_code": (256, 259),          # Positions 256-258
+            "pricing_indicator": (119, 121),   # Positions 119-120
+            "effective_date": (345, 353),      # YYYYMMDD format
+            "termination_date": (353, 361),    # YYYYMMDD format
+        }
+        
+        # Auto-generated mappings for coded values
+        self.coverage_code_mappings = {
+            'C': 'Carrier judgment - Coverage decision left to local Medicare contractors',
+            'D': 'Special coverage instructions apply - See Medicare manual',
+            'I': 'Not payable by Medicare - Item or service not covered',
+            'M': 'Non-covered by Medicare - Statutory non-coverage',
+            'S': 'Non-covered by Medicare statute - Excluded by Medicare law',
+        }
+        
+        self.betos_code_mappings = {
+            'M1A': 'Office visits for new patients',
+            'M1B': 'Office visits for established patients', 
+            'O1A': 'Ambulance services',
+            'P9A': 'Other supplies and devices',
+            # Auto-populated from reference data
+        }
+
+    def parse_fixed_width_line(self, line: str, line_number: int) -> Dict[str, Any]:
+        """Parse single fixed-width line with dual-format support"""
+        
+        # Handle two different record formats automatically
+        # Format 1: Records with leading spaces + sequence numbers
+        # Format 2: Records without leading spaces
+        
+        is_format_with_spaces = len(line) > 10 and line[:3].strip() == ""
+        
+        if is_format_with_spaces:
+            # Format 1: Extract sequence and check for continuation
+            sequence = line[3:8].strip()
+            if sequence.endswith("00"):  # Main record (e.g., "00100", "00200")
+                return self._parse_main_record_format1(line)
+            else:  # Continuation record (e.g., "00101", "00102")
+                return self._parse_continuation_record_format1(line)
+        else:
+            # Format 2: Direct field extraction
+            return self._parse_direct_format2(line)
+    
+    def _parse_main_record_format1(self, line: str) -> Dict[str, Any]:
+        """Parse main record with leading spaces format"""
+        record = {}
+        
+        # Extract fields using position mappings
+        for field_name, (start, end) in self.field_positions.items():
+            if len(line) > end:
+                raw_value = line[start:end].strip()
+                record[field_name] = self._normalize_field_value(field_name, raw_value)
+        
+        # Apply coded value mappings
+        if "coverage_code" in record and record["coverage_code"] in self.coverage_code_mappings:
+            record["coverage_notes"] = self.coverage_code_mappings[record["coverage_code"]]
+        
+        if "betos_code" in record and record["betos_code"] in self.betos_code_mappings:
+            record["category"] = f"BETOS:{record['betos_code']}; " + self.betos_code_mappings[record["betos_code"]]
+        
+        return record
+    
+    def _normalize_field_value(self, field_name: str, raw_value: str) -> Any:
+        """Normalize field values based on field type"""
+        if not raw_value:
+            return None
+            
+        # Date fields
+        if field_name.endswith("_date") and len(raw_value) == 8:
+            try:
+                return datetime.strptime(raw_value, "%Y%m%d").date()
+            except ValueError:
+                return None
+        
+        # Boolean fields  
+        if field_name in ["is_active", "modifier_required", "bilateral_indicator"]:
+            return raw_value.upper() in ["Y", "YES", "TRUE", "1"]
+        
+        # Clean text fields
+        if field_name in ["short_description", "long_description", "description"]:
+            return self._clean_description_text(raw_value)
+        
+        return raw_value
+    
+    def _clean_description_text(self, text: str) -> str:
+        """Clean description text from formatting artifacts"""
+        if not text:
+            return ""
+        
+        # Remove common artifacts from fixed-width parsing
+        text = re.sub(r'^[0-9]{1,3}\s+', '', text)  # Remove leading sequence numbers
+        text = re.sub(r'\s+', ' ', text)            # Normalize whitespace
+        text = text.strip()
+        
+        return text
+```
+
+### Multi-Line Record Handling
+```python
+def parse_multi_line_records(self, lines: List[str]) -> List[Dict[str, Any]]:
+    """Handle multi-line records with continuation logic"""
+    records = []
+    current_record = None
+    
+    for line_num, line in enumerate(lines):
+        if not line.strip():
+            continue
+            
+        # Check if this is a main record or continuation
+        if self._is_main_record(line):
+            # Save previous record if exists
+            if current_record:
+                records.append(self._finalize_record(current_record))
+            
+            # Start new record
+            current_record = self.parse_fixed_width_line(line, line_num)
+            
+        elif self._is_continuation_record(line) and current_record:
+            # Append continuation data to current record
+            continuation_data = self._parse_continuation_line(line)
+            current_record = self._merge_continuation_data(current_record, continuation_data)
+    
+    # Don't forget the last record
+    if current_record:
+        records.append(self._finalize_record(current_record))
+    
+    return records
+
+def _is_main_record(self, line: str) -> bool:
+    """Detect if line is a main record (sequence ending in 00)"""
+    if len(line) < 8:
+        return False
+    
+    sequence = line[3:8].strip()
+    return sequence.endswith("00") if sequence else True
+
+def _merge_continuation_data(self, main_record: dict, continuation_data: dict) -> dict:
+    """Merge continuation data into main record"""
+    for key, value in continuation_data.items():
+        if value and key in main_record:
+            if main_record[key]:
+                main_record[key] += " " + str(value)  # Append to existing
+            else:
+                main_record[key] = value  # Set if main was empty
+    
+    return main_record
 ```
 
 ## JSON PARSER GENERATION PATTERNS  
