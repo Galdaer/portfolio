@@ -15,6 +15,7 @@ from config import Config
 from .cms_icd10_downloader import CMSICD10Downloader
 from .download_state_manager import DownloadStatus, ICD10DownloadStateManager
 from .downloader import ICD10Downloader
+from .icd10_enrichment import ICD10DatabaseEnhancer
 
 logger = logging.getLogger(__name__)
 
@@ -94,12 +95,13 @@ class SmartICD10Downloader:
         else:
             logger.info("No existing ICD-10 ZIP files found to process")
 
-    async def download_all_icd10_codes(self, force_fresh: bool = False) -> dict[str, Any]:
+    async def download_all_icd10_codes(self, force_fresh: bool = False, enhance_after_download: bool = True) -> dict[str, Any]:
         """
         Download all ICD-10 codes from all sources with smart retry handling
 
         Args:
             force_fresh: If True, reset all download states and start fresh
+            enhance_after_download: If True, automatically enhance database after download completes
 
         Returns:
             Summary of download results including totals and source breakdown
@@ -134,6 +136,10 @@ class SmartICD10Downloader:
 
         logger.info(f"Smart ICD-10 download completed: {final_summary['total_files']} files from "
                    f"{final_summary['successful_sources']} sources")
+
+        # Run database enhancement if requested and if we have successful downloads
+        if enhance_after_download and final_summary.get('successful_sources', 0) > 0:
+            await self._run_post_download_enhancement(final_summary)
 
         return final_summary
 
@@ -525,6 +531,40 @@ class SmartICD10Downloader:
             },
         }
 
+    async def _run_post_download_enhancement(self, download_summary: dict[str, Any]) -> None:
+        """Run ICD-10 database enhancement after successful downloads"""
+        try:
+            logger.info("Starting post-download ICD-10 database enhancement...")
+            
+            # Initialize the enhancer
+            enhancer = ICD10DatabaseEnhancer()
+            
+            # Run the enhancement
+            enhancement_stats = await asyncio.get_event_loop().run_in_executor(
+                None, enhancer.enhance_icd10_database
+            )
+            
+            # Log enhancement results
+            processed = enhancement_stats.get('processed', 0)
+            enhanced = enhancement_stats.get('enhanced', 0)
+            synonyms_added = enhancement_stats.get('synonyms_added', 0)
+            notes_added = enhancement_stats.get('notes_added', 0)
+            
+            logger.info(f"ICD-10 enhancement completed: "
+                       f"{processed:,} codes processed, "
+                       f"{enhanced:,} codes enhanced, "
+                       f"{synonyms_added:,} synonyms added, "
+                       f"{notes_added:,} clinical notes added")
+            
+            # Add enhancement stats to download summary
+            download_summary['enhancement_stats'] = enhancement_stats
+            download_summary['enhancement_completed'] = True
+            
+        except Exception as e:
+            logger.error(f"Post-download ICD-10 enhancement failed: {e}")
+            download_summary['enhancement_completed'] = False
+            download_summary['enhancement_error'] = str(e)
+            # Don't re-raise - enhancement failure shouldn't fail the download
 
     def _reset_all_states(self):
         """Reset all download states for fresh start"""

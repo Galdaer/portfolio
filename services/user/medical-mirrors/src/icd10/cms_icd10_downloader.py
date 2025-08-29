@@ -342,7 +342,7 @@ class CMSICD10Downloader:
         return any(indicator in line.lower() for indicator in header_indicators)
 
     def _extract_icd10_from_xml_element(self, elem) -> dict[str, Any] | None:
-        """Extract ICD-10 fields from XML element"""
+        """Extract ICD-10 fields from XML element with inclusion/exclusion notes"""
         try:
             # Common XML field mappings
             code = (
@@ -368,6 +368,31 @@ class CMSICD10Downloader:
             category = elem.get("category") or elem.findtext(".//category") or ""
             chapter = elem.get("chapter") or elem.findtext(".//chapter") or ""
 
+            # Extract inclusion/exclusion notes from XML structure
+            inclusion_notes = []
+            exclusion_notes = []
+            
+            # Look for explicit includes/excludes elements
+            for include_elem in elem.findall(".//includes") + elem.findall(".//include"):
+                if include_elem.text and include_elem.text.strip():
+                    inclusion_notes.append(include_elem.text.strip())
+            
+            for exclude_elem in elem.findall(".//excludes") + elem.findall(".//exclude"):
+                if exclude_elem.text and exclude_elem.text.strip():
+                    exclusion_notes.append(exclude_elem.text.strip())
+            
+            # Look for notes elements that might contain includes/excludes
+            for note_elem in elem.findall(".//note") + elem.findall(".//notes"):
+                note_text = note_elem.text or ""
+                notes_from_text = self._extract_notes_from_text(note_text)
+                inclusion_notes.extend(notes_from_text["inclusion_notes"])
+                exclusion_notes.extend(notes_from_text["exclusion_notes"])
+            
+            # Extract notes from description text itself
+            desc_notes = self._extract_notes_from_text(description)
+            inclusion_notes.extend(desc_notes["inclusion_notes"])
+            exclusion_notes.extend(desc_notes["exclusion_notes"])
+
             # Determine chapter from code if not provided
             if not chapter and code:
                 chapter = self._determine_icd10_chapter(code)
@@ -377,6 +402,8 @@ class CMSICD10Downloader:
                 "description": description.strip(),
                 "category": category.strip(),
                 "chapter": chapter,
+                "inclusion_notes": list(set(inclusion_notes)),  # Remove duplicates
+                "exclusion_notes": list(set(exclusion_notes)),  # Remove duplicates
                 "source": "cms_direct",
                 "last_updated": datetime.now().isoformat(),
                 "is_billable": self._determine_billable_status(code),
@@ -388,7 +415,7 @@ class CMSICD10Downloader:
             return None
 
     def _extract_icd10_from_csv_row(self, row: dict[str, str]) -> dict[str, Any] | None:
-        """Extract ICD-10 fields from CSV row"""
+        """Extract ICD-10 fields from CSV row with inclusion/exclusion notes"""
         try:
             # Map common field names
             field_mapping = {
@@ -396,14 +423,16 @@ class CMSICD10Downloader:
                 "description": ["description", "title", "name", "diagnosis", "long_description", "desc"],
                 "category": ["category", "cat", "class", "group"],
                 "chapter": ["chapter", "chap", "section"],
+                "notes": ["notes", "clinical_notes", "includes", "excludes", "remarks"],
             }
 
             code = None
             description = None
             category = ""
             chapter = ""
+            notes_text = ""
 
-            # Extract code
+            # Extract fields
             for field_name, possible_names in field_mapping.items():
                 for name in possible_names:
                     if name in row and row[name]:
@@ -415,12 +444,29 @@ class CMSICD10Downloader:
                             category = row[name].strip()
                         elif field_name == "chapter":
                             chapter = row[name].strip()
+                        elif field_name == "notes":
+                            notes_text = row[name].strip()
                         break
                 if (field_name == "code" and code) or (field_name == "description" and description):
                     break
 
             if not code or not description:
                 return None
+
+            # Extract notes from description and any notes field
+            inclusion_notes = []
+            exclusion_notes = []
+            
+            # Extract from description
+            desc_notes = self._extract_notes_from_text(description)
+            inclusion_notes.extend(desc_notes["inclusion_notes"])
+            exclusion_notes.extend(desc_notes["exclusion_notes"])
+            
+            # Extract from dedicated notes field if present
+            if notes_text:
+                field_notes = self._extract_notes_from_text(notes_text)
+                inclusion_notes.extend(field_notes["inclusion_notes"])
+                exclusion_notes.extend(field_notes["exclusion_notes"])
 
             # Determine chapter from code if not provided
             if not chapter:
@@ -431,6 +477,8 @@ class CMSICD10Downloader:
                 "description": description,
                 "category": category,
                 "chapter": chapter,
+                "inclusion_notes": list(set(inclusion_notes)),  # Remove duplicates
+                "exclusion_notes": list(set(exclusion_notes)),  # Remove duplicates
                 "source": "cms_direct",
                 "last_updated": datetime.now().isoformat(),
                 "is_billable": self._determine_billable_status(code),
@@ -498,6 +546,61 @@ class CMSICD10Downloader:
         # Basic ICD-10 pattern: Letter followed by digits (with optional decimal)
         pattern = r"^[A-Z]\d{2}(\.\w+)?$"
         return bool(re.match(pattern, code.upper().replace(" ", "")))
+
+    def _extract_notes_from_text(self, text: str) -> dict[str, list[str]]:
+        """Extract inclusion/exclusion notes from text using patterns"""
+        inclusion_patterns = [
+            r'includes?:?\s*([^.]*)',
+            r'such as:?\s*([^.]*)', 
+            r'including:?\s*([^.]*)',
+            r'comprises?:?\s*([^.]*)',
+            r'with:?\s*([^.]*)'
+        ]
+        
+        exclusion_patterns = [
+            r'excludes?:?\s*([^.]*)',
+            r'except:?\s*([^.]*)',
+            r'not including:?\s*([^.]*)', 
+            r'does not include:?\s*([^.]*)',
+            r'without:?\s*([^.]*)'
+        ]
+        
+        inclusion_notes = []
+        exclusion_notes = []
+        text_lower = text.lower()
+        
+        # Extract inclusion notes
+        for pattern in inclusion_patterns:
+            matches = re.findall(pattern, text_lower, re.IGNORECASE)
+            for match in matches:
+                cleaned_note = self._clean_note_text(match)
+                if cleaned_note and cleaned_note not in inclusion_notes:
+                    inclusion_notes.append(cleaned_note)
+        
+        # Extract exclusion notes
+        for pattern in exclusion_patterns:
+            matches = re.findall(pattern, text_lower, re.IGNORECASE)
+            for match in matches:
+                cleaned_note = self._clean_note_text(match)
+                if cleaned_note and cleaned_note not in exclusion_notes:
+                    exclusion_notes.append(cleaned_note)
+        
+        return {"inclusion_notes": inclusion_notes, "exclusion_notes": exclusion_notes}
+    
+    def _clean_note_text(self, note: str) -> str:
+        """Clean and standardize note text"""
+        if not note:
+            return ""
+        
+        # Remove extra whitespace and punctuation
+        cleaned = re.sub(r'\s+', ' ', note.strip())
+        cleaned = re.sub(r'^[,;:\s]+|[,;:\s]+$', '', cleaned)
+        
+        # Capitalize first letter
+        if cleaned:
+            cleaned = cleaned[0].upper() + cleaned[1:]
+        
+        return cleaned
 
     def _determine_icd10_chapter(self, code: str) -> str:
         """Determine ICD-10 chapter based on code prefix"""

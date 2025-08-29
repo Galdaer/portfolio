@@ -34,6 +34,8 @@ async def main():
                        help="Command to execute")
     parser.add_argument("--force-fresh", action="store_true",
                        help="Force fresh download (reset all states)")
+    parser.add_argument("--no-enhance", action="store_true",
+                       help="Skip automatic database enhancement after download")
     parser.add_argument("--verbose", "-v", action="store_true",
                        help="Enable verbose logging")
     parser.add_argument("--data-dir", type=Path,
@@ -93,7 +95,12 @@ async def run_download(args, logger):
         start_time = datetime.now()
 
         try:
-            summary = await downloader.download_all_icd10_codes(force_fresh=args.force_fresh)
+            # Enhancement is enabled by default, disabled with --no-enhance flag
+            enhance_after_download = not args.no_enhance
+            summary = await downloader.download_all_icd10_codes(
+                force_fresh=args.force_fresh, 
+                enhance_after_download=enhance_after_download
+            )
             end_time = datetime.now()
 
         except KeyboardInterrupt:
@@ -156,6 +163,21 @@ async def run_download(args, logger):
         print(f"Failed sources: {summary['failed_sources']}")
         print(f"Rate limited sources: {summary['rate_limited_sources']}")
         print(f"Success rate: {summary['success_rate']:.1f}%")
+        
+        # Enhancement status
+        if summary.get('enhancement_completed'):
+            print(f"✅ Database enhancement: COMPLETED")
+            enhancement_stats = summary.get('enhancement_stats', {})
+            if enhancement_stats:
+                print(f"   Enhanced codes: {enhancement_stats.get('enhanced', 0):,}")
+                print(f"   Synonyms added: {enhancement_stats.get('synonyms_added', 0):,}")
+                print(f"   Clinical notes added: {enhancement_stats.get('notes_added', 0):,}")
+        elif summary.get('enhancement_completed') is False:
+            print(f"❌ Database enhancement: FAILED")
+            if summary.get('enhancement_error'):
+                print(f"   Error: {summary['enhancement_error']}")
+        elif args.no_enhance:
+            print(f"⏭️  Database enhancement: SKIPPED (--no-enhance)")
 
         # Expected vs Actual
         expected_vs_actual = summary.get("expected_vs_actual", {})

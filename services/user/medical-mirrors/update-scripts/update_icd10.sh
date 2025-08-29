@@ -64,6 +64,8 @@ import logging
 import json
 from pathlib import Path
 from src.icd10.smart_downloader import SmartICD10Downloader
+from src.icd10.parser import ICD10Parser
+from src.icd10.database_loader import ICD10DatabaseLoader
 from src.config import Config
 from src.database import get_db_session
 from sqlalchemy import text
@@ -122,64 +124,44 @@ async def update_icd10_codes():
             logger.info(f'Limiting to first {limit_codes} codes for quick test')
             validated_codes = validated_codes[:limit_codes]
         
-        logger.info(f'Processing {len(validated_codes)} validated codes for database insertion')
+        # Parse codes with enhanced category population
+        logger.info('Parsing and validating ICD-10 codes with enhanced category extraction')
+        parser = ICD10Parser()
+        parsed_codes = parser.parse_and_validate(validated_codes)
         
-        # Insert/Update into database using UPSERT
+        logger.info(f'Processing {len(parsed_codes)} parsed codes with enhanced data')
+        
+        # Use enhanced database loader for proper field coverage
+        loader = ICD10DatabaseLoader()
+        stats = loader.load_codes(parsed_codes)
+        
+        logger.info(f'Database loading completed:')
+        logger.info(f'  - Processed: {stats["processed"]} codes')
+        logger.info(f'  - Total in DB: {stats["total_in_db"]} codes')
+        logger.info(f'  - Category coverage: {stats["category_coverage"]} codes')
+        logger.info(f'  - Search vector coverage: {stats["search_vector_coverage"]} codes')
+        
+        # Final validation - check field coverage
         with get_db_session() as db:
-            logger.info('Upserting ICD-10 codes (preserving existing data)')
+            result = db.execute(text('''
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(CASE WHEN category IS NOT NULL AND category != '' THEN 1 END) as with_category,
+                    COUNT(CASE WHEN search_vector IS NOT NULL THEN 1 END) as with_search_vector
+                FROM icd10_codes
+            ''')).fetchone()
             
-            # Use UPSERT to preserve existing data and only update with better information
-            for code_data in validated_codes:
-                db.execute(text('''
-                    INSERT INTO icd10_codes (
-                        code, description, category, chapter, synonyms,
-                        inclusion_notes, exclusion_notes, is_billable,
-                        code_length, parent_code, children_codes,
-                        source, search_text, last_updated
-                    ) VALUES (
-                        :code, :description, :category, :chapter, :synonyms,
-                        :inclusion_notes, :exclusion_notes, :is_billable,
-                        :code_length, :parent_code, :children_codes,
-                        :source, :search_text, NOW()
-                    )
-                    ON CONFLICT (code) DO UPDATE SET
-                        -- Only update if we have better/more complete information
-                        description = COALESCE(NULLIF(EXCLUDED.description, ''), icd10_codes.description),
-                        category = COALESCE(NULLIF(EXCLUDED.category, ''), icd10_codes.category),
-                        chapter = COALESCE(NULLIF(EXCLUDED.chapter, ''), icd10_codes.chapter),
-                        synonyms = COALESCE(NULLIF(EXCLUDED.synonyms, '[]'::jsonb), icd10_codes.synonyms),
-                        inclusion_notes = COALESCE(NULLIF(EXCLUDED.inclusion_notes, '[]'::jsonb), icd10_codes.inclusion_notes),
-                        exclusion_notes = COALESCE(NULLIF(EXCLUDED.exclusion_notes, '[]'::jsonb), icd10_codes.exclusion_notes),
-                        is_billable = COALESCE(EXCLUDED.is_billable, icd10_codes.is_billable),
-                        code_length = COALESCE(EXCLUDED.code_length, icd10_codes.code_length),
-                        parent_code = COALESCE(NULLIF(EXCLUDED.parent_code, ''), icd10_codes.parent_code),
-                        children_codes = COALESCE(NULLIF(EXCLUDED.children_codes, '[]'::jsonb), icd10_codes.children_codes),
-                        source = COALESCE(NULLIF(EXCLUDED.source, ''), icd10_codes.source),
-                        search_text = COALESCE(NULLIF(EXCLUDED.search_text, ''), icd10_codes.search_text),
-                        last_updated = NOW()
-                '''), {
-                    'code': code_data.get('code', ''),
-                    'description': code_data.get('description', ''),
-                    'category': code_data.get('category', ''),
-                    'chapter': code_data.get('chapter', ''),
-                    'synonyms': json.dumps(code_data.get('synonyms', [])),
-                    'inclusion_notes': json.dumps(code_data.get('inclusion_notes', [])),
-                    'exclusion_notes': json.dumps(code_data.get('exclusion_notes', [])),
-                    'is_billable': code_data.get('is_billable', False),
-                    'code_length': code_data.get('code_length', 0),
-                    'parent_code': code_data.get('parent_code', ''),
-                    'children_codes': json.dumps(code_data.get('children_codes', [])),
-                    'source': code_data.get('source', 'smart_icd10_downloader'),
-                    'search_text': code_data.get('search_text', code_data.get('description', ''))
-                })
+            category_pct = result.with_category / result.total * 100 if result.total > 0 else 0
+            search_pct = result.with_search_vector / result.total * 100 if result.total > 0 else 0
             
-            db.commit()
+            logger.info(f'✅ FINAL DATA QUALITY:')
+            logger.info(f'   Category coverage: {result.with_category}/{result.total} ({category_pct:.1f}%)')
+            logger.info(f'   Search vector coverage: {result.with_search_vector}/{result.total} ({search_pct:.1f}%)')
             
-            # Update statistics
-            result = db.execute(text('SELECT COUNT(*) as total FROM icd10_codes'))
-            total_count = result.fetchone().total
-            
-            logger.info(f'Successfully inserted {total_count} ICD-10 codes')
+            if category_pct >= 95.0:
+                logger.info('🎉 SUCCESS: Achieved >95% category coverage!')
+            else:
+                logger.warning(f'⚠️  Category coverage still low: {category_pct:.1f}%')
         
         logger.info('ICD-10 update completed successfully')
         return True
