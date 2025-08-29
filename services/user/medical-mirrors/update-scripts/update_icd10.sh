@@ -73,6 +73,13 @@ from sqlalchemy import text
 # Get limit from environment variable
 limit_codes = int(os.getenv('LIMIT_CODES', 0)) or $LIMIT_CODES
 
+# Check if AI enhancement should be used (default to true for robustness)
+use_ai = os.getenv('USE_AI_ENHANCEMENT', 'true').lower() == 'true'
+if use_ai:
+    logger.info('Using AI-driven enhancement with SciSpacy and Ollama')
+else:
+    logger.info('Using pattern-based enhancement')
+
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
@@ -99,10 +106,21 @@ async def update_icd10_codes():
             # Force fresh download if QUICK_TEST to avoid using cached state
             force_fresh = bool(limit_codes > 0)
             
-            summary = await downloader.download_all_icd10_codes(force_fresh=force_fresh)
+            # Enable automatic enhancement after download
+            summary = await downloader.download_all_icd10_codes(force_fresh=force_fresh, enhance_after_download=True)
             
             logger.info(f'Smart download completed: {summary[\"total_codes\"]} codes from {summary[\"successful_sources\"]} sources')
             logger.info(f'Success rate: {summary[\"success_rate\"]:.1f}%')
+            
+            # Log enhancement status from download
+            if summary.get('enhancement_completed'):
+                enhancement_stats = summary.get('enhancement_stats', {})
+                logger.info(f'✅ Download enhancement completed:')
+                logger.info(f'   Enhanced codes: {enhancement_stats.get(\"enhanced\", 0):,}')
+                logger.info(f'   Synonyms added: {enhancement_stats.get(\"synonyms_added\", 0):,}')
+                logger.info(f'   Clinical notes added: {enhancement_stats.get(\"notes_added\", 0):,}')
+            elif summary.get('enhancement_completed') is False:
+                logger.warning(f'⚠️  Download enhancement failed: {summary.get(\"enhancement_error\", \"Unknown error\")}')
             
             if summary[\"failed_sources\"] > 0:
                 logger.warning(f'Failed sources: {summary[\"failed_sources\"]} (will retry automatically)')
@@ -131,9 +149,9 @@ async def update_icd10_codes():
         
         logger.info(f'Processing {len(parsed_codes)} parsed codes with enhanced data')
         
-        # Use enhanced database loader for proper field coverage
+        # Use enhanced database loader with automatic enhancement after loading
         loader = ICD10DatabaseLoader()
-        stats = loader.load_codes(parsed_codes)
+        stats = loader.load_codes(parsed_codes, enhance_after_load=True)
         
         logger.info(f'Database loading completed:')
         logger.info(f'  - Processed: {stats["processed"]} codes')
@@ -141,27 +159,66 @@ async def update_icd10_codes():
         logger.info(f'  - Category coverage: {stats["category_coverage"]} codes')
         logger.info(f'  - Search vector coverage: {stats["search_vector_coverage"]} codes')
         
-        # Final validation - check field coverage
+        # Log enhancement status from database loading
+        if stats.get('enhancement_completed'):
+            enhancement_stats = stats.get('enhancement_stats', {})
+            logger.info(f'✅ Database loading enhancement completed:')
+            logger.info(f'   Enhanced codes: {enhancement_stats.get("enhanced", 0):,}')
+            logger.info(f'   Synonyms added: {enhancement_stats.get("synonyms_added", 0):,}')
+            logger.info(f'   Clinical notes added: {enhancement_stats.get("notes_added", 0):,}')
+        elif stats.get('enhancement_completed') is False:
+            logger.warning(f'⚠️  Database loading enhancement failed: {stats.get("enhancement_error", "Unknown error")}')
+        
+        # Final validation - check comprehensive field coverage including enhancement fields
         with get_db_session() as db:
             result = db.execute(text('''
                 SELECT 
                     COUNT(*) as total,
                     COUNT(CASE WHEN category IS NOT NULL AND category != '' THEN 1 END) as with_category,
-                    COUNT(CASE WHEN search_vector IS NOT NULL THEN 1 END) as with_search_vector
+                    COUNT(CASE WHEN search_vector IS NOT NULL THEN 1 END) as with_search_vector,
+                    COUNT(CASE WHEN synonyms IS NOT NULL AND synonyms != '[]'::jsonb THEN 1 END) as with_synonyms,
+                    COUNT(CASE WHEN inclusion_notes IS NOT NULL AND inclusion_notes != '[]'::jsonb THEN 1 END) as with_inclusion_notes,
+                    COUNT(CASE WHEN exclusion_notes IS NOT NULL AND exclusion_notes != '[]'::jsonb THEN 1 END) as with_exclusion_notes,
+                    COUNT(CASE WHEN children_codes IS NOT NULL AND children_codes != '[]'::jsonb THEN 1 END) as with_children_codes
                 FROM icd10_codes
             ''')).fetchone()
             
-            category_pct = result.with_category / result.total * 100 if result.total > 0 else 0
-            search_pct = result.with_search_vector / result.total * 100 if result.total > 0 else 0
-            
-            logger.info(f'✅ FINAL DATA QUALITY:')
-            logger.info(f'   Category coverage: {result.with_category}/{result.total} ({category_pct:.1f}%)')
-            logger.info(f'   Search vector coverage: {result.with_search_vector}/{result.total} ({search_pct:.1f}%)')
-            
-            if category_pct >= 95.0:
-                logger.info('🎉 SUCCESS: Achieved >95% category coverage!')
+            if result.total > 0:
+                category_pct = result.with_category / result.total * 100
+                search_pct = result.with_search_vector / result.total * 100
+                synonyms_pct = result.with_synonyms / result.total * 100
+                inclusion_pct = result.with_inclusion_notes / result.total * 100
+                exclusion_pct = result.with_exclusion_notes / result.total * 100
+                children_pct = result.with_children_codes / result.total * 100
+                
+                logger.info(f'✅ FINAL DATA QUALITY REPORT:')
+                logger.info(f'   Total codes: {result.total:,}')
+                logger.info(f'   Category coverage: {result.with_category:,}/{result.total:,} ({category_pct:.1f}%)')
+                logger.info(f'   Search vector coverage: {result.with_search_vector:,}/{result.total:,} ({search_pct:.1f}%)')
+                logger.info(f'   Synonyms coverage: {result.with_synonyms:,}/{result.total:,} ({synonyms_pct:.1f}%)')
+                logger.info(f'   Inclusion notes coverage: {result.with_inclusion_notes:,}/{result.total:,} ({inclusion_pct:.1f}%)')
+                logger.info(f'   Exclusion notes coverage: {result.with_exclusion_notes:,}/{result.total:,} ({exclusion_pct:.1f}%)')
+                logger.info(f'   Children codes coverage: {result.with_children_codes:,}/{result.total:,} ({children_pct:.1f}%)')
+                
+                # Success criteria - check multiple metrics
+                high_quality_fields = 0
+                if category_pct >= 95.0:
+                    high_quality_fields += 1
+                if synonyms_pct >= 20.0:  # Enhanced from near-zero
+                    high_quality_fields += 1
+                if inclusion_pct >= 10.0:  # Enhanced from zero
+                    high_quality_fields += 1
+                if children_pct >= 15.0:  # Enhanced from 2.3%
+                    high_quality_fields += 1
+                    
+                if high_quality_fields >= 3:
+                    logger.info('🎉 SUCCESS: Achieved high data quality across multiple enhanced fields!')
+                elif high_quality_fields >= 2:
+                    logger.info('✅ GOOD: Significant improvement in data quality achieved')
+                else:
+                    logger.warning(f'⚠️  Enhancement may not have completed successfully - only {high_quality_fields}/4 quality metrics met')
             else:
-                logger.warning(f'⚠️  Category coverage still low: {category_pct:.1f}%')
+                logger.error('❌ No ICD-10 codes found in database')
         
         logger.info('ICD-10 update completed successfully')
         return True

@@ -5,6 +5,7 @@ Smart ICD-10 Codes Downloader with automatic rate limit handling and recovery
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -536,8 +537,15 @@ class SmartICD10Downloader:
         try:
             logger.info("Starting post-download ICD-10 database enhancement...")
             
-            # Initialize the enhancer
-            enhancer = ICD10DatabaseEnhancer()
+            # Check if AI enhancement should be used (default to true for robustness)
+            use_ai = os.getenv('USE_AI_ENHANCEMENT', 'true').lower() == 'true'
+            if use_ai:
+                logger.info("Using AI-driven enhancement with SciSpacy and Ollama")
+            else:
+                logger.info("Using pattern-based enhancement")
+            
+            # Initialize the enhancer with AI mode if requested
+            enhancer = ICD10DatabaseEnhancer(use_ai=use_ai)
             
             # Run the enhancement
             enhancement_stats = await asyncio.get_event_loop().run_in_executor(

@@ -696,11 +696,21 @@ class ICD10DatabaseEnhancer:
     - Ensures data integrity with UPSERT operations
     """
     
-    def __init__(self, batch_size: int = 1000):
+    def __init__(self, batch_size: int = 1000, use_ai: bool = False):
         self.batch_size = batch_size
-        self.notes_extractor = ICD10ClinicalNotesExtractor()
-        self.synonym_generator = ICD10SynonymGenerator()
-        self.hierarchy_builder = ICD10HierarchyBuilder()
+        self.use_ai = use_ai
+        
+        if use_ai:
+            # Use AI-driven enhancement
+            logger.info("Using AI-driven enhancement with SciSpacy and Ollama")
+            from .icd10_ai_enrichment import ICD10AIEnhancer
+            self.ai_enhancer = ICD10AIEnhancer(batch_size)
+        else:
+            # Use traditional pattern-based enhancement
+            logger.info("Using traditional pattern-based enhancement")
+            self.notes_extractor = ICD10ClinicalNotesExtractor()
+            self.synonym_generator = ICD10SynonymGenerator()
+            self.hierarchy_builder = ICD10HierarchyBuilder()
         
         # Statistics tracking
         self.total_processed = 0
@@ -722,6 +732,15 @@ class ICD10DatabaseEnhancer:
         Returns:
             Enhancement statistics and results
         """
+        # If using AI enhancement, delegate to AI enhancer
+        if self.use_ai:
+            if hasattr(self, 'ai_enhancer'):
+                return self.ai_enhancer.enhance_icd10_database(limit)
+            else:
+                logger.error("AI enhancer not initialized")
+                return {}
+        
+        # Otherwise use traditional pattern-based enhancement
         logger.info("Starting comprehensive ICD-10 database enhancement")
         start_time = datetime.now()
         
@@ -1014,36 +1033,52 @@ class ICD10DatabaseEnhancer:
 
 
 # Convenience function for direct usage
-def run_icd10_enhancement(limit: Optional[int] = None, batch_size: int = 1000) -> Dict[str, Any]:
+def run_icd10_enhancement(limit: Optional[int] = None, batch_size: int = 1000, use_ai: bool = False) -> Dict[str, Any]:
     """
     Run complete ICD-10 database enhancement.
     
     Args:
         limit: Optional limit for testing (None = all codes)
         batch_size: Batch size for processing
+        use_ai: If True, use AI-driven enhancement (SciSpacy + Ollama)
         
     Returns:
         Enhancement results summary
     """
-    enhancer = ICD10DatabaseEnhancer(batch_size=batch_size)
+    enhancer = ICD10DatabaseEnhancer(batch_size=batch_size, use_ai=use_ai)
     return enhancer.enhance_icd10_database(limit=limit)
 
 
 if __name__ == '__main__':
     # Example usage
     import sys
+    import os
     
     # Parse command line arguments
     limit = None
-    if len(sys.argv) > 1:
-        try:
-            limit = int(sys.argv[1])
+    # Default to AI-driven enhancement for robustness
+    use_ai = True
+    
+    for arg in sys.argv[1:]:
+        if arg == '--no-ai':
+            use_ai = False
+        elif arg == '--ai':
+            use_ai = True  # Explicit AI flag (though it's default)
+        elif arg.isdigit():
+            limit = int(arg)
             print(f"Running with limit of {limit} codes")
-        except ValueError:
-            print("Invalid limit argument, processing all codes")
+    
+    # Check environment variable as well (can override default)
+    env_ai = os.getenv('USE_AI', '').lower()
+    if env_ai == 'false':
+        use_ai = False
+    elif env_ai == 'true':
+        use_ai = True
+    
+    print(f"Mode: {'AI-driven (SciSpacy + Ollama)' if use_ai else 'Pattern-based'}")
     
     # Run enhancement
-    results = run_icd10_enhancement(limit=limit)
+    results = run_icd10_enhancement(limit=limit, use_ai=use_ai)
     
     # Print results
     print("\n=== ICD-10 ENHANCEMENT RESULTS ===")

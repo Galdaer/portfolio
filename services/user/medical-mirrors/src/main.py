@@ -521,9 +521,13 @@ async def background_icd10_update(quick_test: bool = False) -> None:
         # Run the ICD-10 update script with quick_test parameter
         script_path = "/app/update-scripts/update_icd10.sh"
         if os.path.exists(script_path):
-            # Pass quick_test as environment variable
+            # Pass quick_test and AI enhancement as environment variables
             env = os.environ.copy()
             env["QUICK_TEST"] = "true" if quick_test else "false"
+            # Pass through AI enhancement setting if configured
+            if "USE_AI_ENHANCEMENT" not in env:
+                # Default to AI-driven enhancement for robustness
+                env["USE_AI_ENHANCEMENT"] = os.getenv("USE_AI_ENHANCEMENT", "true")
 
             result = subprocess.run([script_path], check=False, capture_output=True, text=True, env=env)
             if result.returncode == 0:
