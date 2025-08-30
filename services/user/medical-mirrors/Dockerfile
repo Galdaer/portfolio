@@ -21,6 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ ./src/
 COPY migrations/ ./migrations/
 COPY update-scripts/ ./update-scripts/
+COPY config/ ./config/
 
 # Create data and logs directories and set script permissions
 RUN mkdir -p /app/data /app/logs && \

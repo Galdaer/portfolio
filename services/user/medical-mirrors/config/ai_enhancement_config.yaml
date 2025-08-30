@@ -46,7 +46,7 @@ ollama:
   retry_delay: 2  # seconds
   
   # Model settings
-  model: llama3.2:latest
+  model: llama3.1:8b
   temperature: 0.3  # Lower = more consistent, Higher = more creative
   max_tokens: 500
   
@@ -100,6 +100,11 @@ enhancement_priorities:
     enabled: true
     priority: 5
     batch_size: 50
+    
+  health_topics:
+    enabled: true
+    priority: 6
+    batch_size: 25  # Smaller batches due to content size
 
 # =============================================================================
 # ENHANCEMENT MODES

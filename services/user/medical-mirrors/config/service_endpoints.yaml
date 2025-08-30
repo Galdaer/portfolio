@@ -1,0 +1,62 @@
+# Service Endpoints Configuration for Medical Mirrors
+# Central configuration for all external service connections
+version: 1
+
+endpoints:
+  # LLM Service (Ollama)
+  ollama:
+    url: "http://172.20.0.10:11434"
+    timeout: 30
+    retry_attempts: 3
+    retry_delay: 2.0
+    description: "Local Ollama LLM service for AI enhancement"
+    
+  # NLP Service (SciSpacy)
+  scispacy:
+    url: "http://172.20.0.6:8001"
+    timeout: 15
+    retry_attempts: 2
+    retry_delay: 1.0
+    description: "Biomedical NLP service for entity extraction"
+    
+  # Database Services
+  postgresql:
+    url: "postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe_public"
+    pool_size: 20
+    max_overflow: 10
+    pool_timeout: 30
+    description: "Primary PostgreSQL database for medical data"
+    
+  redis:
+    url: "redis://172.20.0.12:6379"
+    db: 0
+    decode_responses: true
+    description: "Redis cache for session and temporary data"
+    
+  # Healthcare API (for callbacks)
+  healthcare_api:
+    url: "http://172.20.0.5:8000"
+    websocket_url: "ws://172.20.0.5:8000"
+    timeout: 45
+    description: "Main healthcare API service"
+
+# Environment-specific overrides
+environments:
+  development:
+    ollama:
+      url: "${OLLAMA_URL:-http://172.20.0.10:11434}"
+    postgresql:
+      url: "${POSTGRES_URL:-postgresql://intelluxe:secure_password@172.20.0.13:5432/intelluxe_public}"
+      
+  testing:
+    ollama:
+      url: "http://localhost:11434"
+    scispacy:
+      url: "http://localhost:8001"
+      
+  production:
+    postgresql:
+      pool_size: 50
+      max_overflow: 20
+    redis:
+      db: 1

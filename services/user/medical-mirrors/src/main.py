@@ -571,29 +571,48 @@ async def background_billing_update(quick_test: bool = False) -> None:
         logger.exception(f"❌ Billing codes background update failed: {e}")
 
 
-async def background_health_info_update(quick_test: bool = False) -> None:
+async def background_health_info_update(quick_test: bool = False, force_fresh: bool = False) -> None:
     """Background task for health information update"""
     try:
         import os
-        import subprocess
+        import asyncio
 
         if quick_test:
             logger.info("📋 Starting health information background update (QUICK TEST - 10 topics)")
         else:
-            logger.info("📋 Starting health information background update")
+            logger.info(f"📋 Starting health information background update (force_fresh={force_fresh}")
 
-        # Run the health info update script with quick_test parameter
+        # Run the health info update script with quick_test and force_fresh parameters
         script_path = "/app/update-scripts/update_health_info.sh"
+        
         if os.path.exists(script_path):
-            # Pass quick_test as environment variable
+            # Pass quick_test and force_fresh as environment variables
             env = os.environ.copy()
             env["QUICK_TEST"] = "true" if quick_test else "false"
+            env["FORCE_FRESH"] = "true" if force_fresh else "false"
 
-            result = subprocess.run([script_path], check=False, capture_output=True, text=True, env=env)
-            if result.returncode == 0:
+            # Use asyncio subprocess for non-blocking execution with streaming
+            process = await asyncio.create_subprocess_exec(
+                script_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+                env=env
+            )
+            
+            # Stream output to logger in real-time
+            async for line_bytes in process.stdout:
+                line = line_bytes.decode('utf-8').rstrip()
+                if line:
+                    # Log with INFO level so it appears in docker logs
+                    logger.info(f"[health_info_update] {line}")
+            
+            # Wait for process to complete
+            return_code = await process.wait()
+            
+            if return_code == 0:
                 logger.info("✅ Health information background update completed successfully")
             else:
-                logger.error(f"❌ Health info update script failed: {result.stderr}")
+                logger.error(f"❌ Health info update script failed with return code: {return_code}")
         else:
             logger.error(f"❌ Health info update script not found: {script_path}")
 
@@ -709,12 +728,12 @@ async def trigger_billing_update(
 
 @app.post("/update/health-info")
 async def trigger_health_info_update(
-    background_tasks: BackgroundTasks, quick_test: bool = False,
+    background_tasks: BackgroundTasks, quick_test: bool = False, force_fresh: bool = False,
 ) -> dict[str, Any]:
     """Trigger health information update in background"""
     try:
-        background_tasks.add_task(background_health_info_update, quick_test)
-        logger.info(f"📋 Health information update task queued (quick_test={quick_test})")
+        background_tasks.add_task(background_health_info_update, quick_test, force_fresh)
+        logger.info(f"📋 Health information update task queued (quick_test={quick_test}, force_fresh={force_fresh})")
         return {
             "status": "update_started_in_background",
             "message": "Health information update task queued successfully",

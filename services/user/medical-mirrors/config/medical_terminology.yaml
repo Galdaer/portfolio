@@ -365,6 +365,271 @@ pubmed_classifications:
       small: 10
 
 # =============================================================================
+# HEALTH TOPICS ENHANCEMENTS
+# =============================================================================
+health_topics_enhancements:
+  # Topic classification patterns
+  classification_patterns:
+    prevention:
+      keywords:
+        - prevent
+        - prevention
+        - screening  
+        - vaccine
+        - immunization
+        - healthy lifestyle
+        - risk factors
+        - early detection
+        - wellness
+        - diet and exercise
+        - nutrition counseling
+      weight: 1.0
+      
+    treatment:
+      keywords:
+        - treatment
+        - therapy
+        - medication
+        - surgery
+        - procedure
+        - medicine
+        - cure
+        - healing
+        - intervention
+        - drug therapy
+        - rehabilitation
+        - recovery
+      weight: 1.0
+      
+    diagnosis:
+      keywords:
+        - diagnosis
+        - symptoms
+        - signs
+        - test
+        - examination
+        - screening
+        - diagnostic
+        - evaluation
+        - assessment
+        - laboratory
+        - imaging
+      weight: 0.9
+      
+    management:
+      keywords:
+        - management
+        - managing
+        - control
+        - monitoring
+        - maintenance
+        - ongoing care
+        - chronic care
+        - follow-up
+        - self-care
+        - disease management
+      weight: 0.8
+
+  # Risk factor identification patterns
+  risk_factor_patterns:
+    lifestyle:
+      - smoking
+      - tobacco use
+      - alcohol consumption
+      - obesity
+      - sedentary lifestyle
+      - poor diet
+      - lack of exercise
+      - stress
+      - sleep deprivation
+    medical:
+      - diabetes
+      - hypertension
+      - high cholesterol
+      - heart disease
+      - family history
+      - previous illness
+      - chronic conditions
+      - autoimmune disorders
+    environmental:
+      - pollution
+      - chemical exposure
+      - occupational hazards
+      - radiation exposure
+      - infectious diseases
+    genetic:
+      - family history
+      - genetic predisposition
+      - hereditary conditions
+      - genetic mutations
+    age_related:
+      - advanced age
+      - elderly
+      - age over
+      - aging process
+
+  # Medication extraction patterns
+  medication_categories:
+    prescription_drugs:
+      - prescription medication
+      - prescribed medicine
+      - doctor prescribed
+      - pharmacy medication
+    over_the_counter:
+      - over-the-counter
+      - OTC medication
+      - non-prescription
+      - pharmacy available
+    supplements:
+      - dietary supplement
+      - vitamin
+      - mineral supplement
+      - herbal supplement
+      - nutritional supplement
+    vaccines:
+      - vaccine
+      - vaccination
+      - immunization
+      - shot
+      - injection for prevention
+
+  # ICD-10 condition mapping hints
+  condition_icd10_hints:
+    cardiovascular:
+      patterns:
+        - heart disease
+        - cardiac
+        - cardiovascular
+        - coronary
+        - myocardial
+        - hypertension
+        - blood pressure
+      icd10_range: "I00-I99"
+    endocrine:
+      patterns:
+        - diabetes
+        - thyroid
+        - hormone
+        - endocrine
+        - metabolic
+        - insulin
+        - glucose
+      icd10_range: "E00-E89"
+    respiratory:
+      patterns:
+        - lung
+        - respiratory
+        - breathing
+        - pulmonary
+        - asthma
+        - COPD
+        - pneumonia
+      icd10_range: "J00-J99"
+    mental_health:
+      patterns:
+        - depression
+        - anxiety
+        - mental health
+        - psychiatric
+        - psychological
+        - behavioral
+        - mood
+      icd10_range: "F00-F99"
+    musculoskeletal:
+      patterns:
+        - bone
+        - joint
+        - muscle
+        - arthritis
+        - fracture
+        - orthopedic
+        - spine
+      icd10_range: "M00-M99"
+    digestive:
+      patterns:
+        - stomach
+        - digestive
+        - gastrointestinal
+        - liver
+        - intestinal
+        - bowel
+        - gastric
+      icd10_range: "K00-K95"
+
+  # Clinical relevance scoring factors
+  clinical_relevance_factors:
+    high_value_terms:
+      keywords:
+        - clinical guidelines
+        - evidence-based
+        - research
+        - peer-reviewed
+        - medical study
+        - clinical trial
+        - diagnosis
+        - treatment protocol
+        - medical procedure
+      weight: 1.0
+      
+    moderate_value_terms:
+      keywords:
+        - symptoms
+        - causes
+        - risk factors
+        - prevention
+        - management
+        - monitoring
+        - follow-up care
+      weight: 0.7
+      
+    basic_value_terms:
+      keywords:
+        - general information
+        - overview
+        - introduction
+        - basic facts
+        - common questions
+      weight: 0.4
+
+  # Quality enhancement patterns
+  keyword_enhancement:
+    medical_synonyms:
+      heart_attack:
+        - myocardial infarction
+        - MI
+        - cardiac event
+        - coronary event
+      high_blood_pressure:
+        - hypertension
+        - elevated blood pressure
+        - HTN
+        - elevated BP
+      diabetes:
+        - diabetes mellitus
+        - blood sugar disorder
+        - glucose intolerance
+        - diabetic condition
+      cancer:
+        - malignancy
+        - neoplasm
+        - tumor
+        - oncology condition
+      
+    patient_friendly_terms:
+      myocardial_infarction:
+        - heart attack
+        - cardiac event
+      cerebrovascular_accident:
+        - stroke
+        - brain attack
+      hypertension:
+        - high blood pressure
+        - elevated blood pressure
+      diabetes_mellitus:
+        - diabetes
+        - blood sugar problem
+
+# =============================================================================
 # CONFIGURATION METADATA
 # =============================================================================
 metadata:

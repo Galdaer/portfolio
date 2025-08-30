@@ -86,18 +86,21 @@ logger = logging.getLogger(__name__)
 async def update_health_information():
     config = Config()
     
+    # Check if we should force fresh download
+    force_fresh = os.getenv('FORCE_FRESH', 'false').lower() == 'true'
+    
     try:
         # Download data from all sources
-        async with HealthInfoDownloader(config) as downloader:
+        async with HealthInfoDownloader(config, force_fresh=force_fresh) as downloader:
             logger.info('Starting health information download')
             raw_data = await downloader.download_all_health_data()
             download_stats = downloader.get_download_stats()
             
             logger.info(f'Download stats: {download_stats}')
         
-        # Parse and validate
-        parser = HealthInfoParser()
-        validated_data = parser.parse_and_validate(raw_data)
+        # Parse and validate with AI enhancement
+        parser = HealthInfoParser(enable_ai_enhancement=True)
+        validated_data = await parser.parse_and_validate_with_enhancement(raw_data)
         parsing_stats = parser.get_parsing_stats()
         
         logger.info(f'Parsing stats: {parsing_stats}')
@@ -120,11 +123,17 @@ async def update_health_information():
                             topic_id, title, category, url, last_reviewed,
                             audience, sections, related_topics, summary,
                             keywords, content_length, source, search_text,
+                            medical_entities, icd10_conditions, clinical_relevance_score,
+                            topic_classifications, risk_factors, related_medications,
+                            quality_improvements, enhancement_metadata,
                             last_updated
                         ) VALUES (
                             :topic_id, :title, :category, :url, :last_reviewed,
                             :audience, :sections, :related_topics, :summary,
                             :keywords, :content_length, :source, :search_text,
+                            :medical_entities, :icd10_conditions, :clinical_relevance_score,
+                            :topic_classifications, :risk_factors, :related_medications,
+                            :quality_improvements, :enhancement_metadata,
                             NOW()
                         )
                         ON CONFLICT (topic_id) DO UPDATE SET
@@ -141,6 +150,15 @@ async def update_health_information():
                             content_length = COALESCE(EXCLUDED.content_length, health_topics.content_length),
                             source = COALESCE(NULLIF(EXCLUDED.source, ''), health_topics.source),
                             search_text = COALESCE(NULLIF(EXCLUDED.search_text, ''), health_topics.search_text),
+                            -- Update AI enhancement fields
+                            medical_entities = COALESCE(EXCLUDED.medical_entities, health_topics.medical_entities),
+                            icd10_conditions = COALESCE(EXCLUDED.icd10_conditions, health_topics.icd10_conditions),
+                            clinical_relevance_score = COALESCE(EXCLUDED.clinical_relevance_score, health_topics.clinical_relevance_score),
+                            topic_classifications = COALESCE(EXCLUDED.topic_classifications, health_topics.topic_classifications),
+                            risk_factors = COALESCE(EXCLUDED.risk_factors, health_topics.risk_factors),
+                            related_medications = COALESCE(EXCLUDED.related_medications, health_topics.related_medications),
+                            quality_improvements = COALESCE(EXCLUDED.quality_improvements, health_topics.quality_improvements),
+                            enhancement_metadata = COALESCE(EXCLUDED.enhancement_metadata, health_topics.enhancement_metadata),
                             last_updated = NOW()
                     '''), {
                         'topic_id': topic['topic_id'],
@@ -155,10 +173,33 @@ async def update_health_information():
                         'keywords': json.dumps(topic['keywords']) if topic.get('keywords') else '[]',
                         'content_length': topic['content_length'],
                         'source': topic['source'],
-                        'search_text': topic['search_text']
+                        'search_text': topic['search_text'],
+                        # AI enhancement fields
+                        'medical_entities': json.dumps(topic.get('medical_entities', [])),
+                        'icd10_conditions': json.dumps(topic.get('icd10_conditions', [])),
+                        'clinical_relevance_score': topic.get('clinical_relevance_score'),
+                        'topic_classifications': json.dumps(topic.get('topic_classifications', [])),
+                        'risk_factors': json.dumps(topic.get('risk_factors', [])),
+                        'related_medications': json.dumps(topic.get('related_medications', [])),
+                        'quality_improvements': json.dumps(topic.get('quality_improvements', {})),
+                        'enhancement_metadata': json.dumps(topic.get('enhancement_metadata', {}))
                     })
                 
                 logger.info(f'Inserted {len(validated_data[\"health_topics\"])} health topics')
+                
+                # Update search vectors for health topics
+                logger.info('Updating search vectors for health topics')
+                db.execute(text('''
+                    UPDATE health_topics 
+                    SET search_vector = to_tsvector('english', 
+                        COALESCE(title, '') || ' ' ||
+                        COALESCE(category, '') || ' ' ||
+                        COALESCE(summary, '') || ' ' ||
+                        COALESCE(search_text, '')
+                    )
+                    WHERE search_vector IS NULL
+                '''))
+                logger.info('Search vectors updated for health topics')
             
             # Upsert exercises
             if validated_data['exercises']:
@@ -211,6 +252,21 @@ async def update_health_information():
                     })
                 
                 logger.info(f'Inserted {len(validated_data[\"exercises\"])} exercises')
+                
+                # Update search vectors for exercises  
+                logger.info('Updating search vectors for exercises')
+                db.execute(text('''
+                    UPDATE exercises 
+                    SET search_vector = to_tsvector('english', 
+                        COALESCE(name, '') || ' ' ||
+                        COALESCE(body_part, '') || ' ' ||
+                        COALESCE(equipment, '') || ' ' ||
+                        COALESCE(target, '') || ' ' ||
+                        COALESCE(search_text, '')
+                    )
+                    WHERE search_vector IS NULL
+                '''))
+                logger.info('Search vectors updated for exercises')
             
             # Upsert food items
             if validated_data['food_items']:
@@ -301,6 +357,27 @@ async def update_health_information():
             logger.info(f'  Exercises: {exercises_count}') 
             logger.info(f'  Food items: {foods_count}')
         
+        # Run AI enhancement for food items
+        logger.info('Starting AI enhancement for food items')
+        try:
+            # Import food AI enhancement
+            import sys
+            sys.path.append('/app/src')  # Ensure imports work
+            from health_info.food_ai_enrichment import FoodAIEnhancer
+            
+            # Run food enhancement with limit for quick test
+            food_enhancer = FoodAIEnhancer()
+            enhancement_limit = limit_topics if limit_topics > 0 else None
+            enhancement_stats = food_enhancer.enhance_food_database(limit=enhancement_limit)
+            
+            logger.info(f'Food AI Enhancement completed: {enhancement_stats}')
+            
+        except Exception as e:
+            logger.warning(f'Food AI enhancement failed: {e}')
+            # Continue without enhancement - don't fail the entire update
+            import traceback
+            logger.debug(traceback.format_exc())
+            
         logger.info('Health information update completed successfully')
         return True
         

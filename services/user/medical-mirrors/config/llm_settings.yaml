@@ -1,0 +1,90 @@
+# LLM Settings Configuration for Medical Mirrors
+# Configuration for all LLM-based text generation and enhancement
+version: 1
+
+llm:
+  # Model Selection
+  models:
+    default: "llama3.1:8b"
+    food_enhancement: "llama3.1:8b"
+    health_topics: "llama3.1:8b"
+    medical_coding: "llama3.2:latest"
+    clinical_text: "llama3.1:8b"
+    
+  # Generation Settings
+  settings:
+    temperature: 0.3  # Lower = more consistent, Higher = more creative
+    max_tokens: 500
+    top_p: 0.9
+    top_k: 40
+    repeat_penalty: 1.1
+    seed: 42  # For reproducible results in testing
+    
+  # Request Configuration
+  request:
+    timeout: 30.0
+    retry_attempts: 3
+    retry_delay: 2.0
+    batch_size: 10  # For batch processing
+    concurrent_requests: 5  # Max parallel LLM calls
+    
+  # Enhancement-specific Settings
+  food_enhancement:
+    temperature: 0.3  # Keep low for accuracy
+    max_tokens: 500
+    prompt_template: "structured_json"  # Use JSON output format
+    require_scientific_name: true
+    require_common_names: true
+    require_serving_size: true
+    
+  health_topics:
+    temperature: 0.4  # Slightly higher for variety
+    max_tokens: 800  # Longer for comprehensive content
+    prompt_template: "medical_explanation"
+    include_prevention: true
+    include_symptoms: true
+    include_treatments: true
+    
+  medical_coding:
+    temperature: 0.1  # Very low for accuracy
+    max_tokens: 200
+    prompt_template: "code_extraction"
+    validate_codes: true
+    
+# Prompt Templates
+prompts:
+  system_prompts:
+    medical_expert: "You are a medical expert providing accurate, evidence-based information."
+    nutritionist: "You are a nutritionist providing scientific food and nutrition information."
+    medical_coder: "You are a medical coding specialist extracting ICD-10 and CPT codes."
+    
+  enhancement_templates:
+    food_single_call: |
+      Generate comprehensive information for this food item in JSON format:
+      Food: {description}
+      Category: {category}
+      Return: scientific_name, common_names, primary_ingredients, serving_size
+      
+    health_topic_enhancement: |
+      Enhance this health topic with comprehensive medical information:
+      Topic: {title}
+      Current content: {content}
+      Add: symptoms, prevention, treatments, when to see a doctor
+      
+# Environment-specific Overrides
+environments:
+  development:
+    settings:
+      temperature: 0.5  # Higher for testing variety
+      seed: null  # Random for development
+      
+  testing:
+    settings:
+      temperature: 0.1  # Consistent for tests
+      seed: 42  # Fixed for reproducibility
+      max_tokens: 100  # Smaller for faster tests
+      
+  production:
+    request:
+      timeout: 60.0  # Longer timeout for production
+      concurrent_requests: 10  # Higher concurrency

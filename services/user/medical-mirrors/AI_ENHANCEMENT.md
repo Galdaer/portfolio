@@ -40,10 +40,10 @@ env=...,USE_AI_ENHANCEMENT=false
    make scispacy-health
    ```
 
-2. **Ollama Service**: Must be running at port 11434 with llama3.2:latest model
+2. **Ollama Service**: Must be running at port 11434 with llama3.1:8b model
    ```bash
    ollama serve
-   ollama pull llama3.2:latest
+   ollama pull llama3.1:8b
    ```
 
 ## Usage
@@ -170,7 +170,7 @@ ollama serve
 ### Low Enhancement Coverage
 - Verify AI services are healthy
 - Check for rate limiting in logs
-- Ensure proper model is loaded (llama3.2:latest)
+- Ensure proper model is loaded (llama3.1:8b)
 
 ## Future Enhancements
 

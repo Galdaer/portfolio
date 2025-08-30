@@ -69,7 +69,7 @@ class Config:
     PUBMED_REQUEST_DELAY: float = 0.33      # 3 req/sec (no API key) - can be 0.1 with API key
     CLINICALTRIALS_REQUEST_DELAY: float = 0.01   # Testing shows they handle more than documented - increased from 0.02s
     OPENFDA_REQUEST_DELAY: float = 0.25     # 4 req/sec (240 req/min)
-    USDA_FOOD_REQUEST_DELAY: float = 3.6    # 0.28 req/sec (1000 req/hour)
+    USDA_FOOD_REQUEST_DELAY: float = 2.0    # 0.5 req/sec (more reasonable for 1000 req/hour limit)
     RXCLASS_REQUEST_DELAY: float = 0.05     # 20 req/sec per IP
     DAILYMED_REQUEST_DELAY: float = 0.05    # 20 req/sec (NLM general limit)
     ICD10_REQUEST_DELAY: float = 0.1        # Government API - conservative

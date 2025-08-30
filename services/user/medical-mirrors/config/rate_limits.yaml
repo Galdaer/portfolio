@@ -1,0 +1,130 @@
+# API Rate Limits Configuration for Medical Mirrors
+# Request rate limits for external API services (in seconds between requests)
+version: 1
+
+rate_limits:
+  # Medical Data APIs
+  pubmed:
+    delay: 0.33  # 3 requests/second (no API key)
+    delay_with_key: 0.1  # 10 requests/second (with API key)
+    burst_size: 10
+    description: "PubMed/NCBI E-utilities API"
+    
+  clinicaltrials:
+    delay: 0.01  # 100 requests/second (tested limit)
+    burst_size: 50
+    description: "ClinicalTrials.gov API v2"
+    
+  openfda:
+    delay: 0.25  # 4 requests/second (240/minute limit)
+    burst_size: 20
+    daily_limit: 240000
+    description: "OpenFDA drug database API"
+    
+  # Nutrition APIs
+  usda_food:
+    delay: 2.0  # 0.5 requests/second (1000/hour limit)
+    hourly_limit: 1000
+    burst_size: 5
+    description: "USDA FoodData Central API"
+    
+  # Drug Information APIs
+  rxclass:
+    delay: 0.05  # 20 requests/second per IP
+    burst_size: 30
+    description: "NIH RxClass API"
+    
+  dailymed:
+    delay: 0.05  # 20 requests/second (NLM general limit)
+    burst_size: 30
+    description: "DailyMed drug labels API"
+    
+  drugcentral:
+    delay: 0.1  # 10 requests/second (conservative)
+    burst_size: 20
+    description: "DrugCentral database API"
+    
+  # Medical Coding APIs
+  icd10:
+    delay: 0.1  # 10 requests/second (government API)
+    burst_size: 15
+    description: "ICD-10 codes API"
+    
+  billing_codes:
+    delay: 0.25  # 4 requests/second (CMS limit)
+    burst_size: 10
+    description: "Medicare billing codes API"
+    
+  # Exercise/Fitness APIs
+  exercisedb:
+    delay: 0.5  # 2 requests/second (RapidAPI limit)
+    daily_limit: 500
+    burst_size: 5
+    description: "ExerciseDB fitness API"
+    
+  # Health Information APIs
+  myhealthfinder:
+    delay: 0.2  # 5 requests/second (HHS API)
+    burst_size: 10
+    description: "MyHealthfinder topics API"
+    
+  medlineplus:
+    delay: 0.7  # ~85 requests/minute (official limit)
+    burst_size: 10
+    requests_per_minute: 85
+    cache_hours: 24
+    description: "MedlinePlus health topics API"
+    
+# Rate Limiting Strategies
+strategies:
+  default:
+    type: "token_bucket"
+    refill_rate: 1.0
+    max_tokens: 10
+    
+  burst:
+    type: "sliding_window"
+    window_size: 60  # seconds
+    max_requests: 100
+    
+  daily_quota:
+    type: "fixed_window"
+    window_size: 86400  # 24 hours in seconds
+    reset_time: "00:00:00 UTC"
+
+# Backoff Configuration
+backoff:
+  initial_delay: 1.0
+  max_delay: 60.0
+  exponential_base: 2.0
+  jitter: true
+  
+  # Service-specific backoff
+  overrides:
+    pubmed:
+      initial_delay: 2.0  # More conservative for NCBI
+      max_delay: 120.0
+    usda_food:
+      initial_delay: 5.0  # Respect hourly limit
+      max_delay: 300.0
+
+# Environment-specific Overrides  
+environments:
+  development:
+    # Slower rates for development to avoid hitting limits
+    pubmed:
+      delay: 0.5
+    usda_food:
+      delay: 3.6
+      
+  testing:
+    # Faster rates for testing (use mocks in CI)
+    "*":
+      delay: 0.01
+      
+  production:
+    # Production rates with API keys
+    pubmed:
+      delay: 0.1  # Assumes API key
+    clinicaltrials:
+      delay: 0.01  # Can handle the load
