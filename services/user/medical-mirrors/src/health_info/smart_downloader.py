@@ -14,10 +14,16 @@ from dotenv import load_dotenv
 # Load environment variables from .env file for standalone execution
 load_dotenv()
 
-# No parser import - this is a DOWNLOADER, not a parser
-from config import Config
+# Import parser for enhancement integration  
+import sys
+from pathlib import Path
 
-from .downloader import HealthInfoDownloader
+# Add parent directory to path for imports
+sys.path.append(str(Path(__file__).parent.parent))
+
+from config import Config
+from health_info.downloader import HealthInfoDownloader
+from health_info.parser import HealthInfoParser
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +79,7 @@ class SmartHealthInfoDownloader:
         # Initialize components
         self.state = HealthInfoDownloadState()
         self.downloader = HealthInfoDownloader(self.config)
-        # No parser - this is a DOWNLOADER, saves raw API responses
+        self.parser = HealthInfoParser(enable_ai_enhancement=True)
 
         # Smart retry configuration
         self.retry_interval = 600  # 10 minutes between retry checks for APIs
@@ -157,13 +163,33 @@ class SmartHealthInfoDownloader:
                         self.state.set_rate_limit(source, self.retry_interval)
                         self.state.increment_retry_count(source)
 
-            # Parse and save all downloaded data
-            if self.all_health_data["health_topics"]:
-                await self._save_data("health_topics", self.all_health_data["health_topics"])
-            if self.all_health_data["exercises"]:
-                await self._save_data("exercises", self.all_health_data["exercises"])
-            if self.all_health_data["food_items"]:
-                await self._save_data("food_items", self.all_health_data["food_items"])
+            # Parse and enhance all downloaded data
+            if any(self.all_health_data.values()):
+                logger.info("Starting parsing and enhancement of downloaded health data")
+                try:
+                    enhanced_data = await self.parser.parse_and_validate_with_enhancement(self.all_health_data)
+                    
+                    # Save enhanced data
+                    if enhanced_data["health_topics"]:
+                        await self._save_data("health_topics", enhanced_data["health_topics"])
+                    if enhanced_data["exercises"]:
+                        await self._save_data("exercises", enhanced_data["exercises"])
+                    if enhanced_data["food_items"]:
+                        await self._save_data("food_items", enhanced_data["food_items"])
+                        
+                    # Update stats with parser information
+                    parser_stats = self.parser.get_parsing_stats()
+                    logger.info(f"Parsing and enhancement statistics: {parser_stats}")
+                    
+                except Exception as e:
+                    logger.error(f"Parsing and enhancement failed: {e}")
+                    # Fallback to saving raw data
+                    if self.all_health_data["health_topics"]:
+                        await self._save_data("health_topics", self.all_health_data["health_topics"])
+                    if self.all_health_data["exercises"]:
+                        await self._save_data("exercises", self.all_health_data["exercises"])
+                    if self.all_health_data["food_items"]:
+                        await self._save_data("food_items", self.all_health_data["food_items"])
 
             duration = time.time() - start_time
 

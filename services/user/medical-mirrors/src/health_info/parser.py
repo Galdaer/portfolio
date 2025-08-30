@@ -1,10 +1,21 @@
 """
-Health information parser and data processor
+Health information parser and data processor with AI enhancement integration
 """
 
+import asyncio
 import logging
 import re
 from datetime import datetime
+from typing import Dict, List, Any, Optional
+
+import sys
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.append(str(Path(__file__).parent.parent))
+
+from health_info.health_topics_enrichment import HealthTopicsEnricher, convert_enhancement_to_dict
+from config_loader import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +23,7 @@ logger = logging.getLogger(__name__)
 class HealthInfoParser:
     """Parser for health information data from various APIs"""
 
-    def __init__(self):
+    def __init__(self, enable_ai_enhancement: bool = True):
         self.processed_items = 0
         self.validation_errors = 0
         self.duplicates_removed = 0
@@ -20,6 +31,17 @@ class HealthInfoParser:
             "health_topics": 0,
             "exercises": 0,
             "food_items": 0,
+        }
+        
+        # AI enhancement configuration
+        self.enable_ai_enhancement = enable_ai_enhancement
+        self.config = get_config()
+        self.enricher = None
+        
+        # Enhancement statistics
+        self.enhancement_stats = {
+            "health_topics_enhanced": 0,
+            "enhancement_errors": 0
         }
 
     def parse_and_validate(self, raw_data: dict[str, list[dict]]) -> dict[str, list[dict]]:
@@ -46,6 +68,91 @@ class HealthInfoParser:
                    f"{self.categories['food_items']} food items")
 
         return validated_data
+        
+    async def parse_and_validate_with_enhancement(self, raw_data: dict[str, list[dict]]) -> dict[str, list[dict]]:
+        """Parse, validate, and enhance health information data with AI"""
+        logger.info("Parsing, validating, and enhancing health information data")
+        
+        # First do standard parsing and validation
+        validated_data = self.parse_and_validate(raw_data)
+        
+        # Apply AI enhancement to health topics if enabled
+        if self.enable_ai_enhancement and validated_data.get("health_topics"):
+            await self._enhance_health_topics(validated_data)
+            
+        return validated_data
+        
+    async def _enhance_health_topics(self, validated_data: dict[str, list[dict]]):
+        """Enhance health topics with AI-driven medical information"""
+        health_topics = validated_data.get("health_topics", [])
+        
+        if not health_topics:
+            logger.info("No health topics to enhance")
+            return
+            
+        # Check if enhancement is enabled for health topics
+        if not self.config.is_enhancement_enabled('health_topics'):
+            logger.info("Health topics enhancement is disabled in configuration")
+            return
+            
+        try:
+            logger.info(f"Starting AI enhancement for {len(health_topics)} health topics")
+            
+            # Initialize enricher if not already done
+            if self.enricher is None:
+                self.enricher = HealthTopicsEnricher()
+                
+            # Enhance topics
+            enhanced_topics = await self.enricher.enhance_health_topics(health_topics)
+            
+            # Convert enhanced topics back to dict format and merge with original data
+            for i, enhanced_topic in enumerate(enhanced_topics):
+                if i < len(health_topics):
+                    # Get enhancement data
+                    enhancement_data = convert_enhancement_to_dict(enhanced_topic)
+                    
+                    # Merge enhancement data into original topic
+                    original_topic = health_topics[i]
+                    
+                    # Add new enhancement fields (will be used for future database migration)
+                    original_topic.update({
+                        "medical_entities": enhancement_data.get("medical_entities", {}),
+                        "icd10_mappings": enhancement_data.get("icd10_mappings", []),
+                        "clinical_relevance_score": enhancement_data.get("clinical_relevance_score", 0.0),
+                        "topic_classification": enhancement_data.get("topic_classification", "general"),
+                        "risk_factors": enhancement_data.get("risk_factors", []),
+                        "related_medications": enhancement_data.get("related_medications", []),
+                        "enhanced_keywords": enhancement_data.get("enhanced_keywords", []),
+                        "related_topics_suggestions": enhancement_data.get("related_topics_suggestions", []),
+                        "patient_summary": enhancement_data.get("patient_summary", ""),
+                        "provider_summary": enhancement_data.get("provider_summary", ""),
+                        "enhancement_timestamp": enhancement_data.get("enhancement_timestamp", ""),
+                        "ai_confidence": enhancement_data.get("ai_confidence", 0.0),
+                        "data_sources": enhancement_data.get("data_sources", [])
+                    })
+                    
+                    # Update existing keywords with enhanced ones if available
+                    enhanced_keywords = enhancement_data.get("enhanced_keywords", [])
+                    if enhanced_keywords:
+                        original_topic["keywords"] = enhanced_keywords
+                        
+                    # Update related topics if available
+                    related_suggestions = enhancement_data.get("related_topics_suggestions", [])
+                    if related_suggestions:
+                        # Merge with existing related topics
+                        existing_related = original_topic.get("related_topics", [])
+                        all_related = list(set(existing_related + related_suggestions))
+                        original_topic["related_topics"] = all_related[:10]  # Limit to 10
+                    
+            self.enhancement_stats["health_topics_enhanced"] = len(enhanced_topics)
+            
+            # Log enhancement statistics
+            enricher_stats = self.enricher.get_enhancement_stats()
+            logger.info(f"Health topics enhancement completed: {enricher_stats}")
+            
+        except Exception as e:
+            logger.error(f"Health topics enhancement failed: {e}")
+            self.enhancement_stats["enhancement_errors"] += 1
 
     def _parse_category(self, category: str, items: list[dict]) -> list[dict]:
         """Parse items for a specific category"""
@@ -190,11 +297,13 @@ class HealthInfoParser:
 
         for section in sections:
             if isinstance(section, dict):
+                title = section.get("title") or ""
+                content = section.get("content") or ""
                 parsed_section = {
-                    "title": section.get("title", "").strip(),
-                    "content": section.get("content", "").strip(),
+                    "title": title.strip() if isinstance(title, str) else "",
+                    "content": content.strip() if isinstance(content, str) else "",
                     "type": section.get("type", "content"),
-                    "word_count": len(section.get("content", "").split()),
+                    "word_count": len(content.split() if isinstance(content, str) else []),
                 }
                 parsed_sections.append(parsed_section)
 
@@ -222,7 +331,8 @@ class HealthInfoParser:
             # Try to find an introduction or summary section
             for section in sections:
                 if isinstance(section, dict):
-                    title = section.get("title", "").lower()
+                    title = section.get("title") or ""
+                    title = title.lower() if title else ""
                     content = section.get("content", "")
 
                     if any(keyword in title for keyword in ["summary", "overview", "introduction"]):
@@ -599,6 +709,8 @@ class HealthInfoParser:
                 self.processed_items / (self.processed_items + self.validation_errors)
                 if (self.processed_items + self.validation_errors) > 0 else 0
             ),
+            "enhancement_stats": self.enhancement_stats,
+            "ai_enhancement_enabled": self.enable_ai_enhancement
         }
 
 
