@@ -210,7 +210,7 @@ class HealthInfoParser:
                 "summary": self._extract_summary(raw_topic),
                 "keywords": self._extract_keywords(title, raw_topic.get("sections", [])),
                 "content_length": self._calculate_content_length(raw_topic),
-                "source": raw_topic.get("source", "myhealthfinder"),
+                "source": raw_topic.get("source", "medlineplus"),
                 "last_updated": raw_topic.get("last_updated", datetime.now().isoformat()),
                 "search_text": raw_topic.get("search_text", "").lower(),
                 "item_type": "health_topic",

@@ -176,7 +176,7 @@ def create_health_topics_table(conn):
             summary TEXT,
             keywords JSONB,
             content_length INTEGER DEFAULT 0,
-            source VARCHAR(50) DEFAULT 'myhealthfinder',
+            source VARCHAR(50) DEFAULT 'medlineplus',
             search_text TEXT,
             search_vector tsvector,
             last_updated TIMESTAMP DEFAULT NOW(),

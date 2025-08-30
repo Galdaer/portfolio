@@ -248,7 +248,7 @@ class HealthTopic(Base):  # type: ignore[misc,valid-type]
     summary = Column(Text)
     keywords = Column(ARRAY(String))
     content_length = Column(Integer)
-    source = Column(String(50), default="myhealthfinder")
+    source = Column(String(50), default="medlineplus")
     search_vector = Column(TSVECTOR)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
