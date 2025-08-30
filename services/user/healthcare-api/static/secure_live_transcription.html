@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Medical Transcription - Chunked Processing</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --info-color: #3498db;
+            --bg-color: #f5f7fa;
+            --card-bg: #ffffff;
+            --text-primary: #2c3e50;
+            --text-secondary: #7f8c8d;
+            --border-color: #e1e8ed;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .security-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--success-color);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .hipaa-notice {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #34495e;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(44, 62, 80, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-color);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.active {
+            background: var(--success-color);
+        }
+
+        .status-dot.recording {
+            background: var(--danger-color);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .audio-visualizer {
+            height: 100px;
+            background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            margin: 16px 0;
+        }
+
+        .audio-bars {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            height: 100%;
+            padding: 10px;
+        }
+
+        .audio-bar {
+            width: 4px;
+            background: var(--primary-color);
+            border-radius: 2px;
+            transition: height 0.1s ease;
+        }
+
+        .insights-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .insight-item {
+            background: var(--bg-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--info-color);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .insight-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .insight-type {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .insight-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .insight-content {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .medical-entity {
+            display: inline-block;
+            background: var(--info-color);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin: 2px;
+        }
+
+        .vital-sign {
+            background: var(--danger-color);
+        }
+
+        .medication {
+            background: var(--warning-color);
+        }
+
+        .symptom {
+            background: var(--info-color);
+        }
+
+        .soap-section {
+            background: var(--bg-color);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .soap-label {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 4px;
+        }
+
+        .soap-content {
+            font-size: 14px;
+            color: var(--text-primary);
+            min-height: 40px;
+        }
+
+        .encryption-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(39, 174, 96, 0.1);
+            border: 1px solid var(--success-color);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--success-color);
+        }
+
+        .chunk-info {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .chunk-stat {
+            text-align: center;
+            padding: 8px;
+            background: var(--bg-color);
+            border-radius: 6px;
+        }
+
+        .chunk-stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .chunk-stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-color);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 16px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--info-color), var(--primary-color));
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                🎙️ Secure Medical Transcription
+                <span class="security-badge">
+                    🔒 End-to-End Encrypted
+                </span>
+            </h1>
+            <p style="color: var(--text-secondary); margin-top: 8px;">
+                Chunked audio processing with progressive medical insights • HIPAA Compliant
+            </p>
+        </div>
+
+        <!-- HIPAA Notice -->
+        <div class="hipaa-notice">
+            <span style="font-size: 24px;">🛡️</span>
+            <div>
+                <strong>HIPAA Security Notice:</strong> All audio data is encrypted using AES-256-GCM. 
+                PHI is automatically detected and protected. This session uses chunked processing with overlap to ensure accurate transcription.
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Left Panel: Controls -->
+            <div class="card">
+                <h2 class="card-title">
+                    ⚙️ Recording Controls
+                </h2>
+                
+                <div class="controls">
+                    <button id="startBtn" class="btn btn-primary">
+                        🎤 Start Recording
+                    </button>
+                    
+                    <button id="stopBtn" class="btn btn-danger" disabled>
+                        ⏹️ Stop Recording
+                    </button>
+                    
+                    <div class="status-indicator">
+                        <span class="status-dot" id="statusDot"></span>
+                        <span id="statusText">Ready</span>
+                    </div>
+                    
+                    <div class="encryption-status">
+                        🔐 <span id="encryptionStatus">Encryption Active</span>
+                    </div>
+                </div>
+
+                <!-- Audio Visualizer -->
+                <div class="audio-visualizer">
+                    <div class="audio-bars" id="audioBars">
+                        <!-- Dynamically generated bars -->
+                    </div>
+                </div>
+
+                <!-- Chunk Statistics -->
+                <div class="chunk-info">
+                    <div class="chunk-stat">
+                        <div class="chunk-stat-value" id="chunkCount">0</div>
+                        <div class="chunk-stat-label">Chunks</div>
+                    </div>
+                    <div class="chunk-stat">
+                        <div class="chunk-stat-value" id="duration">0:00</div>
+                        <div class="chunk-stat-label">Duration</div>
+                    </div>
+                    <div class="chunk-stat">
+                        <div class="chunk-stat-value" id="insightCount">0</div>
+                        <div class="chunk-stat-label">Insights</div>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Insights -->
+            <div class="card">
+                <h2 class="card-title">
+                    💡 Medical Insights
+                </h2>
+                
+                <div class="insights-container" id="insightsContainer">
+                    <!-- Progressive insights will appear here -->
+                    <div style="text-align: center; color: var(--text-secondary); padding: 40px;">
+                        Start recording to see real-time medical insights
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SOAP Note Progress -->
+        <div class="card">
+            <h2 class="card-title">
+                📝 Progressive SOAP Note
+            </h2>
+            
+            <div class="soap-section">
+                <div class="soap-label">[S] Subjective:</div>
+                <div class="soap-content" id="soapSubjective">-</div>
+            </div>
+            
+            <div class="soap-section">
+                <div class="soap-label">[O] Objective:</div>
+                <div class="soap-content" id="soapObjective">-</div>
+            </div>
+            
+            <div class="soap-section">
+                <div class="soap-label">[A] Assessment:</div>
+                <div class="soap-content" id="soapAssessment">-</div>
+            </div>
+            
+            <div class="soap-section">
+                <div class="soap-label">[P] Plan:</div>
+                <div class="soap-content" id="soapPlan">-</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration from URL parameters with fallback to server config
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session') || generateSessionId();
+        const sessionToken = urlParams.get('token') || generateToken();
+        
+        // Default configuration
+        let config = {
+            chunkDuration: 5000, // ms
+            chunkOverlap: 2500,  // ms (increased for medical terminology like "esophagogastroduodenoscopy")
+            enableInsights: true,
+            sampleRate: 16000,
+            maxRecordingMinutes: 60,
+            showConfidenceScores: true,
+            enableAudioFeedback: true,
+            encryptionEnabled: true,
+            phiProtectionEnabled: true,
+            websocketPort: 8000,
+            audioBars: 30,
+            updateIntervalMs: 100,
+            maxProgressDuration: 30,
+            autoScrollInsights: true,
+            maxInsightsDisplayed: 50
+        };
+        
+        // Override with URL parameters
+        if (urlParams.get('duration')) {
+            config.chunkDuration = parseInt(urlParams.get('duration')) * 1000;
+        }
+        if (urlParams.get('overlap')) {
+            config.chunkOverlap = parseFloat(urlParams.get('overlap')) * 1000;
+        }
+        if (urlParams.get('insights') === 'false') {
+            config.enableInsights = false;
+        }
+        
+        // Try to load configuration from server
+        async function loadServerConfig() {
+            try {
+                const response = await fetch('/api/transcription/chunked/config');
+                if (response.ok) {
+                    const serverConfig = await response.json();
+                    
+                    // Update config with server values (don't override URL params)
+                    if (!urlParams.get('duration')) {
+                        config.chunkDuration = (serverConfig.chunk_processing?.duration_seconds || 5) * 1000;
+                    }
+                    if (!urlParams.get('overlap')) {
+                        config.chunkOverlap = (serverConfig.chunk_processing?.overlap_seconds || 1) * 1000;
+                    }
+                    if (!urlParams.get('insights')) {
+                        config.enableInsights = serverConfig.progressive_insights?.enabled !== false;
+                    }
+                    
+                    // Update other config values
+                    config.sampleRate = serverConfig.chunk_processing?.sample_rate || 16000;
+                    config.maxRecordingMinutes = serverConfig.session?.max_recording_minutes || 60;
+                    config.showConfidenceScores = serverConfig.ui_settings?.show_confidence_scores !== false;
+                    config.enableAudioFeedback = serverConfig.ui_settings?.enable_audio_feedback !== false;
+                    config.encryptionEnabled = serverConfig.encryption?.enabled !== false;
+                    config.phiProtectionEnabled = serverConfig.phi_protection?.enabled !== false;
+                    config.websocketPort = serverConfig.websocket?.default_port || 8000;
+                    config.audioBars = serverConfig.ui_settings?.bar_count || 30;
+                    config.updateIntervalMs = serverConfig.ui_settings?.update_interval_ms || 100;
+                    config.maxProgressDuration = serverConfig.ui_settings?.max_progress_duration_minutes || 30;
+                    config.autoScrollInsights = serverConfig.ui_settings?.auto_scroll_insights !== false;
+                    config.maxInsightsDisplayed = serverConfig.ui_settings?.max_insights_displayed || 50;
+                    
+                    console.log('Loaded server configuration:', config);
+                } else {
+                    console.warn('Failed to load server config, using defaults');
+                }
+            } catch (error) {
+                console.warn('Error loading server config:', error);
+            }
+        }
+        
+        // Backward compatibility
+        const chunkDuration = config.chunkDuration;
+        const chunkOverlap = config.chunkOverlap;
+        const enableInsights = config.enableInsights;
+
+        // WebSocket connection
+        let ws = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let chunkTimer = null;
+        let sessionKey = null;
+        let chunkNumber = 0;
+        let startTime = null;
+        let totalInsights = 0;
+
+        // Audio visualization
+        let audioContext = null;
+        let analyser = null;
+        let microphone = null;
+
+        // Initialize audio bars
+        function initAudioBars() {
+            const barsContainer = document.getElementById('audioBars');
+            for (let i = 0; i < config.audioBars; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'audio-bar';
+                bar.style.height = '10%';
+                barsContainer.appendChild(bar);
+            }
+        }
+
+        // Update audio visualization
+        function updateAudioVisualization() {
+            if (!analyser) return;
+            
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyser.getByteFrequencyData(dataArray);
+            
+            const bars = document.querySelectorAll('.audio-bar');
+            const barCount = bars.length;
+            const step = Math.floor(bufferLength / barCount);
+            
+            for (let i = 0; i < barCount; i++) {
+                const value = dataArray[i * step];
+                const percent = value / 255 * 100;
+                bars[i].style.height = `${Math.max(10, percent)}%`;
+            }
+            
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                requestAnimationFrame(updateAudioVisualization);
+            }
+        }
+
+        // Generate session ID
+        function generateSessionId() {
+            return 'session_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Generate secure token
+        function generateToken() {
+            const array = new Uint8Array(32);
+            crypto.getRandomValues(array);
+            return btoa(String.fromCharCode.apply(null, array));
+        }
+
+        // Initialize WebSocket connection
+        async function initWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.hostname || 'localhost';
+            const port = config.websocketPort; // From configuration
+            
+            ws = new WebSocket(`${protocol}//${host}:${port}/ws/transcription/doctor_${sessionId}`);
+            
+            ws.onopen = async () => {
+                console.log('WebSocket connected');
+                document.getElementById('statusText').textContent = 'Connected';
+                
+                // Initialize secure session
+                ws.send(JSON.stringify({
+                    type: 'initialize_session',
+                    session_id: sessionId,
+                    session_token: sessionToken,
+                    chunk_config: {
+                        duration: config.chunkDuration / 1000,
+                        overlap: config.chunkOverlap / 1000
+                    }
+                }));
+            };
+            
+            ws.onmessage = async (event) => {
+                const message = JSON.parse(event.data);
+                await handleWebSocketMessage(message);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                document.getElementById('statusText').textContent = 'Connection Error';
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                document.getElementById('statusText').textContent = 'Disconnected';
+            };
+        }
+
+        // Handle WebSocket messages
+        async function handleWebSocketMessage(message) {
+            switch (message.type) {
+                case 'session_initialized':
+                    sessionKey = await importSessionKey(message.encryption.session_key);
+                    console.log('Session initialized with encryption');
+                    break;
+                    
+                case 'medical_insights':
+                    const insights = await decryptInsights(message);
+                    displayInsights(insights);
+                    updateSOAPProgress(insights);
+                    break;
+                    
+                case 'error':
+                    console.error('Server error:', message.message);
+                    break;
+            }
+        }
+
+        // Import session key for encryption
+        async function importSessionKey(encodedKey) {
+            const keyData = Uint8Array.from(atob(encodedKey), c => c.charCodeAt(0));
+            return await crypto.subtle.importKey(
+                'raw',
+                keyData,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt', 'decrypt']
+            );
+        }
+
+        // Encrypt audio chunk
+        async function encryptAudioChunk(audioData) {
+            const nonce = crypto.getRandomValues(new Uint8Array(12));
+            const encrypted = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv: nonce },
+                sessionKey,
+                audioData
+            );
+            
+            return {
+                data: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
+                nonce: btoa(String.fromCharCode(...nonce))
+            };
+        }
+
+        // Decrypt insights
+        async function decryptInsights(message) {
+            const encryptedData = Uint8Array.from(atob(message.encrypted_data), c => c.charCodeAt(0));
+            const nonce = Uint8Array.from(atob(message.nonce), c => c.charCodeAt(0));
+            
+            const decrypted = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: nonce },
+                sessionKey,
+                encryptedData
+            );
+            
+            const decoder = new TextDecoder();
+            return JSON.parse(decoder.decode(decrypted));
+        }
+
+        // Start recording
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: config.sampleRate
+                    }
+                });
+                
+                // Initialize audio context for visualization
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+                analyser.fftSize = 256;
+                
+                // Start visualization
+                updateAudioVisualization();
+                
+                // Configure MediaRecorder for chunked recording
+                const options = {
+                    mimeType: 'audio/webm;codecs=opus',
+                    audioBitsPerSecond: 128000
+                };
+                
+                mediaRecorder = new MediaRecorder(stream, options);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = async (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    await processAudioChunk();
+                };
+                
+                // Start recording
+                mediaRecorder.start();
+                startTime = Date.now();
+                
+                // Set up chunk timer
+                chunkTimer = setInterval(() => {
+                    if (mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                        mediaRecorder.start();
+                    }
+                }, config.chunkDuration);
+                
+                // Update UI
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('statusDot').classList.add('recording');
+                document.getElementById('statusText').textContent = 'Recording...';
+                
+                // Update duration timer
+                updateDuration();
+                
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                alert('Failed to start recording. Please check microphone permissions.');
+            }
+        }
+
+        // Stop recording
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                clearInterval(chunkTimer);
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                
+                // Stop audio context
+                if (audioContext) {
+                    audioContext.close();
+                    audioContext = null;
+                    analyser = null;
+                    microphone = null;
+                }
+                
+                // Reset audio bars
+                document.querySelectorAll('.audio-bar').forEach(bar => {
+                    bar.style.height = '10%';
+                });
+            }
+            
+            // Send end session message
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'end_session',
+                    session_id: sessionId
+                }));
+            }
+            
+            // Update UI
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('statusDot').classList.remove('recording');
+            document.getElementById('statusText').textContent = 'Stopped';
+        }
+
+        // Process audio chunk
+        async function processAudioChunk() {
+            if (audioChunks.length === 0) return;
+            
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            audioChunks = [];
+            
+            // Convert to ArrayBuffer
+            const arrayBuffer = await audioBlob.arrayBuffer();
+            
+            // Encrypt if session key is available
+            if (sessionKey) {
+                const encrypted = await encryptAudioChunk(arrayBuffer);
+                
+                // Send encrypted chunk
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'audio_chunk',
+                        session_id: sessionId,
+                        chunk_number: chunkNumber++,
+                        audio_data: encrypted.data,
+                        nonce: encrypted.nonce,
+                        timestamp: new Date().toISOString()
+                    }));
+                    
+                    // Update chunk count
+                    document.getElementById('chunkCount').textContent = chunkNumber;
+                }
+            }
+        }
+
+        // Display medical insights
+        function displayInsights(insights) {
+            const container = document.getElementById('insightsContainer');
+            
+            // Create insight element
+            const insightEl = document.createElement('div');
+            insightEl.className = 'insight-item';
+            
+            let insightHTML = `
+                <div class="insight-header">
+                    <span class="insight-type">Chunk #${insights.chunk_number}</span>
+                    <span class="insight-time">${insights.duration}</span>
+                </div>
+                <div class="insight-content">
+            `;
+            
+            // Add vital signs
+            if (insights.insights.vital_signs && insights.insights.vital_signs.length > 0) {
+                insightHTML += '<div>Vital Signs: ';
+                insights.insights.vital_signs.forEach(vital => {
+                    insightHTML += `<span class="medical-entity vital-sign">${vital}</span>`;
+                });
+                insightHTML += '</div>';
+            }
+            
+            // Add medications
+            if (insights.insights.medications && insights.insights.medications.length > 0) {
+                insightHTML += '<div>Medications: ';
+                insights.insights.medications.forEach(med => {
+                    insightHTML += `<span class="medical-entity medication">${med}</span>`;
+                });
+                insightHTML += '</div>';
+            }
+            
+            // Add symptoms
+            if (insights.insights.symptoms && insights.insights.symptoms.length > 0) {
+                insightHTML += '<div>Symptoms: ';
+                insights.insights.symptoms.forEach(symptom => {
+                    insightHTML += `<span class="medical-entity symptom">${symptom}</span>`;
+                });
+                insightHTML += '</div>';
+            }
+            
+            // Add clinical alerts
+            if (insights.insights.clinical_alerts && insights.insights.clinical_alerts.length > 0) {
+                insightHTML += '<div style="margin-top: 8px; color: var(--danger-color);">⚠️ ';
+                insights.insights.clinical_alerts.forEach(alert => {
+                    insightHTML += `<strong>${alert}</strong> `;
+                });
+                insightHTML += '</div>';
+            }
+            
+            insightHTML += '</div>';
+            insightEl.innerHTML = insightHTML;
+            
+            // Add to container (remove placeholder if present)
+            if (container.children.length === 1 && container.children[0].style.textAlign === 'center') {
+                container.innerHTML = '';
+            }
+            
+            // Limit number of insights displayed
+            while (container.children.length >= config.maxInsightsDisplayed) {
+                container.removeChild(container.firstChild);
+            }
+            
+            container.appendChild(insightEl);
+            
+            // Scroll to latest if enabled
+            if (config.autoScrollInsights) {
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            // Update insight count
+            totalInsights++;
+            document.getElementById('insightCount').textContent = totalInsights;
+        }
+
+        // Update SOAP progress
+        function updateSOAPProgress(insights) {
+            if (!insights.soap_progress) return;
+            
+            const sections = ['subjective', 'objective', 'assessment', 'plan'];
+            sections.forEach(section => {
+                if (insights.soap_progress[section]) {
+                    const element = document.getElementById('soap' + section.charAt(0).toUpperCase() + section.slice(1));
+                    if (element.textContent === '-') {
+                        element.textContent = insights.soap_progress[section];
+                    } else {
+                        element.textContent += ' ' + insights.soap_progress[section];
+                    }
+                }
+            });
+        }
+
+        // Update duration display
+        function updateDuration() {
+            if (!startTime) return;
+            
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            document.getElementById('duration').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Update progress bar using configured max duration
+            const maxDuration = config.maxProgressDuration * 60; // Convert minutes to seconds
+            const progress = Math.min((elapsed / maxDuration) * 100, 100);
+            document.getElementById('progressFill').style.width = `${progress}%`;
+            
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                setTimeout(updateDuration, 1000);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Load server configuration first
+            await loadServerConfig();
+            
+            // Initialize components with loaded configuration
+            initAudioBars();
+            await initWebSocket();
+            
+            document.getElementById('startBtn').addEventListener('click', startRecording);
+            document.getElementById('stopBtn').addEventListener('click', stopRecording);
+            
+            // Update UI based on configuration
+            if (config.encryptionEnabled) {
+                document.getElementById('encryptionStatus').textContent = 'Encryption Active';
+            } else {
+                document.getElementById('encryptionStatus').textContent = 'Encryption Disabled';
+                document.querySelector('.encryption-status').style.backgroundColor = 'rgba(231, 76, 60, 0.1)';
+                document.querySelector('.encryption-status').style.borderColor = 'var(--danger-color)';
+                document.querySelector('.encryption-status').style.color = 'var(--danger-color)';
+            }
+            
+            // Hide confidence scores if disabled
+            if (!config.showConfidenceScores) {
+                const style = document.createElement('style');
+                style.textContent = '.confidence-display { display: none !important; }';
+                document.head.appendChild(style);
+            }
+            
+            // Disable audio feedback if configured
+            if (!config.enableAudioFeedback) {
+                const style = document.createElement('style');
+                style.textContent = '.audio-visualizer { display: none !important; }';
+                document.head.appendChild(style);
+            }
+        });
+    </script>
+</body>
+</html>
