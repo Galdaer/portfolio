@@ -19,6 +19,25 @@ from flask import Flask, request
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Check for CUDA availability and setup GPU acceleration
+gpu_accelerator = None
+try:
+    import torch
+    from gpu_accelerator import get_gpu_accelerator
+    
+    if torch.cuda.is_available():
+        logger.info(f"🚀 CUDA is available! Using GPU with {torch.cuda.device_count()} device(s)")
+        logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
+        # Initialize custom GPU accelerator
+        gpu_accelerator = get_gpu_accelerator()
+        logger.info("GPU Accelerator initialized for batch processing")
+    else:
+        logger.warning("CUDA not available, using CPU for NLP processing")
+except ImportError as e:
+    logger.warning(f"PyTorch not installed or import error: {e}, using CPU for NLP processing")
+except Exception as e:
+    logger.warning(f"Could not initialize GPU accelerator: {e}, falling back to CPU")
+
 app = Flask(__name__)
 
 # Load the SciSpacy model
