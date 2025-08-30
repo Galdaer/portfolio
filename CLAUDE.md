@@ -821,3 +821,60 @@ Guidelines for efficient and storage-conscious downloads:
   2. Resume with: python3 scripts/download_full_clinicaltrials.py
   3. Common timeout causes: Rate limiting, large dataset, network issues
   4. Adjust timeout in download_all_medical_data.py if needed (currently 2x estimated time)
+
+## Configuration Architecture
+
+### Service Configuration Hierarchy
+1. **YAML config files** (source of truth) - Located in `services/user/*/config/`
+2. **Environment variables** (overrides) - Use `${VAR:-default}` syntax
+3. **Hardcoded defaults** (fallbacks) - In config loaders and classes
+
+### Configuration Loading Patterns
+
+**Healthcare-API Service:**
+```python
+from config.config_loader import get_config
+config = get_config()
+```
+Config files: `/services/user/healthcare-api/config/*.yml`
+
+**Medical-Mirrors Service:**
+```python
+from config_loader import get_config
+config = get_config()
+settings = config.get_llm_settings()
+endpoint = config.get_endpoint_url("ollama")
+```
+Config files: `/services/user/medical-mirrors/config/*.yaml`
+
+**Open WebUI Interfaces:**
+- Access configs via `sys.path.append` imports from healthcare-api
+- Include fallback configurations for standalone operation
+- Use environment variables for containerized deployment
+
+### Key Configuration Files
+
+**Healthcare-API** (`/services/user/healthcare-api/config/`):
+- `config_index.yml` - Lists all active configuration files
+- `business_services.yml` - Microservice endpoints and settings
+- `transcription_config.yml` - Transcription service configuration
+- `ui_config.yml` - UI integration settings
+- `compliance_config.yml` - HIPAA compliance settings
+- `models.yml` - LLM model configurations
+- `orchestrator.yml` - Agent routing configuration
+
+**Medical-Mirrors** (`/services/user/medical-mirrors/config/`):
+- `service_endpoints.yaml` - External service URLs
+- `llm_settings.yaml` - LLM models and generation settings
+- `rate_limits.yaml` - API rate limiting configuration
+- `ai_enhancement_config.yaml` - AI enhancement settings
+- `medical_terminology.yaml` - Medical terms and patterns
+
+### Configuration Best Practices
+1. **Never hardcode** service URLs, use config files
+2. **Use environment variables** for secrets and API keys
+3. **Provide fallbacks** for all configuration values
+4. **Document changes** in YAML comments
+5. **Validate configs** with pydantic models where possible
+6. **Centralize per service** - each service owns its configs
+7. **Make accessible** for Open WebUI integration needs

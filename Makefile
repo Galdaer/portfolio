@@ -548,7 +548,7 @@ redis:
 
 scispacy:
 	@echo "🔁 Restarting SciSpacy via setup menu..."
-	@printf '3\n9\n' | make setup
+	@printf '3\n14\n' | make setup
 
 traefik:
 	@echo "🔁 Restarting Traefik via setup menu..."

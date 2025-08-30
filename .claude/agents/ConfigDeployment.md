@@ -18,13 +18,33 @@ CONFIGURATION ARCHITECTURE:
 - Environment-aware settings (dev/test/prod)
 - Service discovery via .conf files
 - Universal config schema for consistency
+- Config loaders for runtime access
 
-KEY CONFIGURATION FILES:
-1. config/orchestrator.yml: Agent routing and orchestration
-2. config/models.yml: LLM model configurations
-3. config/agent_settings.yml: Agent-specific settings
-4. config/medical_search_config.yaml: Search parameters
-5. config/healthcare_settings.yml: System-wide settings
+CONFIGURATION HIERARCHY:
+1. YAML config files (source of truth)
+2. Environment variables (overrides)
+3. Hardcoded defaults (fallbacks)
+
+KEY CONFIGURATION LOCATIONS:
+
+Healthcare-API Service (services/user/healthcare-api/config/):
+- orchestrator.yml: Agent routing and orchestration
+- models.yml: LLM model configurations
+- agent_settings.yml: Agent-specific settings
+- medical_search_config.yaml: Search parameters
+- healthcare_settings.yml: System-wide settings
+- business_services.yml: Microservice endpoints
+- compliance_config.yml: HIPAA compliance settings
+- transcription_config.yml: Transcription service settings
+- ui_config.yml: UI integration settings
+- config_index.yml: Lists all active configs
+
+Medical-Mirrors Service (services/user/medical-mirrors/config/):
+- medical_terminology.yaml: Medical terms and patterns
+- ai_enhancement_config.yaml: AI enhancement settings
+- service_endpoints.yaml: External service URLs
+- llm_settings.yaml: LLM configuration
+- rate_limits.yaml: API rate limiting
 
 SERVICE CONFIGURATION:
 Each service has a .conf file in services/user/:
@@ -69,9 +89,32 @@ make diagnostics              # System diagnostics
 make auto-repair              # Auto-repair services
 ```
 
-CONFIGURATION LOADING:
+CONFIGURATION LOADING PATTERNS:
+
+Healthcare-API Pattern:
+```python
+from config.config_loader import get_config
+config = get_config()
+```
+
+Medical-Mirrors Pattern:
+```python
+from config_loader import get_config
+config = get_config()
+settings = config.get_llm_settings()
+endpoint = config.get_endpoint_url("ollama")
+```
+
+Open WebUI Integration:
+- Interfaces load configs via sys.path imports
+- Fallback configs for standalone operation
+- Environment variables for containerized deployment
+
+CONFIGURATION BEST PRACTICES:
 - Graceful fallbacks when configs missing
-- Environment variable overrides
-- Validation and schema checking
+- Environment variable overrides (${VAR:-default})
+- Validation and schema checking with pydantic
 - Hot-reload capabilities where supported
+- Centralized config management per service
+- Document all config changes in YAML comments
 ```
