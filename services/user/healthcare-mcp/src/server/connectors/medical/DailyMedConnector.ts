@@ -45,8 +45,11 @@ export interface DailyMedSearchParams {
 }
 
 export class DailyMedConnector extends DatabaseConnector {
-    private readonly tableName = 'dailymed_drug_labels';
-    private readonly logger = Logger.getInstance();
+    private readonly logger = (Logger as any).getInstance('DailyMedConnector');
+
+    constructor() {
+        super('dailymed_drug_labels', ['generic_name', 'brand_name', 'manufacturer']);
+    }
 
     async searchDrugLabels(params: DailyMedSearchParams): Promise<DailyMedDrugLabel[]> {
         this.logger.info('Searching DailyMed drug labels', { params });

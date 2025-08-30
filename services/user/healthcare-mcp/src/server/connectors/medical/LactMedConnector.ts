@@ -50,7 +50,11 @@ export interface LactMedSearchParams {
 export class LactMedConnector extends DatabaseConnector {
     private readonly drugsTable = 'lactmed_drugs';
     private readonly interactionsTable = 'lactmed_drug_interactions';
-    private readonly logger = Logger.getInstance();
+    private readonly logger = (Logger as any).getInstance('LactMedConnector');
+
+    constructor() {
+        super('lactmed_drugs', ['drug_name', 'active_ingredient', 'therapeutic_class']);
+    }
 
     async searchLactationDrugs(params: LactMedSearchParams): Promise<LactMedDrugRecord[]> {
         this.logger.info('Searching LactMed lactation drugs', { params });

@@ -46,7 +46,11 @@ export interface DDInterSearchParams {
 export class DDInterConnector extends DatabaseConnector {
     private readonly interactionsTable = 'ddinter_drug_interactions';
     private readonly drugsTable = 'ddinter_drugs';
-    private readonly logger = Logger.getInstance();
+    private readonly logger = (Logger as any).getInstance('DDInterConnector');
+
+    constructor() {
+        super('ddinter_drug_interactions', ['drug1', 'drug2', 'severity']);
+    }
 
     async searchDrugInteractions(params: DDInterSearchParams): Promise<DDInterDrugInteraction[]> {
         this.logger.info('Searching DDInter drug interactions', { params });
@@ -546,8 +550,8 @@ export class DDInterConnector extends DatabaseConnector {
                     minor: interactions.filter(i => i.severity === 'minor').length,
                 },
                 detailed_interactions: interactions.sort((a, b) => {
-                    const severityOrder = { contraindicated: 1, major: 2, moderate: 3, minor: 4, minimal: 5 };
-                    return severityOrder[a.severity] - severityOrder[b.severity];
+                    const severityOrder: Record<string, number> = { contraindicated: 1, major: 2, moderate: 3, minor: 4, minimal: 5 };
+                    return (severityOrder[a.severity] || 999) - (severityOrder[b.severity] || 999);
                 }),
             };
 

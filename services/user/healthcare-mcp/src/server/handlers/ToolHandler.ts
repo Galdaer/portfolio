@@ -53,12 +53,12 @@ export class ToolHandler {
         this.icd10Connector = new ICD10Connector(this.dbManager);
         this.billingCodesConnector = new BillingCodesConnector(this.dbManager);
         this.healthInfoConnector = new HealthInfoConnector(this.dbManager);
-        this.dailyMedConnector = new DailyMedConnector(this.dbManager);
-        this.rxClassConnector = new RxClassConnector(this.dbManager);
-        this.drugCentralConnector = new DrugCentralConnector(this.dbManager);
-        this.ddinterConnector = new DDInterConnector(this.dbManager);
-        this.lactMedConnector = new LactMedConnector(this.dbManager);
-        this.openFDAFAERSConnector = new OpenFDAFAERSConnector(this.dbManager);
+        this.dailyMedConnector = new DailyMedConnector();
+        this.rxClassConnector = new RxClassConnector();
+        this.drugCentralConnector = new DrugCentralConnector();
+        this.ddinterConnector = new DDInterConnector();
+        this.lactMedConnector = new LactMedConnector();
+        this.openFDAFAERSConnector = new OpenFDAFAERSConnector();
     }
 
     register(mcpServer: Server) {

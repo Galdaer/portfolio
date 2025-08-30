@@ -17,6 +17,7 @@ export class HealthcareServer {
     private pubmedApi: PubMed;
     private trialsApi: ClinicalTrials;
     private drugInfoApi: DrugInfo;
+    private fdaApi: DrugInfo; // Alias for drugInfoApi for backward compatibility
     private ollamaHandler: OllamaHandler;
 
     constructor(
@@ -35,8 +36,11 @@ export class HealthcareServer {
         this.pubmedApi = new PubMed(pubmedAPIKey || "optional_for_higher_rate_limits");
         this.trialsApi = new ClinicalTrials(trialsAPIKey);
         this.drugInfoApi = new DrugInfo(drugInfoAPIKey);
+        this.fdaApi = this.drugInfoApi; // Alias for backward compatibility
         this.ollamaHandler = new OllamaHandler(ollamaApiUrl, ollamaModel);
 
+        // ToolHandler constructor expects 6 parameters: authConfig, fhirClient, cache, pubmedApi, trialsApi, drugInfoApi
+        // The 7th parameter (dbManager) is optional
         this.toolHandler = new ToolHandler(authConfig, this.fhirClient, this.cache, this.pubmedApi, this.trialsApi, this.drugInfoApi);
 
         this.setupHandlers();

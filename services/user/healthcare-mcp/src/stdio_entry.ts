@@ -47,10 +47,10 @@ async function main(): Promise<void> {
     ]);
 
     // Import medical connectors for orchestrator tool
-    const [{ PubMed }, { ClinicalTrials }, { FDA }, { CacheManager }] = await Promise.all([
+    const [{ PubMed }, { ClinicalTrials }, { DrugInfo }, { CacheManager }] = await Promise.all([
         import('./server/connectors/medical/PubMed.js'),
         import('./server/connectors/medical/ClinicalTrials.js'),
-        import('./server/connectors/medical/FDA.js'),
+        import('./server/connectors/medical/DrugInfo.js'),
         import('./server/utils/Cache.js'),
     ]);
 
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
     const cache = new CacheManager();
     const pubmed = new PubMed(process.env.PUBMED_API_KEY);
     const clinicalTrials = new ClinicalTrials(process.env.CLINICALTRIALS_API_KEY);
-    const fda = new FDA(process.env.FDA_API_KEY);
+    const fda = new DrugInfo(process.env.FDA_API_KEY);
 
     const server = new Server({ name: 'healthcare-mcp', version: '1.0.0' }, {
         capabilities: { tools: { listChanged: true }, resources: {}, prompts: {}, logging: {} },

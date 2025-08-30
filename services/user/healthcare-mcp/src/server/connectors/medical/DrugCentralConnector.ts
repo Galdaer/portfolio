@@ -63,7 +63,11 @@ export class DrugCentralConnector extends DatabaseConnector {
     private readonly drugsTable = 'drugcentral_drugs';
     private readonly targetsTable = 'drugcentral_targets';
     private readonly interactionsTable = 'drugcentral_drug_interactions';
-    private readonly logger = Logger.getInstance();
+    private readonly logger = (Logger as any).getInstance('DrugCentralConnector');
+
+    constructor() {
+        super('drugcentral_drugs', ['drug_name', 'generic_name', 'brand_name']);
+    }
 
     async searchDrugs(params: DrugCentralSearchParams): Promise<DrugCentralDrug[]> {
         this.logger.info('Searching DrugCentral drugs', { params });

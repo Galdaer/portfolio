@@ -40,7 +40,11 @@ export interface RxClassSearchParams {
 export class RxClassConnector extends DatabaseConnector {
     private readonly classificationsTable = 'rxclass_drug_classifications';
     private readonly classesTable = 'rxclass_therapeutic_classes';
-    private readonly logger = Logger.getInstance();
+    private readonly logger = (Logger as any).getInstance('RxClassConnector');
+
+    constructor() {
+        super('rxclass_drug_classifications', ['drug_name', 'class_name', 'class_type']);
+    }
 
     async searchDrugClassifications(params: RxClassSearchParams): Promise<RxClassDrugClassification[]> {
         this.logger.info('Searching RxClass drug classifications', { params });

@@ -4,7 +4,7 @@ import { ToolHandler } from "./handlers/ToolHandler.js"
 import { FhirClient } from "./connectors/fhir/FhirClient.js"
 import { PubMed } from "./connectors/medical/PubMed.js"
 import { ClinicalTrials } from "./connectors/medical/ClinicalTrials.js"
-import { FDA } from "./connectors/medical/FDA.js"
+import { DrugInfo } from "./connectors/medical/DrugInfo.js"
 import { CacheManager } from "./utils/Cache.js"
 import { AuthConfig } from "./utils/AuthConfig.js"
 
@@ -15,7 +15,7 @@ export class HealthcareServer {
   private cache: CacheManager;
   private pubmedApi: PubMed;
   private trialsApi: ClinicalTrials;
-  private fdaApi: FDA;
+  private fdaApi: DrugInfo;
   
   constructor(mcpServer: Server, authConfig:AuthConfig,fhirURL: string, pubmedAPIKey: string, trialsAPIKey: string, fdaAPIKey: string) {
     this.mcpServer = mcpServer;
@@ -23,7 +23,7 @@ export class HealthcareServer {
     this.cache = new CacheManager();
     this.pubmedApi = new PubMed(pubmedAPIKey);
     this.trialsApi = new ClinicalTrials(trialsAPIKey);
-    this.fdaApi = new FDA(fdaAPIKey);
+    this.fdaApi = new DrugInfo(fdaAPIKey);
   
   
     this.toolHandler = new ToolHandler(authConfig,this.fhirClient,this.cache,this.pubmedApi,this.trialsApi,this.fdaApi);

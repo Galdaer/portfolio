@@ -67,7 +67,11 @@ export interface FAERSSearchParams {
 export class OpenFDAFAERSConnector extends DatabaseConnector {
     private readonly eventsTable = 'openfda_faers_events';
     private readonly signalsTable = 'openfda_faers_signals';
-    private readonly logger = Logger.getInstance();
+    private readonly logger = (Logger as any).getInstance('OpenFDAFAERSConnector');
+
+    constructor() {
+        super('openfda_faers_events', ['drug_name', 'event_term', 'reaction']);
+    }
 
     async searchAdverseEvents(params: FAERSSearchParams): Promise<FAERSAdverseEvent[]> {
         this.logger.info('Searching OpenFDA FAERS adverse events', { params });
