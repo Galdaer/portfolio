@@ -743,6 +743,59 @@ async def trigger_health_info_update(
         raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
 
+@app.post("/process/medlineplus")
+async def process_medlineplus_topics(background_tasks: BackgroundTasks) -> dict[str, Any]:
+    """Process downloaded MedlinePlus topics and merge into database"""
+    try:
+        background_tasks.add_task(background_process_medlineplus)
+        logger.info("📋 MedlinePlus processing task queued")
+        return {
+            "status": "processing_started_in_background",
+            "message": "MedlinePlus topics processing queued successfully",
+        }
+    except Exception as e:
+        logger.exception(f"MedlinePlus processing failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
+
+async def background_process_medlineplus() -> None:
+    """Background task for MedlinePlus processing"""
+    try:
+        import os
+        import asyncio
+        
+        logger.info("📋 Starting MedlinePlus topics processing")
+        
+        # Run the MedlinePlus processing script
+        script_path = "python3"
+        script_args = ["/app/update-scripts/process_medlineplus.py"]
+        
+        # Use asyncio subprocess for non-blocking execution with streaming
+        process = await asyncio.create_subprocess_exec(
+            script_path, *script_args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            env=os.environ.copy()
+        )
+        
+        # Stream output to logger in real-time
+        async for line_bytes in process.stdout:
+            line = line_bytes.decode('utf-8').rstrip()
+            if line:
+                logger.info(f"[medlineplus_process] {line}")
+        
+        # Wait for completion
+        await process.wait()
+        
+        if process.returncode == 0:
+            logger.info("✅ MedlinePlus processing completed successfully!")
+        else:
+            logger.error(f"❌ MedlinePlus processing failed with code {process.returncode}")
+    
+    except Exception as e:
+        logger.exception(f"❌ MedlinePlus processing error: {e}")
+
+
 # New endpoints for processing existing downloaded files
 async def background_process_existing_pubmed(force: bool = False) -> None:
     """Background task for processing existing PubMed files"""
