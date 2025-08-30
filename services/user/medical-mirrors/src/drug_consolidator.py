@@ -370,6 +370,100 @@ class DrugConsolidationEngine:
         logger.info(f"Consolidation complete: {result_stats}")
         return result_stats
 
+    def recalculate_confidence_scores(self, batch_size: int = 1000, dry_run: bool = False) -> dict[str, Any]:
+        """
+        Recalculate confidence scores for all existing drug records.
+        
+        Args:
+            batch_size: Number of records to process at once
+            dry_run: If True, calculate but don't save to database
+            
+        Returns:
+            Statistics about the update process
+        """
+        total_drugs = self.session.query(DrugInformation).count()
+        logger.info(f"Recalculating confidence scores for {total_drugs} drugs")
+        
+        processed = 0
+        updated = 0
+        score_distribution = {
+            '0.0-0.2': 0,
+            '0.2-0.4': 0,
+            '0.4-0.6': 0,
+            '0.6-0.8': 0,
+            '0.8-1.0': 0
+        }
+        
+        # Process in batches
+        for offset in range(0, total_drugs, batch_size):
+            drugs = self.session.query(DrugInformation).offset(offset).limit(batch_size).all()
+            
+            for drug in drugs:
+                # Convert drug record to dict for calculation
+                drug_dict = {
+                    "generic_name": drug.generic_name,
+                    "formulations": drug.formulations,
+                    "therapeutic_class": drug.therapeutic_class,
+                    "indications_and_usage": drug.indications_and_usage,
+                    "mechanism_of_action": drug.mechanism_of_action,
+                    "contraindications": drug.contraindications,
+                    "warnings": drug.warnings,
+                    "adverse_reactions": drug.adverse_reactions,
+                    "drug_interactions": drug.drug_interactions,
+                    "data_sources": drug.data_sources,
+                }
+                
+                # Create a fake records list with the drug's data sources
+                fake_records = []
+                if drug.data_sources:
+                    for source in drug.data_sources:
+                        fake_record = type('obj', (object,), {'data_sources': [source]})()
+                        fake_records.append(fake_record)
+                
+                old_score = drug.confidence_score or 0.0
+                new_score = self.calculate_confidence_score(fake_records or [drug], drug_dict)
+                
+                # Track distribution
+                if new_score <= 0.2:
+                    score_distribution['0.0-0.2'] += 1
+                elif new_score <= 0.4:
+                    score_distribution['0.2-0.4'] += 1
+                elif new_score <= 0.6:
+                    score_distribution['0.4-0.6'] += 1
+                elif new_score <= 0.8:
+                    score_distribution['0.6-0.8'] += 1
+                else:
+                    score_distribution['0.8-1.0'] += 1
+                
+                if abs(new_score - old_score) > 0.001:  # Only update if changed
+                    if not dry_run:
+                        drug.confidence_score = new_score
+                    updated += 1
+                
+                processed += 1
+            
+            # Commit batch if not dry run
+            if not dry_run and updated > 0:
+                self.session.commit()
+                logger.info(f"Processed {processed}/{total_drugs} drugs, updated {updated} scores")
+            elif dry_run:
+                logger.info(f"[DRY RUN] Processed {processed}/{total_drugs} drugs, would update {updated} scores")
+        
+        # Final commit
+        if not dry_run:
+            self.session.commit()
+        
+        result_stats = {
+            "total_drugs": total_drugs,
+            "processed": processed,
+            "updated": updated,
+            "score_distribution": score_distribution,
+            "dry_run": dry_run
+        }
+        
+        logger.info(f"Confidence score update complete: {result_stats}")
+        return result_stats
+
 
 def run_consolidation(batch_size: int = 1000, start_offset: int = 0) -> dict[str, Any]:
     """Run the drug consolidation process"""
@@ -377,11 +471,43 @@ def run_consolidation(batch_size: int = 1000, start_offset: int = 0) -> dict[str
         return consolidator.consolidate_all_drugs(batch_size, start_offset)
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+def recalculate_confidence_scores(batch_size: int = 1000, dry_run: bool = False) -> dict[str, Any]:
+    """Recalculate confidence scores for existing records"""
+    with DrugConsolidationEngine() as consolidator:
+        return consolidator.recalculate_confidence_scores(batch_size, dry_run)
 
-    # Run consolidation
-    results = run_consolidation(batch_size=500)
-    print("\n=== Drug Consolidation Results ===")
-    for key, value in results.items():
-        print(f"{key}: {value}")
+
+if __name__ == "__main__":
+    import argparse
+    
+    logging.basicConfig(level=logging.INFO)
+    
+    parser = argparse.ArgumentParser(description='Drug data consolidation and confidence scoring')
+    parser.add_argument('--action', type=str, default='consolidate',
+                       choices=['consolidate', 'recalculate-scores'],
+                       help='Action to perform (default: consolidate)')
+    parser.add_argument('--batch-size', type=int, default=1000,
+                       help='Number of records to process at once (default: 1000)')
+    parser.add_argument('--dry-run', action='store_true',
+                       help='For recalculate-scores: calculate but do not save')
+    
+    args = parser.parse_args()
+    
+    if args.action == 'consolidate':
+        results = run_consolidation(batch_size=args.batch_size)
+        print("\n=== Drug Consolidation Results ===")
+        for key, value in results.items():
+            print(f"{key}: {value}")
+    
+    elif args.action == 'recalculate-scores':
+        results = recalculate_confidence_scores(batch_size=args.batch_size, dry_run=args.dry_run)
+        print("\n=== Confidence Score Update Results ===")
+        print(f"Total drugs: {results['total_drugs']}")
+        print(f"Processed: {results['processed']}")
+        print(f"Updated: {results['updated']}")
+        print("\nScore Distribution:")
+        for range_label, count in results['score_distribution'].items():
+            percentage = (count / results['processed'] * 100) if results['processed'] > 0 else 0
+            print(f"  {range_label}: {count:,} drugs ({percentage:.1f}%)")
+        if results['dry_run']:
+            print("\n[DRY RUN] No changes were saved to the database")
