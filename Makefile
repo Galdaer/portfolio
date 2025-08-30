@@ -1396,6 +1396,226 @@ medical-mirrors-clean-data:
 		echo "   ✅ No FDA files found"; \
 	fi
 
+# Additional Medical Mirrors Commands - Download Only Operations
+
+medical-mirrors-download-pubmed:
+	@echo "📚  Downloading PubMed data (NO processing)"
+	@echo "   ⚠️  WARNING: Downloads 35+ million articles - requires 100GB+ space and 6-12+ HOURS!"
+	@echo "   📦 This only downloads files, use medical-mirrors-process-pubmed to load into database"
+	@echo ""
+	@echo "   📊 Starting PubMed download..."
+	@cd /home/intelluxe && python3 scripts/smart_pubmed_download.py
+	@echo "✅ PubMed download complete - use 'make medical-mirrors-process-pubmed' to load into database"
+
+medical-mirrors-download-clinicaltrials:
+	@echo "🧪  Downloading ClinicalTrials.gov data (NO processing)"
+	@echo "   ⚠️  WARNING: Downloads 400,000+ trials - requires 25GB+ space and 2-4+ HOURS!"
+	@echo "   📦 This only downloads files, use medical-mirrors-process-trials to load into database"
+	@echo ""
+	@echo "   📊 Starting ClinicalTrials download..."
+	@cd /home/intelluxe && python3 scripts/smart_clinicaltrials_download.py
+	@echo "✅ ClinicalTrials download complete - use 'make medical-mirrors-process-trials' to load into database"
+
+medical-mirrors-download-fda:
+	@echo "💊  Downloading FDA data (NO processing)"
+	@echo "   ⚠️  WARNING: Downloads large FDA datasets - requires 30GB+ space and 1-3+ HOURS!"
+	@echo "   📦 This only downloads files, use medical-mirrors-process-fda to load into database"
+	@echo ""
+	@echo "   📊 Starting FDA download..."
+	@cd /home/intelluxe && python3 scripts/smart_fda_download.py
+	@echo "✅ FDA download complete - use 'make medical-mirrors-process-fda' to load into database"
+
+medical-mirrors-download-icd10:
+	@echo "🏥  Downloading ICD-10 codes (NO processing)"
+	@echo "   📦 This only downloads files, use medical-mirrors-process-icd10 to load into database"
+	@echo ""
+	@echo "   📊 Starting ICD-10 download..."
+	@cd /home/intelluxe && python3 scripts/smart_icd10_download.py
+	@echo "✅ ICD-10 download complete - use 'make medical-mirrors-process-icd10' to load into database"
+
+medical-mirrors-download-billing:
+	@echo "🏦  Downloading billing codes (NO processing)"
+	@echo "   📦 This only downloads files, use medical-mirrors-process-billing to load into database"
+	@echo ""
+	@echo "   📊 Starting billing codes download..."
+	@cd /home/intelluxe && python3 scripts/smart_billing_download.py
+	@echo "✅ Billing codes download complete - use 'make medical-mirrors-process-billing' to load into database"
+
+medical-mirrors-download-health-info:
+	@echo "🌱  Downloading health info data (NO processing)"
+	@echo "   ⚠️  WARNING: Downloads comprehensive health database - requires 10GB+ space and 1-2+ HOURS!"
+	@echo "   📦 This only downloads files, use medical-mirrors-process-health to load into database"
+	@echo ""
+	@echo "   📊 Starting health info download..."
+	@cd /home/intelluxe && python3 scripts/smart_health_info_download.py
+	@echo "✅ Health info download complete - use 'make medical-mirrors-process-health' to load into database"
+
+medical-mirrors-download-medlineplus:
+	@echo "📋  Downloading MedlinePlus topics (NO processing)"
+	@echo "   📦 This only downloads files, use medical-mirrors-process-medlineplus to load into database"
+	@echo ""
+	@echo "   📊 Starting MedlinePlus download..."
+	@cd /home/intelluxe && python3 scripts/smart_medlineplus_download.py
+	@echo "✅ MedlinePlus download complete - use 'make medical-mirrors-process-medlineplus' to load into database"
+
+# Process MedlinePlus Topics
+medical-mirrors-process-medlineplus:
+	@echo "📋  Processing existing MedlinePlus topics"
+	@echo "   🔍 Will load existing MedlinePlus JSON files from downloads"
+	@echo "   🔄 Merges with existing health topics in database"
+	@echo "   📊 Monitor progress: make medical-mirrors-progress"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   📋 Starting processing of MedlinePlus topics..."; \
+		curl -X POST "http://localhost:8081/process/medlineplus" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ MedlinePlus topics are now being processed"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ MedlinePlus processing started - monitor with 'make medical-mirrors-progress'"
+
+# Smart Update - Intelligent incremental updates
+medical-mirrors-smart-update:
+	@echo "🧠  Running smart update for all medical data sources"
+	@echo "   ⚡ INTELLIGENT: Only downloads and processes new/changed data"
+	@echo "   📊 Checks for updates in: PubMed, ClinicalTrials, FDA, Health Info"
+	@echo "   ⏱️  Much faster than full updates (minutes vs hours)"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🧠 Starting smart update..."; \
+		curl -X POST "http://localhost:8081/smart-update" -H "Content-Type: application/json" --max-time 15; \
+		echo ""; \
+		echo "   ✅ Smart update started for all data sources"; \
+		echo "   📊 Monitor progress: make medical-mirrors-progress"; \
+		echo "   🚨 Check errors: make medical-mirrors-errors-summary"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Smart update started - monitor with 'make medical-mirrors-progress'"
+
+# Database initialization
+medical-mirrors-database-init:
+	@echo "🗄️  Initializing medical mirrors database tables"
+	@echo "   📊 Creates all required tables for medical data storage"
+	@echo "   ⚠️  Safe to run multiple times - uses IF NOT EXISTS"
+	@echo ""
+	@echo "   🔍 Testing service status first..."
+	@if curl -f -m 5 http://localhost:8081/status 2>/dev/null | jq '.service' 2>/dev/null; then \
+		echo "   ✅ Service responding"; \
+		echo "   🗄️ Creating database tables..."; \
+		curl -X POST "http://localhost:8081/database/create-tables" -H "Content-Type: application/json" --max-time 30; \
+		echo ""; \
+		echo "   ✅ Database tables created successfully"; \
+	else \
+		echo "   ❌ Service not responding - start with: make medical-mirrors-run"; \
+		exit 1; \
+	fi
+	@echo "✅ Database initialization complete"
+
+# Complete download and process workflow
+medical-mirrors-download-all:
+	@echo "📦  Downloading ALL medical data sources (NO processing)"
+	@echo "   ⚠️  WARNING: This will download ALL data sources - requires 200GB+ space and 12-24+ HOURS!"
+	@echo "   📊 Includes: PubMed, ClinicalTrials, FDA, ICD-10, Billing, Health Info, MedlinePlus"
+	@echo ""
+	@read -p "   ⚠️  Are you sure you want to download ALL data? (yes/no): " confirm; \
+	if [ "$$confirm" = "yes" ]; then \
+		echo "   📊 Starting sequential downloads..."; \
+		$(MAKE) medical-mirrors-download-pubmed; \
+		$(MAKE) medical-mirrors-download-clinicaltrials; \
+		$(MAKE) medical-mirrors-download-fda; \
+		$(MAKE) medical-mirrors-download-icd10; \
+		$(MAKE) medical-mirrors-download-billing; \
+		$(MAKE) medical-mirrors-download-health-info; \
+		$(MAKE) medical-mirrors-download-medlineplus; \
+		echo "✅ All downloads complete!"; \
+	else \
+		echo "   ❌ Download cancelled"; \
+	fi
+
+# Process all downloaded data
+medical-mirrors-process-all:
+	@echo "⚙️  Processing ALL downloaded medical data"
+	@echo "   📊 Will process: PubMed, ClinicalTrials, FDA, ICD-10, Billing, Health Info, MedlinePlus"
+	@echo "   ⚡ SMART: Only processes unprocessed files"
+	@echo ""
+	@echo "   📊 Starting sequential processing..."
+	@$(MAKE) medical-mirrors-process-pubmed
+	@$(MAKE) medical-mirrors-process-trials  
+	@$(MAKE) medical-mirrors-process-fda
+	@$(MAKE) medical-mirrors-process-icd10
+	@$(MAKE) medical-mirrors-process-billing
+	@$(MAKE) medical-mirrors-process-health
+	@$(MAKE) medical-mirrors-process-medlineplus
+	@echo "✅ All processing complete!"
+
+# Help command for medical-mirrors
+medical-mirrors-help:
+	@echo "📚 Medical Mirrors Commands Reference"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo ""
+	@echo "🚀 Quick Start:"
+	@echo "   make medical-mirrors-database-init   # Initialize database tables"
+	@echo "   make medical-mirrors-smart-update    # Smart incremental update (fastest)"
+	@echo ""
+	@echo "📦 Download Commands (fetch data only, no processing):"
+	@echo "   make medical-mirrors-download-pubmed         # Download PubMed articles"
+	@echo "   make medical-mirrors-download-clinicaltrials # Download clinical trials"
+	@echo "   make medical-mirrors-download-fda           # Download FDA data"
+	@echo "   make medical-mirrors-download-icd10         # Download ICD-10 codes"
+	@echo "   make medical-mirrors-download-billing       # Download billing codes"
+	@echo "   make medical-mirrors-download-health-info   # Download health info"
+	@echo "   make medical-mirrors-download-medlineplus   # Download MedlinePlus topics"
+	@echo "   make medical-mirrors-download-all           # Download ALL sources (200GB+)"
+	@echo ""
+	@echo "⚙️ Process Commands (load downloaded data into database):"
+	@echo "   make medical-mirrors-process-pubmed          # Process PubMed files"
+	@echo "   make medical-mirrors-process-trials          # Process clinical trials"
+	@echo "   make medical-mirrors-process-fda            # Process FDA data"
+	@echo "   make medical-mirrors-process-icd10          # Process ICD-10 codes"
+	@echo "   make medical-mirrors-process-billing        # Process billing codes"
+	@echo "   make medical-mirrors-process-health         # Process health info"
+	@echo "   make medical-mirrors-process-medlineplus    # Process MedlinePlus topics"
+	@echo "   make medical-mirrors-process-all            # Process ALL downloaded data"
+	@echo ""
+	@echo "🔄 Update Commands (download + process):"
+	@echo "   make medical-mirrors-update          # Update ALL sources (smart mode)"
+	@echo "   make medical-mirrors-update-pubmed   # Update PubMed"
+	@echo "   make medical-mirrors-update-trials   # Update clinical trials"
+	@echo "   make medical-mirrors-update-fda      # Update FDA data"
+	@echo "   make medical-mirrors-update-icd10    # Update ICD-10 codes"
+	@echo "   make medical-mirrors-update-billing  # Update billing codes"
+	@echo "   make medical-mirrors-update-health   # Update health info"
+	@echo ""
+	@echo "📊 Monitoring & Management:"
+	@echo "   make medical-mirrors-progress         # Monitor update progress"
+	@echo "   make medical-mirrors-logs            # View service logs"
+	@echo "   make medical-mirrors-errors-summary  # View error summary"
+	@echo "   make medical-mirrors-counts          # Show record counts"
+	@echo "   make medical-mirrors-health          # Check service health"
+	@echo "   make medical-mirrors-stop            # Stop service"
+	@echo ""
+	@echo "🧪 Testing:"
+	@echo "   make medical-mirrors-quick-test      # Quick test with small dataset"
+	@echo "   make medical-mirrors-test-pubmed     # Test PubMed processing"
+	@echo "   make medical-mirrors-test-trials     # Test clinical trials"
+	@echo ""
+	@echo "💡 Tips:"
+	@echo "   • Use 'smart-update' for regular updates (fastest)"
+	@echo "   • Download commands only fetch data, process commands load to DB"
+	@echo "   • Update commands do both download and process"
+	@echo "   • Add '-force' to process commands to reprocess everything"
+	@echo ""
+
 # Business Services Commands
 
 # Insurance Verification Service Commands
@@ -1855,18 +2075,35 @@ e2e:
 # Help
 help:
 	@echo "🏥  Intelluxe AI Healthcare System - Available Commands"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
-	@echo "📦  DEPENDENCY MANAGEMENT:"
-	@echo "   make deps           - Install all healthcare AI dependencies (CI-aware)"
-	@echo "   make update-deps    - Update dependencies to latest versions"
-	@echo "   make clean-cache    - Clean package manager caches"
-	@echo "   make clean-docker   - Clean Docker data (images, containers, volumes)"
-	@echo ""
-	@echo "🔧  SETUP & INSTALLATION:"
-	@echo "   make install        - Install systemd services and create system users"
+	@echo "🚀  QUICK START:"
 	@echo "   make setup          - Interactive healthcare AI stack setup"
-	@echo "   make dry-run        - Preview setup without making changes"
-	@echo "   make debug          - Debug setup with verbose logging"
+	@echo "   make install        - Install systemd services and create system users"
+	@echo "   make deps           - Install all healthcare AI dependencies"
+	@echo ""
+	@echo "📦  CORE SERVICES:"
+	@echo "   make healthcare-api        - Build & run Healthcare API service"
+	@echo "   make medical-mirrors       - Build & run Medical Mirrors service"
+	@echo "   make scispacy             - Build & run SciSpacy NLP service"
+	@echo "   make healthcare-mcp       - Build & run Healthcare MCP service (if available)"
+	@echo "   make mcp-pipeline         - Build & run MCP Pipeline service (if available)"
+	@echo ""
+	@echo "🏥  MEDICAL MIRRORS - Data Management:"
+	@echo "   make medical-mirrors-help         - Complete command reference"
+	@echo "   make medical-mirrors-smart-update - Smart incremental update (fastest)"
+	@echo "   make medical-mirrors-database-init - Initialize database tables"
+	@echo "   make medical-mirrors-progress     - Monitor update progress"
+	@echo "   make medical-mirrors-download-all - Download ALL data (200GB+)"
+	@echo "   make medical-mirrors-process-all  - Process ALL downloaded data"
+	@echo "   📚 For specific data sources: use medical-mirrors-help"
+	@echo ""
+	@echo "💼  BUSINESS SERVICES:"
+	@echo "   make insurance-verification-build - Build Insurance Verification service"
+	@echo "   make billing-engine-build         - Build Billing Engine service"
+	@echo "   make compliance-monitor-build     - Build Compliance Monitor service"
+	@echo "   make business-intelligence-build  - Build Business Intelligence service"
+	@echo "   make doctor-personalization-build - Build Doctor Personalization service"
 	@echo ""
 	@echo "🧪  TESTING & VALIDATION:"
 	@echo "   make test           - Run healthcare AI test suite"
@@ -1875,72 +2112,39 @@ help:
 	@echo "   make validate       - Run comprehensive validation (lint + test)"
 	@echo "   make e2e            - Run end-to-end workflow tests"
 	@echo ""
-	@echo "🔍  LINTING & CODE QUALITY:"
+	@echo "🔍  CODE QUALITY:"
 	@echo "   make lint           - Run all linting (shell + python)"
 	@echo "   make lint-dev       - Fast lint (core modules only)"
-	@echo "   make format         - Auto-format code"
+	@echo "   make format         - Auto-format code with ruff"
 	@echo ""
 	@echo "📊  SYNTHETIC DATA:"
-	@echo "   make data-generate  - Generate comprehensive synthetic healthcare data"
-	@echo "   make data-status    - Show synthetic data statistics"
-	@echo "   make data-clean     - Remove synthetic data"
+	@echo "   make data-generate       - Generate comprehensive synthetic healthcare data"
+	@echo "   make data-generate-small - Generate small dataset for testing"
+	@echo "   make data-status         - Show synthetic data statistics"
+	@echo "   make data-clean          - Remove synthetic data"
 	@echo ""
+	@echo "⚙️  SYSTEM MANAGEMENT:"
+	@echo "   make diagnostics    - Run comprehensive system diagnostics"
+	@echo "   make auto-repair    - Automatically repair unhealthy containers"
+	@echo "   make reset          - Reset entire healthcare AI stack"
+	@echo "   make teardown       - Complete infrastructure teardown"
+	@echo "   make backup         - Backup healthcare VPN configuration"
+	@echo "   make clean-cache    - Clean package manager caches"
+	@echo "   make clean-docker   - Clean Docker data"
 	@echo ""
-	@echo "🧬  SCISPACY NLP SERVICE:"
-	@echo "   make scispacy         - Start SciSpacy NLP service"
-	@echo "   make scispacy-build   - Build SciSpacy Docker image"
-	@echo "   make scispacy-rebuild - Rebuild SciSpacy (no cache)"
-	@echo "   make scispacy-logs    - View SciSpacy logs"
-	@echo "   make scispacy-health  - Check SciSpacy health"
-	@echo "   make scispacy-status  - Show SciSpacy status"
-	@echo "   make scispacy-test    - Test SciSpacy entity analysis"
-	@echo "   make scispacy-clean   - Clean SciSpacy Docker artifacts"
+	@echo "📚  SERVICE-SPECIFIC HELP:"
+	@echo "   make medical-mirrors-help    - Medical Mirrors command reference"
+	@echo "   make healthcare-api-help     - Healthcare API command reference (if available)"
+	@echo "   make scispacy-help          - SciSpacy command reference (if available)"
 	@echo ""
-	@echo "🏥  MEDICAL MIRRORS SERVICE:"
-	@echo "   make medical-mirrors         - Start Medical Mirrors service"
-	@echo "   make medical-mirrors-build   - Build Medical Mirrors Docker image"
-	@echo "   make medical-mirrors-rebuild - Rebuild Medical Mirrors (no cache)"
-	@echo "   make medical-mirrors-logs    - View Medical Mirrors logs"
-	@echo "   make medical-mirrors-errors  - View Medical Mirrors ERRORS ONLY"
-	@echo "   make medical-mirrors-errors-summary - Concise error summary with counts"
-	@echo "   make medical-mirrors-stop    - Stop Medical Mirrors service"
-	@echo "   make medical-mirrors-health  - Check Medical Mirrors health"
-	@echo "   make medical-mirrors-clean   - Clean Medical Mirrors Docker artifacts"
+	@echo "🔧  ADVANCED OPTIONS:"
+	@echo "   make dry-run        - Preview setup without making changes"
+	@echo "   make debug          - Debug setup with verbose logging"
+	@echo "   make update-deps    - Update dependencies to latest versions"
 	@echo ""
-	@echo "�  DATA UPDATES (WARNING: VERY TIME CONSUMING!):"
-	@echo "   make medical-mirrors-quick-test     - Quick test update (small dataset)"
-	@echo "   make medical-mirrors-update         - Update ALL 6 databases (8-15+ hours!)"
-	@echo "   make medical-mirrors-update-pubmed  - Update PubMed only (6-12+ hours!)"
-	@echo "   make medical-mirrors-update-trials  - Update ClinicalTrials (2-4+ hours!)"
-	@echo "   make medical-mirrors-update-fda     - Update FDA only (1-3+ hours!)"
-	@echo "   make medical-mirrors-update-icd10   - Update ICD-10 codes (30-60 mins)"
-	@echo "   make medical-mirrors-update-billing - Update billing codes (30-60 mins)"
-	@echo "   make medical-mirrors-update-health  - Update health info (1-2+ hours)"
+	@echo "💡  Tips:"
+	@echo "   • Use TAB completion: 'make medical<TAB>' shows all medical-mirrors commands"
+	@echo "   • Monitor services: 'make <service>-logs' (e.g., medical-mirrors-logs)"
+	@echo "   • Check health: 'make <service>-health' (e.g., healthcare-api-health)"
+	@echo "   • For detailed help on any service, use: make <service>-help"
 	@echo ""
-	@echo "📂 Process Existing Files (SMART - Skip Already Processed):"
-	@echo "   make medical-mirrors-process-existing        - Process ALL existing files (skip processed)"
-	@echo "   make medical-mirrors-process-trials          - Process clinical trials files (skip processed)"
-	@echo "   make medical-mirrors-process-pubmed          - Process PubMed files (skip processed)"
-	@echo "   make medical-mirrors-process-fda             - Process FDA files (skip processed)"
-	@echo ""
-	@echo "🔄 Force Reprocess (FORCE - Reprocess All Files):"
-	@echo "   make medical-mirrors-process-existing-force  - Force reprocess ALL files"
-	@echo "   make medical-mirrors-process-trials-force    - Force reprocess clinical trials"
-	@echo "   make medical-mirrors-process-pubmed-force    - Force reprocess PubMed files"
-	@echo "   make medical-mirrors-process-fda-force       - Force reprocess FDA files"
-	@echo "   make medical-mirrors-progress       - Monitor update progress (real-time)"
-	@echo ""
-	@echo "🧪  INDIVIDUAL TEST COMMANDS (Quick testing for development):"
-	@echo "   make medical-mirrors-test-pubmed    - Test PubMed (3 files only)"
-	@echo "   make medical-mirrors-test-trials    - Test Clinical Trials (100 studies only)"
-	@echo "   make medical-mirrors-test-fda       - Test FDA (1000 drugs only)"
-	@echo "   make medical-mirrors-test-icd10     - Test ICD-10 (100 codes only)"
-	@echo "   make medical-mirrors-test-billing   - Test Billing codes (100 codes only)"
-	@echo "   make medical-mirrors-test-health    - Test Health Info (10 topics only)"
-	@echo ""
-	@echo "⚙️   SYSTEM MANAGEMENT:"
-	@echo "   make diagnostics   - Run comprehensive system diagnostics"
-	@echo "   make auto-repair   - Automatically repair unhealthy containers"
-	@echo "   make reset         - Reset entire healthcare AI stack"
-	@echo "   make teardown      - Complete infrastructure teardown"
-	@echo "   make backup        - Backup healthcare VPN configuration"
