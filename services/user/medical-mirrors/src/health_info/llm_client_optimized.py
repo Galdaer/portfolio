@@ -56,22 +56,29 @@ class OptimizedOllamaClient:
 Food item: {description}{category_context}{entities_context}
 
 Provide the following information in JSON format:
-1. scientific_name: The scientific/botanical/zoological name (or "N/A" if not applicable)
-2. common_names: List of up to 5 common/alternative names
-3. ingredients: Main ingredients or components (if inferrable)
-4. serving_size: Standard USDA serving size as a number
-5. serving_unit: Unit for the serving size (e.g., "g", "ml", "oz", "cup")
+1. scientific_name: A SINGLE scientific/botanical name as a STRING (for mixed items, use the primary ingredient or leave empty)
+2. common_names: List of up to 5 common/alternative names as an ARRAY of STRINGS
+3. ingredients: Main ingredients as a SINGLE STRING separated by commas
+4. serving_size: Standard USDA serving size as a NUMBER (no units)
+5. serving_unit: Unit for the serving size as a STRING (e.g., "g", "ml", "oz", "cup")
+
+IMPORTANT RULES:
+- scientific_name MUST be a single string, NOT a dictionary or list
+- For multi-ingredient items, use the primary ingredient's scientific name or leave empty
+- common_names MUST be an array of simple strings
+- ingredients MUST be a single comma-separated string
 
 Respond ONLY with valid JSON in this exact format:
 {{
-  "scientific_name": "...",
-  "common_names": ["name1", "name2", ...],
-  "ingredients": "ingredient1, ingredient2, ...",
+  "scientific_name": "Ananas comosus",
+  "common_names": ["pineapple", "ananas"],
+  "ingredients": "pineapple, papaya, banana, guava",
   "serving_size": 100,
   "serving_unit": "g"
 }}"""
 
         system_prompt = """You are a food science expert. Provide accurate, concise information.
+CRITICAL: scientific_name must be a SINGLE STRING (not dict/list). For mixed foods, use primary ingredient or empty string.
 Use USDA standard serving sizes. Return only valid JSON, no explanations."""
         
         # Build the full prompt
@@ -103,17 +110,77 @@ Use USDA standard serving sizes. Return only valid JSON, no explanations."""
                     
                     result = json.loads(response_text.strip())
                     
-                    # Validate and clean the result
+                    # Validate and clean the result with robust type handling
+                    
+                    # Handle scientific_name - ensure it's a string
+                    scientific_name = result.get('scientific_name', '')
+                    if isinstance(scientific_name, dict):
+                        # If dict, take the first value or format as "Mixed"
+                        if scientific_name:
+                            # Get first value from dict
+                            first_value = next(iter(scientific_name.values()), '')
+                            scientific_name = str(first_value) if first_value else ''
+                        else:
+                            scientific_name = ''
+                    elif isinstance(scientific_name, list):
+                        # If list, take the first item or mark as "Mixed"
+                        if scientific_name:
+                            # If list of dicts, extract first scientific name
+                            if isinstance(scientific_name[0], dict):
+                                first_item = next(iter(scientific_name[0].values()), '')
+                                scientific_name = str(first_item) if first_item else ''
+                            else:
+                                scientific_name = str(scientific_name[0])
+                        else:
+                            scientific_name = ''
+                    else:
+                        scientific_name = str(scientific_name) if scientific_name else ''
+                    
+                    # Handle common_names - ensure it's properly formatted
+                    common_names = result.get('common_names', [])
+                    if isinstance(common_names, list):
+                        # Filter out any dict/complex items and convert to strings
+                        clean_names = []
+                        for name in common_names:
+                            if isinstance(name, str):
+                                clean_names.append(name)
+                            elif isinstance(name, dict):
+                                # Skip dict entries
+                                continue
+                        common_names = ', '.join(clean_names)
+                    elif isinstance(common_names, str):
+                        common_names = common_names
+                    else:
+                        common_names = ''
+                    
+                    # Handle ingredients - ensure it's a string
+                    ingredients = result.get('ingredients', '')
+                    if isinstance(ingredients, list):
+                        ingredients = ', '.join(str(i) for i in ingredients if i)
+                    elif isinstance(ingredients, dict):
+                        # Format dict as comma-separated values
+                        ingredients = ', '.join(str(v) for v in ingredients.values() if v)
+                    else:
+                        ingredients = str(ingredients) if ingredients else ''
+                    
+                    # Handle serving size - ensure it's numeric
+                    serving_size = result.get('serving_size')
+                    if serving_size is not None:
+                        try:
+                            serving_size = float(serving_size)
+                        except (ValueError, TypeError):
+                            serving_size = None
+                    
                     enhancements = {
-                        'scientific_name': result.get('scientific_name', ''),
-                        'common_names': ', '.join(result.get('common_names', [])) if isinstance(result.get('common_names'), list) else '',
-                        'ingredients': result.get('ingredients', ''),
-                        'serving_size': result.get('serving_size'),
-                        'serving_size_unit': result.get('serving_unit', '')
+                        'scientific_name': scientific_name,
+                        'common_names': common_names,
+                        'ingredients': ingredients,
+                        'serving_size': serving_size,
+                        'serving_size_unit': str(result.get('serving_unit', ''))
                     }
                     
                     # Clean up N/A values
-                    if enhancements['scientific_name'] == 'N/A':
+                    if enhancements['scientific_name'] in ['N/A', 'n/a', 'NA']:
                         enhancements['scientific_name'] = ''
                     
                     return enhancements

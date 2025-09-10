@@ -357,26 +357,8 @@ async def update_health_information():
             logger.info(f'  Exercises: {exercises_count}') 
             logger.info(f'  Food items: {foods_count}')
         
-        # Run AI enhancement for food items
-        logger.info('Starting AI enhancement for food items')
-        try:
-            # Import food AI enhancement
-            import sys
-            sys.path.append('/app/src')  # Ensure imports work
-            from health_info.food_ai_enrichment import FoodAIEnhancer
-            
-            # Run food enhancement with limit for quick test
-            food_enhancer = FoodAIEnhancer()
-            enhancement_limit = limit_topics if limit_topics > 0 else None
-            enhancement_stats = food_enhancer.enhance_food_database(limit=enhancement_limit)
-            
-            logger.info(f'Food AI Enhancement completed: {enhancement_stats}')
-            
-        except Exception as e:
-            logger.warning(f'Food AI enhancement failed: {e}')
-            # Continue without enhancement - don't fail the entire update
-            import traceback
-            logger.debug(traceback.format_exc())
+        # Skip food AI enhancement - not needed for nutritional data
+        logger.info('Skipping food AI enhancement - not required for USDA nutritional data')
             
         logger.info('Health information update completed successfully')
         return True
@@ -397,6 +379,20 @@ UPDATE_EXIT_CODE=$?
 
 if [ $UPDATE_EXIT_CODE -eq 0 ]; then
     log_message "Health information update completed successfully"
+    
+    # Process MedlinePlus topics if available
+    log_message "Processing MedlinePlus topics..."
+    if [ -f /app/data/medlineplus/medlineplus_topics.json ]; then
+        $PYTHON_ENV /app/update-scripts/process_medlineplus.py
+        MEDLINEPLUS_EXIT_CODE=$?
+        if [ $MEDLINEPLUS_EXIT_CODE -eq 0 ]; then
+            log_message "MedlinePlus processing completed successfully"
+        else
+            log_message "MedlinePlus processing failed with code $MEDLINEPLUS_EXIT_CODE"
+        fi
+    else
+        log_message "MedlinePlus topics file not found, skipping"
+    fi
 else
     log_message "Health information update failed with exit code $UPDATE_EXIT_CODE"
 fi

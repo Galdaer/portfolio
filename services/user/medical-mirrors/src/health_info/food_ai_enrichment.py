@@ -300,25 +300,51 @@ class FoodAIEnhancer:
         update_parts = []
         params = {'fdc_id': fdc_id}
         
+        # Validate and add scientific_name (must be string)
         if enhancements.get('scientific_name'):
-            update_parts.append("scientific_name = :scientific_name")
-            params['scientific_name'] = enhancements['scientific_name']
+            scientific_name = enhancements['scientific_name']
+            # Extra validation - ensure it's a string
+            if isinstance(scientific_name, str):
+                update_parts.append("scientific_name = :scientific_name")
+                params['scientific_name'] = scientific_name
+            else:
+                logger.warning(f"Skipping invalid scientific_name type for fdc_id {fdc_id}: {type(scientific_name)}")
             
+        # Validate and add common_names (must be string)
         if enhancements.get('common_names'):
-            update_parts.append("common_names = :common_names")
-            params['common_names'] = enhancements['common_names']
+            common_names = enhancements['common_names']
+            if isinstance(common_names, str):
+                update_parts.append("common_names = :common_names")
+                params['common_names'] = common_names
+            else:
+                logger.warning(f"Skipping invalid common_names type for fdc_id {fdc_id}: {type(common_names)}")
             
+        # Validate and add ingredients (must be string)
         if enhancements.get('ingredients'):
-            update_parts.append("ingredients = :ingredients")
-            params['ingredients'] = enhancements['ingredients']
+            ingredients = enhancements['ingredients']
+            if isinstance(ingredients, str):
+                update_parts.append("ingredients = :ingredients")
+                params['ingredients'] = ingredients
+            else:
+                logger.warning(f"Skipping invalid ingredients type for fdc_id {fdc_id}: {type(ingredients)}")
             
+        # Validate and add serving_size (must be numeric)
         if enhancements.get('serving_size') is not None:
-            update_parts.append("serving_size = :serving_size")
-            params['serving_size'] = enhancements['serving_size']
+            serving_size = enhancements['serving_size']
+            if isinstance(serving_size, (int, float)):
+                update_parts.append("serving_size = :serving_size")
+                params['serving_size'] = serving_size
+            else:
+                logger.warning(f"Skipping invalid serving_size type for fdc_id {fdc_id}: {type(serving_size)}")
             
+        # Validate and add serving_size_unit (must be string)
         if enhancements.get('serving_size_unit'):
-            update_parts.append("serving_size_unit = :serving_size_unit")
-            params['serving_size_unit'] = enhancements['serving_size_unit']
+            serving_size_unit = enhancements['serving_size_unit']
+            if isinstance(serving_size_unit, str):
+                update_parts.append("serving_size_unit = :serving_size_unit")
+                params['serving_size_unit'] = serving_size_unit
+            else:
+                logger.warning(f"Skipping invalid serving_size_unit type for fdc_id {fdc_id}: {type(serving_size_unit)}")
             
         if update_parts:
             update_query = text(f"""
@@ -328,7 +354,11 @@ class FoodAIEnhancer:
                 WHERE fdc_id = :fdc_id
             """)
             
-            session.execute(update_query, params)
+            try:
+                session.execute(update_query, params)
+            except Exception as e:
+                logger.error(f"Database update failed for fdc_id {fdc_id}: {e}")
+                logger.debug(f"Attempted params: {params}")
 
     def _get_comprehensive_food_seed_words(self) -> List[str]:
         """Get comprehensive list of food search seed words for AI enhancement"""

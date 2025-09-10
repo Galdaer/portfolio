@@ -16,12 +16,21 @@ import logging
 import json
 import re
 from datetime import datetime
+from decimal import Decimal
 from typing import Dict, List, Any, Optional, Set
 from dataclasses import dataclass, field
 from sqlalchemy import text
 from difflib import SequenceMatcher
 
 logger = logging.getLogger(__name__)
+
+
+# Custom JSON encoder for Decimal types
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super(DecimalEncoder, self).default(obj)
 
 
 @dataclass
@@ -158,13 +167,12 @@ class HealthTopicsCrossReferenceEnhancer:
                     if drug_name:
                         # Search for drug in fda_drugs
                         query = text("""
-                            SELECT ndc, name, generic_name, brand_name, 
-                                   drug_interactions, warnings_and_precautions,
+                            SELECT id, generic_name, brand_names, 
+                                   drug_interactions, warnings,
                                    contraindications, adverse_reactions
-                            FROM fda_drugs
-                            WHERE LOWER(name) LIKE :drug_pattern
-                               OR LOWER(generic_name) LIKE :drug_pattern
-                               OR LOWER(brand_name) LIKE :drug_pattern
+                            FROM drug_information
+                            WHERE LOWER(generic_name) LIKE :drug_pattern
+                               OR :drug_pattern = ANY(SELECT LOWER(unnest(brand_names)))
                             LIMIT 5
                         """)
                         
@@ -174,13 +182,15 @@ class HealthTopicsCrossReferenceEnhancer:
                         )
                         
                         for row in result:
+                            brand_names_str = ", ".join(row.brand_names) if row.brand_names else ""
                             interaction_data = {
-                                "drug_ndc": row.ndc,
-                                "drug_name": row.name or row.generic_name or row.brand_name,
+                                "drug_id": row.id,
+                                "drug_name": row.generic_name,
+                                "brand_names": brand_names_str,
                                 "interactions": row.drug_interactions if row.drug_interactions else {},
-                                "warnings": row.warnings_and_precautions,
-                                "contraindications": row.contraindications,
-                                "confidence": 0.9 if drug_name.lower() in (row.name or "").lower() else 0.7
+                                "warnings": row.warnings if row.warnings else [],
+                                "contraindications": row.contraindications if row.contraindications else [],
+                                "confidence": 0.9 if drug_name.lower() in row.generic_name.lower() else 0.7
                             }
                             interactions.append(interaction_data)
             
@@ -196,7 +206,10 @@ class HealthTopicsCrossReferenceEnhancer:
         
         try:
             # Build search query for clinical trials
-            search_query = " | ".join(list(search_terms)[:10])  # Use top 10 terms
+            # Build search query - escape terms and use OR operator
+            # Filter out multi-word phrases as they cause TSQuery syntax errors
+            single_words = [term.replace("'", "''") for term in list(search_terms)[:10] if ' ' not in term]
+            search_query = " | ".join(single_words) if single_words else "health"  # Use OR for broader matching
             
             query = text("""
                 SELECT nct_id, title, status, phase, conditions, 
@@ -247,17 +260,20 @@ class HealthTopicsCrossReferenceEnhancer:
         papers = []
         
         try:
-            search_query = " | ".join(list(search_terms)[:10])
+            # Build search query for research papers - escape and use OR
+            # Filter out multi-word phrases as they cause TSQuery syntax errors
+            single_words = [term.replace("'", "''") for term in list(search_terms)[:10] if ' ' not in term]
+            search_query = " | ".join(single_words) if single_words else "health"
             
             query = text("""
-                SELECT pmid, title, abstract, publication_date, 
-                       authors, journal, keywords, mesh_terms
+                SELECT pmid, title, abstract, pub_date, 
+                       authors, journal, mesh_terms
                 FROM pubmed_articles
                 WHERE search_vector @@ to_tsquery('english', :search_query)
                    OR LOWER(title) LIKE :title_pattern
                 ORDER BY 
                     ts_rank(search_vector, to_tsquery('english', :search_query)) DESC,
-                    publication_date DESC
+                    pub_date DESC
                 LIMIT 10
             """)
             
@@ -274,7 +290,7 @@ class HealthTopicsCrossReferenceEnhancer:
                     "pmid": row.pmid,
                     "title": row.title,
                     "abstract": row.abstract[:500] if row.abstract else "",
-                    "publication_date": row.publication_date.isoformat() if row.publication_date else None,
+                    "publication_date": str(row.pub_date) if row.pub_date else None,
                     "authors": row.authors if row.authors else [],
                     "journal": row.journal,
                     "relevance_score": self._calculate_relevance(title, row.title)
@@ -294,20 +310,20 @@ class HealthTopicsCrossReferenceEnhancer:
         try:
             # Focus on nutritional aspects related to health conditions
             query = text("""
-                SELECT food_id, name, food_category, serving_size,
-                       calories, protein, total_fat, carbohydrates,
-                       dietary_flags, health_claims, allergens
+                SELECT fdc_id, description, food_category, serving_size,
+                       nutrients, nutrition_summary, nutritional_density,
+                       dietary_flags, allergens
                 FROM food_items
-                WHERE health_claims IS NOT NULL
-                   AND (
-                       search_vector @@ to_tsquery('english', :search_query)
-                       OR food_category IN ('Dietary Supplements', 'Medical Food')
-                   )
+                WHERE search_vector @@ to_tsquery('english', :search_query)
+                   OR food_category IN ('Dietary Supplements', 'Medical Food')
                 ORDER BY nutritional_density DESC NULLS LAST
                 LIMIT 10
             """)
             
-            search_query = " | ".join(list(search_terms)[:5])
+            # Use OR operator for better coverage
+            # Filter out multi-word phrases as they cause TSQuery syntax errors
+            single_words = [term.replace("'", "''") for term in list(search_terms)[:5] if ' ' not in term]
+            search_query = " | ".join(single_words) if single_words else "health"
             result = self.session.execute(query, {"search_query": search_query})
             
             for row in result:
@@ -337,11 +353,10 @@ class HealthTopicsCrossReferenceEnhancer:
             # Look for exercises related to health conditions
             query = text("""
                 SELECT exercise_id, name, exercise_type, body_part,
-                       difficulty_level, health_benefits, contraindications,
-                       modifications
+                       difficulty_level, equipment, target, instructions,
+                       calories_estimate, duration_estimate
                 FROM exercises
-                WHERE health_benefits IS NOT NULL
-                   AND search_vector @@ to_tsquery('english', :search_query)
+                WHERE search_vector @@ to_tsquery('english', :search_query)
                 ORDER BY 
                     CASE difficulty_level
                         WHEN 'Beginner' THEN 1
@@ -352,7 +367,10 @@ class HealthTopicsCrossReferenceEnhancer:
                 LIMIT 10
             """)
             
-            search_query = " | ".join(list(search_terms)[:5])
+            # Use OR operator for better coverage
+            # Filter out multi-word phrases as they cause TSQuery syntax errors
+            single_words = [term.replace("'", "''") for term in list(search_terms)[:5] if ' ' not in term]
+            search_query = " | ".join(single_words) if single_words else "health"
             result = self.session.execute(query, {"search_query": search_query})
             
             for row in result:
@@ -362,9 +380,11 @@ class HealthTopicsCrossReferenceEnhancer:
                     "type": row.exercise_type,
                     "body_part": row.body_part,
                     "difficulty": row.difficulty_level,
-                    "health_benefits": row.health_benefits if row.health_benefits else [],
-                    "contraindications": row.contraindications if row.contraindications else [],
-                    "modifications": row.modifications if row.modifications else []
+                    "equipment": row.equipment,
+                    "target": row.target,
+                    "instructions": row.instructions if row.instructions else [],
+                    "calories_estimate": float(row.calories_estimate) if row.calories_estimate is not None else None,
+                    "duration_estimate": float(row.duration_estimate) if row.duration_estimate is not None else None
                 }
                 exercises.append(exercise_data)
             
@@ -629,15 +649,15 @@ class HealthTopicsCrossReferenceEnhancer:
                 
                 self.session.execute(update_query, {
                     "topic_id": topic["topic_id"],
-                    "drug_interactions": json.dumps(result.drug_interactions),
-                    "clinical_trials": json.dumps(result.clinical_trials),
-                    "research_papers": json.dumps(result.research_papers),
-                    "dietary_considerations": json.dumps(result.dietary_considerations),
-                    "exercise_recommendations": json.dumps(result.exercise_recommendations),
-                    "monitoring_parameters": json.dumps(result.monitoring_parameters),
-                    "patient_resources": json.dumps(result.patient_resources),
-                    "provider_notes": json.dumps(result.provider_notes),
-                    "quality_indicators": json.dumps(result.quality_indicators),
+                    "drug_interactions": json.dumps(result.drug_interactions, cls=DecimalEncoder),
+                    "clinical_trials": json.dumps(result.clinical_trials, cls=DecimalEncoder),
+                    "research_papers": json.dumps(result.research_papers, cls=DecimalEncoder),
+                    "dietary_considerations": json.dumps(result.dietary_considerations, cls=DecimalEncoder),
+                    "exercise_recommendations": json.dumps(result.exercise_recommendations, cls=DecimalEncoder),
+                    "monitoring_parameters": json.dumps(result.monitoring_parameters, cls=DecimalEncoder),
+                    "patient_resources": json.dumps(result.patient_resources, cls=DecimalEncoder),
+                    "provider_notes": json.dumps(result.provider_notes, cls=DecimalEncoder),
+                    "quality_indicators": json.dumps(result.quality_indicators, cls=DecimalEncoder),
                     "evidence_level": result.evidence_level
                 })
                 
