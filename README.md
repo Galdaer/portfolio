@@ -18,7 +18,7 @@ No PHI/PII is included. This is not a medical product; it’s a portfolio for em
 - Universal Service Runner (declarative services)
   - Define services with simple `.conf` files (image, ports, volumes, env, healthcheck)
   - Add/remove services without changing the runner
-  - See: `services/README.md`
+  - See: [services/README.md](services/README.md)
 
 - Developer Experience
   - Makefile tasks, pre-commit hooks, linting/typing (`.flake8`, `mypy.ini`, `pyproject.toml`)
@@ -54,7 +54,7 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Option B: if you prefer uv
+# Option B: uv
 # curl -LsSf https://astral.sh/uv/install.sh | sh
 # source ~/.bashrc
 # uv venv
@@ -79,26 +79,111 @@ make test || true
 pytest -q || true
 ```
 
-4) Optional: Try the declarative service pattern (Docker)
-- Read [services/README.md](services/README.md) for the `.conf` format.
-- Create a simple service config in `services/user/` (e.g., a small cache, dashboard, or proxy) using the documented keys (`image`, `port`, `volumes`, `env`, `healthcheck`, etc.).
-- Start/stop via your container tooling or your own lightweight runner script; the point is to see how services are described declaratively and composed safely.
+---
 
-Note: This portfolio repo does not ship a production orchestrator; it demonstrates the patterns and composable configuration style.
+## Healthcare API (services/user/healthcare-api)
+
+A FastAPI-based service that exposes administrative and research-support endpoints (no diagnosis/treatment). It demonstrates:
+- Clear service boundaries, typed Python, and testable FastAPI patterns
+- Declarative Docker builds and health checks
+- Integration points for agents, transcription, research tooling, and compliance-aware features
+
+Key paths:
+- Service root: [services/user/healthcare-api](services/user/healthcare-api)
+- Entrypoint: [main.py](services/user/healthcare-api/main.py)
+- Dockerfile: [Dockerfile](services/user/healthcare-api/Dockerfile)
+- Service config: [healthcare-api.conf](services/user/healthcare-api/healthcare-api.conf)
+- API modules: [api/](services/user/healthcare-api/api)
+- Core logic: [core/](services/user/healthcare-api/core)
+- Domain models: [domains/](services/user/healthcare-api/domains)
+- Agents and patterns: [agents/](services/user/healthcare-api/agents)
+- Config and settings: [config/](services/user/healthcare-api/config)
+- Supporting code: [src/](services/user/healthcare-api/src)
+- Static assets: [static/](services/user/healthcare-api/static)
+- Examples and docs: [examples/](services/user/healthcare-api/examples), [docs/](services/user/healthcare-api/docs)
+- Tests: [tests/](services/user/healthcare-api/tests) and top-level test files in the folder
+
+Default endpoints (used by Make targets):
+- Health: http://172.20.0.16:8000/health
+- OpenAPI docs: http://172.20.0.16:8000/docs
+
+Note: The IP above is how the infrastructure targets check the container on a custom Docker network. For simple local runs you can publish `-p 8000:8000` and use `http://localhost:8000`.
+
+### Build, Run, and Restart via Make
+
+The Makefile includes a full set of convenience targets for the Healthcare API:
+
+- Build image
+```bash
+make healthcare-api-build
+# uses: docker build -f services/user/healthcare-api/Dockerfile -t intelluxe/healthcare-api:latest services/user
+```
+
+- Rebuild with no cache
+```bash
+make healthcare-api-rebuild
+```
+
+- Stop and remove container
+```bash
+make healthcare-api-stop
+```
+
+- View logs (last 50 lines)
+```bash
+make healthcare-api-logs
+```
+
+- Health and status checks
+```bash
+make healthcare-api-health
+make healthcare-api-status
+make healthcare-api-test   # checks /docs and /health
+```
+
+- Restart (interactive menu shortcut)
+```bash
+make healthcare-api
+# This routes through scripts/bootstrap.sh to restart the Healthcare API service.
+```
+
+Tip: If you prefer an explicit restart sequence without the menu:
+```bash
+make healthcare-api-stop && make healthcare-api
+```
+
+### Minimal Local Run (standalone)
+
+If you want to run the container outside the orchestrator for quick local testing:
+```bash
+# Build image
+make healthcare-api-build
+
+# Run with localhost port mapping for quick dev
+docker run -d --name healthcare-api -p 8000:8000 intelluxe/healthcare-api:latest
+
+# Verify
+curl http://localhost:8000/health
+curl http://localhost:8000/docs
+```
+
+For orchestrated networking and environment, use the provided Make targets and the service config at:
+- [services/user/healthcare-api/healthcare-api.conf](services/user/healthcare-api/healthcare-api.conf)
+- Global env template: [.env.example](.env.example)
 
 ---
 
 ## What to Look At (Code Tour)
 
 - Makefile
-  - Large task surface for dev, quality, and automation workflows
-  - Illustrates how I encode repeatable operations for teams
+  - Rich task surface for dev, quality, and service lifecycle commands
+  - Healthcare API targets cover build, test, health, logs, and restart flows
 
-- services/ (and services/README.md)
+- services/ (and [services/README.md](services/README.md))
   - Declarative `.conf` format for containerized services
   - Health checks, network modes, explicit capabilities, and setup requirements
 
-- .claude/, CLAUDE.md, CLAUDE_AGENTS.md
+- .claude/, [CLAUDE.md](CLAUDE.md), [CLAUDE_AGENTS.md](CLAUDE_AGENTS.md)
   - How I document agent roles, triggers, and safety/compliance-aware workflows
   - Patterns for repeatable, auditable automation
 
