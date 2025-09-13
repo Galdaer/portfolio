@@ -147,26 +147,6 @@ make healthcare-api
 # This routes through scripts/bootstrap.sh to restart the Healthcare API service.
 ```
 
-Tip: If you prefer an explicit restart sequence without the menu:
-```bash
-make healthcare-api-stop && make healthcare-api
-```
-
-### Minimal Local Run (standalone)
-
-If you want to run the container outside the orchestrator for quick local testing:
-```bash
-# Build image
-make healthcare-api-build
-
-# Run with localhost port mapping for quick dev
-docker run -d --name healthcare-api -p 8000:8000 intelluxe/healthcare-api:latest
-
-# Verify
-curl http://localhost:8000/health
-curl http://localhost:8000/docs
-```
-
 For orchestrated networking and environment, use the provided Make targets and the service config at:
 - [services/user/healthcare-api/healthcare-api.conf](services/user/healthcare-api/healthcare-api.conf)
 - Global env template: [.env.example](.env.example)
