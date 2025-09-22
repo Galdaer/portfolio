@@ -30,7 +30,7 @@ attrs==25.3.0
     #   cyclopts
     #   jsonschema
     #   referencing
-authlib==1.6.1
+authlib==1.6.4
 azure-core==1.35.0
 backoff==2.2.1
 bcrypt==4.3.0
