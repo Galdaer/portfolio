@@ -1,3 +1,5 @@
+Note: This repository is a snapshot of my project mid-development. Agents left in are just a sample, while some things like type checking haven't been added everywhere.
+
 # 🏥 Intelluxe AI (On‑Prem Healthcare AI Platform)
 
 Privacy‑first, on‑premise AI system designed for clinics and hospitals. This repository documents how the platform’s services are orchestrated via the bootstrap system and how they work together to provide compliant, operational AI capabilities.
