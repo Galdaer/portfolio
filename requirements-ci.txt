@@ -68,7 +68,7 @@ cryptography==45.0.5
     #   -r /tmp/tmpktpeg6bq.in
     #   authlib
     #   python-jose
-cyclopts==3.22.3
+cyclopts==3.24.0
 cymem==2.0.11
     #   preshed
     #   spacy
