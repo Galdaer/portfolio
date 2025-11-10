@@ -354,7 +354,7 @@ pygments==2.19.2
     #   rich
 pyjwt==2.10.1
     # via -r /tmp/tmpktpeg6bq.in
-pyperclip==1.9.0
+pyperclip==1.11.0
 pypika==0.48.9
 pyproject-hooks==1.2.0
 pyright==1.1.403
